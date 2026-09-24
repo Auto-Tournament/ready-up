@@ -2,6 +2,7 @@
 
 #include "readyup/config.h"
 #include "readyup/engine_surface.h"
+#include "readyup/game_timers.h"
 #include "readyup/features.h"
 #include "readyup/game_events.h"
 #include "readyup/logging.h"
@@ -56,6 +57,9 @@ static void Hook_GameFrame(void* thisptr, bool simulating, bool bFirstTick, bool
   // Our logic is best-effort. Every feature below gates itself on its engine-surface
   // dependencies (features.cpp; one log line when one is disabled).
   const bool plugins = FeatureEnabled(Feature::Plugins);
+  // Map-end / series-end timers and the demo stop (game_timers.h) also run while the
+  // server is not simulating (e.g. empty after the series-end kick).
+  readyup::GameTimersFrameTick();
   if (!simulating) {
     // Plugin load/unload + queued commands/events still run while not simulating.
     if (plugins) readyup::plugins::Frame(/*simulating=*/false);

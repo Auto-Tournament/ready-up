@@ -48,6 +48,12 @@ add_library(server_shim SHARED
   core/src/readyup/match_token.cpp
   libs/readyup/minijson.cpp
   core/src/readyup/match_state.cpp
+  core/src/readyup/match_stats.cpp
+  core/src/readyup/match_end.cpp
+  core/src/readyup/match_end_logic.cpp
+  core/src/readyup/demo_recorder.cpp
+  core/src/readyup/demo_naming.cpp
+  core/src/readyup/game_timers.cpp
   core/src/readyup/modes.cpp
   core/src/readyup/persisted_settings.cpp
   core/src/readyup/persisted_match_state.cpp
@@ -341,7 +347,20 @@ target_include_directories(readyup_plugin_host_test PRIVATE ${CMAKE_SOURCE_DIR}/
 target_compile_options(readyup_plugin_host_test PRIVATE -Wall -Wextra)
 target_link_libraries(readyup_plugin_host_test PRIVATE dl)
 
+# Offline unit tests for the match stats model, map/series-end logic and demo naming
+# (engine-free sources only).
+add_executable(readyup_match_flow_test
+  tests/match_flow_test.cpp
+  core/src/readyup/match_stats.cpp
+  core/src/readyup/match_end_logic.cpp
+  core/src/readyup/demo_naming.cpp
+  libs/readyup/minijson.cpp
+)
+target_include_directories(readyup_match_flow_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs)
+target_compile_options(readyup_match_flow_test PRIVATE -Wall -Wextra)
+
 enable_testing()
+add_test(NAME match_flow COMMAND readyup_match_flow_test)
 add_test(NAME plugin_host_reload
   COMMAND readyup_plugin_host_test
     $<TARGET_FILE:readyup_plugin_hello> $<TARGET_FILE:readyup_plugin_hello_reload_test>)

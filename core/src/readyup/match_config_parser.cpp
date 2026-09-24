@@ -47,6 +47,7 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
   }
 
   if (auto nm = AsInt(cfg->get("num_maps"))) ctx.num_maps = static_cast<int>(*nm);
+  if (const Value* cs = cfg->get("clinch_series"); cs && cs->type == Value::Type::Bool) ctx.clinch_series = cs->b;
 
   // cvars (object)
   if (const Value* cvars = cfg->get("cvars"); IsObject(cvars)) {

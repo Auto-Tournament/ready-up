@@ -1,4 +1,8 @@
 #include "readyup/modes.h"
+
+#include "readyup/demo_recorder.h"
+#include "readyup/match_end.h"
+#include "readyup/match_stats.h"
 #include "readyup/ready_hud.h"
 
 #include "readyup/center_html.h"
@@ -762,33 +766,9 @@ static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx) {
   }
 }
 
-static int EpochSeconds() {
-  using Clock = std::chrono::system_clock;
-  return static_cast<int>(
-      std::chrono::duration_cast<std::chrono::seconds>(Clock::now().time_since_epoch()).count());
-}
-
-static std::string SanitizeDemoToken(const std::string& s) {
-  std::string out;
-  out.reserve(s.size());
-  for (unsigned char c : s) {
-    // Keep filename-ish safe chars only.
-    if (std::isalnum(c) != 0 || c == '_' || c == '-' || c == '.') {
-      out.push_back(static_cast<char>(c));
-    } else {
-      out.push_back('_');
-    }
-  }
-  // Trim repeated underscores a bit (cosmetic only).
-  while (!out.empty() && out.front() == '_') out.erase(out.begin());
-  while (!out.empty() && out.back() == '_') out.pop_back();
-  if (out.empty()) out = "ru";
-  return out;
-}
-
 static void StopDemoLocked(State& st) {
-  if (!st.demoRecording) return;
-  (void)EnqueueServerCommand("tv_stoprecord");
+  // Admin restart / end: stop now, no upload (map ends go through match_end.cpp).
+  demo::StopNowWithoutUpload();
   st.demoRecording = false;
   st.demoMapNumber = 0;
   st.demoName.clear();
@@ -799,32 +779,39 @@ static void StartDemoForMapLocked(State& st, int mapNumber, const std::string& m
   if (!ctxOpt) return;
   const auto& ctx = *ctxOpt;
   if (mapNumber <= 0) mapNumber = 1;
+  // Idempotent per map.
+  if (st.demoRecording && st.demoMapNumber == mapNumber && demo::IsRecording()) return;
 
-  // Idempotent per-map start.
-  if (st.demoRecording && st.demoMapNumber == mapNumber) {
-    return;
+  demo::RecordingInfo info;
+  info.matchid = static_cast<long long>(ctx.matchid);
+  info.slug = ctx.slug;
+  info.mapNumber = mapNumber;
+  info.mapName = mapName;
+  if (info.mapName.empty() && static_cast<size_t>(mapNumber) <= ctx.maplist.size()) {
+    info.mapName = ctx.maplist[static_cast<size_t>(mapNumber - 1)];
   }
-  // If a demo is still running from a previous map, stop it first.
-  if (st.demoRecording && st.demoMapNumber != mapNumber) {
-    StopDemoLocked(st);
-  }
-
-  const std::string matchToken =
-      SanitizeDemoToken(!ctx.slug.empty() ? ctx.slug : std::to_string(ctx.matchid));
-  const std::string mapToken = SanitizeDemoToken(mapName.empty() ? "map" : mapName);
-  const int ts = EpochSeconds();
-  const std::string name =
-      "ru_" + matchToken + "_m" + std::to_string(mapNumber) + "_" + mapToken + "_" + std::to_string(ts);
-
-  // Best-effort: ensure GOTV is on, then start recording.
-  bool any = false;
-  if (EnqueueServerCommand("tv_enable 1")) any = true;
-  if (EnqueueServerCommand((std::string("tv_record ") + name).c_str())) any = true;
-  if (any) {
+  info.team1 = ctx.team1_name;
+  info.team2 = ctx.team2_name;
+  if (demo::StartRecording(info)) {
     st.demoRecording = true;
     st.demoMapNumber = mapNumber;
-    st.demoName = name;
+    st.demoName = info.mapName;
   }
+}
+
+// A map went live: per-map stats start from zero (warmup and knife rounds never count).
+static void BeginMapStats(const WebhookMatchContext& ctx, int mapNumber) {
+  bool team1IsCt = true;
+  if (mapNumber >= 1 && static_cast<size_t>(mapNumber) <= ctx.map_sides.size()) {
+    team1IsCt = ctx.map_sides[static_cast<size_t>(mapNumber - 1)] != "team2_ct";
+  }
+  std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
+  stats::Current().BeginMap(team1IsCt);
+}
+
+static void ClearMapStats() {
+  std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
+  stats::Current().Clear();
 }
 
 static void ApplyLiveRulesAndRestartLocked(State& st, const WebhookMatchContext& ctx) {
@@ -900,6 +887,7 @@ static void MaybeGateMatchLocked(State& st) {
 
     const auto ms = MatchStateGet();
     const int mapNumber = ms.map_number <= 0 ? 1 : ms.map_number;
+    BeginMapStats(*ctxOpt, mapNumber);
     StartDemoForMapLocked(st, mapNumber, ms.current_map);
 
     DebugLine("modes: recovery gate cleared -> mp_unpause_match");
@@ -1102,6 +1090,8 @@ bool GoLiveTriggered() {
 }
 
 void OnMatchLoaded() {
+  MatchEndCancelPending();
+  ClearMapStats();
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
   st.mode = ReadyUpMode::MatchWarmup;
@@ -1169,6 +1159,7 @@ void OnMatchRoundStarted() {
   if (!st.goingLiveSent) {
     WebhookEmitGoingLive(mapNumber);
     st.goingLiveSent = true;
+    if (auto ctxLive = WebhookGetMatchContext()) BeginMapStats(*ctxLive, mapNumber);
   }
 
   // Start per-map demo recording when map goes live.
@@ -1205,6 +1196,7 @@ bool ForceStartMatch() {
   if (!st.goingLiveSent) {
     WebhookEmitGoingLive(mapNumber);
     st.goingLiveSent = true;
+    if (auto ctxLive = WebhookGetMatchContext()) BeginMapStats(*ctxLive, mapNumber);
   }
 
   // Start per-map demo recording when map goes live (force-start path).
@@ -1222,6 +1214,8 @@ bool RestartMatch() {
 
   // Stop any running demo when restarting back to warmup.
   StopDemoLocked(st);
+  MatchEndCancelPending();
+  ClearMapStats();
 
   // Return to warmup gating and restart.
   st.mode = ReadyUpMode::MatchWarmup;
@@ -1252,6 +1246,8 @@ bool EndMatchResetServer() {
 
   // Stop any running demo when ending match/resetting server.
   StopDemoLocked(st);
+  MatchEndCancelPending();
+  ClearMapStats();
 
   // Put server back into a neutral state regardless of match context.
   const bool ok = ResetServerRulesAndRestartLocked(st);
@@ -1396,9 +1392,6 @@ void OnMatchRoundEnded(int map_number, int team1_score, int team2_score, const s
   if (!winnerOpt) return;
   const char* winner = *winnerOpt;
 
-  // Stop demo first so we don't miss the final tick.
-  StopDemoLocked(st);
-
   // Prefer config maplist name for this map number.
   std::string map = map_name;
   if (map.empty()) {
@@ -1414,56 +1407,74 @@ void OnMatchRoundEnded(int map_number, int team1_score, int team2_score, const s
                        winner);
   st.mapResultEmittedForMapNumber = map_number;
 
-  // Update series score (maps won).
+  // Update series score (maps won). A drawn map counts as played.
   if (std::strcmp(winner, "team1") == 0) st.seriesWinsTeam1 += 1;
   else if (std::strcmp(winner, "team2") == 0) st.seriesWinsTeam2 += 1;
 
   const int totalMaps =
       ctxOpt->num_maps > 0 ? ctxOpt->num_maps : static_cast<int>(ctxOpt->maplist.size());
-  const int requiredWins = std::max(1, (totalMaps + 1) / 2);
+  const int remaining = RemainingMaps(totalMaps, static_cast<int>(ctxOpt->maplist.size()), map_number);
+  bool seriesOver =
+      IsSeriesOver(totalMaps, remaining, st.seriesWinsTeam1, st.seriesWinsTeam2, ctxOpt->clinch_series);
 
-  const bool seriesComplete = (st.seriesWinsTeam1 >= requiredWins) || (st.seriesWinsTeam2 >= requiredWins) ||
-                              (std::strcmp(winner, "none") == 0);
-
-  if (seriesComplete) {
-    // Emit series_end and reset server for allocator reuse.
-    WebhookEmitSeriesEnd(st.seriesWinsTeam1,
-                         st.seriesWinsTeam2,
-                         (st.seriesWinsTeam1 == st.seriesWinsTeam2) ? "none"
-                         : (st.seriesWinsTeam1 > st.seriesWinsTeam2) ? "team1"
-                         : "team2",
-                         /*time_until_restore=*/0);
-    WebhookClearMatchContext();
-
-    // Reset server state (best-effort) and return to idle.
-    (void)ResetServerRulesAndRestartLocked(st);
-    st.mode = ReadyUpMode::Idle;
-    st.idleCfgExecuted = false;
-    st.ready.clear();
-    st.lastUi.clear();
-    st.warmupRulesApplied = false;
-    st.startTriggered = false;
-    st.practiceRulesApplied = false;
-    st.practiceResetPending = false;
-    st.lifecycleMapNumber = 0;
-    st.warmupEndedSent = false;
-    st.goingLiveSent = false;
-    st.mapResultEmittedForMapNumber = 0;
-    st.seriesWinsTeam1 = 0;
-    st.seriesWinsTeam2 = 0;
-    ResetKnifeStateForMapLocked(st, /*mapNumber=*/0);
-    WebhookSetHeartbeatStatus("idle");
-    return;
-  }
-
-  // Otherwise, advance to next map.
-  const size_t nextIndex = static_cast<size_t>(map_number);  // map_number is 1-based; next map is index map_number
+  // map_number is 1-based; the next map is maplist[map_number].
   std::string nextMap;
-  if (nextIndex < ctxOpt->maplist.size()) {
-    nextMap = ctxOpt->maplist[nextIndex];
+  if (!seriesOver) {
+    const size_t nextIndex = static_cast<size_t>(map_number);
+    if (nextIndex < ctxOpt->maplist.size()) nextMap = ctxOpt->maplist[nextIndex];
+    // No next map in the list: end the series instead of getting stuck.
+    if (nextMap.empty()) seriesOver = true;
   }
 
-  // Put server back into warmup gating for the next map.
+  // Postgame until match_end.cpp starts the next map (ModesBeginNextMapWarmup) or unloads
+  // the match (ModesFinishSeriesResetToIdle) once the demo is flushed.
+  st.mode = ReadyUpMode::Postgame;
+  st.startTriggered = false;
+  st.warmupRulesApplied = false;
+  st.demoRecording = false;  // demo_recorder stops it after the GOTV flush
+  WebhookSetHeartbeatStatus("postgame");
+
+  MapEndInput in;
+  in.mapNumber = map_number;
+  in.mapName = map;
+  in.winner = winner;
+  in.team1Score = std::max(0, team1_score);
+  in.team2Score = std::max(0, team2_score);
+  in.team1SeriesScore = st.seriesWinsTeam1;
+  in.team2SeriesScore = st.seriesWinsTeam2;
+  in.seriesOver = seriesOver;
+  in.nextMap = nextMap;
+  (void)MatchEndOnMapComplete(in);
+}
+
+// Unloads the match and returns to idle (series over; match_end.cpp calls this after the
+// kick delay).
+static void ResetToIdleAfterSeriesLocked(State& st) {
+  (void)ResetServerRulesAndRestartLocked(st);
+  st.mode = ReadyUpMode::Idle;
+  st.idleCfgExecuted = false;
+  st.ready.clear();
+  st.lastUi.clear();
+  st.warmupRulesApplied = false;
+  st.startTriggered = false;
+  st.practiceRulesApplied = false;
+  st.practiceResetPending = false;
+  st.lifecycleMapNumber = 0;
+  st.warmupEndedSent = false;
+  st.goingLiveSent = false;
+  st.mapResultEmittedForMapNumber = 0;
+  st.seriesWinsTeam1 = 0;
+  st.seriesWinsTeam2 = 0;
+  st.demoRecording = false;
+  ResetKnifeStateForMapLocked(st, /*mapNumber=*/0);
+  st.recoveryGate = false;
+  WebhookSetHeartbeatStatus("idle");
+}
+
+void ModesBeginNextMapWarmup() {
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  if (st.mode != ReadyUpMode::Postgame) return;
   st.mode = ReadyUpMode::MatchWarmup;
   st.idleCfgExecuted = false;
   st.ready.clear();
@@ -1474,33 +1485,15 @@ void OnMatchRoundEnded(int map_number, int team1_score, int team2_score, const s
   st.warmupEndedSent = false;
   st.goingLiveSent = false;
   WebhookSetHeartbeatStatus("warmup");
+}
 
-  if (!nextMap.empty()) {
-    // Best-effort changelevel; map name was already validated when loading config.
-    const std::string cmd = "changelevel " + nextMap;
-    (void)EnqueueServerCommand(cmd.c_str());
-  } else {
-    // Missing next map; end the series to avoid getting stuck.
-    WebhookEmitSeriesEnd(st.seriesWinsTeam1, st.seriesWinsTeam2, "none", /*time_until_restore=*/0);
-    WebhookClearMatchContext();
-    (void)ResetServerRulesAndRestartLocked(st);
-    st.mode = ReadyUpMode::Idle;
-    st.idleCfgExecuted = false;
-    st.ready.clear();
-    st.lastUi.clear();
-    st.warmupRulesApplied = false;
-    st.startTriggered = false;
-    st.practiceRulesApplied = false;
-    st.practiceResetPending = false;
-    st.lifecycleMapNumber = 0;
-    st.warmupEndedSent = false;
-    st.goingLiveSent = false;
-    st.mapResultEmittedForMapNumber = 0;
-    st.seriesWinsTeam1 = 0;
-    st.seriesWinsTeam2 = 0;
-    ResetKnifeStateForMapLocked(st, /*mapNumber=*/0);
-    WebhookSetHeartbeatStatus("idle");
-  }
+void ModesFinishSeriesResetToIdle() {
+  WebhookClearMatchContext();
+  readyup::persisted_match_state::ClearActiveMatch();
+  ClearMapStats();
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  ResetToIdleAfterSeriesLocked(st);
 }
 
 bool StartKnifeRound() {

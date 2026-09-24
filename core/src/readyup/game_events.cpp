@@ -10,6 +10,7 @@
 #include "readyup/sdk/igameevents.h"
 #include "readyup/logging.h"
 #include "readyup/match_state.h"
+#include "readyup/match_stats.h"
 #include "readyup/modes.h"
 #include "readyup/backup_files.h"
 #include "readyup/persisted_match_state.h"
@@ -403,6 +404,140 @@ static bool Team1IsCtWithSwapCount(int mapNumber, int swapCount) {
   return team1IsCt;
 }
 
+// ---- Match stats (match_stats.h) --------------------------------------------------------
+// Engine events -> stats ids/sides. Humans are keyed by SteamID64; bots (no SteamID) get an
+// id in the dev-bot range from their slot, so the per-map model is complete; consumers
+// decide whether to show them.
+
+static double StatsNowSeconds() {
+  return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+static std::optional<int> ControllerOffset(const char* field, std::initializer_list<const char*> classes) {
+  for (const char* c : classes) {
+    if (auto off = SchemaFindOffset("server", c, field)) return off;
+  }
+  return std::nullopt;
+}
+
+static int ControllerSide(void* controller, int slot) {
+  static const std::optional<int> s_off = ControllerOffset("m_iTeamNum", {"CCSPlayerController", "CBaseEntity"});
+  if (controller && s_off) {
+    if (auto v = ReadAt<uint8_t>(controller, *s_off)) {
+      if (*v == 2 || *v == 3) return *v;
+    }
+  }
+  if (auto t = GetCsTeamNumForSlot(slot)) return *t;
+  return 0;
+}
+
+static std::string ControllerName(void* controller) {
+  static const std::optional<int> s_off =
+      ControllerOffset("m_iszPlayerName", {"CCSPlayerController", "CBasePlayerController"});
+  if (!controller || !s_off) return {};
+  char buf[128];
+  std::memcpy(buf, reinterpret_cast<const unsigned char*>(controller) + *s_off, sizeof(buf));
+  buf[sizeof(buf) - 1] = 0;
+  return buf;
+}
+
+static uint64_t StatsIdForController(void* controller, int slot, int* sideOut) {
+  if (slot < 0 || slot >= 64) return 0;
+  uint64_t id = SteamFromController(controller);
+  if (id == 0) id = SteamForSlot(slot).value_or(0);
+  bool bot = false;
+  if (id == 0) {
+    if (!controller) return 0;
+    id = kDevBotIdBase | 0x100000000ull | static_cast<uint64_t>(slot);
+    bot = true;
+  }
+  const int side = ControllerSide(controller, slot);
+  if (sideOut) *sideOut = side;
+  std::string name = bot ? ControllerName(controller) : NameForSlot(slot);
+  if (name.empty()) name = ControllerName(controller);
+  int teamSlot = 0;
+  if (!bot) {
+    const WebhookTeam t = TeamForSteam(id);
+    teamSlot = t == WebhookTeam::Team1 ? 1 : t == WebhookTeam::Team2 ? 2 : 0;
+  }
+  stats::Current().ObservePlayer(id, name, side, teamSlot, bot);
+  return id;
+}
+
+static uint64_t StatsIdForEvent(IGameEvent* ev, const char* key) {
+  if (!ev) return 0;
+  const int slot = ev->GetPlayerSlot(CKV3MemberName(key)).value;
+  return StatsIdForController(ev->GetPlayerController(CKV3MemberName(key)), slot, nullptr);
+}
+
+static void StatsSyncSidesLocked() {
+  const auto ms = MatchStateGet();
+  stats::Current().SetTeam1IsCt(Team1IsCtWithSwapCount(ms.map_number <= 0 ? 1 : ms.map_number, g_swapCount));
+}
+
+// Every connected player on CT/T takes part in the round that just started.
+static void StatsRegisterRoundPlayersLocked() {
+  std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
+  StatsSyncSidesLocked();
+  stats::Current().OnRoundStart();
+  if (!stats::Current().Live()) return;
+  for (const auto& kv : g_slotController) {
+    if (kv.second) (void)StatsIdForController(kv.second, kv.first, nullptr);
+  }
+}
+
+static void StatsOnGameEventLocked(const char* name, IGameEvent* ev) {
+  std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
+  auto& st = stats::Current();
+  if (!st.Live()) return;
+  StatsSyncSidesLocked();
+  if (std::strcmp(name, "player_death") == 0) {
+    const uint64_t victim = StatsIdForEvent(ev, "userid");
+    const uint64_t attacker = StatsIdForEvent(ev, "attacker");
+    const uint64_t assister = StatsIdForEvent(ev, "assister");
+    st.OnPlayerDeath(victim, attacker, assister, ev->GetBool(CKV3MemberName("assistedflash"), false),
+                     ev->GetBool(CKV3MemberName("headshot"), false), ev->GetString(CKV3MemberName("weapon"), ""),
+                     StatsNowSeconds());
+  } else if (std::strcmp(name, "player_hurt") == 0) {
+    st.OnPlayerHurt(StatsIdForEvent(ev, "userid"), StatsIdForEvent(ev, "attacker"),
+                    ev->GetInt(CKV3MemberName("dmg_health"), 0), ev->GetInt(CKV3MemberName("health"), 0),
+                    ev->GetString(CKV3MemberName("weapon"), ""));
+  } else if (std::strcmp(name, "player_blind") == 0) {
+    st.OnPlayerBlind(StatsIdForEvent(ev, "userid"), StatsIdForEvent(ev, "attacker"),
+                     ev->GetFloat(CKV3MemberName("blind_duration"), 0.0f));
+  } else if (std::strcmp(name, "bomb_planted") == 0) {
+    st.OnBombPlanted(StatsIdForEvent(ev, "userid"));
+  } else if (std::strcmp(name, "bomb_defused") == 0) {
+    st.OnBombDefused(StatsIdForEvent(ev, "userid"));
+  } else if (std::strcmp(name, "round_mvp") == 0) {
+    st.OnRoundMvp(StatsIdForEvent(ev, "userid"));
+  }
+}
+
+// Closes the round in the stats model. Returns true (and the team1/team2 map score) when
+// stats are live. That score comes from round winners mapped through the current sides, so it
+// stays right after halftime (the log-derived MatchState score is CT/T based).
+static bool StatsOnRoundEndLocked(int csWinnerTeamNum, int reason, int* team1, int* team2) {
+  std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
+  auto& st = stats::Current();
+  if (!st.Live()) return false;
+  StatsSyncSidesLocked();
+  static const std::optional<int> s_offScore = ControllerOffset("m_iScore", {"CCSPlayerController"});
+  for (const auto& kv : g_slotController) {
+    if (!kv.second) continue;
+    const uint64_t id = StatsIdForController(kv.second, kv.first, nullptr);
+    if (id && s_offScore) {
+      if (auto v = ReadAt<int>(kv.second, *s_offScore)) {
+        if (*v >= 0 && *v < 1000000) st.SetScore(id, *v);
+      }
+    }
+  }
+  st.OnRoundEnd(csWinnerTeamNum, reason);
+  *team1 = st.Team1Score();
+  *team2 = st.Team2Score();
+  return true;
+}
+
 static void EmitRoundEndLocked(int csWinnerTeamNum, int reason) {
   auto ctxOpt = WebhookGetMatchContext();
   if (!ctxOpt) return;
@@ -549,8 +684,12 @@ static void EmitRoundEndLocked(int csWinnerTeamNum, int reason) {
     readyup::backup_files::DiscoverAndPersistNewestBackupFileAsync(prefix);
   }
 
-  // Detect end-of-map (demo stop + map_result) once scores are known.
-  OnMatchRoundEnded(ms.map_number, ms.team1_score, ms.team2_score, ms.current_map);
+  // Detect end-of-map (demo stop + map_result) once scores are known. Prefer the stats
+  // model's team1/team2 score (engine round winners); fall back to the log-derived one.
+  int mapScore1 = ms.team1_score;
+  int mapScore2 = ms.team2_score;
+  (void)StatsOnRoundEndLocked(csWinnerTeamNum, reason, &mapScore1, &mapScore2);
+  OnMatchRoundEnded(ms.map_number, mapScore1, mapScore2, ms.current_map);
 }
 
 static void OnRoundStartLocked(IGameEvent* ev) {
@@ -666,6 +805,7 @@ static void OnRoundStartLocked(IGameEvent* ev) {
     OnMatchRoundStarted();
   }
   WebhookEmitRoundStarted(mapNumber, g_roundNumber, team1Score, team2Score);
+  StatsRegisterRoundPlayersLocked();
 }
 
 static void OnPlayerDeathLocked(IGameEvent* ev) {
@@ -946,10 +1086,17 @@ struct ListenerImpl : IGameEventListener2 {
     }
     if (std::strcmp(name, "player_death") == 0) {
       OnPlayerDeathLocked(event);
+      StatsOnGameEventLocked(name, event);
       return;
     }
     if (std::strcmp(name, "player_hurt") == 0) {
       OnPlayerHurtLocked(event);
+      StatsOnGameEventLocked(name, event);
+      return;
+    }
+    if (std::strcmp(name, "player_blind") == 0 || std::strcmp(name, "bomb_planted") == 0 ||
+        std::strcmp(name, "bomb_defused") == 0 || std::strcmp(name, "round_mvp") == 0) {
+      StatsOnGameEventLocked(name, event);
       return;
     }
     if (std::strcmp(name, "player_spawn") == 0) {
@@ -1011,6 +1158,11 @@ static constexpr ListenedEvent kListenedEvents[] = {
     {"player_connect_full", false},
     {"player_disconnect", false},
     {"round_announce_warmup", false},
+    // Match stats (match_stats.h).
+    {"player_blind", false},
+    {"bomb_planted", false},
+    {"bomb_defused", false},
+    {"round_mvp", false},
 };
 
 // Probe used to tell (a) whether the manager has loaded its descriptors and (b) whether our
