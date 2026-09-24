@@ -1,5 +1,7 @@
 #include "readyup/game_frame_hook.h"
 
+#include "readyup/entity.h"
+
 #include "readyup/config.h"
 #include "readyup/engine_surface.h"
 #include "readyup/game_timers.h"
@@ -13,7 +15,6 @@
 #include "readyup/ready_hud.h"
 #include "readyup/selftest.h"
 #include "readyup/welcome.h"
-#include "readyup/weapon_paints.h"
 
 #include <sys/mman.h>
 #include <unistd.h>
@@ -80,9 +81,9 @@ static void Hook_GameFrame(void* thisptr, bool simulating, bool bFirstTick, bool
   if (FeatureEnabled(Feature::WelcomeHtml)) readyup::WelcomeTick();
   // Ready list / knife pick panel (skips players whose welcome screen is up).
   if (FeatureEnabled(Feature::ReadyHud)) readyup::ReadyHudTick();
-  // Skins: after the original GameFrame (called at the top of this hook) and before this
-  // frame's snapshot is sent, so weapons created this frame are decorated before clients see them.
-  if (FeatureEnabled(Feature::Skins)) readyup::weapon_paints::GameFrameTick();
+  // Entity primitives status (once the entity system verified on the first map). Skins itself
+  // is a plugin now (plugins/skins); its per-tick work runs in plugins::Frame below.
+  if (readyup::entity::EntitySystemReady()) readyup::entity::LogEngineStatusOnce();
   // Plugins last: pending load/unload/reload (a safe point: no plugin code is on the
   // stack), then queued commands/events, then per-tick callbacks.
   if (plugins) readyup::plugins::Frame(/*simulating=*/true);

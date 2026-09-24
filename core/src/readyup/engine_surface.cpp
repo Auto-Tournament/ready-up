@@ -4,6 +4,7 @@
 #include "readyup/path.h"
 #include "readyup/signature_scan.h"
 
+#include <dirent.h>
 #include <sys/uio.h>
 #include <unistd.h>
 
@@ -68,6 +69,36 @@ void LoadOnce() {
   }
   Print("engine-surface: loaded %zu functions from %s (built for CS2 %s)\n", g_surface->functions.size(), source.c_str(),
         g_surface->game_version.c_str());
+
+  // Plugin gamedata fragments next to the shim: engine-surface.<name>.json (e.g. the skins
+  // package ships engine-surface.skins.json). They only add entries; the core resolves them
+  // like its own and plugins reach them through ru_api. Absent fragment => those API members
+  // return 0. A fragment that fails to parse or collides with an existing entry is skipped.
+  std::vector<std::string> frags;
+  if (DIR* d = dir.empty() ? nullptr : opendir(dir.c_str())) {
+    while (dirent* e = readdir(d)) {
+      const std::string f = e->d_name;
+      if (f.size() > 20 && f.rfind("engine-surface.", 0) == 0 && f.compare(f.size() - 5, 5, ".json") == 0 &&
+          f != "engine-surface.json") {
+        frags.push_back(f);
+      }
+    }
+    closedir(d);
+  }
+  std::sort(frags.begin(), frags.end());
+  for (const auto& f : frags) {
+    const std::string path = dir + "/" + f;
+    std::ifstream in(path);
+    std::stringstream ss;
+    ss << in.rdbuf();
+    auto frag = es::ParseEngineSurface(ss.str(), &err);
+    if (!frag || !es::MergeEngineSurface(&*g_surface, *frag, &err)) {
+      Print("engine-surface: skipping fragment %s (%s)\n", path.c_str(), err.c_str());
+      continue;
+    }
+    Print("engine-surface: merged fragment %s (%zu functions, %zu vtables)\n", f.c_str(), frag->functions.size(),
+          frag->vtables.size());
+  }
 }
 
 // Reads memory without faulting (EFAULT on unmapped addresses).

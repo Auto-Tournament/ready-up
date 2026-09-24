@@ -1,11 +1,11 @@
 -- Dev seed: a full skins loadout for one player.
--- Usage: psql -v steamid=<your steamid64> -f scripts/seed-dev-skins.sql
+-- Usage: psql -v steamid=<your steamid64> -f plugins/skins/seed-dev-skins.sql
 --
---   docker exec -i readyup-postgres psql -U readyup readyup < scripts/seed-dev-skins.sql
+--   docker exec -i readyup-postgres psql -U readyup -v steamid=7656... readyup < plugins/skins/seed-dev-skins.sql
 --
--- Idempotent (upserts). Table DDL is copied verbatim from libs/readyup/postgres.cpp
--- (EnsureWeaponPaintsSchemaLocked) so this works on an empty database too.
--- Contract: docs/skins-db-contract.md. IDs verified against items_game.txt of CS2 1.41.8.3.
+-- Idempotent (upserts). Table DDL is copied verbatim from plugins/skins/loadout.cpp
+-- (EnsureSchema) so this works on an empty database too.
+-- Contract: plugins/skins/docs/db-contract.md. IDs verified against items_game.txt of CS2 1.41.8.3.
 --
 -- weapon_team: 2 = T, 3 = CT, 0 = both (team-specific rows win, per defindex).
 

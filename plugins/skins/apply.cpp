@@ -1,10 +1,6 @@
-#include "readyup/weapon_paints.h"
+#include "skins.h"
 
-#include "readyup/config.h"
-#include "readyup/logging.h"
-#include "readyup/schema.h"
-#include "readyup/skins_engine.h"
-#include "readyup/weapon_paints_internal.h"
+#include "apply_internal.h"
 
 #include <algorithm>
 #include <atomic>
@@ -15,7 +11,7 @@
 #include <string>
 #include <unordered_map>
 
-// Weapon skins + knives, driven from the GameFrame hook.
+// Weapon skins + knives, driven from the plugin's on_tick (the core's GameFrame hook).
 //
 // Why polling instead of events/detours: engine events are currently disabled on the live build
 // (CGameEventManager_Init capture crashed) and there is no detour on GiveNamedItem yet. Walking the
@@ -25,7 +21,7 @@
 // Weapons we can only decorate later (loadout still loading) are re-networked with
 // MarkEntityFullyChanged.
 
-namespace readyup::weapon_paints {
+namespace skins {
 namespace {
 
 struct Offsets {
@@ -64,10 +60,7 @@ Offsets& Off() {
   return o;
 }
 
-int F(const char* cls, const char* field) {
-  auto v = readyup::SchemaFindOffset("server", cls, field);
-  return v ? *v : -1;
-}
+int F(const char* cls, const char* field) { return SchemaOffset(cls, field); }
 
 bool ResolveOffsets() {
   auto& o = Off();
@@ -141,12 +134,13 @@ bool IsKnifeDesigner(const char* dn) {
 namespace detail {
 
 bool EconOffsetsReady() { return ResolveOffsets(); }
+void ResetOffsets() { Off() = Offsets{}; }
 int ItemDefIndexOffset() { return Off().item_defIndex; }
 int ItemInitializedOffset() { return Off().item_initialized; }
 
 // Writes paint/seed/wear/StatTrak/nametag onto an econ item view + the owning entity's fallback
 // fields. Used for weapons (owner = the weapon entity) and gloves (owner = nullptr).
-void WritePaint(void* ownerEconEntity, void* itemView, uint64_t steamid64, const readyup::WeaponSkinEntry& skin) {
+void WritePaint(void* ownerEconEntity, void* itemView, uint64_t steamid64, const WeaponSkinEntry& skin) {
   auto& o = Off();
   const uint64_t itemId = NextItemId();
   Wr<uint64_t>(itemView, o.item_id, itemId);
@@ -164,12 +158,12 @@ void WritePaint(void* ownerEconEntity, void* itemView, uint64_t steamid64, const
   void* lists[2] = {static_cast<unsigned char*>(itemView) + o.item_netAttrs,
                     static_cast<unsigned char*>(itemView) + o.item_attrList};
   for (void* list : lists) {
-    skins::AttrSetOrAddByName(list, "set item texture prefab", static_cast<float>(skin.paint_id));
-    skins::AttrSetOrAddByName(list, "set item texture seed", static_cast<float>(skin.seed));
-    skins::AttrSetOrAddByName(list, "set item texture wear", skin.wear);
+    AttrSetOrAddByName(list, "set item texture prefab", static_cast<float>(skin.paint_id));
+    AttrSetOrAddByName(list, "set item texture seed", static_cast<float>(skin.seed));
+    AttrSetOrAddByName(list, "set item texture wear", skin.wear);
     if (skin.stattrak_enabled) {
-      skins::AttrSetOrAddByName(list, "kill eater", BitsAsFloat(static_cast<uint32_t>(std::max(0, skin.stattrak_count))));
-      skins::AttrSetOrAddByName(list, "kill eater score type", 0.0f);
+      AttrSetOrAddByName(list, "kill eater", BitsAsFloat(static_cast<uint32_t>(std::max(0, skin.stattrak_count))));
+      AttrSetOrAddByName(list, "kill eater score type", 0.0f);
     }
   }
 
@@ -199,7 +193,7 @@ enum class WeaponResult { kDone, kRetry };
 // correctly on the weapon's legacy model: bodygroup "body" = 1 (what WeaponPaints does with
 // AcceptInput("SetBodygroup", "body,1")). Regenerate with scripts/gen_legacy_paint_kits.py.
 constexpr int kLegacyPaintKits[] = {
-#include "readyup/legacy_paint_kits.inc"
+#include "legacy_paint_kits.inc"
 };
 
 bool IsLegacyPaintKit(int paint) {
@@ -208,14 +202,16 @@ bool IsLegacyPaintKit(int paint) {
 
 // Returns true when done (applied or definitively impossible), false to retry on a later tick.
 bool ApplyLegacyBody(void* weapon, uint64_t steamid64) {
-  const auto r = skins::SetBodygroupByName(weapon, "body", 1);
-  if (r == skins::BodygroupResult::kNoModel) return false;
-  if (DebugEnabled()) {
-    Debug("skins: legacy model (body=1) for %s owner=%llu: %s\n", skins::EntityDesignerName(weapon),
-          static_cast<unsigned long long>(steamid64), skins::BodygroupResultName(r));
+  const auto r = SetBodygroupByName(weapon, "body", 1);
+  if (r == RU_BODYGROUP_NO_MODEL) return false;
+  if (DebugOn()) {
+    Log(RU_LOG_DEBUG, "legacy model (body=1) for %s owner=%llu: %s", EntityDesignerName(weapon),
+          static_cast<unsigned long long>(steamid64), BodygroupResultName(r));
   }
   return true;
 }
+
+long long g_applied = 0;  // weapons painted / knives swapped this session (for skins_status)
 
 WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late, bool* legacyPending) {
   auto& o = Off();
@@ -235,19 +231,19 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
   if (defindex <= 0) return WeaponResult::kDone;
 
   bool changed = false;
-  const bool isKnife = IsKnifeDesigner(skins::EntityDesignerName(weapon));
+  const bool isKnife = IsKnifeDesigner(EntityDesignerName(weapon));
   if (isKnife) {
     if (const auto want = FindKnifeClassname(steamid64, team)) {
       if (const auto wantDef = KnifeClassnameToDefindex(*want)) {
         if (*wantDef != defindex) {
           // Same as the "ChangeSubclass" input / `subclass_change <defindex>`: swaps weapon VData
           // (model, animations) to the chosen knife.
-          if (skins::ChangeSubclass(weapon, std::to_string(*wantDef).c_str())) {
+          if (ChangeSubclass(weapon, std::to_string(*wantDef).c_str())) {
             Wr<uint16_t>(item, o.item_defIndex, static_cast<uint16_t>(*wantDef));
             defindex = *wantDef;
             changed = true;
-          } else if (DebugEnabled()) {
-            Debug("skins: ChangeSubclass unavailable; keeping default knife for %llu\n",
+          } else if (DebugOn()) {
+            Log(RU_LOG_DEBUG, "ChangeSubclass unavailable; keeping default knife for %llu",
                   static_cast<unsigned long long>(steamid64));
           }
         }
@@ -265,9 +261,10 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
     }
   }
 
-  if (changed && late) skins::MarkEntityFullyChanged(weapon);
-  if (changed && DebugEnabled()) {
-    Debug("skins: applied to %s def=%d owner=%llu%s\n", skins::EntityDesignerName(weapon), defindex,
+  if (changed) ++g_applied;
+  if (changed && late) MarkEntityFullyChanged(weapon);
+  if (changed && DebugOn()) {
+    Log(RU_LOG_DEBUG, "applied to %s def=%d owner=%llu%s", EntityDesignerName(weapon), defindex,
           static_cast<unsigned long long>(steamid64), late ? " (late)" : "");
   }
   return WeaponResult::kDone;
@@ -295,6 +292,9 @@ constexpr long long kCosmeticPassTicks[] = {0, 1, 8, 32};
 constexpr int kCosmeticPassCount = static_cast<int>(sizeof(kCosmeticPassTicks) / sizeof(kCosmeticPassTicks[0]));
 
 PlayerState g_players[65];
+// Dev only (skins_debug_as, debug=1): a bot slot decorated with a real player's loadout, so the
+// whole apply path can be exercised without a human client.
+uint64_t g_debugAs[65] = {};
 std::unordered_map<uint32_t, WeaponState> g_weapons;  // by entity handle (index + serial)
 long long g_tick = 0;
 long long g_activeSince = 0;  // first tick of the current map/session we saw entities
@@ -303,7 +303,7 @@ void* g_lastEntitySystemWorld = nullptr;
 // Loadout loads are async; give up decorating a weapon/spawn after this many ticks (~10s @64).
 constexpr long long kRetryTicks = 640;
 
-bool DisabledByEnv() {
+bool DisabledByEnv() {  // READYUP_DISABLE_SKINS=1: keep the plugin loaded but idle
   static const bool disabled = [] {
     const char* v = std::getenv("READYUP_DISABLE_SKINS");
     return v && *v && std::strcmp(v, "0") != 0;
@@ -315,7 +315,8 @@ void ProcessPlayer(int slot, void* controller) {
   auto& o = Off();
   PlayerState& ps = g_players[slot];
 
-  const uint64_t steamid64 = Rd<uint64_t>(controller, o.ctrl_steamId);
+  uint64_t steamid64 = Rd<uint64_t>(controller, o.ctrl_steamId);
+  if (steamid64 == 0 && g_debugAs[slot] != 0 && DebugOn()) steamid64 = g_debugAs[slot];
   if (steamid64 == 0) {  // bots / not yet authenticated
     ps = PlayerState{};
     return;
@@ -326,7 +327,7 @@ void ProcessPlayer(int slot, void* controller) {
   if (((g_tick + slot) & 63) == 0) MaybeRefreshAsync(steamid64);
 
   const uint32_t pawnHandle = Rd<uint32_t>(controller, o.ctrl_playerPawn);
-  void* pawn = skins::EntityFromHandle(pawnHandle);
+  void* pawn = EntityFromHandle(pawnHandle);
   if (!pawn) {
     ps.wasAlive = false;
     return;
@@ -371,13 +372,13 @@ void ProcessPlayer(int slot, void* controller) {
     if (st.firstSeen == 0) st.firstSeen = g_tick;
     st.lastSeen = g_tick;
     if (st.done && !st.legacyPending) continue;
-    void* weapon = skins::EntityFromHandle(h);
+    void* weapon = EntityFromHandle(h);
     if (!weapon) continue;
     if (st.done) {
       // Legacy bodygroup retry (the weapon model wasn't loaded when we painted it).
       if (ApplyLegacyBody(weapon, steamid64)) {
         st.legacyPending = false;
-        skins::MarkEntityFullyChanged(weapon);
+        MarkEntityFullyChanged(weapon);
       } else if (g_tick - st.firstSeen > kRetryTicks) {
         st.legacyPending = false;
       }
@@ -404,23 +405,18 @@ void GameFrameTick() {
   if (DisabledByEnv()) return;
   ++g_tick;
 
-  if (!skins::EntitySystemReady()) return;
-  static bool s_logged = false;
-  if (!s_logged) {
-    s_logged = true;
-    skins::LogEngineStatusOnce();
-  }
+  if (g_api->entity_system_status(g_api->self) != RU_ENTSYS_OK) return;
   if (!ResolveOffsets()) {
     static bool s_warned = false;
     if (!s_warned) {
       s_warned = true;
-      PrintLine("skins: required schema fields missing; weapon skins disabled for this session.");
+      Log(RU_LOG_WARN, "required schema fields missing; weapon skins disabled for this session");
     }
     return;
   }
 
   // New map => entity handles are reused from scratch; forget per-entity state.
-  void* world = skins::EntityByIndex(0);
+  void* world = EntityByIndex(0);
   if (world != g_lastEntitySystemWorld) {
     g_lastEntitySystemWorld = world;
     g_activeSince = g_tick;
@@ -429,12 +425,12 @@ void GameFrameTick() {
   }
 
   for (int slot = 0; slot < 64; ++slot) {
-    void* controller = skins::EntityByIndex(slot + 1);
+    void* controller = EntityByIndex(slot + 1);
     if (!controller) {
       g_players[slot] = PlayerState{};
       continue;
     }
-    const char* dn = skins::EntityDesignerName(controller);
+    const char* dn = EntityDesignerName(controller);
     if (!dn || std::strcmp(dn, "cs_player_controller") != 0) continue;
     ProcessPlayer(slot, controller);
   }
@@ -442,4 +438,19 @@ void GameFrameTick() {
   if ((g_tick & 1023) == 0) PruneWeapons();
 }
 
-}  // namespace readyup::weapon_paints
+bool SetDebugAs(int slot, uint64_t steamid64) {
+  if (slot < 0 || slot >= 64) return false;
+  g_debugAs[slot] = steamid64;
+  g_players[slot] = PlayerState{};
+  return true;
+}
+
+std::string ApplyStatus() {
+  int players = 0;
+  for (const auto& p : g_players) players += p.steamid64 != 0;
+  return std::to_string(players) + " player(s) tracked, " + std::to_string(g_weapons.size()) + " weapon(s) seen, " +
+         std::to_string(g_applied) + " applied" + (Off().ok ? "" : ", schema offsets not resolved yet") +
+         (DisabledByEnv() ? ", DISABLED by READYUP_DISABLE_SKINS" : "");
+}
+
+}  // namespace skins

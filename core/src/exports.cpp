@@ -18,7 +18,6 @@
 #include "readyup/server_game_clients_hook.h"
 #include "readyup/host_say_hook.h"
 #include "readyup/sigtest.h"
-#include "readyup/weapon_paints.h"
 
 #include <dlfcn.h>
 
@@ -169,7 +168,6 @@ __attribute__((constructor)) static void readyup_ctor() {
   // server can reconnect without requiring MAT to resend initialization.
   readyup::persisted_settings::RestoreFromDbAsync();
   readyup::match_recovery::TryRecoverFromDbAsync();
-  readyup::weapon_paints::EnsureSchemaAsync();
 
   readyup::InstallClientCommandHook();
   // Logs a loud warning at boot if the debug-only dev_bots_ready flag is on.

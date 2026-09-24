@@ -82,7 +82,7 @@ Loads into CS2, owns every engine touchpoint (`gamedata/engine-surface.json`), a
 
 <br />
 
-The match flow: scrim ready-up with a center-screen panel, knife round and side pick, pauses, practice mode, admins, match configs and webhooks for the Auto Tournament platform. Currently built into the core while it moves to its own plugin.
+The match flow: scrim ready-up with a center-screen panel, knife round and side pick, pauses, practice mode, admins, match configs and webhooks for the Auto Tournament platform. Ships as `plugins/skins.so` plus its gamedata `engine-surface.skins.json`; the core runs without either.
 
 </details>
 

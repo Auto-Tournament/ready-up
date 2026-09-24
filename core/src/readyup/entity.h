@@ -4,13 +4,17 @@
 #include <string>
 #include <vector>
 
-// Engine surface used by weapon skins / knives / gloves / agents.
+// Entity primitives: the entity system (lookup / handles / designer names) plus the econ and
+// model calls plugins reach through ru_api (entity_*, econ_attr_set_by_name). The entity
+// system comes from the core's gamedata (UTIL_Remove); the econ/model functions come from the
+// skins gamedata fragment (gamedata/engine-surface.skins.json), which only the skins packages
+// ship. Without it those calls return false and nothing else changes.
 //
 // Everything here must be called from the server GameFrame thread (see game_frame_hook.cpp).
 // Every function is best-effort: if its signature did not resolve to exactly one match in the
 // real libserver.so, it returns false/nullptr and does nothing. See docs/skins-engine-surface.md
 // for how each item was verified against CS2 1.41.8.3.
-namespace readyup::skins {
+namespace readyup::entity {
 
 // Resolves all signatures once (idempotent). Cheap after the first call.
 void ResolveEngine();
@@ -53,10 +57,12 @@ struct ItemStatus {
   std::string name;
   bool ok = false;
   std::string detail;
+  bool listed = true;  // false: its gamedata (a fragment) is not installed
 };
 std::vector<ItemStatus> EngineStatus();
 
 // Prints EngineStatus() once (always, not debug-gated) so operators can see what is missing.
+// Items whose gamedata fragment is not installed are summarised in one line.
 void LogEngineStatusOnce();
 
-}  // namespace readyup::skins
+}  // namespace readyup::entity

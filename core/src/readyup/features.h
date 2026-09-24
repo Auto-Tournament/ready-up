@@ -18,8 +18,6 @@ enum class Feature : int {
   ChatCommands = 0,      // `.ru` / `.r` / player chat commands and replies
   MatchFlow,             // mode/scrim/match lifecycle tick (warmup, knife, live, cfg exec)
   Pauses,                // `.pause` / `.unpause`
-  Skins,                 // weapon paints, knives, agents
-  SkinsBodygroups,       // bodygroups: gloves (default_gloves) + legacy paint-kit weapon models
   WelcomeHtml,           // per-client center HTML welcome screen
   RoundTermSuppression,  // warmup/practice TerminateRound suppression
   Events,                // engine game events (round lifecycle + stats)

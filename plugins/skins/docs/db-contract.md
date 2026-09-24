@@ -9,7 +9,7 @@ StatTrak counter.
 - **Schema owner**: Ready Up runs `CREATE TABLE IF NOT EXISTS` for the DDL below at startup
   (`libs/readyup/postgres.cpp`, `EnsureWeaponPaintsSchemaLocked`). The web side may create the
   same tables, but must not change column types or primary keys without a Ready Up change.
-- **Example data**: `scripts/seed-dev-skins.sql`.
+- **Example data**: `plugins/skins/seed-dev-skins.sql`.
 
 ## Keys shared by every table
 

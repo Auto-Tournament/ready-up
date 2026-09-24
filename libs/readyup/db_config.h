@@ -14,7 +14,12 @@ struct DbConfig {
   std::string conninfo_sanitized;
 };
 
-// Reads `readyup_db.json` located next to `readyup.cfg` (i.e. next to the shim).
+// Pure parsing, no core dependencies (plugins link this too). `text` is the contents of a
+// readyup_db.json: {"conninfo": "..."} or discrete host/port/dbname/user/password/sslmode.
+std::optional<DbConfig> ParseDbConfigText(const std::string& text, std::string* err);
+std::optional<DbConfig> ReadDbConfigFile(const std::string& path, std::string* err);
+
+// Core only (core/src/readyup/db_config_file.cpp): `readyup_db.json` next to the shim.
 // Returns nullopt if missing or invalid.
 std::optional<DbConfig> ReadDbConfig();
 
