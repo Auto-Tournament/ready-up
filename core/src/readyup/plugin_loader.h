@@ -4,6 +4,8 @@
 // C function table from core/include/readyup/plugin_api.h and owns every registration a
 // plugin makes, so unloading never leaves anything behind. See docs/ARCHITECTURE.md.
 
+#include "readyup/plugin_api.h"
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -64,5 +66,36 @@ struct PluginHostStatus {
   std::vector<std::string> failures;  // "<name>: <error>" from the initial load
 };
 PluginHostStatus GetPluginHostStatus();
+
+// ---- API v1.1 hooks for the rest of the core ---------------------------------------
+
+// Game thread, called from the engine's FireGameEvent: delivers the event synchronously to
+// every plugin that subscribed to `name` (subscribe_game_event). `ev` is the engine's
+// IGameEvent*, opaque to the loader. Cheap when nobody subscribed.
+void DispatchGameEvent(const char* name, void* ev);
+
+// Event names plugins subscribed to (for the core's listener registration) and a counter that
+// changes whenever that set changes. Thread-safe.
+std::vector<std::string> WantedGameEvents();
+uint64_t WantedGameEventsGeneration();
+
+// Thread-safe. Queues one server log line for subscribe_log_line subscribers.
+void PostLogLine(const std::string& line);
+
+// Thread-safe. Chat name prefix a plugin set for this player (set_chat_name_prefix).
+bool PluginChatPrefixFor(uint64_t steamid64, std::string* prefix);
+
+// Any thread. Asks the admin provider a plugin registered (set_admin_provider).
+// Returns -1 when there is none or it has no opinion, else 0/1.
+int PluginAdminVerdict(uint64_t steamid64);
+
+// Implemented in plugin_engine_api.cpp (the engine-facing members of ru_api); the offline
+// host test links a stub instead.
+namespace detail {
+void FillEngineApi(ru_api* api);
+// True if `self` is a live plugin and this is the game thread (logs and returns false
+// otherwise). Every game-thread-only API member starts with this.
+bool CheckGameThread(ru_plugin* self, const char* fn);
+}  // namespace detail
 
 }  // namespace readyup::plugins

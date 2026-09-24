@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 0
+#define READYUP_PLUGIN_API_VERSION_MINOR 1
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -157,6 +157,67 @@ typedef void (*ru_event_fn)(void* user, const ru_event* ev);
 /* Generic deferred call (post_to_game_thread). */
 typedef void (*ru_task_fn)(void* user);
 
+/* ---- v1.1: players ------------------------------------------------------ */
+
+/*
+ * One connected player, from the core's identity/team registry. The caller owns
+ * the struct and sets struct_size = sizeof(ru_player) before passing it in; the
+ * core fills only the fields that fit. `name` is copied (NUL-terminated).
+ */
+typedef struct ru_player {
+  uint32_t struct_size;
+  int slot;           /* engine player slot, -1 if not seen in an engine event yet (bots: always -1) */
+  uint64_t steamid64; /* 0 for bots */
+  int team;           /* ru_team */
+  int is_bot;
+  int connected;
+  char name[128];
+} ru_player;
+
+/* for_each_player callback. Return non-zero to continue, 0 to stop. */
+typedef int (*ru_player_fn)(void* user, const ru_player* player);
+
+/* ---- v1.1: raw engine game events --------------------------------------- */
+
+/*
+ * An engine game event (e.g. "player_death"). Opaque: read it with the ev_get_*
+ * members of ru_api. Valid only for the duration of the callback; raw events are
+ * delivered synchronously on the game thread while the engine dispatches them.
+ */
+typedef struct ru_game_event ru_game_event;
+typedef void (*ru_game_event_fn)(void* user, const char* name, const ru_game_event* ev);
+
+/* ---- v1.1: server log lines ---------------------------------------------- */
+
+/* One server log line (the core's own output is filtered out). Queued; `line` is a copy
+ * that lives for the duration of the callback. */
+typedef void (*ru_log_line_fn)(void* user, const char* line);
+
+/* ---- v1.1: entities -------------------------------------------------------- */
+
+typedef enum ru_bodygroup_result {
+  RU_BODYGROUP_OK = 0,
+  RU_BODYGROUP_UNAVAILABLE = 1, /* an engine function did not resolve (or its gamedata is not installed) */
+  RU_BODYGROUP_NO_MODEL = 2,    /* the entity has no loaded model yet (e.g. right after set_model): retry later */
+  RU_BODYGROUP_NO_GROUP = 3     /* the model has no bodygroup with that name */
+} ru_bodygroup_result;
+
+/* entity_system_status */
+enum {
+  RU_ENTSYS_PENDING = 0, /* no map loaded yet / schema not ready */
+  RU_ENTSYS_OK = 1,
+  RU_ENTSYS_FAILED = 2
+};
+
+/* ---- v1.1: admins ---------------------------------------------------------- */
+
+/*
+ * Admin provider (set_admin_provider). Called on whatever thread called is_admin, so it
+ * must be thread-safe and may block (e.g. a DB lookup). Return 1 = admin, 0 = not an admin,
+ * -1 = no opinion (the core falls back to its built-in check).
+ */
+typedef int (*ru_admin_provider_fn)(void* user, uint64_t steamid64);
+
 /* ---- the function table the core hands to each plugin ------------------ */
 
 enum {
@@ -216,7 +277,144 @@ typedef struct ru_api {
   /* Absolute directory for this plugin's data/config files (csgo/readyup/plugins/<name>/). */
   const char* (*data_dir)(ru_plugin* self);
 
-  /* v1.1+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.1 ============================================================
+   * Everything below was appended in 1.1. A plugin that requires 1.1 in its
+   * ru_plugin_info.api_version can call these directly (older cores refuse to
+   * load it); a plugin that requires 1.0 must check RU_API_HAS(api, member).
+   * Game thread only unless marked "any thread".
+   */
+
+  /* -- output -- */
+
+  /* Center-screen HTML panel to ONE client (never broadcast). 1 = sent. */
+  int (*center_html_to_slot)(ru_plugin* self, int slot, const char* html, int seconds);
+  /* The same panel to every connected human, one client at a time. Returns how many got it. */
+  int (*center_html_all)(ru_plugin* self, const char* html, int seconds);
+
+  /* -- players -- */
+
+  /* Connected player in `slot`. 1 = found (out filled), 0 = none. */
+  int (*get_player)(ru_plugin* self, int slot, ru_player* out);
+  /* Connected human with this SteamID64. 1 = found. */
+  int (*get_player_by_steamid)(ru_plugin* self, uint64_t steamid64, ru_player* out);
+  /* Calls fn for every connected human, then every known bot. Returns how many were visited. */
+  int (*for_each_player)(ru_plugin* self, ru_player_fn fn, void* user);
+
+  /* -- raw engine events -- */
+
+  /*
+   * Engine game event by name ("player_death", "item_pickup", ...). Delivered synchronously
+   * on the game thread while the engine dispatches it, so keep the callback short and never
+   * keep `ev`. The core registers its listener for the name (best-effort: an event the
+   * engine does not know is never delivered). Returns 0 on failure.
+   */
+  ru_handle (*subscribe_game_event)(ru_plugin* self, const char* name, ru_game_event_fn fn, void* user);
+  int (*ev_get_int)(ru_plugin* self, const ru_game_event* ev, const char* key, int def);
+  double (*ev_get_float)(ru_plugin* self, const ru_game_event* ev, const char* key, double def);
+  uint64_t (*ev_get_uint64)(ru_plugin* self, const ru_game_event* ev, const char* key, uint64_t def);
+  /* Valid only during the callback. Never NULL (returns `def`, or "" if def is NULL). */
+  const char* (*ev_get_string)(ru_plugin* self, const ru_game_event* ev, const char* key, const char* def);
+  /* Player slot stored in a player key ("userid", "attacker", ...), or -1. */
+  int (*ev_get_player_slot)(ru_plugin* self, const ru_game_event* ev, const char* key);
+  /* Controller / pawn entity of a player key, or NULL. Valid for this frame only. */
+  void* (*ev_get_player_controller)(ru_plugin* self, const ru_game_event* ev, const char* key);
+  void* (*ev_get_player_pawn)(ru_plugin* self, const ru_game_event* ev, const char* key);
+
+  /* -- log lines -- */
+
+  /* Every server log line (in-process logging listener, or the file tail fallback). Queued. */
+  ru_handle (*subscribe_log_line)(ru_plugin* self, ru_log_line_fn fn, void* user);
+
+  /* -- schema and entities -- */
+
+  /*
+   * Byte offset of a networked field, looked up by name in the server's schema (base
+   * classes included), e.g. schema_offset(self, "CCSPlayerPawn", "m_EconGloves").
+   * -1 if unknown or the schema system is not verified. Never hard-code offsets.
+   */
+  int (*schema_offset)(ru_plugin* self, const char* class_name, const char* field_name);
+  /* RU_ENTSYS_*: until OK every entity_* lookup below returns NULL. */
+  int (*entity_system_status)(ru_plugin* self);
+  /* Entity by index (0 = world, 1..64 = player controllers), or NULL. Valid for this frame only. */
+  void* (*entity_by_index)(ru_plugin* self, int index);
+  /* Entity from a CHandle (as stored in m_hPlayerPawn, m_hMyWeapons, ...), or NULL. */
+  void* (*entity_from_handle)(ru_plugin* self, uint32_t handle);
+  /* CHandle of an entity, 0xFFFFFFFF if unknown. Keep handles across frames, never pointers. */
+  uint32_t (*entity_handle_of)(ru_plugin* self, void* entity);
+  /* Designer name ("cs_player_controller", "weapon_ak47"), or NULL. */
+  const char* (*entity_classname)(ru_plugin* self, void* entity);
+  /* Marks the whole entity dirty so fields written after its first snapshot are re-sent. 1 = done. */
+  int (*entity_mark_changed)(ru_plugin* self, void* entity);
+  /* CAttributeList::SetOrAddAttributeValueByName on an attribute list inside an entity. 1 = done. */
+  int (*econ_attr_set_by_name)(ru_plugin* self, void* attribute_list, const char* name, double value);
+  /* CBaseEntity::ChangeSubclass (knives: the item defindex as a string, "507"). 1 = done. */
+  int (*entity_change_subclass)(ru_plugin* self, void* entity, const char* subclass);
+  /* CBaseModelEntity::SetModel("agents/models/....vmdl"). 1 = done. */
+  int (*entity_set_model)(ru_plugin* self, void* entity, const char* model);
+  /* Bodygroup by name on the entity's current model. Returns ru_bodygroup_result. */
+  int (*entity_set_bodygroup_by_name)(ru_plugin* self, void* entity, const char* group, int value);
+
+  /* -- match control -- */
+
+  /*
+   * Suppress CS2 round termination (warmup / practice free play) through the core's
+   * TerminateRound detour. 1 = the requested state is in effect. Forcing a round end is not
+   * part of the API: the core has no verified way to call TerminateRound.
+   */
+  int (*set_round_termination_suppressed)(ru_plugin* self, int suppress);
+  /*
+   * Chat name prefix for one player (e.g. "[CAP]" with CS2 color bytes). Their chat lines are
+   * relayed as "<prefix> <name>: <msg>" instead of the original line. NULL or "" clears it.
+   * Removed when the plugin unloads. Takes precedence over the core's admin/captain prefix.
+   */
+  int (*set_chat_name_prefix)(ru_plugin* self, uint64_t steamid64, const char* prefix);
+
+  /* -- admins -- */
+
+  /* Any thread; may block (DB lookup). 1 = admin. Asks the provider first, then the core. */
+  int (*is_admin)(ru_plugin* self, uint64_t steamid64);
+  /* Registers the admin provider (one at a time; NULL clears it). Removed on unload. */
+  int (*set_admin_provider)(ru_plugin* self, ru_admin_provider_fn fn, void* user);
+
+  /* -- config -- */
+
+  /*
+   * Plugin config value: `key = value` from cfg/ReadyUp/<plugin>.cfg (csgo/cfg), then the
+   * `[<plugin>]` section of readyup.cfg. Returns the value length (truncated to len-1 in
+   * buf), or -1 if the key is not set.
+   */
+  int (*config_get)(ru_plugin* self, const char* key, char* buf, uint32_t len);
+  /* Any thread. readyup.cfg debug=1. */
+  int (*debug_enabled)(ru_plugin* self);
+  /* Any thread. Absolute directory holding readyup.cfg and readyup_db.json (the core's dir). */
+  const char* (*config_dir)(ru_plugin* self);
+
+  /* -- plugin-to-plugin -- */
+
+  /*
+   * Publishes an interface (a pointer to a plugin-defined C struct of function pointers)
+   * under a name such as "readyup.match.v1". One provider per name. Removed on unload.
+   */
+  int (*provide_interface)(ru_plugin* self, const char* name, uint32_t version, void* iface);
+  /*
+   * Looks one up (NULL if missing or older than min_version). The pointer is only valid
+   * until the provider can unload, i.e. until your callback returns: look it up again in
+   * every callback instead of keeping it.
+   */
+  void* (*get_interface)(ru_plugin* self, const char* name, uint32_t min_version);
+
+  /* -- state across reloads -- */
+
+  /*
+   * Keep a byte blob in core memory, keyed by (plugin name, key), across an unload and the
+   * next load of the same plugin (e.g. `ru plugin reload`). Not persisted to disk. len 0
+   * deletes it. 1 = stored. Max 1 MiB per blob.
+   */
+  int (*stash_put)(ru_plugin* self, const char* key, const void* data, uint32_t len);
+  /* Copies up to cap bytes into buf; returns the blob's full size, or -1 if there is none. */
+  int (*stash_get)(ru_plugin* self, const char* key, void* buf, uint32_t cap);
+
+  /* v1.2+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

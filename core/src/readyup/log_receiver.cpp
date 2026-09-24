@@ -536,6 +536,7 @@ static void ThreadMain(std::filesystem::path logsDir) {
 
 void ObserveLifecycleLogLine(const std::string& line) {
   if (line.empty()) return;
+  plugins::PostLogLine(line);  // subscribe_log_line (every source funnels through here)
   std::lock_guard<std::recursive_mutex> lk(g_lifecycleMu);
   LifecycleImpl(line);
 }

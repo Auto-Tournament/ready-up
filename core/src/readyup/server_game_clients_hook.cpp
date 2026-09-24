@@ -1,4 +1,5 @@
 #include "readyup/server_game_clients_hook.h"
+#include "readyup/plugin_loader.h"
 
 #include "readyup/admin_check.h"
 #include "readyup/ccommand.h"
@@ -141,8 +142,10 @@ static void Hook_ClientCommand(void* thisptr, CPlayerSlot slot, const void* args
   }
 
   const uint64_t sid = ident->steamid64;
-  const bool isAdmin = IsAdminSteam(sid);
-  const std::string capPrefix = CaptainPrefixFor(sid);
+  std::string pluginPrefix;
+  const bool hasPluginPrefix = plugins::PluginChatPrefixFor(sid, &pluginPrefix);  // set_chat_name_prefix
+  const bool isAdmin = !hasPluginPrefix && IsAdminSteam(sid);
+  const std::string capPrefix = hasPluginPrefix ? pluginPrefix : CaptainPrefixFor(sid);
   if (!isAdmin && capPrefix.empty()) return g_origClientCommand(thisptr, slot, args);
 
   // Admin/captain prefix: relay a prefixed line and consume the original to avoid duplicates.

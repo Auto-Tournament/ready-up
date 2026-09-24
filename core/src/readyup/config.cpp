@@ -138,11 +138,17 @@ bool LoadCfgFromDisk(ReadyUpCfg* out, std::string* err, bool allowMissing) {
   }
 
   std::string line;
+  bool inPluginSection = false;  // [name] blocks hold plugin keys (ru_api config_get), not core keys
   while (std::getline(f, line)) {
     line = Trim(line);
     if (line.empty()) continue;
     if (line.rfind("#", 0) == 0) continue;
     if (line.rfind("//", 0) == 0) continue;
+    if (line.front() == '[' && line.back() == ']') {
+      inPluginSection = true;
+      continue;
+    }
+    if (inPluginSection) continue;
 
     const auto eq = line.find('=');
     if (eq == std::string::npos) continue;

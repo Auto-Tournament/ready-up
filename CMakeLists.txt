@@ -76,6 +76,7 @@ add_library(server_shim SHARED
   core/src/readyup/weapon_paints_cosmetics.cpp
   core/src/readyup/skins_engine.cpp
   core/src/readyup/plugin_loader.cpp
+  core/src/readyup/plugin_engine_api.cpp
   core/src/readyup/engine_surface.cpp
   core/src/readyup/engine_surface_core.cpp
   ${READYUP_ENGINE_SURFACE_CPP}
