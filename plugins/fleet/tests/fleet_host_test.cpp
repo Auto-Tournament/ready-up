@@ -6,6 +6,7 @@
 //   build/plugins/fleet/fleet_host_test <fleet.so>
 #include "readyup/plugin_loader.h"
 
+#include "readyup/fleet_iface.h"
 #include "readyup/plugin_api.h"
 
 #include "mock_platform.h"
@@ -14,6 +15,7 @@
 #include <unistd.h>
 
 #include <chrono>
+#include <cstddef>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -131,6 +133,13 @@ int main(int argc, char** argv) {
   Check(link && link->status == "INFO", "selftest: fleet link INFO (standalone)");
   struct stat st {};
   Check(stat((std::string(dir) + "/fleet/credentials.json").c_str(), &st) != 0, "standalone writes no credentials");
+  {
+    // What the core's /status does (status_feed.cpp): get_status 0 -> platform.mode "standalone".
+    const auto* f = static_cast<const ru_fleet_v1*>(rp::CoreGetInterface(RU_FLEET_IFACE_NAME, RU_FLEET_IFACE_VERSION));
+    ru_fleet_status fs{};
+    fs.struct_size = sizeof(fs);
+    Check(f && f->get_status && f->get_status(&fs) == 0, "standalone: readyup.fleet.v1 get_status returns 0");
+  }
 
   std::puts("-- fleet mode: enroll + connect to the mock platform");
   mock::Platform platform;
@@ -160,6 +169,36 @@ int main(int argc, char** argv) {
   const auto* connected = FindCheck(checks, "connected");
   Check(enrolled && enrolled->status == "OK", "selftest: enrolled OK");
   Check(connected && connected->status == "OK", "selftest: connected OK");
+  {
+    const auto* f = static_cast<const ru_fleet_v1*>(rp::CoreGetInterface(RU_FLEET_IFACE_NAME, RU_FLEET_IFACE_VERSION));
+    Check(f && f->struct_size >= offsetof(ru_fleet_v1, add_capability) + sizeof(f->add_capability),
+          "readyup.fleet.v1 has the plugin members after get_status");
+    ru_fleet_status fs{};
+    fs.struct_size = sizeof(fs);
+    Check(f && f->get_status(&fs) == 1 && fs.state == RU_FLEET_STATE_ONLINE && fs.link_state == RU_FLEET_LINK_ONLINE &&
+              std::string(fs.server_id) == "srv_test_1" && fs.auto_pause_in_s == -1 && fs.sessions == 1,
+          "get_status: online, server id, no auto-pause countdown");
+    // A caller built against the first (shorter) ru_fleet_status gets only what fits.
+    struct Old {
+      uint32_t struct_size, state;
+      uint64_t since_ms;
+      uint32_t reconnects, spool_msgs;
+      int32_t auto_pause_in_s, update_blocked;
+      char server_id[64];
+      uint32_t canary;
+    } old{};
+    old.struct_size = offsetof(Old, canary);
+    old.canary = 0xDEADBEEFu;
+    Check(f && f->get_status(reinterpret_cast<ru_fleet_status*>(&old)) == 1 && old.canary == 0xDEADBEEFu &&
+              old.state == RU_FLEET_STATE_ONLINE && old.struct_size == offsetof(Old, canary),
+          "get_status fills only what an older caller's struct has room for");
+    Check(f && f->connection_state() == RU_FLEET_LINK_ONLINE, "connection_state() online");
+    Check(f && f->send_event("event.test", "{\"n\":1}", 1, RU_FLEET_RELIABLE) == 1, "send_event queued");
+    Check(platform.WaitFor([&] { return !platform.MessagesOfType("event.test").empty(); }, 2000),
+          "send_event reached the platform with a seq");
+    Check(f && f->publish_state("{\"match_id\":\"m9\"}", "busy") == 1 && f->publish_state("[1]", nullptr) == 0,
+          "publish_state validates its JSON");
+  }
   ClearLog();
   Check(rp::TryDispatchConsole("fleet status"), "fleet status dispatched");
   rp::Frame(false);

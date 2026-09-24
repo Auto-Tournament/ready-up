@@ -10,6 +10,7 @@ document describes the split:
 | **readyup-core** | `csgo/readyup/bin/linuxsteamrt64/libserver.so` | every piece of engine surface, plus the plugin host |
 | **readyup-match** | `csgo/readyup/plugins/match.so` | ready-up, scrim, knife, pause, match config, webhooks, Postgres, MAT admins, practice |
 | **readyup-skins** | `csgo/readyup/plugins/skins.so` | weapon paints, knives, gloves, agents. **Not in the default release** (servers running skin changers risk GSLT bans) |
+| **readyup-fleet** | `csgo/readyup/plugins/fleet.so` | the Auto Tournament platform link ([FLEET.md](FLEET.md)): enrollment, WebSocket, spool; `readyup.fleet.v1` for other plugins |
 | example: **hello** | `csgo/readyup/plugins/hello.so` | `.hello`, a 10 s tick heartbeat, event logging. Dev only, never shipped |
 
 The model is Metamod's. The core is the only thing that knows about signatures, offsets,

@@ -1,6 +1,8 @@
 # Fleet protocol: Ready Up ↔ Auto Tournament
 
-**Status: design, reviewed by Sivert (2026-09). Nothing here is implemented.**
+**Status: design, reviewed by Sivert (2026-09). Implemented on the Ready Up side so far: the local
+status endpoint (§17) and build-order step 1, the `fleet.so` link (enroll, credentials, WebSocket,
+seq/ack, spool, resume, offline timer); see [Implementation status](#implementation-status-ready-up).**
 
 This document designs how Ready Up servers talk to the Auto Tournament platform ("the
 platform", `Auto-Tournament/auto-tournament`). It replaces the per-server RCON + webhook
@@ -20,6 +22,65 @@ The fleet link subscribes to those listeners (`AddMatchFlowListener`, `demo::Add
 the `ToJson` serializers define the payload field names. The existing `ru_demo_*` and
 `ru_series_end_kick_delay_*` console settings are set by the fleet link from `server.config`
 in fleet mode, instead of by hand.
+
+## Implementation status (Ready Up)
+
+**Step 1 (§19.4 item 1, §19.3 item 1): `plugins/fleet` -> `csgo/readyup/plugins/fleet.so`.**
+
+| Piece | Where |
+|---|---|
+| Envelope, ULID, backoff, close codes, seq/ack tracking, redaction, URL rules | `plugins/fleet/fleet_proto.*` |
+| JSON (key order kept, exact int64, UTF-8 `\u` escapes) | `plugins/fleet/fleet_json.*` |
+| Disk spool (outbound stream, §6.4/§6.5) | `plugins/fleet/fleet_spool.*` |
+| `install_id`, `credentials.json` (0600, temp + rename) | `plugins/fleet/fleet_store.*` |
+| Enrollment (HTTPS) + WebSocket session on libcurl `curl_ws_*`, network thread | `plugins/fleet/fleet_client.*` |
+| ru_api glue, commands, `readyup.fleet.v1`, selftest, offline timer | `plugins/fleet/fleet_plugin.cpp` |
+| Interface for other plugins | `core/include/readyup/fleet_iface.h` (the core's `/status` reads `get_status`; members after it are for plugins) |
+| Plugin lines in `ru selftest` | `core/include/readyup/selftest_iface.h` (`readyup.selftest.<plugin>`) |
+
+Config is the `[fleet]` section of `readyup.cfg` (or `csgo/cfg/ReadyUp/fleet.cfg`), read with
+`config_get`: `url`, `enroll_code`, `enroll_key`, `insecure_dev`, `ca_file`, `pin_sha256`,
+`offline_pause_minutes` (default 3, 0 = off), `spool_max_msgs`, `spool_max_mb`, `enabled`.
+The `fleet_`-prefixed names used in this document (`fleet_url`, ...) are accepted too. No `url`
+and no `credentials.json` = standalone: the plugin loads, logs one line and stays idle.
+
+Files live in the plugin data dir `csgo/readyup/plugins/fleet/` (not `csgo/readyup/fleet/` as
+§4.1 says): `install_id`, `credentials.json`, `spool/{meta.json,stream.log}`. Installers and
+updaters must keep that directory.
+
+Commands: `ru fleet status | enroll [url] <code|key> | reconnect` (console/RCON; plain `fleet ...`
+works too) and `.fleet status | reconnect` / `.ru fleet ...` for admins in chat (enrolling from
+chat is refused: the code would be in chat logs). The core routes an unknown `ru <cmd>` to a
+plugin console command `<cmd>` and an unknown `.ru <cmd>` to a plugin chat command `.<cmd>`.
+
+Choices made where this document leaves room:
+
+- `state.snapshot` is sent ephemerally (only while online): after a `reset` resume, on
+  `state.request`. A spooled snapshot would be stale by the time it is replayed.
+- `hello.selftest` is `null` until the core exposes its selftest result to plugins.
+- `hello.versions.plugins` lists only `fleet` for now (match is still compiled into the core).
+- Unknown reliable types get `error {code: "unknown_type"}` (ephemeral, `ref` = the message id)
+  and are acked. Out-of-order reliable messages are dropped unacked (the platform replays them).
+- A spool gap (dropped messages, torn log) starts a new stream id at the next connect, which the
+  platform sees as an unknown stream -> `reset` -> snapshot. No extra hello field is needed.
+- `auth.rotate` is handled inside fleet.so (new token written, `auth.rotated` spooled).
+- Rejected credentials (4401/4403, HTTP 401/403): with `enroll_key` the server enrolls again
+  (same `install_id`); with a one-time code it waits for `ru fleet enroll`. A refused code is not
+  retried.
+- Local pseudo-messages for other plugins: `local.connection` and `local.offline_timeout` (the
+  D12 hook; the auto-pause itself comes with the match plugin).
+
+Tests (`ctest`): `fleet_unit` (JSON, envelope, ULID, backoff, close codes, redaction, URLs,
+seq/ack, spool, credentials), `fleet_integration` (the real client against
+`plugins/fleet/tests/mock_platform.cpp`: enroll, hello/welcome, ping/pong, acks both ways,
+reconnect, resume with replay, reset + snapshot, restart, heartbeat timeout, rejections),
+`fleet_host` (fleet.so in the real plugin loader: standalone idle, enroll + connect, selftest,
+commands, unload). `build/plugins/fleet/fleet_mock_platform --port N` runs the mock by hand.
+
+Build: needs libcurl with WebSockets. Release builds link the static curl 8.22 from
+`scripts/ci/build-static-deps.sh` (`--enable-websockets`, checked); the dev Docker image builds the
+same curl into `/opt/curl-ws`. A plain `./build.sh` without such a libcurl skips fleet.so (warning)
+and still builds the unit tests.
 
 ## 0. Decisions
 
