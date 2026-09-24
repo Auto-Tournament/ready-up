@@ -1134,6 +1134,16 @@ int PluginAdminVerdict(uint64_t steamid64) {
   return v < 0 ? -1 : (v ? 1 : 0);
 }
 
+void* CoreGetInterface(const char* name, uint32_t minVersion) {
+  if (!name) return nullptr;
+  std::lock_guard<std::mutex> lk(g_mu);
+  auto it = g_ifaces.find(name);
+  if (it == g_ifaces.end() || it->second.version < minVersion) return nullptr;
+  const Instance* owner = FindLiveByIdLocked(it->second.owner);
+  if (!owner || owner->handle.unloading.load()) return nullptr;
+  return it->second.ptr;
+}
+
 PluginHostStatus GetPluginHostStatus() {
   PluginHostStatus s;
   s.dir = PluginsDir();

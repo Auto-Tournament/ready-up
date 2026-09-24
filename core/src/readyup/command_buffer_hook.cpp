@@ -20,6 +20,7 @@
 #include "readyup/sigtest.h"
 #include "readyup/webhook.h"
 #include "readyup/steamid.h"
+#include "readyup/status_feed.h"
 
 #include <dlfcn.h>
 #include <link.h>
@@ -684,6 +685,11 @@ static bool HandleRuCommandLine(const std::string& line) {
     RouteChatCommand(/*steamid64=*/0, /*playerName=*/"Console", /*text=*/".ru scrim");
     return true;
   }
+  if (parts[1] == "status_http") {
+    for (const auto& l : status_feed::StatusLines()) Print("%s\n", l.c_str());
+    return true;
+  }
+
   if (parts[1] == "state" || parts[1] == "status") {
     RouteChatCommand(/*steamid64=*/0, /*playerName=*/"Console", /*text=*/".ru state");
     return true;

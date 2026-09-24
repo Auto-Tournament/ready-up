@@ -177,6 +177,11 @@ bool LoadCfgFromDisk(ReadyUpCfg* out, std::string* err, bool allowMissing) {
     else if (key == "dev_bots_ready") out->dev_bots_ready = ParseBool(val, out->dev_bots_ready);
     else if (key == "scrim_knife") out->scrim_knife = ParseBool(val, out->scrim_knife);
     else if (key == "knife_pick_seconds") out->knife_pick_seconds = ParseInt(val, out->knife_pick_seconds);
+    else if (key == "status_http_enabled") out->status_http_enabled = ParseBool(val, out->status_http_enabled);
+    else if (key == "status_http_bind") out->status_http_bind = val;
+    else if (key == "status_http_port") out->status_http_port = ParseInt(val, out->status_http_port);
+    else if (key == "status_http_token") out->status_http_token = val;
+    else if (key == "status_http_metrics") out->status_http_metrics = ParseBool(val, out->status_http_metrics);
   }
   return true;
 }

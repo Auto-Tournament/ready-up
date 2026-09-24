@@ -160,6 +160,8 @@ class StatsAccumulator {
 
   int Team1Score() const { return t1_.score; }
   int Team2Score() const { return t2_.score; }
+  TeamLine Team1Line() const { return t1_; }
+  TeamLine Team2Line() const { return t2_; }
   MapStats Snapshot() const;
 
  private:

@@ -52,6 +52,13 @@ struct ReadyUpCfg {
   bool scrim_knife = true;
   // Scrim knife side-pick window in seconds (match configs use knifeDecisionSeconds).
   int knife_pick_seconds = 60;
+
+  // Local status endpoint (docs/FLEET.md §17, status_feed.h). Read once at load.
+  bool status_http_enabled = true;
+  std::string status_http_bind = "127.0.0.1";
+  int status_http_port = 0;  // 0 = game port + 7
+  std::string status_http_token;  // empty = generated, kept in csgo/readyup/status.json
+  bool status_http_metrics = false;
 };
 
 ReadyUpCfg Cfg();

@@ -70,6 +70,10 @@ add_library(server_shim SHARED
   core/src/readyup/schema.cpp
   core/src/readyup/scrim_flow.cpp
   core/src/readyup/selftest.cpp
+  core/src/readyup/status_feed.cpp
+  core/src/readyup/status_http.cpp
+  core/src/readyup/status_server.cpp
+  core/src/readyup/status_snapshot.cpp
   core/src/readyup/signature_scan.cpp
   core/src/readyup/sigtest.cpp
   core/src/readyup/slot_registry.cpp
@@ -396,8 +400,23 @@ add_executable(readyup_match_flow_test
 target_include_directories(readyup_match_flow_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(readyup_match_flow_test PRIVATE -Wall -Wextra)
 
+# Offline tests for the local status endpoint (docs/FLEET.md §17): HTTP parsing, routing,
+# auth, limits, SSE framing and merge patches, against a real server on an ephemeral port.
+add_executable(readyup_status_http_test
+  tests/status_http_test.cpp
+  core/src/readyup/status_http.cpp
+  core/src/readyup/status_server.cpp
+  core/src/readyup/status_snapshot.cpp
+  libs/readyup/minijson.cpp
+)
+target_include_directories(readyup_status_http_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs)
+target_compile_options(readyup_status_http_test PRIVATE -Wall -Wextra)
+find_package(Threads REQUIRED)
+target_link_libraries(readyup_status_http_test PRIVATE Threads::Threads)
+
 enable_testing()
 add_test(NAME match_flow COMMAND readyup_match_flow_test)
+add_test(NAME status_http COMMAND readyup_status_http_test)
 add_test(NAME plugin_host_reload
   COMMAND readyup_plugin_host_test
     $<TARGET_FILE:readyup_plugin_hello> $<TARGET_FILE:readyup_plugin_hello_reload_test>)

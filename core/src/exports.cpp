@@ -18,6 +18,7 @@
 #include "readyup/server_game_clients_hook.h"
 #include "readyup/host_say_hook.h"
 #include "readyup/sigtest.h"
+#include "readyup/status_feed.h"
 
 #include <dlfcn.h>
 
@@ -156,6 +157,8 @@ __attribute__((constructor)) static void readyup_ctor() {
   if (!readyup::RunSigTest(/*verbose=*/false)) {
     readyup::Disable("sigtest failed (signature mismatch / missing)");
     readyup::PrintLine("Ready Up disabled: sigtest failed. Server will run without Ready Up hooks.");
+    // The status endpoint still starts (own thread, no engine access) so /health reports it.
+    readyup::status_feed::StartAtLoad();
     return;
   }
 
@@ -163,6 +166,9 @@ __attribute__((constructor)) static void readyup_ctor() {
   // readyup_sigcheck). Hooks below only patch slots that verified; features needing a slot that
   // did not verify disable themselves with one log line.
   readyup::VerifyAllEngineVtables();
+
+  // Local status endpoint (docs/FLEET.md §17): its own thread, fed from GameFrame.
+  readyup::status_feed::StartAtLoad();
 
   // Best-effort: restore persisted MAT/RU initialization settings so a rebooted
   // server can reconnect without requiring MAT to resend initialization.

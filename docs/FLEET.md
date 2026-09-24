@@ -49,7 +49,7 @@ Answers to the review questions:
 | D11 | Fleet code | Separate `fleet.so` plugin exposing an interface to `match` and `skins`. |
 | D12 | Long disconnects | **Auto-pause** the match after N minutes offline (configurable, default 3) so admins decide. Events are buffered and replayed on reconnect. |
 | D13 | Postgres | **Dropped from Ready Up entirely.** Standalone mode uses JSON files for admins, skins and recovery. |
-| D14 | Status endpoint | **On by default**, bound to `127.0.0.1`, port = game port + 50, token required for non-loopback. It is how csm gets live status (§18). |
+| D14 | Status endpoint | **On by default**, bound to `127.0.0.1`, port = game port + 7, token required for non-loopback. It is how csm gets live status (§18). |
 | D15 | Scaling | Single API instance for now, WS gateway in-process, with a seam for multi-instance. |
 | D16 | Idle servers | Run the scrim/pickup flow. When a match is assigned: kick non-roster players with a message, then load. |
 | D17 | Hosts | **The platform controls servers through csm.** CS2 Server Manager runs on each machine as a **host agent** with its own WebSocket, enrollment (code or fleet key) and host token. It starts/stops/restarts/creates servers, updates the game and Ready Up, tails logs, and reports inventory and process health (§18). It is the emergency path when Ready Up is unresponsive, and admins never need SSH. Ready Up's own per-server connection stays for match control. |
@@ -124,7 +124,7 @@ Two channels to the platform, both outbound WebSockets:
 ┌──────────────────────── machine (csm host agent) ───────────────────────┐
 │ csm ── wss /api/fleet/host ───────────────────────────────────────────┐ │   ┌──────── platform (api/) ────────┐
 │  │  start/stop/update server-N, logs, inventory                       │ │   │ Host gateway    /api/fleet/host │
-│  │  reads 127.0.0.1:<port+50> /status /stream  (process ↔ state)       └─┼──►│ Fleet gateway   /api/fleet/ws   │
+│  │  reads 127.0.0.1:<port+7>  /status /stream  (process ↔ state)       └─┼──►│ Fleet gateway   /api/fleet/ws   │
 │  ▼                                                                      │   │ Registry (hosts, servers, keys) │
 │ ┌──────────── server-N (CS2 process) ─────────────┐                     │   │ Match state store, event log    │
 │ │ core (libserver.so shim)                        │                     │   │ Round backup store              │
@@ -999,8 +999,12 @@ and the platform's `fake` integration tests can drive a fake fleet client that s
 
 ## 17. Local status endpoint
 
-A small read-only HTTP server inside `fleet.so`. It gives local tooling (csm, uptime checks, a
-developer with `curl`) live state without RCON and without touching the game. **The WebSocket
+A small read-only HTTP server in the **core** (`core/src/readyup/status_*`), not in `fleet.so`: it
+has to work standalone, and it reports the core's own state (selftest, engine surface, loaded
+plugins), which a plugin cannot see when it is not loaded or fails to load. It reads the fleet
+connection state through the `readyup.fleet.v1` interface (`core/include/readyup/fleet_iface.h`)
+when `fleet.so` is loaded, else reports `platform.mode: "standalone"`. It gives local tooling
+(csm, uptime checks, a developer with `curl`) live state without RCON and without touching the game. **The WebSocket
 stays the primary channel** to the platform; the status endpoint is secondary and nothing on the
 platform depends on it. It works in standalone mode too.
 
@@ -1030,8 +1034,8 @@ platform depends on it. It works in standalone mode too.
   server_id?: string, hostname: string, game_port: number, uptime_s: number, generated_at: number,
   versions: { core, plugin_api, plugins: { match, fleet, skins? }, cs2_build, cs2_patch },
   selftest: { pass, passed, total, failures: string[], ran_at },
-  platform: { mode: "fleet" | "standalone", state: "online" | "offline" | "enrolling" | "rejected",
-              since: number, reconnects: number, spool_msgs: number,
+  platform: { mode: "fleet" | "standalone", state: "online" | "offline" | "enrolling" | "rejected" | "standalone",
+              since: number,               // unix seconds reconnects: number, spool_msgs: number,
               auto_pause_in_s?: number },                        // countdown while offline in a live match (D12)
   update_safe: boolean,          // true when idle, scrim/pickup, or postgame with no demo upload pending
   summary: {                     // flat fields for a table row
@@ -1060,7 +1064,7 @@ id: 513
 data: {"rev":513,"patch":{"round":{"number":14},"teams":{"team1":{"score":8}}}}
 
 event: status
-data: {"platform":{"state":"offline","since":1790340000000,"auto_pause_in_s":142},"update_safe":false}
+data: {"platform":{"state":"offline","since":1790340000,"auto_pause_in_s":142},"update_safe":false}
 
 : keepalive
 ```
@@ -1079,7 +1083,7 @@ data: {"platform":{"state":"offline","since":1790340000000,"auto_pause_in_s":142
 |---|---|---|
 | `status_http_enabled` | `1` (D14) | |
 | `status_http_bind` | `127.0.0.1` | |
-| `status_http_port` | game port + 50 (27065 for 27015) | |
+| `status_http_port` | game port + 7 (27022 for 27015) | csm spaces servers 10 ports apart with `tv_port` = game + 5, so + 7 stays inside each server's own block (+ 50 collided with another server's game/RCON port from the 6th server on) |
 | `status_http_token` | generated on first start | **required** when the bind address is not loopback (the listener refuses to start without one). Loopback requests need no token. In fleet mode the platform can set it through `server.config.status_http.token` |
 | `status_http_metrics` | `0` | |
 
@@ -1091,7 +1095,7 @@ Discovery file: on start (and when the port or token changes) Ready Up writes
 `game/csgo/readyup/status.json` (mode `0640`, owner = the CS2 user):
 
 ```json
-{ "port": 27065, "bind": "127.0.0.1", "token": "rst_…", "pid": 12345, "game_port": 27015, "started_at": 1790340000 }
+{ "port": 27022, "bind": "127.0.0.1", "token": "rst_…", "pid": 12345, "game_port": 27015, "started_at": 1790340000 }
 ```
 
 Limits: 16 concurrent connections (8 of them streams), 8 KiB request headers, 5 s read timeout on
@@ -1105,7 +1109,40 @@ plain requests, per-IP token bucket 5 req/s (burst 20) → `429`.
 | cpp-httplib (single header, MIT) | ~10k lines | mature; SSE via chunked content provider | thread per connection or pool, exceptions inside, far more surface than 5 routes |
 | civetweb / mongoose (C) | medium | embeddable | mongoose is GPL/commercial; civetweb brings features we would disable |
 
-Decision proposal: hand-rolled, with a fuzz test for the request parser in `tools/`.
+Decision: hand-rolled (implemented).
+
+### 17.5 As built
+
+- **Where:** the core, not `fleet.so` (see the top of this section). Files:
+  `core/src/readyup/status_snapshot.*` (JSON value, RFC 7386 merge-patch diff, the `Hub` hand-off and
+  event ring), `status_http.*` (request parser, responses, token check, per-IP token bucket),
+  `status_server.*` (the `poll()` loop), `status_feed.*` (game-thread collector, config, discovery
+  file). The first three are engine-free and covered by `tests/status_http_test.cpp` (ctest
+  `status_http`, which also runs the real server on an ephemeral port).
+- **Game thread cost:** the collector runs from the GameFrame hook at most every 250 ms, builds a
+  `StatusInputs` tree and swaps a `shared_ptr` under a mutex that the HTTP thread only holds for
+  the swap. Serializing, diffing, `rev` and the event ring all happen on the HTTP thread. Build
+  time and the spacing of simulating frames are exported (`readyup_status_feed_build_us_*`,
+  `readyup_game_frame_gap_ms_*_10s` in `/metrics`; `ru status_http` on the console).
+- **Extras over §17.2:** `/status` has `rev`; `summary` also has `ru_mode` (the raw Ready Up mode),
+  `slug`, `ready {ready,total}`, `knife`, `countdown_s` (scrim all-ready countdown) and
+  `demo_uploads_pending`; `/stream` `status` events can also carry `summary`, `versions`,
+  `selftest` and `healthy`; `/` lists the endpoints. `since` and `selftest.ran_at` are unix
+  **seconds**; `generated_at` is unix ms.
+- **Selftest:** the core runs one selftest 15 s after the first map is simulating (unless one ran
+  already), so `/health` and `/status` have a result. `GET /selftest?run=1` (auth as `/selftest`,
+  at most every 30 s) queues another run on the game thread and answers `202`.
+- **`update_safe`:** false while a (non-scrim) match is loaded, except postgame after the series
+  ended with no map-end work pending; false while a demo upload runs or when the fleet plugin says
+  the platform still needs the server (`ru_fleet_status.update_blocked`).
+- **Auth:** `Authorization: Bearer <token>` (what csm sends), `X-ReadyUp-Token`, or `?token=`.
+  Loopback peers need none. A non-loopback bind refuses to start without a token of at least 16
+  characters. The generated token (`rst_` + 48 hex) is kept in `status.json` and reused on restart.
+- **Limits as implemented:** 16 connections (extra ones get `503` and are closed), 8 streams (the
+  9th gets `503`), 8 KiB of headers (`431`), 5 s read timeout, 10 s write timeout for plain
+  responses, 5 req/s burst 20 per IP (`429` + `Retry-After`), streams dropped above 256 KiB of
+  unsent data, `Last-Event-ID` (or `?last_event_id=`) resume from the last 256 revs.
+- **Env overrides:** `READYUP_STATUS_HTTP=0`, `READYUP_STATUS_HTTP_PORT=<port>`.
 
 ## 18. Hosts channel (csm) (D17)
 

@@ -67,6 +67,11 @@ struct PluginHostStatus {
 };
 PluginHostStatus GetPluginHostStatus();
 
+// Game thread. The core's own get_interface (e.g. the status endpoint reading
+// readyup.fleet.v1): NULL if missing, older than minVersion, or its provider is unloading.
+// Valid until the provider can unload, i.e. do not keep it past the current frame.
+void* CoreGetInterface(const char* name, uint32_t minVersion);
+
 // ---- API v1.1 hooks for the rest of the core ---------------------------------------
 
 // Game thread, called from the engine's FireGameEvent: delivers the event synchronously to
