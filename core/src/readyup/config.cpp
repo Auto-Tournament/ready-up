@@ -167,7 +167,6 @@ bool LoadCfgFromDisk(ReadyUpCfg* out, std::string* err, bool allowMissing) {
     else if (key == "hud_brand") out->hud_brand = val;
     else if (key == "hud_logo_url") out->hud_logo_url = val;
     else if (key == "chat_debug") out->chat_debug = ParseBool(val, out->chat_debug);
-    else if (key == "log_receiver_port") out->log_receiver_port = ParseInt(val, out->log_receiver_port);
     else if (key == "chat_prefix") out->chat_prefix = ExpandChatColorTokens(val);
     else if (key == "admin_prefix") out->admin_prefix = ExpandChatColorTokens(val);
     else if (key == "captain_prefix_team1") out->captain_prefix_team1 = ExpandChatColorTokens(val);
@@ -240,14 +239,6 @@ bool ChatDebugEnabled() {
   const char* v = std::getenv("READYUP_CHAT_DEBUG");
   if (!v || !*v) return Cfg().chat_debug;
   return !(v[0] == '0' || v[0] == 'n' || v[0] == 'N' || v[0] == 'f' || v[0] == 'F');
-}
-
-int LogReceiverPort() {
-  const char* v = std::getenv("READYUP_LOG_RECEIVER_PORT");
-  if (!v || !*v) return Cfg().log_receiver_port;
-  const long long x = std::strtoll(v, nullptr, 10);
-  if (x <= 0 || x > 65535) return Cfg().log_receiver_port;
-  return static_cast<int>(x);
 }
 
 std::string ChatPrefix() {
