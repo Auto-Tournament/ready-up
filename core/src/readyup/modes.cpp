@@ -207,9 +207,25 @@ static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx);
 // Ready Up's (emulated) warmup set and knife.cfg does not touch, so the round
 // can actually end and nobody keeps a gun. mp_logdetail 3 adds `attacked`
 // log lines (with the victim's remaining health) for the time-out tiebreak.
+static bool AnyHumanOnCtOrT() {
+  for (const auto& h : ListHumans()) {
+    if (h.team == 2 || h.team == 3) return true;
+  }
+  return false;
+}
+
 static void ApplyKnifeRulesLocked(State& st) {
   bool any = false;
   if (EnqueueServerCommand("exec ReadyUp/knife.cfg")) any = true;
+  // Dev flags only (dev_bots_ready / dev_bots_scrim) with nobody human on CT/T: bots do
+  // not knife each other, so the round would run knife.cfg's full 1:55 to a time-out.
+  // Cut it to 30s. live.cfg (and match cvars) set the real round time before going live.
+  if ((DevBotsReadyEnabled() || DevBotsScrimEnabled()) && !AnyHumanOnCtOrT()) {
+    (void)EnqueueServerCommand("mp_roundtime 0.5");
+    (void)EnqueueServerCommand("mp_roundtime_defuse 0.5");
+    (void)EnqueueServerCommand("mp_roundtime_hostage 0.5");
+    PrintLine("knife: dev flag on and no humans on CT/T - knife round time 0.5 min (bots do not knife).");
+  }
   const char* cmds[] = {
       "mp_warmup_pausetimer 0",
       "mp_ignore_round_win_conditions 0",
