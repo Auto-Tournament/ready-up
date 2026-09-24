@@ -4,9 +4,16 @@ Everything the skins feature (weapon paints, knives, gloves, agents) touches ins
 `libserver.so`, and how each item was checked against **CS2 1.41.8.3 (buildid 25492732)**,
 `libserver.so` sha1 `9da9450a493fcc8e811ff19688ebff207dc6004f`.
 
-Code: `core/src/readyup/skins_engine.{h,cpp}` (signatures, entity system),
-`core/src/readyup/schema.cpp` (field offsets), `core/src/readyup/weapon_paints_apply.cpp` (weapons, knives,
-per-tick driver), `core/src/readyup/weapon_paints_cosmetics.cpp` (gloves, agents).
+Code: the core owns every engine call: `core/src/readyup/entity.{h,cpp}` (signatures, entity
+system) and `core/src/readyup/schema.cpp` (field offsets), exposed through `ru_api` (entity_*,
+econ_attr_set_by_name, schema_offset). The plugin (`plugins/skins/`) only uses the API:
+`apply.cpp` (weapons, knives, per-tick driver), `cosmetics.cpp` (gloves, agents).
+
+The signatures skins needs live in the gamedata fragment `gamedata/engine-surface.skins.json`,
+which ships only in the skins packages (next to the core as
+`csgo/readyup/bin/linuxsteamrt64/engine-surface.skins.json`). The core merges it into
+`engine-surface.json` at load; without it the econ/model API members return 0. Check both with
+`build/readyup_sigcheck <libserver.so> gamedata/engine-surface.json gamedata/engine-surface.skins.json`.
 
 ## How it runs
 
@@ -49,7 +56,7 @@ The first active tick always prints one status line per skins item:
   relocs.
 - **Schema**: an offline harness loads `libtier0`, `libschemasystem` and `libserver` from the build,
   calls `InstallSchemaBindings("SchemaSystem_001", …)`, then runs Ready Up's **real**
-  `schema.cpp` and `skins_engine.cpp` against it. Signature resolution is checked the same way,
+  `schema.cpp` and `entity.cpp` against it. Signature resolution is checked the same way,
   against the loaded image.
 
 ## Signatures and addresses
@@ -176,8 +183,8 @@ this build, so its caller keeps falling back to event counting.
 they only look right on the weapon's legacy model, which is bodygroup `body` = 1. Fade, Printstream
 and other CS2-native kits are not legacy.
 
-- **Table**: the ids are in `core/src/readyup/legacy_paint_kits.inc`. After a game update, regenerate
-  it with `scripts/gen_legacy_paint_kits.py <items_game.txt> <version>`.
+- **Table**: the ids are in `plugins/skins/legacy_paint_kits.inc`. After a game update, regenerate
+  it with `plugins/skins/gen_legacy_paint_kits.py <items_game.txt> <version>`.
 - **Apply**: when a weapon gets a legacy paint, Ready Up sets `body` = 1 through the
   GetModel → FindBodygroupByName → SetBodygroup chain.
 - **Retry**: if the weapon's model isn't loaded yet, Ready Up retries on later ticks and then

@@ -1,10 +1,6 @@
-#include "readyup/weapon_paints.h"
+#include "skins.h"
 
-#include "readyup/config.h"
-#include "readyup/logging.h"
-#include "readyup/schema.h"
-#include "readyup/skins_engine.h"
-#include "readyup/weapon_paints_internal.h"
+#include "apply_internal.h"
 
 #include <cstdint>
 #include <cstring>
@@ -15,15 +11,15 @@
 // Spawn cosmetics: agent model + gloves. Called from GameFrameTick (game thread) on the frame a
 // pawn becomes alive, and once more on the next frame.
 
-namespace readyup::weapon_paints {
+namespace skins {
 namespace {
 
 std::unordered_set<uint64_t> g_warned;
 
 void WarnOnce(uint64_t steamid64, const char* what) {
-  if (!DebugEnabled() || steamid64 == 0) return;
+  if (!DebugOn() || steamid64 == 0) return;
   if (!g_warned.insert(steamid64 ^ std::hash<std::string>{}(what)).second) return;
-  Debug("skins: %llu: %s\n", static_cast<unsigned long long>(steamid64), what);
+  Log(RU_LOG_DEBUG, "%llu: %s", static_cast<unsigned long long>(steamid64), what);
 }
 
 struct PawnOffsets {
@@ -36,8 +32,8 @@ PawnOffsets& POff() {
   static PawnOffsets o;
   if (!o.resolved) {
     o.resolved = true;
-    if (auto v = SchemaFindOffset("server", "CCSPlayerPawn", "m_EconGloves")) o.econGloves = *v;
-    if (auto v = SchemaFindOffset("server", "CCSPlayerPawn", "m_nEconGlovesChanged")) o.econGlovesChanged = *v;
+    o.econGloves = SchemaOffset("CCSPlayerPawn", "m_EconGloves");
+    o.econGlovesChanged = SchemaOffset("CCSPlayerPawn", "m_nEconGlovesChanged");
   }
   return o;
 }
@@ -65,7 +61,7 @@ bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late) {
   if (const auto agents = FindAgents(steamid64)) {
     const std::string model = NormalizeAgentModel(team == 3 ? agents->agent_ct : agents->agent_t);
     if (!model.empty()) {
-      if (skins::SetModel(pawn, model.c_str())) changed = true;
+      if (SetModel(pawn, model.c_str())) changed = true;
       else WarnOnce(steamid64, "SetModel unavailable; agent not applied");
     }
   }
@@ -77,7 +73,7 @@ bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late) {
       WarnOnce(steamid64, "glove schema fields missing; gloves not applied");
     } else {
       void* item = static_cast<unsigned char*>(pawn) + po.econGloves;
-      readyup::WeaponSkinEntry skin;
+      WeaponSkinEntry skin;
       if (const auto s = FindWeaponSkin(steamid64, team, *gloveDef)) skin = *s;
       if (skin.paint_id <= 0) {
         WarnOnce(steamid64, "glove row has no paint in readyup_weapon_skins; gloves need a paint kit");
@@ -96,12 +92,12 @@ bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late) {
         }
         // Hides the agent model's built-in gloves. Retried on every cosmetics pass: on the spawn
         // frame the (new) agent model is often not loaded yet (GetModel == null).
-        const auto bg = skins::SetBodygroupByName(pawn, "default_gloves", 1);
-        if (bg == skins::BodygroupResult::kOk) {
+        const auto bg = SetBodygroupByName(pawn, "default_gloves", 1);
+        if (bg == RU_BODYGROUP_OK) {
           WarnOnce(steamid64, "default_gloves bodygroup set");
         } else {
           const std::string why = std::string("SetBodygroup(default_gloves,1) not applied yet: ") +
-                                  skins::BodygroupResultName(bg);
+                                  BodygroupResultName(bg);
           WarnOnce(steamid64, why.c_str());
         }
         changed = true;
@@ -112,10 +108,10 @@ bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late) {
   // Pawns persist across rounds, so their glove/model fields were networked long ago. Force a
   // full re-send (cheap: once per spawn, only for players with cosmetics).
   if (changed) {
-    if (!skins::MarkEntityFullyChanged(pawn)) WarnOnce(steamid64, "NetworkStateChanged unavailable");
+    if (!MarkEntityFullyChanged(pawn)) WarnOnce(steamid64, "NetworkStateChanged unavailable");
   }
   (void)late;
   return true;
 }
 
-}  // namespace readyup::weapon_paints
+}  // namespace skins

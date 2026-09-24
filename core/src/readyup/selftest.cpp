@@ -18,7 +18,7 @@
 #include "readyup/ready_hud.h"
 #include "readyup/round_termination_hook.h"
 #include "readyup/schema.h"
-#include "readyup/skins_engine.h"
+#include "readyup/entity.h"
 #include "readyup/version.h"
 
 #include <unistd.h>

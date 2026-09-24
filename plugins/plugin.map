@@ -1,0 +1,9 @@
+/* Dynamic symbols a Ready Up plugin exports (docs/ARCHITECTURE.md, ABI rule 4). */
+{
+  global:
+    readyup_plugin_info;
+    readyup_plugin_load;
+    readyup_plugin_unload;
+  local:
+    *;
+};

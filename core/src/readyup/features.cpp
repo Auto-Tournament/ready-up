@@ -10,7 +10,7 @@
 #include "readyup/postgres.h"
 #include "readyup/schema.h"
 #include "readyup/server_game_clients_hook.h"
-#include "readyup/skins_engine.h"
+#include "readyup/entity.h"
 
 #include <array>
 #include <atomic>
@@ -45,24 +45,6 @@ const std::vector<FeatureDef>& Defs() {
       {Feature::ChatCommands, "chat_commands", {{"loglistener", "hook:ClientCommand"}, {"fn:UTIL_ClientPrintAll", "cmdbuf"}}},
       {Feature::MatchFlow, "match_flow", {{"hook:GameFrame"}, {"cmdbuf"}}},
       {Feature::Pauses, "pauses", {{"cmdbuf"}, {"loglistener", "hook:ClientCommand"}}},
-      {Feature::Skins,
-       "skins",
-       {{"hook:GameFrame"},
-        {"fn:CAttributeList_SetOrAddAttributeValueByName"},
-        {"fn:CBaseEntity_ChangeSubclass"},
-        {"fn:CBaseModelEntity_SetModel"},
-        {"fn:CBaseEntity_NetworkStateChanged"},
-        {"vtable:CEntityInstance::NetworkStateChanged"},
-        {"fn:UTIL_Remove"},
-        {"db"},
-        {"schema"},
-        {"entsys"}}},
-      {Feature::SkinsBodygroups,
-       "skins_bodygroups",
-       {{"feature:skins"},
-        {"fn:CBaseModelEntity_GetModel"},
-        {"fn:CModel_FindBodygroupByName"},
-        {"fn:CBaseModelEntity_SetBodygroup"}}},
       {Feature::WelcomeHtml, "welcome_html", {{"hook:GameFrame"}, {"fn:LegacyGameEventListener"}, {"eventmgr"}}},
       {Feature::RoundTermSuppression, "round_term_suppression", {{"fn:CCSGameRules_TerminateRound"}}},
       {Feature::Events, "events", {{"fn:CGameEventManager_Init"}, {"eventmgr"}}},
@@ -155,7 +137,7 @@ DepStatus DependencyStatusImpl(const std::string& dep, int depth) {
   }
   if (dep == "entsys") {
     std::string d;
-    const int tri = skins::EntitySystemStatus(&d);
+    const int tri = entity::EntitySystemStatus(&d);
     return FromTri(tri, d);
   }
   if (dep == "eventmgr") {

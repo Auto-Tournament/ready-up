@@ -16,6 +16,11 @@ TOOLS="${2:?usage: $0 <cs2-dir> <tools-dir> [report.md]}"
 REPORT="${3:-$CS2/report.md}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SURFACE="${SURFACE:-$ROOT_DIR/gamedata/engine-surface.json}"
+# Plugin gamedata fragments (engine-surface.<plugin>.json, e.g. skins) are merged on top of the
+# base file, exactly as the core does at load. Every fragment in gamedata/ is verified.
+shopt -s nullglob
+FRAGMENTS=("$(dirname "$SURFACE")"/engine-surface.*.json)
+shopt -u nullglob
 LIB="$CS2/game/csgo/bin/linuxsteamrt64/libserver.so"
 
 BUILDID="" PATCH_VERSION="" SERVER_VERSION=""
@@ -27,15 +32,15 @@ fi
 sig_out="$(mktemp)" hook_out="$(mktemp)"
 trap 'rm -f "$sig_out" "$hook_out"' EXIT
 set +e
-"$TOOLS/readyup_sigcheck" "$LIB" "$SURFACE" >"$sig_out" 2>&1
+"$TOOLS/readyup_sigcheck" "$LIB" "$SURFACE" "${FRAGMENTS[@]}" >"$sig_out" 2>&1
 sig_rc=$?
-"$TOOLS/readyup_hookcheck" "$LIB" "$SURFACE" >"$hook_out" 2>&1
+"$TOOLS/readyup_hookcheck" "$LIB" "$SURFACE" "${FRAGMENTS[@]}" >"$hook_out" 2>&1
 hook_rc=$?
 set -e
 cat "$sig_out" "$hook_out"
 
 python3 - "$sig_out" "$hook_out" "$sig_rc" "$hook_rc" "$SURFACE" \
-  "${BUILDID:-?}" "${PATCH_VERSION:-?}" "${SERVER_VERSION:-?}" >"$REPORT" <<'PY'
+  "${BUILDID:-?}" "${PATCH_VERSION:-?}" "${SERVER_VERSION:-?}"   "$(basename "$SURFACE")" "${FRAGMENTS[@]##*/}" >"$REPORT" <<'PY'
 import json, re, sys
 
 sig_path, hook_path, sig_rc, hook_rc, surface_path, buildid, patch, server = sys.argv[1:9]
@@ -70,6 +75,7 @@ print("|---|---|")
 print("| Steam buildid | `%s` |" % buildid)
 print("| PatchVersion / ServerVersion | `%s` / `%s` |" % (patch, server))
 print("| engine-surface.json written for | `%s` (buildid `%s`) |" % (meta.get("game_version", "?"), meta.get("steam_buildid", "?")))
+print("| gamedata files | %s |" % ", ".join("`%s`" % f for f in sys.argv[9:]))
 print("| readyup_sigcheck | %s (exit %d) |" % ("pass" if sig_rc == 0 else "**FAIL**", sig_rc))
 print("| readyup_hookcheck | %s (exit %d) |" % ("pass" if hook_rc == 0 else "**FAIL**", hook_rc))
 print()
@@ -94,9 +100,9 @@ print()
 print("</details>")
 if not ok:
     print()
-    print("Fix: update `gamedata/engine-surface.json` (signatures / anchors), then re-run "
-          "`build/readyup_sigcheck <libserver.so> gamedata/engine-surface.json` and "
-          "`build/readyup_hookcheck <libserver.so> gamedata/engine-surface.json`. "
+    print("Fix: update `gamedata/engine-surface.json` or the failing fragment (signatures / anchors), then re-run "
+          "`build/readyup_sigcheck <libserver.so> gamedata/engine-surface.json gamedata/engine-surface.skins.json` and "
+          "`build/readyup_hookcheck` with the same files. "
           "`scripts/ci/fetch-cs2-binaries.sh <dir>` downloads just the needed CS2 files.")
 PY
 

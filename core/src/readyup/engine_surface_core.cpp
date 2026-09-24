@@ -431,6 +431,27 @@ Resolution Resolve(const Image& img, const FunctionSpec& spec) {
   return res;
 }
 
+bool MergeEngineSurface(EngineSurface* base, const EngineSurface& frag, std::string* err) {
+  if (!base) return false;
+  auto dup = [&](const char* what, const std::string& name) {
+    if (err) *err = std::string("duplicate ") + what + " \"" + name + "\"";
+    return false;
+  };
+  for (const auto& f : frag.functions)
+    if (base->Find(f.name)) return dup("function", f.name);
+  for (const auto& v : frag.vtables)
+    if (base->FindVtable(v.name)) return dup("vtable", v.name);
+  for (const auto& r : frag.rtti)
+    if (base->FindRtti(r.cls)) return dup("rtti", r.cls);
+  for (const auto& l : frag.layouts)
+    if (base->FindLayout(l.name)) return dup("layout", l.name);
+  base->functions.insert(base->functions.end(), frag.functions.begin(), frag.functions.end());
+  base->vtables.insert(base->vtables.end(), frag.vtables.begin(), frag.vtables.end());
+  base->rtti.insert(base->rtti.end(), frag.rtti.begin(), frag.rtti.end());
+  base->layouts.insert(base->layouts.end(), frag.layouts.begin(), frag.layouts.end());
+  return true;
+}
+
 const FunctionSpec* EngineSurface::Find(const std::string& name) const {
   for (const auto& f : functions)
     if (f.name == name) return &f;

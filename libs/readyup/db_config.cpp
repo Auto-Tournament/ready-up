@@ -1,20 +1,13 @@
 #include "readyup/db_config.h"
 
-#include "readyup/config.h"
-#include "readyup/logging.h"
-#include "readyup/path.h"
 
 #include <algorithm>
 #include <cctype>
 #include <fstream>
-#include <mutex>
 #include <string>
 
 namespace readyup {
 namespace {
-
-std::once_flag g_dbCfgOnce;
-std::optional<DbConfig> g_dbCfg;
 
 static std::string ReadWholeFile(const std::string& path) {
   std::ifstream f(path);
@@ -269,56 +262,32 @@ static std::string BuildConninfoFromFields(const ParsedFields& f) {
 
 }  // namespace
 
-std::optional<DbConfig> ReadDbConfig() {
-  const std::string dir = GetThisModuleDir();
-  if (dir.empty()) return std::nullopt;
-  const std::string path = dir + "/readyup_db.json";
-
-  const std::string s = ReadWholeFile(path);
-  if (s.empty()) return std::nullopt;
-
-  auto fields = ParseReadyUpDbJson(s);
+std::optional<DbConfig> ParseDbConfigText(const std::string& text, std::string* err) {
+  auto fields = ParseReadyUpDbJson(text);
   if (!fields) {
-    PrintLine("db config: failed to parse readyup_db.json (expected simple JSON object).");
+    if (err) *err = "failed to parse readyup_db.json (expected simple JSON object)";
     return std::nullopt;
   }
-
   std::string conninfo = Trim(fields->conninfo);
   if (conninfo.empty()) conninfo = BuildConninfoFromFields(*fields);
   conninfo = Trim(conninfo);
   if (conninfo.empty()) {
-    PrintLine("db config: readyup_db.json present but no conninfo/fields provided.");
+    if (err) *err = "readyup_db.json present but no conninfo/fields provided";
     return std::nullopt;
   }
-
   DbConfig cfg;
   cfg.conninfo = conninfo;
   cfg.conninfo_sanitized = StripPasswordKv(conninfo);
   return cfg;
 }
 
-const DbConfig* DbCfg() {
-  std::call_once(g_dbCfgOnce, []() {
-    if (DebugEnabled()) {
-      const std::string dir = GetThisModuleDir();
-      if (!dir.empty()) {
-        Print("db config: loading from: %s/readyup_db.json\n", dir.c_str());
-      } else {
-        PrintLine("db config: loading from: (unknown module dir)");
-      }
-    }
-
-    g_dbCfg = ReadDbConfig();
-    if (g_dbCfg) {
-      Print("db config: loaded (conninfo=%s)\n", g_dbCfg->conninfo_sanitized.c_str());
-    } else {
-      if (DebugEnabled()) {
-        PrintLine("db config: not configured (readyup_db.json missing or invalid).");
-      }
-    }
-  });
-  return g_dbCfg ? &(*g_dbCfg) : nullptr;
+std::optional<DbConfig> ReadDbConfigFile(const std::string& path, std::string* err) {
+  const std::string s = ReadWholeFile(path);
+  if (s.empty()) {
+    if (err) *err = "missing or empty: " + path;
+    return std::nullopt;
+  }
+  return ParseDbConfigText(s, err);
 }
 
 }  // namespace readyup
-

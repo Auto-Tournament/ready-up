@@ -34,6 +34,7 @@ add_library(server_shim SHARED
   core/src/readyup/console_command.cpp
   core/src/readyup/crash_handler.cpp
   libs/readyup/db_config.cpp
+  core/src/readyup/db_config_file.cpp
   core/src/readyup/disabled.cpp
   core/src/readyup/features.cpp
   core/src/readyup/game_frame_hook.cpp
@@ -71,10 +72,7 @@ add_library(server_shim SHARED
   core/src/readyup/welcome.cpp
   core/src/readyup/ready_hud.cpp
   core/src/readyup/knife_tracker.cpp
-  core/src/readyup/weapon_paints.cpp
-  core/src/readyup/weapon_paints_apply.cpp
-  core/src/readyup/weapon_paints_cosmetics.cpp
-  core/src/readyup/skins_engine.cpp
+  core/src/readyup/entity.cpp
   core/src/readyup/plugin_loader.cpp
   core/src/readyup/plugin_engine_api.cpp
   core/src/readyup/engine_surface.cpp
@@ -311,6 +309,7 @@ function(readyup_add_plugin name)
   set(tgt readyup_plugin_${name})
   add_library(${tgt} MODULE ${ARGN})
   target_link_libraries(${tgt} PRIVATE readyup_plugin_api)
+  target_compile_definitions(${tgt} PRIVATE READYUP_SEMVER="${READYUP_SEMVER}")
   set_target_properties(${tgt} PROPERTIES
     OUTPUT_NAME "${name}"
     PREFIX ""
@@ -323,10 +322,47 @@ function(readyup_add_plugin name)
     $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>>:-fno-gnu-unique>)
   # Everything a plugin needs from the core arrives through ru_api; an unresolved symbol
   # at link time means it reached for core internals.
-  target_link_options(${tgt} PRIVATE "LINKER:--no-undefined")
+  # Export exactly the three entry points; static deps (libpq, OpenSSL, libstdc++ in release
+  # builds) stay local so they never interpose on the engine's or the core's copies.
+  target_link_options(${tgt} PRIVATE "LINKER:--no-undefined" "LINKER:--exclude-libs,ALL"
+    "LINKER:--version-script=${CMAKE_SOURCE_DIR}/plugins/plugin.map")
+  set_property(TARGET ${tgt} APPEND PROPERTY LINK_DEPENDS "${CMAKE_SOURCE_DIR}/plugins/plugin.map")
+  if (READYUP_DEPS_PREFIX)
+    # Release (sniper) builds: the host only guarantees glibc (scripts/ci/check-portable.sh).
+    target_link_options(${tgt} PRIVATE -static-libstdc++ -static-libgcc)
+  endif()
 endfunction()
 
+# Shared non-engine code for plugins (docs/ARCHITECTURE.md "libs/"). Static, PIC, hidden.
+# readyup_libs_db: readyup_db.json parsing + a small libpq client (skins; match later).
+add_library(readyup_libs_db STATIC libs/readyup/db_config.cpp libs/readyup/pg_client.cpp)
+set_target_properties(readyup_libs_db PROPERTIES POSITION_INDEPENDENT_CODE ON
+  CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
+target_include_directories(readyup_libs_db PUBLIC ${CMAKE_SOURCE_DIR}/libs)
+target_compile_options(readyup_libs_db PRIVATE -Wall -Wextra
+  $<$<CXX_COMPILER_ID:GNU>:-fno-gnu-unique>)
+if (READYUP_DEPS_PREFIX)
+  target_include_directories(readyup_libs_db PRIVATE "${READYUP_DEPS_PREFIX}/include")
+  target_link_libraries(readyup_libs_db PUBLIC
+    "${READYUP_DEPS_PREFIX}/lib/libpq.a"
+    "${READYUP_DEPS_PREFIX}/lib/libpgcommon_shlib.a"
+    "${READYUP_DEPS_PREFIX}/lib/libpgport_shlib.a"
+    "${READYUP_DEPS_PREFIX}/lib/libssl.a"
+    "${READYUP_DEPS_PREFIX}/lib/libcrypto.a"
+    pthread dl m)
+elseif (PostgreSQL_FOUND AND READYUP_STATIC_LIBPQ)
+  target_include_directories(readyup_libs_db PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+  target_link_libraries(readyup_libs_db PUBLIC ${PQ_STATIC} ${PGCOMMON_SHLIB} ${PGPORT_SHLIB}
+    ssl crypto gssapi_krb5 ldap lber pthread)
+elseif (PostgreSQL_FOUND)
+  target_include_directories(readyup_libs_db PRIVATE ${PostgreSQL_INCLUDE_DIRS})
+  target_link_libraries(readyup_libs_db PUBLIC ${PostgreSQL_LIBRARIES})
+else()
+  target_compile_definitions(readyup_libs_db PRIVATE READYUP_NO_POSTGRES=1)
+endif()
+
 add_subdirectory(plugins/hello)
+add_subdirectory(plugins/skins)
 
 # Offline plugin-host test (no CS2 server): the real loader + stubbed core functions,
 # loading hello.so, then hot-reloading a second build of it with a different version.

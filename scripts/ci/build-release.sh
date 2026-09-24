@@ -38,4 +38,7 @@ cmake -S "$ROOT_DIR" -B "$BUILD_DIR" \
 cmake --build "$BUILD_DIR" -j"$(nproc)"
 
 "$ROOT_DIR/scripts/ci/check-portable.sh" "$BUILD_DIR/libserver.so"
+for so in "$BUILD_DIR"/plugins/*.so; do
+  "$ROOT_DIR/scripts/ci/check-portable.sh" "$so" "$ROOT_DIR/plugins/plugin.map"
+done
 echo "Built: $BUILD_DIR/libserver.so"

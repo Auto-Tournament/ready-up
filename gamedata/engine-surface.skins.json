@@ -1,0 +1,102 @@
+{
+  "_meta": {
+    "game_version": "1.41.8.3",
+    "steam_buildid": 25492732,
+    "binary": "game/csgo/bin/linuxsteamrt64/libserver.so",
+    "notes": "Owned by readyup-skins. The core merges every engine-surface.<name>.json next to the shim into engine-surface.json at load; readyup_sigcheck/readyup_hookcheck take it as an extra argument. Ships only in the skins packages. Entries may reference rtti classes from the base file."
+  },
+  "functions": {
+    "CAttributeList_SetOrAddAttributeValueByName": {
+      "library": "server",
+      "linux": "55 48 89 E5 41 57 41 56 41 55 49 89 FD 41 54 53 48 89 F3 48 83 EC ? F3 0F 11 85 ? ? ? ? E8 ? ? ? ? 48 89 DE 48 89 C7 E8",
+      "required": false,
+      "description": "CAttributeList::SetOrAddAttributeValueByName(this, const char* name, float value). Reached via the CEconItemView thunk (add rdi,0x70; jmp). Weapon paints only.",
+      "anchors": [
+        { "type": "caller_string", "string": "set item texture prefab", "window": 48, "via_thunk": true }
+      ]
+    },
+    "CBaseEntity_ChangeSubclass": {
+      "library": "server",
+      "linux": "55 48 89 E5 41 57 49 89 F7 41 56 41 55 41 54 53 48 89 FB 48 81 EC A8 00 00 00",
+      "required": false,
+      "description": "CBaseEntity::ChangeSubclass(this, const char* subclass). Knives: subclass = item defindex (\"507\"), same as the ChangeSubclass input / `subclass_change`. Weapon paints only.",
+      "anchors": [
+        {
+          "type": "caller_string",
+          "string": "ChangeSubclass",
+          "window": 128
+        }
+      ]
+    },
+    "CBaseModelEntity_SetModel": {
+      "library": "server",
+      "linux": "55 48 89 E5 53 48 89 FB 48 83 EC ? 48 8D 05 ? ? ? ? 48 8B 38 48 8B 07 FF 50 ? 48 89 DF 48 8B 5D ? C9 48 89 C6 E9 ? ? ? ? CC CC CC CC 55",
+      "required": false,
+      "description": "CBaseModelEntity::SetModel(this, const char* model). Weapon paints only.",
+      "anchors": [
+        { "type": "caller_string", "string": "models/chicken/chicken.vmdl", "window": 48 }
+      ]
+    },
+    "CBaseModelEntity_GetModel": {
+      "library": "server",
+      "linux": "48 8B 47 10 48 8B 10 48 85 D2 74 5C 48 8B 40 08 48 8D 0D ? ? ? ? 48 8B 80 88 00 00 00 48 63 49 20 0F B7 04 48 66 83 F8 FF 74 3C 48 8B 04 02",
+      "required": false,
+      "description": "CBaseModelEntity::GetModel(this) -> CModel* (null if none). 1st call of InputSetBodyGroup. Gloves (default_gloves bodygroup) only.",
+      "anchors": [
+        {
+          "type": "caller_string",
+          "string": "models/hostage/hostage.vmdl",
+          "window": 128
+        }
+      ]
+    },
+    "CModel_FindBodygroupByName": {
+      "library": "server",
+      "linux": "55 48 89 E5 41 57 41 56 41 55 49 89 FD 41 54 53 31 DB",
+      "required": false,
+      "description": "CModel::FindBodygroupByName(model, name) -> int (<0 = missing). 2nd call of InputSetBodyGroup; the Pulse SetBodygroupByName binding loads \"bodygroup\" right before calling it. Gloves only.",
+      "anchors": [
+        {
+          "type": "caller_string",
+          "string": "bodygroup",
+          "window": 128
+        }
+      ]
+    },
+    "CBaseModelEntity_SetBodygroup": {
+      "library": "server",
+      "linux": "85 F6 0F 88 ? ? ? ? 55 48 89 E5 41 57 41 56",
+      "required": false,
+      "description": "CBaseModelEntity::SetBodygroup(this, int group, int value). 3rd call of InputSetBodyGroup. Gloves only.",
+      "anchors": [
+        {
+          "type": "string_ref",
+          "string": "CBaseModelEntity::SetBodygroup(%d,%d) failed: iGroup outside the range 0 - %d! (model %s)\n",
+          "window": 512
+        }
+      ]
+    },
+    "CBaseEntity_NetworkStateChanged": {
+      "library": "server",
+      "linux": "55 48 89 E5 53 48 89 FB 48 83 C7 38 48 83 EC 08 8B 06 85 C0 75",
+      "required": false,
+      "description": "CEntityInstance::NetworkStateChanged(const NetworkStateChangedData&) as implemented by CBaseEntity (vtbl slot in vtable_indices; same impl for pawns, weapons, knives). A zero offset count (first dword; `mov eax,[rsi]; test eax,eax; jne` is part of the signature) marks the whole entity dirty and reads nothing else from the data. Only called through an entity's vtable after checking the slot equals this address. Skins re-networking only.",
+      "anchors": [
+        {
+          "type": "callee_string",
+          "string": "CNetworkTransmitComponent::StateChanged(%s) @%s:%d",
+          "window": 160,
+          "callee_window": 128
+        }
+      ]
+    }
+  },
+  "vtable_indices": {
+    "CEntityInstance::NetworkStateChanged": {
+      "linux": 29,
+      "class": "CBaseEntity",
+      "function": "CBaseEntity_NetworkStateChanged",
+      "note": "Chain helper NetworkStateChanged dispatches via [vtbl+0xE8]. Called (not patched) on entities whose slot equals the verified function (CBaseEntity, CBaseModelEntity, CBasePlayerPawn, CCSPlayerPawn(Base), CEconEntity, CBasePlayerWeapon, CCSWeaponBase(Gun), CKnife share it)."
+    }
+  }
+}

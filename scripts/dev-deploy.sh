@@ -23,6 +23,9 @@
 #                   target readyup_plugin_NAME, copy build-docker/plugins/NAME.so to
 #                   csgo/readyup/plugins/NAME.so, then type `ru plugin reload NAME`
 #                   into the server console (tmux) and print the result. No restart.
+#                   If gamedata/engine-surface.NAME.json exists (skins), it is installed
+#                   next to the core too; the core only reads fragments at startup, so add
+#                   --restart the first time or after changing it.
 #
 # The previous file is kept as <file>.prev (libserver.so.prev / NAME.so.prev). The new file is
 # renamed into place (never written over), so a running server keeps its
@@ -56,7 +59,6 @@ done
 
 if [[ -n "$PLUGIN" ]]; then
   [[ "$PLUGIN" =~ ^[a-z0-9_-]{1,32}$ ]] || die "invalid plugin name: $PLUGIN"
-  [[ $RESTART -eq 0 ]] || die "--plugin hot-reloads; it does not combine with --restart"
 fi
 
 TARGET="${TARGET%/}"
@@ -89,7 +91,6 @@ else
 fi
 [[ -f "$SRC_DIR/$FILE" ]] || die "no artifact at $SRC_DIR/$FILE"
 
-echo "Deploying $FILE $(sha256sum "$SRC_DIR/$FILE" | cut -c1-12) -> $SSH_DEST:$DEST"
 
 # The remote script goes on the command line so stdin is free for the tarball.
 read -r -d '' DEPLOY_SCRIPT <<'REMOTE' || true
@@ -105,10 +106,24 @@ if [[ -f "$dest/$file" ]]; then cp -p "$dest/$file" "$dest/$file.prev"; fi
 mv -f "$stage/$file" "$dest/$file"
 ls -l "$dest/$file"*
 REMOTE
-tar -C "$SRC_DIR" -cf - "$FILE" \
-  | "${SSH[@]}" "bash -c $(printf '%q' "$DEPLOY_SCRIPT") deploy $(printf '%q' "$DEST") $(printf '%q' "$FILE")"
+deploy_file() {  # <src-dir> <file> <dest-dir>
+  echo "Deploying $2 $(sha256sum "$1/$2" | cut -c1-12) -> $SSH_DEST:$3"
+  tar -C "$1" -cf - "$2" \
+    | "${SSH[@]}" "bash -c $(printf '%q' "$DEPLOY_SCRIPT") deploy $(printf '%q' "$3") $(printf '%q' "$2")"
+}
+deploy_file "$SRC_DIR" "$FILE" "$DEST"
 
-if [[ -n "$PLUGIN" ]]; then
+if [[ -n "$PLUGIN" && -f "$ROOT_DIR/gamedata/engine-surface.$PLUGIN.json" ]]; then
+  FRAG_DEST="$TARGET/game/csgo/readyup/bin/linuxsteamrt64"
+  if "${SSH[@]}" cmp -s - "$FRAG_DEST/engine-surface.$PLUGIN.json" <"$ROOT_DIR/gamedata/engine-surface.$PLUGIN.json"; then
+    echo "gamedata fragment engine-surface.$PLUGIN.json unchanged"
+  else
+    deploy_file "$ROOT_DIR/gamedata" "engine-surface.$PLUGIN.json" "$FRAG_DEST"
+    [[ $RESTART -eq 1 ]] || echo "NOTE: gamedata fragment changed; the core reads it at startup (use --restart)." >&2
+  fi
+fi
+
+if [[ -n "$PLUGIN" && $RESTART -eq 0 ]]; then
   # The core runs the reload at the top of its next GameFrame. Keep
   # sv_hibernate_when_empty 0 on dev servers so an empty server still ticks.
   echo "Reloading plugin $PLUGIN in tmux session $SESSION ..."

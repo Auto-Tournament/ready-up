@@ -10,7 +10,7 @@
 #include "readyup/round_termination_hook.h"
 #include "readyup/schema.h"
 #include "readyup/sdk/igameevents.h"
-#include "readyup/skins_engine.h"
+#include "readyup/entity.h"
 #include "readyup/slot_registry.h"
 
 #include "readyup/plugin_api.h"
@@ -154,55 +154,55 @@ int ApiSchemaOffset(ru_plugin* self, const char* cls, const char* field) {
 
 int ApiEntitySystemStatus(ru_plugin* self) {
   if (!CheckGameThread(self, "entity_system_status")) return RU_ENTSYS_PENDING;
-  return skins::EntitySystemStatus(nullptr);
+  return entity::EntitySystemStatus(nullptr);
 }
 
 void* ApiEntityByIndex(ru_plugin* self, int index) {
   if (!CheckGameThread(self, "entity_by_index")) return nullptr;
-  return skins::EntityByIndex(index);
+  return entity::EntityByIndex(index);
 }
 
 void* ApiEntityFromHandle(ru_plugin* self, uint32_t handle) {
   if (!CheckGameThread(self, "entity_from_handle")) return nullptr;
-  return skins::EntityFromHandle(handle);
+  return entity::EntityFromHandle(handle);
 }
 
 uint32_t ApiEntityHandleOf(ru_plugin* self, void* ent) {
   if (!CheckGameThread(self, "entity_handle_of") || !ent) return 0xFFFFFFFFu;
-  return skins::EntityHandleOf(ent);
+  return entity::EntityHandleOf(ent);
 }
 
 const char* ApiEntityClassname(ru_plugin* self, void* ent) {
   if (!CheckGameThread(self, "entity_classname") || !ent) return nullptr;
-  return skins::EntityDesignerName(ent);
+  return entity::EntityDesignerName(ent);
 }
 
 int ApiEntityMarkChanged(ru_plugin* self, void* ent) {
   if (!CheckGameThread(self, "entity_mark_changed") || !ent) return 0;
-  return skins::MarkEntityFullyChanged(ent) ? 1 : 0;
+  return entity::MarkEntityFullyChanged(ent) ? 1 : 0;
 }
 
 int ApiEconAttrSet(ru_plugin* self, void* list, const char* name, double value) {
   if (!CheckGameThread(self, "econ_attr_set_by_name") || !list || !name) return 0;
-  return skins::AttrSetOrAddByName(list, name, static_cast<float>(value)) ? 1 : 0;
+  return entity::AttrSetOrAddByName(list, name, static_cast<float>(value)) ? 1 : 0;
 }
 
 int ApiChangeSubclass(ru_plugin* self, void* ent, const char* subclass) {
   if (!CheckGameThread(self, "entity_change_subclass") || !ent || !subclass) return 0;
-  return skins::ChangeSubclass(ent, subclass) ? 1 : 0;
+  return entity::ChangeSubclass(ent, subclass) ? 1 : 0;
 }
 
 int ApiSetModel(ru_plugin* self, void* ent, const char* model) {
   if (!CheckGameThread(self, "entity_set_model") || !ent || !model || !*model) return 0;
-  return skins::SetModel(ent, model) ? 1 : 0;
+  return entity::SetModel(ent, model) ? 1 : 0;
 }
 
 int ApiSetBodygroup(ru_plugin* self, void* ent, const char* group, int value) {
   if (!CheckGameThread(self, "entity_set_bodygroup_by_name") || !ent || !group) return RU_BODYGROUP_UNAVAILABLE;
-  switch (skins::SetBodygroupByName(ent, group, value)) {
-    case skins::BodygroupResult::kOk: return RU_BODYGROUP_OK;
-    case skins::BodygroupResult::kNoModel: return RU_BODYGROUP_NO_MODEL;
-    case skins::BodygroupResult::kNoGroup: return RU_BODYGROUP_NO_GROUP;
+  switch (entity::SetBodygroupByName(ent, group, value)) {
+    case entity::BodygroupResult::kOk: return RU_BODYGROUP_OK;
+    case entity::BodygroupResult::kNoModel: return RU_BODYGROUP_NO_MODEL;
+    case entity::BodygroupResult::kNoGroup: return RU_BODYGROUP_NO_GROUP;
     default: return RU_BODYGROUP_UNAVAILABLE;
   }
 }

@@ -19,7 +19,6 @@
 #include "readyup/real_server.h"
 #include "readyup/webhook.h"
 #include "readyup/postgres.h"
-#include "readyup/weapon_paints.h"
 #include "readyup/welcome.h"
 
 
@@ -44,59 +43,6 @@ namespace {
 static long long NowMs() {
   using Clock = std::chrono::system_clock;
   return std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now().time_since_epoch()).count();
-}
-
-static std::optional<int> DefindexForDeathWeaponString(const char* weapon) {
-  // `player_death` typically provides `weapon` as a short token like "ak47" (no "weapon_" prefix).
-  if (!weapon || !*weapon) return std::nullopt;
-  std::string w(weapon);
-  if (w.rfind("weapon_", 0) == 0) w = w.substr(7);
-
-  // Map based on cs2-WeaponPaints `Variables.cs` WeaponDefindex entries (subset).
-  // Expand as needed; unknown weapons return nullopt.
-  // Pistols
-  if (w == "deagle") return 1;
-  if (w == "elite") return 2;
-  if (w == "fiveseven") return 3;
-  if (w == "glock") return 4;
-  if (w == "tec9") return 30;
-  if (w == "hkp2000") return 32;
-  if (w == "p250") return 36;
-  if (w == "usp_silencer") return 61;
-  if (w == "cz75a") return 63;
-  if (w == "revolver") return 64;
-
-  // Rifles/SMGs/Heavies
-  if (w == "ak47") return 7;
-  if (w == "aug") return 8;
-  if (w == "awp") return 9;
-  if (w == "famas") return 10;
-  if (w == "g3sg1") return 11;
-  if (w == "galilar") return 13;
-  if (w == "m249") return 14;
-  if (w == "m4a1") return 16;
-  if (w == "mac10") return 17;
-  if (w == "p90") return 19;
-  if (w == "mp5sd") return 23;
-  if (w == "ump45") return 24;
-  if (w == "xm1014") return 25;
-  if (w == "bizon") return 26;
-  if (w == "mag7") return 27;
-  if (w == "negev") return 28;
-  if (w == "sawedoff") return 29;
-  if (w == "taser") return 31;
-  if (w == "mp7") return 33;
-  if (w == "mp9") return 34;
-  if (w == "nova") return 35;
-  if (w == "scar20") return 38;
-  if (w == "sg556") return 39;
-  if (w == "ssg08") return 40;
-  if (w == "m4a1_silencer") return 60;
-
-  // Knives (often show as "knife", "knife_t", etc. on death events).
-  if (w == "knife" || w == "knife_t" || w == "bayonet") return 500;  // treat as generic knife; cosmetic defindex is per-player loadout
-
-  return std::nullopt;
 }
 
 // Game-event interface mirrors live in readyup/sdk/igameevents.h. They must keep external
@@ -706,31 +652,6 @@ static void OnPlayerDeathLocked(IGameEvent* ev) {
     }
   }
 
-  // Best-effort StatTrak increment (DB-backed).
-  // We rely on the death event's `weapon` token (e.g. "ak47") to map to defindex.
-  if (attackerSid && *attackerSid != 0) {
-    const char* w = ev->GetString(CKV3MemberName("weapon"), "");
-    const auto defOpt = DefindexForDeathWeaponString(w);
-    const int attackerTeamNum = ev->GetInt(CKV3MemberName("attackerteam"), 0);  // 2=T, 3=CT
-    if (defOpt && attackerTeamNum != 0) {
-      const int defindex = *defOpt;
-      // Only increment when the player's configured skin row has StatTrak enabled.
-      const auto skin = readyup::weapon_paints::FindWeaponSkin(*attackerSid, attackerTeamNum, defindex);
-      if (skin && skin->stattrak_enabled) {
-        // Increment the row that actually matched (may be the team-0 "both" row).
-        std::thread([sid = *attackerSid, team = skin->weapon_team, def = defindex]() {
-          std::string err;
-          if (readyup::pg::IncrementWeaponSkinStatTrakCount(sid, team, def, &err)) {
-            // Drop cache so next apply sees the incremented count.
-            readyup::weapon_paints::Invalidate(sid);
-          } else if (readyup::DebugEnabled() && !err.empty()) {
-            readyup::Debug("weapon_paints: IncrementWeaponSkinStatTrakCount(%llu,%d,%d) err=%s\n",
-                           static_cast<unsigned long long>(sid), team, def, err.c_str());
-          }
-        }).detach();
-      }
-    }
-  }
 }
 
 static void OnPlayerHurtLocked(IGameEvent* ev) {
@@ -754,37 +675,6 @@ static void OnPlayerSpawnLocked(IGameEvent* ev) {
     g_slotController[slot] = controller;
     if (const uint64_t sid = SteamFromController(controller)) ObserveHumanSlot(sid, slot);
   }
-
-  // Kick off async loadout refresh. Actual apply is best-effort and may happen
-  // later via weapon hooks (or on future spawn when offsets/hooks are available).
-  if (auto sid = SteamForSlot(slot)) {
-    readyup::weapon_paints::MaybeRefreshAsync(*sid);
-    void* pawn = ev->GetPlayerPawn(CKV3MemberName("userid"));
-    int teamNum = ev->GetInt(CKV3MemberName("team"), 0);
-    if (teamNum == 0) {
-      if (auto t = GetCsTeamNumForSlot(slot)) teamNum = *t;
-    }
-    // Gloves/agents are applied by weapon_paints::GameFrameTick() on the spawn frame.
-    (void)pawn;
-  }
-}
-
-static void OnItemEquipLocked(IGameEvent* ev) {
-  if (!ev) return;
-  const int slot = ev->GetPlayerSlot(CKV3MemberName("userid")).value;
-  const auto sid = SteamForSlot(slot);
-  if (!sid || *sid == 0) return;
-  // Prefetch only. Skins are applied by weapon_paints::GameFrameTick(), which sees the new weapon
-  // entity in the pawn's m_hMyWeapons (item_equip's "item" key is a classname string, not an entity).
-  readyup::weapon_paints::MaybeRefreshAsync(*sid);
-}
-
-static void OnItemPickupLocked(IGameEvent* ev) {
-  if (!ev) return;
-  const int slot = ev->GetPlayerSlot(CKV3MemberName("userid")).value;
-  const auto sid = SteamForSlot(slot);
-  if (!sid || *sid == 0) return;
-  readyup::weapon_paints::MaybeRefreshAsync(*sid);
 }
 
 // Normalized lifecycle events for plugins (engine source). Queued; delivered on GameFrame.
@@ -958,14 +848,6 @@ struct ListenerImpl : IGameEventListener2 {
       OnPlayerSpawnLocked(event);
       return;
     }
-    if (std::strcmp(name, "item_equip") == 0) {
-      OnItemEquipLocked(event);
-      return;
-    }
-    if (std::strcmp(name, "item_pickup") == 0) {
-      OnItemPickupLocked(event);
-      return;
-    }
   }
 };
 
@@ -1007,8 +889,6 @@ static constexpr ListenedEvent kListenedEvents[] = {
     {"player_death", true},
     {"player_hurt", true},
     {"player_spawn", true},
-    {"item_equip", true},
-    {"item_pickup", true},
     {"player_team", false},
     {"player_connect_full", false},
     {"player_disconnect", false},

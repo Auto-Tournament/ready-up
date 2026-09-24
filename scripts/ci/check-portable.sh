@@ -5,9 +5,11 @@
 #   - exports the engine entry points (core/src/exports.map) and nothing from static deps
 #
 #   scripts/ci/check-portable.sh build-sniper/libserver.so
+#   scripts/ci/check-portable.sh build-sniper/plugins/skins.so plugins/plugin.map
 set -euo pipefail
 
-so="${1:?usage: $0 <libserver.so>}"
+so="${1:?usage: $0 <libserver.so|plugin.so> [exports.map]}"
+EXPORTS_MAP="${2:-$(dirname "$0")/../../core/src/exports.map}"
 MAX_GLIBC="${MAX_GLIBC:-2.31}"
 fail=0
 
@@ -32,7 +34,7 @@ if [[ -n "$newest" && "$(printf '%s\n%s\n' "$newest" "$MAX_GLIBC" | sort -V | ta
 fi
 
 # The engine entry points from core/src/exports.map must be exported.
-for sym in $(sed -n 's/^[[:space:]]*\([A-Za-z_][A-Za-z0-9_]*\);$/\1/p' "$(dirname "$0")/../../core/src/exports.map"); do
+for sym in $(sed -n 's/^[[:space:]]*\([A-Za-z_][A-Za-z0-9_]*\);$/\1/p' "$EXPORTS_MAP"); do
   if nm -D --defined-only "$so" | awk '{print $3}' | grep -qx "$sym"; then
     echo "  ok   exports $sym"
   else

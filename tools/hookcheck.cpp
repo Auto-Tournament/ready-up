@@ -39,14 +39,36 @@ static std::string ReadFile(const char* path) {
 // The detour's hook_func is never called; it only has to be a real code address.
 extern "C" void readyup_hookcheck_dummy_detour() {}
 
+
+// Parses argv[2] (default gamedata/engine-surface.json) and merges every further argument
+// (fragments such as gamedata/engine-surface.skins.json) into it.
+static std::optional<es::EngineSurface> LoadSurfaces(int argc, char** argv) {
+  const char* basePath = argc > 2 ? argv[2] : "gamedata/engine-surface.json";
+  std::string err;
+  auto es = es::ParseEngineSurface(ReadFile(basePath), &err);
+  if (!es) {
+    std::fprintf(stderr, "%s: parse error: %s\n", basePath, err.c_str());
+    return std::nullopt;
+  }
+  for (int i = 3; i < argc; ++i) {
+    auto frag = es::ParseEngineSurface(ReadFile(argv[i]), &err);
+    if (!frag || !es::MergeEngineSurface(&*es, *frag, &err)) {
+      std::fprintf(stderr, "%s: %s\n", argv[i], err.c_str());
+      return std::nullopt;
+    }
+    std::printf("merged fragment %s (%zu functions, %zu vtables)\n", argv[i], frag->functions.size(),
+                frag->vtables.size());
+  }
+  return es;
+}
+
 int main(int argc, char** argv) {
   if (argc < 2) {
-    std::fprintf(stderr, "usage: %s <libserver.so> [engine-surface.json]\n", argv[0]);
+    std::fprintf(stderr, "usage: %s <libserver.so> [engine-surface.json [fragment.json ...]]\n", argv[0]);
     return 2;
   }
   const std::string bin = ReadFile(argv[1]);
-  const std::string json = ReadFile(argc > 2 ? argv[2] : "gamedata/engine-surface.json");
-  if (bin.size() < sizeof(Elf64_Ehdr) || json.empty() || std::memcmp(bin.data(), ELFMAG, SELFMAG) != 0) {
+  if (bin.size() < sizeof(Elf64_Ehdr) || std::memcmp(bin.data(), ELFMAG, SELFMAG) != 0) {
     std::fprintf(stderr, "failed to read inputs\n");
     return 2;
   }
@@ -80,25 +102,12 @@ int main(int argc, char** argv) {
     img.regions.push_back(r);
   }
 
-  std::string err;
-  auto surface = es::ParseEngineSurface(json, &err);
-  if (!surface) {
-    std::fprintf(stderr, "engine-surface parse error: %s\n", err.c_str());
-    return 2;
-  }
-  minijson::ParseError perr;
-  auto root = minijson::Parse(json, &perr);
-  const minijson::Value* fns = root ? root->get("functions") : nullptr;
-  if (!minijson::IsObject(fns)) {
-    std::fprintf(stderr, "engine-surface: no functions object\n");
-    return 2;
-  }
+  auto surface = LoadSurfaces(argc, argv);
+  if (!surface) return 2;
 
   int checked = 0, bad = 0;
   for (const auto& f : surface->functions) {
-    const minijson::Value* raw = fns->get(f.name.c_str());
-    auto hook = raw ? minijson::AsString(raw->get("hook")) : std::nullopt;
-    if (!hook || *hook != "funchook") continue;
+    if (f.hook != "funchook") continue;
     ++checked;
 
     const es::Resolution r = es::Resolve(img, f);

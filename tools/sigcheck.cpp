@@ -31,14 +31,36 @@ static std::string ReadFile(const char* path) {
   return ss.str();
 }
 
+
+// Parses argv[2] (default gamedata/engine-surface.json) and merges every further argument
+// (fragments such as gamedata/engine-surface.skins.json) into it.
+static std::optional<EngineSurface> LoadSurfaces(int argc, char** argv) {
+  const char* basePath = argc > 2 ? argv[2] : "gamedata/engine-surface.json";
+  std::string err;
+  auto es = ParseEngineSurface(ReadFile(basePath), &err);
+  if (!es) {
+    std::fprintf(stderr, "%s: parse error: %s\n", basePath, err.c_str());
+    return std::nullopt;
+  }
+  for (int i = 3; i < argc; ++i) {
+    auto frag = ParseEngineSurface(ReadFile(argv[i]), &err);
+    if (!frag || !MergeEngineSurface(&*es, *frag, &err)) {
+      std::fprintf(stderr, "%s: %s\n", argv[i], err.c_str());
+      return std::nullopt;
+    }
+    std::printf("merged fragment %s (%zu functions, %zu vtables)\n", argv[i], frag->functions.size(),
+                frag->vtables.size());
+  }
+  return es;
+}
+
 int main(int argc, char** argv) {
   if (argc < 2) {
-    std::fprintf(stderr, "usage: %s <libserver.so> [engine-surface.json]\n", argv[0]);
+    std::fprintf(stderr, "usage: %s <libserver.so> [engine-surface.json [fragment.json ...]]\n", argv[0]);
     return 2;
   }
   const std::string bin = ReadFile(argv[1]);
-  const std::string json = ReadFile(argc > 2 ? argv[2] : "gamedata/engine-surface.json");
-  if (bin.size() < sizeof(Elf64_Ehdr) || json.empty()) {
+  if (bin.size() < sizeof(Elf64_Ehdr)) {
     std::fprintf(stderr, "failed to read inputs\n");
     return 2;
   }
@@ -56,12 +78,8 @@ int main(int argc, char** argv) {
     img.regions.push_back(r);
   }
 
-  std::string err;
-  auto es = ParseEngineSurface(json, &err);
-  if (!es) {
-    std::fprintf(stderr, "engine-surface parse error: %s\n", err.c_str());
-    return 2;
-  }
+  auto es = LoadSurfaces(argc, argv);
+  if (!es) return 2;
   std::printf("engine-surface for game %s\n", es->game_version.c_str());
 
   int bad = 0;

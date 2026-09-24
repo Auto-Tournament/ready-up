@@ -121,6 +121,11 @@ struct EngineSurface {
 // Parses gamedata/engine-surface.json. On failure returns nullopt and sets *err.
 std::optional<EngineSurface> ParseEngineSurface(const std::string& json, std::string* err);
 
+// Appends a fragment (e.g. gamedata/engine-surface.skins.json) to `base`. A fragment may only
+// add entries: a function, vtable, rtti class or layout that `base` already has is an error
+// (nothing is merged then). Fragment vtables/layouts may refer to base rtti and functions.
+bool MergeEngineSurface(EngineSurface* base, const EngineSurface& fragment, std::string* err);
+
 struct Resolution {
   uintptr_t addr = 0;     // valid only if ok
   int matches = 0;        // signature match count (capped at 3)

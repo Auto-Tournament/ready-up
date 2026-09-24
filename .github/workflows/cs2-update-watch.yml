@@ -52,7 +52,7 @@ jobs:
           FORCE: ${{ inputs.force || false }}
         run: |
           buildid="$(scripts/ci/cs2-buildid.sh)"
-          surface="$(sha256sum gamedata/engine-surface.json | cut -d' ' -f1)"
+          surface="$(cat gamedata/engine-surface.json gamedata/engine-surface.*.json | sha256sum | cut -d' ' -f1)"
           state="$(scripts/ci/cs2-watch-state.sh read)"
           prev_build="$(printf '%s\n' "$state" | sed -n 's/^BUILDID=//p')"
           prev_surface="$(printf '%s\n' "$state" | sed -n 's/^SURFACE_SHA256=//p')"

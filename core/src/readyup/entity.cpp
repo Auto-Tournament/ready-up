@@ -1,4 +1,4 @@
-#include "readyup/skins_engine.h"
+#include "readyup/entity.h"
 
 #include "readyup/config.h"
 #include "readyup/engine_surface.h"
@@ -10,7 +10,7 @@
 #include <cstring>
 #include <mutex>
 
-namespace readyup::skins {
+namespace readyup::entity {
 namespace {
 
 // Every function comes from the repo-owned engine surface (gamedata/engine-surface.json) via
@@ -308,7 +308,7 @@ const char* BodygroupResultName(BodygroupResult r) {
 
 BodygroupResult SetBodygroupByName(void* entity, const char* group, int value) {
   ResolveEngine();
-  if (!FeatureEnabled(Feature::SkinsBodygroups) || !g_getModel.addr || !g_findBodygroup.addr || !g_setBodygroup.addr ||
+  if (!EntitySystemReady() || !g_getModel.addr || !g_findBodygroup.addr || !g_setBodygroup.addr ||
       !entity || !group) {
     return BodygroupResult::kUnavailable;
   }
@@ -344,7 +344,10 @@ bool MarkEntityFullyChanged(void* entity) {
 std::vector<ItemStatus> EngineStatus() {
   ResolveEngine();
   std::vector<ItemStatus> out;
-  auto add = [&](const FnSpec& s, const Resolved& r) { out.push_back({s.label, r.addr != nullptr, r.detail}); };
+  auto add = [&](const FnSpec& s, const Resolved& r) {
+    const bool listed = GetEngineSurface() && GetEngineSurface()->Find(s.key) != nullptr;
+    out.push_back({s.label, r.addr != nullptr, r.detail, listed});
+  };
   add(kAttrSet, g_attrSet);
   add(kChangeSubclass, g_changeSubclass);
   add(kSetModel, g_setModel);
@@ -352,8 +355,9 @@ std::vector<ItemStatus> EngineStatus() {
   add(kFindBodygroup, g_findBodygroup);
   add(kSetBodygroup, g_setBodygroup);
   add(kStateChanged, g_stateChanged);
+  const bool slotListed = GetEngineSurface() && GetEngineSurface()->FindVtable(kStateChangedSlot) != nullptr;
   out.push_back({"CEntityInstance::NetworkStateChanged vtable slot", g_vtStateChanged >= 0,
-                 g_vtStateChanged >= 0 ? "verified" : "unverified"});
+                 g_vtStateChanged >= 0 ? "verified" : "unverified", slotListed});
   std::string entDetail;
   const int ent = EntitySystemStatus(&entDetail);
   out.push_back({"CGameEntitySystem", ent == 1, g_entitySystemDetail + "; " + entDetail});
@@ -363,10 +367,20 @@ std::vector<ItemStatus> EngineStatus() {
 void LogEngineStatusOnce() {
   static std::once_flag once;
   std::call_once(once, [] {
+    int unlisted = 0;
     for (const auto& s : EngineStatus()) {
-      Print("skins: %-62s %s  %s\n", s.name.c_str(), s.ok ? "OK     " : "MISSING", s.detail.c_str());
+      if (!s.listed) {
+        ++unlisted;
+        continue;
+      }
+      Print("entity: %-62s %s  %s\n", s.name.c_str(), s.ok ? "OK     " : "MISSING", s.detail.c_str());
+    }
+    if (unlisted > 0) {
+      Print("entity: %d econ/model item(s) not installed (gamedata fragment engine-surface.skins.json absent); "
+            "the matching ru_api members return 0\n",
+            unlisted);
     }
   });
 }
 
-}  // namespace readyup::skins
+}  // namespace readyup::entity

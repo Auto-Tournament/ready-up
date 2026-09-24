@@ -22,9 +22,9 @@ function pointers. The goals:
    This is the main speed-up for development.
 3. **Separate shipping.** Skins is its own `.so`. Leaving it out of a release means removing one file.
 
-Status on branch `feat/core-plugin-split`: the plugin host, API v1.0 and `plugins/hello`
-work. Match and skins are **still compiled into the core** and behave exactly as before.
-Moving them out is the [migration plan](#migration-plan) below.
+Status: the plugin host, API v1.1, `plugins/hello` and `plugins/skins` work (steps 0-3 of the
+[migration plan](#migration-plan)). Match is **still compiled into the core** and behaves exactly
+as before; moving it out is step 4.
 
 ---
 
@@ -127,7 +127,7 @@ Everything is game-thread only except where noted.
 | Players | `get_player`, `get_player_by_steamid`, `for_each_player` | from the core's human/bot registry; `ru_player` is caller-owned with an inline `name[128]` |
 | Raw engine events | `subscribe_game_event(name)`, `ev_get_int/float/uint64/string/player_slot/player_controller/player_pawn` | **synchronous** on the game thread inside the engine's dispatch, before the core takes its events lock. The core adds its listener for every subscribed name (re-checked when the set changes and every 2 s) |
 | Log lines | `subscribe_log_line` | queued copies; fed from `ObserveLifecycleLogLine`, which both the in-process listener and the file-tail fallback go through |
-| Schema / entities | `schema_offset`, `entity_system_status`, `entity_by_index`, `entity_from_handle`, `entity_handle_of`, `entity_classname`, `entity_mark_changed`, `econ_attr_set_by_name`, `entity_change_subclass`, `entity_set_model`, `entity_set_bodygroup_by_name` | backed by `schema.*` and `skins_engine.*`; each returns 0/NULL when its engine function did not resolve |
+| Schema / entities | `schema_offset`, `entity_system_status`, `entity_by_index`, `entity_from_handle`, `entity_handle_of`, `entity_classname`, `entity_mark_changed`, `econ_attr_set_by_name`, `entity_change_subclass`, `entity_set_model`, `entity_set_bodygroup_by_name` | backed by `schema.*` and `entity.*`; each returns 0/NULL when its engine function did not resolve |
 | Match control | `set_round_termination_suppressed`, `set_chat_name_prefix` | see below for `terminate_round` |
 | Admins | `is_admin` (**any thread**, may block), `set_admin_provider` | the core's `IsReadyUpAdmin` asks the provider first, so core checks follow it too. Providers run on the caller's thread under a shared lock that unload takes exclusively |
 | Config | `config_get`, `debug_enabled` (any thread), `config_dir` (any thread) | `config_get` reads `csgo/cfg/ReadyUp/<plugin>.cfg`, then the `[<plugin>]` section of `readyup.cfg`. The core's own parser now ignores everything after the first `[section]` line |
@@ -277,7 +277,7 @@ still linked into the core until steps 3 and 4 move them.
 | `game_events.*` | **split**: listener install, RTTI, registration, normalized events, slot→controller map and team-for-slot stay; round stats, damage, halftime/OT, knife and webhook emission go to match |
 | `log_receiver.*` | **split**: the file-tail fallback and line fan-out stay; `LifecycleImpl`'s webhook/score/backup logic goes to match |
 | `chat.*`, `chat_colors.h`, `client_print.*`, `center_html.*` | output |
-| `schema.*`, `skins_engine.*` (→ `entity.*`) | schema and entity primitives (the generic half of skins) |
+| `schema.*`, `entity.*` (was `skins_engine.*`) | schema and entity primitives (the generic half of skins) |
 | `slot_registry.*`, `player_registry.*`, `steamid.*` | identity and team registry |
 | `ru_router.*`, `ru_help.*` | **split**: routing, dedupe, `.ru` / `.ru plugin` / version stay; every match command (`.r`, `.pause`, `.ru start`, …) becomes a match registration |
 | `config.*` | core keys stay (debug, banner, prefixes, log port); match keys move behind `config_get` |
@@ -293,14 +293,39 @@ provider), `mat_admins.*`, plus the match halves of the split files above.
 
 ### readyup-skins (`plugins/skins/`)
 
-`weapon_paints.*`, `weapon_paints_apply.cpp`, `weapon_paints_cosmetics.cpp`,
-`weapon_paints_internal.h`, `legacy_paint_kits.inc` (from `scripts/gen_legacy_paint_kits.py`),
-`scripts/seed-dev-skins.sql`, `docs/skins-db-contract.md`, `docs/skins-engine-surface.md`.
+**Done (step 3).** `skins_plugin.cpp` (entry points, `skins_status` / `skins_refresh` /
+`skins_debug_as` console commands), `loadout.cpp` (was `weapon_paints.cpp` plus the
+`readyup_weapon_*` queries that used to live in the core's `postgres.cpp`), `apply.cpp`,
+`cosmetics.cpp`, `apply_internal.h`, `stattrak.cpp` (the `player_death` StatTrak bump that used
+to sit in `game_events.cpp`), `legacy_paint_kits.inc` + `gen_legacy_paint_kits.py`,
+`seed-dev-skins.sql`, `docs/db-contract.md`, `docs/engine-surface.md`. Gamedata:
+`gamedata/engine-surface.skins.json` (below).
+
+How it talks to the core, all through `ru_api` v1.1:
+
+- per tick: `on_tick` drives the same controller/weapon walk as before (entity_by_index,
+  entity_from_handle, entity_classname, schema_offset);
+- paints / knives / gloves / agents: econ_attr_set_by_name, entity_change_subclass,
+  entity_set_model, entity_set_bodygroup_by_name, entity_mark_changed;
+- prefetch: raw `player_spawn`, `item_equip`, `item_pickup` (the core no longer listens to the
+  last two); StatTrak: raw `player_death`;
+- DB: its own libpq connection (`libs/readyup/pg_client`) configured from
+  `config_dir()/readyup_db.json` (`libs/readyup/db_config`), on one worker thread that unload joins;
+- admin default knife: `is_admin` on that worker thread.
+
+**Gamedata fragment.** The engine entries only skins uses (the econ/model functions and the
+`CEntityInstance::NetworkStateChanged` slot) moved from `engine-surface.json` to
+`gamedata/engine-surface.skins.json`. The core merges every `engine-surface.<name>.json` next to
+the shim at load (entries may only be added, never overridden); the skins packages ship the
+fragment, the others do not. `readyup_sigcheck` / `readyup_hookcheck` take fragments as extra
+arguments and `scripts/ci/verify-cs2.sh` passes every fragment in `gamedata/`.
+`dev-deploy.sh --plugin skins` installs the fragment too (a new fragment needs `--restart`).
 
 ### Shared non-engine code (`libs/`)
 
 `postgres.*`, `db_config.*`, `http_client.*`, `minijson.*` and `steamid.*` become small static
-PIC libraries. Each plugin links in what it needs, statically and with hidden visibility.
+PIC libraries. Step 3 made a start: `readyup_libs_db` (`db_config` parsing + `pg_client`, no core
+dependencies) is what skins links; the core's `postgres.*` (admins, settings) goes with match. Each plugin links in what it needs, statically and with hidden visibility.
 This is source-level sharing: nothing crosses the ABI, and none of it touches the engine. The
 core keeps only `minijson`/`steamid` and, after the move, needs neither libpq nor libcurl.
 
@@ -388,7 +413,7 @@ docs branches are still open, because every one of them touched `src/readyup/*` 
 | 0 | Plugin host, API v1.0, `hello`, host test, `dev-deploy --plugin` (this branch). Match and skins unchanged. | done |
 | 1 | **Done.** One `git mv` commit to the target layout (`src/readyup` → `core/src/readyup`, `src/third_party` → `third_party`, `src/exports.*` → `core/src`, postgres/db_config/http_client/minijson/steamid → `libs/readyup`), with CMake, scripts, CI and docs paths updated. No code changes, so review is trivial and `git log --follow` keeps history. | 0.5 day |
 | 2 | **Done.** API v1.1: the additions listed in §2 (players, center HTML, raw engine events, log lines, schema/entity/econ, terminate round, name prefix, admins, config, interfaces, stash) and `RouteChatCommand` carrying the sender slot (Host_Say already knows it). | 2–3 days |
-| 3 | Extract **skins** to `plugins/skins`: `libs/` for postgres/db_config, `skins_engine` → core `entity.*`, split out the skins gamedata fragment, replace `weapon_paints::GameFrameTick` / `MaybeRefreshAsync` call sites with `on_tick` and event subscriptions. Verify on server-4 (paints, knife, gloves, agents; reload mid-map). Release script: two zips. | 2–3 days |
+| 3 | **Done.** Extract **skins** to `plugins/skins`: `libs/` for postgres/db_config, `skins_engine` → core `entity.*`, split out the skins gamedata fragment, replace `weapon_paints::GameFrameTick` / `MaybeRefreshAsync` call sites with `on_tick` and event subscriptions. Verify on server-4 (paints, knife, gloves, agents; reload mid-map). Release script: two zips. | 2–3 days |
 | 4 | Extract **match**. This is the big one: `modes` (1.8k lines), `webhook`, the match half of `game_events` (~1k), `ru_router`, `command_buffer_hook` commands, `log_receiver` lifecycle, scrim, welcome and admins become plugin code using the v1.1 API. The core keeps the split halves. Then a full regression on server-4 with MAT: match load, ready, knife and side pick, pause/unpause, halftime/OT, recovery after restart, webhooks, scrim flow, practice. | 5–7 days |
 | 5 | Cleanup: drop libpq/libcurl from the core link, document writing third-party plugins, and add the CI job that builds both zips and runs the host test. | 1 day |
 
