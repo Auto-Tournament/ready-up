@@ -1,0 +1,394 @@
+# ReadyUp architecture: core + plugins
+
+ReadyUp is a fake `libserver.so`. `gameinfo.gi` lists `Game csgo/readyup` first, so the
+engine loads our shim, which `dlopen`s Valve's real `libserver.so` and forwards its exports.
+Up to now everything (engine plumbing, match flow, skins) was one monolithic shim. This
+document describes the split:
+
+| Piece | Ships as | Owns |
+|---|---|---|
+| **readyup-core** | `csgo/readyup/bin/linuxsteamrt64/libserver.so` | every piece of engine surface, plus the plugin host |
+| **readyup-match** | `csgo/readyup/plugins/match.so` | ready-up, scrim, knife, pause, match config, webhooks, Postgres, MAT admins, practice |
+| **readyup-skins** | `csgo/readyup/plugins/skins.so` | weapon paints, knives, gloves, agents. **Not in the default release** (servers running skin changers risk GSLT bans) |
+| example: **hello** | `csgo/readyup/plugins/hello.so` | `.hello`, a 10 s tick heartbeat, event logging. Dev only, never shipped |
+
+The model is Metamod's. The core is the only thing that knows about signatures, offsets,
+vtable indices, RTTI, hooks and SDK struct layouts. Plugins only call a versioned table of C
+function pointers. The goals:
+
+1. **CS2 updates touch the core only.** When Valve moves a function, `gamedata/engine-surface.json`
+   and core code change. Plugins built against the same API version keep working without a rebuild.
+2. **Hot reload.** `ru plugin reload match` swaps the match logic without restarting the server.
+   This is the main speed-up for development.
+3. **Separate shipping.** Skins is its own `.so`. Leaving it out of a release means removing one file.
+
+Status on branch `feat/core-plugin-split`: the plugin host, API v1.0 and `plugins/hello`
+work. Match and skins are **still compiled into the core** and behave exactly as before.
+Moving them out is the [migration plan](#migration-plan) below.
+
+---
+
+## 1. The boundary
+
+The rule: **if it depends on a byte pattern, an offset, a vtable index, a struct layout, a
+hook or an engine interface, it is core.** Everything else is policy and belongs in a plugin.
+
+The core owns:
+
+- **Loading.** The `libserver.so` shim, forwarding exports and `CreateInterface`, `real_server`.
+- **Engine surface.** Resolving `engine-surface.json` (signatures + identity anchors), sigtest,
+  fail-closed "disabled" mode, and `readyup_sigcheck`.
+- **Hooks** (funchook detours / vtable / GOT patches): GameFrame, Host_Say, ClientCommand,
+  CCommandBuffer::AddText, TerminateRound, the logging listener.
+- **RTTI-verified interfaces**: the game event manager, the legacy per-client listener, the entity system.
+- **Game events**: registering the listener and turning events into normalized lifecycle events.
+- **Threads and commands**: the GameFrame thread queue (`post_to_game_thread`, per-tick
+  callbacks) and server command enqueue.
+- **Command routing**: chat and console commands (dedupe across the three chat paths; core
+  commands reserved).
+- **Logs**: the log-line listener and log-derived lifecycle events (the fallback when engine events are down).
+- **Schema and entities**: field offsets by name, entity lookup and iteration, and entity
+  primitives (attribute by name, subclass, model, bodygroup, network-state-changed).
+- **Output**: chat to all or to one slot (`UTIL_ClientPrintAll` / `ClientPrint`), center HTML (broadcast or per client).
+- **Players**: the identity and team registry (slot ↔ SteamID64 ↔ name ↔ team, bots).
+- **Infrastructure**: config (`readyup.cfg` core keys, plus per-plugin config lookup), logging, the crash handler.
+- **Admin checks**: the permission check (`is_admin`). Who counts as an admin comes from a
+  provider; the match plugin registers the MAT/DB-backed one.
+
+Plugins own **policy**. They decide what happens on a round start, what `.r` means, which
+webhook to send and which skin to apply. They get engine access only through `ru_api`.
+
+## 2. The C ABI (`core/include/readyup/plugin_api.h`)
+
+That header is the whole contract. Plugins include it and nothing from the core's sources.
+
+### What a plugin exports
+
+```c
+READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void);
+READYUP_PLUGIN_EXPORT int  readyup_plugin_load(const ru_api* api, uint32_t core_api_version);
+READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void);
+```
+
+- `readyup_plugin_info` is called right after `dlopen` and before anything else. It returns
+  `{struct_size, api_version, name, version, author, description}`. `name` must equal the
+  file name (`hello` ↔ `hello.so`). The core rejects the plugin on an API major mismatch, or
+  if the plugin needs a newer minor than the core has.
+- `readyup_plugin_load` runs on the game thread. The plugin registers its commands, ticks and
+  subscriptions here and keeps `api`, which stays valid until unload returns. Returning
+  non-zero aborts the load: the core removes anything already registered and `dlclose`s.
+- `readyup_plugin_unload` runs on the game thread at a safe point (see §4).
+
+### What the core gives it (v1.0, implemented)
+
+Every function takes `api->self` (the plugin's `ru_plugin*`) first. The core uses it to
+attribute every registration to its owner.
+
+| Member | Thread | Purpose |
+|---|---|---|
+| `struct_size`, `api_version`, `core_version`, `self` | – | versioning and identity |
+| `log(self, level, msg)` | any | console log line `[ReadyUp] plugin[name]: ...` (`ru_logf` is a printf helper in the header) |
+| `server_command(self, cmd)` | game | queue a server console command (the core's `EnqueueServerCommand`) |
+| `chat_all(self, msg, flags)` | game | chat to everyone, with the ReadyUp prefix (or `RU_CHAT_RAW`) |
+| `chat_to_slot(self, slot, msg)` | game | chat to one player (`ClientPrint`) |
+| `register_chat_command(self, ".name", fn, user)` | game | chat command. Core commands (`.ru`, `.r`, `.pause`, …) are reserved. Only real players (SteamID ≠ 0) trigger it |
+| `register_console_command(self, "name", fn, user)` | game | server console / RCON command. `ru` and every core command win over plugin commands |
+| `on_tick(self, fn, user)` | game | once per simulating GameFrame, after the core's frame work |
+| `subscribe(self, type, fn, user)` | game | lifecycle events (below). `RU_EVENT_ANY` for all |
+| `unregister(self, handle)` | game | remove any of the above (safe from inside that callback) |
+| `post_to_game_thread(self, fn, user)` | **any** | hand work from a plugin's worker thread back to the game thread. Dropped if the plugin unloads first |
+| `slot_for_steamid(self, steamid64)` | game | engine slot of a connected player, or -1 |
+| `data_dir(self)` | game | `csgo/readyup/plugins/<name>/` for plugin data and config |
+
+**Lifecycle events** (`ru_event`) arrive already normalized. They come from engine game
+events once the core's listener is live, and from server log lines until then (`source` says
+which). A plugin never has to reconcile the two sources.
+
+| Event | Fields |
+|---|---|
+| `RU_EVENT_MAP_START` | `map` |
+| `RU_EVENT_MATCH_START` | CS2 `Match_Start` (warmup end, `mp_restartgame`) |
+| `RU_EVENT_ROUND_START` | `round` |
+| `RU_EVENT_ROUND_END` | `winner` (2 = T, 3 = CT), `reason`, `round`, scores when known |
+| `RU_EVENT_PLAYER_CONNECT` / `DISCONNECT` | `slot`, `steamid64`, `name` (+`reason`) |
+| `RU_EVENT_PLAYER_TEAM` | `slot`, `steamid64`, `name`, `team`, `old_team` |
+
+Every event also carries `map` (the current map).
+
+### Planned API additions (v1.1+, appended to `ru_api`; needed for the migration)
+
+Grouped by the plugin that needs them. The core already has an implementation for each; the
+work is exposing it.
+
+- **Output**: `center_html_to_slot(slot, html, seconds)`, `center_html_all`. Used by welcome,
+  the scrim HUD and the knife HUD.
+- **Players**: `get_player(slot, ru_player*)` and `for_each_player(fn)`, returning slot,
+  SteamID, name, team, is_bot and connected. They come from the core's player registry, so
+  match stops parsing log headers itself.
+- **Raw engine events**: `subscribe_game_event("player_death", fn)`, with accessors
+  `ev_get_int/float/uint64/string/player_slot(ev, key)`. These are delivered **synchronously**
+  on the game thread; the handle is valid only during the callback. Match needs
+  `player_death` / `player_hurt` for stats. Skins needs `player_spawn` / `item_pickup` / `item_equip`.
+- **Log lines**: `subscribe_log_line(fn)`. Queued; the line is copied.
+- **Schema and entities** (all skins needs): `schema_offset("CCSPlayerPawn", "m_EconGloves")`,
+  `entity_by_index`, `entity_from_handle`, `entity_handle_of`, `entity_classname`,
+  `entity_mark_changed`, `econ_attr_set_by_name`, `entity_change_subclass`,
+  `entity_set_model` and `entity_set_bodygroup_by_name`. Plugins read and write fields at
+  `entity + schema_offset(...)`. The offset is looked up by name at runtime and never hard-coded.
+- **Match control**: `terminate_round(reason, delay)` (exposes the TerminateRound hook) and
+  `set_chat_name_prefix(slot, prefix)` (the "true prefix" name swap used for admin/captain tags).
+- **Admins**: `is_admin(steamid64)` and `set_admin_provider(fn)`.
+- **Config**: `config_get(key, buf, len)` reads `cfg/ReadyUp/<plugin>.cfg`, then the
+  `[plugin]` section of `readyup.cfg`.
+- **Chat visibility**: a `RU_CMD_HIDE` flag on `register_chat_command`, so the router can
+  consume the line (replaces `consume_ru_chat` / `consume_ready_chat` for plugin commands).
+- **Plugin-to-plugin**: `provide_interface(name, version, ptr)` / `get_interface(name, min_version)`.
+  "Query ready state" belongs to match, not the core: match publishes
+  `readyup.match.v1` (mode, roster, ready set) and other plugins look it up. Metamod does the same.
+- **State across reloads**: `stash_put(key, blob, len)` / `stash_get` keep a byte blob in core
+  memory between an unload and the next load of the same plugin name. Match uses it to
+  survive a reload mid-match without going through the DB recovery path.
+
+### ABI rules
+
+1. **Plain C across the boundary.** No C++ classes, references, STL, `std::string` or
+   exceptions. Plugins may use C++ inside but must catch everything before returning into the
+   core. The core also catches anything thrown out of a callback and logs it, but a throw
+   across the C boundary is a plugin bug.
+2. **Fixed-width scalars** (`int`, `uint32_t`, `uint64_t`, `double`) and pointers only. Enum
+   values travel as `uint32_t`; `int` is used as the boolean.
+3. **No ownership transfer.** Strings and structs passed to a callback live only for that call.
+   The core never frees plugin memory and plugins never free core memory. `user` pointers are opaque.
+4. **Only `extern "C"` symbols cross.** Plugins export exactly the three entry points (hidden
+   visibility for everything else) and import nothing from the core. They link with
+   `--no-undefined`, and every core service is a function pointer in `ru_api`.
+5. **`-fno-gnu-unique`** for C++ plugins (set by `readyup_add_plugin`). `STB_GNU_UNIQUE`
+   symbols make `dlclose` a no-op, and a reload would then silently keep the old code. The
+   core checks with `RTLD_NOLOAD` after `dlclose` and warns if the image is still mapped.
+6. **Versioning.** `READYUP_PLUGIN_API_VERSION = (MAJOR << 16) | MINOR`.
+   - **MINOR**: new members are appended to `ru_api` (or to a callback struct). Nothing is
+     removed, reordered or changed in meaning. A plugin built for 1.0 runs on a 1.3 core. A
+     plugin that wants a 1.2 member either requires 1.2 in `ru_plugin_info.api_version`
+     (older cores refuse it) or checks `RU_API_HAS(api, member)` at runtime and degrades.
+   - **MAJOR**: any incompatible change. The core refuses plugins with another major. Bump it
+     rarely, and only together with the plugins in this repo.
+   - Every struct begins with `uint32_t struct_size`. Readers check it before touching
+     trailing fields.
+7. **Compatibility policy.** A core release supports its own API major, and every minor up to
+   its own. Plugins in this monorepo are always built with the core they ship with.
+   Third-party plugins only need to be rebuilt on a major bump.
+
+## 3. Threading rules
+
+- **Every plugin callback runs on the server main thread**, the one that runs
+  `ISource2Server::GameFrame`: load, unload, commands, events, ticks and posted tasks.
+- **API functions** must be called from that thread (they are, when called from a callback).
+  Off-thread calls are rejected and logged. The exceptions are `log` and `post_to_game_thread`,
+  which are thread-safe.
+- **Chat, console and event producers may run on any thread** (log listener, AddText caller,
+  file tail thread). The core only **queues** there; delivery happens in the next GameFrame.
+  As a result plugin code never runs inside the AddText detour or the engine's event dispatch,
+  and never while a core mutex is held (no lock-order problems between core and plugin
+  locks). The cost is at most one frame of latency (about 15 ms at 64 tick).
+- **Frame order**: original GameFrame → core ticks (modes, scrim, welcome, skins, for now) →
+  `plugins::Frame`: pending load/unload/reload, then posted tasks, commands and events (FIFO
+  per queue), then `on_tick` if simulating. Queues and ops also drain on non-simulating frames.
+- **Worker threads** (DB, HTTP) belong to the plugin. It starts them in load, **joins them in
+  unload**, and hands results back with `post_to_game_thread`.
+- Queues are bounded (1024 commands / events, 4096 tasks). Floods drop the oldest events and
+  refuse new commands and tasks instead of growing without limit.
+
+## 4. Hot reload and its safety
+
+`ru plugin list | load <name> | unload <name> | reload <name>` works from the server console,
+RCON, and chat (`.ru plugin ...`, admins only). `reload` = unload + load of
+`csgo/readyup/plugins/<name>.so` from disk.
+
+**The op is deferred to a safe point.** The command only queues the request. It runs at the
+top of `plugins::Frame` in the next GameFrame. At that point no plugin code is on the stack
+(`g_depth == 0`), the engine is not inside AddText or event dispatch, and the core holds no
+lock. A plugin that runs `server_command("ru plugin reload x")` therefore cannot unload
+itself mid-callback.
+
+**Unload sequence:**
+
+1. Mark the plugin `unloading`. The core stops dispatching to it and refuses its `post_to_game_thread`.
+2. Call `readyup_plugin_unload()`. The plugin joins its threads and frees its memory.
+3. The core removes **every** registration the plugin owns (chat and console commands, ticks,
+   subscriptions) and every queued task it posted, whether or not the plugin unregistered them itself.
+4. Mark the handle dead, then `dlclose`, then check with `dlopen(RTLD_NOLOAD)` that the image
+   is really gone (and warn if not).
+
+**What that guarantees:**
+
+- **No dangling hooks.** Plugins cannot hook anything. Every detour belongs to the core and
+  outlives any plugin, so there is never a trampoline into an unmapped image.
+- **No stale callbacks.** Queued commands and events are resolved by registration handle when
+  they are delivered. Anything queued for the old image before the reload is dropped. It is
+  never delivered to the new one, and never into unmapped code. (The host test checks this.)
+- **No use-after-free on stale handles.** `ru_plugin` and the `ru_api` table are never freed
+  (a few hundred bytes per reload). A plugin thread that wrongly outlives unload finds
+  `alive == false`, and its calls become no-ops instead of touching freed memory. Its own
+  code, however, is unmapped, which is why joining threads in unload is the one rule the core
+  cannot enforce.
+- **Failed loads leave nothing behind**: bad exports, version mismatch, name mismatch, or
+  `load` returning non-zero.
+- **Crash attribution.** While a plugin callback runs, the crash handler prints
+  `crashed inside plugin "<name>"` before the backtrace.
+- **State is not carried over.** A reloaded plugin starts fresh (until `stash_*` lands). If the
+  new file fails to load, the plugin stays unloaded. `dev-deploy.sh` keeps `<name>.so.prev`,
+  so `mv` it back and reload.
+
+**Skins-specific cleanup** (for when it becomes a plugin):
+- Stop and join the loadout-fetch DB threads. Drop the per-player loadout cache and the
+  "decorate next frame" lists.
+- Never keep `CEntityInstance*` across frames. Keep entity handles and re-resolve them with
+  `entity_from_handle`, so nothing points at entities freed while the plugin was unloaded.
+- Paint, knife, glove and agent changes already applied stay on live entities. They are
+  ordinary entity state and reset on respawn or map change. Unload does not try to revert them.
+- The econ and entity primitives stay in the core. The skins signatures should move to a
+  gamedata fragment (`engine-surface.skins.json`) that ships **only in the skins zip**. The
+  default core then does not even resolve them, and the matching `ru_api` members return 0.
+
+**Match-specific:** a reload mid-match drops in-memory match state. The plugin must restore
+from `persisted_match_state` (the crash-recovery path it already has) or from `stash_*`.
+During development, reload between matches.
+
+**Hibernation:** reload runs in GameFrame. If an empty server stops producing frames, a
+queued reload waits until it wakes. Dev servers should run with `sv_hibernate_when_empty 0`.
+
+## 5. Where the current modules go
+
+The physical move happens later (see the migration plan). New files already sit in their final place:
+`core/include/readyup/plugin_api.h` and `plugins/hello/`. The loader is in
+`src/readyup/plugin_loader.cpp` and moves with the rest of the core.
+
+### Core (`src/readyup/*` → `core/src/`)
+
+| Files | Notes |
+|---|---|
+| `exports.cpp`, `real_server.*`, `path.*`, `disabled.*`, `banner.*`, `version.h`, `cs2_version.*` | shim, loading |
+| `engine_surface.*`, `engine_surface_core.*`, `signature_scan.*`, `sigtest.*`, `sdk/*` | engine surface |
+| `game_frame_hook.*`, `host_say_hook.*`, `client_command_hook.*`, `round_termination_hook.*`, `console_command.*` | hooks (`console_command` is a probe and can go) |
+| `server_game_clients_hook.*` | **split**: the ClientCommand hook + name-swap primitive stay; the admin/captain prefix *policy* goes to match |
+| `command_buffer_hook.*` | **split**: the AddText hook, `EnqueueServerCommand` and core `ru` subcommands (`help`, `plugin`, `sigtest`, `reload`, `mode` forwarding) stay; `ru match load`, token/url/warmup cvar commands go to match as console commands |
+| `game_events.*` | **split**: listener install, RTTI, registration, normalized events, slot→controller map and team-for-slot stay; round stats, damage, halftime/OT, knife and webhook emission go to match |
+| `log_receiver.*` | **split**: the file-tail fallback and line fan-out stay; `LifecycleImpl`'s webhook/score/backup logic goes to match |
+| `chat.*`, `chat_colors.h`, `client_print.*`, `center_html.*` | output |
+| `schema.*`, `skins_engine.*` (→ `entity.*`) | schema and entity primitives (the generic half of skins) |
+| `slot_registry.*`, `player_registry.*`, `steamid.*` | identity and team registry |
+| `ru_router.*`, `ru_help.*` | **split**: routing, dedupe, `.ru` / `.ru plugin` / version stay; every match command (`.r`, `.pause`, `.ru start`, …) becomes a match registration |
+| `config.*` | core keys stay (debug, banner, prefixes, log port); match keys move behind `config_get` |
+| `logging.*`, `crash_handler.*`, `minijson.*` | infrastructure |
+| `plugin_loader.*` (new) | plugin host |
+
+### readyup-match (`plugins/match/`)
+
+`modes.*`, `scrim_flow.*`, `match_state.*`, `pause_state.*`, `match_config_parser.*`,
+`match_recovery.*`, `match_token.*`, `persisted_settings.*`, `persisted_match_state.*`,
+`backup_files.*`, `webhook.*`, `welcome.*`, `admins.*`, `admin_check.*` (it becomes the admin
+provider), `mat_admins.*`, plus the match halves of the split files above.
+
+### readyup-skins (`plugins/skins/`)
+
+`weapon_paints.*`, `weapon_paints_apply.cpp`, `weapon_paints_cosmetics.cpp`,
+`weapon_paints_internal.h`, `legacy_paint_kits.inc` (from `scripts/gen_legacy_paint_kits.py`),
+`scripts/seed-dev-skins.sql`, `docs/skins-db-contract.md`, `docs/skins-engine-surface.md`.
+
+### Shared non-engine code (`libs/`)
+
+`postgres.*`, `db_config.*`, `http_client.*`, `minijson.*` and `steamid.*` become small static
+PIC libraries. Each plugin links in what it needs, statically and with hidden visibility.
+This is source-level sharing: nothing crosses the ABI, and none of it touches the engine. The
+core keeps only `minijson`/`steamid` and, after the move, needs neither libpq nor libcurl.
+
+### Target monorepo layout
+
+```
+core/                     libserver.so shim: engine surface, hooks, events, loader, API impl
+core/include/readyup/plugin_api.h   public C ABI (plugins include only this)
+plugins/match/            readyup-match
+plugins/skins/            readyup-skins (separately shippable)
+plugins/hello/            example plugin
+libs/                     shared non-engine code (postgres, http, json) as static libs
+gamedata/                 engine-surface.json (+ engine-surface.skins.json)
+third_party/              funchook, distorm (licences kept)
+tools/                    sigcheck, plugin host test, generators
+scripts/ docs/ cfg/ .github/
+```
+
+The top-level CMake builds everything. Each plugin is its own target
+(`readyup_add_plugin(<name> ...)` → `readyup_plugin_<name>` → `build/plugins/<name>.so`), so
+`cmake --build build --target readyup_plugin_match` rebuilds one plugin without relinking the core.
+
+## 6. Build, release and dev workflow
+
+**Build:**
+
+```bash
+./build.sh                                  # build/libserver.so, build/plugins/hello.so, tests
+(cd build && ctest --output-on-failure)     # offline plugin host test (load, commands, events, hot reload)
+scripts/docker-build.sh                     # Debian 12 image, static libpq -> build-docker/
+BUILD_TARGET=readyup_plugin_hello scripts/docker-build.sh   # one plugin only
+build/readyup_sigcheck ~/ru-analysis/libserver.so gamedata/engine-surface.json
+```
+
+`tools/plugin_host_test.cpp` links the real `plugin_loader.cpp` against stubs of the few core
+functions it calls. It loads `hello.so`, dispatches chat and console commands and events,
+ticks, then hot-swaps in a second build of hello (`build/test/hello.so`, version
+`1.0.1-reloaded`), reloads it and checks that the new code runs, the old image is unmapped,
+and stale queued commands are dropped.
+
+**Installed layout:**
+
+```
+csgo/readyup/bin/linuxsteamrt64/libserver.so      core
+csgo/readyup/bin/linuxsteamrt64/engine-surface.json
+csgo/readyup/plugins/match.so                     every release
+csgo/readyup/plugins/skins.so                     skins release only
+csgo/readyup/plugins/<name>/                      plugin data dir (optional)
+```
+
+Every `*.so` in `plugins/` loads on the first server frame, in name order. To disable one,
+rename it (for example `skins.so.off`) or `ru plugin unload` it. `READYUP_PLUGINS=0` disables
+all of them. `READYUP_PLUGINS_DIR` overrides the directory (tests).
+
+**Release** (after migration), two zips from one build:
+
+- `readyup-X.Y.Z-linuxsteamrt64.zip`: core + `match.so`. This is the default and what `install.sh` installs.
+- `readyup-X.Y.Z-linuxsteamrt64-skins.zip`: core + `match.so` + `skins.so` + `engine-surface.skins.json`,
+  clearly labelled with the ban-risk note.
+
+`hello.so` is never packaged. Plugins carry the release version; the API version is separate.
+CI runs sigcheck against the core only; plugins have nothing to check.
+
+**Dev loop (no server restart):**
+
+```bash
+scripts/dev-deploy.sh --plugin match      # build only readyup_plugin_match, copy match.so to
+                                          # server-4/game/csgo/readyup/plugins/, then send
+                                          # `ru plugin reload match` into the ru-4 tmux console
+                                          # as cs2servermanager and print the result
+scripts/dev-deploy.sh --restart           # core changes still need the old full deploy + restart
+```
+
+`--plugin` renames the file into place (a running image is never overwritten), keeps
+`<name>.so.prev`, and waits up to 15 s for `plugin: reloaded <name>` / `reload <name> failed`
+in `console.log`.
+
+## 7. Migration plan
+
+Order matters. The big move must not land while `selftest`, `knife-hud`, `ci` and the parity
+docs branches are still open, because every one of them touches `src/readyup/*` and `CMakeLists.txt`.
+
+| Step | What | Effort |
+|---|---|---|
+| 0 | Plugin host, API v1.0, `hello`, host test, `dev-deploy --plugin` (this branch). Match and skins unchanged. | done |
+| 1 | After the in-flight branches merge: one `git mv` commit to the target layout (`src/readyup` → `core/src`, `src/third_party` → `third_party`, `src/exports.cpp` → `core/src`), with CMake, scripts, CI and docs paths updated. No code changes, so review is trivial and `git log --follow` keeps history. | 0.5 day |
+| 2 | API v1.1: the additions listed in §2 (players, center HTML, raw engine events, log lines, schema/entity/econ, terminate round, name prefix, admins, config, interfaces, stash) and `RouteChatCommand` carrying the sender slot (Host_Say already knows it). | 2–3 days |
+| 3 | Extract **skins** to `plugins/skins`: `libs/` for postgres/db_config, `skins_engine` → core `entity.*`, split out the skins gamedata fragment, replace `weapon_paints::GameFrameTick` / `MaybeRefreshAsync` call sites with `on_tick` and event subscriptions. Verify on server-4 (paints, knife, gloves, agents; reload mid-map). Release script: two zips. | 2–3 days |
+| 4 | Extract **match**. This is the big one: `modes` (1.8k lines), `webhook`, the match half of `game_events` (~1k), `ru_router`, `command_buffer_hook` commands, `log_receiver` lifecycle, scrim, welcome and admins become plugin code using the v1.1 API. The core keeps the split halves. Then a full regression on server-4 with MAT: match load, ready, knife and side pick, pause/unpause, halftime/OT, recovery after restart, webhooks, scrim flow, practice. | 5–7 days |
+| 5 | Cleanup: drop libpq/libcurl from the core link, document writing third-party plugins, and add the CI job that builds both zips and runs the host test. | 1 day |
+
+**Total: roughly 2–2.5 weeks of focused work** after step 1 is unblocked. Steps 3 and 4 are
+independent once step 2 lands, so skins can ship as a plugin before match moves.

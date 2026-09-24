@@ -1,0 +1,173 @@
+name: CS2 update watch
+
+# Every 15 minutes: read CS2's public buildid (api.steamcmd.net). When it (or the
+# engine surface on the default branch) changed since the last check, download ONLY the
+# needed Linux server files anonymously (DepotDownloader, depots 2347773 + 2347770, ~18 MB)
+# and verify gamedata/engine-surface.json with readyup_sigcheck + readyup_hookcheck.
+#
+#   fail -> failing job + markdown summary, open/refresh issue labeled `cs2-update`,
+#           Discord post if secret DISCORD_WEBHOOK_URL is set
+#   pass -> "CS2 build N verified" (on the open issue, which is closed; else on the commit)
+#
+# State (last buildid + surface hash + result) lives on the orphan branch `cs2-build`.
+# Optional repo variable CS2_WATCH_RUNNER picks the runner for the cheap 15-minute check
+# (e.g. a self-hosted label) to save Actions minutes on this private repo.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Verify even if the buildid and engine surface are unchanged
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cs2-update-watch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Poll CS2 buildid
+    runs-on: ${{ vars.CS2_WATCH_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    outputs:
+      buildid: ${{ steps.poll.outputs.buildid }}
+      surface_sha: ${{ steps.poll.outputs.surface_sha }}
+      changed: ${{ steps.poll.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/ci
+            gamedata
+
+      - name: Compare with last verified state
+        id: poll
+        env:
+          FORCE: ${{ inputs.force || false }}
+        run: |
+          buildid="$(scripts/ci/cs2-buildid.sh)"
+          surface="$(sha256sum gamedata/engine-surface.json | cut -d' ' -f1)"
+          state="$(scripts/ci/cs2-watch-state.sh read)"
+          prev_build="$(printf '%s\n' "$state" | sed -n 's/^BUILDID=//p')"
+          prev_surface="$(printf '%s\n' "$state" | sed -n 's/^SURFACE_SHA256=//p')"
+          prev_status="$(printf '%s\n' "$state" | sed -n 's/^STATUS=//p')"
+          changed=false
+          if [ "$buildid" != "$prev_build" ] || [ "$surface" != "$prev_surface" ] || [ "$FORCE" = "true" ]; then
+            changed=true
+          fi
+          {
+            echo "buildid=$buildid"
+            echo "surface_sha=$surface"
+            echo "changed=$changed"
+          } >> "$GITHUB_OUTPUT"
+          echo "CS2 buildid $buildid (last checked: ${prev_build:-none}, ${prev_status:-n/a}); surface ${surface:0:12} (last ${prev_surface:0:12}); changed=$changed" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  verify:
+    name: Verify engine surface vs CS2 ${{ needs.check.outputs.buildid }}
+    needs: check
+    if: needs.check.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest
+    env:
+      DD_DIR: ${{ github.workspace }}/.ci/depotdownloader
+      CS2_DIR: ${{ github.workspace }}/.ci/cs2
+    outputs:
+      verdict: ${{ steps.verify.outputs.verdict }}
+      patch_version: ${{ steps.verify.outputs.patch_version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build readyup_sigcheck + readyup_hookcheck
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          CC=gcc-14 CXX=g++-14 cmake -S . -B build-tools -DCMAKE_BUILD_TYPE=Release >/dev/null
+          cmake --build build-tools --target readyup_sigcheck readyup_hookcheck -j"$(nproc)"
+
+      - name: Cache CS2 binaries for this buildid
+        id: cs2-cache
+        uses: actions/cache@v4
+        with:
+          path: .ci/cs2
+          key: cs2-linux-bins-${{ needs.check.outputs.buildid }}
+
+      - name: Fetch CS2 binaries (DepotDownloader, anonymous, 5 files)
+        if: steps.cs2-cache.outputs.cache-hit != 'true'
+        run: scripts/ci/fetch-cs2-binaries.sh "$CS2_DIR"
+
+      - name: sigcheck + hookcheck
+        id: verify
+        run: |
+          . "$CS2_DIR/cs2-build.env"
+          echo "patch_version=$PATCH_VERSION" >> "$GITHUB_OUTPUT"
+          set +e
+          scripts/ci/verify-cs2.sh "$CS2_DIR" build-tools .ci/report.md
+          rc=$?
+          set -e
+          cat .ci/report.md >> "$GITHUB_STEP_SUMMARY"
+          if [ $rc -eq 0 ]; then echo "verdict=pass" >> "$GITHUB_OUTPUT"; else echo "verdict=fail" >> "$GITHUB_OUTPUT"; fi
+          exit $rc
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cs2-verify-${{ needs.check.outputs.buildid }}
+          path: |
+            .ci/report.md
+            .ci/cs2/cs2-build.env
+          if-no-files-found: ignore
+          retention-days: 90
+
+  report:
+    name: Record + notify
+    needs: [check, verify]
+    # Only a real verdict is reported/recorded. If the verify job broke for another reason
+    # (download error, runner problem) nothing is recorded, so the next run retries.
+    if: always() && needs.check.outputs.changed == 'true' && needs.verify.outputs.verdict != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BUILDID: ${{ needs.check.outputs.buildid }}
+      VERDICT: ${{ needs.verify.outputs.verdict }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cs2-verify-${{ needs.check.outputs.buildid }}
+          path: report
+        continue-on-error: true
+
+      - name: Notify
+        run: |
+          if [ "$VERDICT" = "pass" ]; then
+            scripts/ci/cs2-watch-report.sh pass "$BUILDID" "$GITHUB_SHA" "$RUN_URL"
+          else
+            scripts/ci/cs2-watch-report.sh fail "$BUILDID" report/report.md "$RUN_URL"
+          fi
+
+      - name: Record state on branch cs2-build
+        run: |
+          scripts/ci/cs2-watch-state.sh write "$BUILDID" "${{ needs.check.outputs.surface_sha }}" \
+            "$VERDICT" "$GITHUB_SHA" "${{ needs.verify.outputs.patch_version }}"
+
+      - name: Fail on broken surface
+        if: env.VERDICT != 'pass'
+        run: |
+          echo "::error::CS2 build $BUILDID broke gamedata/engine-surface.json; see the verify job summary."
+          exit 1

@@ -1,0 +1,22 @@
+services:
+  readyup-postgres:
+    image: postgres:16
+    container_name: readyup-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: readyup
+      POSTGRES_USER: readyup
+      POSTGRES_PASSWORD: readyup
+    ports:
+      - "5449:5432"
+    volumes:
+      - readyup_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U readyup -d readyup"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  readyup_pg_data:
+

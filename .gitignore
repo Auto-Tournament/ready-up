@@ -1,0 +1,25 @@
+# Build output
+build/
+build-docker/
+build-sniper/
+build-tools/
+
+# CI scratch (static deps, CS2 binaries, DepotDownloader)
+.ci/
+
+# Release artifacts
+dist/
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/
+
+# CMake tooling
+CMakeUserPresets.json
+
+# Logs
+*.log
+
+cs2-WeaponPaint/
+__pycache__/

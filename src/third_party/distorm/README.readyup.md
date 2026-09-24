@@ -1,0 +1,1 @@
+Vendored diStorm3 3.5.2 (commit ab59d6e193948cfa5d1482fb6c7e64870e9e93b9) from https://github.com/gdabah/distorm, as pinned by funchook v1.1.3. include/ and src/ copied verbatim. License: BSD-3-Clause (COPYING).

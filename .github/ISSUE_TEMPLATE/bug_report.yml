@@ -1,0 +1,29 @@
+name: Bug report
+description: Something in ReadyUp is broken
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: CS2 build (`version` in the server console) and ReadyUp build (`ru` in the server console).
+    validations:
+      required: true
+  - type: textarea
+    id: selftest
+    attributes:
+      label: ru selftest output
+      render: text
+  - type: textarea
+    id: log
+    attributes:
+      label: Server console log
+      description: The lines around the problem. Remove passwords and tokens.
+      render: text

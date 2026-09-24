@@ -1,0 +1,227 @@
+{
+  "_meta": {
+    "game_version": "1.41.8.3",
+    "steam_buildid": 25492732,
+    "binary": "game/csgo/bin/linuxsteamrt64/libserver.so",
+    "notes": [
+      "Repo-owned engine surface for ReadyUp. This file (or the copy embedded in the shim at build time) is the only source of signatures; the CounterStrikeSharp CDN gamedata is no longer used.",
+      "Each function must match exactly once AND pass all of its identity anchors, otherwise it is treated as unresolved. Required functions failing => ReadyUp disables itself at load.",
+      "After a CS2 update run: build/readyup_sigcheck <path to Valve libserver.so> gamedata/engine-surface.json",
+      "Functions with \"hook\": \"funchook\" are detoured by ReadyUp; build/readyup_hookcheck verifies funchook can relocate their prologue.",
+      "Anchor types: string_ref = function body references the string via RIP-relative LEA within `window` bytes of its start; caller_string = a direct call to the function (or to a thunk that tail-jumps to it, via_thunk) is preceded within `window` bytes by a LEA of the string; global_string = the function loads a global (RIP-relative mov in its first 32 bytes) and a LEA of that global sits within `window` bytes of a LEA of the string (for leaf accessors with no strings); callee_string = a direct call in the first `window` bytes targets a function that references the string; mov_disp = a `mov r,[r+disp32]` with that displacement in the first `window` bytes (pins a struct layout to the code reading it).",
+      "vtable_indices: each slot is verified before it is patched or called: the class's primary vtable is located through its RTTI typeinfo name (rtti section), the slot target must equal `function` and/or pass `anchors`, and at runtime the live object's vptr must equal that vtable. sigcheck runs the same checks offline. A slot that fails is never patched; the features needing it disable themselves.",
+      "layouts: struct offsets that are only trusted when their `verified_by` entry (whose anchors read exactly these offsets) verifies.",
+      "Live check on a running server: `ru selftest` (console) / `.ru selftest` (admin chat); READYUP_SELFTEST_AND_QUIT=1 runs it after the first map and quits with a status file."
+    ]
+  },
+  "functions": {
+    "Host_Say": {
+      "library": "server",
+      "hook": "funchook",
+      "linux": "55 48 89 E5 41 57 49 89 F7 41 56 41 55 41 89 D5",
+      "required": false,
+      "description": "Host_Say(controller, CCommand&, bool teamonly, int, const char*). Detoured (chat interception).",
+      "anchors": [
+        { "type": "string_ref", "string": "say_team", "window": 2048 },
+        { "type": "string_ref", "string": "%s %s @ %s: ", "window": 2560 }
+      ]
+    },
+    "CCSGameRules_TerminateRound": {
+      "library": "server",
+      "hook": "funchook",
+      "linux": "55 48 89 E5 41 57 41 56 49 89 FE 41 55 41 54 53 48 81 EC ? ? ? ? 48 8D 05 ? ? ? ? F3 0F 11 85 ? ? ? ? 89 B5",
+      "required": false,
+      "description": "CCSGameRules::TerminateRound(this, float delay, RoundEndReason, ptr, uint). Detoured (warmup/practice suppression). The VPROF scope label \"TerminateRound\" is loaded at +0x34.",
+      "anchors": [
+        { "type": "string_ref", "string": "TerminateRound", "window": 128 },
+        { "type": "string_ref", "string": "#SFUI_Notice_Terrorists_Win", "window": 16384 }
+      ]
+    },
+    "CGameEventManager_Init": {
+      "library": "server",
+      "hook": "funchook",
+      "linux": "55 48 89 E5 53 48 89 FB 48 83 EC ? 48 8B 07 FF 50 ? 48 8B 03",
+      "required": false,
+      "description": "CGameEventManager::Init(this): Reset() + LoadEventsFromFile(resource/{core,game,mod}.gameevents). Used to locate the global event manager (call-site scan), hook only as fallback.",
+      "anchors": [
+        { "type": "string_ref", "string": "resource/core.gameevents", "window": 64 },
+        { "type": "caller_string", "string": "gameeventmanager->Init()", "window": 64 }
+      ]
+    },
+    "UTIL_ClientPrintAll": {
+      "library": "server",
+      "linux": "55 48 89 E5 41 57 4D 89 CF 41 56 4D 89 C6 41 55 49 89 CD 41 54 49 89 D4 53 48 8D 5D",
+      "required": true,
+      "description": "UTIL_ClientPrintAll(int dest, const char* msg, p1..p4). Called (not hooked).",
+      "anchors": [
+        { "type": "caller_string", "string": "#SFUI_Notice_Match_Will_Pause", "window": 48 }
+      ]
+    },
+    "ClientPrint": {
+      "library": "server",
+      "linux": "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC ? 4C 89 45 ? 4C 89 4D ? 48 85 FF 74 ? 4C 8D 65 ? 48 89 FB 49 89 D6 4C 89 E7 49 89 CF 41 89 F5 E8",
+      "required": false,
+      "description": "ClientPrint(CBasePlayerController*, int dest, const char* msg, p1..p4): single-recipient reliable filter + UTIL_ClientPrintFilter. Called (not hooked). NOT the CDN 'ClientPrint' signature, which hits an unrelated constructor.",
+      "anchors": [
+        { "type": "caller_string", "string": "#SFUI_vote_failed_vote_in_progress", "window": 64 }
+      ]
+    },
+    "CEntityInstance_AcceptInput": {
+      "library": "server",
+      "linux": "55 48 89 E5 41 57 49 89 FF 41 56 48 8D BD ? ? ? ? 41 55 4C 8D AD",
+      "required": false,
+      "description": "CEntityInstance::AcceptInput(this, input, activator, caller, value, outputId). Weapon paints only.",
+      "anchors": [
+        { "type": "caller_string", "string": "OnRescueZoneTouch", "window": 48 }
+      ]
+    },
+    "CBaseModelEntity_SetModel": {
+      "library": "server",
+      "linux": "55 48 89 E5 53 48 89 FB 48 83 EC ? 48 8D 05 ? ? ? ? 48 8B 38 48 8B 07 FF 50 ? 48 89 DF 48 8B 5D ? C9 48 89 C6 E9 ? ? ? ? CC CC CC CC 55",
+      "required": false,
+      "description": "CBaseModelEntity::SetModel(this, const char* model). Weapon paints only.",
+      "anchors": [
+        { "type": "caller_string", "string": "models/chicken/chicken.vmdl", "window": 48 }
+      ]
+    },
+    "LegacyGameEventListener": {
+      "library": "server",
+      "linux": "48 8B 05 ? ? ? ? 48 85 C0 74 ? 83 FF ? 77 ? 48 63 FF 48 C1 E7 ? 48 8D 44 38",
+      "required": false,
+      "description": "GetLegacyGameEventListener(CPlayerSlot) -> IGameEventListener2* (CSource1LegacyGameEventGameSystem::CServerSideClient_GameEventLegacyProxy, 16-byte stride at +0x40 of the game system; nullptr if the system is gone or slot > 63). Called (not hooked) for per-client center HTML (welcome screen). The returned object is also RTTI-checked at runtime before FireGameEvent. Anchor: the game-system global it reads is registered right next to the gameevents_dumptofile concommand (same TU).",
+      "anchors": [
+        { "type": "global_string", "string": "gameevents_dumptofile", "window": 96 }
+      ]
+    },
+    "CAttributeList_SetOrAddAttributeValueByName": {
+      "library": "server",
+      "linux": "55 48 89 E5 41 57 41 56 41 55 49 89 FD 41 54 53 48 89 F3 48 83 EC ? F3 0F 11 85 ? ? ? ? E8 ? ? ? ? 48 89 DE 48 89 C7 E8",
+      "required": false,
+      "description": "CAttributeList::SetOrAddAttributeValueByName(this, const char* name, float value). Reached via the CEconItemView thunk (add rdi,0x70; jmp). Weapon paints only.",
+      "anchors": [
+        { "type": "caller_string", "string": "set item texture prefab", "window": 48, "via_thunk": true }
+      ]
+    },
+    "CBaseEntity_ChangeSubclass": {
+      "library": "server",
+      "linux": "55 48 89 E5 41 57 49 89 F7 41 56 41 55 41 54 53 48 89 FB 48 81 EC A8 00 00 00",
+      "required": false,
+      "description": "CBaseEntity::ChangeSubclass(this, const char* subclass). Knives: subclass = item defindex (\"507\"), same as the ChangeSubclass input / `subclass_change`. Weapon paints only.",
+      "anchors": [
+        {
+          "type": "caller_string",
+          "string": "ChangeSubclass",
+          "window": 128
+        }
+      ]
+    },
+    "CBaseModelEntity_GetModel": {
+      "library": "server",
+      "linux": "48 8B 47 10 48 8B 10 48 85 D2 74 5C 48 8B 40 08 48 8D 0D ? ? ? ? 48 8B 80 88 00 00 00 48 63 49 20 0F B7 04 48 66 83 F8 FF 74 3C 48 8B 04 02",
+      "required": false,
+      "description": "CBaseModelEntity::GetModel(this) -> CModel* (null if none). 1st call of InputSetBodyGroup. Gloves (default_gloves bodygroup) only.",
+      "anchors": [
+        {
+          "type": "caller_string",
+          "string": "models/hostage/hostage.vmdl",
+          "window": 128
+        }
+      ]
+    },
+    "CModel_FindBodygroupByName": {
+      "library": "server",
+      "linux": "55 48 89 E5 41 57 41 56 41 55 49 89 FD 41 54 53 31 DB",
+      "required": false,
+      "description": "CModel::FindBodygroupByName(model, name) -> int (<0 = missing). 2nd call of InputSetBodyGroup; the Pulse SetBodygroupByName binding loads \"bodygroup\" right before calling it. Gloves only.",
+      "anchors": [
+        {
+          "type": "caller_string",
+          "string": "bodygroup",
+          "window": 128
+        }
+      ]
+    },
+    "CBaseModelEntity_SetBodygroup": {
+      "library": "server",
+      "linux": "85 F6 0F 88 ? ? ? ? 55 48 89 E5 41 57 41 56",
+      "required": false,
+      "description": "CBaseModelEntity::SetBodygroup(this, int group, int value). 3rd call of InputSetBodyGroup. Gloves only.",
+      "anchors": [
+        {
+          "type": "string_ref",
+          "string": "CBaseModelEntity::SetBodygroup(%d,%d) failed: iGroup outside the range 0 - %d! (model %s)\n",
+          "window": 512
+        }
+      ]
+    },
+    "CBaseEntity_NetworkStateChanged": {
+      "library": "server",
+      "linux": "55 48 89 E5 53 48 89 FB 48 83 C7 38 48 83 EC 08 8B 06 85 C0 75",
+      "required": false,
+      "description": "CEntityInstance::NetworkStateChanged(const NetworkStateChangedData&) as implemented by CBaseEntity (vtbl slot in vtable_indices; same impl for pawns, weapons, knives). A zero offset count (first dword; `mov eax,[rsi]; test eax,eax; jne` is part of the signature) marks the whole entity dirty and reads nothing else from the data. Only called through an entity's vtable after checking the slot equals this address. Skins re-networking only.",
+      "anchors": [
+        {
+          "type": "callee_string",
+          "string": "CNetworkTransmitComponent::StateChanged(%s) @%s:%d",
+          "window": 160,
+          "callee_window": 128
+        }
+      ]
+    },
+    "UTIL_Remove": {
+      "library": "server",
+      "linux": "48 89 FE 48 85 FF 74 ? 48 8D 05 ? ? ? ? 48 8B 38",
+      "required": false,
+      "description": "UTIL_Remove(CEntityInstance*). Not called: used as the anchor for g_pGameEntitySystem (`lea rax,[rip+g_pGameEntitySystem]` at +8). Skins entity lookup only.",
+      "anchors": [
+        {
+          "type": "caller_string",
+          "string": "particles/inferno_fx/extinguish_fire.vpcf",
+          "window": 96
+        }
+      ]
+    }
+  },
+  "vtable_indices": {
+    "ISource2Server::GameFrame": {
+      "linux": 19,
+      "class": "CSource2Server",
+      "note": "11 IAppSystem slots + 8. Patched (tick hook). The target opens a VPROF scope named \"GameFrame\" at +0x27.",
+      "anchors": [
+        { "type": "string_ref", "string": "GameFrame", "window": 64 }
+      ]
+    },
+    "ISource2GameClients::ClientCommand": {
+      "linux": 17,
+      "class": "CSource2GameClients",
+      "note": "11 IAppSystem slots + 6. Patched (jointeam / chat). The target reads CCommand argc/argv at [args+0x438]/[args+0x440] (pins layouts.CCommand) and prints \"Unknown command: %s\".",
+      "anchors": [
+        { "type": "string_ref", "string": "Unknown command: %s\n", "window": 256 },
+        { "type": "mov_disp", "disp": 1080, "window": 96 },
+        { "type": "mov_disp", "disp": 1088, "window": 96 }
+      ]
+    },
+    "CEntityInstance::NetworkStateChanged": {
+      "linux": 29,
+      "class": "CBaseEntity",
+      "function": "CBaseEntity_NetworkStateChanged",
+      "note": "Chain helper NetworkStateChanged dispatches via [vtbl+0xE8]. Called (not patched) on entities whose slot equals the verified function (CBaseEntity, CBaseModelEntity, CBasePlayerPawn, CCSPlayerPawn(Base), CEconEntity, CBasePlayerWeapon, CCSWeaponBase(Gun), CKnife share it)."
+    }
+  },
+  "rtti": {
+    "CBaseEntity": { "typeinfo_name": "11CBaseEntity", "note": "Locates the CBaseEntity vtable for the NetworkStateChanged slot check." },
+    "CGameEventManager": { "typeinfo_name": "17CGameEventManager", "note": "Checked on the object's vtable before any virtual call." },
+    "CSchemaSystem": { "typeinfo_name": "13CSchemaSystem", "module": "schemasystem", "note": "SchemaSystem_001; checked before FindTypeScopeForModule (vtbl 13)." },
+    "CSchemaSystemTypeScope": { "typeinfo_name": "22CSchemaSystemTypeScope", "module": "schemasystem", "note": "libserver.so type scope; checked before FindDeclaredClass (vtbl 2)." },
+    "CServerSideClient_GameEventLegacyProxy": { "typeinfo_name": "N33CSource1LegacyGameEventGameSystem38CServerSideClient_GameEventLegacyProxyE", "note": "Per-client listener returned by LegacyGameEventListener; checked before FireGameEvent." },
+    "CSource2GameClients": { "typeinfo_name": "19CSource2GameClients", "note": "Source2GameClients001; its vptr must equal this vtable before ClientCommand is patched." },
+    "CSource2Server": { "typeinfo_name": "14CSource2Server", "note": "Source2Server001; its vptr must equal this vtable before GameFrame is patched." }
+  },
+  "layouts": {
+    "CCommand": {
+      "verified_by": "ISource2GameClients::ClientCommand",
+      "fields": { "argc": 1080, "argv": 1088 },
+      "note": "CUtlVectorFixedGrowable<char*, 64> m_Args: m_Size at +0x438, m_Memory.m_pMemory (char**) at +0x440. Only trusted when the ClientCommand slot (whose code reads exactly these offsets) verifies."
+    }
+  }
+}

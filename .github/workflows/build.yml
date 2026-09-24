@@ -1,0 +1,145 @@
+name: Build
+
+# Release build of libserver.so in Valve's Steam Runtime 3 "sniper" SDK (glibc 2.31, what
+# CS2 targets), verified against the CURRENT public CS2 build (sigcheck + hook-site check).
+# Tags v* additionally publish a GitHub release with the install zip.
+
+on:
+  push:
+    branches: [master, main, 'dev/**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  build:
+    name: Build (sniper) + verify vs current CS2
+    runs-on: ubuntu-latest
+    container:
+      image: registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest
+    env:
+      DEPS_PREFIX: ${{ github.workspace }}/.ci/deps
+      DEPS_WORK: ${{ github.workspace }}/.ci/deps-work
+      DD_DIR: ${{ github.workspace }}/.ci/depotdownloader
+      CS2_DIR: ${{ github.workspace }}/.ci/cs2
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      buildid: ${{ steps.cs2.outputs.buildid }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version
+        id: version
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          file_version="$(tr -d ' \t\r\n' < VERSION)"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            version="${GITHUB_REF_NAME#v}"
+            if [ "$version" != "$file_version" ]; then
+              echo "::error::tag $GITHUB_REF_NAME does not match VERSION ($file_version)"
+              exit 1
+            fi
+          else
+            version="${file_version}-dev.$(git rev-parse --short HEAD)"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version: $version"
+
+      - name: Unit tests (patch_gameinfo.py)
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Cache static deps (OpenSSL, libpq, libcurl)
+        uses: actions/cache@v4
+        with:
+          path: .ci/deps
+          key: sniper-static-deps-${{ hashFiles('scripts/ci/build-static-deps.sh') }}
+
+      - name: Build libserver.so + tools
+        run: scripts/ci/build-release.sh build-sniper
+
+      - name: Current CS2 buildid
+        id: cs2
+        run: echo "buildid=$(scripts/ci/cs2-buildid.sh)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache CS2 binaries for this buildid
+        id: cs2-cache
+        uses: actions/cache@v4
+        with:
+          path: .ci/cs2
+          key: cs2-linux-bins-${{ steps.cs2.outputs.buildid }}
+
+      - name: Fetch CS2 binaries (DepotDownloader, anonymous, 5 files)
+        if: steps.cs2-cache.outputs.cache-hit != 'true'
+        run: scripts/ci/fetch-cs2-binaries.sh "$CS2_DIR"
+
+      - name: sigcheck + hookcheck vs current CS2
+        run: |
+          set +e
+          scripts/ci/verify-cs2.sh "$CS2_DIR" build-sniper .ci/report.md
+          rc=$?
+          cat .ci/report.md >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+
+      - name: Package
+        run: |
+          . "$CS2_DIR/cs2-build.env"
+          CS2_BUILDID="$BUILDID" CS2_PATCH_VERSION="$PATCH_VERSION" \
+            scripts/package-release.sh build-sniper/libserver.so "${{ steps.version.outputs.version }}" dist
+          mkdir -p dist/tools
+          cp build-sniper/libserver.so dist/
+          cp build-sniper/readyup_sigcheck build-sniper/readyup_hookcheck dist/tools/
+          cp "$CS2_DIR/cs2-build.env" .ci/report.md dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: readyup-${{ steps.version.outputs.version }}-linuxsteamrt64
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: GitHub release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: readyup-${{ needs.build.outputs.version }}-linuxsteamrt64
+          path: dist
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          zip="dist/readyup-${VERSION}-linuxsteamrt64.zip"
+          scripts/ci/release-notes.sh "$TAG" dist/cs2-build.env > notes.md
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$zip" "$zip.sha256" --clobber
+            gh release edit "$TAG" --notes-file notes.md
+          else
+            gh release create "$TAG" "$zip" "$zip.sha256" \
+              --title "ReadyUp $TAG" --notes-file notes.md --verify-tag --latest
+          fi
+
+      - name: Announce on Discord
+        if: env.DISCORD_WEBHOOK_URL != ''
+        run: ./discord-webhook.sh "${{ needs.build.outputs.version }}" || echo "::warning::Discord announcement failed"
