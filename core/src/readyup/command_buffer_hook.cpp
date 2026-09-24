@@ -286,6 +286,29 @@ static bool HandleWarmupEnableCommand(const std::string& line) {
   return true;
 }
 
+// DEBUG ONLY: runtime override of readyup.cfg `dev_bots_scrim` (the live test turns it on
+// for one run and back to `cfg` afterwards).
+static bool HandleDevBotsScrimCommand(const std::string& line) {
+  std::string t = Trim(line);
+  if (t.empty()) return false;
+  if (!StartsWithToken(t, "ru_dev_bots_scrim")) return false;
+  auto parts = SplitWS(t);
+  if (parts.size() >= 2) {
+    const std::string v = parts[1];
+    if (v == "1" || v == "on" || v == "true") SetDevBotsScrimOverride(1);
+    else if (v == "0" || v == "off" || v == "false") SetDevBotsScrimOverride(0);
+    else if (v == "cfg" || v == "default") SetDevBotsScrimOverride(-1);
+    else {
+      PrintLine("Usage: ru_dev_bots_scrim 0|1|cfg");
+      return true;
+    }
+  }
+  const int ov = DevBotsScrimOverride();
+  Print("dev_bots_scrim: %d (%s)\n", DevBotsScrimEnabled() ? 1 : 0,
+        ov < 0 ? "from readyup.cfg / READYUP_DEV_BOTS_SCRIM" : "console override; `ru_dev_bots_scrim cfg` clears it");
+  return true;
+}
+
 static bool HandleCfgExecEnableCommand(const std::string& line) {
   std::string t = Trim(line);
   if (t.empty()) return false;
@@ -807,6 +830,7 @@ static bool HandleReadyUpConsoleCommandLine(const std::string& line) {
   if (HandleAdminsRefreshSecondsCommand(line)) return true;
   if (HandleCfgExecEnableCommand(line)) return true;
   if (HandleWarmupEnableCommand(line)) return true;
+  if (HandleDevBotsScrimCommand(line)) return true;
   if (HandleWarmupMessageHtmlCommand(line)) return true;
   if (HandleWarmupRespawnCommand(line)) return true;
   if (HandleWarmupIgnoreWinCommand(line)) return true;

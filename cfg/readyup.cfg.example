@@ -16,6 +16,11 @@ welcome=1
 # (env override: READYUP_DEV_BOTS_READY)
 dev_bots_ready=0
 
+# DEBUG ONLY: a scrim starts and runs with only bots on CT and T (no humans): scrim warmup,
+# countdown, knife, live. For scripts/livetest --scrim. Never enable on a real server.
+# (env override: READYUP_DEV_BOTS_SCRIM; console: ru_dev_bots_scrim 0|1|cfg)
+dev_bots_scrim=0
+
 # Prefixes (supports ChatColors tokens like <DarkRed>, <Default>, <LightBlue>, <Orange>, ...).
 # Ready Up always adds a single space after the prefix in output.
 chat_prefix=<DarkRed>[Ready Up]<Default>

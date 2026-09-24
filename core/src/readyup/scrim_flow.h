@@ -21,6 +21,10 @@ namespace readyup {
 //   match_warmup (go-live pending) --(Round_Start log line)--> match_live
 //   scrim match, no humans connected for 60s --> idle (scrim ended)
 //
+// dev_bots_scrim=1 (testing only): with no humans on CT/T but bots on both sides,
+// idle -> scrim_warmup, the bots count as everyone ready (countdown, knife, live as
+// above) and the 60s empty-scrim timeout is skipped.
+//
 // `.ru idle` pauses the idle -> scrim_warmup auto-entry until `.ru scrim` or
 // the next map change.
 
@@ -29,7 +33,7 @@ struct ScrimRoster {
   std::unordered_map<uint64_t, int> teamNum;
   // Connected humans not on CT/T (spectators/unassigned).
   std::unordered_set<uint64_t> spectators;
-  // dev_bots_ready only: bot pseudo-id (see IsDevBotId) -> cs team num.
+  // dev_bots_ready / dev_bots_scrim only: bot pseudo-id (see IsDevBotId) -> cs team num.
   // Bots are always READY and only count toward the "both sides populated"
   // check; they are never written into the match context, so they never
   // reach webhooks, the DB or persisted state.
@@ -44,7 +48,7 @@ struct ScrimCounts {
   int ready = 0;  // ready humans on CT/T
   int total = 0;  // humans on CT/T
   bool bothSides = false;
-  bool allReady = false;  // total > 0 && ready == total
+  bool allReady = false;  // total > 0 && ready == total (dev_bots_scrim: or bots only, both sides)
 };
 
 // Current teams from the log-derived human table (engine netvars when events

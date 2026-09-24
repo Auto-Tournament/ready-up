@@ -43,6 +43,11 @@ struct ReadyUpCfg {
   // Bots are never added to the match context (no webhooks/DB/persistence).
   bool dev_bots_ready = false;
 
+  // DEBUG ONLY. When true, a scrim can start and run with no humans at all: bots on both
+  // CT and T enter scrim warmup, count as everyone ready, and the empty-scrim timeout is
+  // skipped. Bots count toward the scrim roster as with dev_bots_ready. For the live test.
+  bool dev_bots_scrim = false;
+
   // Scrims (no match config): play a knife round after everyone readied up;
   // the winning side picks .stay/.switch. Off: straight to live.
   bool scrim_knife = true;
@@ -75,6 +80,14 @@ bool ConsumeReadyChat();
 // readyup.cfg `dev_bots_ready` (env override: READYUP_DEV_BOTS_READY).
 // Logs a loud line whenever the effective value flips to ON.
 bool DevBotsReadyEnabled();
+
+// readyup.cfg `dev_bots_scrim` (env override: READYUP_DEV_BOTS_SCRIM; console override:
+// `ru_dev_bots_scrim 0|1|cfg`, which wins until `cfg` or a restart).
+// Logs a loud line whenever the effective value flips.
+bool DevBotsScrimEnabled();
+// -1 = no override (cfg/env), 0 = off, 1 = on.
+void SetDevBotsScrimOverride(int v);
+int DevBotsScrimOverride();
 
 // Reloads `readyup.cfg` from disk (best-effort).
 // Returns true if the file was successfully read+parsed, false otherwise.

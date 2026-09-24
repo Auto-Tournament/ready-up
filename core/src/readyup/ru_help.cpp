@@ -96,6 +96,7 @@ void PrintRuHelp() {
       "  - .ru unpause / .ru fup / .ru forceunpause\n"
       "\n"
       "Notes:\n"
+      "  - testing only: ru_dev_bots_scrim 0|1|cfg (bots-only scrims; readyup.cfg dev_bots_scrim).\n"
       "  - add/remove are admin-only.\n"
       "  - first admin must be added from server console or seeded in DB.\n"
       "  - admins/captains may be chat-prefixed via readyup.cfg (admin_prefix / captain_prefix_*).\n"

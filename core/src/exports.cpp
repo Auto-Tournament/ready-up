@@ -178,6 +178,7 @@ __attribute__((constructor)) static void readyup_ctor() {
   readyup::InstallClientCommandHook();
   // Logs a loud warning at boot if the debug-only dev_bots_ready flag is on.
   (void)readyup::DevBotsReadyEnabled();
+  (void)readyup::DevBotsScrimEnabled();
   readyup::TryRegisterConsoleCommands();
   readyup::InstallCommandBufferHook();
 

@@ -107,6 +107,11 @@ static void CrossCheckTeam(const HumanIdentity& h) {
         static_cast<long long>(ageMs), h.userid, h.slot, TeamTag(*netvar));
 }
 
+// dev_bots_scrim: nobody human on CT/T, but bots on both sides.
+static bool BotsOnlyScrim(const ScrimCounts& c) {
+  return c.total == 0 && c.devBotsCt > 0 && c.devBotsT > 0 && DevBotsScrimEnabled();
+}
+
 static bool IsWarmupMode(ReadyUpMode m) {
   return m == ReadyUpMode::ScrimWarmup || m == ReadyUpMode::MatchWarmup;
 }
@@ -164,6 +169,8 @@ static std::string BuildStateFieldsLocked(FlowState& f) {
   s += f.autoEnabled ? "1" : "0";
   s += " dev_bots_ready=";
   s += DevBotsReadyEnabled() ? "1" : "0";
+  s += " dev_bots_scrim=";
+  s += DevBotsScrimEnabled() ? "1" : "0";
   if (f.countdownActive) {
     const auto left = std::chrono::duration_cast<std::chrono::seconds>(f.countdownDeadline - Clock::now()).count();
     s += " countdown=" + std::to_string(std::max<long long>(0, left + 1));
@@ -233,7 +240,7 @@ static void EndEmptyScrim() {
 
 static void ScrimWarmupStepLocked(FlowState& f, Clock::time_point now, const ScrimRoster& roster,
                                   const ScrimCounts& c) {
-  if (c.total == 0) {
+  if (c.total == 0 && !BotsOnlyScrim(c)) {
     CancelCountdownLocked(f);
     if (IsZero(f.noTeamSince)) f.noTeamSince = now;
     if ((now - f.noTeamSince) >= kNoTeamGrace) {
@@ -273,6 +280,10 @@ static void ScrimWarmupStepLocked(FlowState& f, Clock::time_point now, const Scr
     f.countdownActive = true;
     f.countdownDeadline = now + std::chrono::seconds(kCountdownSeconds);
     f.countdownLastAnnounced = kCountdownSeconds;
+    if (BotsOnlyScrim(c)) {
+      Print("dev_bots_scrim: bots-only scrim ready (CT %d bot(s), T %d bot(s)); %s in %ds\n", c.devBotsCt,
+            c.devBotsT, Cfg().scrim_knife ? "knife round" : "going live", kCountdownSeconds);
+    }
     if (!HudReplacesChat()) SendToChat(("Ready Up: all " + std::to_string(c.total) + " player(s) ready - " + (Cfg().scrim_knife ? "knife round" : "going live") + " in " +
                 std::to_string(kCountdownSeconds) + "s (.ur to cancel).")
                    .c_str());
@@ -298,7 +309,7 @@ ScrimRoster BuildScrimRoster() {
     if (tn == 2 || tn == 3) out.teamNum[h.steamid64] = tn;
     else out.spectators.insert(h.steamid64);
   }
-  if (DevBotsReadyEnabled()) {
+  if (DevBotsReadyEnabled() || DevBotsScrimEnabled()) {
     for (const auto& b : ListBots()) {
       if (b.team == 2 || b.team == 3) out.devBots[b.pseudo_id] = b.team;
     }
@@ -320,13 +331,16 @@ ScrimCounts CountScrimRoster(const ScrimRoster& roster) {
   c.total = c.humansCt + c.humansT;
   c.bothSides = (c.humansCt + c.devBotsCt) > 0 && (c.humansT + c.devBotsT) > 0;
   c.allReady = c.total > 0 && c.ready == c.total;
+  // dev_bots_scrim: no humans on CT/T and bots on both sides = everyone (the bots) ready.
+  if (BotsOnlyScrim(c)) c.allReady = true;
   return c;
 }
 
 bool MaybeStartScrimIfAllReady(const ScrimRoster& roster) {
   if (WebhookGetMatchContext()) return false;
   if (GetMode() != ReadyUpMode::ScrimWarmup) return false;
-  if (roster.teamNum.empty()) return false;
+  // No humans on CT/T: only dev_bots_scrim may start a scrim (bots on both sides).
+  if (roster.teamNum.empty() && (roster.devBots.empty() || !DevBotsScrimEnabled())) return false;
 
   const auto c = CountScrimRoster(roster);
   if (!roster.devBots.empty()) {
@@ -380,7 +394,11 @@ bool MaybeStartScrimIfAllReady(const ScrimRoster& roster) {
     if (!IsReady(sid)) (void)SetReady(sid, true);
   }
 
-  if (!roster.devBots.empty()) {
+  if (roster.teamNum.empty()) {
+    Print("dev_bots_scrim is ON — bots-only scrim started with %d CT + %d T bot(s), no humans "
+          "(bots are not on the match roster).\n",
+          c.devBotsCt, c.devBotsT);
+  } else if (!roster.devBots.empty()) {
     Print("dev_bots_ready is ON — bots count as ready: scrim started with %d CT + %d T bot(s) "
           "(bots are not on the match roster).\n",
           c.devBotsCt, c.devBotsT);
@@ -464,8 +482,13 @@ void ScrimTick() {
 
   if (!ctx) {
     f.noHumansSince = {};
-    if (mode == ReadyUpMode::Idle && f.autoEnabled && c.total > 0) {
+    const bool botsOnly = BotsOnlyScrim(c);
+    if (mode == ReadyUpMode::Idle && f.autoEnabled && (c.total > 0 || botsOnly)) {
       if (SetModeScrimWarmup()) {
+        if (botsOnly) {
+          Print("dev_bots_scrim: bots-only scrim warmup (CT %d bot(s), T %d bot(s), no humans).\n", c.devBotsCt,
+                c.devBotsT);
+        }
         mode = ReadyUpMode::ScrimWarmup;
         WebhookSetHeartbeatStatus("idle");  // still allocatable for real matches
         CancelCountdownLocked(f);
@@ -484,7 +507,8 @@ void ScrimTick() {
   } else {
     CancelCountdownLocked(f);
     f.noTeamSince = {};
-    if (ctx->slug == "scrim" && humansConnected == 0) {
+    // dev_bots_scrim: a bots-only scrim is the point, so no empty-scrim timeout.
+    if (ctx->slug == "scrim" && humansConnected == 0 && !DevBotsScrimEnabled()) {
       if (IsZero(f.noHumansSince)) f.noHumansSince = now;
       if ((now - f.noHumansSince) >= kEmptyScrimTimeout) {
         f.noHumansSince = {};
@@ -581,6 +605,7 @@ std::vector<std::string> BuildStateReport() {
                 (DevBotsReadyEnabled() ? " (count as ready)" : "") + " | both sides: " + (c.bothSides ? "yes" : "no"));
 
   out.push_back(std::string("flags: dev_bots_ready=") + (DevBotsReadyEnabled() ? "1" : "0") +
+                " dev_bots_scrim=" + (DevBotsScrimEnabled() ? "1" : "0") +
                 " debug=" + (DebugEnabled() ? "1" : "0") + " cfg_exec=" + (CfgExecEnabled() ? "1" : "0") +
                 " scrim_auto=" + (f.autoEnabled ? "1" : "0") +
                 " | events=" + (GameEventsListenerInstalled() ? "1" : "0") +
