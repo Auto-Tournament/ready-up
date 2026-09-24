@@ -265,19 +265,20 @@ static bool HandleWarmupEnableCommand(const std::string& line) {
 
   auto parts = SplitWS(t);
   if (parts.size() == 1) {
-    Print("warmup enabled: %s\n", WarmupEnabled() ? "1" : "0");
+    Print("warmup enabled: %s (%s)\n", WarmupEnabled() ? "1" : "0",
+          WarmupEnabled() ? "matches wait for ready-up" : "matches skip ready-up and knife; live on next round start");
     return true;
   }
   if (parts.size() >= 2) {
     const std::string v = parts[1];
     if (v == "1" || v == "true" || v == "on") {
       SetWarmupEnabled(true);
-      PrintLine("warmup enabled: 1");
+      PrintLine("warmup enabled: 1 (matches wait for ready-up)");
       return true;
     }
     if (v == "0" || v == "false" || v == "off") {
       SetWarmupEnabled(false);
-      PrintLine("warmup enabled: 0");
+      PrintLine("warmup enabled: 0 (matches skip ready-up and knife; live on next round start)");
       return true;
     }
   }

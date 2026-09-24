@@ -137,7 +137,9 @@ bool SetReady(uint64_t steamid64, bool ready);
 void ClearReady(uint64_t steamid64);
 void ClearReadyStates();
 
-// Warmup UI settings (pushed via RCON).
+// `ru_warmup_enable`: the match ready-up gate, not just the banner. Off: a loaded match
+// gets no warmup rules, no ready panel/banner and no knife round, and goes match_live on
+// the next Round_Start. Scrims (no match config) are not affected. Default on.
 void SetWarmupEnabled(bool enabled);
 bool WarmupEnabled();
 void SetWarmupHtmlMessage(std::string html);

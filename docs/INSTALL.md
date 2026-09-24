@@ -265,8 +265,14 @@ Ready Up maintains its own lightweight mode state machine and can display a **no
   - `ru start` (force start live rules regardless of ready)
   - `ru restart` (restart and return to match warmup)
   - `ru end` (force end: emits `series_end` with winner=none, clears match context, resets server)
+- **Match ready-up gate (server console / RCON)**:
+  - `ru_warmup_enable 0|1` (default `1`). Despite the name this is more than the banner:
+    - `1`: a loaded match waits in `match_warmup` until every roster player is ready, then
+      plays the knife round (if `map_sides` says so) and goes live.
+    - `0`: a loaded match skips ready-up entirely. No warmup rules, no ready panel or banner,
+      no knife round; Ready Up goes `match_live` on the next round start. Use it only when something else starts the match.
+    - Scrims (no match loaded) are not affected.
 - **Warmup banner settings (server console / RCON)**:
-  - `ru_warmup_enable 0|1`
   - `ru_warmup_message_html <html...>`
     - token expansion: `{ready_count}` / `{connected_count}` / `{total_count}`
   - `ru_warmup_message_html default` (restore default message)
@@ -290,7 +296,7 @@ Ready Up maintains its own lightweight mode state machine and can display a **no
 
 ### Behavior
 
-- When `ru match load` succeeds, Ready Up enters **match_warmup** and begins showing a CenterHtml banner to roster players who are **not ready**.
+- When `ru match load` succeeds, Ready Up enters **match_warmup** and begins showing a CenterHtml banner to roster players who are **not ready** (with `ru_warmup_enable 0` there is no ready-up: see above).
 - When the first `round_started` is observed in logs, Ready Up transitions to **match_live**.
 
 ### MAT integration
