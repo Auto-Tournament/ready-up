@@ -354,7 +354,12 @@ static bool HudEnabled() {
   return Cfg().ready_hud;
 }
 
+// Last per-client send result; assume it works until a send fails.
+std::atomic<bool> g_sendOk{true};
+
 }  // namespace
+
+bool HudReplacesChat() { return HudEnabled() && g_sendOk.load(std::memory_order_relaxed); }
 
 std::string HudBrandHtml(int imgHeight, const char* fontClass) {
   if (!FeatureEnabled(Feature::HudBrand)) return {};
@@ -424,7 +429,21 @@ void ReadyHudTick() {
     what = What::Ready;
   } else if (mode == ReadyUpMode::MatchKnife) {
     knife = KnifeHudSnapshot();
-    if (knife.phase == KnifePhase::Starting || knife.phase == KnifePhase::Picking) what = What::Knife;
+    // knife.cfg has almost no freeze time, so "Starting" lasts about a second.
+    // Keep the KNIFE ROUND panel up for hud_knife_hold_s after the knife round
+    // begins, also while it is running.
+    static Clock::time_point s_knifeSince{};
+    if (knife.phase == KnifePhase::None) {
+      s_knifeSince = {};
+    } else if (s_knifeSince == Clock::time_point{}) {
+      s_knifeSince = Clock::now();
+    }
+    const bool holding = knife.phase == KnifePhase::Running && s_knifeSince != Clock::time_point{} &&
+                         (Clock::now() - s_knifeSince) < std::chrono::seconds(Cfg().hud_knife_hold_s);
+    if (knife.phase == KnifePhase::Starting || knife.phase == KnifePhase::Picking || holding) {
+      what = What::Knife;
+      if (holding) knife.phase = KnifePhase::Starting;  // same "knives only" text while held
+    }
   }
   if (what == What::None && tests.empty()) {
     g_sent.clear();
@@ -467,6 +486,7 @@ void ReadyHudTick() {
     const bool changed = (s.html != html);
     if (s.html == html && (now - s.at) < std::chrono::milliseconds(Cfg().hud_resend_ms)) continue;
     const bool ok = PrintCenterHtmlToClientOnly(slot, html, Cfg().hud_duration_s);
+    g_sendOk.store(ok, std::memory_order_relaxed);
     if (ok) {
       s.html = html;
       s.at = now;

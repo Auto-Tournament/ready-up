@@ -24,3 +24,8 @@ event (`loc_token` = HTML). Tested in game on CS2 1.41.8.3 with `.ru hudtest 1-7
 | Raw UTF-8 (✔ ✖ ★ • →), decimal and hex entities | Named entities (`&check;`, `&star;`, `&rarr;`) |
 
 Logos must be hosted as a PNG already scaled to the display size.
+
+## Knife panel and chat
+
+- After the knife round starts, the KNIFE ROUND panel stays up for `hud_knife_hold_s` seconds (default 30), also while the round is running.
+- While the panel reaches players, flow updates (ready, countdown, knife start, knife winner, side pick) are shown only in the panel, not in chat. Replies that explain a refused command, admin actions and the LIVE line still go to chat. With `ready_hud=0`, or if a panel send fails, the chat messages come back.

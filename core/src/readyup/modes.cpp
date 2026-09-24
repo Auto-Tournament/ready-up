@@ -265,7 +265,7 @@ static bool StartKnifeLocked(State& st, const WebhookMatchContext& ctx) {
   WebhookSetHeartbeatStatus("warmup");
   Print("knife: starting knife round (map %d, match %s) - exec knife.cfg + mp_restartgame 1\n", mapNumber,
         ctx.slug.empty() ? "?" : ctx.slug.c_str());
-  SendToChat("Ready Up: KNIFE ROUND after the restart - knives only, the winning team picks its side.");
+  if (!HudReplacesChat()) SendToChat("Ready Up: KNIFE ROUND after the restart - knives only, the winning team picks its side.");
   return true;
 }
 
@@ -311,7 +311,7 @@ static void MaybeAutoPickKnifeSideLocked(State& st) {
     const auto left = std::chrono::duration_cast<std::chrono::seconds>(st.knifePickDeadline - now).count();
     if (!st.knifeReminderSent && left <= 15 && left >= 5) {
       st.knifeReminderSent = true;
-      SendToChat(("Ready Up: " + KnifeWinnerNameLocked(st, ctx) + ": .stay or .switch - " + std::to_string(left + 1) +
+      if (!HudReplacesChat()) SendToChat(("Ready Up: " + KnifeWinnerNameLocked(st, ctx) + ": .stay or .switch - " + std::to_string(left + 1) +
                   "s left, then sides stay.")
                      .c_str());
     }
@@ -1543,7 +1543,7 @@ void KnifeOnRoundStart(int map_number, const char* source) {
     st.knifeStartedSent = true;
   }
   Print("knife: round started (via %s)\n", source ? source : "?");
-  SendToChat("Ready Up: KNIFE! Winning team picks the side.");
+  if (!HudReplacesChat()) SendToChat("Ready Up: KNIFE! Winning team picks the side.");
 }
 
 void KnifeOnRoundEnd(int map_number, int csWinnerTeamNum, bool elimination, const char* source,
@@ -1624,11 +1624,11 @@ void KnifeOnRoundEnd(int map_number, int csWinnerTeamNum, bool elimination, cons
   Print("knife: winner=%s (%s) via %s notice=%s: %s; pick window %ds%s\n", CsSideName(winnerCs),
         st.knifeWinner == WebhookTeam::Team2 ? "team2" : "team1", source ? source : "?", notice.c_str(), why.c_str(),
         sec, botsOnly ? " (no humans on the winning side)" : "");
-  SendToChat(("Ready Up: " + name + " won the knife round (" + why + ").").c_str());
+  if (!HudReplacesChat()) SendToChat(("Ready Up: " + name + " won the knife round (" + why + ").").c_str());
   if (botsOnly) {
     SendToChat("Ready Up: only bots on the winning side - keeping sides.");
   } else {
-    SendToChat(("Ready Up: " + name + " players: type .stay or .switch (.ct / .t) - " + std::to_string(sec) +
+    if (!HudReplacesChat()) SendToChat(("Ready Up: " + name + " players: type .stay or .switch (.ct / .t) - " + std::to_string(sec) +
                 "s, then sides stay.")
                    .c_str());
   }

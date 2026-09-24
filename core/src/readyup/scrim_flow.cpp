@@ -205,6 +205,7 @@ static std::string NotReadyNames(const ScrimRoster& roster, int maxNames) {
 }
 
 static void SendReminder(const ScrimRoster& roster, const ScrimCounts& c) {
+  if (HudReplacesChat()) return;  // the ready panel shows this
   std::string msg = "Ready Up: type .r when ready " + ReadyProgress(c);
   const std::string waiting = NotReadyNames(roster, 5);
   if (!waiting.empty()) msg += " - waiting: " + waiting;
@@ -248,7 +249,7 @@ static void ScrimWarmupStepLocked(FlowState& f, Clock::time_point now, const Scr
   if (f.countdownActive) {
     if (!c.allReady || !c.bothSides) {
       CancelCountdownLocked(f);
-      SendToChat(("Ready Up: countdown cancelled " + ReadyProgress(c) + ".").c_str());
+      if (!HudReplacesChat()) SendToChat(("Ready Up: countdown cancelled " + ReadyProgress(c) + ".").c_str());
       f.lastReminder = now;
       return;
     }
@@ -263,7 +264,7 @@ static void ScrimWarmupStepLocked(FlowState& f, Clock::time_point now, const Scr
     const int secs = static_cast<int>((leftMs + 999) / 1000);
     if (secs <= 3 && secs != f.countdownLastAnnounced) {
       f.countdownLastAnnounced = secs;
-      SendToChat(((Cfg().scrim_knife ? "Ready Up: knife round in " : "Ready Up: going live in ") + std::to_string(secs) + "...").c_str());
+      if (!HudReplacesChat()) SendToChat(((Cfg().scrim_knife ? "Ready Up: knife round in " : "Ready Up: going live in ") + std::to_string(secs) + "...").c_str());
     }
     return;
   }
@@ -272,7 +273,7 @@ static void ScrimWarmupStepLocked(FlowState& f, Clock::time_point now, const Scr
     f.countdownActive = true;
     f.countdownDeadline = now + std::chrono::seconds(kCountdownSeconds);
     f.countdownLastAnnounced = kCountdownSeconds;
-    SendToChat(("Ready Up: all " + std::to_string(c.total) + " player(s) ready - " + (Cfg().scrim_knife ? "knife round" : "going live") + " in " +
+    if (!HudReplacesChat()) SendToChat(("Ready Up: all " + std::to_string(c.total) + " player(s) ready - " + (Cfg().scrim_knife ? "knife round" : "going live") + " in " +
                 std::to_string(kCountdownSeconds) + "s (.ur to cancel).")
                    .c_str());
     return;
@@ -470,7 +471,7 @@ void ScrimTick() {
         CancelCountdownLocked(f);
         f.noTeamSince = {};
         f.lastReminder = now;
-        SendToChat(("Ready Up: scrim warmup - type .r when ready " + ReadyProgress(c) +
+        if (!HudReplacesChat()) SendToChat(("Ready Up: scrim warmup - type .r when ready " + ReadyProgress(c) +
                     ". Goes live when everyone on CT/T is ready.")
                        .c_str());
       }
