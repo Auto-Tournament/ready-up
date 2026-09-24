@@ -259,11 +259,13 @@ queued reload waits until it wakes. Dev servers should run with `sv_hibernate_wh
 
 ## 5. Where the current modules go
 
-The physical move happens later (see the migration plan). New files already sit in their final place:
-`core/include/readyup/plugin_api.h` and `plugins/hello/`. The loader is in
-`src/readyup/plugin_loader.cpp` and moves with the rest of the core.
+The physical move (step 1) is done: core sources are in `core/src/readyup/` (the
+`readyup/` subdirectory keeps every `#include "readyup/..."` unchanged), the shim entry
+points in `core/src/exports.{cpp,map}`, vendored code in `third_party/`, and the non-engine
+helpers in `libs/readyup/`. Match and skins sources still sit in `core/src/readyup/` and are
+still linked into the core until steps 3 and 4 move them.
 
-### Core (`src/readyup/*` → `core/src/`)
+### Core (`core/src/readyup/`)
 
 | Files | Notes |
 |---|---|
@@ -379,12 +381,12 @@ in `console.log`.
 ## 7. Migration plan
 
 Order matters. The big move must not land while `selftest`, `knife-hud`, `ci` and the parity
-docs branches are still open, because every one of them touches `src/readyup/*` and `CMakeLists.txt`.
+docs branches are still open, because every one of them touched `src/readyup/*` and `CMakeLists.txt`.
 
 | Step | What | Effort |
 |---|---|---|
 | 0 | Plugin host, API v1.0, `hello`, host test, `dev-deploy --plugin` (this branch). Match and skins unchanged. | done |
-| 1 | After the in-flight branches merge: one `git mv` commit to the target layout (`src/readyup` → `core/src`, `src/third_party` → `third_party`, `src/exports.cpp` → `core/src`), with CMake, scripts, CI and docs paths updated. No code changes, so review is trivial and `git log --follow` keeps history. | 0.5 day |
+| 1 | **Done.** One `git mv` commit to the target layout (`src/readyup` → `core/src/readyup`, `src/third_party` → `third_party`, `src/exports.*` → `core/src`, postgres/db_config/http_client/minijson/steamid → `libs/readyup`), with CMake, scripts, CI and docs paths updated. No code changes, so review is trivial and `git log --follow` keeps history. | 0.5 day |
 | 2 | API v1.1: the additions listed in §2 (players, center HTML, raw engine events, log lines, schema/entity/econ, terminate round, name prefix, admins, config, interfaces, stash) and `RouteChatCommand` carrying the sender slot (Host_Say already knows it). | 2–3 days |
 | 3 | Extract **skins** to `plugins/skins`: `libs/` for postgres/db_config, `skins_engine` → core `entity.*`, split out the skins gamedata fragment, replace `weapon_paints::GameFrameTick` / `MaybeRefreshAsync` call sites with `on_tick` and event subscriptions. Verify on server-4 (paints, knife, gloves, agents; reload mid-map). Release script: two zips. | 2–3 days |
 | 4 | Extract **match**. This is the big one: `modes` (1.8k lines), `webhook`, the match half of `game_events` (~1k), `ru_router`, `command_buffer_hook` commands, `log_receiver` lifecycle, scrim, welcome and admins become plugin code using the v1.1 API. The core keeps the split halves. Then a full regression on server-4 with MAT: match load, ready, knife and side pick, pause/unpause, halftime/OT, recovery after restart, webhooks, scrim flow, practice. | 5–7 days |

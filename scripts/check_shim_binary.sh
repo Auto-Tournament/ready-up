@@ -27,7 +27,7 @@ pure_calls=$(objdump -d --no-show-raw-insn "$so" | awk '
 if [ -n "$pure_calls" ]; then
   echo "check_shim_binary: ERROR: direct calls to __cxa_pure_virtual in:" >&2
   echo "$pure_calls" | c++filt >&2 || echo "$pure_calls" >&2
-  echo "  (an interface mirror probably has internal linkage; see src/readyup/sdk/igameevents.h)" >&2
+  echo "  (an interface mirror probably has internal linkage; see core/src/readyup/sdk/igameevents.h)" >&2
   fail=1
 fi
 
@@ -45,7 +45,7 @@ if [ -n "$init_addr" ] && [ -n "$init_size" ]; then
       *readyup_ctor*) ;;
       *)
         echo "check_shim_binary: ERROR: last .init_array entry is '$name', expected readyup_ctor" >&2
-        echo "  (keep src/exports.cpp last in the add_library source list)" >&2
+        echo "  (keep core/src/exports.cpp last in the add_library source list)" >&2
         fail=1
         ;;
     esac

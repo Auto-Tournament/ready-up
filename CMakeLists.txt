@@ -19,67 +19,67 @@ configure_file("${READYUP_ENGINE_SURFACE_CPP}.tmp" "${READYUP_ENGINE_SURFACE_CPP
 set_source_files_properties("${READYUP_ENGINE_SURFACE_CPP}" PROPERTIES COMPILE_OPTIONS "-Wno-overlength-strings")
 
 add_library(server_shim SHARED
-  src/readyup/admin_check.cpp
-  src/readyup/admins.cpp
-  src/readyup/backup_files.cpp
-  src/readyup/banner.cpp
-  src/readyup/ccommand.cpp
-  src/readyup/chat.cpp
-  src/readyup/center_html.cpp
-  src/readyup/cs2_version.cpp
-  src/readyup/client_print.cpp
-  src/readyup/client_command_hook.cpp
-  src/readyup/command_buffer_hook.cpp
-  src/readyup/config.cpp
-  src/readyup/console_command.cpp
-  src/readyup/crash_handler.cpp
-  src/readyup/db_config.cpp
-  src/readyup/disabled.cpp
-  src/readyup/features.cpp
-  src/readyup/game_frame_hook.cpp
-  src/readyup/game_events.cpp
-  src/readyup/host_say_hook.cpp
-  src/readyup/http_client.cpp
-  src/readyup/log_receiver.cpp
-  src/readyup/logging.cpp
-  src/readyup/mat_admins.cpp
-  src/readyup/match_config_parser.cpp
-  src/readyup/match_recovery.cpp
-  src/readyup/match_token.cpp
-  src/readyup/minijson.cpp
-  src/readyup/match_state.cpp
-  src/readyup/modes.cpp
-  src/readyup/persisted_settings.cpp
-  src/readyup/persisted_match_state.cpp
-  src/readyup/path.cpp
-  src/readyup/pause_state.cpp
-  src/readyup/player_registry.cpp
-  src/readyup/postgres.cpp
-  src/readyup/real_server.cpp
-  src/readyup/round_termination_hook.cpp
-  src/readyup/ru_help.cpp
-  src/readyup/ru_router.cpp
-  src/readyup/server_game_clients_hook.cpp
-  src/readyup/schema.cpp
-  src/readyup/scrim_flow.cpp
-  src/readyup/selftest.cpp
-  src/readyup/signature_scan.cpp
-  src/readyup/sigtest.cpp
-  src/readyup/slot_registry.cpp
-  src/readyup/steamid.cpp
-  src/readyup/webhook.cpp
-  src/readyup/welcome.cpp
-  src/readyup/ready_hud.cpp
-  src/readyup/knife_tracker.cpp
-  src/readyup/weapon_paints.cpp
-  src/readyup/weapon_paints_apply.cpp
-  src/readyup/weapon_paints_cosmetics.cpp
-  src/readyup/skins_engine.cpp
-  src/readyup/plugin_loader.cpp
-  src/readyup/engine_surface.cpp
-  src/readyup/engine_surface_core.cpp
+  core/src/readyup/admin_check.cpp
+  core/src/readyup/admins.cpp
+  core/src/readyup/backup_files.cpp
+  core/src/readyup/banner.cpp
+  core/src/readyup/ccommand.cpp
+  core/src/readyup/chat.cpp
+  core/src/readyup/center_html.cpp
+  core/src/readyup/cs2_version.cpp
+  core/src/readyup/client_print.cpp
+  core/src/readyup/client_command_hook.cpp
+  core/src/readyup/command_buffer_hook.cpp
+  core/src/readyup/config.cpp
+  core/src/readyup/console_command.cpp
+  core/src/readyup/crash_handler.cpp
+  libs/readyup/db_config.cpp
+  core/src/readyup/disabled.cpp
+  core/src/readyup/features.cpp
+  core/src/readyup/game_frame_hook.cpp
+  core/src/readyup/game_events.cpp
+  core/src/readyup/host_say_hook.cpp
+  libs/readyup/http_client.cpp
+  core/src/readyup/log_receiver.cpp
+  core/src/readyup/logging.cpp
+  core/src/readyup/mat_admins.cpp
+  core/src/readyup/match_config_parser.cpp
+  core/src/readyup/match_recovery.cpp
+  core/src/readyup/match_token.cpp
+  libs/readyup/minijson.cpp
+  core/src/readyup/match_state.cpp
+  core/src/readyup/modes.cpp
+  core/src/readyup/persisted_settings.cpp
+  core/src/readyup/persisted_match_state.cpp
+  core/src/readyup/path.cpp
+  core/src/readyup/pause_state.cpp
+  core/src/readyup/player_registry.cpp
+  libs/readyup/postgres.cpp
+  core/src/readyup/real_server.cpp
+  core/src/readyup/round_termination_hook.cpp
+  core/src/readyup/ru_help.cpp
+  core/src/readyup/ru_router.cpp
+  core/src/readyup/server_game_clients_hook.cpp
+  core/src/readyup/schema.cpp
+  core/src/readyup/scrim_flow.cpp
+  core/src/readyup/selftest.cpp
+  core/src/readyup/signature_scan.cpp
+  core/src/readyup/sigtest.cpp
+  core/src/readyup/slot_registry.cpp
+  libs/readyup/steamid.cpp
+  core/src/readyup/webhook.cpp
+  core/src/readyup/welcome.cpp
+  core/src/readyup/ready_hud.cpp
+  core/src/readyup/knife_tracker.cpp
+  core/src/readyup/weapon_paints.cpp
+  core/src/readyup/weapon_paints_apply.cpp
+  core/src/readyup/weapon_paints_cosmetics.cpp
+  core/src/readyup/skins_engine.cpp
+  core/src/readyup/plugin_loader.cpp
+  core/src/readyup/engine_surface.cpp
+  core/src/readyup/engine_surface_core.cpp
   ${READYUP_ENGINE_SURFACE_CPP}
-  # src/exports.cpp is added below and MUST stay last: its __attribute__((constructor))
+  # core/src/exports.cpp is added below and MUST stay last: its __attribute__((constructor))
   # (readyup_ctor) is placed in .init_array in link order, and it must run AFTER every other
   # TU's static initializers. When it was first, later initializers re-constructed globals the
   # constructor had already filled in (e.g. the loaded gamedata string, the "disabled" flag).
@@ -89,24 +89,24 @@ add_library(server_shim SHARED
 # Vendored upstream funchook v1.1.3 + diStorm 3.5.2 (instruction-relocating detours).
 # Built as a separate static PIC library so our strict warning flags don't apply to third-party code.
 add_library(readyup_funchook STATIC
-  src/third_party/funchook/src/funchook.c
-  src/third_party/funchook/src/funchook_unix.c
-  src/third_party/funchook/src/funchook_x86.c
-  src/third_party/funchook/src/disasm_distorm.c
-  src/third_party/distorm/src/decoder.c
-  src/third_party/distorm/src/distorm.c
-  src/third_party/distorm/src/instructions.c
-  src/third_party/distorm/src/insts.c
-  src/third_party/distorm/src/mnemonics.c
-  src/third_party/distorm/src/operands.c
-  src/third_party/distorm/src/prefix.c
-  src/third_party/distorm/src/textdefs.c
+  third_party/funchook/src/funchook.c
+  third_party/funchook/src/funchook_unix.c
+  third_party/funchook/src/funchook_x86.c
+  third_party/funchook/src/disasm_distorm.c
+  third_party/distorm/src/decoder.c
+  third_party/distorm/src/distorm.c
+  third_party/distorm/src/instructions.c
+  third_party/distorm/src/insts.c
+  third_party/distorm/src/mnemonics.c
+  third_party/distorm/src/operands.c
+  third_party/distorm/src/prefix.c
+  third_party/distorm/src/textdefs.c
 )
 set_target_properties(readyup_funchook PROPERTIES POSITION_INDEPENDENT_CODE ON C_VISIBILITY_PRESET hidden)
 target_include_directories(readyup_funchook
-  PUBLIC ${CMAKE_SOURCE_DIR}/src/third_party/funchook/include
-  PRIVATE ${CMAKE_SOURCE_DIR}/src/third_party/funchook/config
-          ${CMAKE_SOURCE_DIR}/src/third_party/distorm/include)
+  PUBLIC ${CMAKE_SOURCE_DIR}/third_party/funchook/include
+  PRIVATE ${CMAKE_SOURCE_DIR}/third_party/funchook/config
+          ${CMAKE_SOURCE_DIR}/third_party/distorm/include)
 target_compile_options(readyup_funchook PRIVATE -w)
 target_link_libraries(readyup_funchook PRIVATE dl)
 
@@ -149,8 +149,10 @@ target_compile_options(server_shim PRIVATE
 )
 
 target_include_directories(server_shim PRIVATE
-  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/core/src
+  ${CMAKE_SOURCE_DIR}/libs
   ${CMAKE_SOURCE_DIR}/core/include
+  ${CMAKE_SOURCE_DIR}  # "third_party/funchook/include/funchook.h"
 )
 
 # READYUP_STATIC_LIBPQ: link libpq statically so the shim does not need
@@ -184,15 +186,15 @@ if (READYUP_DEPS_PREFIX)
   # libstdc++ is linked statically by hand (see the end of this file) instead of via
   # -static-libstdc++, because the driver appends that after every object and its static
   # initializers would then run after readyup_ctor.
-  # The dynamic symbol table is pinned by src/exports.map (the engine entry points only);
+  # The dynamic symbol table is pinned by core/src/exports.map (the engine entry points only);
   # everything else, including the static deps and std:: template instances, stays local
   # so nothing interposes on the engine's own copies. (--exclude-libs,ALL would also hide
   # exports.cpp, which is linked from an archive below.)
   target_link_options(server_shim PRIVATE
     -nostdlib++ -static-libgcc
-    "LINKER:--version-script=${CMAKE_SOURCE_DIR}/src/exports.map"
+    "LINKER:--version-script=${CMAKE_SOURCE_DIR}/core/src/exports.map"
     "LINKER:--no-undefined")
-  set_property(TARGET server_shim APPEND PROPERTY LINK_DEPENDS "${CMAKE_SOURCE_DIR}/src/exports.map")
+  set_property(TARGET server_shim APPEND PROPERTY LINK_DEPENDS "${CMAKE_SOURCE_DIR}/core/src/exports.map")
   message(STATUS "Linking static release deps from ${READYUP_DEPS_PREFIX}")
 else()
   find_package(PostgreSQL QUIET)
@@ -252,7 +254,7 @@ if (READYUP_DEPS_PREFIX)
   if (NOT IS_ABSOLUTE "${READYUP_LIBSTDCXX_A}" OR NOT EXISTS "${READYUP_LIBSTDCXX_A}")
     message(FATAL_ERROR "static libstdc++.a not found for ${CMAKE_CXX_COMPILER}")
   endif()
-  add_library(readyup_exports STATIC src/exports.cpp)
+  add_library(readyup_exports STATIC core/src/exports.cpp)
   foreach(prop COMPILE_DEFINITIONS INCLUDE_DIRECTORIES COMPILE_OPTIONS)
     set_property(TARGET readyup_exports PROPERTY ${prop} "$<TARGET_PROPERTY:server_shim,${prop}>")
   endforeach()
@@ -260,7 +262,7 @@ if (READYUP_DEPS_PREFIX)
   target_link_libraries(server_shim PRIVATE
     "${READYUP_LIBSTDCXX_A}" "$<LINK_LIBRARY:WHOLE_ARCHIVE,readyup_exports>" "${READYUP_LIBSTDCXX_A}" m)
 else()
-  target_sources(server_shim PRIVATE src/exports.cpp)
+  target_sources(server_shim PRIVATE core/src/exports.cpp)
 endif()
 
 # Post-build guard: fail the build if the shim contains direct calls to __cxa_pure_virtual
@@ -275,10 +277,10 @@ add_custom_command(TARGET server_shim POST_BUILD
 #   build/readyup_sigcheck <path/to/libserver.so> gamedata/engine-surface.json
 add_executable(readyup_sigcheck
   tools/sigcheck.cpp
-  src/readyup/engine_surface_core.cpp
-  src/readyup/minijson.cpp
+  core/src/readyup/engine_surface_core.cpp
+  libs/readyup/minijson.cpp
 )
-target_include_directories(readyup_sigcheck PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(readyup_sigcheck PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(readyup_sigcheck PRIVATE -Wall -Wextra)
 
 # Offline hook-site checker: for entries marked "hook": "funchook", resolves the function and
@@ -287,10 +289,10 @@ target_compile_options(readyup_sigcheck PRIVATE -Wall -Wextra)
 #   build/readyup_hookcheck <path/to/libserver.so> gamedata/engine-surface.json
 add_executable(readyup_hookcheck
   tools/hookcheck.cpp
-  src/readyup/engine_surface_core.cpp
-  src/readyup/minijson.cpp
+  core/src/readyup/engine_surface_core.cpp
+  libs/readyup/minijson.cpp
 )
-target_include_directories(readyup_hookcheck PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(readyup_hookcheck PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs ${CMAKE_SOURCE_DIR})
 target_compile_options(readyup_hookcheck PRIVATE -Wall -Wextra)
 target_link_libraries(readyup_hookcheck PRIVATE readyup_funchook)
 
@@ -334,8 +336,8 @@ set_target_properties(readyup_plugin_hello_reload_test PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test")
 target_compile_definitions(readyup_plugin_hello_reload_test PRIVATE HELLO_VERSION="1.0.1-reloaded")
 
-add_executable(readyup_plugin_host_test tools/plugin_host_test.cpp src/readyup/plugin_loader.cpp)
-target_include_directories(readyup_plugin_host_test PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/core/include)
+add_executable(readyup_plugin_host_test tools/plugin_host_test.cpp core/src/readyup/plugin_loader.cpp)
+target_include_directories(readyup_plugin_host_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(readyup_plugin_host_test PRIVATE -Wall -Wextra)
 target_link_libraries(readyup_plugin_host_test PRIVATE dl)
 

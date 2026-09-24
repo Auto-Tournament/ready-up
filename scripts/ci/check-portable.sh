@@ -2,7 +2,7 @@
 # Fail unless a release libserver.so is portable across CS2 hosts:
 #   - DT_NEEDED only glibc components (no libstdc++, libgcc_s, libssl, libpq, libcurl, ...)
 #   - no versioned symbol newer than GLIBC_2.31 (Steam Runtime 3 "sniper")
-#   - exports the engine entry points (src/exports.map) and nothing from static deps
+#   - exports the engine entry points (core/src/exports.map) and nothing from static deps
 #
 #   scripts/ci/check-portable.sh build-sniper/libserver.so
 set -euo pipefail
@@ -31,8 +31,8 @@ if [[ -n "$newest" && "$(printf '%s\n%s\n' "$newest" "$MAX_GLIBC" | sort -V | ta
   fail=1
 fi
 
-# The engine entry points from src/exports.map must be exported.
-for sym in $(sed -n 's/^[[:space:]]*\([A-Za-z_][A-Za-z0-9_]*\);$/\1/p' "$(dirname "$0")/../../src/exports.map"); do
+# The engine entry points from core/src/exports.map must be exported.
+for sym in $(sed -n 's/^[[:space:]]*\([A-Za-z_][A-Za-z0-9_]*\);$/\1/p' "$(dirname "$0")/../../core/src/exports.map"); do
   if nm -D --defined-only "$so" | awk '{print $3}' | grep -qx "$sym"; then
     echo "  ok   exports $sym"
   else

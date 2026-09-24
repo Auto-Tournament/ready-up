@@ -27,9 +27,9 @@ scripts/sniper-build.sh          # -> build-sniper/libserver.so (docker)
   only) and libcurl as static PIC archives (cached in `~/.cache/readyup-sniper-deps`).
 - CMake `-DREADYUP_DEPS_PREFIX=<prefix>` links them plus libstdc++/libgcc statically, uses
   GCC 14 from the SDK (sniper's GCC 10 libstdc++ rejects `unordered_map` with an incomplete
-  value type), and pins the dynamic symbol table to `src/exports.map`.
+  value type), and pins the dynamic symbol table to `core/src/exports.map`.
 - `scripts/ci/check-portable.sh` fails the build if the result needs anything but glibc,
-  a symbol newer than GLIBC_2.31, or exports anything beyond `src/exports.map`.
+  a symbol newer than GLIBC_2.31, or exports anything beyond `core/src/exports.map`.
 - libcurl's CA bundle is probed at runtime (Debian, RHEL, SUSE, Alpine paths).
 - libstdc++ is linked by hand ahead of `exports.cpp`, so `readyup_ctor` stays the last
   static constructor (checked by `scripts/check_shim_binary.sh`).
@@ -86,7 +86,7 @@ typeinfo name (`rtti`). The slot's target must equal the named `function` and/or
 argc/argv offsets in `layouts`). At runtime the live interface object's vptr must also equal that
 vtable. A slot that fails is never patched.
 
-Every feature declares the engine-surface entries it needs (`src/readyup/features.cpp`). If one
+Every feature declares the engine-surface entries it needs (`core/src/readyup/features.cpp`). If one
 is unresolved or unverified, the feature logs one `feature <name> DISABLED: needs ...` line and
 turns itself off. Everything else keeps running.
 
@@ -98,7 +98,7 @@ build/readyup_sigcheck /path/to/game/csgo/bin/linuxsteamrt64/libserver.so gameda
 
 It checks functions, RTTI classes, vtable slots and layouts, and exits non-zero on any failure.
 
-Hooks use vendored upstream funchook (`src/third_party/funchook`, diStorm backend), which
+Hooks use vendored upstream funchook (`third_party/funchook`, diStorm backend), which
 relocates the displaced prologue instructions instead of copying a fixed number of bytes.
 
 Entries marked `"hook": "funchook"` are detoured. `build/readyup_hookcheck <libserver.so>
