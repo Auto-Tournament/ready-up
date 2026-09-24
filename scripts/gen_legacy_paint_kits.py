@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate src/readyup/legacy_paint_kits.inc from CS2's items_game.txt.
+"""Regenerate core/src/readyup/legacy_paint_kits.inc from CS2's items_game.txt.
 
 A paint kit with `"use_legacy_model" "1"` was authored for the CS:GO weapon UVs; in CS2 it only
 looks right on the weapon's legacy model, selected with bodygroup "body" = 1.
@@ -7,7 +7,7 @@ looks right on the weapon's legacy model, selected with bodygroup "body" = 1.
 items_game.txt lives in game/csgo/pak01_dir.vpk (scripts/items/items_game.txt). Extract it with
 any VPK tool, then:
 
-    scripts/gen_legacy_paint_kits.py path/to/items_game.txt > src/readyup/legacy_paint_kits.inc
+    scripts/gen_legacy_paint_kits.py path/to/items_game.txt > core/src/readyup/legacy_paint_kits.inc
 """
 import re
 import sys

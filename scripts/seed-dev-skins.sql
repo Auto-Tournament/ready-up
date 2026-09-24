@@ -3,7 +3,7 @@
 --
 --   docker exec -i readyup-postgres psql -U readyup readyup < scripts/seed-dev-skins.sql
 --
--- Idempotent (upserts). Table DDL is copied verbatim from src/readyup/postgres.cpp
+-- Idempotent (upserts). Table DDL is copied verbatim from libs/readyup/postgres.cpp
 -- (EnsureWeaponPaintsSchemaLocked) so this works on an empty database too.
 -- Contract: docs/skins-db-contract.md. IDs verified against items_game.txt of CS2 1.41.8.3.
 --

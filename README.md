@@ -94,4 +94,4 @@ Ready Up is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). 
 
 You can use, change and share it for anything noncommercial. Commercial use, like paid events or selling it or a service built on it, needs a separate license. Ask on [Discord](https://discord.gg/n7gHYau7aW).
 
-Third-party code under `src/third_party/` keeps its own license.
+Third-party code under `third_party/` keeps its own license.

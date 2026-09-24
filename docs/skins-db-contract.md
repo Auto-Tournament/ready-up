@@ -7,7 +7,7 @@ StatTrak counter.
 - **Database**: the one in `readyup_db.json` next to the shim, e.g.
   `host=127.0.0.1 port=5449 dbname=readyup user=readyup password=… sslmode=disable`.
 - **Schema owner**: Ready Up runs `CREATE TABLE IF NOT EXISTS` for the DDL below at startup
-  (`src/readyup/postgres.cpp`, `EnsureWeaponPaintsSchemaLocked`). The web side may create the
+  (`libs/readyup/postgres.cpp`, `EnsureWeaponPaintsSchemaLocked`). The web side may create the
   same tables, but must not change column types or primary keys without a Ready Up change.
 - **Example data**: `scripts/seed-dev-skins.sql`.
 
