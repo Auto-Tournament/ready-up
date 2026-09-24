@@ -1,0 +1,59 @@
+name: Live test
+
+# Bot-only regression match on a real CS2 server (scripts/livetest/run.sh):
+# selftest, match load, knife round, side pick, live, halftime swap, map end.
+#
+# Runs on a SELF-HOSTED runner labelled `readyup-live` that sits on the box with
+# the readyup-test server (tmux session ru-test) and can
+# `ssh -o BatchMode=yes cs2servermanager@localhost`. NO SUCH RUNNER EXISTS YET:
+# until one is registered (Settings -> Actions -> Runners -> New self-hosted
+# runner, label `readyup-live`) a dispatched run just waits in the queue.
+# Manual dispatch only; it never runs on push or PRs.
+
+on:
+  workflow_dispatch:
+    inputs:
+      side:
+        description: "Knife side pick: auto (bots-only timeout -> stay), stay or switch (ru side from console)"
+        type: choice
+        options: [auto, stay, switch]
+        default: auto
+      max_rounds:
+        description: "mp_maxrounds for the test match (even)"
+        default: "4"
+      boot:
+        description: "Start the server if the ru-test tmux session is missing"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: livetest
+  cancel-in-progress: false
+
+jobs:
+  livetest:
+    name: Bot match on readyup-test
+    runs-on: [self-hosted, readyup-live]
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run live test
+        env:
+          LIVETEST_SIDE: ${{ inputs.side }}
+          LIVETEST_MAX_ROUNDS: ${{ inputs.max_rounds }}
+        run: |
+          args=(--out "$RUNNER_TEMP/livetest")
+          if [ "${{ inputs.boot }}" = "true" ]; then args+=(--boot); fi
+          scripts/livetest/run.sh "${args[@]}"
+
+      - name: Upload console capture
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: livetest-${{ github.run_id }}
+          path: ${{ runner.temp }}/livetest
+          if-no-files-found: ignore
