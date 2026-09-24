@@ -20,3 +20,9 @@ dev_bots_ready=0
 # Ready Up always adds a single space after the prefix in output.
 chat_prefix=<DarkRed>[Ready Up]<Default>
 admin_prefix=<DarkRed>[Admin]<Default>
+
+# Plugin settings. Everything after the first [section] line belongs to a plugin and is read
+# with ru_api config_get (the plugin's own csgo/cfg/ReadyUp/<plugin>.cfg wins over this).
+# Core keys must stay above the first section.
+# [hello]
+# greeting=hi there

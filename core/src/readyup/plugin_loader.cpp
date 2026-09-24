@@ -24,8 +24,10 @@
 #include <ctime>
 #include <deque>
 #include <exception>
+#include <fstream>
 #include <map>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -58,13 +60,13 @@ struct Instance {
   ru_api api{};
 };
 
-enum class RegKind { Chat, Console, Tick, Event };
+enum class RegKind { Chat, Console, Tick, Event, GameEvent, LogLine };
 
 struct Reg {
   ru_handle id = 0;
   int owner = 0;
   RegKind kind = RegKind::Tick;
-  std::string name;  // chat / console command
+  std::string name;  // chat / console command, or engine game event name
   uint32_t eventType = 0;
   void* fn = nullptr;
   void* user = nullptr;
@@ -103,6 +105,37 @@ std::string g_currentMap;
 std::vector<std::string> g_loadFailures;  // "<name>: <error>" from the initial directory load
 int g_nextId = 0;
 ru_handle g_nextHandle = 0;
+
+// v1.1 state (guarded by g_mu).
+std::deque<std::string> g_logLines;
+struct Iface {
+  int owner = 0;
+  uint32_t version = 0;
+  void* ptr = nullptr;
+};
+std::map<std::string, Iface> g_ifaces;
+// Keyed by "<plugin>\n<key>". Survives unload/reload (that is the point); never freed.
+std::map<std::string, std::string> g_stash;
+constexpr uint32_t kMaxStashBlob = 1u << 20;
+struct ChatPrefix {
+  int owner = 0;
+  std::string prefix;
+};
+std::map<uint64_t, ChatPrefix> g_chatPrefixes;
+std::atomic<uint64_t> g_wantedGen{0};
+std::atomic<int> g_gameEventRegs{0};
+std::atomic<int> g_logLineRegs{0};
+
+// Admin provider. Its own lock: providers run on arbitrary threads and may block, so they
+// are called under a shared lock that unload takes exclusively (unload waits for them).
+std::shared_mutex g_adminMu;
+struct AdminProvider {
+  int owner = 0;
+  ru_admin_provider_fn fn = nullptr;
+  void* user = nullptr;
+};
+AdminProvider g_admin;
+thread_local bool t_inAdminProvider = false;
 
 // Game thread only.
 std::atomic<bool> g_haveGameThread{false};
@@ -331,14 +364,217 @@ const char* ApiDataDir(ru_plugin* self) {
   return inst ? inst->dataDir.c_str() : "";
 }
 
+// ---- API v1.1 (bookkeeping members; engine-facing ones are in plugin_engine_api.cpp) ----
+
+ru_handle ApiSubscribeGameEvent(ru_plugin* self, const char* name, ru_game_event_fn fn, void* user) {
+  Instance* inst = GameThreadCaller(self, "subscribe_game_event");
+  if (!inst || !name || !fn) return 0;
+  const std::string n = Lower(name);
+  bool ok = !n.empty() && n.size() <= 64;
+  for (size_t i = 0; ok && i < n.size(); ++i) {
+    const unsigned char c = static_cast<unsigned char>(n[i]);
+    ok = std::islower(c) != 0 || std::isdigit(c) != 0 || c == '_';
+  }
+  if (!ok) {
+    Print("plugin[%s]: invalid game event name \"%s\"\n", self->name, name);
+    return 0;
+  }
+  // AddReg rejects duplicate names per kind (commands); several plugins may want one event.
+  ru_handle h = 0;
+  {
+    std::lock_guard<std::mutex> lk(g_mu);
+    Reg r;
+    r.id = ++g_nextHandle;
+    r.owner = inst->handle.id;
+    r.kind = RegKind::GameEvent;
+    r.name = n;
+    r.fn = reinterpret_cast<void*>(fn);
+    r.user = user;
+    g_regs.push_back(std::move(r));
+    h = g_regs.back().id;
+  }
+  g_gameEventRegs.fetch_add(1);
+  g_wantedGen.fetch_add(1);
+  return h;
+}
+
+ru_handle ApiSubscribeLogLine(ru_plugin* self, ru_log_line_fn fn, void* user) {
+  Instance* inst = GameThreadCaller(self, "subscribe_log_line");
+  if (!inst || !fn) return 0;
+  const ru_handle h = AddReg(inst, RegKind::LogLine, {}, 0, reinterpret_cast<void*>(fn), user);
+  if (h) g_logLineRegs.fetch_add(1);
+  return h;
+}
+
+std::string Trim(std::string s) {
+  while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back())) != 0) s.pop_back();
+  size_t i = 0;
+  while (i < s.size() && std::isspace(static_cast<unsigned char>(s[i])) != 0) ++i;
+  return s.substr(i);
+}
+
+// Looks `key` up in a `key = value` file. With `section`, only inside `[section]`.
+bool CfgLookup(const std::string& path, const std::string& section, const std::string& key, std::string* out) {
+  std::ifstream f(path);
+  if (!f.good()) return false;
+  std::string line;
+  std::string cur;  // current [section], "" = top level
+  while (std::getline(f, line)) {
+    line = Trim(line);
+    if (line.empty() || line[0] == '#' || line.rfind("//", 0) == 0) continue;
+    if (line.front() == '[' && line.back() == ']') {
+      cur = Lower(Trim(line.substr(1, line.size() - 2)));
+      continue;
+    }
+    if (cur != section) continue;
+    const size_t eq = line.find('=');
+    if (eq == std::string::npos) continue;
+    if (Lower(Trim(line.substr(0, eq))) != key) continue;
+    std::string v = Trim(line.substr(eq + 1));
+    if (v.size() >= 2 && (v.front() == '"' || v.front() == '\'') && v.back() == v.front()) v = v.substr(1, v.size() - 2);
+    *out = v;
+    return true;
+  }
+  return false;
+}
+
+int ApiConfigGet(ru_plugin* self, const char* key, char* buf, uint32_t len) {
+  if (!GameThreadCaller(self, "config_get") || !key || !*key) return -1;
+  const std::string k = Lower(key);
+  const std::string name = self->name;
+  std::string v;
+  bool found = false;
+  const std::string csgo = GetCsgoDirFromModuleDir();
+  if (!csgo.empty()) found = CfgLookup(csgo + "/cfg/ReadyUp/" + name + ".cfg", "", k, &v);
+  if (!found) {
+    const std::string dir = GetThisModuleDir();
+    if (!dir.empty()) found = CfgLookup(dir + "/readyup.cfg", name, k, &v);
+  }
+  if (!found) return -1;
+  if (buf && len > 0) {
+    const size_t n = std::min<size_t>(v.size(), len - 1);
+    std::memcpy(buf, v.data(), n);
+    buf[n] = '\0';
+  }
+  return static_cast<int>(v.size());
+}
+
+int ApiDebugEnabled(ru_plugin*) { return DebugEnabled() ? 1 : 0; }
+
+const char* ApiConfigDir(ru_plugin*) {
+  static const std::string dir = GetThisModuleDir();
+  return dir.c_str();
+}
+
+int ApiProvideInterface(ru_plugin* self, const char* name, uint32_t version, void* iface) {
+  Instance* inst = GameThreadCaller(self, "provide_interface");
+  if (!inst || !name || !*name || !iface) return 0;
+  std::lock_guard<std::mutex> lk(g_mu);
+  auto it = g_ifaces.find(name);
+  if (it != g_ifaces.end() && it->second.owner != inst->handle.id) {
+    const Instance* other = FindLiveByIdLocked(it->second.owner);
+    Print("plugin[%s]: interface \"%s\" is already provided by plugin \"%s\"\n", self->name, name,
+          other ? other->name.c_str() : "?");
+    return 0;
+  }
+  g_ifaces[name] = Iface{inst->handle.id, version, iface};
+  return 1;
+}
+
+void* ApiGetInterface(ru_plugin* self, const char* name, uint32_t minVersion) {
+  if (!GameThreadCaller(self, "get_interface") || !name) return nullptr;
+  std::lock_guard<std::mutex> lk(g_mu);
+  auto it = g_ifaces.find(name);
+  if (it == g_ifaces.end() || it->second.version < minVersion) return nullptr;
+  const Instance* owner = FindLiveByIdLocked(it->second.owner);
+  if (!owner || owner->handle.unloading.load()) return nullptr;
+  return it->second.ptr;
+}
+
+int ApiStashPut(ru_plugin* self, const char* key, const void* data, uint32_t len) {
+  if (!GameThreadCaller(self, "stash_put") || !key || !*key) return 0;
+  if (len > kMaxStashBlob || (len > 0 && !data)) return 0;
+  const std::string k = std::string(self->name) + "\n" + key;
+  std::lock_guard<std::mutex> lk(g_mu);
+  if (len == 0) {
+    g_stash.erase(k);
+    return 1;
+  }
+  g_stash[k].assign(static_cast<const char*>(data), len);
+  return 1;
+}
+
+int ApiStashGet(ru_plugin* self, const char* key, void* buf, uint32_t cap) {
+  if (!GameThreadCaller(self, "stash_get") || !key || !*key) return -1;
+  const std::string k = std::string(self->name) + "\n" + key;
+  std::lock_guard<std::mutex> lk(g_mu);
+  auto it = g_stash.find(k);
+  if (it == g_stash.end()) return -1;
+  if (buf && cap > 0) std::memcpy(buf, it->second.data(), std::min<size_t>(cap, it->second.size()));
+  return static_cast<int>(it->second.size());
+}
+
+int ApiSetChatNamePrefix(ru_plugin* self, uint64_t steamid64, const char* prefix) {
+  Instance* inst = GameThreadCaller(self, "set_chat_name_prefix");
+  if (!inst || steamid64 == 0) return 0;
+  std::lock_guard<std::mutex> lk(g_mu);
+  if (!prefix || !*prefix) {
+    auto it = g_chatPrefixes.find(steamid64);
+    if (it != g_chatPrefixes.end() && it->second.owner == inst->handle.id) g_chatPrefixes.erase(it);
+    return 1;
+  }
+  g_chatPrefixes[steamid64] = ChatPrefix{inst->handle.id, prefix};
+  return 1;
+}
+
+int ApiSetAdminProvider(ru_plugin* self, ru_admin_provider_fn fn, void* user) {
+  Instance* inst = GameThreadCaller(self, "set_admin_provider");
+  if (!inst) return 0;
+  std::unique_lock<std::shared_mutex> lk(g_adminMu);
+  if (!fn) {
+    if (g_admin.owner == inst->handle.id) g_admin = AdminProvider{};
+    return 1;
+  }
+  if (g_admin.fn && g_admin.owner != inst->handle.id) {
+    Print("plugin[%s]: an admin provider is already registered by another plugin\n", self->name);
+    return 0;
+  }
+  g_admin = AdminProvider{inst->handle.id, fn, user};
+  return 1;
+}
+
 // ---- load / unload ---------------------------------------------------------------
 
 // Removes every registration and queued task owned by `id`.
 void DropOwnedLocked(int id) {
+  int gameEvents = 0, logLines = 0;
+  for (const auto& r : g_regs) {
+    if (r.owner != id) continue;
+    gameEvents += r.kind == RegKind::GameEvent;
+    logLines += r.kind == RegKind::LogLine;
+  }
+  if (gameEvents) {
+    g_gameEventRegs.fetch_sub(gameEvents);
+    g_wantedGen.fetch_add(1);
+  }
+  if (logLines) g_logLineRegs.fetch_sub(logLines);
+  for (auto it = g_ifaces.begin(); it != g_ifaces.end();) {
+    if (it->second.owner == id) it = g_ifaces.erase(it);
+    else ++it;
+  }
+  for (auto it = g_chatPrefixes.begin(); it != g_chatPrefixes.end();) {
+    if (it->second.owner == id) it = g_chatPrefixes.erase(it);
+    else ++it;
+  }
   g_regs.erase(std::remove_if(g_regs.begin(), g_regs.end(), [id](const Reg& r) { return r.owner == id; }),
                g_regs.end());
   g_tasks.erase(std::remove_if(g_tasks.begin(), g_tasks.end(), [id](const QueuedTask& t) { return t.owner == id; }),
                 g_tasks.end());
+}
+
+void DropAdminProvider(int id) {
+  std::unique_lock<std::shared_mutex> lk(g_adminMu);
+  if (g_admin.owner == id) g_admin = AdminProvider{};
 }
 
 // dlclose + verify the image really went away (STB_GNU_UNIQUE symbols, a leaked thread's
@@ -369,6 +605,7 @@ bool UnloadNow(const std::string& name, std::string* err) {
   }
   inst->handle.unloading.store(true);  // stops dispatch + post_to_game_thread for it
   if (inst->unload) InvokePlugin(inst, "readyup_plugin_unload", [&] { inst->unload(); });
+  DropAdminProvider(inst->handle.id);  // waits for provider calls in flight on other threads
   {
     std::lock_guard<std::mutex> lk(g_mu);
     DropOwnedLocked(inst->handle.id);
@@ -466,6 +703,21 @@ bool LoadNow(const std::string& name, std::string* err) {
   a.post_to_game_thread = &ApiPostToGameThread;
   a.slot_for_steamid = &ApiSlotForSteam;
   a.data_dir = &ApiDataDir;
+  // v1.1
+  a.subscribe_game_event = &ApiSubscribeGameEvent;
+  a.subscribe_log_line = &ApiSubscribeLogLine;
+  a.set_chat_name_prefix = &ApiSetChatNamePrefix;
+  a.set_admin_provider = &ApiSetAdminProvider;
+  a.config_get = &ApiConfigGet;
+  a.debug_enabled = &ApiDebugEnabled;
+  a.config_dir = &ApiConfigDir;
+  a.provide_interface = &ApiProvideInterface;
+  a.get_interface = &ApiGetInterface;
+  a.stash_put = &ApiStashPut;
+  a.stash_get = &ApiStashGet;
+  // Engine-facing members (output, players, event accessors, schema/entities, round
+  // suppression, is_admin). Anything left NULL there is a core bug; fail closed.
+  detail::FillEngineApi(&a);
 
   {
     std::lock_guard<std::mutex> lk(g_mu);
@@ -478,6 +730,7 @@ bool LoadNow(const std::string& name, std::string* err) {
   InvokePlugin(inst, "readyup_plugin_load", [&] { rc = loadFn(&inst->api, READYUP_PLUGIN_API_VERSION); });
   if (rc != 0) {
     inst->handle.unloading.store(true);
+    DropAdminProvider(inst->handle.id);
     {
       std::lock_guard<std::mutex> lk(g_mu);
       DropOwnedLocked(inst->handle.id);
@@ -613,6 +866,28 @@ void DeliverEvent(const LifecycleEvent& e) {
   }
 }
 
+std::vector<ru_handle> RegIds(RegKind kind, const char* name = nullptr) {
+  std::vector<ru_handle> ids;
+  std::lock_guard<std::mutex> lk(g_mu);
+  for (const auto& r : g_regs) {
+    if (r.kind == kind && (!name || r.name == name)) ids.push_back(r.id);
+  }
+  return ids;
+}
+
+void DeliverLogLines(const std::deque<std::string>& lines) {
+  const std::vector<ru_handle> ids = RegIds(RegKind::LogLine);
+  for (const auto& line : lines) {
+    for (ru_handle id : ids) {
+      Reg reg;
+      Instance* inst = nullptr;
+      if (!LookupReg(id, &reg, &inst)) continue;
+      auto fn = reinterpret_cast<ru_log_line_fn>(reg.fn);
+      InvokePlugin(inst, "log line", [&] { fn(reg.user, line.c_str()); });
+    }
+  }
+}
+
 void RunTicks() {
   std::vector<ru_handle> ids;
   {
@@ -734,6 +1009,14 @@ void Frame(bool simulating) {
   }
   for (const auto& c : cmds) DeliverCommand(c);
   for (const auto& e : events) DeliverEvent(e);
+  if (g_logLineRegs.load(std::memory_order_relaxed) > 0) {
+    std::deque<std::string> lines;
+    {
+      std::lock_guard<std::mutex> lk(g_mu);
+      lines.swap(g_logLines);
+    }
+    if (!lines.empty()) DeliverLogLines(lines);
+  }
 
   // 3. Per-tick callbacks.
   if (simulating) {
@@ -792,6 +1075,63 @@ void HandlePluginCommand(const std::vector<std::string>& args, bool replyToChat)
 
 const char* CrashContextPlugin() {
   return g_crashName;
+}
+
+bool detail::CheckGameThread(ru_plugin* self, const char* fn) { return GameThreadCaller(self, fn) != nullptr; }
+
+void DispatchGameEvent(const char* name, void* ev) {
+  if (!name || !ev || g_gameEventRegs.load(std::memory_order_relaxed) <= 0) return;
+  if (!OnGameThread()) return;  // the engine dispatches on the game thread; anything else is dropped
+  const std::string n = Lower(name);
+  const std::vector<ru_handle> ids = RegIds(RegKind::GameEvent, n.c_str());
+  for (ru_handle id : ids) {
+    Reg reg;
+    Instance* inst = nullptr;
+    if (!LookupReg(id, &reg, &inst)) continue;
+    auto fn = reinterpret_cast<ru_game_event_fn>(reg.fn);
+    InvokePlugin(inst, n.c_str(), [&] { fn(reg.user, n.c_str(), static_cast<const ru_game_event*>(ev)); });
+  }
+}
+
+std::vector<std::string> WantedGameEvents() {
+  std::vector<std::string> out;
+  std::lock_guard<std::mutex> lk(g_mu);
+  for (const auto& r : g_regs) {
+    if (r.kind == RegKind::GameEvent && std::find(out.begin(), out.end(), r.name) == out.end()) out.push_back(r.name);
+  }
+  return out;
+}
+
+uint64_t WantedGameEventsGeneration() { return g_wantedGen.load(std::memory_order_acquire); }
+
+void PostLogLine(const std::string& line) {
+  if (line.empty() || g_logLineRegs.load(std::memory_order_relaxed) <= 0) return;
+  std::lock_guard<std::mutex> lk(g_mu);
+  if (g_logLines.size() >= kMaxQueued) g_logLines.pop_front();
+  g_logLines.push_back(line);
+}
+
+bool PluginChatPrefixFor(uint64_t steamid64, std::string* prefix) {
+  std::lock_guard<std::mutex> lk(g_mu);
+  auto it = g_chatPrefixes.find(steamid64);
+  if (it == g_chatPrefixes.end()) return false;
+  if (prefix) *prefix = it->second.prefix;
+  return true;
+}
+
+int PluginAdminVerdict(uint64_t steamid64) {
+  if (t_inAdminProvider) return -1;  // a provider asking is_admin must not recurse into itself
+  std::shared_lock<std::shared_mutex> lk(g_adminMu);
+  if (!g_admin.fn) return -1;
+  t_inAdminProvider = true;
+  int v = -1;
+  try {
+    v = g_admin.fn(g_admin.user, steamid64);
+  } catch (...) {
+    v = -1;
+  }
+  t_inAdminProvider = false;
+  return v < 0 ? -1 : (v ? 1 : 0);
 }
 
 PluginHostStatus GetPluginHostStatus() {

@@ -115,39 +115,38 @@ which). A plugin never has to reconcile the two sources.
 
 Every event also carries `map` (the current map).
 
-### Planned API additions (v1.1+, appended to `ru_api`; needed for the migration)
+### v1.1 (implemented)
 
-Grouped by the plugin that needs them. The core already has an implementation for each; the
-work is exposing it.
+Appended to `ru_api` in this order; `plugin_api.h` has the exact signatures and comments.
+Bookkeeping members live in `plugin_loader.cpp`; engine-facing ones in `plugin_engine_api.cpp`.
+Everything is game-thread only except where noted.
 
-- **Output**: `center_html_to_slot(slot, html, seconds)`, `center_html_all`. Used by welcome,
-  the scrim HUD and the knife HUD.
-- **Players**: `get_player(slot, ru_player*)` and `for_each_player(fn)`, returning slot,
-  SteamID, name, team, is_bot and connected. They come from the core's player registry, so
-  match stops parsing log headers itself.
-- **Raw engine events**: `subscribe_game_event("player_death", fn)`, with accessors
-  `ev_get_int/float/uint64/string/player_slot(ev, key)`. These are delivered **synchronously**
-  on the game thread; the handle is valid only during the callback. Match needs
-  `player_death` / `player_hurt` for stats. Skins needs `player_spawn` / `item_pickup` / `item_equip`.
-- **Log lines**: `subscribe_log_line(fn)`. Queued; the line is copied.
-- **Schema and entities** (all skins needs): `schema_offset("CCSPlayerPawn", "m_EconGloves")`,
-  `entity_by_index`, `entity_from_handle`, `entity_handle_of`, `entity_classname`,
-  `entity_mark_changed`, `econ_attr_set_by_name`, `entity_change_subclass`,
-  `entity_set_model` and `entity_set_bodygroup_by_name`. Plugins read and write fields at
-  `entity + schema_offset(...)`. The offset is looked up by name at runtime and never hard-coded.
-- **Match control**: `terminate_round(reason, delay)` (exposes the TerminateRound hook) and
-  `set_chat_name_prefix(slot, prefix)` (the "true prefix" name swap used for admin/captain tags).
-- **Admins**: `is_admin(steamid64)` and `set_admin_provider(fn)`.
-- **Config**: `config_get(key, buf, len)` reads `cfg/ReadyUp/<plugin>.cfg`, then the
-  `[plugin]` section of `readyup.cfg`.
-- **Chat visibility**: a `RU_CMD_HIDE` flag on `register_chat_command`, so the router can
-  consume the line (replaces `consume_ru_chat` / `consume_ready_chat` for plugin commands).
-- **Plugin-to-plugin**: `provide_interface(name, version, ptr)` / `get_interface(name, min_version)`.
-  "Query ready state" belongs to match, not the core: match publishes
-  `readyup.match.v1` (mode, roster, ready set) and other plugins look it up. Metamod does the same.
-- **State across reloads**: `stash_put(key, blob, len)` / `stash_get` keep a byte blob in core
-  memory between an unload and the next load of the same plugin name. Match uses it to
-  survive a reload mid-match without going through the DB recovery path.
+| Group | Members | Notes |
+|---|---|---|
+| Output | `center_html_to_slot`, `center_html_all` | per-client center HTML (never a broadcast event); `_all` loops over connected humans |
+| Players | `get_player`, `get_player_by_steamid`, `for_each_player` | from the core's human/bot registry; `ru_player` is caller-owned with an inline `name[128]` |
+| Raw engine events | `subscribe_game_event(name)`, `ev_get_int/float/uint64/string/player_slot/player_controller/player_pawn` | **synchronous** on the game thread inside the engine's dispatch, before the core takes its events lock. The core adds its listener for every subscribed name (re-checked when the set changes and every 2 s) |
+| Log lines | `subscribe_log_line` | queued copies; fed from `ObserveLifecycleLogLine`, which both the in-process listener and the file-tail fallback go through |
+| Schema / entities | `schema_offset`, `entity_system_status`, `entity_by_index`, `entity_from_handle`, `entity_handle_of`, `entity_classname`, `entity_mark_changed`, `econ_attr_set_by_name`, `entity_change_subclass`, `entity_set_model`, `entity_set_bodygroup_by_name` | backed by `schema.*` and `skins_engine.*`; each returns 0/NULL when its engine function did not resolve |
+| Match control | `set_round_termination_suppressed`, `set_chat_name_prefix` | see below for `terminate_round` |
+| Admins | `is_admin` (**any thread**, may block), `set_admin_provider` | the core's `IsReadyUpAdmin` asks the provider first, so core checks follow it too. Providers run on the caller's thread under a shared lock that unload takes exclusively |
+| Config | `config_get`, `debug_enabled` (any thread), `config_dir` (any thread) | `config_get` reads `csgo/cfg/ReadyUp/<plugin>.cfg`, then the `[<plugin>]` section of `readyup.cfg`. The core's own parser now ignores everything after the first `[section]` line |
+| Plugin-to-plugin | `provide_interface`, `get_interface` | one provider per name, removed on unload; look it up again in each callback |
+| Reload state | `stash_put`, `stash_get` | byte blobs keyed by (plugin, key), kept in core memory across unload/load, max 1 MiB each |
+
+Deviations from the original plan:
+
+- **`terminate_round` is not in v1.1.** The core only has the TerminateRound *suppression*
+  detour; calling TerminateRound needs the CCSGameRules pointer and a verified ABI, which the
+  engine surface does not have. `set_round_termination_suppressed` covers what match uses today.
+- **`set_chat_name_prefix`** is keyed by SteamID64 and feeds the existing relay (the core
+  re-sends `"<prefix> <name>: <msg>"` and swallows the original), not a real name swap.
+- **`RU_CMD_HIDE` / `register_chat_command_ex`** and `RouteChatCommand` carrying the sender slot
+  are not in v1.1; they land with the match move (step 4), the first plugin that needs them.
+
+`plugins/hello` requires 1.0 and uses every 1.1 group it can behind `RU_API_HAS` (stash load
+counter, `greeting` from config, `player_death`, log-line count, `readyup.hello.v1`), and the
+host test checks each of them, including that nothing is delivered after unload.
 
 ### ABI rules
 
@@ -187,7 +186,8 @@ work is exposing it.
   which are thread-safe.
 - **Chat, console and event producers may run on any thread** (log listener, AddText caller,
   file tail thread). The core only **queues** there; delivery happens in the next GameFrame.
-  As a result plugin code never runs inside the AddText detour or the engine's event dispatch,
+  As a result plugin code never runs inside the AddText detour or (except for raw
+  `subscribe_game_event` callbacks, which are synchronous by design) the engine's event dispatch,
   and never while a core mutex is held (no lock-order problems between core and plugin
   locks). The cost is at most one frame of latency (about 15 ms at 64 tick).
 - **Frame order**: original GameFrame → core ticks (modes, scrim, welcome, skins, for now) →
@@ -235,7 +235,7 @@ itself mid-callback.
   `load` returning non-zero.
 - **Crash attribution.** While a plugin callback runs, the crash handler prints
   `crashed inside plugin "<name>"` before the backtrace.
-- **State is not carried over.** A reloaded plugin starts fresh (until `stash_*` lands). If the
+- **State is not carried over** unless the plugin uses `stash_put`/`stash_get`. If the
   new file fails to load, the plugin stays unloaded. `dev-deploy.sh` keeps `<name>.so.prev`,
   so `mv` it back and reload.
 
@@ -387,7 +387,7 @@ docs branches are still open, because every one of them touched `src/readyup/*` 
 |---|---|---|
 | 0 | Plugin host, API v1.0, `hello`, host test, `dev-deploy --plugin` (this branch). Match and skins unchanged. | done |
 | 1 | **Done.** One `git mv` commit to the target layout (`src/readyup` → `core/src/readyup`, `src/third_party` → `third_party`, `src/exports.*` → `core/src`, postgres/db_config/http_client/minijson/steamid → `libs/readyup`), with CMake, scripts, CI and docs paths updated. No code changes, so review is trivial and `git log --follow` keeps history. | 0.5 day |
-| 2 | API v1.1: the additions listed in §2 (players, center HTML, raw engine events, log lines, schema/entity/econ, terminate round, name prefix, admins, config, interfaces, stash) and `RouteChatCommand` carrying the sender slot (Host_Say already knows it). | 2–3 days |
+| 2 | **Done.** API v1.1: the additions listed in §2 (players, center HTML, raw engine events, log lines, schema/entity/econ, terminate round, name prefix, admins, config, interfaces, stash) and `RouteChatCommand` carrying the sender slot (Host_Say already knows it). | 2–3 days |
 | 3 | Extract **skins** to `plugins/skins`: `libs/` for postgres/db_config, `skins_engine` → core `entity.*`, split out the skins gamedata fragment, replace `weapon_paints::GameFrameTick` / `MaybeRefreshAsync` call sites with `on_tick` and event subscriptions. Verify on server-4 (paints, knife, gloves, agents; reload mid-map). Release script: two zips. | 2–3 days |
 | 4 | Extract **match**. This is the big one: `modes` (1.8k lines), `webhook`, the match half of `game_events` (~1k), `ru_router`, `command_buffer_hook` commands, `log_receiver` lifecycle, scrim, welcome and admins become plugin code using the v1.1 API. The core keeps the split halves. Then a full regression on server-4 with MAT: match load, ready, knife and side pick, pause/unpause, halftime/OT, recovery after restart, webhooks, scrim flow, practice. | 5–7 days |
 | 5 | Cleanup: drop libpq/libcurl from the core link, document writing third-party plugins, and add the CI job that builds both zips and runs the host test. | 1 day |

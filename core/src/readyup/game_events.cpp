@@ -850,6 +850,8 @@ struct ListenerImpl : IGameEventListener2 {
     }
 
     PostPluginEventFor(name, event);
+    // Raw events for plugins (subscribe_game_event): synchronous, before any core lock is taken.
+    plugins::DispatchGameEvent(name, event);
 
     // Clear ready state on disconnect before taking g_mu (ClearReady takes the modes mutex).
     if (std::strcmp(name, "player_disconnect") == 0) {
@@ -1162,7 +1164,28 @@ GameEventsStatus GetGameEventsStatus() {
   return s;
 }
 
-void GameEventsFrameTick() { InstallGameEventsListenerImpl(/*force=*/false); }
+// Adds the listener for event names plugins subscribed to (subscribe_game_event). Game thread.
+// Re-checked when the wanted set changes and every ~2 s (a manager Reset drops listeners).
+static void RegisterPluginGameEvents() {
+  static uint64_t s_gen = ~0ull;
+  static long long s_lastMs = 0;
+  const uint64_t gen = plugins::WantedGameEventsGeneration();
+  const long long now = NowMs();
+  if (gen == s_gen && now - s_lastMs < 2000) return;
+  s_lastMs = now;
+  IGameEventManager2* mgr = VerifiedMgr();
+  if (!mgr || !g_ok.load(std::memory_order_acquire)) return;
+  s_gen = gen;
+  for (const auto& name : plugins::WantedGameEvents()) {
+    if (!mgr->HasEventDescriptor(name.c_str())) continue;  // unknown to this build: never delivered
+    if (!mgr->FindListener(&g_listener, name.c_str())) (void)mgr->AddListener(&g_listener, name.c_str(), true);
+  }
+}
+
+void GameEventsFrameTick() {
+  InstallGameEventsListenerImpl(/*force=*/false);
+  RegisterPluginGameEvents();
+}
 
 // True only once the engine has actually delivered an event, so the log-line fallback keeps
 // driving the round lifecycle until engine events are proven to flow.

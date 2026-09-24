@@ -63,8 +63,27 @@ std::optional<int> GameEventsSlotForSteam(unsigned long long steamid64) {
   return std::nullopt;
 }
 std::string GetCsgoDirFromModuleDir() { return {}; }
+static std::string g_moduleDir;  // holds the test's readyup.cfg
+std::string GetThisModuleDir() { return g_moduleDir; }
 bool IsCoreChatCommand(const std::string& t) { return t == ".ru" || t == ".r" || t == ".ready"; }
 }  // namespace readyup
+
+// ---- stub for the engine-facing API members (plugin_engine_api.cpp) -----------------
+// A fake game event: accessors read from this struct instead of an engine IGameEvent.
+struct FakeEvent {
+  int attacker, userid, headshot;
+  const char* weapon;
+};
+static const FakeEvent* Fake(const ru_game_event* ev) { return reinterpret_cast<const FakeEvent*>(ev); }
+namespace readyup::plugins::detail {
+void FillEngineApi(ru_api* a) {
+  a->ev_get_player_slot = [](ru_plugin*, const ru_game_event* ev, const char* key) {
+    return std::string(key) == "attacker" ? Fake(ev)->attacker : Fake(ev)->userid;
+  };
+  a->ev_get_string = [](ru_plugin*, const ru_game_event* ev, const char*, const char*) { return Fake(ev)->weapon; };
+  a->ev_get_int = [](ru_plugin*, const ru_game_event* ev, const char*, int) { return Fake(ev)->headshot; };
+}
+}  // namespace readyup::plugins::detail
 
 // ---- helpers -----------------------------------------------------------------------
 static int g_failed = 0;
@@ -119,7 +138,8 @@ int main(int argc, char** argv) {
 
   std::puts("-- first frame loads everything in the plugins dir");
   rp::Frame(false);
-  Check(Logged("plugin: loaded hello 1.0.0"), "hello 1.0.0 loaded on first frame");
+  Check(Logged("plugin: loaded hello 1.1.0"), "hello 1.1.0 loaded on first frame");
+  Check(Logged("load #1, greeting \"hello\""), "first load: no stash, default greeting");
 
   std::puts("-- chat command");
   Check(!rp::TryDispatchChat(76561198000000001ull, "alice", ".r"), "core command .r is not taken by plugins");
@@ -140,23 +160,42 @@ int main(int argc, char** argv) {
   rs.type = RU_EVENT_ROUND_START;
   rs.round = 1;
   rp::PostEvent(rs);
+  rp::PostLogLine("L 01/01/2026 - 00:00:00: World triggered \"Round_Start\"");
+  rp::PostLogLine("L 01/01/2026 - 00:00:01: server cvars start");
   for (int i = 0; i < 5; ++i) rp::Frame(true);
   int mapEvents = 0;
   for (const auto& l : g_log) mapEvents += l.find("event map_start (log) map=de_dust2") != std::string::npos;
   Check(mapEvents == 1, "map_start delivered exactly once");
   Check(Logged("event round_start (engine) map=de_dust2"), "round_start delivered with current map");
 
+  std::puts("-- raw engine event (synchronous)");
+  const auto wanted = rp::WantedGameEvents();
+  Check(wanted.size() == 1 && wanted[0] == "player_death", "player_death is in the wanted set for the listener");
+  FakeEvent death{3, 7, 1, "ak47"};
+  rp::DispatchGameEvent("player_other", &death);
+  rp::DispatchGameEvent("player_death", &death);
+  Check(Logged("player_death attacker=3 victim=7 weapon=ak47 headshot=1"), "player_death delivered with accessors");
+  Check(!Logged("player_other"), "events nobody subscribed to are not delivered");
+
   std::puts("-- console command");
   Check(rp::TryDispatchConsole("hello_status"), "hello_status is owned by the plugin");
   rp::Frame(false);
-  Check(Logged("status: version 1.0.0, 6 ticks"), "console command ran; 6 simulating ticks seen");
+  Check(Logged("status: version 1.1.0, load #1, 6 ticks, 1 greetings, 2 log lines"),
+        "console command ran; 6 simulating ticks and 2 log lines seen");
 
   std::puts("-- list");
   rp::HandlePluginCommand({"list"}, false);
-  Check(Logged("hello 1.0.0 (api 1.0) cmds=2 ticks=1 subs=1"), "list shows the plugin and its registrations");
+  Check(Logged("hello 1.1.0 (api 1.0) cmds=2 ticks=1 subs=3"), "list shows the plugin and its registrations");
 
   std::puts("-- hot reload with a rebuilt hello.so");
   if (!CopyFile(argv[2], so)) return 2;
+  readyup::g_moduleDir = dir;  // config_get: readyup.cfg [hello] section
+  {
+    FILE* cfg = std::fopen((std::string(dir) + "/readyup.cfg").c_str(), "w");
+    if (!cfg) return 2;
+    std::fputs("debug=0\ngreeting=not-for-plugins\n[other]\ngreeting=wrong\n[hello]\ngreeting = \"howdy\"\n", cfg);
+    std::fclose(cfg);
+  }
   g_chat.clear();
   rp::HandlePluginCommand({"reload", "hello"}, false);
   Check(!Logged("reloaded hello"), "reload is deferred to the next frame");
@@ -170,6 +209,9 @@ int main(int argc, char** argv) {
   rp::TryDispatchChat(76561198000000001ull, "alice", ".hello");
   rp::Frame(true);
   Check(Chatted("readyup-hello 1.0.1-reloaded, greeting #1"), "new code answers .hello with fresh state");
+  Check(Logged("load #2, greeting \"howdy\""), "stash survived the reload; config_get read the [hello] section");
+  Check(Chatted("howdy, alice!"), "configured greeting used");
+  Check(rp::WantedGameEvents().size() == 1, "old image's game event subscription was dropped (not doubled)");
 
   std::puts("-- unload removes every registration");
   rp::HandlePluginCommand({"unload", "hello"}, false);
@@ -178,6 +220,10 @@ int main(int argc, char** argv) {
   Check(!rp::TryDispatchChat(76561198000000001ull, "alice", ".hello"), ".hello no longer routed");
   Check(!rp::TryDispatchConsole("hello_status"), "hello_status no longer routed");
   Check(dlopen(so.c_str(), RTLD_NOW | RTLD_NOLOAD) == nullptr, "hello.so no longer mapped");
+  Check(rp::WantedGameEvents().empty(), "game event subscription removed on unload");
+  g_log.clear();
+  rp::DispatchGameEvent("player_death", &death);
+  Check(!Logged("player_death"), "no delivery into the unloaded image");
 
   std::puts("-- load errors");
   rp::HandlePluginCommand({"load", "nope"}, false);
@@ -188,6 +234,7 @@ int main(int argc, char** argv) {
   Check(Logged("loaded hello"), "load after unload works");
 
   unlink(so.c_str());
+  unlink((std::string(dir) + "/readyup.cfg").c_str());
   rmdir(dir);
   std::printf("%s (%d failed)\n", g_failed ? "FAILED" : "ALL OK", g_failed);
   return g_failed ? 1 : 0;
