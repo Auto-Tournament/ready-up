@@ -21,6 +21,15 @@ dev_bots_ready=0
 chat_prefix=<DarkRed>[Ready Up]<Default>
 admin_prefix=<DarkRed>[Admin]<Default>
 
+# Local status endpoint (docs/FLEET.md §17): read-only HTTP for csm / uptime checks / curl.
+# GET /health /status /stream (SSE) /metrics /selftest. Loopback clients need no token; others
+# send `Authorization: Bearer <token>`. Port + token are written to csgo/readyup/status.json.
+# status_http_enabled=1
+# status_http_bind=127.0.0.1
+# status_http_port=0          (0 = game port + 7, e.g. 27022 for 27015)
+# status_http_token=          (empty = generated once and kept in status.json)
+# status_http_metrics=0
+
 # Plugin settings. Everything after the first [section] line belongs to a plugin and is read
 # with ru_api config_get (the plugin's own csgo/cfg/ReadyUp/<plugin>.cfg wins over this).
 # Core keys must stay above the first section.

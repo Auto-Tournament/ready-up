@@ -1,5 +1,7 @@
 #include "readyup/selftest.h"
 
+#include "readyup/status_feed.h"
+
 #include "readyup/client_command_hook.h"
 #include "readyup/command_buffer_hook.h"
 #include "readyup/config.h"
@@ -495,6 +497,7 @@ void FinishAndQuit(const std::string& extraFailure, bool fromGameThread) {
 
 SelftestResult RunSelftest(bool printToConsole) {
   SelftestResult r = Build(/*waitForDb=*/false, {});
+  status_feed::NoteSelftest(r);  // last result for /health, /status and /selftest
   if (printToConsole) {
     for (const auto& l : r.lines) Print("%s\n", l.c_str());
   }

@@ -14,6 +14,7 @@
 #include "readyup/scrim_flow.h"
 #include "readyup/ready_hud.h"
 #include "readyup/selftest.h"
+#include "readyup/status_feed.h"
 #include "readyup/welcome.h"
 
 #include <sys/mman.h>
@@ -64,6 +65,7 @@ static void Hook_GameFrame(void* thisptr, bool simulating, bool bFirstTick, bool
   if (!simulating) {
     // Plugin load/unload + queued commands/events still run while not simulating.
     if (plugins) readyup::plugins::Frame(/*simulating=*/false);
+    readyup::status_feed::FrameTick(/*simulating=*/false);
     return;
   }
   if (g_simTicks.fetch_add(1, std::memory_order_relaxed) == 0 && DebugEnabled()) {
@@ -89,6 +91,9 @@ static void Hook_GameFrame(void* thisptr, bool simulating, bool bFirstTick, bool
   if (plugins) readyup::plugins::Frame(/*simulating=*/true);
   // READYUP_SELFTEST_AND_QUIT: runs the selftest once the first map is up, then quits.
   readyup::SelftestFrameTick();
+  // Local status endpoint: rebuild the snapshot (at most every 250 ms) and hand it to the
+  // HTTP thread with a pointer swap (status_feed.h). Last, so it sees this frame's state.
+  readyup::status_feed::FrameTick(/*simulating=*/true);
 }
 
 }  // namespace
