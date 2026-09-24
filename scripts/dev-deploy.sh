@@ -149,7 +149,7 @@ tmux kill-session -t "$session" 2>/dev/null
 tmux new-session -d -s "$session" -x 250 -y 50 "$target/run.sh"
 tmux pipe-pane -t "$session" -o "cat >> $log"
 
-show_ru() { tail -c "+$start" "$log" | grep -a -i 'readyup' | tail -n 40; }
+show_ru() { tail -c "+$start" "$log" | grep -a -iE 'readyup|ready up' | tail -n 40; }
 
 for ((i = 0; i < timeout; i++)); do
   if tail -c "+$start" "$log" | grep -a -q 'SV:  64 player server started'; then
