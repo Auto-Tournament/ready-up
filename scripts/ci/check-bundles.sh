@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# Checks the zips from scripts/package-release.sh:
+#   - SHA256SUMS matches every zip
+#   - every zip carries a manifest per component, and each manifest lists exactly the zip's
+#     files for that component
+#   - core / match / essentials contain NO skins code or gamedata: no skins.so, no
+#     engine-surface.skins.json, no skins warning, and libserver.so has no skins SQL/symbols
+#   - skins / full do contain skins.so + engine-surface.skins.json
+#
+#   scripts/ci/check-bundles.sh <dist-dir> <version>
+set -euo pipefail
+
+DIST="${1:?usage: $0 <dist-dir> <version>}"
+VERSION="${2:?usage: $0 <dist-dir> <version>}"
+SUFFIX="$VERSION-linuxsteamrt64.zip"
+fail=0
+bad() { echo "  BAD  $*"; fail=1; }
+ok() { echo "  ok   $*"; }
+
+echo "SHA256SUMS:"
+if (cd "$DIST" && sha256sum --quiet -c SHA256SUMS); then ok "all checksums match"; else bad "checksum mismatch"; fi
+
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
+extract() {  # <bundle> -> prints the extraction dir
+  local zip="$DIST/ready-up-$1-$SUFFIX" dir="$WORK/$1"
+  [[ -f "$zip" ]] || { echo "missing $zip" >&2; return 1; }
+  mkdir -p "$dir"
+  python3 -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$zip" "$dir"
+  echo "$dir"
+}
+
+check_manifests() {  # <dir> <expected components...>
+  local dir="$1"
+  shift
+  python3 - "$dir" "$@" <<'PY' || fail=1
+import json, os, sys
+root, *want = sys.argv[1:]
+mdir = os.path.join(root, "readyup", "manifests")
+have = sorted(f[:-5] for f in os.listdir(mdir) if f.endswith(".json"))
+ok = True
+if have != sorted(want):
+    print("  BAD  manifests %s, expected %s" % (have, sorted(want))); ok = False
+listed = set()
+for c in have:
+    m = json.load(open(os.path.join(mdir, c + ".json")))
+    for f in m["files"]:
+        listed.add(f)
+        if not os.path.isfile(os.path.join(root, f)):
+            print("  BAD  %s lists missing file %s" % (c, f)); ok = False
+actual = set()
+for d, _, fs in os.walk(root):
+    for f in fs:
+        rel = os.path.relpath(os.path.join(d, f), root)
+        if not rel.startswith("readyup/manifests/"):
+            actual.add(rel)
+extra = sorted(actual - listed)
+if extra:
+    print("  BAD  files not in any manifest: %s" % extra); ok = False
+print("  %s   manifests %s cover every file" % ("ok" if ok else "BAD", have))
+sys.exit(0 if ok else 1)
+PY
+}
+
+no_skins() {  # <bundle>
+  local dir
+  dir="$(extract "$1")"
+  local hits
+  hits="$(cd "$dir" && find . -iname '*skins*' -o -iname 'SKINS-WARNING*' | sed 's|^\./||')"
+  if [[ -n "$hits" ]]; then bad "$1 contains skins files: $hits"; else ok "$1: no skins files"; fi
+  local so="$dir/readyup/bin/linuxsteamrt64/libserver.so"
+  if [[ -f "$so" ]]; then
+    if grep -aq 'readyup_weapon_\|weapon_paints' "$so"; then bad "$1: libserver.so contains skins code"; else ok "$1: libserver.so has no skins code"; fi
+  fi
+}
+
+has_skins() {  # <bundle>
+  local dir
+  dir="$(extract "$1")"
+  for f in readyup/plugins/skins.so readyup/bin/linuxsteamrt64/engine-surface.skins.json; do
+    if [[ -f "$dir/$f" ]]; then ok "$1 has $f"; else bad "$1 lacks $f"; fi
+  done
+}
+
+echo "core:";       no_skins core;       check_manifests "$WORK/core" core
+echo "match:";      no_skins match;      check_manifests "$WORK/match" match
+echo "essentials:"; no_skins essentials; check_manifests "$WORK/essentials" core match
+echo "hello:";      no_skins hello;      check_manifests "$WORK/hello" hello
+echo "skins:";      has_skins skins;     check_manifests "$WORK/skins" skins
+echo "full:";       has_skins full
+full_components=(core match skins hello)
+[[ -f "$WORK/full/readyup/manifests/tools.json" ]] && full_components+=(tools)
+check_manifests "$WORK/full" "${full_components[@]}"
+
+if [[ $fail -ne 0 ]]; then
+  echo "check-bundles: FAILED" >&2
+  exit 1
+fi
+echo "check-bundles: OK"

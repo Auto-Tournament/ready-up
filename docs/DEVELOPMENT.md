@@ -59,19 +59,17 @@ scripts/ci/fetch-cs2-binaries.sh /tmp/cs2        # ~18 MB, anonymous
 scripts/ci/verify-cs2.sh /tmp/cs2 build-sniper   # sigcheck + hookcheck + report.md
 ```
 
-## Debug install
+## Debug logging
 
-```bash
-sudo ./install.sh --debug
-```
-
-This enables Ready Up debug logging via the generated `readyup.cfg`.
+Set `debug=1` in `game/csgo/readyup/bin/linuxsteamrt64/readyup.cfg` on the test server (then
+`.ru reload` or a restart). Deploy builds with `scripts/dev-deploy.sh [--restart]`, or a single
+plugin with `scripts/dev-deploy.sh --plugin <name>` (hot reload).
 
 ## Signatures (engine surface)
 
 Every engine function Ready Up calls or hooks is listed in `gamedata/engine-surface.json`
 together with **identity anchors** (strings the function, or its callers, must reference).
-The file is embedded into `libserver.so` at build time; `install.sh` also copies it next to
+The file is embedded into `libserver.so` at build time; the release zips also ship it next to
 the shim as `engine-surface.json`, which takes precedence (so a signature can be hotfixed
 without a rebuild). The CounterStrikeSharp CDN gamedata is no longer used.
 

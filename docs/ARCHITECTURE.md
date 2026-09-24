@@ -380,13 +380,17 @@ Every `*.so` in `plugins/` loads on the first server frame, in name order. To di
 rename it (for example `skins.so.off`) or `ru plugin unload` it. `READYUP_PLUGINS=0` disables
 all of them. `READYUP_PLUGINS_DIR` overrides the directory (tests).
 
-**Release** (after migration), two zips from one build:
+**Release** (`scripts/package-release.sh`, built and uploaded by CI on every run):
 
-- `readyup-X.Y.Z-linuxsteamrt64.zip`: core + `match.so`. This is the default and what `install.sh` installs.
-- `readyup-X.Y.Z-linuxsteamrt64-skins.zip`: core + `match.so` + `skins.so` + `engine-surface.skins.json`,
-  clearly labelled with the ban-risk note.
+- component zips `ready-up-{core,match,skins,hello}-X.Y.Z-linuxsteamrt64.zip` (match is a
+  manifest-only placeholder until step 4), which the root `install.sh` mixes;
+- bundles `ready-up-essentials-...` (core + match, the default, no skins) and
+  `ready-up-full-...` (core + match + skins + hello + the gamedata checkers);
+- `SHA256SUMS`.
 
-`hello.so` is never packaged. Plugins carry the release version; the API version is separate.
+Every zip carries `readyup/manifests/<component>.json` (its file list). `scripts/ci/check-bundles.sh`
+fails CI if core, match or essentials contain skins code or gamedata, and the `installer` job
+runs `tests/installer/test_install.sh` against the built zips. Plugins carry the release version; the API version is separate.
 CI runs sigcheck against the core only; plugins have nothing to check.
 
 **Dev loop (no server restart):**

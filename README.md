@@ -42,25 +42,53 @@ Skins (weapon paints, knives, gloves, agents) are a separate plugin and aren't i
 
 ## Install
 
-Ready Up runs on Linux dedicated servers (`linuxsteamrt64`).
+Ready Up runs on Linux dedicated servers (`linuxsteamrt64`). From your server root (the folder that contains `game/`), as the user that owns the server files:
 
-1. Download `readyup-<version>-linuxsteamrt64.zip` from [Releases](https://github.com/Auto-Tournament/ready-up/releases/latest).
+```bash
+curl -fsSL https://raw.githubusercontent.com/Auto-Tournament/ready-up/master/install.sh | bash
+```
+
+In a terminal it shows the components with the installed and latest version. Move with ↑/↓, toggle with space, confirm with enter:
+
+```
+> [x] Core   new 0.2.0     required
+  [x] Match  new 0.2.0     ready-up, knife, pauses, webhooks
+  [ ] Skins  new 0.2.0     may get servers banned
+  [ ] Hello  new 0.2.0     example plugin
+```
+
+It downloads the ticked components from the latest release (checking `SHA256SUMS`), puts them in `game/csgo/readyup/`, and adds `Game csgo/readyup` to `gameinfo.gi` and `gameinfo_branchspecific.gi` (right after Metamod's line if you have Metamod; a backup is saved as `gameinfo.gi.readyup-backup-<time>`). Your `readyup.cfg`, `readyup_db.json` and `cfg/ReadyUp/*.cfg` are never overwritten: when a shipped default changes, it lands next to yours as `*.default`. Then restart the server and run `ru selftest` in its console.
+
+**Update or change components:** run the same command again. Unticking an installed component removes it.
+
+**Scripts and panels (no questions):**
+
+```bash
+curl -fsSL .../install.sh | bash -s -- essentials        # core + match (the default)
+curl -fsSL .../install.sh | bash -s -- full              # + skins + hello
+bash install.sh --yes                                    # update whatever is installed
+bash install.sh --remove skins
+bash install.sh --uninstall [--purge]                    # --purge also deletes your config
+bash install.sh --zip ready-up-essentials-<v>-linuxsteamrt64.zip essentials   # offline / CI artifact
+```
+
+Other options: `--dir /path/to/cs2`, `--version vX.Y.Z`. It needs bash, python3, curl or wget, and unzip (python3 is used if unzip is missing). It never uses sudo, never stops or starts the server, and never touches a database.
+
+CS2 updates rewrite `gameinfo.gi`: run the installer again after each one (it only re-adds the line).
+
+### Manual install
+
+1. Download a zip from [Releases](https://github.com/Auto-Tournament/ready-up/releases/latest): `ready-up-essentials-<version>-linuxsteamrt64.zip` (core + match) or `ready-up-full-...` (+ skins + hello).
 2. Extract it into `game/csgo`. You should end up with `game/csgo/readyup/bin/linuxsteamrt64/libserver.so`.
-3. Add Ready Up to `gameinfo.gi`:
+3. Add Ready Up to `gameinfo.gi` (and `gameinfo_branchspecific.gi` if you have it):
 
    ```bash
    cd game/csgo
    python3 readyup/tools/patch_gameinfo.py gameinfo.gi --game csgo/readyup
    ```
-
-   If you have `gameinfo_branchspecific.gi`, run it on that file too.
 4. Restart the server.
 
-The patcher adds `Game csgo/readyup` to `SearchPaths`. It has to be listed **before** `Game csgo`, or CS2 loads its own `libserver.so` and Ready Up never runs. You can check the file by hand afterwards.
-
-Metamod can run alongside Ready Up. Keep its `Game csgo/addons/metamod` line above Ready Up's.
-
-CS2 updates rewrite `gameinfo.gi`, so run the patcher again after each one.
+The patcher adds `Game csgo/readyup` to `SearchPaths`. It has to be listed **before** `Game csgo`, or CS2 loads its own `libserver.so` and Ready Up never runs. With Metamod, Metamod's `Game csgo/addons/metamod` line stays above Ready Up's.
 
 Config, admins and the database are covered in [docs/INSTALL.md](docs/INSTALL.md) and [docs/ADMINS.md](docs/ADMINS.md).
 
@@ -82,7 +110,7 @@ Loads into CS2, owns every engine touchpoint (`gamedata/engine-surface.json`), a
 
 <br />
 
-The match flow: scrim ready-up with a center-screen panel, knife round and side pick, pauses, practice mode, admins, match configs and webhooks for the Auto Tournament platform. Ships as `plugins/skins.so` plus its gamedata `engine-surface.skins.json`; the core runs without either.
+The match flow: scrim ready-up with a center-screen panel, knife round and side pick, pauses, practice mode, admins, match configs and webhooks for the Auto Tournament platform. Currently built into the core while it moves to its own plugin, so the `match` download is a placeholder for now.
 
 </details>
 
@@ -91,7 +119,7 @@ The match flow: scrim ready-up with a center-screen panel, knife round and side 
 
 <br />
 
-Weapon paints, knives, gloves and agents from a Postgres table. Skin changers can get a server banned, so this plugin is only in the Full bundle and you add it on purpose. Currently built into the core while it moves to its own plugin.
+Weapon paints, knives, gloves and agents from a Postgres table. Skin changers can get a server banned, so this plugin is only in the Full bundle and you add it on purpose. Ships as `plugins/skins.so` plus its gamedata `engine-surface.skins.json`; the core runs without either.
 
 </details>
 
@@ -104,7 +132,7 @@ A minimal plugin that registers `.hello` in chat. Start here to write your own.
 
 </details>
 
-Planned downloads: `ready-up-core`, `ready-up-match`, `ready-up-skins`, and two bundles: **Essentials** (core + match) and **Full** (core + match + skins).
+Downloads: `ready-up-core`, `ready-up-match`, `ready-up-skins`, `ready-up-hello`, and two bundles: **Essentials** (core + match) and **Full** (core + match + skins + hello + the gamedata checkers). The installer mixes the single components.
 
 ## Documentation
 

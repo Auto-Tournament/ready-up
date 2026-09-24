@@ -1,63 +1,146 @@
 #!/usr/bin/env bash
-# Package a release zip. Its root is the contents of game/csgo, so it can be extracted
-# straight into a server's game/csgo:
+# Package Ready Up release zips from one build. Every zip's root is the contents of
+# game/csgo, so it can be extracted straight into a server's game/csgo (or handed to the
+# installer: install.sh --zip <zip>).
 #
-#   readyup/bin/linuxsteamrt64/libserver.so            the shim (sniper build)
-#   readyup/bin/linuxsteamrt64/engine-surface.json     gamedata (also embedded in the shim)
-#   readyup/bin/linuxsteamrt64/readyup.cfg.example     copied to readyup.cfg if missing
-#   readyup/tools/patch_gameinfo.py                    adds Game csgo/readyup to gameinfo.gi
-#   readyup/tools/install.sh                           optional safe installer
-#   readyup/cfg-templates/ReadyUp/*.cfg                mode cfg templates (cfg exec mode)
-#   readyup/VERSION, README.md, INSTALL.md, LICENSE, BUILD_INFO
+#   scripts/package-release.sh <build-dir> <version> <out-dir>
 #
-# Nothing in the zip overwrites admin-owned files (readyup.cfg, readyup_db.json, cfg/).
+# <build-dir> holds libserver.so, plugins/skins.so, plugins/hello.so and (optionally)
+# readyup_sigcheck / readyup_hookcheck.
 #
-#   scripts/package-release.sh <libserver.so> <version> <out-dir>
-#   -> <out-dir>/readyup-<version>-linuxsteamrt64.zip (+ .sha256)
+# Component zips (the installer mixes these):
+#   ready-up-core-<v>-linuxsteamrt64.zip    the core (libserver.so, engine-surface.json, cfg
+#                                            templates, readyup.cfg.example, tools, docs)
+#   ready-up-match-<v>-linuxsteamrt64.zip   PLACEHOLDER: match is still built into the core
+#                                            (migration step 4); only a manifest for now
+#   ready-up-skins-<v>-linuxsteamrt64.zip   plugins/skins.so + engine-surface.skins.json
+#   ready-up-hello-<v>-linuxsteamrt64.zip   plugins/hello.so (example plugin)
+# Bundles (for manual download):
+#   ready-up-essentials-<v>-...zip          core + match. The default. NO skins.
+#   ready-up-full-<v>-...zip                core + match + skins + hello + readyup_sigcheck/hookcheck
+# Plus SHA256SUMS over every zip.
+#
+# Each component ships readyup/manifests/<component>.json ({component, version, files}),
+# which is how install.sh knows what to update or remove. Nothing in any zip overwrites
+# admin-owned files: readyup.cfg, readyup_db.json and cfg/ReadyUp/*.cfg are never shipped
+# as such (readyup.cfg.example and readyup/cfg-templates/ are).
 set -euo pipefail
 
-SO="${1:?usage: $0 <libserver.so> <version> <out-dir>}"
-VERSION="${2:?usage: $0 <libserver.so> <version> <out-dir>}"
-OUT="${3:?usage: $0 <libserver.so> <version> <out-dir>}"
+BUILD="${1:?usage: $0 <build-dir> <version> <out-dir>}"
+VERSION="${2:?usage: $0 <build-dir> <version> <out-dir>}"
+OUT="${3:?usage: $0 <build-dir> <version> <out-dir>}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
-[[ -f "$SO" ]] || { echo "missing $SO" >&2; exit 1; }
+BUILD="$(cd "$BUILD" && pwd)"
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd)"
-STAGE="$(mktemp -d)"
-trap 'rm -rf "$STAGE"' EXIT
-R="$STAGE/readyup"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"
+SUFFIX="$VERSION-linuxsteamrt64.zip"
 
-install -D -m 755 "$SO" "$R/bin/linuxsteamrt64/libserver.so"
-install -D -m 644 "$ROOT_DIR/gamedata/engine-surface.json" "$R/bin/linuxsteamrt64/engine-surface.json"
-install -D -m 644 "$ROOT_DIR/cfg/readyup.cfg.example" "$R/bin/linuxsteamrt64/readyup.cfg.example"
-install -D -m 755 "$ROOT_DIR/scripts/patch_gameinfo.py" "$R/tools/patch_gameinfo.py"
-install -D -m 755 "$ROOT_DIR/scripts/install-release.sh" "$R/tools/install.sh"
-mkdir -p "$R/cfg-templates/ReadyUp"
-install -m 644 "$ROOT_DIR"/cfg/ReadyUp/*.cfg "$R/cfg-templates/ReadyUp/"
-printf '%s\n' "$VERSION" >"$R/VERSION"
-install -m 644 "$ROOT_DIR/README.md" "$R/README.md"
-install -m 644 "$ROOT_DIR/docs/INSTALL.md" "$R/INSTALL.md"
-[[ -f "$ROOT_DIR/LICENSE" ]] && install -m 644 "$ROOT_DIR/LICENSE" "$R/LICENSE"
+for f in libserver.so plugins/skins.so plugins/hello.so; do
+  [[ -f "$BUILD/$f" ]] || { echo "package-release: missing $BUILD/$f" >&2; exit 1; }
+done
 
+# stage_component <name> <description> <src>:<dest-under-readyup>[:mode] ...
+stage_component() {
+  local name="$1" desc="$2"
+  shift 2
+  local dir="$WORK/c/$name" spec src dst mode
+  mkdir -p "$dir/readyup/manifests"
+  local files=()
+  for spec in "$@"; do
+    IFS=: read -r src dst mode <<<"$spec"
+    install -D -m "${mode:-644}" "$src" "$dir/readyup/$dst"
+    files+=("readyup/$dst")
+  done
+  python3 - "$dir/readyup/manifests/$name.json" "$name" "$VERSION" "$desc" "${files[@]}" <<'PY'
+import json, sys
+path, name, version, desc, *files = sys.argv[1:]
+json.dump({"component": name, "version": version, "description": desc, "files": sorted(files)},
+          open(path, "w"), indent=2)
+open(path, "a").write("\n")
+PY
+}
+
+core_files=(
+  "$BUILD/libserver.so:bin/linuxsteamrt64/libserver.so:755"
+  "$ROOT_DIR/gamedata/engine-surface.json:bin/linuxsteamrt64/engine-surface.json"
+  "$ROOT_DIR/cfg/readyup.cfg.example:bin/linuxsteamrt64/readyup.cfg.example"
+  "$ROOT_DIR/scripts/patch_gameinfo.py:tools/patch_gameinfo.py:755"
+  "$ROOT_DIR/install.sh:tools/install.sh:755"
+  "$ROOT_DIR/README.md:README.md"
+  "$ROOT_DIR/docs/INSTALL.md:INSTALL.md"
+)
+[[ -f "$ROOT_DIR/LICENSE" ]] && core_files+=("$ROOT_DIR/LICENSE:LICENSE")
+for f in "$ROOT_DIR"/cfg/ReadyUp/*.cfg; do
+  core_files+=("$f:cfg-templates/ReadyUp/$(basename "$f")")
+done
+printf '%s\n' "$VERSION" >"$WORK/VERSION"
 {
   echo "version=$VERSION"
   echo "commit=$(git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
-  echo "built=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "libserver_sha256=$(sha256sum "$SO" | cut -d' ' -f1)"
+  echo "built=$(date -u -d "@$EPOCH" +%Y-%m-%dT%H:%M:%SZ)"
+  echo "libserver_sha256=$(sha256sum "$BUILD/libserver.so" | cut -d' ' -f1)"
   [[ -n "${CS2_BUILDID:-}" ]] && echo "verified_cs2_buildid=$CS2_BUILDID"
   [[ -n "${CS2_PATCH_VERSION:-}" ]] && echo "verified_cs2_patch_version=$CS2_PATCH_VERSION"
-} >"$R/BUILD_INFO"
+} >"$WORK/BUILD_INFO"
+core_files+=("$WORK/VERSION:VERSION" "$WORK/BUILD_INFO:BUILD_INFO")
+stage_component core "Ready Up core: libserver.so, engine surface, plugin host (match logic is still built in)" "${core_files[@]}"
 
-# Guard: the dev installer (stops csm servers, wipes DB rows) must never ship.
-if grep -q 'csm stop\|TRUNCATE readyup_admins' -r "$R"; then
-  echo "package-release: refusing to package the dev install.sh" >&2
+# Match is still part of libserver.so until migration step 4 moves it to plugins/match.so.
+stage_component match "PLACEHOLDER: match logic is built into the core for now; this component installs no files yet"
+
+cat >"$WORK/SKINS-WARNING.txt" <<'EOF'
+Ready Up skins (weapon paints, knives, gloves, agents)
+
+Servers that run skin changers risk a GSLT ban from Valve. Only install this on servers
+where you accept that risk. Remove readyup/plugins/skins.so and
+readyup/bin/linuxsteamrt64/engine-surface.skins.json (or run install.sh and untick Skins)
+to go back to a skins-free server.
+EOF
+stage_component skins "Weapon paints, knives, gloves, agents (servers running skin changers risk GSLT bans)" \
+  "$BUILD/plugins/skins.so:plugins/skins.so:755" \
+  "$ROOT_DIR/gamedata/engine-surface.skins.json:bin/linuxsteamrt64/engine-surface.skins.json" \
+  "$WORK/SKINS-WARNING.txt:SKINS-WARNING.txt"
+
+stage_component hello "Example plugin (.hello, hello_status); for plugin developers" \
+  "$BUILD/plugins/hello.so:plugins/hello.so:755"
+
+extras=()
+for t in readyup_sigcheck readyup_hookcheck; do
+  [[ -f "$BUILD/$t" ]] && extras+=("$BUILD/$t:tools/$t:755")
+done
+if [[ ${#extras[@]} -gt 0 ]]; then
+  stage_component tools "Offline gamedata checkers (readyup_sigcheck, readyup_hookcheck)" "${extras[@]}"
+fi
+
+# Guard: the old dev installer (stops csm servers, wipes DB rows) must never ship.
+if grep -rq 'csm stop\|TRUNCATE readyup_admins' "$WORK/c"; then
+  echo "package-release: refusing to package a dev-only script" >&2
   exit 1
 fi
 
-ZIP="readyup-${VERSION}-linuxsteamrt64.zip"
-rm -f "$OUT/$ZIP"
-(cd "$STAGE" && find readyup -exec touch -h -d "@${SOURCE_DATE_EPOCH:-$(date +%s)}" {} + && zip -qrX "$OUT/$ZIP" readyup)
-(cd "$OUT" && sha256sum "$ZIP" >"$ZIP.sha256")
-echo "Packaged: $OUT/$ZIP"
-unzip -l "$OUT/$ZIP"
+# make_zip <zip-name> <component>...
+make_zip() {
+  local zip="$1" stage="$WORK/z/$1" c
+  shift
+  mkdir -p "$stage"
+  for c in "$@"; do cp -a "$WORK/c/$c/." "$stage/"; done
+  rm -f "$OUT/$zip"
+  (cd "$stage" && find readyup -exec touch -h -d "@$EPOCH" {} + && find readyup -type f | LC_ALL=C sort | zip -qX "$OUT/$zip" -@)
+  echo "Packaged: $zip ($*)"
+}
+
+make_zip "ready-up-core-$SUFFIX" core
+make_zip "ready-up-match-$SUFFIX" match
+make_zip "ready-up-skins-$SUFFIX" skins
+make_zip "ready-up-hello-$SUFFIX" hello
+make_zip "ready-up-essentials-$SUFFIX" core match
+full=(core match skins hello)
+[[ -d "$WORK/c/tools" ]] && full+=(tools)
+make_zip "ready-up-full-$SUFFIX" "${full[@]}"
+
+(cd "$OUT" && sha256sum ready-up-*-"$SUFFIX" >SHA256SUMS)
+echo "SHA256SUMS:"
+cat "$OUT/SHA256SUMS"
