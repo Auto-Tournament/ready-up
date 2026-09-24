@@ -22,12 +22,12 @@ struct ReadyUpCfg {
   std::string hud_logo_url;
   bool chat_debug = false;
 
-  // UDP port ReadyUp listens on for server log lines (used to observe chat `ru ...` commands).
+  // UDP port Ready Up listens on for server log lines (used to observe chat `ru ...` commands).
   // Must match `logaddress_add 127.0.0.1:<port>` in cfg.
   int log_receiver_port = 35050;
 
   // Prefixes (token-based; expanded to CS2 chat control bytes at load).
-  // Note: ReadyUp will add a single space after these prefixes in output.
+  // Note: Ready Up will add a single space after these prefixes in output.
   std::string chat_prefix;
   std::string admin_prefix;
 

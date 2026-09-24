@@ -1,5 +1,5 @@
 /*
- * readyup-hello: the smallest useful ReadyUp plugin, written in plain C to prove
+ * readyup-hello: the smallest useful Ready Up plugin, written in plain C to prove
  * the ABI. It exists to exercise load / unload / reload:
  *
  *   .hello            (chat)     replies to the sender and to everyone
@@ -79,7 +79,7 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
       READYUP_PLUGIN_API_VERSION,
       "hello",
       HELLO_VERSION,
-      "ReadyUp",
+      "Ready Up",
       "example plugin: .hello, hello_status, 10s tick heartbeat, lifecycle event log",
   };
   return &info;

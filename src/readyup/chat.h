@@ -7,11 +7,11 @@ namespace readyup {
 // this becomes a no-op.
 void AnnounceToChat(const char* msg);
 
-// Same mechanism as AnnounceToChat(), but NOT gated behind ReadyUp debug flags.
+// Same mechanism as AnnounceToChat(), but NOT gated behind Ready Up debug flags.
 // Intended for actual user-facing features (e.g. `ru admins`).
 void SendToChat(const char* msg);
 
-// Sends a raw chat payload (no "[ReadyUp]" prefix added).
+// Sends a raw chat payload (no chat prefix such as "[Ready Up]" added).
 // Payload may include CS-style color codes (best-effort).
 void SendRawToChat(const char* payload);
 

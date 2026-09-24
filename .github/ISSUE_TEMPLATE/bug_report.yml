@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in ReadyUp is broken
+description: Something in Ready Up is broken
 labels: [bug]
 body:
   - type: textarea
@@ -13,7 +13,7 @@ body:
     id: versions
     attributes:
       label: Versions
-      description: CS2 build (`version` in the server console) and ReadyUp build (`ru` in the server console).
+      description: CS2 build (`version` in the server console) and Ready Up build (`ru` in the server console).
     validations:
       required: true
   - type: textarea

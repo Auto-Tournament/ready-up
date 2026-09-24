@@ -48,7 +48,7 @@ The first active tick always prints one status line per skins item:
   string xrefs, a known call site, or a vtable slot resolved via RTTI and `R_X86_64_RELATIVE`
   relocs.
 - **Schema**: an offline harness loads `libtier0`, `libschemasystem` and `libserver` from the build,
-  calls `InstallSchemaBindings("SchemaSystem_001", …)`, then runs ReadyUp's **real**
+  calls `InstallSchemaBindings("SchemaSystem_001", …)`, then runs Ready Up's **real**
   `schema.cpp` and `skins_engine.cpp` against it. Signature resolution is checked the same way,
   against the loaded image.
 
@@ -178,9 +178,9 @@ and other CS2-native kits are not legacy.
 
 - **Table**: the ids are in `src/readyup/legacy_paint_kits.inc`. After a game update, regenerate
   it with `scripts/gen_legacy_paint_kits.py <items_game.txt> <version>`.
-- **Apply**: when a weapon gets a legacy paint, ReadyUp sets `body` = 1 through the
+- **Apply**: when a weapon gets a legacy paint, Ready Up sets `body` = 1 through the
   GetModel → FindBodygroupByName → SetBodygroup chain.
-- **Retry**: if the weapon's model isn't loaded yet, ReadyUp retries on later ticks and then
+- **Retry**: if the weapon's model isn't loaded yet, Ready Up retries on later ticks and then
   re-sends the entity to clients.
 
 ## Glove bodygroup timing

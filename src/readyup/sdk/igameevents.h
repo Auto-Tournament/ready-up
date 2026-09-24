@@ -1,6 +1,6 @@
 #pragma once
 
-// Mirror of the CS2 game-event interfaces ReadyUp calls into.
+// Mirror of the CS2 game-event interfaces Ready Up calls into.
 //
 // Source of truth: alliedmodders/hl2sdk, branch `cs2`, public/igameevents.h
 // (checked against commit 6315f0104d22eb9ea3c33d0505dbe14e8b193bc3).
@@ -16,7 +16,7 @@
 //   (CServerSideClient_GameEventLegacyProxy) have 3 slots: [0,1] dtors, [2] FireGameEvent.
 //
 // IMPORTANT: these types MUST have external linkage (do not move them into an
-// anonymous namespace). ReadyUp never defines a class deriving from
+// anonymous namespace). Ready Up never defines a class deriving from
 // IGameEventManager2/IGameEvent, so if they had internal linkage GCC's
 // type-based devirtualization "knows" the only possible target of every
 // virtual call is __cxa_pure_virtual and emits a direct call to it. That is

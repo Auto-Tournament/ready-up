@@ -14,7 +14,7 @@ using CreateInterfaceFn = void* (*)(const char* name, int* returnCode);
 
 void TryRegisterConsoleCommands() {
   // Source2 console command registration is not stable across builds and typically relies on
-  // SDK headers (ConCommand/ICvar). ReadyUp keeps this best-effort and will not crash if the
+  // SDK headers (ConCommand/ICvar). Ready Up keeps this best-effort and will not crash if the
   // expected APIs are unavailable.
 
   // We can, however, probe for a cvar factory and log what we find.

@@ -4,10 +4,10 @@
     "steam_buildid": 25492732,
     "binary": "game/csgo/bin/linuxsteamrt64/libserver.so",
     "notes": [
-      "Repo-owned engine surface for ReadyUp. This file (or the copy embedded in the shim at build time) is the only source of signatures; the CounterStrikeSharp CDN gamedata is no longer used.",
-      "Each function must match exactly once AND pass all of its identity anchors, otherwise it is treated as unresolved. Required functions failing => ReadyUp disables itself at load.",
+      "Repo-owned engine surface for Ready Up. This file (or the copy embedded in the shim at build time) is the only source of signatures; the CounterStrikeSharp CDN gamedata is no longer used.",
+      "Each function must match exactly once AND pass all of its identity anchors, otherwise it is treated as unresolved. Required functions failing => Ready Up disables itself at load.",
       "After a CS2 update run: build/readyup_sigcheck <path to Valve libserver.so> gamedata/engine-surface.json",
-      "Functions with \"hook\": \"funchook\" are detoured by ReadyUp; build/readyup_hookcheck verifies funchook can relocate their prologue.",
+      "Functions with \"hook\": \"funchook\" are detoured by Ready Up; build/readyup_hookcheck verifies funchook can relocate their prologue.",
       "Anchor types: string_ref = function body references the string via RIP-relative LEA within `window` bytes of its start; caller_string = a direct call to the function (or to a thunk that tail-jumps to it, via_thunk) is preceded within `window` bytes by a LEA of the string; global_string = the function loads a global (RIP-relative mov in its first 32 bytes) and a LEA of that global sits within `window` bytes of a LEA of the string (for leaf accessors with no strings); callee_string = a direct call in the first `window` bytes targets a function that references the string; mov_disp = a `mov r,[r+disp32]` with that displacement in the first `window` bytes (pins a struct layout to the code reading it).",
       "vtable_indices: each slot is verified before it is patched or called: the class's primary vtable is located through its RTTI typeinfo name (rtti section), the slot target must equal `function` and/or pass `anchors`, and at runtime the live object's vptr must equal that vtable. sigcheck runs the same checks offline. A slot that fails is never patched; the features needing it disable themselves.",
       "layouts: struct offsets that are only trusted when their `verified_by` entry (whose anchors read exactly these offsets) verifies.",

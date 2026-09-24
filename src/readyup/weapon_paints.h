@@ -30,7 +30,7 @@ struct Loadout {
   // Optional agent models.
   std::optional<readyup::WeaponAgentEntry> agents;
 
-  // ReadyUp admin (resolved off-thread with the loadout); admins get a default knife.
+  // Ready Up admin (resolved off-thread with the loadout); admins get a default knife.
   bool is_admin = false;
 };
 

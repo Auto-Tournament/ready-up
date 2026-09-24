@@ -48,7 +48,7 @@ case "$mode" in
     trap 'rm -f "$body"' EXIT
     {
       echo "CS2 build \`$buildid\` no longer matches \`gamedata/engine-surface.json\`."
-      echo "ReadyUp disables itself (or the affected feature) on servers running this build until the surface is fixed."
+      echo "Ready Up disables itself (or the affected feature) on servers running this build until the surface is fixed."
       echo
       [[ -f "$report" ]] && cat "$report" || echo "_No report produced; see the run log._"
       echo
@@ -68,7 +68,7 @@ case "$mode" in
       gh_ issue create --title "$title" --label "$LABEL" --body-file "$body"
     fi
     fails="$(grep -E '^\| (signature|rtti|hook site)' "$report" 2>/dev/null | grep -c '\*\*FAIL\*\*' || true)"
-    discord "⚠️ **ReadyUp**: CS2 build \`$buildid\` broke the engine surface (${fails:-?} failing checks). $run_url"
+    discord "⚠️ **Ready Up**: CS2 build \`$buildid\` broke the engine surface (${fails:-?} failing checks). $run_url"
     ;;
   pass)
     commit="${3:?commit sha}" run_url="${4:?run url}"
@@ -78,7 +78,7 @@ case "$mode" in
       gh_ issue comment "$num" --body "$msg ([run]($run_url))." >/dev/null
       gh_ issue close "$num" --reason completed >/dev/null
       echo "commented + closed issue #$num"
-      discord "✅ **ReadyUp**: $msg. $run_url"
+      discord "✅ **Ready Up**: $msg. $run_url"
     else
       repo="${GH_REPO:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)}"
       gh_ api "repos/$repo/commits/$commit/comments" -f body="$msg ([run]($run_url))." >/dev/null

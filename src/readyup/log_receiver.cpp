@@ -241,7 +241,7 @@ static void LifecycleImpl(const std::string& line) {
   }
 
   // CS2's own warmup started (typically when the first human joins a map).
-  // ReadyUp emulates warmup; the real one's WARMUP text hides our center HTML.
+  // Ready Up emulates warmup; the real one's WARMUP text hides our center HTML.
   if (!isChat && line.find("World triggered \"Warmup_Start\"") != std::string::npos) {
     OnNativeWarmupStarted("log Warmup_Start");
     return;

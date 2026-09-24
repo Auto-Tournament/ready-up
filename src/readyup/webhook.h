@@ -70,7 +70,7 @@ struct WebhookMatchContext {
   // - maxOvertimes: maximum number of overtime blocks (each block is 2*overtimeSegments rounds).
   //   -1 = unlimited (default/current behavior).
   int maxOvertimes = -1;
-  // When enabled, ReadyUp can resolve ties using total roster-team damage.
+  // When enabled, Ready Up can resolve ties using total roster-team damage.
   bool damageTiebreakEnabled = false;
   // If damage is also tied, continue playing sudden-death rounds until a winner.
   bool suddenDeathOnDamageTie = true;

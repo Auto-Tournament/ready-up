@@ -3,7 +3,7 @@
 namespace readyup {
 
 // Suppress CS2 round termination (best-effort).
-// When enabled, ReadyUp detours `CCSGameRules::TerminateRound` and returns early,
+// When enabled, Ready Up detours `CCSGameRules::TerminateRound` and returns early,
 // preventing the game from ending the round (useful for warmup/practice freeplay).
 //
 // This is intentionally implemented by installing/uninstalling the detour rather

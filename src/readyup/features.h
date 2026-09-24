@@ -2,7 +2,7 @@
 
 // Feature gating on the engine surface.
 //
-// Every ReadyUp feature declares the engine-surface entries and runtime facilities it needs
+// Every Ready Up feature declares the engine-surface entries and runtime facilities it needs
 // (features.cpp, kFeatures). A feature is enabled only while all of them are satisfied. When a
 // dependency is definitively unavailable (unresolved signature, unverified vtable slot, schema
 // layout mismatch, ...), the feature disables itself with exactly ONE log line and everything

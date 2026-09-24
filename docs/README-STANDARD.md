@@ -1,6 +1,6 @@
 # README standard
 
-How READMEs look across Sivert's repos (Gryt, Auto Tournament, ReadyUp and the rest). It's based on the [Gryt README](https://github.com/Gryt-chat/gryt). Copy the skeleton at the bottom and fill it in.
+How READMEs look across Sivert's repos (Gryt, Auto Tournament, Ready Up and the rest). It's based on the [Gryt README](https://github.com/Gryt-chat/gryt). Copy the skeleton at the bottom and fill it in.
 
 A README answers four things, in this order: what is this, can I use it yet, how do I get it running, where do I learn more. Everything else goes in the docs.
 
@@ -24,7 +24,7 @@ Use these, in this order. Skip a section if there's nothing true to put in it. D
 | 12 | Acknowledgments | If owed | Libraries and projects the repo depends on or learned from, with one line each on why. |
 | 13 | License | Yes | License name and link, copyright line, one plain sentence on what it allows. Last section. |
 
-A project-specific section (like ReadyUp's "Why it keeps working after CS2 updates" or "What's next") can go between Features and Install when readers need it to decide whether to use the thing. Keep it to a paragraph or a small table.
+A project-specific section (like Ready Up's "Why it keeps working after CS2 updates" or "What's next") can go between Features and Install when readers need it to decide whether to use the thing. Keep it to a paragraph or a small table.
 
 Sub-package READMEs in a monorepo (like `gryt/packages/*`) are shorter: header without badges (name, plus a `<p>` that says what it is and links back to the main repo), then Docker or Install, Quick start (development), Documentation. Nothing else unless it's specific to that package.
 

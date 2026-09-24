@@ -2,18 +2,18 @@
 
 ## Supported setup
 
-ReadyUp runs on Linux dedicated servers (`linuxsteamrt64`). Release builds need nothing on
+Ready Up runs on Linux dedicated servers (`linuxsteamrt64`). Release builds need nothing on
 the host beyond glibc 2.31+ (OpenSSL, libpq and libcurl are linked in).
 
-Metamod can run alongside ReadyUp. In `gameinfo.gi`, Metamod's `Game csgo/addons/metamod`
-line stays first, ReadyUp's `Game csgo/readyup` goes directly below it, and both stay above
-`Game csgo`. (ReadyUp above Metamod makes ReadyUp load Metamod, which recursed at startup.)
+Metamod can run alongside Ready Up. In `gameinfo.gi`, Metamod's `Game csgo/addons/metamod`
+line stays first, Ready Up's `Game csgo/readyup` goes directly below it, and both stay above
+`Game csgo`. (Ready Up above Metamod makes Ready Up load Metamod, which recursed at startup.)
 
 ## Install from GitHub release zip
 
 1. Download `readyup-<version>-linuxsteamrt64.zip` from [Releases](https://github.com/Auto-Tournament/ready-up/releases/latest).
 2. Extract it into `game/csgo`. You should end up with `game/csgo/readyup/bin/linuxsteamrt64/libserver.so`.
-3. Add ReadyUp to `gameinfo.gi`:
+3. Add Ready Up to `gameinfo.gi`:
 
    ```bash
    cd game/csgo
@@ -27,7 +27,7 @@ line stays first, ReadyUp's `Game csgo/readyup` goes directly below it, and both
 
 CS2 updates rewrite `gameinfo.gi`, so run the patcher again after each one.
 
-The zip only contains files ReadyUp owns, so extracting a newer one over an install keeps
+The zip only contains files Ready Up owns, so extracting a newer one over an install keeps
 your `readyup.cfg`, `readyup_db.json` and `cfg/` edits:
 
 - `readyup/bin/linuxsteamrt64/libserver.so` (the shim)
@@ -56,7 +56,7 @@ databases or `readyup_db.json`, and never uses sudo. Run it as the server's user
 
 > [!WARNING]
 > The repo-root `install.sh` is a **dev loop** tool for the cs2-server-manager test box: it
-> builds, **stops** `csm` server `$CSM_SERVER_ID`, **wipes ReadyUp DB state**
+> builds, **stops** `csm` server `$CSM_SERVER_ID`, **wipes Ready Up DB state**
 > (`ru_active_*` settings, `readyup_admins`) and attaches the console. Never point it at a
 > production server, and it is never shipped in the release zip.
 
@@ -64,7 +64,7 @@ databases or `readyup_db.json`, and never uses sudo. Run it as the server's user
 sudo ./install.sh /path/to/cs2/root
 ```
 
-## ReadyUp config (`readyup.cfg`)
+## Ready Up config (`readyup.cfg`)
 
 Location (next to the shim):
 
@@ -74,13 +74,13 @@ The installer will **only create this file if it’s missing** (it will not over
 
 ### Prefix keys
 
-- `chat_prefix`: prefix used for ReadyUp chat replies (ReadyUp adds one space after it).
-- `admin_prefix`: prefix used for the “true” admin name prefix (ReadyUp adds one space after it).
+- `chat_prefix`: prefix used for Ready Up chat replies (Ready Up adds one space after it).
+- `admin_prefix`: prefix used for the “true” admin name prefix (Ready Up adds one space after it).
 
 Values support readable **ChatColors tokens** (CounterStrikeSharp-style), for example:
 
 ```text
-chat_prefix=<DarkRed>[ReadyUp]<Default>
+chat_prefix=<DarkRed>[Ready Up]<Default>
 admin_prefix=<DarkRed>[Admin]<Default>
 ```
 
@@ -92,10 +92,10 @@ chat_prefix="<Green>[PUG #1]<Default>"
 
 ### Welcome screen
 
-- `welcome=1` (default): the first time a player joins T or CT on a map, ReadyUp shows
+- `welcome=1` (default): the first time a player joins T or CT on a map, Ready Up shows
   them (only them) a center-screen welcome card for ~5 seconds (then the ready HUD takes
   over) with the brand header, the build version, their name, their team and the current
-  ReadyUp mode. Team switches later on the same map do not show it again. Set `welcome=0`
+  Ready Up mode. Team switches later on the same map do not show it again. Set `welcome=0`
   (or env `READYUP_WELCOME=0`) to disable.
 - `hud_brand=Auto Tournament` (default) and `hud_logo_url=` (default empty = no image):
   the header of the welcome card and the ready HUD is `<img src='hud_logo_url'>` (when
@@ -104,7 +104,7 @@ chat_prefix="<Green>[PUG #1]<Default>"
   the admin who typed it, for ~10 seconds.
 - It needs `LegacyGameEventListener` from `gamedata/engine-surface.json` (resolved and
   anchor-verified at load) and the RTTI-verified game event manager. If either is missing,
-  ReadyUp logs `welcome: per-client center HTML unavailable ...` once and skips it.
+  Ready Up logs `welcome: per-client center HTML unavailable ...` once and skips it.
 
 
 ### Ready HUD
@@ -118,7 +118,7 @@ chat_prefix="<Green>[PUG #1]<Default>"
 - The HUD is the ready-up UI: it stays up from joining until the match goes live, so
   the periodic "type .r" chat reminders are only sent when it cannot be shown. Chat
   still announces state changes (warmup start, countdown, knife winner, LIVE).
-- CS2's own warmup is never used (its WARMUP text would replace the panel): ReadyUp
+- CS2's own warmup is never used (its WARMUP text would replace the panel): Ready Up
   emulates warmup (respawn, no round end, buy anywhere), sets `mp_warmuptime 0` /
   `mp_warmup_pausetimer 0` on map start, and ends CS2's warmup whenever the server logs
   `World triggered "Warmup_Start"` (or fires `round_announce_warmup`) while idle, in
@@ -148,9 +148,9 @@ chat_prefix="<Green>[PUG #1]<Default>"
 
 ## MAT webhook / heartbeat
 
-ReadyUp can forward a **core subset** of MatchZy-style events to Auto Tournament.
+Ready Up can forward a **core subset** of MatchZy-style events to Auto Tournament.
 
-MAT also stores the ReadyUp `plugin_version` reported by heartbeat and shows it on the **Servers** page (as an `RU v...` chip).
+MAT also stores the Ready Up `plugin_version` reported by heartbeat and shows it on the **Servers** page (as an `RU v...` chip).
 
 ### 1) Verify connectivity (from the game server host)
 
@@ -166,7 +166,7 @@ curl -sS https://mat.example.com/api/events/test
 
 ### 2) Configure auth token (Bearer)
 
-ReadyUp reuses the same token for match config loading **and** webhook posting:
+Ready Up reuses the same token for match config loading **and** webhook posting:
 
 ```text
 ru_match_token <token>
@@ -182,7 +182,7 @@ ru_webhook_url https://mat.example.com/api/events
 ru_webhook_url clear
 ```
 
-ReadyUp will POST to:
+Ready Up will POST to:
 
 - `<baseUrl>/<match_slug>` when a loaded match provides a `slug`, otherwise
 - `<baseUrl>/<matchid>`
@@ -198,7 +198,7 @@ ru_heartbeat_url https://mat.example.com/api/servers/<serverId>/heartbeat
 ru_heartbeat_url clear
 ```
 
-ReadyUp will POST a **small** JSON payload about every ~5 seconds while set:
+Ready Up will POST a **small** JSON payload about every ~5 seconds while set:
 
 - `status`: `idle|loading|warmup|live|postgame|error`
 - `ready_for_allocation`: boolean
@@ -215,7 +215,7 @@ The response can be either:
 - a raw `MatchConfig` object, or
 - a `MatchResponse` wrapper containing `{ id, slug, config: { ... } }`
 
-When this succeeds, ReadyUp stores:
+When this succeeds, Ready Up stores:
 
 - `matchid`
 - optional `slug`
@@ -226,19 +226,19 @@ When this succeeds, ReadyUp stores:
 
 ## Whitelist + team enforcement (when match loaded)
 
-When a match is loaded (match context exists), ReadyUp enables **whitelist mode**:
+When a match is loaded (match context exists), Ready Up enables **whitelist mode**:
 
 - **Whitelist**: only SteamIDs present in `team1.players`, `team2.players`, or `spectators.players` are allowed to stay connected. Others are kicked shortly after they appear in server identity tracking.
 - **Admins**: server admins are never kicked by whitelist enforcement (even if not in the match roster).
-- **Team enforcement**: ReadyUp forces `jointeam` so roster players can only join their allowed team.
+- **Team enforcement**: Ready Up forces `jointeam` so roster players can only join their allowed team.
   - Mapping uses `map_sides[map_number-1]` when present:
     - `team1_ct` ⇒ team1=CT, team2=T
     - `team2_ct` ⇒ team1=T, team2=CT
-  - If `map_sides` is missing/unknown, ReadyUp defaults to **team1=CT**.
+  - If `map_sides` is missing/unknown, Ready Up defaults to **team1=CT**.
 
 ## Practice + custom warmup (no built-in CS2 warmup)
 
-ReadyUp maintains its own lightweight mode state machine and can display a **non-interactive CenterHtml banner** to players.
+Ready Up maintains its own lightweight mode state machine and can display a **non-interactive CenterHtml banner** to players.
 
 ### Commands
 
@@ -273,7 +273,7 @@ ReadyUp maintains its own lightweight mode state machine and can display a **non
     - `1` sets `sv_infinite_ammo 2` (infinite ammo with reload)
 - **Mode cfg exec (optional, MatchZy-style)**:
   - `ru_cfg_exec_enable 0|1`
-  - When enabled, ReadyUp will:
+  - When enabled, Ready Up will:
     - `exec ReadyUp/warmup.cfg` when applying warmup rules
     - `exec ReadyUp/live.cfg` when applying live rules
     - `exec ReadyUp/prac.cfg` when applying practice rules
@@ -283,8 +283,8 @@ ReadyUp maintains its own lightweight mode state machine and can display a **non
 
 ### Behavior
 
-- When `ru match load` succeeds, ReadyUp enters **match_warmup** and begins showing a CenterHtml banner to roster players who are **not ready**.
-- When the first `round_started` is observed in logs, ReadyUp transitions to **match_live**.
+- When `ru match load` succeeds, Ready Up enters **match_warmup** and begins showing a CenterHtml banner to roster players who are **not ready**.
+- When the first `round_started` is observed in logs, Ready Up transitions to **match_live**.
 
 ### MAT integration
 
@@ -311,10 +311,10 @@ If you run Auto Tournament, you typically don’t set these manually. MAT can pu
 
 ## How loading works (high level)
 
-ReadyUp is a `libserver.so` bootstrap:
-- CS2 loads ReadyUp first because `gameinfo.gi` includes `Game csgo/readyup`
-- ReadyUp loads Valve’s real server module `game/csgo/bin/linuxsteamrt64/libserver.so`
-- ReadyUp forwards exports and installs optional hooks (chat routing, admin prefix, etc.)
+Ready Up is a `libserver.so` bootstrap:
+- CS2 loads Ready Up first because `gameinfo.gi` includes `Game csgo/readyup`
+- Ready Up loads Valve’s real server module `game/csgo/bin/linuxsteamrt64/libserver.so`
+- Ready Up forwards exports and installs optional hooks (chat routing, admin prefix, etc.)
 
 ## Override the real Valve module path
 

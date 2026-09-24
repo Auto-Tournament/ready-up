@@ -82,7 +82,7 @@ class ComputePatchTest(unittest.TestCase):
         self.assertEqual(order(out)[:3], ["csgo/addons/metamod", GAME, "csgo"])
 
     def test_metamod_below_csgo_is_ignored(self):
-        # A Metamod line below `Game csgo` never loads; ReadyUp still has to precede csgo.
+        # A Metamod line below `Game csgo` never loads; Ready Up still has to precede csgo.
         text = (BASE % "").replace("\t\t\tGame\tcore\n", "\t\t\tGame\tcore\n" + METAMOD)
         out = pg.compute_patch(text, GAME)
         self.assertEqual(order(out)[0], GAME)

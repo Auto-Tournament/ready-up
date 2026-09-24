@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cut a ReadyUp release: bump VERSION, commit, tag vX.Y.Z and push.
+# Cut a Ready Up release: bump VERSION, commit, tag vX.Y.Z and push.
 #
 #   ./release.sh [major|minor|patch|X.Y.Z]      (no argument: release the current VERSION)
 #
@@ -93,7 +93,7 @@ if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "${TAG}$" 2>/dev/nul
   die "Remote tag ${TAG} already exists on origin."
 fi
 
-echo -e "${GREEN}ReadyUp release${NC}"
+echo -e "${GREEN}Ready Up release${NC}"
 echo "========================================="
 echo -e "${BLUE}Repository:${NC}      ${REPO}"
 echo -e "${BLUE}Current version:${NC} ${CURRENT_VERSION}"

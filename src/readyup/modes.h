@@ -5,7 +5,7 @@
 
 namespace readyup {
 
-// High-level ReadyUp mode/state (independent of CS2 built-in warmup).
+// High-level Ready Up mode/state (independent of CS2 built-in warmup).
 enum class ReadyUpMode {
   Idle = 0,
   Practice,
@@ -38,7 +38,7 @@ void SetModeMatchWarmupForRecovery();
 // line / event flips it to match_live via OnMatchRoundStarted().
 bool ScrimGoLive(int restartSeconds);
 
-// True once ReadyUp issued the go-live restart and is waiting for Round_Start.
+// True once Ready Up issued the go-live restart and is waiting for Round_Start.
 bool GoLiveTriggered();
 
 // Recovery gate: used when the server rebooted mid-match and RU restored state.
@@ -54,7 +54,7 @@ void OnMatchLoaded();
 void OnMatchRoundStarted();
 
 // Called after a round_end score update is known (engine netvars or log-derived).
-// This lets ReadyUp detect map completion and perform end-of-map actions.
+// This lets Ready Up detect map completion and perform end-of-map actions.
 void OnMatchRoundEnded(int map_number, int team1_score, int team2_score, const std::string& map_name);
 
 // Knife decider (match config `map_sides: "knife"`, or scrims with
@@ -138,7 +138,7 @@ void SetWarmupHtmlMessage(std::string html);
 std::string WarmupHtmlMessage();
 
 // Optional: exec cfg hooks per RU mode (inspired by MatchZy cfg structure).
-// When enabled, ReadyUp will `exec` these files at key transitions:
+// When enabled, Ready Up will `exec` these files at key transitions:
 // - warmup rules apply:      exec ReadyUp/warmup.cfg
 // - practice rules apply:    exec ReadyUp/prac.cfg
 // - knife rules apply:       exec ReadyUp/knife.cfg
@@ -164,8 +164,8 @@ void SetWarmupInfiniteAmmoEnabled(bool enabled);
 bool WarmupInfiniteAmmoEnabled();
 
 // CS2's own warmup started (log `World triggered "Warmup_Start"` or the
-// `round_announce_warmup` event). ReadyUp emulates warmup (CS2's WARMUP text
-// takes over the center panel and hides ReadyUp's HTML), so while idle,
+// `round_announce_warmup` event). Ready Up emulates warmup (CS2's WARMUP text
+// takes over the center panel and hides Ready Up's HTML), so while idle,
 // scrim_warmup, match_warmup or knife it is ended right away
 // (mp_warmup_pausetimer 0, mp_warmuptime 0, mp_warmup_end). Thread-safe.
 void OnNativeWarmupStarted(const char* source);

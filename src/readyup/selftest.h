@@ -8,7 +8,7 @@ namespace readyup {
 // `ru selftest` (server console) / `.ru selftest` (admin chat).
 //
 // Reports every engine-surface function (address, verified, anchors), RTTI class, vtable slot,
-// struct layout, every schema field ReadyUp uses (with its offset), the runtime hooks (GameFrame,
+// struct layout, every schema field Ready Up uses (with its offset), the runtime hooks (GameFrame,
 // ClientCommand, command buffer, log listener), engine events (manager / listener / delivered
 // yet?), entity system, DB and clientprint status, and the feature on/off table. Ends with one
 // line: `selftest: PASS n/n` or `selftest: FAIL k/n (first failures...)`.

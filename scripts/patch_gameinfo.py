@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Add ReadyUp's search path to CS2's gameinfo.gi (or gameinfo_branchspecific.gi).
+"""Add Ready Up's search path to CS2's gameinfo.gi (or gameinfo_branchspecific.gi).
 
     python3 readyup/tools/patch_gameinfo.py gameinfo.gi --game csgo/readyup
 
 Placement rules (SearchPaths block):
   * `Game csgo/readyup` must come BEFORE `Game csgo`, otherwise CS2 loads its own
-    libserver.so and ReadyUp never runs.
-  * If Metamod is installed (`Game csgo/addons/metamod` above `Game csgo`), ReadyUp goes
-    directly AFTER Metamod's line. Metamod then loads first and ReadyUp is what it loads as
-    "the game"; the other order (ReadyUp loading Metamod) recursed at startup.
+    libserver.so and Ready Up never runs.
+  * If Metamod is installed (`Game csgo/addons/metamod` above `Game csgo`), Ready Up goes
+    directly AFTER Metamod's line. Metamod then loads first and Ready Up is what it loads as
+    "the game"; the other order (Ready Up loading Metamod) recursed at startup.
 
 The patch is idempotent: an entry that already satisfies the rules is left alone, and
 duplicate or misplaced entries are collapsed into one correctly placed line. A timestamped
@@ -160,7 +160,7 @@ def patch_gameinfo(path: pathlib.Path, game_name: str, check_only: bool = False)
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Add ReadyUp's Game search path to CS2 gameinfo.gi.")
+    ap = argparse.ArgumentParser(description="Add Ready Up's Game search path to CS2 gameinfo.gi.")
     ap.add_argument("path", type=pathlib.Path, help="Path to gameinfo.gi (or gameinfo_branchspecific.gi)")
     ap.add_argument("--game", default="csgo/readyup", help="Search path to add (default: csgo/readyup)")
     ap.add_argument("--check", action="store_true", help="Only report; exit 3 if a change is needed")

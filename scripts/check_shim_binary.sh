@@ -1,5 +1,5 @@
 #!/bin/sh
-# Post-build sanity checks for the ReadyUp shim (run by CMake after linking).
+# Post-build sanity checks for the Ready Up shim (run by CMake after linking).
 #
 # 1. No direct calls to __cxa_pure_virtual. GCC emits these when it devirtualizes a call
 #    through an interface mirror that has internal linkage and no implementation in the

@@ -53,7 +53,7 @@ bool Ping(std::string* err);
 bool EnsureSchema(std::string* err);
 std::vector<AdminEntry> ListAdmins(std::string* err);
 
-// ReadyUp weapon paints/loadouts (best-effort).
+// Ready Up weapon paints/loadouts (best-effort).
 // These are intended to be managed externally (e.g. web UI writing rows).
 bool EnsureWeaponPaintsSchema(std::string* err);
 std::vector<WeaponSkinEntry> ListWeaponSkins(uint64_t steamid64, std::string* err);

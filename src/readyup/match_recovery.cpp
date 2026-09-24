@@ -35,7 +35,7 @@ static void RecoverWorker() {
   // Boot mode is idle; a restored match needs match_warmup gating.
   SetModeMatchWarmupForRecovery();
 
-  // Ensure we're in ReadyUp warmup logic and waiting for players.
+  // Ensure we're in Ready Up warmup logic and waiting for players.
   ClearReadyStates();
   WebhookSetHeartbeatStatus("warmup");
 

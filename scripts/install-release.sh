@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ReadyUp release installer (shipped in the release zip as readyup/tools/install.sh).
+# Ready Up release installer (shipped in the release zip as readyup/tools/install.sh).
 #
 # Optional helper: the release zip can also be installed by hand (extract into game/csgo,
 # run readyup/tools/patch_gameinfo.py, restart). This script does the same steps safely:
@@ -16,7 +16,7 @@
 #   - creates readyup.cfg from readyup.cfg.example ONLY if it does not exist
 #   - copies cfg templates to game/csgo/cfg/ReadyUp/ ONLY where missing
 #   - patches gameinfo.gi and gameinfo_branchspecific.gi (Metamod first if present, then
-#     ReadyUp, then `Game csgo`); a backup is written whenever a file changes
+#     Ready Up, then `Game csgo`); a backup is written whenever a file changes
 #
 # What it never does: stop/start/attach servers, touch databases or readyup_db.json,
 # edit server.cfg, build anything, or use sudo. Restart the server yourself afterwards.
@@ -103,7 +103,7 @@ install_one() {
     return 1
   fi
   local bin="$csgo/readyup/bin/linuxsteamrt64"
-  echo "Installing ReadyUp $(cat "$PKG/VERSION" 2>/dev/null || echo '?') into $csgo"
+  echo "Installing Ready Up $(cat "$PKG/VERSION" 2>/dev/null || echo '?') into $csgo"
 
   run mkdir -p "$bin" "$csgo/readyup/tools"
   install_atomic "$SRC_SO" "$bin/libserver.so" 755
@@ -157,7 +157,7 @@ install_one() {
   done
 
   if command -v pgrep >/dev/null 2>&1 && pgrep -f "$(dirname "$(dirname "$csgo")")/game/bin/linuxsteamrt64/cs2" >/dev/null 2>&1; then
-    echo "  A CS2 server is running from this install: restart it to load ReadyUp."
+    echo "  A CS2 server is running from this install: restart it to load Ready Up."
   fi
 }
 
@@ -166,5 +166,5 @@ for t in "${TARGETS[@]}"; do
   install_one "$t" || rc=1
 done
 [[ "$DRY_RUN" == 1 ]] && echo "Dry run: nothing was changed."
-[[ $rc -eq 0 ]] && echo "Done. Restart the server(s) to load ReadyUp. CS2 updates rewrite gameinfo.gi: re-run this (or patch_gameinfo.py) after each update."
+[[ $rc -eq 0 ]] && echo "Done. Restart the server(s) to load Ready Up. CS2 updates rewrite gameinfo.gi: re-run this (or patch_gameinfo.py) after each update."
 exit $rc

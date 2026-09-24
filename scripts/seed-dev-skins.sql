@@ -24,7 +24,7 @@ VALUES
   -- defindex  paint                                    wear    seed
   (:steamid, 2,    7,   282, 0.15,     661, NULL,           FALSE, 0),     -- AK-47 | Redline (FT)
   (:steamid, 0,    9,   279, 0.12,     0,   NULL,           TRUE,  1337),  -- StatTrak AWP | Asiimov
-  (:steamid, 3,   16,   309, 0.03,     0,   'ReadyUp test', FALSE, 0),     -- M4A4 | Howl, name tag
+  (:steamid, 3,   16,   309, 0.03,     0,   'Ready Up test', FALSE, 0),     -- M4A4 | Howl, name tag
   (:steamid, 3,   60,   984, 0.02,     0,   NULL,           FALSE, 0),     -- M4A1-S | Printstream
   (:steamid, 2,    4,    38, 0.01,     0,   NULL,           FALSE, 0),     -- Glock-18 | Fade
   (:steamid, 3,   61,   504, 0.05,     0,   NULL,           FALSE, 0),     -- USP-S | Kill Confirmed

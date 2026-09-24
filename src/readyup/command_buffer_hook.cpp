@@ -786,12 +786,12 @@ static bool HandleRuCommandLine(const std::string& line) {
     return true;
   }
 
-  PrintLine("Unknown ReadyUp command. Try: ru help");
+  PrintLine("Unknown Ready Up command. Try: ru help");
   return true;
 }
 
 static bool HandleReadyUpConsoleCommandLine(const std::string& line) {
-  // Handle standalone ReadyUp console/RCON commands (not part of `ru ...`).
+  // Handle standalone Ready Up console/RCON commands (not part of `ru ...`).
   if (HandleMatchTokenCommand(line)) return true;
   if (HandleWebhookUrlCommand(line)) return true;
   if (HandleHeartbeatUrlCommand(line)) return true;

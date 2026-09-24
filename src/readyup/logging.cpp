@@ -50,8 +50,8 @@ void VPrintImpl(bool prefixed, const char* fmt, va_list ap) {
     }
   }
 
-  // Intentionally do NOT mirror ReadyUp logs into in-game chat.
-  // Mirroring causes "Console:" spam and duplicate lines because many ReadyUp
+  // Intentionally do NOT mirror Ready Up logs into in-game chat.
+  // Mirroring causes "Console:" spam and duplicate lines because many Ready Up
   // features already explicitly send responses to chat (e.g. `.ru` commands).
 }
 

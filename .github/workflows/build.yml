@@ -137,7 +137,7 @@ jobs:
             gh release edit "$TAG" --notes-file notes.md
           else
             gh release create "$TAG" "$zip" "$zip.sha256" \
-              --title "ReadyUp $TAG" --notes-file notes.md --verify-tag --latest
+              --title "Ready Up $TAG" --notes-file notes.md --verify-tag --latest
           fi
 
       - name: Announce on Discord

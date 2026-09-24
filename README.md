@@ -1,6 +1,6 @@
 <div align="center">
-  <img src=".github/logo.svg" width="100" alt="ReadyUp logo" />
-  <h1>ReadyUp</h1>
+  <img src=".github/logo.svg" width="100" alt="Ready Up logo" />
+  <h1>Ready Up</h1>
   <p><strong>A native CS2 server plugin for scrims, pickups and tournament matches</strong></p>
   <p>
     <a href="https://github.com/Auto-Tournament/ready-up/releases/latest"><img src="https://img.shields.io/github/v/release/Auto-Tournament/ready-up?cacheSeconds=3600" alt="GitHub Release" /></a>
@@ -13,15 +13,15 @@
 <br />
 
 > [!CAUTION]
-> **Early development.** ReadyUp changes often. Expect breaking changes between releases.
+> **Early development.** Ready Up changes often. Expect breaking changes between releases.
 
-ReadyUp runs your CS2 server's match flow: players ready up, the match goes live, and results go back to whatever is running the event. It's part of [Auto Tournament](https://github.com/Auto-Tournament/auto-tournament) and does the same job as [MatchZy](https://github.com/shobhit-pathak/MatchZy) and [Get5](https://github.com/splewis/get5). It isn't a fork of either. We borrow their commands and event names where it makes sense, so moving over is easy.
+Ready Up runs your CS2 server's match flow: players ready up, the match goes live, and results go back to whatever is running the event. It's part of [Auto Tournament](https://github.com/Auto-Tournament/auto-tournament) and does the same job as [MatchZy](https://github.com/shobhit-pathak/MatchZy) and [Get5](https://github.com/splewis/get5). It isn't a fork of either. We borrow their commands and event names where it makes sense, so moving over is easy.
 
-It doesn't need Metamod or CounterStrikeSharp. CS2 loads ReadyUp directly, through a `gameinfo.gi` entry, the same way it loads Metamod. ReadyUp then loads Valve's real server module and passes everything through.
+It doesn't need Metamod or CounterStrikeSharp. CS2 loads Ready Up directly, through a `gameinfo.gi` entry, the same way it loads Metamod. Ready Up then loads Valve's real server module and passes everything through.
 
 ## Why it keeps working after CS2 updates
 
-ReadyUp touches the engine in as few places as it can. Every function it calls or hooks is listed in [`gamedata/engine-surface.json`](gamedata/engine-surface.json), and each one has a signature plus identity anchors: strings the function or its callers must reference. A function only resolves if the signature matches exactly once and every anchor checks out. If one breaks, just that feature turns itself off. The rest of the server keeps running.
+Ready Up touches the engine in as few places as it can. Every function it calls or hooks is listed in [`gamedata/engine-surface.json`](gamedata/engine-surface.json), and each one has a signature plus identity anchors: strings the function or its callers must reference. A function only resolves if the signature matches exactly once and every anchor checks out. If one breaks, just that feature turns itself off. The rest of the server keeps running.
 
 CI checks the file against every new CS2 build, so we see what broke before a server does. On a running server, `ru selftest` shows every hook, offset and feature, and ends with `PASS` or `FAIL`.
 
@@ -40,11 +40,11 @@ Skins (weapon paints, knives, gloves, agents) are a separate plugin and aren't i
 
 ## Install
 
-ReadyUp runs on Linux dedicated servers (`linuxsteamrt64`).
+Ready Up runs on Linux dedicated servers (`linuxsteamrt64`).
 
 1. Download `readyup-<version>-linuxsteamrt64.zip` from [Releases](https://github.com/Auto-Tournament/ready-up/releases/latest).
 2. Extract it into `game/csgo`. You should end up with `game/csgo/readyup/bin/linuxsteamrt64/libserver.so`.
-3. Add ReadyUp to `gameinfo.gi`:
+3. Add Ready Up to `gameinfo.gi`:
 
    ```bash
    cd game/csgo
@@ -54,9 +54,9 @@ ReadyUp runs on Linux dedicated servers (`linuxsteamrt64`).
    If you have `gameinfo_branchspecific.gi`, run it on that file too.
 4. Restart the server.
 
-The patcher adds `Game csgo/readyup` to `SearchPaths`. It has to be listed **before** `Game csgo`, or CS2 loads its own `libserver.so` and ReadyUp never runs. You can check the file by hand afterwards.
+The patcher adds `Game csgo/readyup` to `SearchPaths`. It has to be listed **before** `Game csgo`, or CS2 loads its own `libserver.so` and Ready Up never runs. You can check the file by hand afterwards.
 
-Metamod can run alongside ReadyUp. Keep its `Game csgo/addons/metamod` line above ReadyUp's.
+Metamod can run alongside Ready Up. Keep its `Game csgo/addons/metamod` line above Ready Up's.
 
 CS2 updates rewrite `gameinfo.gi`, so run the patcher again after each one.
 
@@ -64,7 +64,7 @@ Config, admins and the database are covered in [docs/INSTALL.md](docs/INSTALL.md
 
 ## What's next
 
-ReadyUp is being split into a small core and plugins, all in this repo:
+Ready Up is being split into a small core and plugins, all in this repo:
 
 | Path | What it is |
 |------|------------|
@@ -90,7 +90,7 @@ See the [contributing guide](.github/CONTRIBUTING.md). Questions and bug reports
 
 ## License
 
-ReadyUp is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). Copyright (c) 2026 Sivert Gullberg Hansen.
+Ready Up is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). Copyright (c) 2026 Sivert Gullberg Hansen.
 
 You can use, change and share it for anything noncommercial. Commercial use, like paid events or selling it or a service built on it, needs a separate license. Ask on [Discord](https://discord.gg/n7gHYau7aW).
 

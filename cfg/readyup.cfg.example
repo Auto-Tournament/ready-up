@@ -1,4 +1,4 @@
-# ReadyUp runtime config.
+# Ready Up runtime config.
 #
 # Lives next to the shim: game/csgo/readyup/bin/linuxsteamrt64/readyup.cfg
 # The release installer creates it from this example only if it is missing, so your
@@ -8,7 +8,7 @@
 debug=0
 chat_debug=0
 banner=1
-# Per-player "ReadyUp is live" center screen on first T/CT join each map.
+# Per-player "Ready Up is live" center screen on first T/CT join each map.
 welcome=1
 
 # DEBUG ONLY: bots on CT/T count as always-ready scrim players, so one human can
@@ -17,6 +17,6 @@ welcome=1
 dev_bots_ready=0
 
 # Prefixes (supports ChatColors tokens like <DarkRed>, <Default>, <LightBlue>, <Orange>, ...).
-# ReadyUp always adds a single space after the prefix in output.
-chat_prefix=<DarkRed>[ReadyUp]<Default>
+# Ready Up always adds a single space after the prefix in output.
+chat_prefix=<DarkRed>[Ready Up]<Default>
 admin_prefix=<DarkRed>[Admin]<Default>
