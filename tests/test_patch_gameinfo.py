@@ -116,12 +116,33 @@ class CliTest(unittest.TestCase):
 
             self.assertEqual(self.run_cli(gi, "--game", GAME).returncode, 0)
             self.assertEqual(order(gi.read_text())[:3], ["csgo/addons/metamod", GAME, "csgo"])
-            self.assertEqual(len(list(pathlib.Path(d).glob("gameinfo.gi.bak.*"))), 1)
+            self.assertEqual(len(list(pathlib.Path(d).glob("gameinfo.gi.readyup-backup-*"))), 1)
 
             r = self.run_cli(gi, "--game", GAME)
             self.assertEqual(r.returncode, 0)
             self.assertIn("Already present", r.stdout)
-            self.assertEqual(len(list(pathlib.Path(d).glob("gameinfo.gi.bak.*"))), 1)
+            self.assertEqual(len(list(pathlib.Path(d).glob("gameinfo.gi.readyup-backup-*"))), 1)
+
+
+class RemoveTests(unittest.TestCase):
+    def test_remove_drops_only_our_lines(self):
+        text = "\tSearchPaths\n\t{\n\t\tGame\tcsgo/addons/metamod\n\t\tGame\tcsgo/readyup\n\t\tGame\tcsgo\n\t}\n"
+        out = pg.compute_remove(text, "csgo/readyup")
+        self.assertNotIn("csgo/readyup", out)
+        self.assertIn("csgo/addons/metamod", out)
+        self.assertIn("Game\tcsgo\n", out)
+
+    def test_remove_then_patch_round_trip(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = pathlib.Path(d) / "gameinfo.gi"
+            p.write_text("\tSearchPaths\n\t{\n\t\tGame\tcsgo\n\t}\n")
+            original = p.read_text()
+            self.assertEqual(pg.patch_gameinfo(p, "csgo/readyup"), pg.PatchResult.PATCHED)
+            self.assertEqual(pg.patch_gameinfo(p, "csgo/readyup", remove=True),
+                             pg.PatchResult.REMOVED)
+            self.assertEqual(p.read_text(), original)
+            self.assertEqual(pg.patch_gameinfo(p, "csgo/readyup", remove=True),
+                             pg.PatchResult.ALREADY_ABSENT)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 """Add Ready Up's search path to CS2's gameinfo.gi (or gameinfo_branchspecific.gi).
 
     python3 readyup/tools/patch_gameinfo.py gameinfo.gi --game csgo/readyup
+    python3 readyup/tools/patch_gameinfo.py gameinfo.gi --remove      # uninstall
 
 Placement rules (SearchPaths block):
   * `Game csgo/readyup` must come BEFORE `Game csgo`, otherwise CS2 loads its own
@@ -12,7 +13,8 @@ Placement rules (SearchPaths block):
 
 The patch is idempotent: an entry that already satisfies the rules is left alone, and
 duplicate or misplaced entries are collapsed into one correctly placed line. A timestamped
-backup is written next to the file whenever it changes.
+backup (<file>.readyup-backup-<YYYYmmdd-HHMMSS>) is written next to the file whenever it
+changes. --remove deletes every Ready Up entry (Metamod and the rest are left alone).
 
 Exit codes: 0 ok (patched / already correct), 1 error or no insertion point,
 3 with --check when a change would be made.
@@ -34,6 +36,8 @@ class PatchResult(str, enum.Enum):
     PATCHED = "patched"
     ALREADY_PRESENT = "already_present"
     SKIPPED = "skipped"
+    REMOVED = "removed"
+    ALREADY_ABSENT = "already_absent"
 
 
 def _leading_ws(s: str) -> str:
@@ -128,21 +132,39 @@ def compute_patch(text: str, game_name: str) -> Optional[str]:
     return "".join(kept)
 
 
-def patch_gameinfo(path: pathlib.Path, game_name: str, check_only: bool = False) -> PatchResult:
+def compute_remove(text: str, game_name: str) -> str:
+    """Return the text without any `Game <game_name>` line."""
+    lines = text.splitlines(keepends=True)
+    ours = set(_find(lines, _game_line_re(game_name)))
+    return "".join(line for i, line in enumerate(lines) if i not in ours)
+
+
+def patch_gameinfo(path: pathlib.Path, game_name: str, check_only: bool = False, remove: bool = False) -> PatchResult:
     st = path.stat()
     raw = path.read_bytes()
     text = raw.decode("utf-8", errors="surrogateescape")
 
-    new_text = compute_patch(text, game_name)
-    if new_text is None:
-        return PatchResult.SKIPPED
-    if new_text == text:
-        return PatchResult.ALREADY_PRESENT
-    if check_only:
-        return PatchResult.PATCHED
+    if remove:
+        new_text = compute_remove(text, game_name)
+        if new_text == text:
+            return PatchResult.ALREADY_ABSENT
+        if check_only:
+            return PatchResult.REMOVED
+    else:
+        new_text = compute_patch(text, game_name)
+        if new_text is None:
+            return PatchResult.SKIPPED
+        if new_text == text:
+            return PatchResult.ALREADY_PRESENT
+        if check_only:
+            return PatchResult.PATCHED
 
     stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-    backup = path.with_suffix(path.suffix + f".bak.{stamp}")
+    backup = path.with_suffix(path.suffix + f".readyup-backup-{stamp}")
+    n = 1
+    while backup.exists():  # two changes within one second (install + uninstall in a test)
+        n += 1
+        backup = path.with_suffix(path.suffix + f".readyup-backup-{stamp}-{n}")
     shutil.copy2(path, backup)
 
     tmp = path.with_suffix(path.suffix + ".readyup-tmp")
@@ -156,7 +178,7 @@ def patch_gameinfo(path: pathlib.Path, game_name: str, check_only: bool = False)
     except PermissionError:
         pass
     os.replace(tmp, path)
-    return PatchResult.PATCHED
+    return PatchResult.REMOVED if remove else PatchResult.PATCHED
 
 
 def main() -> int:
@@ -164,10 +186,11 @@ def main() -> int:
     ap.add_argument("path", type=pathlib.Path, help="Path to gameinfo.gi (or gameinfo_branchspecific.gi)")
     ap.add_argument("--game", default="csgo/readyup", help="Search path to add (default: csgo/readyup)")
     ap.add_argument("--check", action="store_true", help="Only report; exit 3 if a change is needed")
+    ap.add_argument("--remove", action="store_true", help="Remove the search path instead of adding it")
     args = ap.parse_args()
 
     try:
-        result = patch_gameinfo(args.path, args.game, check_only=args.check)
+        result = patch_gameinfo(args.path, args.game, check_only=args.check, remove=args.remove)
     except Exception as e:  # noqa: BLE001 - report any I/O problem plainly
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
@@ -177,6 +200,12 @@ def main() -> int:
         return 3 if args.check else 0
     if result == PatchResult.ALREADY_PRESENT:
         print(f"Already present: {args.path}")
+        return 0
+    if result == PatchResult.REMOVED:
+        print(f"{'Needs removal' if args.check else 'Removed'}: {args.path}")
+        return 3 if args.check else 0
+    if result == PatchResult.ALREADY_ABSENT:
+        print(f"Not present: {args.path}")
         return 0
     print(f"Skipped (no SearchPaths / Game csgo entry found): {args.path}", file=sys.stderr)
     return 1

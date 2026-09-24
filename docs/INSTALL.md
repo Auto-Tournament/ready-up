@@ -9,11 +9,34 @@ Metamod can run alongside Ready Up. In `gameinfo.gi`, Metamod's `Game csgo/addon
 line stays first, Ready Up's `Game csgo/readyup` goes directly below it, and both stay above
 `Game csgo`. (Ready Up above Metamod makes Ready Up load Metamod, which recursed at startup.)
 
-## Install from GitHub release zip
+## Install with the installer
 
-1. Download `readyup-<version>-linuxsteamrt64.zip` from [Releases](https://github.com/Auto-Tournament/ready-up/releases/latest).
-2. Extract it into `game/csgo`. You should end up with `game/csgo/readyup/bin/linuxsteamrt64/libserver.so`.
-3. Add Ready Up to `gameinfo.gi`:
+From the server root (the folder with `game/`), as the server's user:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Auto-Tournament/ready-up/master/install.sh | bash
+```
+
+See the [README](../README.md#install) for the checklist, the non-interactive forms
+(`essentials`, `full`, `--yes`, `--remove`, `--uninstall [--purge]`, `--zip`, `--version`,
+`--dir`) and what it touches. It records what is installed in
+`game/csgo/readyup/installed.json` (component -> version) and each component's file list in
+`game/csgo/readyup/manifests/<component>.json`, which is how updates remove files a newer
+version no longer ships and how unticking a component removes it.
+
+## Install from a release zip by hand
+
+Every zip's root is the contents of `game/csgo`:
+
+| Zip | Contents |
+|---|---|
+| `ready-up-essentials-<v>-linuxsteamrt64.zip` | core + match (default, no skins) |
+| `ready-up-full-<v>-linuxsteamrt64.zip` | core + match + skins + hello + `readyup_sigcheck` / `readyup_hookcheck` |
+| `ready-up-core-...`, `-match-...`, `-skins-...`, `-hello-...` | single components. Match is still built into the core, so its zip only carries a manifest for now. |
+| `SHA256SUMS` | checksums of every zip |
+
+1. Extract the zip into `game/csgo`. You should end up with `game/csgo/readyup/bin/linuxsteamrt64/libserver.so`.
+2. Add Ready Up to `gameinfo.gi`:
 
    ```bash
    cd game/csgo
@@ -21,48 +44,32 @@ line stays first, Ready Up's `Game csgo/readyup` goes directly below it, and bot
    ```
 
    If you have `gameinfo_branchspecific.gi`, run it on that file too. The patcher is
-   idempotent, fixes a misplaced or duplicated entry, and writes a `.bak.<timestamp>` copy
-   whenever it changes the file. `--check` only reports (exit 3 = needs patching).
+   idempotent, fixes a misplaced or duplicated entry, and writes a
+   `.readyup-backup-<timestamp>` copy whenever it changes the file. `--check` only reports
+   (exit 3 = needs patching); `--remove` takes the line out again.
+3. Copy `readyup/bin/linuxsteamrt64/readyup.cfg.example` to `readyup.cfg` next to it and
+   `readyup/cfg-templates/ReadyUp/*.cfg` to `game/csgo/cfg/ReadyUp/` if you don't have them yet.
 4. Restart the server.
 
-CS2 updates rewrite `gameinfo.gi`, so run the patcher again after each one.
+CS2 updates rewrite `gameinfo.gi`, so run the patcher (or the installer) again after each one.
 
-The zip only contains files Ready Up owns, so extracting a newer one over an install keeps
+The zips only contain files Ready Up owns, so extracting a newer one over an install keeps
 your `readyup.cfg`, `readyup_db.json` and `cfg/` edits:
 
-- `readyup/bin/linuxsteamrt64/libserver.so` (the shim)
-- `readyup/bin/linuxsteamrt64/engine-surface.json` (signatures + identity anchors, also embedded in the shim)
+- `readyup/bin/linuxsteamrt64/libserver.so` (the core)
+- `readyup/bin/linuxsteamrt64/engine-surface.json` (signatures + identity anchors, also embedded in the core)
 - `readyup/bin/linuxsteamrt64/readyup.cfg.example`
 - `readyup/tools/patch_gameinfo.py`, `readyup/tools/install.sh`
 - `readyup/cfg-templates/ReadyUp/*.cfg` (mode cfgs, only used when cfg exec is enabled)
 - `readyup/VERSION`, `README.md`, `INSTALL.md`, `LICENSE`, `BUILD_INFO` (commit + the CS2 build it was verified against)
+- skins only: `readyup/plugins/skins.so`, `readyup/bin/linuxsteamrt64/engine-surface.skins.json`, `readyup/SKINS-WARNING.txt`
+- hello only: `readyup/plugins/hello.so`
+- `readyup/manifests/<component>.json`
 
-### Optional: `readyup/tools/install.sh`
+## Dev deploys
 
-Does steps 2-3 for one or more servers, or for the `game/csgo` it was extracted into:
-
-```bash
-readyup/tools/install.sh --dry-run /path/to/cs2   # preview
-readyup/tools/install.sh /path/to/cs2 /path/to/other-cs2
-```
-
-It installs the shim by copy-then-rename (a running server keeps its loaded copy; the old
-one is kept as `libserver.so.prev`), creates `readyup.cfg` from the example only if missing,
-copies missing mode cfgs to `game/csgo/cfg/ReadyUp/`, and patches `gameinfo.gi` /
-`gameinfo_branchspecific.gi`. It never stops, starts or attaches to servers, never touches
-databases or `readyup_db.json`, and never uses sudo. Run it as the server's user.
-
-## Dev install from a checkout (`./install.sh`)
-
-> [!WARNING]
-> The repo-root `install.sh` is a **dev loop** tool for the cs2-server-manager test box: it
-> builds, **stops** `csm` server `$CSM_SERVER_ID`, **wipes Ready Up DB state**
-> (`ru_active_*` settings, `readyup_admins`) and attaches the console. Never point it at a
-> production server, and it is never shipped in the release zip.
-
-```bash
-sudo ./install.sh /path/to/cs2/root
-```
+Development builds go to a test server with `scripts/dev-deploy.sh` (see
+[DEVELOPMENT.md](DEVELOPMENT.md)); the old repo-root dev installer is gone.
 
 ## Ready Up config (`readyup.cfg`)
 
@@ -70,7 +77,7 @@ Location (next to the shim):
 
 - `game/csgo/readyup/bin/linuxsteamrt64/readyup.cfg`
 
-The installer will **only create this file if it’s missing** (it will not overwrite admin edits).
+The installer only creates this file if it's missing; it never overwrites your edits (a changed default is written as `readyup.cfg.default`).
 
 ### Prefix keys
 

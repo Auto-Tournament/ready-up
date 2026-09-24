@@ -1,8 +1,11 @@
 name: Build
 
-# Release build of libserver.so in Valve's Steam Runtime 3 "sniper" SDK (glibc 2.31, what
-# CS2 targets), verified against the CURRENT public CS2 build (sigcheck + hook-site check).
-# Tags v* additionally publish a GitHub release with the install zip.
+# Release build of libserver.so + plugins in Valve's Steam Runtime 3 "sniper" SDK (glibc 2.31,
+# what CS2 targets), verified against the CURRENT public CS2 build (sigcheck + hook-site check,
+# base gamedata + every fragment). Every run uploads the install zips as workflow artifacts:
+# ready-up-{core,match,skins,hello,essentials,full}-<version>-linuxsteamrt64.zip + SHA256SUMS.
+# The installer job then tests install.sh against those zips. Tags v* additionally publish a
+# GitHub release with the same files.
 
 on:
   push:
@@ -61,8 +64,11 @@ jobs:
           path: .ci/deps
           key: sniper-static-deps-${{ hashFiles('scripts/ci/build-static-deps.sh') }}
 
-      - name: Build libserver.so + tools
+      - name: Build libserver.so + plugins + tools
         run: scripts/ci/build-release.sh build-sniper
+
+      - name: Plugin host test (ctest)
+        run: cd build-sniper && ctest --output-on-failure
 
       - name: Current CS2 buildid
         id: cs2
@@ -87,27 +93,91 @@ jobs:
           cat .ci/report.md >> "$GITHUB_STEP_SUMMARY"
           exit $rc
 
-      - name: Package
+      - name: Package (component zips + bundles + SHA256SUMS)
         run: |
           . "$CS2_DIR/cs2-build.env"
           CS2_BUILDID="$BUILDID" CS2_PATCH_VERSION="$PATCH_VERSION" \
-            scripts/package-release.sh build-sniper/libserver.so "${{ steps.version.outputs.version }}" dist
-          mkdir -p dist/tools
-          cp build-sniper/libserver.so dist/
-          cp build-sniper/readyup_sigcheck build-sniper/readyup_hookcheck dist/tools/
-          cp "$CS2_DIR/cs2-build.env" .ci/report.md dist/
+            scripts/package-release.sh build-sniper "${{ steps.version.outputs.version }}" dist
+          mkdir -p dist-info
+          cp "$CS2_DIR/cs2-build.env" .ci/report.md dist-info/
 
-      - name: Upload artifact
+      - name: Check bundles (essentials has no skins code or gamedata)
+        run: scripts/ci/check-bundles.sh dist "${{ steps.version.outputs.version }}"
+
+      # One artifact with everything (what the installer job and the release use), plus one
+      # per bundle so a single zip can be downloaded from the run page. Artifacts only: no
+      # release is created here.
+      - name: Upload artifact (all zips)
         uses: actions/upload-artifact@v4
         with:
-          name: readyup-${{ steps.version.outputs.version }}-linuxsteamrt64
-          path: dist/
+          name: ready-up-${{ steps.version.outputs.version }}-linuxsteamrt64
+          path: |
+            dist/
+            dist-info/
           if-no-files-found: error
           retention-days: 30
 
+      - name: Upload ready-up-essentials
+        uses: actions/upload-artifact@v4
+        with:
+          name: ready-up-essentials-${{ steps.version.outputs.version }}
+          path: dist/ready-up-essentials-*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ready-up-full
+        uses: actions/upload-artifact@v4
+        with:
+          name: ready-up-full-${{ steps.version.outputs.version }}
+          path: dist/ready-up-full-*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ready-up-core
+        uses: actions/upload-artifact@v4
+        with:
+          name: ready-up-core-${{ steps.version.outputs.version }}
+          path: dist/ready-up-core-*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ready-up-match (placeholder until match is a plugin)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ready-up-match-${{ steps.version.outputs.version }}
+          path: dist/ready-up-match-*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ready-up-skins
+        uses: actions/upload-artifact@v4
+        with:
+          name: ready-up-skins-${{ steps.version.outputs.version }}
+          path: dist/ready-up-skins-*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  installer:
+    name: Installer (install.sh vs the built zips)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ready-up-${{ needs.build.outputs.version }}-linuxsteamrt64
+          path: artifact
+
+      - name: shellcheck
+        run: shellcheck install.sh scripts/package-release.sh scripts/ci/check-bundles.sh tests/installer/test_install.sh
+
+      - name: install.sh end-to-end (fake server trees, Metamod, rerun, pickers, release mode, uninstall)
+        run: tests/installer/test_install.sh artifact/dist
+
   release:
     name: GitHub release
-    needs: build
+    needs: [build, installer]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -121,8 +191,8 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: readyup-${{ needs.build.outputs.version }}-linuxsteamrt64
-          path: dist
+          name: ready-up-${{ needs.build.outputs.version }}-linuxsteamrt64
+          path: artifact
 
       - name: Create or update release
         env:
@@ -130,13 +200,13 @@ jobs:
           TAG: ${{ github.ref_name }}
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          zip="dist/readyup-${VERSION}-linuxsteamrt64.zip"
-          scripts/ci/release-notes.sh "$TAG" dist/cs2-build.env > notes.md
+          files=(artifact/dist/ready-up-*-"${VERSION}"-linuxsteamrt64.zip artifact/dist/SHA256SUMS)
+          scripts/ci/release-notes.sh "$TAG" artifact/dist-info/cs2-build.env > notes.md
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$zip" "$zip.sha256" --clobber
+            gh release upload "$TAG" "${files[@]}" --clobber
             gh release edit "$TAG" --notes-file notes.md
           else
-            gh release create "$TAG" "$zip" "$zip.sha256" \
+            gh release create "$TAG" "${files[@]}" \
               --title "Ready Up $TAG" --notes-file notes.md --verify-tag --latest
           fi
 
