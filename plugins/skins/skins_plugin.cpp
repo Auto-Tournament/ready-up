@@ -137,7 +137,7 @@ extern "C" {
 READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
   static const ru_plugin_info info = {
       sizeof(ru_plugin_info),
-      (1u << 16) | 1u,  // needs API 1.1 (entities, schema, raw events, is_admin, config_dir)
+      (1u << 16) | 1u,  // needs API 1.1 (entities, schema, raw events, config_dir)
       "skins",
       SKINS_VERSION,
       "Ready Up",
