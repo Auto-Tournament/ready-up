@@ -11,10 +11,10 @@
 #   scripts/dev-deploy.sh --plugin NAME [--target DIR] [--ssh ...] [--session ...] [--no-build]
 #
 #   --target DIR    server root (contains game/ and run.sh)
-#                   default: /home/cs2servermanager/server-4   (env RU_TARGET)
+#                   default: /home/cs2servermanager/readyup-test   (env RU_TARGET)
 #   --ssh DEST      ssh destination owning the server
 #                   default: cs2servermanager@localhost        (env RU_SSH)
-#   --session NAME  tmux session running the server, default ru-4 (env RU_SESSION)
+#   --session NAME  tmux session running the server, default ru-test (env RU_SESSION)
 #   --no-build      deploy the existing build-docker/libserver.so
 #   --restart       kill + relaunch the tmux session, wait for the server to
 #                   come up (or die) and print the ReadyUp log lines
@@ -30,9 +30,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET="${RU_TARGET:-/home/cs2servermanager/server-4}"
+TARGET="${RU_TARGET:-/home/cs2servermanager/readyup-test}"
 SSH_DEST="${RU_SSH:-cs2servermanager@localhost}"
-SESSION="${RU_SESSION:-ru-4}"
+SESSION="${RU_SESSION:-ru-test}"
 BUILD=1
 RESTART=0
 TIMEOUT=180
