@@ -79,6 +79,10 @@ struct WebhookMatchContext {
   // Values: "team1_ct" | "team2_ct" | "knife" (and possibly others).
   std::vector<std::string> map_sides;
 
+  // Series can end early once a team has won more than half of num_maps
+  // (match config `clinch_series`, default true).
+  bool clinch_series = true;
+
   // Map list for the series (map 1 is maplist[0]).
   // This is sourced from MAT match config.
   std::vector<std::string> maplist;

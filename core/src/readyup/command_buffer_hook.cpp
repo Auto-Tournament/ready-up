@@ -1,4 +1,5 @@
 #include "readyup/command_buffer_hook.h"
+#include "readyup/match_end.h"
 
 #include "readyup/admins.h"
 #include "readyup/config.h"
@@ -807,6 +808,8 @@ static bool HandleReadyUpConsoleCommandLine(const std::string& line) {
   if (HandleWarmupMaxMoneyCommand(line)) return true;
   if (HandleWarmupBuyAnywhereCommand(line)) return true;
   if (HandleWarmupInfiniteAmmoCommand(line)) return true;
+  // Demo recording/upload, series-end kick delays, ru_match_stats (match_end.h).
+  if (MatchFlowHandleConsoleLine(Trim(line))) return true;
 
   // Handle `ru ...` command family.
   if (HandleRuCommandLine(line)) return true;

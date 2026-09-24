@@ -57,6 +57,12 @@ void OnMatchRoundStarted();
 // This lets Ready Up detect map completion and perform end-of-map actions.
 void OnMatchRoundEnded(int map_number, int team1_score, int team2_score, const std::string& map_name);
 
+// Map/series end (match_end.cpp, game thread, outside the modes mutex):
+// - ModesBeginNextMapWarmup: postgame -> match warmup for the next map of the series.
+// - ModesFinishSeriesResetToIdle: unload the match (context, persisted state, stats) and go idle.
+void ModesBeginNextMapWarmup();
+void ModesFinishSeriesResetToIdle();
+
 // Knife decider (match config `map_sides: "knife"`, or scrims with
 // readyup.cfg `scrim_knife=1`). Log-driven; engine events are an optional
 // second source (deduped by phase):
