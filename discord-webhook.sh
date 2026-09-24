@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ReadyUp - Discord Webhook Script
-# Sends a Discord webhook notification for a ReadyUp release
+# Ready Up - Discord Webhook Script
+# Sends a Discord webhook notification for a Ready Up release
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -58,7 +58,7 @@ if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
   exit 1
 fi
 
-echo -e "${GREEN}ReadyUp - Discord Webhook${NC}"
+echo -e "${GREEN}Ready Up - Discord Webhook${NC}"
 echo "========================================="
 echo -e "${BLUE}Version:${NC} ${GREEN}${NEW_VERSION}${NC}"
 echo ""
@@ -116,9 +116,9 @@ TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 build_payload_with_jq() {
   jq -n \
-    --arg content "**New ReadyUp Release: v${NEW_VERSION}**\n${RELEASE_URL}" \
-    --arg title "ReadyUp v${NEW_VERSION}" \
-    --arg desc "A new version of ReadyUp has been released." \
+    --arg content "**New Ready Up Release: v${NEW_VERSION}**\n${RELEASE_URL}" \
+    --arg title "Ready Up v${NEW_VERSION}" \
+    --arg desc "A new version of Ready Up has been released." \
     --arg changelog "$CHANGELOG" \
     --arg url "$RELEASE_URL" \
     --arg timestamp "$TIMESTAMP" \
@@ -132,7 +132,7 @@ build_payload_with_jq() {
           { name: "Changelog", value: $changelog, inline: false },
           { name: "GitHub Release", value: ("[View Release](" + $url + ")"), inline: true }
         ],
-        footer: { text: "ReadyUp" },
+        footer: { text: "Ready Up" },
         timestamp: $timestamp
       }]
     }'
@@ -147,9 +147,9 @@ PY
 
 build_payload_fallback() {
   local content title desc changelog url timestamp
-  content="$(json_escape "**New ReadyUp Release: v${NEW_VERSION}**\n${RELEASE_URL}")"
-  title="$(json_escape "ReadyUp v${NEW_VERSION}")"
-  desc="$(json_escape "A new version of ReadyUp has been released.")"
+  content="$(json_escape "**New Ready Up Release: v${NEW_VERSION}**\n${RELEASE_URL}")"
+  title="$(json_escape "Ready Up v${NEW_VERSION}")"
+  desc="$(json_escape "A new version of Ready Up has been released.")"
   changelog="$(json_escape "${CHANGELOG}")"
   url="$(json_escape "${RELEASE_URL}")"
   timestamp="$(json_escape "${TIMESTAMP}")"
@@ -166,7 +166,7 @@ build_payload_fallback() {
         { "name": "Changelog", "value": ${changelog}, "inline": false },
         { "name": "GitHub Release", "value": "[View Release](${RELEASE_URL})", "inline": true }
       ],
-      "footer": { "text": "ReadyUp" },
+      "footer": { "text": "Ready Up" },
       "timestamp": ${timestamp}
     }
   ]

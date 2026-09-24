@@ -43,7 +43,7 @@ struct State {
   bool warmupEnabled = true;
   std::string warmupHtml;
   // Optional: exec mode cfg files (MatchZy-style).
-  // Default OFF so ReadyUp uses its built-in (custom) warmup that doesn't rely
+  // Default OFF so Ready Up uses its built-in (custom) warmup that doesn't rely
   // on CS2's engine warmup and can suppress round termination.
   bool cfgExecEnabled = false;
   // Run once per idle entry (avoid spamming `exec` every tick).
@@ -133,7 +133,7 @@ struct State {
 State& St() {
   static State st;
   if (st.warmupHtml.empty()) {
-    st.warmupHtml = "<b><font color='yellow'>ReadyUp</font></b><br>"
+    st.warmupHtml = "<b><font color='yellow'>Ready Up</font></b><br>"
                     "You are not ready yet.<br>"
                     "Type <b>.r</b> to ready up.";
   }
@@ -200,7 +200,7 @@ static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContex
 static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx);
 
 // Knife-round rules. knife.cfg is the baseline; the overrides undo what
-// ReadyUp's (emulated) warmup set and knife.cfg does not touch, so the round
+// Ready Up's (emulated) warmup set and knife.cfg does not touch, so the round
 // can actually end and nobody keeps a gun. mp_logdetail 3 adds `attacked`
 // log lines (with the victim's remaining health) for the time-out tiebreak.
 static void ApplyKnifeRulesLocked(State& st) {
@@ -261,7 +261,7 @@ static bool StartKnifeLocked(State& st, const WebhookMatchContext& ctx) {
   WebhookSetHeartbeatStatus("warmup");
   Print("knife: starting knife round (map %d, match %s) - exec knife.cfg + mp_restartgame 1\n", mapNumber,
         ctx.slug.empty() ? "?" : ctx.slug.c_str());
-  SendToChat("ReadyUp: KNIFE ROUND after the restart - knives only, the winning team picks its side.");
+  SendToChat("Ready Up: KNIFE ROUND after the restart - knives only, the winning team picks its side.");
   return true;
 }
 
@@ -307,7 +307,7 @@ static void MaybeAutoPickKnifeSideLocked(State& st) {
     const auto left = std::chrono::duration_cast<std::chrono::seconds>(st.knifePickDeadline - now).count();
     if (!st.knifeReminderSent && left <= 15 && left >= 5) {
       st.knifeReminderSent = true;
-      SendToChat(("ReadyUp: " + KnifeWinnerNameLocked(st, ctx) + ": .stay or .switch - " + std::to_string(left + 1) +
+      SendToChat(("Ready Up: " + KnifeWinnerNameLocked(st, ctx) + ": .stay or .switch - " + std::to_string(left + 1) +
                   "s left, then sides stay.")
                      .c_str());
     }
@@ -448,7 +448,7 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
         winnerName.c_str(), stayed ? "stay" : "mp_swapteams");
 
   // Let players know.
-  std::string msg = "ReadyUp: " + winnerName + " " + (pickerName == "timeout" ? "(no pick in time) " : "") +
+  std::string msg = "Ready Up: " + winnerName + " " + (pickerName == "timeout" ? "(no pick in time) " : "") +
                     "start on " + ((*winnerWantsCt) ? "CT" : "T") +
                     (stayed ? " (sides stay)" : " (teams swapped)") + " - LIVE after the restart.";
   SendToChat(msg.c_str());
@@ -467,7 +467,7 @@ static void MaybeShowWarmupUiLocked(State& st) {
 
   // One-time user-facing instruction.
   if (!st.matchLoadedChatSent) {
-    SendToChat("ReadyUp: match loaded. Type .r or .ready to ready up.");
+    SendToChat("Ready Up: match loaded. Type .r or .ready to ready up.");
     st.matchLoadedChatSent = true;
   }
 
@@ -518,7 +518,7 @@ static void MaybeShowWarmupUiLocked(State& st) {
 
     if (!list.empty() && rosterTotal > 0 && rosterReady < rosterTotal) {
       const std::string msg =
-          "ReadyUp: waiting for (" + std::to_string(rosterReady) + "/" + std::to_string(rosterTotal) +
+          "Ready Up: waiting for (" + std::to_string(rosterReady) + "/" + std::to_string(rosterTotal) +
           " ready): " + list;
       SendToChat(msg.c_str());
       st.lastNotReadyChat = now;
@@ -613,7 +613,7 @@ static void ApplyWarmupRulesLocked(State& st) {
   if (st.cfgExecEnabled) {
     bool any = false;
     if (EnqueueServerCommand("exec ReadyUp/warmup.cfg")) any = true;
-    // Emulated warmup: CS2's own warmup text hides ReadyUp's center HTML, so
+    // Emulated warmup: CS2's own warmup text hides Ready Up's center HTML, so
     // it is ended even if an older warmup.cfg still starts it.
     const char* off[] = {"mp_warmup_pausetimer 0", "mp_warmuptime 0", "mp_team_intro_time 0", "mp_warmup_end"};
     for (const char* c : off) {
@@ -627,7 +627,7 @@ static void ApplyWarmupRulesLocked(State& st) {
   }
 
   // Keep warmup playable: respawns on, ignore win conditions, long round time.
-  // Do NOT enable CS2 built-in warmup. Best-effort force it off so ReadyUp warmup
+  // Do NOT enable CS2 built-in warmup. Best-effort force it off so Ready Up warmup
   // is the only warmup behavior (some builds may ignore/unknown these cvars).
   const std::string respawnCt = std::string("mp_respawn_on_death_ct ") + (st.warmupRespawn ? "1" : "0");
   const std::string respawnT = std::string("mp_respawn_on_death_t ") + (st.warmupRespawn ? "1" : "0");
@@ -682,7 +682,7 @@ static void ApplyWarmupRulesLocked(State& st) {
 }
 
 // Scrim (pickup) warmup, emulated instead of CS2's own warmup. CS2's warmup
-// text shares the center panel with ReadyUp's HTML (welcome/ready screen) and
+// text shares the center panel with Ready Up's HTML (welcome/ready screen) and
 // wins, so warmup is kept off and its effects are reproduced: rounds can't
 // end, players respawn, buy anywhere with full money. live.cfg resets these
 // (mp_ignore_round_win_conditions 0, normal round/freeze times) on go-live.
@@ -697,7 +697,7 @@ static void ApplyScrimWarmupRulesLocked(State& st) {
       "mp_autoteambalance 0",
       "mp_limitteams 0",
       // Ending CS2 warmup restarts the round, which plays the team intro and
-      // covers ReadyUp HTML; skip it.
+      // covers Ready Up HTML; skip it.
       "mp_team_intro_time 0",
       "mp_ignore_round_win_conditions 1",
       "mp_freezetime 0",
@@ -1135,7 +1135,7 @@ void OnMatchRoundStarted() {
 
   // When warmup gating is enabled, a map's initial Round_Start (or other spurious
   // round starts) should NOT automatically mark the match as live. Only transition
-  // once ReadyUp actually triggered going-live (startTriggered), or when warmup
+  // once Ready Up actually triggered going-live (startTriggered), or when warmup
   // gating is disabled.
   if (st.warmupEnabled && !st.startTriggered) return;
   // mp_restartgame 1 needs a second: a Round_Start inside that window belongs
@@ -1151,7 +1151,7 @@ void OnMatchRoundStarted() {
   st.startTriggered = false;
   readyup::persisted_match_state::PersistLiveFlag(true);
   WebhookSetHeartbeatStatus("live");
-  SendToChat("ReadyUp: LIVE! Good luck, have fun.");
+  SendToChat("Ready Up: LIVE! Good luck, have fun.");
 
   // Emit warmup/live lifecycle events once per map transition.
   // MatchZy-style semantics: warmup_ended then going_live.
@@ -1281,7 +1281,7 @@ void SetRecoveryGate(bool enabled) {
   std::lock_guard<std::mutex> lk(st.mu);
   st.recoveryGate = enabled;
   if (enabled) {
-    st.warmupHtml = "<b><font color='yellow'>ReadyUp</font></b><br>"
+    st.warmupHtml = "<b><font color='yellow'>Ready Up</font></b><br>"
                     "Recovered match.<br>"
                     "Waiting for all players to connect + ready.<br>"
                     "Type <b>.r</b> to ready up.";
@@ -1291,7 +1291,7 @@ void SetRecoveryGate(bool enabled) {
     st.startTriggered = true;
   } else if (st.warmupHtml.find("Recovered match") != std::string::npos) {
     // Restore default message if we previously set a recovery banner.
-    st.warmupHtml = "<b><font color='yellow'>ReadyUp</font></b><br>"
+    st.warmupHtml = "<b><font color='yellow'>Ready Up</font></b><br>"
                     "You are not ready yet.<br>"
                     "Type <b>.r</b> to ready up.";
   }
@@ -1550,7 +1550,7 @@ void KnifeOnRoundStart(int map_number, const char* source) {
     st.knifeStartedSent = true;
   }
   Print("knife: round started (via %s)\n", source ? source : "?");
-  SendToChat("ReadyUp: KNIFE! Winning team picks the side.");
+  SendToChat("Ready Up: KNIFE! Winning team picks the side.");
 }
 
 void KnifeOnRoundEnd(int map_number, int csWinnerTeamNum, bool elimination, const char* source,
@@ -1631,11 +1631,11 @@ void KnifeOnRoundEnd(int map_number, int csWinnerTeamNum, bool elimination, cons
   Print("knife: winner=%s (%s) via %s notice=%s: %s; pick window %ds%s\n", CsSideName(winnerCs),
         st.knifeWinner == WebhookTeam::Team2 ? "team2" : "team1", source ? source : "?", notice.c_str(), why.c_str(),
         sec, botsOnly ? " (no humans on the winning side)" : "");
-  SendToChat(("ReadyUp: " + name + " won the knife round (" + why + ").").c_str());
+  SendToChat(("Ready Up: " + name + " won the knife round (" + why + ").").c_str());
   if (botsOnly) {
-    SendToChat("ReadyUp: only bots on the winning side - keeping sides.");
+    SendToChat("Ready Up: only bots on the winning side - keeping sides.");
   } else {
-    SendToChat(("ReadyUp: " + name + " players: type .stay or .switch (.ct / .t) - " + std::to_string(sec) +
+    SendToChat(("Ready Up: " + name + " players: type .stay or .switch (.ct / .t) - " + std::to_string(sec) +
                 "s, then sides stay.")
                    .c_str());
   }
@@ -1747,7 +1747,7 @@ void SetWarmupHtmlMessage(std::string html) {
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
   if (html.empty()) {
-    st.warmupHtml = "<b><font color='yellow'>ReadyUp</font></b><br>"
+    st.warmupHtml = "<b><font color='yellow'>Ready Up</font></b><br>"
                     "You are not ready yet.<br>"
                     "Type <b>.r</b> to ready up.";
     st.warmupHtmlCustom = false;
@@ -1903,7 +1903,7 @@ void OnNativeWarmupStarted(const char* source) {
     if (EnqueueServerCommand(c)) any = true;
   }
   if (any) st.lastNativeWarmupEnd = now;
-  Print("warmup: CS2 warmup started (%s) in mode=%s; ending it (ReadyUp emulates warmup)%s\n",
+  Print("warmup: CS2 warmup started (%s) in mode=%s; ending it (Ready Up emulates warmup)%s\n",
         source ? source : "?", ModeToString(m), any ? "" : " - command buffer not ready");
 }
 
@@ -1915,9 +1915,9 @@ void Tick() {
   if (!GameEventsListenerInstalled()) {
     const auto elapsed = std::chrono::steady_clock::now() - s_boot;
     if (elapsed > std::chrono::seconds(20) && !s_warned.exchange(true)) {
-      // Don't fail-close: keep ReadyUp warmup + chat commands alive even if engine events
+      // Don't fail-close: keep Ready Up warmup + chat commands alive even if engine events
       // cannot be resolved on this build. Some environments don't expose a compatible
-      // GAMEEVENTS interface, but ReadyUp can still function in a degraded mode.
+      // GAMEEVENTS interface, but Ready Up can still function in a degraded mode.
       PrintLine("WARNING: engine game events unavailable; running in degraded mode (no engine events).");
     }
   }
@@ -1942,7 +1942,7 @@ void Tick() {
       st.practiceRulesApplied = false;
       st.practiceResetPending = false;
       ResetKnifeStateForMapLocked(st, /*mapNumber=*/ms.map_number <= 0 ? 1 : ms.map_number);
-      // Baseline: CS2's own warmup stays off (ReadyUp emulates it). If CS2
+      // Baseline: CS2's own warmup stays off (Ready Up emulates it). If CS2
       // starts it anyway, OnNativeWarmupStarted ends it.
       if (st.mode != ReadyUpMode::Practice) {
         (void)EnqueueServerCommand("mp_warmup_pausetimer 0");

@@ -1,4 +1,4 @@
-/* Dynamic exports of the ReadyUp shim for release (static) builds; see CMakeLists.txt.
+/* Dynamic exports of the Ready Up shim for release (static) builds; see CMakeLists.txt.
  * Must list every extern "C" entry point in src/exports.cpp that the engine looks up.
  * scripts/ci/check-portable.sh fails if one is missing from the built libserver.so. */
 {

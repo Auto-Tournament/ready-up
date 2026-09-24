@@ -2,7 +2,7 @@ blank_issues_enabled: true
 contact_links:
   - name: Documentation
     url: https://docs.autotournament.gg
-    about: Setup guides and reference for Auto Tournament and ReadyUp.
+    about: Setup guides and reference for Auto Tournament and Ready Up.
   - name: Discord
     url: https://discord.gg/n7gHYau7aW
     about: Questions and help from the community.

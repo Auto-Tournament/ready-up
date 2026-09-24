@@ -5,7 +5,7 @@
 
 namespace readyup {
 
-// Per-player "ReadyUp is live" welcome screen (center HTML), shown the first time a
+// Per-player "Ready Up is live" welcome screen (center HTML), shown the first time a
 // player lands on T or CT on the current map.
 //
 // Triggers (any of them; deduped per player):

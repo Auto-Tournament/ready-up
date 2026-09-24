@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Download ONLY the CS2 dedicated-server files ReadyUp's checks need, anonymously,
+# Download ONLY the CS2 dedicated-server files Ready Up's checks need, anonymously,
 # with DepotDownloader (never a full app_update, ~18 MB instead of ~60 GB):
 #
 #   depot 2347773 (CS2 Linux binaries):

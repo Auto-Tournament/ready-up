@@ -70,7 +70,7 @@ struct FunctionSpec {
   bool required = false;
   std::vector<Anchor> anchors;
   std::string description;
-  std::string hook;  // "funchook" when ReadyUp detours it (readyup_hookcheck checks the prologue)
+  std::string hook;  // "funchook" when Ready Up detours it (readyup_hookcheck checks the prologue)
 };
 
 // One virtual slot we patch or call through. Verified by locating the implementing class's

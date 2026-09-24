@@ -56,7 +56,7 @@ std::string Hex(uintptr_t v) { return Fmt("0x%lx", static_cast<unsigned long>(v)
 // Never called: only a detour target for funchook_prepare in AddFunchookSites.
 void SelftestDummyDetour() {}
 
-// Every schema field ReadyUp reads, and whether its absence breaks a feature (required) or only
+// Every schema field Ready Up reads, and whether its absence breaks a feature (required) or only
 // degrades it (optional: e.g. scoreboard stats, which fall back to event accumulation).
 struct FieldUse {
   const char* cls;
@@ -254,7 +254,7 @@ void AddRuntime(Report& r, bool waitForDb) {
     const std::string d = Fmt("manager=%s listener=%s delivered=%s (%llu events%s%s)", ev.manager ? "yes" : "no",
                               ev.listenerRegistered ? "yes" : "no", ev.delivered ? "yes" : "no", ev.count,
                               ev.lastEvent.empty() ? "" : ", last ", ev.lastEvent.c_str());
-    // Informational: on 1.41.8.3 AddListener succeeds but the engine never delivers; ReadyUp then
+    // Informational: on 1.41.8.3 AddListener succeeds but the engine never delivers; Ready Up then
     // drives the match from log lines (not a surface failure).
     r.Check(ev.delivered ? "OK" : "WARN", "engine event delivery", d);
   }
@@ -385,10 +385,10 @@ SelftestResult Build(bool waitForDb, const std::string& extraFailure) {
   Report r;
   const Cs2VersionSnapshot v = GetCs2VersionSnapshot();
   const es::EngineSurface* s = GetEngineSurface();
-  r.lines.push_back(Fmt("selftest: ReadyUp %s on CS2 %s (build %lld); engine-surface for %s", BuildVersion(),
+  r.lines.push_back(Fmt("selftest: Ready Up %s on CS2 %s (build %lld); engine-surface for %s", BuildVersion(),
                         v.version_string ? v.version_string->c_str() : "?", v.build_id ? *v.build_id : -1LL,
                         s ? s->game_version.c_str() : "?"));
-  if (IsDisabled()) r.Check("FAIL", "readyup enabled", "ReadyUp disabled: " + DisabledReason());
+  if (IsDisabled()) r.Check("FAIL", "readyup enabled", "Ready Up disabled: " + DisabledReason());
   if (!extraFailure.empty()) r.Check("FAIL", "selftest-and-quit", extraFailure);
   if (!s) {
     r.Check("FAIL", "engine-surface.json", "unavailable (parse error)");
@@ -517,9 +517,9 @@ void StartSelftestWatchdogIfRequested() {
     const auto deadline = Clock::now() + std::chrono::seconds(timeoutS);
     while (Clock::now() < deadline) {
       if (g_quitDone.load()) return;
-      // ReadyUp disabled at load (required signature failed): nothing will ever tick. Report now.
+      // Ready Up disabled at load (required signature failed): nothing will ever tick. Report now.
       if (IsDisabled()) {
-        FinishAndQuit("ReadyUp disabled at load", /*fromGameThread=*/false);
+        FinishAndQuit("Ready Up disabled at load", /*fromGameThread=*/false);
         return;
       }
       std::this_thread::sleep_for(std::chrono::seconds(1));

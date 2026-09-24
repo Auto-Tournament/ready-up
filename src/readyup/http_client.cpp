@@ -37,7 +37,7 @@ static void CurlGlobalInitOnce() {
   std::call_once(once, []() {
     const CURLcode rc = curl_global_init(CURL_GLOBAL_DEFAULT);
     if (rc != CURLE_OK) {
-      // Can't use ReadyUp logging safely if curl isn't initialized; stderr is OK.
+      // Can't use Ready Up logging safely if curl isn't initialized; stderr is OK.
       // But we still keep it quiet unless debug is enabled.
       if (DebugEnabled()) {
         Print("http: curl_global_init failed: %s\n", curl_easy_strerror(rc));

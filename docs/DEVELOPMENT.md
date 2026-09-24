@@ -65,11 +65,11 @@ scripts/ci/verify-cs2.sh /tmp/cs2 build-sniper   # sigcheck + hookcheck + report
 sudo ./install.sh --debug
 ```
 
-This enables ReadyUp debug logging via the generated `readyup.cfg`.
+This enables Ready Up debug logging via the generated `readyup.cfg`.
 
 ## Signatures (engine surface)
 
-Every engine function ReadyUp calls or hooks is listed in `gamedata/engine-surface.json`
+Every engine function Ready Up calls or hooks is listed in `gamedata/engine-surface.json`
 together with **identity anchors** (strings the function, or its callers, must reference).
 The file is embedded into `libserver.so` at build time; `install.sh` also copies it next to
 the shim as `engine-surface.json`, which takes precedence (so a signature can be hotfixed
@@ -77,7 +77,7 @@ without a rebuild). The CounterStrikeSharp CDN gamedata is no longer used.
 
 A function only resolves if its signature matches exactly once **and** every anchor passes.
 Otherwise it stays unresolved and its feature turns itself off (or, for `"required": true`
-entries, ReadyUp disables itself at load).
+entries, Ready Up disables itself at load).
 
 Virtual slots we patch or call (`vtable_indices`: GameFrame, ClientCommand,
 NetworkStateChanged) are verified too. The implementing class's vtable is found through its RTTI
@@ -119,7 +119,7 @@ From server console:
 ru sigtest
 ```
 
-Prints OK/WARN/FAIL for every engine-surface function. ReadyUp disables itself at startup if a
+Prints OK/WARN/FAIL for every engine-surface function. Ready Up disables itself at startup if a
 required function doesn't resolve (to avoid undefined behavior).
 
 ## Selftest
@@ -132,7 +132,7 @@ chat and the full report in the console). It prints:
 - funchook detour sites: live, or the prologue still relocates (the runtime version of `readyup_hookcheck`)
 - the plugin host: API version, plugins dir, loaded plugins, load failures
 - the ready HUD and the `hud_brand` / `hud_logo_url` header
-- every schema field ReadyUp uses, with its offset
+- every schema field Ready Up uses, with its offset
 - runtime hooks: GameFrame, ClientCommand, command buffer and log listener
 - engine events: manager, listener, and whether any event has been delivered yet
 - entity system, database and clientprint status
@@ -141,7 +141,7 @@ chat and the full report in the console). It prints:
 It ends with one line: `selftest: PASS n/n` or `selftest: FAIL k/n (...)`.
 
 For CI, start the server with `READYUP_SELFTEST_AND_QUIT=1` (or `-readyup_selftest_and_quit`).
-After the first map has been simulating for `READYUP_SELFTEST_DELAY` seconds (default 5), ReadyUp
+After the first map has been simulating for `READYUP_SELFTEST_DELAY` seconds (default 5), Ready Up
 runs the selftest and writes the report plus `exit_code: 0|1` to `READYUP_SELFTEST_FILE`
 (default `readyup_selftest.txt` next to the shim). Then it quits with exit code 0 (PASS) or 1
 (FAIL). If no map is ticking within `READYUP_SELFTEST_TIMEOUT` seconds (default 300), for example
@@ -149,7 +149,7 @@ because GameFrame could not be hooked, it writes a FAIL report and exits.
 
 ## Crash handler
 
-On SIGSEGV/SIGBUS/SIGILL/SIGFPE/SIGABRT, ReadyUp prints a backtrace to stderr and appends it to
+On SIGSEGV/SIGBUS/SIGILL/SIGFPE/SIGABRT, Ready Up prints a backtrace to stderr and appends it to
 `readyup_crash.log` next to the shim. It then restores the default action and re-raises the
 signal, so the process really dies and the supervisor can restart it. A 10 s `alarm()` backstop
 kills the process if the handler itself deadlocks. Opt out with `READYUP_CRASH_HANDLER=0`.

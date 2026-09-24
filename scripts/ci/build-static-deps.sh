@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build OpenSSL + libpq + libcurl as static PIC archives into a prefix, so the
-# ReadyUp shim can link them in and depend on nothing but glibc at runtime.
+# Ready Up shim can link them in and depend on nothing but glibc at runtime.
 #
 #   scripts/ci/build-static-deps.sh /opt/readyup-deps
 #

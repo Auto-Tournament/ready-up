@@ -856,7 +856,7 @@ struct ListenerImpl : IGameEventListener2 {
       const uint64_t xuid = event->GetUint64(CKV3MemberName("xuid"), 0);
       if (xuid != 0) ClearReady(xuid);
     }
-    // CS2 native warmup (re)started: ReadyUp emulates warmup, end the real one
+    // CS2 native warmup (re)started: Ready Up emulates warmup, end the real one
     // (takes the modes mutex, so before g_mu).
     if (std::strcmp(name, "round_announce_warmup") == 0) {
       OnNativeWarmupStarted("round_announce_warmup event");

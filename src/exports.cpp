@@ -152,11 +152,11 @@ __attribute__((constructor)) static void readyup_ctor() {
   readyup::StartSelftestWatchdogIfRequested();
 
   // Fail-closed without taking the server down:
-  // - If core signatures don't match, disable ReadyUp side effects (become inert).
+  // - If core signatures don't match, disable Ready Up side effects (become inert).
   // - The server should continue to run normally with the real libserver.so.
   if (!readyup::RunSigTest(/*verbose=*/false)) {
     readyup::Disable("sigtest failed (signature mismatch / missing)");
-    readyup::PrintLine("ReadyUp disabled: sigtest failed. Server will run without ReadyUp hooks.");
+    readyup::PrintLine("Ready Up disabled: sigtest failed. Server will run without Ready Up hooks.");
     return;
   }
 

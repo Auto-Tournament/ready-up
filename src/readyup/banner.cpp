@@ -23,7 +23,7 @@ void LogBanner() {
 
   PrintRaw(
       "\n%s\n"
-      " ReadyUp initialized (build %s)\n"
+      " Ready Up initialized (build %s)\n"
       " Author: Sivert Gullberg Hansen\n"
       " Repo:   https://github.com/Auto-Tournament/ready-up\n"
       "\n",

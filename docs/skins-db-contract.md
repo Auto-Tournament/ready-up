@@ -1,14 +1,14 @@
 # Skins DB contract (for the web UI)
 
-ReadyUp reads player loadouts from Postgres. The future skin picker (Auto Tournament CS2 pack,
-web side) only has to write these four tables. ReadyUp never writes them, except for the
+Ready Up reads player loadouts from Postgres. The future skin picker (Auto Tournament CS2 pack,
+web side) only has to write these four tables. Ready Up never writes them, except for the
 StatTrak counter.
 
 - **Database**: the one in `readyup_db.json` next to the shim, e.g.
   `host=127.0.0.1 port=5449 dbname=readyup user=readyup password=… sslmode=disable`.
-- **Schema owner**: ReadyUp runs `CREATE TABLE IF NOT EXISTS` for the DDL below at startup
+- **Schema owner**: Ready Up runs `CREATE TABLE IF NOT EXISTS` for the DDL below at startup
   (`src/readyup/postgres.cpp`, `EnsureWeaponPaintsSchemaLocked`). The web side may create the
-  same tables, but must not change column types or primary keys without a ReadyUp change.
+  same tables, but must not change column types or primary keys without a Ready Up change.
 - **Example data**: `scripts/seed-dev-skins.sql`.
 
 ## Keys shared by every table
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS readyup_weapon_skins (
 | `wear` | Float 0..1 (FN < 0.07 ≤ MW < 0.15 ≤ FT < 0.38 ≤ WW < 0.45 ≤ BS). |
 | `seed` | Pattern seed 0..1000. |
 | `nametag` | Optional name tag, max 160 bytes (longer is truncated). |
-| `stattrak_enabled` / `stattrak_count` | ReadyUp adds 1 to `stattrak_count` per kill with that weapon (needs game events). The web UI should treat `stattrak_count` as server-owned after creation. |
+| `stattrak_enabled` / `stattrak_count` | Ready Up adds 1 to `stattrak_count` per kill with that weapon (needs game events). The web UI should treat `stattrak_count` as server-owned after creation. |
 | `updated_at` | Informational. |
 
 ## `readyup_weapon_knives`: knife model
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS readyup_weapon_knives (
 Unknown values are ignored and the player keeps the default knife. The knife's **paint** is a
 `readyup_weapon_skins` row with `weapon_defindex` = the number in brackets.
 
-If a ReadyUp admin has no knife row, they get `weapon_knife_butterfly` by default.
+If a Ready Up admin has no knife row, they get `weapon_knife_butterfly` by default.
 
 ## `readyup_weapon_gloves`: glove model
 
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS readyup_weapon_gloves (
 Hand Wraps `5032`, Moto `5033`, Specialist `5034`, Hydra `5035`.
 
 Gloves **require** a matching paint row in `readyup_weapon_skins`
-(`weapon_defindex = glove_defindex`, paint e.g. `10037`). Without one, ReadyUp skips the gloves,
+(`weapon_defindex = glove_defindex`, paint e.g. `10037`). Without one, Ready Up skips the gloves,
 because unpainted gloves render wrong.
 
 ## `readyup_weapon_agents`: player models
@@ -102,7 +102,7 @@ A value can be either of these:
 - the full model path from `items_game.txt` → item `model_player`, e.g.
   `agents/models/ctm_fbi/ctm_fbi_variantb.vmdl` (Special Agent Ava | FBI) or
   `agents/models/tm_leet/tm_leet_variantf.vmdl` (The Elite Mr. Muhlik | Elite Crew)
-- the short WeaponPaints form `ctm_fbi/ctm_fbi_variantb`, which ReadyUp expands to
+- the short WeaponPaints form `ctm_fbi/ctm_fbi_variantb`, which Ready Up expands to
   `agents/models/<value>.vmdl`
 
 `NULL` or empty means the game's default model. CS2 1.41 ships agent models under
@@ -110,13 +110,13 @@ A value can be either of these:
 
 ## When changes take effect
 
-- ReadyUp caches each player's loadout for **45 s**. It refreshes in the background when the
+- Ready Up caches each player's loadout for **45 s**. It refreshes in the background when the
   player connects, about once a second while they play, and on game events. Nothing blocks the
   game thread.
 - A change applies to the **next** weapon the player gets (buy, round start, pickup of their own
   drop) and to gloves and agent on the **next spawn**. Weapons already in hand keep their current
   look.
-- If the web UI needs instant refresh later, add a notify path, e.g. `LISTEN/NOTIFY` or a ReadyUp
+- If the web UI needs instant refresh later, add a notify path, e.g. `LISTEN/NOTIFY` or a Ready Up
   RCON command that calls `weapon_paints::Invalidate(steamid64)`.
 
 ## Reference data

@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest something ReadyUp should do
+description: Suggest something Ready Up should do
 labels: [enhancement]
 body:
   - type: textarea

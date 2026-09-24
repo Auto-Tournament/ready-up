@@ -1,19 +1,19 @@
-# Testing ReadyUp with MAT (manual match, 2 PCs)
+# Testing Ready Up with MAT (manual match, 2 PCs)
 
-This runbook is for validating the **full ReadyUp flow** via **Auto Tournament** using a **manual match** and **two player machines**.
+This runbook is for validating the **full Ready Up flow** via **Auto Tournament** using a **manual match** and **two player machines**.
 
 ## Prereqs (must be true before testing)
 
-- **ReadyUp console hook works** (required for MAT to load matches):
+- **Ready Up console hook works** (required for MAT to load matches):
   - On the game server, run: `ru sigtest`
   - Expected: `sigtest OK`
-  - If the command is unknown or doesn’t respond, ReadyUp likely failed to hook the command buffer and **MAT cannot drive ReadyUp via RCON**.
+  - If the command is unknown or doesn’t respond, Ready Up likely failed to hook the command buffer and **MAT cannot drive Ready Up via RCON**.
 
 - **Server can reach MAT**:
   - The game server must be able to `GET` the match config URL that MAT serves (`/api/matches/:slug.json`).
 
 - **MAT can RCON the server**:
-  - MAT must be able to send RCON successfully (you should see successful ReadyUp init commands being sent during allocation/load).
+  - MAT must be able to send RCON successfully (you should see successful Ready Up init commands being sent during allocation/load).
 
 ## Manual match config requirements (MAT)
 
@@ -31,7 +31,7 @@ Your manual match must include (at minimum):
   - `overtimeMode`: `"enabled"` or `"disabled"`
   - `overtimeSegments`: rounds per overtime half (e.g. `3` for MR3 halves)
 - **Optional (damage-based tiebreak + OT cap)**:
-  - `damageTiebreak`: `true|false` (when enabled, ReadyUp can resolve ties by total roster-team damage)
+  - `damageTiebreak`: `true|false` (when enabled, Ready Up can resolve ties by total roster-team damage)
   - `damageTiebreakSuddenDeath`: `true|false` (when enabled and damage is tied, keep playing until a team leads)
   - `maxOvertimes`: `0..N` (max overtime blocks; each block is `2*overtimeSegments` rounds). Use `0` to disallow full overtime blocks while still allowing sudden-death if enabled.
 - `cvars`: include at least a couple you can verify later, e.g.:
@@ -41,7 +41,7 @@ Your manual match must include (at minimum):
 
 ### Example: \"no overtime allowed\" (damage decides; sudden death on damage tie)
 
-This configuration makes ReadyUp decide the winner by **total team damage** when regulation ends tied, without playing full overtime blocks:
+This configuration makes Ready Up decide the winner by **total team damage** when regulation ends tied, without playing full overtime blocks:
 
 ```json
 {
@@ -65,7 +65,7 @@ This configuration makes ReadyUp decide the winner by **total team damage** when
 }
 ```
 
-## What MAT should send to ReadyUp
+## What MAT should send to Ready Up
 
 During server initialization + load, MAT should send these (via RCON):
 
@@ -82,24 +82,24 @@ During server initialization + load, MAT should send these (via RCON):
 
 - Use MAT’s manual match flow so the match gets assigned a server and loaded.
 - Expected server behavior after load:
-  - ReadyUp enters **RU warmup** (`MatchWarmup`)
-  - Server should **not** be using CS2 built-in warmup (ReadyUp best-effort disables it)
-  - If `maplist` is provided and map differs, ReadyUp may `changelevel` to map 1
+  - Ready Up enters **RU warmup** (`MatchWarmup`)
+  - Server should **not** be using CS2 built-in warmup (Ready Up best-effort disables it)
+  - If `maplist` is provided and map differs, Ready Up may `changelevel` to map 1
 
 ### 2) Join from both player machines
 
 - Join from the two SteamIDs listed in the match config (one on each team).
 - Expected:
   - **Whitelist enforcement**: any non-roster (and non-spectator) accounts get kicked shortly after connecting
-  - **Team enforcement**: when a roster player tries to join a team, ReadyUp forces `jointeam` to the correct side based on `map_sides[0]`
+  - **Team enforcement**: when a roster player tries to join a team, Ready Up forces `jointeam` to the correct side based on `map_sides[0]`
   - **RU warmup banner**: unready roster players see a CenterHtml banner prompting `.r`
 
 ### 3) Ready up
 
 - On both PCs, type `.r` (or `.ready`) in chat.
 - Expected:
-  - ReadyUp recognizes the commands and marks each roster player ready
-  - When all roster players are **connected + ready**, ReadyUp:
+  - Ready Up recognizes the commands and marks each roster player ready
+  - When all roster players are **connected + ready**, Ready Up:
     - applies **live rules**
     - applies match config `cvars{}`
     - runs `mp_restartgame 1`
@@ -107,20 +107,20 @@ During server initialization + load, MAT should send these (via RCON):
 ### 4a) If `map_sides[0] == "knife"`
 
 - Expected:
-  - ReadyUp enters **knife mode**, restarts, and the knife round plays
+  - Ready Up enters **knife mode**, restarts, and the knife round plays
   - At knife end, the winner must pick:
     - captain command: `.ru side stay|switch|ct|t`
     - console/admin override: `ru side stay|switch|ct|t`
-  - After side pick, ReadyUp returns to **RU warmup** and you must **ready up again** to go live.
+  - After side pick, Ready Up returns to **RU warmup** and you must **ready up again** to go live.
 
 ### 4b) If predetermined sides (`team1_ct` / `team2_ct`)
 
 - Expected:
-  - No knife round; ReadyUp transitions directly to live after the restart.
+  - No knife round; Ready Up transitions directly to live after the restart.
 
 ## Verifying that match `cvars{}` were applied
 
-After ReadyUp goes live (post-ready restart), query a few cvars via RCON, e.g.:
+After Ready Up goes live (post-ready restart), query a few cvars via RCON, e.g.:
 
 - `mp_maxrounds`
 - `mp_overtime_enable`
@@ -130,7 +130,7 @@ These should reflect the values from the match config `cvars{}` (unless blocked 
 
 ## Common failure points
 
-- **No response to `ru sigtest`**: ReadyUp didn’t hook the command buffer → RCON `ru ...` commands won’t work.
+- **No response to `ru sigtest`**: Ready Up didn’t hook the command buffer → RCON `ru ...` commands won’t work.
 - **Players aren’t forced to teams**: `IServerGameClients::ClientCommand` hook failed → team enforcement may be broken.
 - **No RU warmup banner / `.r` ignored**: chat interception path failed (but RCON may still work). Check server logs for chat-hook installation messages.
 

@@ -1,6 +1,6 @@
-# ReadyUp architecture: core + plugins
+# Ready Up architecture: core + plugins
 
-ReadyUp is a fake `libserver.so`. `gameinfo.gi` lists `Game csgo/readyup` first, so the
+Ready Up is a fake `libserver.so`. `gameinfo.gi` lists `Game csgo/readyup` first, so the
 engine loads our shim, which `dlopen`s Valve's real `libserver.so` and forwards its exports.
 Up to now everything (engine plumbing, match flow, skins) was one monolithic shim. This
 document describes the split:
@@ -89,7 +89,7 @@ attribute every registration to its owner.
 | `struct_size`, `api_version`, `core_version`, `self` | – | versioning and identity |
 | `log(self, level, msg)` | any | console log line `[ReadyUp] plugin[name]: ...` (`ru_logf` is a printf helper in the header) |
 | `server_command(self, cmd)` | game | queue a server console command (the core's `EnqueueServerCommand`) |
-| `chat_all(self, msg, flags)` | game | chat to everyone, with the ReadyUp prefix (or `RU_CHAT_RAW`) |
+| `chat_all(self, msg, flags)` | game | chat to everyone, with the Ready Up prefix (or `RU_CHAT_RAW`) |
 | `chat_to_slot(self, slot, msg)` | game | chat to one player (`ClientPrint`) |
 | `register_chat_command(self, ".name", fn, user)` | game | chat command. Core commands (`.ru`, `.r`, `.pause`, …) are reserved. Only real players (SteamID ≠ 0) trigger it |
 | `register_console_command(self, "name", fn, user)` | game | server console / RCON command. `ru` and every core command win over plugin commands |

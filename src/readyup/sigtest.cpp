@@ -16,7 +16,7 @@ namespace readyup {
 //
 // Required set (engine-surface.json): UTIL_ClientPrintAll. Host_Say and
 // CCSGameRules_TerminateRound are optional so a broken hook degrades one
-// feature instead of taking all of ReadyUp down.
+// feature instead of taking all of Ready Up down.
 bool RunSigTest(bool verbose) {
   const es::EngineSurface* s = GetEngineSurface();
   if (!s) {
@@ -41,7 +41,7 @@ void RunSigTestOrDie() {
   if (RunSigTest(/*verbose=*/false)) return;
 
   // Hard-fail to avoid undefined behavior/hooking wrong functions.
-  PrintLine("sigtest: hard-failing ReadyUp load due to signature mismatch.");
+  PrintLine("sigtest: hard-failing Ready Up load due to signature mismatch.");
   std::abort();
 }
 

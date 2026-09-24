@@ -160,7 +160,7 @@ typedef void (*ru_task_fn)(void* user);
 /* ---- the function table the core hands to each plugin ------------------ */
 
 enum {
-  RU_CHAT_RAW = 1u << 0 /* do not add the ReadyUp chat prefix */
+  RU_CHAT_RAW = 1u << 0 /* do not add the Ready Up chat prefix */
 };
 
 typedef struct ru_api {

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build ReadyUp in Docker and push libserver.so to a CS2 test server.
+# Build Ready Up in Docker and push libserver.so to a CS2 test server.
 #
 # Run as `sivert` on the cs2 box. The server files are owned by another user
 # (cs2servermanager), so the artifact is streamed as a tarball over ssh and
@@ -17,7 +17,7 @@
 #   --session NAME  tmux session running the server, default ru-test (env RU_SESSION)
 #   --no-build      deploy the existing build-docker/libserver.so
 #   --restart       kill + relaunch the tmux session, wait for the server to
-#                   come up (or die) and print the ReadyUp log lines
+#                   come up (or die) and print the Ready Up log lines
 #   --timeout SEC   how long --restart waits, default 180
 #   --plugin NAME   hot-reload one plugin instead of deploying the core: build only
 #                   target readyup_plugin_NAME, copy build-docker/plugins/NAME.so to
@@ -160,7 +160,7 @@ for ((i = 0; i < timeout; i++)); do
   if ! tmux has-session -t "$session" 2>/dev/null; then
     echo "Server process exited during startup. Last output:" >&2
     tail -c "+$start" "$log" | tail -n 30 >&2
-    echo "--- ReadyUp lines ---" >&2
+    echo "--- Ready Up lines ---" >&2
     show_ru >&2
     exit 1
   fi

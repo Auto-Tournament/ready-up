@@ -9,7 +9,7 @@
 
 namespace readyup::minijson {
 
-// Minimal JSON value tree (enough for ReadyUp match config parsing).
+// Minimal JSON value tree (enough for Ready Up match config parsing).
 struct Value {
   enum class Type { Null, Bool, Number, String, Object, Array };
   Type type = Type::Null;

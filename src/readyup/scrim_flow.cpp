@@ -205,13 +205,13 @@ static std::string NotReadyNames(const ScrimRoster& roster, int maxNames) {
 }
 
 static void SendReminder(const ScrimRoster& roster, const ScrimCounts& c) {
-  std::string msg = "ReadyUp: type .r when ready " + ReadyProgress(c);
+  std::string msg = "Ready Up: type .r when ready " + ReadyProgress(c);
   const std::string waiting = NotReadyNames(roster, 5);
   if (!waiting.empty()) msg += " - waiting: " + waiting;
   SendToChat(msg.c_str());
   if (!c.bothSides) {
-    SendToChat(DevBotsReadyEnabled() ? "ReadyUp: need players (or bots) on both CT and T to start."
-                                     : "ReadyUp: need players on both CT and T to start.");
+    SendToChat(DevBotsReadyEnabled() ? "Ready Up: need players (or bots) on both CT and T to start."
+                                     : "Ready Up: need players on both CT and T to start.");
   }
 }
 
@@ -248,7 +248,7 @@ static void ScrimWarmupStepLocked(FlowState& f, Clock::time_point now, const Scr
   if (f.countdownActive) {
     if (!c.allReady || !c.bothSides) {
       CancelCountdownLocked(f);
-      SendToChat(("ReadyUp: countdown cancelled " + ReadyProgress(c) + ".").c_str());
+      SendToChat(("Ready Up: countdown cancelled " + ReadyProgress(c) + ".").c_str());
       f.lastReminder = now;
       return;
     }
@@ -256,14 +256,14 @@ static void ScrimWarmupStepLocked(FlowState& f, Clock::time_point now, const Scr
     if (leftMs <= 0) {
       CancelCountdownLocked(f);
       if (!MaybeStartScrimIfAllReady(roster)) {
-        SendToChat("ReadyUp: could not start the scrim; still in warmup.");
+        SendToChat("Ready Up: could not start the scrim; still in warmup.");
       }
       return;
     }
     const int secs = static_cast<int>((leftMs + 999) / 1000);
     if (secs <= 3 && secs != f.countdownLastAnnounced) {
       f.countdownLastAnnounced = secs;
-      SendToChat(((Cfg().scrim_knife ? "ReadyUp: knife round in " : "ReadyUp: going live in ") + std::to_string(secs) + "...").c_str());
+      SendToChat(((Cfg().scrim_knife ? "Ready Up: knife round in " : "Ready Up: going live in ") + std::to_string(secs) + "...").c_str());
     }
     return;
   }
@@ -272,7 +272,7 @@ static void ScrimWarmupStepLocked(FlowState& f, Clock::time_point now, const Scr
     f.countdownActive = true;
     f.countdownDeadline = now + std::chrono::seconds(kCountdownSeconds);
     f.countdownLastAnnounced = kCountdownSeconds;
-    SendToChat(("ReadyUp: all " + std::to_string(c.total) + " player(s) ready - " + (Cfg().scrim_knife ? "knife round" : "going live") + " in " +
+    SendToChat(("Ready Up: all " + std::to_string(c.total) + " player(s) ready - " + (Cfg().scrim_knife ? "knife round" : "going live") + " in " +
                 std::to_string(kCountdownSeconds) + "s (.ur to cancel).")
                    .c_str());
     return;
@@ -390,14 +390,14 @@ bool MaybeStartScrimIfAllReady(const ScrimRoster& roster) {
       PrintLine("scrim: knife round could not start (command buffer?); going live without it.");
       (void)WebhookUpdateMapSide(1, "team1_ct");
       const bool goLive = ScrimGoLive(kRestartSeconds);
-      SendToChat(goLive ? "ReadyUp: scrim starting - restarting the game, LIVE after the restart."
-                        : "ReadyUp: scrim created but the go-live commands could not be queued.");
+      SendToChat(goLive ? "Ready Up: scrim starting - restarting the game, LIVE after the restart."
+                        : "Ready Up: scrim created but the go-live commands could not be queued.");
     }
     return true;
   }
   const bool goLive = ScrimGoLive(kRestartSeconds);
-  SendToChat(goLive ? "ReadyUp: scrim starting - restarting the game, LIVE after the restart."
-                    : "ReadyUp: scrim created but the go-live commands could not be queued.");
+  SendToChat(goLive ? "Ready Up: scrim starting - restarting the game, LIVE after the restart."
+                    : "Ready Up: scrim created but the go-live commands could not be queued.");
   return true;
 }
 
@@ -470,7 +470,7 @@ void ScrimTick() {
         CancelCountdownLocked(f);
         f.noTeamSince = {};
         f.lastReminder = now;
-        SendToChat(("ReadyUp: scrim warmup - type .r when ready " + ReadyProgress(c) +
+        SendToChat(("Ready Up: scrim warmup - type .r when ready " + ReadyProgress(c) +
                     ". Goes live when everyone on CT/T is ready.")
                        .c_str());
       }

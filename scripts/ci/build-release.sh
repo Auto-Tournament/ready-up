@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Release build of the ReadyUp shim. Runs INSIDE the Steam Runtime 3 "sniper" SDK
+# Release build of the Ready Up shim. Runs INSIDE the Steam Runtime 3 "sniper" SDK
 # (registry.gitlab.steamos.cloud/steamrt/sniper/sdk), either as the CI job container
 # (.github/workflows/build.yml) or via scripts/sniper-build.sh locally.
 #

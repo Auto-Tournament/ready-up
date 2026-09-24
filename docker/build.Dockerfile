@@ -1,4 +1,4 @@
-# Dev build image for ReadyUp (libserver.so shim).
+# Dev build image for Ready Up (libserver.so shim).
 #
 # Debian 12 (bookworm) matches the cs2 host that runs the dedicated server, so
 # the shared libs we link dynamically (libcurl, libssl, libgssapi_krb5, ...)

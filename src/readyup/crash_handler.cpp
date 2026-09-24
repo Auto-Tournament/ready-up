@@ -78,7 +78,7 @@ void WriteDec(int fd, long v) {
 
 void Report(int fd, int sig, siginfo_t* info, void** addrs, int n) {
   if (fd < 0) return;
-  WriteStr(fd, "\n[ReadyUp] === crash handler (ReadyUp " READYUP_BUILD_VERSION ") ===\n[ReadyUp] signal=");
+  WriteStr(fd, "\n[ReadyUp] === crash handler (Ready Up " READYUP_BUILD_VERSION ") ===\n[ReadyUp] signal=");
   WriteStr(fd, SigName(sig));
   WriteStr(fd, " (");
   WriteDec(fd, sig);

@@ -110,7 +110,7 @@ std::string ExpandChatColorTokens(std::string s) {
 
 ReadyUpCfg DefaultCfg() {
   ReadyUpCfg c;
-  c.chat_prefix = std::string(1, ChatColors::DarkRed) + "[ReadyUp]" + std::string(1, ChatColors::Default);
+  c.chat_prefix = std::string(1, ChatColors::DarkRed) + "[Ready Up]" + std::string(1, ChatColors::Default);
   c.admin_prefix = std::string(1, ChatColors::DarkRed) + "[Admin]" + std::string(1, ChatColors::Default);
   // Defaults match common expectations:
   // - Team1 captain: LightBlue (CT-like)

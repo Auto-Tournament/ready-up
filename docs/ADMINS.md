@@ -1,6 +1,6 @@
 # Admins (shared DB)
 
-ReadyUp stores a **global admin list** in Postgres so multiple servers can share the same admins.
+Ready Up stores a **global admin list** in Postgres so multiple servers can share the same admins.
 
 ## Local Postgres (docker)
 
@@ -12,7 +12,7 @@ This exposes Postgres on **127.0.0.1:5449**.
 
 ## DB config file
 
-Config lives next to the ReadyUp shim:
+Config lives next to the Ready Up shim:
 
 `game/csgo/readyup/bin/linuxsteamrt64/readyup_db.json`
 
