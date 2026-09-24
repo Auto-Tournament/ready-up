@@ -11,6 +11,7 @@
 #include "readyup/version.h"
 
 #include "readyup/plugin_api.h"
+#include "readyup/selftest_iface.h"
 
 #include <dirent.h>
 #include <dlfcn.h>
@@ -125,6 +126,10 @@ std::map<uint64_t, ChatPrefix> g_chatPrefixes;
 std::atomic<uint64_t> g_wantedGen{0};
 std::atomic<int> g_gameEventRegs{0};
 std::atomic<int> g_logLineRegs{0};
+
+// Plugin selftest interfaces run on arbitrary threads under a shared lock; CloseImage takes it
+// exclusively, so an image is never unmapped while its `run` is on some stack.
+std::shared_mutex g_selftestMu;
 
 // Admin provider. Its own lock: providers run on arbitrary threads and may block, so they
 // are called under a shared lock that unload takes exclusively (unload waits for them).
@@ -581,6 +586,7 @@ void DropAdminProvider(int id) {
 // TLS or RTLD_NODELETE pin it, and then a reload would silently keep the old code).
 void CloseImage(Instance* inst) {
   if (!inst->dl) return;
+  { std::unique_lock<std::shared_mutex> barrier(g_selftestMu); }  // no selftest `run` in flight
   dlclose(inst->dl);
   inst->dl = nullptr;
   if (void* still = dlopen(inst->path.c_str(), RTLD_NOW | RTLD_NOLOAD)) {
@@ -1142,6 +1148,47 @@ void* CoreGetInterface(const char* name, uint32_t minVersion) {
   const Instance* owner = FindLiveByIdLocked(it->second.owner);
   if (!owner || owner->handle.unloading.load()) return nullptr;
   return it->second.ptr;
+}
+
+std::vector<PluginSelftestCheck> RunPluginSelftests() {
+  std::vector<PluginSelftestCheck> out;
+  std::shared_lock<std::shared_mutex> running(g_selftestMu);
+  struct Item {
+    std::string plugin;
+    const ru_selftest_iface_v1* iface;
+  };
+  std::vector<Item> items;
+  {
+    std::lock_guard<std::mutex> lk(g_mu);
+    const std::string prefix = RU_SELFTEST_IFACE_PREFIX;
+    for (const auto& kv : g_ifaces) {
+      if (kv.first.compare(0, prefix.size(), prefix) != 0 || kv.second.version < RU_SELFTEST_IFACE_VERSION) continue;
+      const Instance* owner = FindLiveByIdLocked(kv.second.owner);
+      if (!owner || owner->handle.unloading.load()) continue;
+      const auto* iface = static_cast<const ru_selftest_iface_v1*>(kv.second.ptr);
+      if (!iface || iface->struct_size < sizeof(ru_selftest_iface_v1) || !iface->run) continue;
+      items.push_back(Item{owner->name, iface});
+    }
+  }
+  struct Ctx {
+    std::vector<PluginSelftestCheck>* out;
+    const std::string* plugin;
+  };
+  for (const auto& it : items) {
+    Ctx ctx{&out, &it.plugin};
+    try {
+      it.iface->run(
+          [](void* c, const char* status, const char* name, const char* detail) {
+            auto* x = static_cast<Ctx*>(c);
+            x->out->push_back(PluginSelftestCheck{*x->plugin, status ? status : "INFO", name ? name : "?",
+                                                  detail ? detail : ""});
+          },
+          &ctx);
+    } catch (...) {
+      out.push_back(PluginSelftestCheck{it.plugin, "FAIL", "selftest", "threw an exception"});
+    }
+  }
+  return out;
 }
 
 PluginHostStatus GetPluginHostStatus() {

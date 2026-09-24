@@ -72,6 +72,17 @@ PluginHostStatus GetPluginHostStatus();
 // Valid until the provider can unload, i.e. do not keep it past the current frame.
 void* CoreGetInterface(const char* name, uint32_t minVersion);
 
+// Any thread. Runs the `run` of every "readyup.selftest.<plugin>" interface a loaded plugin
+// published (core/include/readyup/selftest_iface.h) and returns what they reported. A plugin
+// being unloaded meanwhile stays mapped until its `run` returns.
+struct PluginSelftestCheck {
+  std::string plugin;
+  std::string status;  // "OK" | "FAIL" | "PEND" | "SKIP" | "INFO" | "WARN"
+  std::string name;
+  std::string detail;
+};
+std::vector<PluginSelftestCheck> RunPluginSelftests();
+
 // ---- API v1.1 hooks for the rest of the core ---------------------------------------
 
 // Game thread, called from the engine's FireGameEvent: delivers the event synchronously to
