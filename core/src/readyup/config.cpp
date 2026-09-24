@@ -162,6 +162,7 @@ bool LoadCfgFromDisk(ReadyUpCfg* out, std::string* err, bool allowMissing) {
     else if (key == "ready_hud") out->ready_hud = ParseBool(val, out->ready_hud);
     else if (key == "hud_tick_ms") out->hud_tick_ms = std::max(0, std::atoi(val.c_str()));
     else if (key == "hud_resend_ms") out->hud_resend_ms = std::max(0, std::atoi(val.c_str()));
+    else if (key == "hud_knife_hold_s") out->hud_knife_hold_s = std::clamp(std::atoi(val.c_str()), 0, 300);
     else if (key == "hud_duration_s") out->hud_duration_s = std::clamp(std::atoi(val.c_str()), 1, 10);
     else if (key == "hud_brand") out->hud_brand = val;
     else if (key == "hud_logo_url") out->hud_logo_url = val;

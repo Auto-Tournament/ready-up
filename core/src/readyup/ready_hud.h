@@ -30,6 +30,10 @@ void ReadyHudTick();
 // (the last send succeeded). Thread-safe.
 bool ReadyHudShowing();
 
+// True when the center panel is on and reaching players, so flow updates
+// (ready, countdown, knife) go to the panel instead of chat.
+bool HudReplacesChat();
+
 // Brand header shared by the welcome card and the HUD: optional
 // `<img src='hud_logo_url' height=imgHeight>` + `hud_brand` (readyup.cfg).
 // fontClass: e.g. "fontSize-l" (empty = none).

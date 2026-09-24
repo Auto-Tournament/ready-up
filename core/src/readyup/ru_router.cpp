@@ -327,9 +327,9 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
     if (first == ".r" || first == ".ready") {
       const bool wasReady = SetReady(steamid64, true);
       if (wasReady) {
-        SendToChat(("Ready Up: " + playerName + " is already READY " + progress() + ".").c_str());
+        if (!HudReplacesChat()) SendToChat(("Ready Up: " + playerName + " is already READY " + progress() + ".").c_str());
       } else {
-        SendToChat(("Ready Up: " + playerName + " is now READY " + progress() + ".").c_str());
+        if (!HudReplacesChat()) SendToChat(("Ready Up: " + playerName + " is now READY " + progress() + ".").c_str());
         emitReady(true);
       }
       // Scrim: the countdown / go-live is driven by ScrimTick (GameFrame).
@@ -339,9 +339,9 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
     if (first == ".unready" || first == ".ur" || first == ".notready" || first == ".nr") {
       const bool wasReady = SetReady(steamid64, false);
       if (!wasReady) {
-        SendToChat(("Ready Up: " + playerName + " is already NOT READY " + progress() + ".").c_str());
+        if (!HudReplacesChat()) SendToChat(("Ready Up: " + playerName + " is already NOT READY " + progress() + ".").c_str());
       } else {
-        SendToChat(("Ready Up: " + playerName + " is now NOT READY " + progress() + ".").c_str());
+        if (!HudReplacesChat()) SendToChat(("Ready Up: " + playerName + " is now NOT READY " + progress() + ".").c_str());
         emitReady(false);
       }
       ScrimNoteReadyChanged();
