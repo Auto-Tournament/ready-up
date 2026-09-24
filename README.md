@@ -17,7 +17,9 @@
 
 Ready Up runs your CS2 server's match flow: players ready up, the match goes live, and results go back to whatever is running the event. It's part of [Auto Tournament](https://github.com/Auto-Tournament/auto-tournament) and does the same job as [MatchZy](https://github.com/shobhit-pathak/MatchZy) and [Get5](https://github.com/splewis/get5). It isn't a fork of either. We borrow their commands and event names where it makes sense, so moving over is easy.
 
-It doesn't need Metamod or CounterStrikeSharp. CS2 loads Ready Up directly, through a `gameinfo.gi` entry, the same way it loads Metamod. Ready Up then loads Valve's real server module and passes everything through.
+**No Metamod. No CounterStrikeSharp. Nothing else to install.**
+
+Ready Up is its own small ecosystem: think of it as Metamod and its plugins in one bundle. A small core loads straight into CS2 through a `gameinfo.gi` entry, the same way Metamod does, then loads Valve's real server module and passes everything through. Plugins run on top of the core and never touch the engine themselves, so a CS2 update only ever means fixing the core.
 
 ## Why it keeps working after CS2 updates
 
@@ -62,18 +64,47 @@ CS2 updates rewrite `gameinfo.gi`, so run the patcher again after each one.
 
 Config, admins and the database are covered in [docs/INSTALL.md](docs/INSTALL.md) and [docs/ADMINS.md](docs/ADMINS.md).
 
-## What's next
+## Plugins
 
-Ready Up is being split into a small core and plugins, all in this repo:
+Everything lives in this repo. The core is always installed; plugins are separate `.so` files you add or leave out, and they hot reload without restarting the server (`ru plugin reload <name>`).
 
-| Path | What it is |
-|------|------------|
-| `core/` | Loader, engine surface, plugin host |
-| `plugins/match` | Ready-up, match flow, pauses, practice |
-| `plugins/skins` | The optional skins plugin |
-| `plugins/hello` | A minimal example plugin |
+<details>
+<summary><b>Core</b> (<code>core/</code>): loader, engine layer, plugin host</summary>
 
-Plugins will hot reload, so you can update one without restarting the server.
+<br />
+
+Loads into CS2, owns every engine touchpoint (`gamedata/engine-surface.json`), and gives plugins a small, versioned C API: chat and console commands, game and log events, center-screen HTML, server commands, player and team lookup. Also ships `ru selftest`.
+
+</details>
+
+<details>
+<summary><b>Match</b> (<code>plugins/match</code>): ready-up, knife, pauses, practice</summary>
+
+<br />
+
+The match flow: scrim ready-up with a center-screen panel, knife round and side pick, pauses, practice mode, admins, match configs and webhooks for the Auto Tournament platform. Currently built into the core while it moves to its own plugin.
+
+</details>
+
+<details>
+<summary><b>Skins</b> (<code>plugins/skins</code>): optional, not in the default bundle</summary>
+
+<br />
+
+Weapon paints, knives, gloves and agents from a Postgres table. Skin changers can get a server banned, so this plugin is only in the Full bundle and you add it on purpose. Currently built into the core while it moves to its own plugin.
+
+</details>
+
+<details>
+<summary><b>Hello</b> (<code>plugins/hello</code>): example plugin</summary>
+
+<br />
+
+A minimal plugin that registers `.hello` in chat. Start here to write your own.
+
+</details>
+
+Planned downloads: `ready-up-core`, `ready-up-match`, `ready-up-skins`, and two bundles: **Essentials** (core + match) and **Full** (core + match + skins).
 
 ## Documentation
 
