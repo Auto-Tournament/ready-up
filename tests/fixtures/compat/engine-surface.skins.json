@@ -1,0 +1,8 @@
+{
+  "_meta": {"game_version": "1.41.8.5", "steam_buildid": 25537370},
+  "functions": {
+    "CBaseModelEntity_SetModel": {"library": "server", "linux": "55 48", "required": false},
+    "CBaseEntity_ChangeSubclass": {"library": "server", "linux": "55 48", "required": false}
+  },
+  "vtable_indices": {"CEntityInstance::NetworkStateChanged": {"linux": 29, "class": "CBaseEntity"}}
+}

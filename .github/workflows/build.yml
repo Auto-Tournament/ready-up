@@ -56,7 +56,7 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Version: $version"
 
-      - name: Unit tests (patch_gameinfo.py)
+      - name: Unit tests (patch_gameinfo.py, compat-report.py)
         run: python3 -m unittest discover -s tests -v
 
       - name: Cache static deps (OpenSSL, libcurl)

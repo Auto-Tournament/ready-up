@@ -4,6 +4,7 @@
   <p><strong>A native CS2 server plugin for scrims, pickups and tournament matches</strong></p>
   <p>
     <a href="https://github.com/Auto-Tournament/ready-up/releases/latest"><img src="https://img.shields.io/github/v/release/Auto-Tournament/ready-up?cacheSeconds=3600" alt="GitHub Release" /></a>
+    <a href="docs/CS2-COMPAT.md"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FAuto-Tournament%2Fready-up%2Fcs2-build%2Fbadge.json" alt="CS2 compatibility" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue.svg" alt="License: PolyForm Noncommercial 1.0.0" /></a>
     <a href="https://docs.autotournament.gg"><img src="https://img.shields.io/badge/docs-docs.autotournament.gg-blue" alt="Docs" /></a>
     <a href="https://discord.gg/n7gHYau7aW"><img src="https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white" alt="Discord" /></a>
@@ -25,7 +26,7 @@ Ready Up is its own small ecosystem: think of it as Metamod and its plugins in o
 
 Ready Up touches the engine in as few places as it can. Every function it calls or hooks is listed in [`gamedata/engine-surface.json`](gamedata/engine-surface.json), and each one has a signature plus identity anchors: strings the function or its callers must reference. A function only resolves if the signature matches exactly once and every anchor checks out. If one breaks, just that feature turns itself off. The rest of the server keeps running.
 
-CI checks the file against every new CS2 build, so we see what broke before a server does. On a running server, `ru selftest` shows every hook, offset and feature, and ends with `PASS` or `FAIL`.
+CI checks the file against every new CS2 build, usually within minutes of the update, so we see what broke before a server does (the CS2 badge above; how it works: [docs/CS2-COMPAT.md](docs/CS2-COMPAT.md)). On a running server, `ru selftest` shows every hook, offset and feature, and ends with `PASS` or `FAIL`.
 
 ## Features
 
@@ -236,6 +237,7 @@ Full docs are at **[docs.autotournament.gg](https://docs.autotournament.gg)**. I
 
 - [Install and how loading works](docs/INSTALL.md)
 - [Running next to Metamod / CounterStrikeSharp](docs/COMPATIBILITY.md)
+- [CS2 update checks, compat.json and the badge](docs/CS2-COMPAT.md)
 - [Admins](docs/ADMINS.md)
 - [Esports mode (Valve ruleset) spec](docs/ESPORTS-MODE.md)
 - [Development and debugging](docs/DEVELOPMENT.md)

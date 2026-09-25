@@ -1,0 +1,13 @@
+{
+  "_meta": {"game_version": "1.41.8.5", "steam_buildid": 25537370},
+  "functions": {
+    "Host_Say": {"library": "server", "hook": "funchook", "linux": "55 48", "required": false},
+    "UTIL_ClientPrintAll": {"library": "server", "linux": "55 48", "required": true}
+  },
+  "vtable_indices": {"ISource2Server::GameFrame": {"linux": 19, "class": "CSource2Server"}},
+  "rtti": {
+    "CBaseEntity": {"typeinfo_name": "11CBaseEntity"},
+    "CSchemaSystem": {"typeinfo_name": "13CSchemaSystem", "module": "schemasystem"}
+  },
+  "layouts": {"CCommand": {"verified_by": "ISource2Server::GameFrame", "fields": {"argc": 1080}}}
+}
