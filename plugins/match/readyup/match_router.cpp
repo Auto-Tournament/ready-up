@@ -10,15 +10,18 @@
 #include "readyup/engine.h"
 #include "readyup/logging.h"
 #include "readyup/match_console.h"
+#include "readyup/match_events.h"
 #include "readyup/match_features.h"
 #include "readyup/match_signals.h"
 #include "readyup/match_state.h"
 #include "readyup/modes.h"
 #include "readyup/pause_state.h"
 #include "readyup/persisted_match_state.h"
+#include "readyup/practice_tools.h"
 #include "readyup/players.h"
 #include "readyup/ready_hud.h"
 #include "readyup/scrim_flow.h"
+#include "readyup/votes.h"
 #include "readyup/webhook.h"
 
 #include <algorithm>
@@ -71,7 +74,7 @@ const std::vector<std::string>& MatchPlayerChatCommands() {
       ".tac",  ".forceready", ".forcepause", ".fp", ".forceunpause", ".fup",
       ".unpause", ".up", ".gg",      ".ff",   ".forfeit",  ".stay",  ".switch", ".swap", ".ct",
       ".t",    ".help",  ".prac",    ".tactics", ".bot",   ".cbot",  ".crouchbot", ".boost",
-      ".crouchboost", ".nobots"};
+      ".crouchboost", ".nobots", ".stop"};
   return k;
 }
 
@@ -91,6 +94,10 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   const bool hasMatch = static_cast<bool>(ctx);
 
   if (first == ".help") {
+    if (GetMode() == ReadyUpMode::Practice) {
+      SendToChat(PracticeToolsHelp());
+      return;
+    }
     SendToChat("Ready Up commands: .r / .ready / .ur (.nr) | .forceready | .tac (timeout) | .tech (.pause) | .unpause");
     if (hasMatch) {
       SendToChat("Ready Up: knife: .stay/.switch (.ct/.t) | forfeit: .ff (captain)");
@@ -117,44 +124,10 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     return;
   }
 
-  // MatchZy-style practice bot helpers (minimal server-command parity).
-  if (first == ".nobots") {
-    if (GetMode() != ReadyUpMode::Practice) {
-      SendToChat("Ready Up: .nobots is only available in practice mode.");
-      return;
-    }
-    (void)EnqueueServerCommand("bot_kick");
-    SendToChat("Ready Up: bots removed.");
-    return;
-  }
-
-  if (first == ".bot" || first == ".cbot" || first == ".crouchbot" || first == ".boost" || first == ".crouchboost") {
-    if (GetMode() != ReadyUpMode::Practice) {
-      SendToChat("Ready Up: bot commands are only available in practice mode.");
-      return;
-    }
-    // One bot on the other team (CT player -> T bot, else CT bot).
-    int tn = 0;
-    for (const auto& h : ListHumans()) {
-      if (h.steamid64 == steamid64) {
-        tn = h.team;
-        break;
-      }
-    }
-    const bool crouch = (first == ".cbot" || first == ".crouchbot" || first == ".crouchboost");
-    if (crouch) (void)EnqueueServerCommand("bot_crouch 1");
-    if (tn == 3) {
-      (void)EnqueueServerCommand("bot_join_team T");
-      (void)EnqueueServerCommand("bot_add_t");
-    } else {
-      (void)EnqueueServerCommand("bot_join_team CT");
-      (void)EnqueueServerCommand("bot_add_ct");
-    }
-    (void)EnqueueServerCommand("bot_stop 1");
-    (void)EnqueueServerCommand("bot_freeze 1");
-    (void)EnqueueServerCommand("bot_zombie 1");
-    if (crouch) (void)EnqueueServerCommand("bot_crouch 0");  // future bots are not forced to crouch
-    SendToChat(crouch ? "Ready Up: crouch bot added." : "Ready Up: bot added.");
+  // Practice bot helpers (practice_tools.cpp: the bot is placed where the caller stands).
+  if (first == ".nobots" || first == ".bot" || first == ".cbot" || first == ".crouchbot" || first == ".boost" ||
+      first == ".crouchboost") {
+    PracticeToolsBotCommand(GameEventsSlotForSteam(steamid64).value_or(-1), steamid64, first);
     return;
   }
 
@@ -304,7 +277,11 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
       d["steamid64"] = std::to_string(steamid64);
       signals::Emit("gg", std::move(d));
     }
-    SendToChat("Ready Up: gg noted.");
+    if (!VotesGg(steamid64, ctx->roster_team[steamid64], playerName)) SendToChat("Ready Up: gg noted.");
+    return;
+  }
+  if (first == ".stop") {
+    VotesStop(steamid64, ctx->roster_team[steamid64], playerName);
     return;
   }
   if (first == ".ff" || first == ".forfeit") {

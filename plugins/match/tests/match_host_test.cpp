@@ -174,6 +174,7 @@ void FillEngineApi(ru_api* a) {
   a->entity_change_subclass = [](ru_plugin*, void*, const char*) { return 0; };
   a->entity_set_model = [](ru_plugin*, void*, const char*) { return 0; };
   a->entity_set_bodygroup_by_name = [](ru_plugin*, void*, const char*, int) { return static_cast<int>(RU_BODYGROUP_UNAVAILABLE); };
+  a->entity_set_abs_origin = [](ru_plugin*, void*, const float*) { return 0; };
   a->set_round_termination_suppressed = [](ru_plugin*, int s) {
     g_suppressed.store(s);
     return 1;

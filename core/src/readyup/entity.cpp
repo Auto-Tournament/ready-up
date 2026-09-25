@@ -27,6 +27,7 @@ constexpr FnSpec kSetModel{"CBaseModelEntity::SetModel", "CBaseModelEntity_SetMo
 constexpr FnSpec kGetModel{"CBaseModelEntity::GetModel", "CBaseModelEntity_GetModel"};
 constexpr FnSpec kFindBodygroup{"CModel::FindBodygroupByName", "CModel_FindBodygroupByName"};
 constexpr FnSpec kSetBodygroup{"CBaseModelEntity::SetBodygroup", "CBaseModelEntity_SetBodygroup"};
+constexpr FnSpec kSetAbsOrigin{"CBaseEntity::SetAbsOrigin", "CBaseEntity_SetAbsOrigin"};
 constexpr FnSpec kStateChanged{"CEntityInstance::NetworkStateChanged (CBaseEntity impl)", "CBaseEntity_NetworkStateChanged"};
 // UTIL_Remove is only used as an anchor: its body does `lea rax, [rip+g_pGameEntitySystem]`
 // (those bytes are part of its verified signature).
@@ -51,7 +52,7 @@ struct Resolved {
 };
 
 std::once_flag g_once;
-Resolved g_attrSet, g_changeSubclass, g_setModel, g_getModel, g_findBodygroup, g_setBodygroup, g_stateChanged,
+Resolved g_attrSet, g_changeSubclass, g_setModel, g_getModel, g_findBodygroup, g_setBodygroup, g_setAbsOrigin, g_stateChanged,
     g_utilRemove;
 void** g_entitySystemGlobal = nullptr;  // &g_pGameEntitySystem inside libserver
 std::string g_entitySystemDetail;
@@ -95,6 +96,7 @@ void ResolveAll() {
   g_getModel = ResolveFn(kGetModel);
   g_findBodygroup = ResolveFn(kFindBodygroup);
   g_setBodygroup = ResolveFn(kSetBodygroup);
+  g_setAbsOrigin = ResolveFn(kSetAbsOrigin);
   g_stateChanged = ResolveFn(kStateChanged);
   int idx = -1;
   std::string why;
@@ -288,6 +290,19 @@ bool ChangeSubclass(void* entity, const char* subclass) {
   return true;
 }
 
+bool SetAbsOrigin(void* entity, const float origin[3]) {
+  ResolveEngine();
+  if (!g_setAbsOrigin.addr || !entity || !origin) return false;
+  for (int i = 0; i < 3; ++i) {
+    if (!(origin[i] > -65536.f && origin[i] < 65536.f)) return false;  // NaN / off the map
+  }
+  // Vector: three packed floats; the engine only reads them.
+  alignas(16) float v[4] = {origin[0], origin[1], origin[2], 0.f};
+  using Fn = void (*)(void*, const float*);
+  reinterpret_cast<Fn>(g_setAbsOrigin.addr)(entity, v);
+  return true;
+}
+
 bool SetModel(void* entity, const char* model) {
   ResolveEngine();
   if (!g_setModel.addr || !entity || !model || !*model) return false;
@@ -354,6 +369,7 @@ std::vector<ItemStatus> EngineStatus() {
   add(kGetModel, g_getModel);
   add(kFindBodygroup, g_findBodygroup);
   add(kSetBodygroup, g_setBodygroup);
+  add(kSetAbsOrigin, g_setAbsOrigin);
   add(kStateChanged, g_stateChanged);
   const bool slotListed = GetEngineSurface() && GetEngineSurface()->FindVtable(kStateChangedSlot) != nullptr;
   out.push_back({"CEntityInstance::NetworkStateChanged vtable slot", g_vtStateChanged >= 0,

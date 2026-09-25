@@ -376,6 +376,15 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
   if (const Json* ff = Obj(r, "forfeit"); ff && ff->Find("team_absent_seconds")) {
     cfg["forfeit_after_seconds"] = Int(*ff, "team_absent_seconds", 240);
   }
+  if (const Json* ff = Obj(r, "forfeit")) {
+    if (const Json* gg = Obj(*ff, "gg_vote")) {
+      if (gg->Find("enabled")) cfg["gg_enabled"] = Bool(*gg, "enabled", false);
+      if (const Json* t = gg->Find("threshold"); t && (t->type() == Json::Type::Double || t->type() == Json::Type::Int)) {
+        cfg["gg_threshold"] = t->type() == Json::Type::Int ? static_cast<double>(t->AsInt()) : t->AsDouble();
+      }
+      if (gg->Find("min_score_diff")) cfg["gg_min_score_diff"] = Int(*gg, "min_score_diff", 8);
+    }
+  }
 
   Json cvars = Json::Object();
   cvars["mp_maxrounds"] = std::to_string(maxRounds);

@@ -199,6 +199,11 @@ int ApiSetModel(ru_plugin* self, void* ent, const char* model) {
   return entity::SetModel(ent, model) ? 1 : 0;
 }
 
+int ApiSetAbsOrigin(ru_plugin* self, void* ent, const float* origin) {
+  if (!CheckGameThread(self, "entity_set_abs_origin") || !ent || !origin) return 0;
+  return entity::SetAbsOrigin(ent, origin) ? 1 : 0;
+}
+
 int ApiSetBodygroup(ru_plugin* self, void* ent, const char* group, int value) {
   if (!CheckGameThread(self, "entity_set_bodygroup_by_name") || !ent || !group) return RU_BODYGROUP_UNAVAILABLE;
   switch (entity::SetBodygroupByName(ent, group, value)) {
@@ -258,6 +263,7 @@ void detail::FillEngineApi(ru_api* a) {
   a->set_round_termination_suppressed = &ApiSetRoundTermSuppressed;
   a->is_admin = &ApiIsAdmin;
   a->feature_state = &ApiFeatureState;
+  a->entity_set_abs_origin = &ApiSetAbsOrigin;  // v1.3
 }
 
 }  // namespace readyup::plugins

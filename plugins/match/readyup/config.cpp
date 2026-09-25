@@ -138,6 +138,13 @@ void Apply(ReadyUpCfg* out, const std::string& key, const std::string& val) {
   else if (key == "allow_force_ready") out->rules.allow_force_ready = ParseBool(val, true) ? 1 : 0;
   else if (key == "min_players_to_ready") out->rules.min_players_to_ready = RuleInt(val);
   else if (key == "forfeit_after_seconds") out->rules.forfeit_after_seconds = RuleInt(val);
+  else if (key == "gg_enabled") out->rules.gg_enabled = ParseBool(val, false) ? 1 : 0;
+  else if (key == "gg_threshold") out->rules.gg_threshold_pct = GgThresholdPctFromText(val);
+  else if (key == "gg_min_score_diff") out->rules.gg_min_score_diff = RuleInt(val);
+  else if (key == "stop_command_available") out->rules.stop_command_available = ParseBool(val, false) ? 1 : 0;
+  else if (key == "stop_command_no_damage") out->rules.stop_command_no_damage = ParseBool(val, false) ? 1 : 0;
+  else if (key == "stop_vote_seconds") out->rules.stop_vote_seconds = RuleInt(val);
+  else if (key == "damage_report") out->damage_report = ParseBool(val, out->damage_report);
 }
 
 // `sections`: which parts of the file count ("" = top level, "match" = [match]).

@@ -96,6 +96,24 @@
           "window": 96
         }
       ]
+    },
+    "CBaseEntity_SetAbsOrigin": {
+      "library": "server",
+      "linux": "55 48 8D 15 ? ? ? ? 48 89 E5 53 48 89 FB 48 83 EC 18 48 8B 07 48 8B 80 B8 02 00 00 48 39 D0 75 ? 48 8B BB ? ? ? ? E8 ? ? ? ? 48 8B 43 10 F6 40 30 02",
+      "required": false,
+      "description": "CBaseEntity::SetAbsOrigin(this, const Vector* origin): what setpos / setpos_player / ent_setpos call to move the entity (those commands need a client of their own, so they do nothing from the server console). Practice tools (.loadpos, .spawn, .back, .bot placement) only.",
+      "anchors": [
+        {
+          "type": "caller_string",
+          "string": "Pushed player by %.2f over %d steps (push vector: %.2f, %.2f, %.2f)\n",
+          "window": 256
+        },
+        {
+          "type": "caller_string",
+          "string": "Method Entity.Move invoked with bad newValues value.\n",
+          "window": 128
+        }
+      ]
     }
   },
   "vtable_indices": {

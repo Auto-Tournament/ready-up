@@ -10,6 +10,8 @@ set(MATCH_SOURCES
   readyup/backup_files.cpp
   readyup/config.cpp
   readyup/cs2_version.cpp
+  readyup/damage_ledger.cpp
+  readyup/damage_report.cpp
   readyup/demo_naming.cpp
   readyup/demo_recorder.cpp
   readyup/fleet_bridge.cpp
@@ -41,9 +43,12 @@ set(MATCH_SOURCES
   readyup/persisted_match_state.cpp
   readyup/persisted_settings.cpp
   readyup/player_registry.cpp
+  readyup/practice_tools.cpp
   readyup/ready_hud.cpp
   readyup/reload_state.cpp
   readyup/scrim_flow.cpp
+  readyup/vote_logic.cpp
+  readyup/votes.cpp
   readyup/webhook.cpp
   readyup/welcome.cpp
   readyup/workers.cpp
@@ -106,3 +111,11 @@ add_executable(match_rules_test tests/match_rules_test.cpp readyup/match_rules.c
 target_include_directories(match_rules_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(match_rules_test PRIVATE -Wall -Wextra)
 add_test(NAME match_rules COMMAND match_rules_test)
+
+# Damage report bookkeeping (readyup/damage_ledger.h), the .gg / .stop vote logic
+# (readyup/vote_logic.h) and their rules (ctest `match_damage_votes`).
+add_executable(match_damage_votes_test tests/damage_votes_test.cpp readyup/damage_ledger.cpp readyup/vote_logic.cpp
+  readyup/match_rules.cpp)
+target_include_directories(match_damage_votes_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(match_damage_votes_test PRIVATE -Wall -Wextra)
+add_test(NAME match_damage_votes COMMAND match_damage_votes_test)

@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 2
+#define READYUP_PLUGIN_API_VERSION_MINOR 3
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -494,7 +494,20 @@ typedef struct ru_api {
   /* Current map ("de_dust2"), "" before the first map. Valid until the callback returns. */
   const char* (*current_map)(ru_plugin* self);
 
-  /* v1.3+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.3 ============================================================
+   * Appended in 1.3. Require 1.3 in ru_plugin_info.api_version, or check RU_API_HAS().
+   */
+
+  /*
+   * Moves an entity to origin[0..2] (x, y, z) with CBaseEntity::SetAbsOrigin, the call CS2's
+   * setpos / setpos_player / ent_setpos make (those commands need a client of their own and do
+   * nothing from the server console). On a player pawn this is a teleport; velocity and view
+   * angles are left alone. Game thread. 1 = moved, 0 = unavailable (engine surface
+   * CBaseEntity_SetAbsOrigin unresolved) or a non-finite / off-map origin.
+   */
+  int (*entity_set_abs_origin)(ru_plugin* self, void* entity, const float* origin);
+
+  /* v1.4+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */
