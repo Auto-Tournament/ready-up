@@ -31,6 +31,7 @@ using Clock = std::chrono::steady_clock;
 // over (WelcomeActiveForSteam turns false at kHandOver).
 constexpr auto kAfterSpawn = std::chrono::milliseconds(750);       // let the spawn fade finish
 constexpr auto kSpawnWait = std::chrono::seconds(20);              // no spawn seen: show anyway
+constexpr auto kAfterRoundStart = std::chrono::milliseconds(1500); // a round restart settles
 constexpr auto kDelayTentative = std::chrono::milliseconds(1500);  // give log/event a chance to confirm
 constexpr auto kShowFor = std::chrono::milliseconds(4000);         // last send at ~4s
 constexpr auto kHandOver = std::chrono::milliseconds(5000);        // HUD replaces the card here
@@ -248,6 +249,21 @@ void WelcomeObservePlayerSpawn(int slot) {
   s.startAt = Clock::now() + kAfterSpawn;
   s.nextSend = s.startAt;
   if (DebugEnabled()) Debug("welcome: slot=%d spawned, card in %lldms\n", slot, static_cast<long long>(kAfterSpawn.count()));
+}
+
+void WelcomeObserveRoundStart() {
+  // A round (re)start respawns everyone and clears the center panel: a card that is waiting or
+  // showing starts (again) once the round has settled.
+  const auto at = Clock::now() + kAfterRoundStart;
+  std::lock_guard<std::mutex> lk(g_mu);
+  for (auto& kv : g_slots) {
+    SlotState& s = kv.second;
+    if (!s.active || s.waitingSpawn) continue;
+    if (s.respawnRestarts >= 3) continue;
+    ++s.respawnRestarts;
+    s.startAt = std::max(s.startAt, at);
+    s.nextSend = s.startAt;
+  }
 }
 
 void WelcomeObserveLogLine(const std::string& line) {
