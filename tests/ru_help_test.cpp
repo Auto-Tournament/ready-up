@@ -26,15 +26,16 @@ int main() {
   CHECK(lines[1] == ".ru hello: plugin");
   CHECK(lines[2] == ".ru map: match plugin");
   CHECK(lines[3] == ".ru match: match plugin");
-  CHECK(lines[4] == ".ru plugin: plugins: list, load, reload, enable, disable");
+  CHECK(lines[4] == ".ru plugin: plugins: list, load, reload, enable, disable, perf");
   CHECK(lines[5] == ".ru practice: practice plugin");
   CHECK(lines[6] == ".ru reload: reload readyup.cfg");
   CHECK(lines.back() == "Players: .help");
   CHECK(RuMainHelpLines({}).size() == 1 + 4 + 1);
   for (const auto& l : lines) CHECK(l.size() < 120);  // one short chat line each
 
-  CHECK(CoreRuSubHelpLines("plugin").size() == 4 && Has(CoreRuSubHelpLines("plugin")[2], "reload <name>"));
+  CHECK(CoreRuSubHelpLines("plugin").size() == 5 && Has(CoreRuSubHelpLines("plugin")[2], "reload <name>"));
   CHECK(Has(CoreRuSubHelpLines("plugin")[3], "enable|disable <name>"));
+  CHECK(Has(CoreRuSubHelpLines("plugin")[4], "perf [reset]"));
   CHECK(!CoreRuSubHelpLines("reload").empty() && !CoreRuSubHelpLines("selftest").empty());
   CHECK(CoreRuSubHelpLines("match").empty());  // a plugin's: forwarded as `.ru match help`
 

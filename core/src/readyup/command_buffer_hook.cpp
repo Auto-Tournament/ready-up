@@ -112,6 +112,11 @@ static bool HandleRuCommandLine(const std::string& line) {
     return true;
   }
 
+  if (parts[1] == "perf") {  // `ru perf [reset]` = `ru plugin perf [reset]`
+    std::vector<std::string> args(parts.begin() + 1, parts.end());
+    plugins::HandlePluginCommand(args, /*replyToChat=*/false);
+    return true;
+  }
   if (parts[1] == "plugin" || parts[1] == "plugins") {
     const std::vector<std::string> args(parts.begin() + 2, parts.end());
     plugins::HandlePluginCommand(args, /*replyToChat=*/false);

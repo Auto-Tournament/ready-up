@@ -12,7 +12,7 @@ const std::vector<std::string>& CoreRuMainCommands() {
 
 std::vector<std::string> RuMainHelpLines(const std::vector<std::string>& pluginMains) {
   static const std::map<std::string, std::string> kCore = {
-      {"plugin", "plugins: list, load, reload, enable, disable"},
+      {"plugin", "plugins: list, load, reload, enable, disable, perf"},
       {"reload", "reload readyup.cfg"},
       {"selftest", "engine / plugin check, PASS or FAIL"},
       {"version", "the Ready Up build"},
@@ -37,7 +37,8 @@ std::vector<std::string> CoreRuSubHelpLines(const std::string& main) {
   if (main == "plugin" || main == "plugins") {
     return {".ru plugin: Ready Up plugins (admin)", ".ru plugin list: loaded plugins",
             ".ru plugin load|unload|reload <name>: csgo/readyup/plugins/<name>.so, until a restart",
-            ".ru plugin enable|disable <name>: load / unload it and keep it that way after a restart"};
+            ".ru plugin enable|disable <name>: load / unload it and keep it that way after a restart",
+            ".ru plugin perf [reset]: time each plugin takes per server frame (console: ru perf)"};
   }
   if (main == "reload") return {".ru reload: reload readyup.cfg; plugins re-read their settings (admin)"};
   if (main == "selftest") return {".ru selftest: engine surface, hooks, features, plugins; PASS/FAIL (admin)"};

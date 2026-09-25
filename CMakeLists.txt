@@ -47,6 +47,7 @@ add_library(server_shim SHARED
   core/src/readyup/ru_help.cpp
   core/src/readyup/ru_help_text.cpp
   core/src/readyup/ru_router.cpp
+  core/src/readyup/perf_stats.cpp
   core/src/readyup/center_panel_owner.cpp
   core/src/readyup/steam_ugc.cpp
   core/src/readyup/server_game_clients_hook.cpp
@@ -287,7 +288,7 @@ set_target_properties(readyup_plugin_hello_reload_test PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test")
 target_compile_definitions(readyup_plugin_hello_reload_test PRIVATE HELLO_VERSION="1.0.1-reloaded")
 
-add_executable(readyup_plugin_host_test tools/plugin_host_test.cpp core/src/readyup/plugin_loader.cpp
+add_executable(readyup_plugin_host_test tools/plugin_host_test.cpp core/src/readyup/plugin_loader.cpp core/src/readyup/perf_stats.cpp
   core/src/readyup/plugin_state.cpp libs/readyup/minijson.cpp)
 target_include_directories(readyup_plugin_host_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(readyup_plugin_host_test PRIVATE -Wall -Wextra)
@@ -337,6 +338,12 @@ target_link_libraries(readyup_load_order_test PRIVATE dl)
 add_executable(readyup_ru_help_test tests/ru_help_test.cpp core/src/readyup/ru_help_text.cpp)
 target_include_directories(readyup_ru_help_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
 target_compile_options(readyup_ru_help_test PRIVATE -Wall -Wextra)
+
+# Plugin time per server frame, `ru perf` (core/src/readyup/perf_stats.h).
+add_executable(readyup_perf_stats_test tests/perf_stats_test.cpp core/src/readyup/perf_stats.cpp)
+target_include_directories(readyup_perf_stats_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
+target_compile_options(readyup_perf_stats_test PRIVATE -Wall -Wextra)
+add_test(NAME perf_stats COMMAND readyup_perf_stats_test)
 
 # One center panel per player (core/src/readyup/center_panel_owner.h).
 add_executable(readyup_center_panel_owner_test tests/center_panel_owner_test.cpp core/src/readyup/center_panel_owner.cpp)
