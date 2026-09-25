@@ -93,7 +93,7 @@ updates keep it. A file that is broken or from a newer version is moved to
 | File (under `game/csgo/readyup/plugins/`) | What | Written by |
 |---|---|---|
 | `match/state.json` | persisted settings (`ru_webhook_url`, `ru_heartbeat_url`, `ru_match_token`, `ru_admins_url`, ...) and the crash-recovery match state | the match plugin |
-| `match/admins.json` | standalone admins ([ADMINS.md](ADMINS.md)) | `ru admins add/remove`, or by hand |
+| `essentials/admins.json` | standalone admins ([ADMINS.md](ADMINS.md)); copied once from the old `match/admins.json` | `ru admins add/remove`, or by hand |
 | `match/fleet-admins.json` | fleet mode: cached platform admin list | the match plugin |
 | `skins/loadouts.json` | standalone skins loadouts ([json-contract.md](../plugins/skins/docs/json-contract.md)) | you / a web tool / `scripts/seed-dev-skins.py` |
 | `skins/stattrak.json` | standalone StatTrak counters | the skins plugin |

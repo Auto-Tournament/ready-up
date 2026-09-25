@@ -11,9 +11,10 @@
 #
 # Usage: install.sh [BUNDLE|COMPONENT ...] [options]
 #
-#   essentials   core + match + fleet + practice (default for a fresh install; no skins)
-#   full         core + match + fleet + practice + skins + hello + midas + whitelist
-#   core | match | fleet | practice | skins | hello | midas | whitelist   single components (core is always included).
+#   essentials   core + essentials + match + fleet + practice (default for a fresh install; no skins)
+#   full         core + essentials + match + fleet + practice + skins + hello + midas + whitelist
+#   core | match | fleet | practice | skins | hello | midas | whitelist   single components
+#                (the essentials plugin comes with the bundles; --remove essentials drops it) (core is always included).
 #                fleet links the server to the Auto Tournament platform; it stays idle until
 #                cfg/ReadyUp/fleet.cfg (or readyup.cfg [fleet]) sets a url
 #
@@ -43,13 +44,14 @@ set -euo pipefail
 REPO="${READYUP_REPO:-Auto-Tournament/ready-up}"
 API="${READYUP_API:-https://api.github.com}"
 GAME_PATH="csgo/readyup"
-COMPONENTS=(core match fleet skins hello midas whitelist practice)
-declare -A LABEL=([core]="Core" [match]="Match" [fleet]="Fleet" [skins]="Skins" [hello]="Hello" [midas]="Midas" [whitelist]="Whitelist" [practice]="Practice")
+COMPONENTS=(core match fleet skins hello midas whitelist practice essentials)
+declare -A LABEL=([core]="Core" [match]="Match" [fleet]="Fleet" [skins]="Skins" [hello]="Hello" [midas]="Midas" [whitelist]="Whitelist" [practice]="Practice" [essentials]="Essentials")
 declare -A NOTE=([core]="required" [match]="ready-up, knife, pauses, webhooks"
   [fleet]="link to the Auto Tournament platform (idle until configured)" [skins]="may get servers banned"
   [hello]="example plugin" [midas]="fun: gold weapons (off until enabled)"
   [whitelist]="only listed players may join (off until turned on)"
-  [practice]="practice mode + tools (.prac, .savepos, .rethrow, .bot)")
+  [practice]="practice mode + tools (.prac, .savepos, .rethrow, .bot)"
+  [essentials]="admins + map commands (needed for admins without a match config)")
 
 DIR="."
 VERSION=""
@@ -97,8 +99,8 @@ while [[ $# -gt 0 ]]; do
       if [[ -f "$0" ]]; then usage; else say "See https://github.com/$REPO#install"; fi
       exit 0
       ;;
-    essentials) WANT+=(core match fleet practice); BUNDLE_FLEET=1; shift ;;
-    full) WANT+=(core match fleet practice skins hello midas whitelist); WANT_FULL=1; BUNDLE_FLEET=1; shift ;;
+    essentials) WANT+=(core essentials match fleet practice); BUNDLE_FLEET=1; shift ;;
+    full) WANT+=(core essentials match fleet practice skins hello midas whitelist); WANT_FULL=1; BUNDLE_FLEET=1; shift ;;
     core | match | fleet | skins | hello | midas | whitelist | practice) WANT+=("$1"); shift ;;
     *) die "unknown argument: $1 (see --help)" ;;
   esac
@@ -109,7 +111,7 @@ case "$ACCEPT_LICENSE" in
   *) die "--accept-license must be noncommercial or commercial (got: $ACCEPT_LICENSE)" ;;
 esac
 for c in "${REMOVE[@]}"; do
-  case "$c" in match | fleet | skins | hello | midas | whitelist | practice) ;; core) die "core can't be removed on its own; use --uninstall" ;; *) die "unknown component: $c" ;; esac
+  case "$c" in match | fleet | skins | hello | midas | whitelist | practice | essentials) ;; core) die "core can't be removed on its own; use --uninstall" ;; *) die "unknown component: $c" ;; esac
 done
 
 # ---- requirements ---------------------------------------------------------------------------
@@ -258,7 +260,7 @@ if [[ $UNINSTALL -eq 1 ]]; then
   else
     warn "patch_gameinfo.py is missing; remove the \"Game $GAME_PATH\" line from gameinfo.gi by hand"
   fi
-  for c in practice whitelist midas hello skins fleet match core; do
+  for c in essentials practice whitelist midas hello skins fleet match core; do
     [[ -n "${INSTALLED[$c]:-}" || -f "$RU/manifests/$c.json" ]] || continue
     remove_component "$c"
     ok "removed $c"
@@ -446,7 +448,7 @@ else
   while IFS=$'\t' read -r kind a b; do
     case "$kind" in
       tag) RELEASE_TAG="$a" ;;
-      asset) c="${a#ready-up-}"; c="${c%%-*}"; ASSET_URL[$c]="$b"; AVAIL[$c]="${RELEASE_TAG#v}" ;;
+      asset) ASSET_URL[$a]="$b"; AVAIL[$a]="${RELEASE_TAG#v}" ;;
       sums) SUMS="$b" ;;
     esac
   done < <(python3 - "$WORK/release.json" "$WORK/notes.txt" <<'PY'
@@ -458,8 +460,12 @@ for a in rel.get("assets", []):
     name, url = a.get("name", ""), a.get("browser_download_url", "")
     if name == "SHA256SUMS":
         print("sums\t%s\t%s" % (name, url))
-    elif re.match(r"^ready-up-(core|match|fleet|skins|hello|midas|whitelist|practice)-.*\.zip$", name):
-        print("asset\t%s\t%s" % (name, url))
+    elif name.startswith("ready-up-essentials-plugin-") and name.endswith(".zip"):
+        print("asset\tessentials\t%s" % url)  # the plugin; ready-up-essentials-<v> is the bundle
+    else:
+        m = re.match(r"^ready-up-(core|match|fleet|skins|hello|midas|whitelist|practice)-.*\.zip$", name)
+        if m:
+            print("asset\t%s\t%s" % (m.group(1), url))
 PY
   )
   RELEASE_NOTES="$(cat "$WORK/notes.txt")"
@@ -486,10 +492,12 @@ declare -A SEL=()
 for c in "${COMPONENTS[@]}"; do
   [[ -n "${INSTALLED[$c]:-}" ]] && SEL[$c]=1 || SEL[$c]=0
 done
-if [[ ${#INSTALLED[@]} -eq 0 ]]; then SEL[core]=1 SEL[match]=1 SEL[fleet]=1 SEL[practice]=1 BUNDLE_FLEET=1; fi
+if [[ ${#INSTALLED[@]} -eq 0 ]]; then SEL[core]=1 SEL[essentials]=1 SEL[match]=1 SEL[fleet]=1 SEL[practice]=1 BUNDLE_FLEET=1; fi
 # Practice mode moved out of match.so into its own plugin: servers that have match get it on
 # their next update (untick it to go without).
 if [[ -n "${INSTALLED[match]:-}" && -z "${INSTALLED[practice]:-}" ]]; then SEL[practice]=1 BUNDLE_FLEET=1; fi
+# Admins and map commands moved out of match.so into the essentials plugin: same.
+if [[ -n "${INSTALLED[match]:-}" && -z "${INSTALLED[essentials]:-}" ]]; then SEL[essentials]=1 BUNDLE_FLEET=1; fi
 SEL[core]=1
 
 TTY_OK=0
@@ -616,7 +624,7 @@ fi
 keep=()
 for c in "${TO_INSTALL[@]}"; do
   if [[ -z "${AVAIL[$c]:-}" ]]; then
-    [[ ( "$c" == fleet || "$c" == practice ) && $BUNDLE_FLEET -eq 1 ]] && continue
+    [[ ( "$c" == fleet || "$c" == practice || "$c" == essentials ) && $BUNDLE_FLEET -eq 1 ]] && continue
     [[ "$c" == core && -n "${INSTALLED[core]:-}" ]] && continue
   fi
   keep+=("$c")
@@ -690,7 +698,7 @@ for c in "${!INSTALLED[@]}"; do BEFORE[$c]="${INSTALLED[$c]}"; done
 
 # Core first (the patcher and the plugin host come with it).
 ordered=()
-for c in core match fleet practice skins hello midas whitelist; do
+for c in core essentials match fleet practice skins hello midas whitelist; do
   for t in "${TO_INSTALL[@]}"; do [[ "$t" == "$c" ]] && ordered+=("$c"); done
 done
 for c in "${ordered[@]}"; do
@@ -719,10 +727,10 @@ done
 
 write_state
 patch_all_gameinfo
-if [[ -f "$BIN/readyup_db.json" && ! -f "$RU/plugins/match/admins.json" ]]; then
+if [[ -f "$BIN/readyup_db.json" && ! -f "$RU/plugins/match/admins.json" && ! -f "$RU/plugins/essentials/admins.json" ]]; then
   warn "readyup_db.json found: Ready Up no longer uses Postgres. Copy admins, settings and skins into JSON once:"
   say "    python3 $RU/tools/migrate-postgres-to-json.py --csgo $CSGO   (INSTALL.md, \"Upgrading from Postgres\")"
-elif [[ ! -f "$RU/plugins/match/admins.json" ]]; then
+elif [[ ! -f "$RU/plugins/match/admins.json" && ! -f "$RU/plugins/essentials/admins.json" ]]; then
   say "  ${D}no admins yet: run ${N}ru admins add <steamid64>${D} in the server console (ADMINS.md)${N}"
 fi
 

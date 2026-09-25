@@ -132,18 +132,19 @@ echo "core:";       no_skins core;       check_manifests "$WORK/core" core; core
 echo "match:";      no_skins match;      check_manifests "$WORK/match" match; has_match match
 echo "fleet:";      no_skins fleet;      check_manifests "$WORK/fleet" fleet; has_fleet fleet
 if [[ -e "$WORK/fleet/readyup/plugins/match.so" ]]; then bad "fleet contains match.so"; else ok "fleet: no match.so"; fi
-echo "essentials:"; no_skins essentials; check_manifests "$WORK/essentials" core match fleet practice; has_match essentials; has_fleet essentials; has_notices essentials
+echo "essentials:"; no_skins essentials; check_manifests "$WORK/essentials" core essentials match fleet practice; has_match essentials; has_fleet essentials; has_notices essentials
 echo "hello:";      no_skins hello;      check_manifests "$WORK/hello" hello
 echo "midas:";      no_skins midas;      check_manifests "$WORK/midas" midas
 echo "whitelist:";  no_skins whitelist;  check_manifests "$WORK/whitelist" whitelist
 echo "practice:";   no_skins practice;   check_manifests "$WORK/practice" practice
+echo "essentials-plugin:"; no_skins essentials-plugin; check_manifests "$WORK/essentials-plugin" essentials
 if [[ -e "$WORK/essentials/readyup/plugins/practice.so" ]]; then ok "essentials has practice.so"; else bad "essentials lacks practice.so"; fi
 for b in core essentials; do
   if [[ -e "$WORK/$b/readyup/plugins/midas.so" ]]; then bad "$b contains midas.so"; else ok "$b: no midas.so"; fi
 done
 echo "skins:";      has_skins skins;     check_manifests "$WORK/skins" skins
 echo "full:";       has_skins full; has_match full; has_fleet full; has_notices full
-full_components=(core match fleet practice skins hello midas whitelist)
+full_components=(core essentials match fleet practice skins hello midas whitelist)
 [[ -f "$WORK/full/readyup/manifests/tools.json" ]] && full_components+=(tools)
 check_manifests "$WORK/full" "${full_components[@]}"
 
