@@ -47,6 +47,7 @@ add_library(server_shim SHARED
   core/src/readyup/ru_help.cpp
   core/src/readyup/ru_help_text.cpp
   core/src/readyup/ru_router.cpp
+  core/src/readyup/steam_ugc.cpp
   core/src/readyup/server_game_clients_hook.cpp
   core/src/readyup/schema.cpp
   core/src/readyup/selftest.cpp

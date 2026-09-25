@@ -145,7 +145,7 @@ The match flow: scrim ready-up with a center-screen panel, knife round and side 
 
 <br />
 
-Server basics kept apart from the match flow, so every kind of server has them: the admins list (`ru admins`, `plugins/essentials/admins.json`) and `.ru map change <name|workshop id|link>` / `reload` / `restart` (refused during a live map unless `force`). A practice-only server is core + essentials + practice; an esports server can run core + match alone. In both bundles.
+Server basics kept apart from the match flow, so every kind of server has them: the admins list (`ru admins`, `plugins/essentials/admins.json`) and `.ru map change <name|workshop id|link>` / `reload` / `restart` (refused during a live map unless `force`). While the server downloads a Workshop map, everyone sees a progress bar in the center of the screen. A practice-only server is core + essentials + practice; an esports server can run core + match alone. In both bundles.
 
 </details>
 

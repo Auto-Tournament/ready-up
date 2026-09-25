@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 3
+#define READYUP_PLUGIN_API_VERSION_MINOR 4
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -509,7 +509,20 @@ typedef struct ru_api {
    */
   int (*entity_set_abs_origin)(ru_plugin* self, void* entity, const float* origin);
 
-  /* v1.4+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.4 ============================================================
+   * Appended in 1.4. Require 1.4 in ru_plugin_info.api_version, or check RU_API_HAS().
+   */
+
+  /*
+   * Steam Workshop download progress of item `workshop_id` on this server (what
+   * `host_workshop_map <id>` fetches): ISteamUGC::GetItemDownloadInfo through Steam's flat C API
+   * in libsteam_api.so (no signature scan). *downloaded / *total in bytes (total 0 until Steam
+   * knows the size). Any thread. 1 = Steam reported progress, 0 = no download info (not
+   * downloading, already installed, or the Steam UGC interface is unavailable).
+   */
+  int (*workshop_download_progress)(ru_plugin* self, uint64_t workshop_id, uint64_t* downloaded, uint64_t* total);
+
+  /* v1.5+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

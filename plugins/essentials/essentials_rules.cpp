@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <cstdlib>
 
 namespace essentials {
@@ -116,6 +117,47 @@ std::string MapArgToEntry(const std::string& arg) {
 
 bool MapCommandBlocked(const std::string& ruMode) {
   return ruMode == "match_live" || ruMode == "match_knife" || ruMode == "knife";
+}
+
+namespace {
+
+std::string EscapeHtml(const std::string& s) {
+  std::string o;
+  for (char ch : s) {
+    if (ch == '<') o += "&lt;";
+    else if (ch == '>') o += "&gt;";
+    else if (ch == '&') o += "&amp;";
+    else if (ch == '"' || ch == '\'') o += ' ';
+    else o += ch;
+  }
+  return o;
+}
+
+std::string Repeat(const char* s, int n) {
+  std::string o;
+  for (int i = 0; i < n; ++i) o += s;
+  return o;
+}
+
+}  // namespace
+
+std::string DownloadPanelHtml(const std::string& name, uint64_t downloaded, uint64_t total, int segments) {
+  if (segments < 1) segments = 1;
+  if (total > 0 && downloaded > total) downloaded = total;
+  const double frac = total > 0 ? static_cast<double>(downloaded) / static_cast<double>(total) : 0.0;
+  const int filled = static_cast<int>(frac * segments + 1e-9);
+  char stats[96];
+  if (total > 0) {
+    std::snprintf(stats, sizeof stats, "%.1f%% &#183; %.1f / %.1f MB", frac * 100.0, downloaded / 1048576.0,
+                  total / 1048576.0);
+  } else {
+    std::snprintf(stats, sizeof stats, "waiting for Steam...");
+  }
+  std::string h = "<font class='fontSize-l' color='#ffffff'>Downloading " + EscapeHtml(name) + "</font><br>";
+  if (filled > 0) h += "<font color='#4ade80'>" + Repeat("\u2588", filled) + "</font>";
+  if (filled < segments) h += "<font color='#3f3f46'>" + Repeat("\u2588", segments - filled) + "</font>";
+  h += "<br><font class='fontSize-m' color='#d4d4d8'>" + std::string(stats) + "</font>";
+  return h;
 }
 
 }  // namespace essentials

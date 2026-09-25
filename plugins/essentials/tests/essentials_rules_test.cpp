@@ -49,6 +49,19 @@ int main() {
   CHECK(MapArgToEntry("https://example.com/?id=5") == "https://example.com/?id=5");
   for (const char* m : {"match_live", "match_knife", "knife"}) CHECK(MapCommandBlocked(m));
   for (const char* m : {"", "idle", "practice", "scrim_warmup", "match_warmup", "postgame"}) CHECK(!MapCommandBlocked(m));
+  {
+    const std::string h = DownloadPanelHtml("de_<x>", 50, 100, 10);
+    CHECK(h.find("de_&lt;x&gt;") != std::string::npos);
+    CHECK(h.find("50.0%") != std::string::npos);
+    CHECK(h.find("<font color='#4ade80'>\u2588\u2588\u2588\u2588\u2588</font>") != std::string::npos);
+    CHECK(h.find("<font color='#3f3f46'>\u2588\u2588\u2588\u2588\u2588</font>") != std::string::npos);
+    const std::string w = DownloadPanelHtml("m", 0, 0, 10);
+    CHECK(w.find("waiting for Steam") != std::string::npos);
+    CHECK(w.find("#4ade80") == std::string::npos);
+    const std::string f = DownloadPanelHtml("m", 300, 200, 10);  // clamped
+    CHECK(f.find("100.0%") != std::string::npos);
+    CHECK(f.find("#3f3f46") == std::string::npos);
+  }
   std::printf("essentials_rules_test: %s\n", g_failures ? "FAIL" : "PASS");
   return g_failures ? 1 : 0;
 }
