@@ -22,6 +22,28 @@ using namespace fleet;
 
 namespace {
 
+// Payloads that match the step-3 schemas (protocol/v1/messages/event.*.json, state.snapshot):
+// CheckSchemas() validates every frame, so the transport tests send real shapes.
+std::string Ev(const std::string& data, int rev = 1) {
+  return R"({"match_id":"m1","map_number":1,"rev":)" + std::to_string(rev) + R"(,"patch":{"live_rev":)" +
+         std::to_string(rev) + R"(},"data":)" + data + "}";
+}
+std::string RoundEnd(int round) {
+  return Ev(R"({"round":{"round_number":)" + std::to_string(round) +
+                R"(,"winner_side":3,"winner_team":1,"reason":8,"team1_score":1,"team2_score":0,"team1_was_ct":true,"players":[]}})",
+            round);
+}
+const char* kMapResultData =
+    R"({"type":"map_result","winner":"team1","team1_series_score":1,"team2_series_score":0,"map_number":1,)"
+    R"("map_name":"de_dust2","team1_score":13,"team2_score":5,"series_over":true,"stats":{"live":false,)"
+    R"("team1_is_ct":true,"team1":{"score":13,"score_ct":7,"score_t":6},"team2":{"score":5,"score_ct":2,"score_t":3},)"
+    R"("players":[],"rounds":[]}})";
+const char* kSeriesEndData = R"({"type":"series_end","winner":"team1","team1_series_score":1,"team2_series_score":0})";
+const char* kState =
+    R"({"match_id":"m1","epoch":2,"config_rev":1,"live_rev":0,"phase":"warmup","series":{"num_maps":1,)"
+    R"("current_map":1,"score":{"team1":0,"team2":0},"maps":{}},"teams":{"team1":{"name":"A","score":0,"players":{}},)"
+    R"("team2":{"name":"B","score":0,"players":{}}}})";
+
 std::string TempDir() {
   char tmpl[] = "/tmp/fleet_it_XXXXXX";
   const char* d = mkdtemp(tmpl);
@@ -190,12 +212,32 @@ TEST(TestEnrollConnectPingAck) {
   CHECK(p.WaitFor([&] { return !p.MessagesOfType("pong").empty(); }, 2000));
   CHECK_EQ(p.MessagesOfType("pong").at(0).payload()->Get("t")->AsInt(), int64_t(424242));
   // server -> platform reliable: seq 1, acked, spool drained
-  CHECK(c.Send("event.phase", R"({"from":"warmup","to":"live"})", 3, true, &err));
+  CHECK(c.Send("event.phase", Ev(R"({"from":"warmup","to":"live","reason":"flow"})"), 3, true, &err));
   CHECK(p.WaitFor([&] { return !p.MessagesOfType("event.phase").empty(); }, 2000));
   const auto ev = p.MessagesOfType("event.phase").at(0);
   CHECK_EQ(ev.seq(), int64_t(1));
   CHECK_EQ(ev.env.Get("epoch")->AsInt(), int64_t(3));
   CHECK(p.WaitFor([&] { return c.Status().ackedSeq == 1 && c.Status().spoolMsgs == 0; }, 2000));
+  // Queue order is kept between reliable and ephemeral messages: a snapshot queued between two
+  // events goes out between them (the platform applies patches on top of it).
+  c.SetState(kState, "busy");
+  CHECK(c.Send("event.phase", Ev(R"({"from":"live","to":"paused","reason":"flow"})", 2), 3, true, &err));
+  CHECK(c.SendSnapshot("assign", ""));
+  CHECK(c.Send("state.patch", R"({"match_id":"m1","rev":3,"patch":{"live_rev":3}})", 3, true, &err));
+  CHECK(p.WaitFor([&] { return !p.MessagesOfType("state.patch").empty(); }, 2000));
+  {
+    int iPhase = -1, iSnap = -1, iPatch = -1, i = 0;
+    for (const auto& m : p.Messages()) {
+      if (m.type() == "event.phase" && m.seq() == 2) iPhase = i;
+      if (m.type() == "state.snapshot" && m.payload()->Get("reason")->AsStr() == "assign") iSnap = i;
+      if (m.type() == "state.patch") iPatch = i;
+      ++i;
+    }
+    CHECK(iPhase >= 0 && iPhase < iSnap && iSnap < iPatch);
+    const auto snap = p.MessagesOfType("state.snapshot").back();
+    CHECK_EQ(snap.env.Get("epoch")->AsInt(), int64_t(2));  // the published state's epoch
+    CHECK_EQ(snap.payload()->Get("config_rev")->AsInt(), int64_t(1));
+  }
   CHECK(!c.Send("hello", "{}", 0, true, &err));        // reserved type
   CHECK(!c.Send("event.x", "[1]", 0, true, &err));     // payload must be an object
   // platform -> server reliable, unknown type: error{unknown_type} + ack
@@ -248,7 +290,7 @@ TEST(TestReconnectResumeReset) {
   CHECK_EQ(c.Status().resume, std::string("resumed"));
   // 2. messages the platform receives but never commits: drop, resume from its seq
   p.autoAck = false;
-  for (int i = 1; i <= 3; ++i) CHECK(c.Send("event.round_end", "{\"round\":" + std::to_string(i) + "}", 1, true, &err));
+  for (int i = 1; i <= 3; ++i) CHECK(c.Send("event.round_end", RoundEnd(i), 1, true, &err));
   CHECK(p.WaitFor([&] { return p.MessagesOfType("event.round_end").size() == 3; }, 2000));
   CHECK_EQ(c.Status().spoolMsgs, uint32_t(3));
   p.SetPlatformRxSeq(stream, 1);  // only seq 1 was committed
@@ -267,7 +309,7 @@ TEST(TestReconnectResumeReset) {
   // Only the very first session (a stream the platform did not know yet) was a reset.
   CHECK_EQ(p.MessagesOfType("state.snapshot").size(), size_t(1));
   // 3. platform forgot the stream: welcome says reset -> replay, then a state.snapshot
-  c.SetState(R"({"match_id":"m1","epoch":2})", "busy");
+  c.SetState(kState, "busy");
   p.forgetStreams = true;
   p.CloseCurrent(4503, "deploy");
   CHECK(p.WaitFor([&] { return p.MessagesOfType("state.snapshot").size() >= 2; }, 5000));
@@ -303,8 +345,8 @@ TEST(TestResumeAfterRestart) {
     CHECK(WaitState(c, LinkState::Online, 5000));
     stream = StreamOf(p.MessagesOfType("hello").at(0));
     p.autoAck = false;
-    CHECK(c.Send("event.map_result", R"({"map_number":1})", 1, true, &err));
-    CHECK(c.Send("event.series_end", R"({"winner":"team1"})", 1, true, &err));
+    CHECK(c.Send("event.map_result", Ev(kMapResultData, 1), 1, true, &err));
+    CHECK(c.Send("event.series_end", Ev(kSeriesEndData, 2), 1, true, &err));
     CHECK(p.WaitFor([&] { return p.MessagesOfType("event.series_end").size() == 1; }, 2000));
     p.SetPlatformRxSeq(stream, 0);  // nothing committed
     c.Stop();
@@ -342,7 +384,11 @@ TEST(TestOfflineSpoolThenConnect) {
   CHECK(WaitState(c, LinkState::Online, 5000));
   p.Stop();  // platform down
   CHECK(WaitState(c, LinkState::Offline, 3000));
-  for (int i = 0; i < 5; ++i) CHECK(c.Send("event.player_ready", "{\"i\":" + std::to_string(i) + "}", 1, true, &err));
+  for (int i = 0; i < 5; ++i) CHECK(c.Send("event.player_ready",
+                                          Ev(R"({"steamid64":"7656119800000000)" + std::to_string(i) +
+                                                 R"(","team":"team1","ready_team1":1,"ready_team2":0,"required":5})",
+                                             i + 1),
+                                          1, true, &err));
   CHECK(p.WaitFor([&] { return c.Status().spoolMsgs == 5; }, 2000));
   CHECK(c.Status().offlineSinceMs > 0);
   mock::Platform p2;

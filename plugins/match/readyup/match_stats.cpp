@@ -591,4 +591,52 @@ std::recursive_mutex& Mutex() {
   return m;
 }
 
+
+int RewindTo(MapStats* m, int fromRound) {
+  if (!m || fromRound < 1) return 0;
+  auto dec = [](int& v, int by = 1) { v = v - by < 0 ? 0 : v - by; };
+  int dropped = 0;
+  bool sideSet = false;
+  std::vector<RoundSummary> kept;
+  for (const auto& r : m->rounds) {
+    if (r.round_number < fromRound) {
+      kept.push_back(r);
+      continue;
+    }
+    ++dropped;
+    if (!sideSet) {
+      m->team1_is_ct = r.team1_was_ct;
+      sideSet = true;
+    }
+    if (r.winner_team == 1 || r.winner_team == 2) {
+      TeamLine& t = r.winner_team == 1 ? m->team1 : m->team2;
+      const bool winnerCt = r.winner_team == 1 ? r.team1_was_ct : !r.team1_was_ct;
+      dec(t.score);
+      dec(winnerCt ? t.score_ct : t.score_t);
+    }
+    for (const auto& pr : r.players) {
+      auto it = std::find_if(m->players.begin(), m->players.end(), [&](const PlayerLine& p) { return p.id == pr.id; });
+      if (it == m->players.end()) continue;
+      PlayerStats& s = it->stats;
+      dec(s.kills, pr.kills);
+      dec(s.assists, pr.assists);
+      dec(s.flash_assists, pr.flash_assists);
+      dec(s.damage, pr.damage);
+      dec(s.utility_damage, pr.utility_damage);
+      dec(s.headshot_kills, pr.headshot_kills);
+      if (pr.died) dec(s.deaths);
+      if (pr.kast) dec(s.kast_rounds);
+      dec(s.rounds_played);
+      if (pr.mvp) dec(s.mvp);
+      if (pr.entry_kill) dec(pr.side == 2 ? s.entry_kills_t : s.entry_kills_ct);
+      if (pr.entry_death) dec(pr.side == 2 ? s.entry_deaths_t : s.entry_deaths_ct);
+      if (pr.traded) dec(s.traded_deaths);
+      if (pr.kills > 0) dec(s.multi_kills[static_cast<size_t>(std::min(pr.kills, 5) - 1)]);
+      if (pr.clutch_won && pr.clutch_vs >= 1 && pr.clutch_vs <= 5) dec(s.clutches_won[static_cast<size_t>(pr.clutch_vs - 1)]);
+    }
+  }
+  m->rounds = std::move(kept);
+  return dropped;
+}
+
 }  // namespace readyup::stats

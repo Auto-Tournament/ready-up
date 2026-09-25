@@ -40,6 +40,15 @@ std::pair<int, int> GetRosterTeamDamageTotals();
 // Engine slot of a connected player (ru_api slot_for_steamid), or nullopt. Game thread.
 std::optional<int> GameEventsSlotForSteam(uint64_t steamid64);
 
+// `World triggered "Match_Start"` (mp_restartgame, warmup end) while engine events drive the round
+// lifecycle: a fresh game, so the round counter, halftime / overtime bookkeeping and the event
+// totals start over (match_log.cpp does the same for its log-derived counters). Game thread.
+void MatchEventsOnMatchStart();
+// Round restore (fleet_bridge.cpp): mp_backup_restore_load_file ends the current round as a draw
+// (reason 10) right away; round ends in the next `seconds` are not a played round (no stats, no
+// webhook, no map-end check). Game thread.
+void MatchEventsIgnoreRoundEndsFor(double seconds);
+
 // Reload state (reload_state.cpp): the per-map round counters that are not in MatchState.
 struct MatchEventsState {
   int roundNumber = 0;

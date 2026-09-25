@@ -119,7 +119,12 @@ class Client {
   void RequestEnroll(const std::string& url, const std::string& secret);
 
   // Queue an outbound message. Reliable ones get a seq and are spooled by the network thread.
-  bool Send(const std::string& type, const std::string& payloadJson, int64_t epoch, bool reliable, std::string* err);
+  // `ref`: the id of the message this answers (cmd.result), empty = none.
+  bool Send(const std::string& type, const std::string& payloadJson, int64_t epoch, bool reliable, std::string* err,
+            const std::string& ref = {});
+  // state.snapshot {reason, state, availability, config_rev, admins_rev, ...extraJson} now (ephemeral,
+  // envelope epoch = state.epoch). False when not online (a snapshot is never spooled).
+  bool SendSnapshot(const std::string& reason, const std::string& extraJson);
 
   void SetHelloInfo(HelloInfo info);
   void UpdateHealth(int players, double tickMsP99);
@@ -145,6 +150,7 @@ class Client {
     std::string type, payload, ref;
     int64_t epoch = 0;
     bool reliable = false;
+    int64_t afterSeq = 0;  // ephemeral: spool seq it was queued after (keeps the queue order)
   };
   enum class SessionEnd { Stopped, Reconnect, Closed, NetError, HelloFailed };
   struct SessionResult {
@@ -167,7 +173,8 @@ class Client {
   void PushLocal(const std::string& type, const std::string& payloadJson);
   void PublishSpoolStatus();
   std::string BuildHello();
-  std::string BuildSnapshot(const char* reason);
+  // *epoch (optional) = the published state's epoch (0 = none).
+  std::string BuildSnapshot(const char* reason, const std::string& extraJson = {}, int64_t* epoch = nullptr);
   std::string WsUrl() const;
   void Log(int level, const std::string& msg) const;
 

@@ -203,7 +203,7 @@ void Client::RequestEnroll(const std::string& url, const std::string& secret) {
 }
 
 bool Client::Send(const std::string& type, const std::string& payloadJson, int64_t epoch, bool reliable,
-                  std::string* err) {
+                  std::string* err, const std::string& ref) {
   auto fail = [&](const std::string& why) {
     if (err) *err = why;
     return false;
@@ -223,7 +223,7 @@ bool Client::Send(const std::string& type, const std::string& payloadJson, int64
   {
     std::lock_guard<std::mutex> lk(mu_);
     if (outbox_.size() >= cfg_.outboxMax) return fail("outbox full");
-    outbox_.push_back(Out{type, std::move(payload), {}, epoch, reliable});
+    outbox_.push_back(Out{type, std::move(payload), ref, epoch, reliable, 0});
   }
   Wake();
   return true;
@@ -342,6 +342,7 @@ void Client::DrainOutbox(std::vector<Out>* ephemeral) {
   if (q.empty()) return;
   for (auto& o : q) {
     if (!o.reliable) {
+      o.afterSeq = spool_.lastSeq();  // goes out after the reliable messages queued before it
       if (ephemeral) ephemeral->push_back(std::move(o));
       continue;
     }
@@ -661,7 +662,7 @@ std::string Client::BuildHello() {
   return json::Dump(p);
 }
 
-std::string Client::BuildSnapshot(const char* reason) {
+std::string Client::BuildSnapshot(const char* reason, const std::string& extraJson, int64_t* epoch) {
   HelloInfo h;
   {
     std::lock_guard<std::mutex> lk(mu_);
@@ -671,11 +672,40 @@ std::string Client::BuildSnapshot(const char* reason) {
   p.Set("reason", json::Value::Str(reason));
   json::Value state;
   if (!json::Parse(h.stateJson, &state)) state = json::Value::Null();
+  // config_rev and the envelope epoch come from the MatchState the match plugin published.
+  int64_t configRev = 0;
+  if (state.IsObj()) {
+    if (const json::Value* v = state.Get("config_rev")) configRev = v->AsInt(0);
+    if (const json::Value* v = state.Get("epoch"); v && epoch) *epoch = v->AsInt(0);
+  }
   p.Set("state", std::move(state));
   p.Set("availability", json::Value::Str(h.availability));
-  p.Set("config_rev", json::Value::Int(0));
+  p.Set("config_rev", json::Value::Int(configRev));
   p.Set("admins_rev", json::Value::Int(0));
+  // Extra members from the match plugin (map_stats), never overriding the ones above.
+  json::Value extra;
+  if (!extraJson.empty() && json::Parse(extraJson, &extra) && extra.IsObj()) {
+    for (const auto& kv : extra.o) {
+      if (!p.Get(kv.first)) p.Set(kv.first, kv.second);
+    }
+  }
   return json::Dump(p);
+}
+
+bool Client::SendSnapshot(const std::string& reason, const std::string& extraJson) {
+  int64_t epoch = 0;
+  std::string payload = BuildSnapshot(reason.c_str(), extraJson, &epoch);
+  if (payload.size() > kMaxFrameBytes - 1024) {
+    payload = BuildSnapshot(reason.c_str(), {}, &epoch);  // drop map_stats rather than the snapshot
+  }
+  {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (status_.state != LinkState::Online) return false;  // ephemeral: nothing to replay later
+    if (outbox_.size() >= cfg_.outboxMax) return false;
+    outbox_.push_back(Out{"state.snapshot", std::move(payload), {}, epoch > 0 ? epoch : 0, false, 0});
+  }
+  Wake();
+  return true;
 }
 
 Client::SessionResult Client::RunSession() {
@@ -777,10 +807,12 @@ Client::SessionResult Client::RunSession() {
     e.epoch = r.epoch;
     if (sendEnv(e, r.payload)) s.lastSentSeq = r.seq;
   };
-  auto sendEphemeral = [&](const std::string& type, const std::string& payload, const std::string& ref = {}) {
+  auto sendEphemeral = [&](const std::string& type, const std::string& payload, const std::string& ref = {},
+                           int64_t epoch = 0) {
     Envelope e;
     e.type = type;
     e.ref = ref;
+    e.epoch = epoch;
     return sendEnv(e, payload);
   };
   auto finish = [&](SessionEnd end) {
@@ -879,7 +911,11 @@ Client::SessionResult Client::RunSession() {
     sendRecord(r);
     if (s.broken) break;
   }
-  if (!s.broken && reset) sendEphemeral("state.snapshot", BuildSnapshot("reset"));
+  if (!s.broken && reset) {
+    int64_t epoch = 0;
+    const std::string snap = BuildSnapshot("reset", {}, &epoch);
+    sendEphemeral("state.snapshot", snap, {}, epoch > 0 ? epoch : 0);
+  }
 
   // 4. steady state
   int64_t nextPing = MonotonicMs() + s.intervalMs;
@@ -895,22 +931,26 @@ Client::SessionResult Client::RunSession() {
       res.durationMs = MonotonicMs() - established;
       return finish(SessionEnd::Reconnect);
     }
-    // Outbound: new reliable messages (already spooled) and ephemeral ones.
+    // Outbound: new reliable messages (already spooled) and ephemeral ones, in the order the
+    // plugins queued them (a state.snapshot queued before an event goes out before it).
     eph.clear();
     DrainOutbox(&eph);
-    for (const auto& r : spool_.records()) {
-      if (r.seq <= s.lastSentSeq) continue;
-      sendRecord(r);
-      if (s.broken) break;
-    }
-    for (const auto& o : eph) {
-      if (s.broken) break;
+    size_t ei = 0;
+    auto sendEph = [&](const Out& o) {
       Envelope e;
       e.type = o.type;
       e.epoch = o.epoch;
       e.ref = o.ref;
       sendEnv(e, o.payload);
+    };
+    for (const auto& r : spool_.records()) {
+      if (r.seq <= s.lastSentSeq) continue;
+      while (ei < eph.size() && eph[ei].afterSeq < r.seq && !s.broken) sendEph(eph[ei++]);
+      if (s.broken) break;
+      sendRecord(r);
+      if (s.broken) break;
     }
+    while (ei < eph.size() && !s.broken) sendEph(eph[ei++]);
     // What the game thread finished handling.
     std::vector<int64_t> done;
     {
@@ -1006,10 +1046,12 @@ void Client::HandleInbound(Session& s, const std::string& text) {
   if (e.ack > 0) {
     spool_.AckUpTo(e.ack);
   }
-  auto sendEph = [&](const std::string& type, const json::Value& payload, const std::string& ref) {
+  auto sendEph = [&](const std::string& type, const json::Value& payload, const std::string& ref,
+                     int64_t epoch = 0) {
     Envelope o;
     o.type = type;
     o.ref = ref;
+    o.epoch = epoch;
     o.id = NewUlid(NowMs());
     o.ts = NowMs();
     const int64_t ack = rx_.processed();
@@ -1063,8 +1105,9 @@ void Client::HandleInbound(Session& s, const std::string& text) {
     if (!rx_.OnEphemeralId(e.id)) return;
     if (e.type == "state.request") {
       json::Value snap;
-      json::Parse(BuildSnapshot("request"), &snap);
-      sendEph("state.snapshot", snap, e.id);
+      int64_t epoch = 0;
+      json::Parse(BuildSnapshot("request", {}, &epoch), &snap);
+      sendEph("state.snapshot", snap, e.id, epoch > 0 ? epoch : 0);
       return;
     }
     if (!handled) return;  // unknown ephemeral: ignore (§5)

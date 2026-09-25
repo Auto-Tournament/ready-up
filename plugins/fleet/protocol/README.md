@@ -1,13 +1,67 @@
 # Fleet protocol schemas (server channel, v1)
 
+## Step 1: copied from the platform
+
 Copy of the normative JSON Schemas from the platform repo (docs/FLEET.md D18):
 `Auto-Tournament/auto-tournament`, `api/src/integrations/cs2/fleet/protocol/v1/**/*.json`,
-branch `feat/fleet-step1` at commit 4649814 (PR #386). Do not edit here; copy them again when the
-platform changes them:
+branch `feat/fleet-step1` at commit 4649814 (PR #386). Do not edit these here; copy them again when
+the platform changes them:
 
     cp -r <auto-tournament>/api/src/integrations/cs2/fleet/protocol/v1/{envelope,defs}.json \
           <auto-tournament>/api/src/integrations/cs2/fleet/protocol/v1/{messages,http} plugins/fleet/protocol/v1/
 
-`fleet_integration_test` (ctest `fleet_integration`) validates every frame fleet.so sends and every
-enrollment body against them with `tests/schema_check.cpp`, so a copy that no longer matches what
-fleet.so produces fails CI.
+Files: `envelope.json`, `defs.json`, `http/enroll.{request,response}.json`,
+`messages/{hello,welcome,ping,pong,ack,error,server.config,auth.rotate,auth.rotated}.json`.
+
+## Step 3: proposed here — the platform must adopt them
+
+**Status: proposed — platform must adopt.** Build-order step 3 (FLEET.md §7-§10, §12.3, §13) is
+implemented on the Ready Up side first. These schemas describe exactly what Ready Up sends and
+accepts; they are written in the platform's style (draft 2020-12, `$id` under
+`https://auto-tournament.dev/fleet/v1/`, refs into `defs.json`) so they can be copied into
+`api/src/integrations/cs2/fleet/protocol/v1/` unchanged. Once the platform has them, the platform
+repo is the source again (D18) and this section goes away. What the platform has to build to
+consume them: [`docs/fleet-step3-platform-notes.md`](../../../docs/fleet-step3-platform-notes.md).
+
+| File | Direction | Delivery | Answer |
+|---|---|---|---|
+| `match.defs.json` | shared `$defs`: MatchState, rules, assign config, InlineBackup, RoundSummary, MapStats, ... | | |
+| `messages/match.assign.json` | platform → server | reliable | `cmd.result` |
+| `messages/match.update.json` | platform → server | reliable | `cmd.result` (`rev` = config_rev) |
+| `messages/match.unassign.json` | platform → server | reliable | `cmd.result` |
+| `messages/cmd.json` | platform → server | reliable | `cmd.result` |
+| `messages/state.request.json` | platform → server | ephemeral | `state.snapshot` |
+| `messages/cmd.result.json` | server → platform | reliable (critical) | |
+| `messages/state.snapshot.json` | server → platform | ephemeral | |
+| `messages/state.patch.json` | server → platform | reliable | |
+| `messages/server.availability.json` | server → platform | reliable | |
+| `messages/event.<name>.json` (21) | server → platform | reliable | |
+
+Events: `player_connect`, `player_disconnect`, `player_team`, `player_ready`, `player_unready`,
+`phase`, `knife_result`, `side_picked`, `round_start`, `round_end`, `backup`, `pause`, `halftime`,
+`overtime`, `rounds_voided`, `map_result`, `series_end`, `demo`, `match_restored`, `forfeit`, `gg`
+(and `error`, reserved).
+
+Differences from the FLEET.md text, decided while implementing:
+
+- `match.assign` has an optional `config_rev` (default 1): the base for `match.update`.
+- `state.patch` is new: MatchState changes that are no event (connections, ready counts, scores,
+  names after `match.update`). It shares the `live_rev` sequence with `event.*`: every one of them
+  bumps `rev` by exactly 1, so "apply when `rev == stored + 1`" holds for both.
+- `state.snapshot.reason` adds `assign` (sent right after the assignment was acked).
+- `cmd.audit_id` (optional): the platform's audit row id; the server logs it and echoes it in
+  `cmd.result.audit_id` (D10, `exec`).
+- `cmd` names add the aliases `restart_round` (= `restore_round`) and `end` (= `end_match`).
+- The inline round backup event is `event.backup` (FLEET.md §8.1); `InlineBackup.round` is the round
+  the backup starts (CS2's `…roundNN.txt` holds NN rounds played, so `round` = NN + 1).
+- `series_end` from `cmd end_match` carries `forced: true` and `reason`.
+
+## Tests
+
+- `fleet_protocol` (`tests/fleet_protocol_test.cpp`): every schema loads and every example frame in
+  `examples/v1/` validates (envelope + payload); broken copies do not. `examples/v1/live.*.json`
+  are frames Ready Up really sent in the live test.
+- `fleet_integration`: every frame fleet.so sends is validated against these schemas
+  (`tests/schema_check.cpp`), so a schema that no longer matches what Ready Up produces fails CI.
+- `scripts/livetest/fleet_livetest.py`: a Python mock platform (`fleet_mock_platform.py`, Docker)
+  validates every frame of a real bot match with `jsonschema` (draft 2020-12).

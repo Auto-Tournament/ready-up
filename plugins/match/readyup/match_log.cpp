@@ -157,7 +157,10 @@ void LifecycleLocked(const std::string& line) {
   // mp_restartgame / warmup end: `World triggered "Match_Start"` right before the first
   // Round_Start of the fresh game. Reset the log-derived round counter + score.
   if (!isChat && line.find("World triggered \"Match_Start\"") != std::string::npos) {
-    if (GameEventsListenerInstalled()) return;
+    if (GameEventsListenerInstalled()) {
+      MatchEventsOnMatchStart();  // the engine-event counters start over too
+      return;
+    }
     g_roundNumber = 0;
     g_team1Score = 0;
     g_team2Score = 0;

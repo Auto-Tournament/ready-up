@@ -4,6 +4,7 @@
 #include "readyup/match_status.h"
 
 #include "readyup/demo_recorder.h"
+#include "readyup/fleet_bridge.h"
 #include "readyup/match_end.h"
 #include "readyup/match_state.h"
 #include "readyup/match_stats.h"
@@ -138,9 +139,11 @@ void MatchStatusInstall() {
   demo::AddListener(&OnDemoEvent);
 }
 
-int MatchStatusGet(ru_match_status* out) {
-  if (!out || out->struct_size < sizeof(uint32_t) + sizeof(int32_t)) return 0;
+namespace {
 
+// The summary fields, the MatchState of the loaded match / scrim (null when none) and
+// update_safe. Game thread.
+void Collect(Json* sOut, Json* stOut, bool* safeOut) {
   const ReadyUpMode mode = GetMode();
   const auto ctx = WebhookGetMatchContext();
   const bool scrim = ctx && ctx->slug == "scrim";
@@ -387,8 +390,34 @@ int MatchStatusGet(ru_match_status* out) {
     st["round"] = std::move(round);
   }
 
+  *sOut = std::move(s);
+  *stOut = ctx ? std::move(st) : Json();
+  *safeOut = safe;
+}
+
+}  // namespace
+
+status::Json MatchStatusStateJson() {
+  Json s, st;
+  bool safe = true;
+  Collect(&s, &st, &safe);
+  return st;
+}
+
+int MatchStatusGet(ru_match_status* out) {
+  if (!out || out->struct_size < sizeof(uint32_t) + sizeof(int32_t)) return 0;
+  Json s, st;
+  bool safe = true;
+  Collect(&s, &st, &safe);
+  // A platform-assigned match (docs/FLEET.md §9): /status shows the same MatchState the fleet
+  // link streams (platform match_id, epoch, config_rev, live_rev, rules, ...).
+  Json fleetState;
+  if (fleet_bridge::CurrentState(&fleetState)) {
+    st = std::move(fleetState);
+    if (!fleet_bridge::UpdateSafe()) safe = false;
+  }
   g_summary = s.Dump();
-  g_state = ctx ? st.Dump() : std::string();
+  g_state = st.IsNull() ? std::string() : st.Dump();
   g_mode = GetModeString();
 
   // Fill only what the caller's struct has room for.
@@ -396,7 +425,7 @@ int MatchStatusGet(ru_match_status* out) {
   r.struct_size = out->struct_size;
   r.update_safe = safe ? 1 : 0;
   r.summary_json = g_summary.c_str();
-  r.state_json = ctx ? g_state.c_str() : nullptr;
+  r.state_json = st.IsNull() ? nullptr : g_state.c_str();
   r.ru_mode = g_mode.c_str();
   const size_t n = out->struct_size < sizeof(r) ? out->struct_size : sizeof(r);
   std::memcpy(out, &r, n);

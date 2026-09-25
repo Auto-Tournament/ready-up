@@ -6,6 +6,7 @@
 #include "readyup/engine.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
+#include "readyup/match_signals.h"
 #include "readyup/match_state.h"
 #include "readyup/match_stats.h"
 #include "readyup/modes.h"
@@ -411,7 +412,27 @@ void EmitRoundEndLocked(int csWinnerTeamNum, int reason) {
   // the log-derived one.
   int mapScore1 = ms.team1_score;
   int mapScore2 = ms.team2_score;
-  (void)StatsOnRoundEndLocked(csWinnerTeamNum, reason, &mapScore1, &mapScore2);
+  const bool statsLive = StatsOnRoundEndLocked(csWinnerTeamNum, reason, &mapScore1, &mapScore2);
+  if (statsLive && signals::Enabled()) {
+    // event.round_end (docs/FLEET.md §8.1, §13): the round's own RoundSummary, queued before the
+    // map result OnMatchRoundEnded may trigger.
+    std::string rj;
+    int roundNo = -1;
+    {
+      std::lock_guard<std::recursive_mutex> slk(stats::Mutex());
+      const stats::MapStats snap = stats::Current().Snapshot();
+      if (!snap.rounds.empty()) {
+        rj = stats::ToJson(snap.rounds.back());
+        roundNo = snap.rounds.back().round_number;
+      }
+    }
+    status::Json round;
+    if (!rj.empty() && status::Json::Parse(rj, &round)) {
+      status::Json d = status::Json::Object();
+      d["round"] = std::move(round);
+      signals::Emit("round_end", std::move(d), roundNo, ms.map_number <= 0 ? 1 : ms.map_number);
+    }
+  }
   OnMatchRoundEnded(ms.map_number, mapScore1, mapScore2, ms.current_map);
 }
 
@@ -497,7 +518,13 @@ void OnRoundStartLocked(const PendingRound& ev) {
   StatsRegisterRoundPlayersLocked();
 }
 
+double g_ignoreRoundEndsUntil = 0.0;
+
 void OnRoundEndLocked(const PendingRound& ev) {
+  if (host::NowSeconds() < g_ignoreRoundEndsUntil) {
+    Print("match-events: round end (winner=%d reason=%d) ignored: backup restore\n", ev.winner, ev.reason);
+    return;
+  }
   const auto ms = MatchStateGet();
   MaybeResetForMapLocked(ms.map_number);
   if (GetMode() == ReadyUpMode::MatchKnife) {
@@ -614,6 +641,22 @@ void OnGameEvent(void* /*user*/, const char* name, const ru_game_event* ev) {
 }
 
 }  // namespace
+
+void MatchEventsOnMatchStart() {
+  std::lock_guard<std::recursive_mutex> lk(g_mu);
+  g_roundNumber = 0;
+  g_swapCount = 0;
+  g_lastHalfStartTotal = -1;
+  g_lastOvertimeNumber = 0;
+  g_stats.clear();
+  MatchStateSetRound(0);
+  MatchStateSetScore(0, 0);
+}
+
+void MatchEventsIgnoreRoundEndsFor(double seconds) {
+  std::lock_guard<std::recursive_mutex> lk(g_mu);
+  g_ignoreRoundEndsUntil = host::NowSeconds() + seconds;
+}
 
 void MatchEventsInstall(const ru_api* api) {
   static const char* const kEvents[] = {

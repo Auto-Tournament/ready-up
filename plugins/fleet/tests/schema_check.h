@@ -2,7 +2,8 @@
 // schemas in plugins/fleet/protocol/v1 (copied from the platform repo, FLEET.md D18). Tests use
 // it to check every frame fleet.so sends. Supported keywords: $ref (relative URIs + JSON
 // pointers), type, const, enum, required, properties, additionalProperties, pattern,
-// minLength/maxLength, minimum/maximum, items, maxItems, uniqueItems, maxProperties, oneOf.
+// minLength/maxLength, minimum/maximum, items, minItems/maxItems, uniqueItems, maxProperties,
+// propertyNames, oneOf, anyOf, allOf.
 // Annotations (title, description, ...) are ignored. Not for production use.
 #pragma once
 

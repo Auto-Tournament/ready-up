@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <string>
 
 namespace readyup {
 
@@ -11,10 +12,16 @@ struct PauseSnapshot {
   bool paused = false;
   bool team1_ready_to_unpause = false;
   bool team2_ready_to_unpause = false;
+  // Who paused and why (docs/FLEET.md §9.1 pause.type / pause.by): "tactical" | "technical" |
+  // "admin" | "offline"; `by` = SteamID64, "Console" or "platform:<user>"; team = the pausing team.
+  std::string type;
+  std::string by;
+  WebhookTeam team = WebhookTeam::Unknown;
 };
 
-// Marks paused (and resets unpause readiness).
-void PauseStateOnPaused();
+// Marks paused (and resets unpause readiness). type/by/team: see PauseSnapshot.
+void PauseStateOnPaused(const char* type = "tactical", const std::string& by = {},
+                        WebhookTeam team = WebhookTeam::Unknown);
 
 // Marks unpaused (clears state).
 void PauseStateOnUnpaused();

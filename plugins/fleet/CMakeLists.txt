@@ -24,6 +24,15 @@ target_compile_options(readyup_fleet_mock PRIVATE -Wall -Wextra)
 add_executable(fleet_mock_platform tests/mock_platform_main.cpp)
 target_link_libraries(fleet_mock_platform PRIVATE readyup_fleet_mock)
 
+# The protocol schemas (incl. the proposed step-3 ones) against the example frames in
+# protocol/examples/v1 (ctest `fleet_protocol`). No network, no libcurl.
+add_executable(fleet_protocol_test tests/fleet_protocol_test.cpp tests/schema_check.cpp)
+target_link_libraries(fleet_protocol_test PRIVATE readyup_fleet_core)
+target_compile_definitions(fleet_protocol_test PRIVATE FLEET_PROTOCOL_DIR="${CMAKE_CURRENT_SOURCE_DIR}/protocol/v1"
+  FLEET_EXAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/protocol/examples/v1")
+target_compile_options(fleet_protocol_test PRIVATE -Wall -Wextra)
+add_test(NAME fleet_protocol COMMAND fleet_protocol_test)
+
 set(FLEET_CURL_OK OFF)
 set(FLEET_CURL_INC "")
 set(FLEET_CURL_LIBS "")

@@ -205,6 +205,15 @@ std::string JsonEscape(const std::string& s);
 // Inverse of ToJson(const MapStats&). False if `json` is not such a document.
 bool FromJson(const std::string& json, MapStats* out);
 
+// Round restore (docs/FLEET.md §11.3, `rounds_voided`): drops rounds with round_number >=
+// fromRound from a map snapshot, with their contribution to the team scores and to every player
+// total a PlayerRound carries (kills, assists, flash assists, damage, utility damage, HS kills,
+// deaths, KAST, rounds played, MVPs, entry kills/deaths, traded deaths, multi-kills, clutches).
+// Totals PlayerRound does not carry (trade kills, team kills, suicides, knife kills, flashes, bomb
+// plants/defuses, scoreboard score) are kept. team1_is_ct becomes team1's side in the first
+// dropped round. Returns the number of rounds dropped.
+int RewindTo(MapStats* m, int fromRound);
+
 // Process-wide accumulator for the current map. Lock Mutex() around every access.
 StatsAccumulator& Current();
 std::recursive_mutex& Mutex();

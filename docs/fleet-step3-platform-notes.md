@@ -1,0 +1,166 @@
+# Fleet step 3: what the platform must build
+
+Ready Up implements build-order step 3 of [`FLEET.md`](FLEET.md) (§19.4 item 3: `match.assign` →
+events → normalizer, one match end to end on the fleet driver) on its side: `plugins/match`
+(`fleet_bridge.cpp`, `fleet_state.cpp`) over `readyup.fleet.v1`. The platform side
+(`Auto-Tournament/auto-tournament`) does not exist yet. This file is the task for it: everything the
+platform has to implement to consume what Ready Up now sends and to drive it. Section numbers
+(§) refer to `FLEET.md`.
+
+The wire contract is the set of JSON Schemas in
+[`plugins/fleet/protocol/v1`](../plugins/fleet/protocol/v1) marked **proposed** in its
+[README](../plugins/fleet/protocol/README.md). Real frames Ready Up sent during the live test are in
+[`plugins/fleet/protocol/examples/v1`](../plugins/fleet/protocol/examples/v1) (`live.*.json`).
+
+## 1. Adopt the schemas (D18)
+
+- Copy `match.defs.json` and `messages/{match.*,cmd,cmd.result,state.*,server.availability,event.*}.json`
+  into `api/src/integrations/cs2/fleet/protocol/v1/`. Nothing else changes (`envelope.json`,
+  `defs.json` are untouched).
+- `index.ts`: `ajv.addSchema(matchDefs)` next to `defs`, and add every new type to
+  `FLEET_MESSAGE_SCHEMAS`. `types.ts`: add the types to `FleetMessageType` and TS types for the
+  payloads (or generate them from the schemas).
+- `tests/api/fleet-protocol.spec.ts`: validate the files in `examples/v1` (copy them too).
+- Then Ready Up copies them back from the platform (its README's "copy" command) and the
+  "proposed" section there is deleted.
+
+## 2. Gateway (`/api/fleet/ws`)
+
+- Accept and ack the new reliable server types (`cmd.result`, `state.patch`, `event.*`,
+  `server.availability`); persist them in `cs2_fleet_events` (unique on stream id + seq) before
+  acking. Critical ones (§6.5): `event.round_end`, `event.backup`, `event.map_result`,
+  `event.series_end`, `event.demo`, `event.rounds_voided`, `event.match_restored`,
+  `event.forfeit`, `cmd.result`.
+- `state.snapshot` and `state.request` are ephemeral (no seq, never replayed).
+- Platform → server messages (`match.assign`, `match.update`, `match.unassign`, `cmd`) are
+  reliable, go into the outbound stream table and are replayed after a reconnect until acked.
+  Put the assignment's `epoch` in the **envelope** of every match-scoped message (Ready Up also
+  reads `payload.epoch`).
+- Every one of those gets **exactly one** `cmd.result` whose envelope `ref` is the message id and
+  whose `epoch` is its epoch. Correlate on `ref`. A replayed message that was already done is
+  answered again (`ok`) without effect, so retries are safe.
+- `cmd.expires_at` (unix ms, 0 = never): an expired command is answered `status: "expired"`.
+
+## 3. Match state store (§9, §19.2 #3)
+
+Table `match_live_state (match_id, epoch, server_id, live_rev, config_rev, state jsonb, updated_at)`.
+
+- `state.snapshot` (reasons `assign`, `hello`, `request`, `reset`, `periodic`): replace the stored
+  state when `state.epoch` is the current epoch; `periodic` / `hello` are also a drift check
+  (log a mismatch against the stored state, then take the snapshot). `state: null` = idle server.
+- `state.patch` and every `event.*` carry `rev` and `patch` (RFC 7386 merge patch on MatchState;
+  `null` removes a member, arrays are replaced whole). They share one counter:
+  - `rev == stored_rev + 1`: apply `patch`, store `rev`;
+  - `rev <= stored_rev`: duplicate, ignore the patch (still process the event's `data` idempotently);
+  - `rev > stored_rev + 1`: gap — send `state.request` and hold patches until the snapshot.
+  The live test checks this on real frames: applying every patch to the `assign` snapshot gives
+  exactly the later snapshots.
+- MatchState never contains `null` values; an absent member means "unknown / none"
+  (e.g. `teams.team1.side` before the sides are known, `pause.type` when not paused).
+- One writer per field (§9.2): the platform owns `match_id`, `epoch`, `config_rev`, team names /
+  ids / tags, rosters and roles, spectators, `rules`, the map list and `sides`; the server owns
+  everything else. The platform never edits server fields; it sends a `cmd`.
+
+## 4. Fleet driver (§19.1, §19.2 #4)
+
+`ServerDriver.loadMatch` → `match.assign` (schema `messages/match.assign.json`):
+
+- `match_id` = the match slug (`^[A-Za-z0-9_.:-]{1,64}$`), `epoch` ≥ 1, bumped on every
+  (re)assignment of that match; keep the highest epoch per match (fencing, §11.4).
+- `config_rev` (new, default 1): the platform's config counter, the base for `match.update`.
+- `config` from `matchConfig.ts`: `num_maps`, `maps[] {name, workshop_id?, sides}` (sides from the
+  veto: `team1_ct` | `team2_ct` | `knife`), `team1/team2 {id, name, tag?, captain?, players[]
+  {steamid64 (string), name, role: player|sub|coach}}`, `spectators[]`, `admins[]`,
+  `password` (generate one per match: printable ASCII, no space, quotes, `\` or `;`, ≤ 64),
+  `rules` (§7.1, typed; replaces `maxRounds`, `overtimeMode`, `knifeDecisionSeconds`, `at_*`),
+  `cvars` (engine cvars only: `mp_*`, `sv_*`, `tv_*`, `bot_*`; Ready Up drops anything else,
+  plus `sv_password`, `rcon_password`, `sv_cheats`).
+  Coaches are whitelisted as spectators (not ready-gated). `ready.min_per_team` is reported in
+  `MatchState.ready.required_per_team`; the pause / forfeit / gg-vote rules are carried in
+  `MatchState.rules` but not enforced by Ready Up yet.
+- Answers: `ok`; `rejected` with `invalid_config` (message says which field), `busy` (another
+  match or a local `ru match load` match; a finished-but-not-unassigned match does not block),
+  `stale_epoch`, `unsupported` (`resume` blocks are step 5, not accepted yet).
+- Show the connect string with the password to the roster and admins only (D9).
+- D16: the server ends a running scrim itself (chat notice, non-roster humans kicked after 5 s,
+  then load). Nothing to do on the platform except allocating idle-or-scrim servers.
+- `match.update` (roster / names / password / rules mid-match): send `base_config_rev` = the
+  config_rev the platform last saw acked and `config_rev` = the new one. `rejected: conflict` comes
+  with `rev` = the server's config_rev and a `state.snapshot (request)`: rebuild the update on
+  that base. `ok` carries `rev` = the new config_rev. All ops apply or none (`invalid_update`).
+- `match.unassign {reason, kick_message?}` when the series is finished and stored, when the admin
+  cancels / overrides a result, or `superseded` after a move. Ready Up clears `sv_password`, kicks
+  (at once with `kick_message`), becomes `available` and fences that epoch: later messages of it
+  are `stale_epoch`.
+- `server.availability`: `busy` after an assign; `available` after the unassign, or already when
+  the finished match was unloaded (ServerReset, `reason: "series_end"`) — turnover can start there.
+
+## 5. Normalizer (`fleet/normalize.ts`, §8.1, §19.1)
+
+| Fleet message | → NormalizedEvent / use |
+|---|---|
+| `event.phase {from, to, reason}` | `phase.changed`; `to: live` on map N the first time → `map.started`; the first `map.started` → `series.started` |
+| `event.player_connect` / `player_disconnect` / `player_ready` / `player_unready` | `presence.changed` |
+| `event.player_team` | live page |
+| `event.round_start` | live page (round number, score) |
+| `event.round_end {round: RoundSummary}` | `score.updated` (`team1_score` / `team2_score` after the round), `player.stats` per `players[]` line |
+| `event.halftime` / `event.overtime` / `event.pause` | `phase.changed` |
+| `event.knife_result` / `event.side_picked` | live page; fix `maps[n].sides` for a failover (§11.2) |
+| `event.map_result` (MatchFlowEvent MapResult with `stats: MapStats`) | `map.result`; `stats` is the source of truth for map totals (§13) |
+| `event.series_end` | `series.ended` (`forced: true` = admin `end_match`) |
+| `event.rounds_voided {from_round, reason}` | drop stored round stats with `round >= from_round` for that map |
+| `event.match_restored` | failover / restore confirmation |
+| `event.demo` | turnover (`utils/serverTurnover.ts`); upload itself is step 4 |
+| `event.forfeit` / `event.gg` | admin notification / result proposal |
+| `event.backup` | backup store (section 7) |
+
+Bots: player ids in the dev-bot range (`PlayerLine.bot = true`) are dropped unless the match is a
+simulation (§13).
+
+## 6. Admin commands (§7.4)
+
+`cmd {match_id?, epoch?, name, args, issued_by {user_id, name, root}, expires_at, audit_id?}`.
+Match commands (`pause`, `unpause`, `force_ready`, `start`, `restore_round`, `restart_map`,
+`end_match`, `change_map`, `swap_teams`) need `match_id` + the current epoch. Error codes to show:
+`bad_phase` (e.g. `pause` outside live, `force_ready` / `change_map` / `swap_teams` after warmup),
+`already_paused`, `not_paused`, `bad_args`, `not_connected` (kick), `no_backup`, `checksum`,
+`forbidden`, `invalid_command`, `unknown_command`, `stale_epoch`, `not_assigned`.
+
+- `exec`: root admins only (D10). Write the audit row first and send its id as `audit_id`; Ready
+  Up logs `fleet: exec by <name> (platform:<user_id>, audit <id>): <command>` and echoes
+  `audit_id` in `cmd.result`, with `output` = console log lines seen within 0.5 s (≤ 8 KiB,
+  best effort).
+- `say`: ≤ 190 bytes after control characters are stripped.
+- `restore_round {map_number, round, backup?}`: `backup` = an `InlineBackup` from the store
+  (single part). Without it the server uses its own file. On success: `event.rounds_voided`,
+  `event.match_restored`, the match is paused until an unpause.
+- D12: after `offline_pause_minutes` (default 3) without the platform, a live match pauses with
+  `event.pause {type: "offline", by: "platform-link"}` (spooled, arrives after the reconnect). Show
+  it and offer `cmd unpause`.
+
+## 7. Round backup store (§12.1, §12.3, §19.2 #5)
+
+- `event.backup data: InlineBackup {map_number, round, file, size, sha256, score, encoding:
+  "base64", data, part?, parts?}`. `round` = the round the backup starts (1-based). Files above
+  384 KiB come in `parts` (same `file` / `sha256`); reassemble, check `size` and `sha256`, store
+  `DATA_DIR/backups/<match_id>/map<N>/round<RR>.txt`, index `match_round_backups (match, map,
+  round, epoch, server, sha256, size, stored_at)`.
+- The same round can arrive again with other content after a restore (the round is replayed):
+  keep the newest per (match, map, round) and the sha256 of each.
+- The admin's backup picker (§11.2) lists them; `cmd restore_round` sends one back inline.
+
+## 8. Not in Ready Up's step 3 (later steps)
+
+`resume` blocks / failover (step 5; `match.assign` with `resume` is rejected `unsupported`),
+chunked demo upload (step 4; `event.demo` already flows), `server.config`, `admins.set`,
+`skins.*`, `server.drain`, `hello.state` epoch check → `match.unassign {superseded}` (the server
+side is ready: `hello` carries the MatchState with `epoch`), refusing `ru match load` in fleet
+mode.
+
+## 9. Checking it end to end
+
+Ready Up's `scripts/livetest/fleet_livetest.py` runs a bot match against a Python mock of this
+contract (`fleet_mock_platform.py`). Pointing a real platform at a test server
+(`ru fleet enroll <url> <code>`) and replaying the same sequence — assign, fencing checks,
+`match.update` CAS, pause / unpause, backups + restore, offline auto-pause, `end_match`, unassign —
+is the acceptance test for this task.
