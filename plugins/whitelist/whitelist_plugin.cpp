@@ -60,6 +60,7 @@ bool Save() {
 
 std::string RuMode() {
   const auto* m = static_cast<const ru_match_v1*>(g_api->get_interface(g_api->self, RU_MATCH_IFACE_NAME, 1));
+  if (m && RU_API_HAS(m, mode) && m->mode) return m->mode() ? m->mode() : "";  // cheap
   if (!m || !m->get_status) return {};
   ru_match_status st{};
   st.struct_size = sizeof(st);

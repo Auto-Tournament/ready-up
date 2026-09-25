@@ -57,6 +57,9 @@ typedef struct ru_match_v1 {
    * match is loaded. on = 0: back to idle. Returns 1 when the mode is what was asked. The
    * practice plugin execs the cvar cfgs and respawns players itself. */
   int (*set_practice)(int on);
+  /* v1.3. Game thread. The ru mode string ("idle", "practice", "match_live", ...), without
+   * building the whole status (get_status does). Static string. Use this in per-tick code. */
+  const char* (*mode)(void);
   /* v1.x: members are appended here. */
 } ru_match_v1;
 
