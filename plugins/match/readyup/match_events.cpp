@@ -15,6 +15,7 @@
 #include "readyup/persisted_match_state.h"
 #include "readyup/players.h"
 #include "readyup/webhook.h"
+#include "readyup/welcome.h"
 
 #include <algorithm>
 #include <atomic>
@@ -632,6 +633,7 @@ void OnGameEvent(void* /*user*/, const char* name, const ru_game_event* ev) {
   if (std::strcmp(name, "player_spawn") == 0) {
     const int slot = A()->ev_get_player_slot(A()->self, ev, "userid");
     if (slot >= 0) g_spawned.insert(slot);
+    if (slot >= 0) WelcomeObservePlayerSpawn(slot);  // the welcome card waits for this
     return;
   }
   if (std::strcmp(name, "player_disconnect") == 0) {

@@ -23,10 +23,13 @@ namespace {
 
 using Clock = std::chrono::steady_clock;
 
-// Display timing. The center panel is re-sent every second with a 2s duration so
-// it stays up continuously for ~5 seconds; then the ready HUD (ready_hud.cpp)
-// takes the panel over (WelcomeActiveForSteam turns false at kHandOver).
-constexpr auto kDelayConfirmed = std::chrono::milliseconds(500);   // let the team menu close
+// Display timing. The card waits for the player's first spawn after joining a team
+// (before that the client is still in the team menu / spawn transition, which wipes
+// the center panel), then is re-sent every second with a 2s duration so it stays up
+// continuously for ~5 seconds; then the ready HUD (ready_hud.cpp) takes the panel
+// over (WelcomeActiveForSteam turns false at kHandOver).
+constexpr auto kAfterSpawn = std::chrono::milliseconds(750);       // let the spawn fade finish
+constexpr auto kSpawnWait = std::chrono::seconds(20);              // no spawn seen: show anyway
 constexpr auto kDelayTentative = std::chrono::milliseconds(1500);  // give log/event a chance to confirm
 constexpr auto kShowFor = std::chrono::milliseconds(4000);         // last send at ~4s
 constexpr auto kHandOver = std::chrono::milliseconds(5000);        // HUD replaces the card here
@@ -40,6 +43,7 @@ struct SlotState {
   bool shown = false;      // already queued/shown for this player on this map
   bool active = false;     // currently being displayed (or waiting to start)
   bool tentative = false;  // team came only from a `jointeam` request so far
+  bool waitingSpawn = false;  // queued; the card starts at the player's next spawn
   Clock::time_point startAt{};
   Clock::time_point nextSend{};
   int sent = 0;
@@ -206,7 +210,10 @@ void WelcomeObserveTeamJoin(int slot, int team, uint64_t steamid64, const std::s
   s.active = true;
   s.team = team;
   s.tentative = !confirmed;
-  s.startAt = now + (confirmed ? kDelayConfirmed : kDelayTentative);
+  // Shown from the player's first spawn (WelcomeObservePlayerSpawn); if none is seen
+  // (a missed event), after kSpawnWait.
+  s.waitingSpawn = true;
+  s.startAt = now + std::max<Clock::duration>(kSpawnWait, kDelayTentative);
   s.nextSend = s.startAt;
   s.sent = 0;
   if (s.steamid64 != 0) g_shownSteam.insert(s.steamid64);
@@ -215,6 +222,20 @@ void WelcomeObserveTeamJoin(int slot, int team, uint64_t steamid64, const std::s
     Debug("welcome: queued slot=%d team=%d steamid64=%llu via %s\n", slot, team,
           static_cast<unsigned long long>(s.steamid64), SourceName(src));
   }
+}
+
+void WelcomeObservePlayerSpawn(int slot) {
+  if (slot < 0 || slot > 63) return;
+  std::lock_guard<std::mutex> lk(g_mu);
+  auto it = g_slots.find(slot);
+  if (it == g_slots.end()) return;
+  SlotState& s = it->second;
+  if (!s.active || !s.waitingSpawn) return;
+  s.waitingSpawn = false;
+  s.tentative = false;  // spawned on a team: the join went through
+  s.startAt = Clock::now() + kAfterSpawn;
+  s.nextSend = s.startAt;
+  if (DebugEnabled()) Debug("welcome: slot=%d spawned, card in %lldms\n", slot, static_cast<long long>(kAfterSpawn.count()));
 }
 
 void WelcomeObserveLogLine(const std::string& line) {
@@ -292,6 +313,7 @@ void WelcomeTick() {
       SlotState& s = kv.second;
       if (!s.active) continue;
       if (now < s.startAt) continue;
+      s.waitingSpawn = false;  // kSpawnWait ran out without a spawn: show it now
       if (s.tentative && s.sent == 0 && g_confirmedSourceSeen.load(std::memory_order_relaxed)) {
         // `jointeam` was never confirmed by the engine: likely rejected. Re-arm.
         s.active = false;
@@ -340,6 +362,7 @@ bool WelcomeActiveForSteam(uint64_t steamid64) {
     // Queued-but-not-yet-sent counts (don't let the banner race in first); a screen
     // that never made it out (center HTML unavailable) does not block the banner.
     if (!s.active && s.sent == 0) continue;
+    if (s.active && s.waitingSpawn) return true;  // the card comes at spawn
     // Covers the queue delay and the display window; after kHandOver the ready
     // HUD's next send replaces the card (no gap: the last card send lasts 2s).
     if (now < s.startAt + kHandOver) return true;

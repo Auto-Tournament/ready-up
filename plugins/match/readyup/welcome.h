@@ -6,7 +6,8 @@
 namespace readyup {
 
 // Per-player "Ready Up is live" welcome screen (center HTML), shown the first time a
-// player lands on T or CT on the current map.
+// player lands on T or CT on the current map, once they have spawned (about 5 s,
+// then the ready HUD takes over).
 //
 // Triggers (any of them; deduped per player):
 // - engine log line `"Name<slot><steam>" switched from team <X> to <CT|TERRORIST>`
@@ -34,6 +35,10 @@ void WelcomeObserveTeamJoin(int slot, int team, uint64_t steamid64, const std::s
 
 // Thread-safe; parses team-switch / disconnect log lines. Cheap for other lines.
 void WelcomeObserveLogLine(const std::string& line);
+
+// Thread-safe: the player in `slot` spawned (player_spawn). A queued card starts
+// shortly after the first spawn following the team join.
+void WelcomeObservePlayerSpawn(int slot);
 
 // GameFrame thread only: sends/refreshes pending welcome screens.
 void WelcomeTick();
