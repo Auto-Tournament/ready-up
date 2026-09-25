@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 1
+#define READYUP_PLUGIN_API_VERSION_MINOR 2
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -105,6 +105,10 @@ typedef struct ru_tick_info {
   uint32_t struct_size;
   uint64_t frame;  /* simulating frames seen by the core since process start */
   double now;      /* monotonic seconds (CLOCK_MONOTONIC) */
+  /* v1.2: 1 on simulating frames. on_tick callbacks only ever see 1; on_frame callbacks also
+   * run on non-simulating frames (map load, hibernation) and see 0 there. `frame` only counts
+   * simulating frames. */
+  int simulating;
 } ru_tick_info;
 
 typedef void (*ru_tick_fn)(void* user, const ru_tick_info* tick);
@@ -172,6 +176,9 @@ typedef struct ru_player {
   int is_bot;
   int connected;
   char name[128];
+  /* v1.2: the player's `<N>` in server log lines ("Name<N><[U:1:x]><CT>"; CS2 logs the player
+   * slot there, and it is what `kickid` takes). -1 if not seen in a log line yet. Bots have one too. */
+  int userid;
 } ru_player;
 
 /* for_each_player callback. Return non-zero to continue, 0 to stop. */
@@ -224,13 +231,30 @@ enum {
   RU_CHAT_RAW = 1u << 0 /* do not add the Ready Up chat prefix */
 };
 
+/* ---- v1.2: command flags (register_chat_command_ex / register_console_command_ex) ---- */
+enum {
+  /*
+   * Chat: the sender's chat line is not shown to anyone. Best effort: the core swallows it in
+   * its ClientCommand hook, before the engine prints it; if that hook is not installed on this
+   * build the line stays visible (the command still runs, via the server log).
+   */
+  RU_CMD_HIDE = 1u << 0,
+  /*
+   * Console: observe only. The engine still executes the line and the command is not
+   * consumed (e.g. watch `tv_delay 5`). Several plugins may observe the same name; an observer
+   * never conflicts with a normal registration.
+   */
+  RU_CMD_OBSERVE = 1u << 1
+};
+
+
 typedef struct ru_api {
   uint32_t struct_size;
   uint32_t api_version; /* core's READYUP_PLUGIN_API_VERSION */
   const char* core_version; /* e.g. "0.9.0 (abc1234)" */
   ru_plugin* self;          /* this plugin's handle; pass it to every call */
 
-  /* Logging. Thread-safe. `msg` is one line; a trailing newline is optional. */
+  /* Logging. Thread-safe. `msg` is one line (any length); a trailing newline is optional. */
   void (*log)(ru_plugin* self, int level, const char* msg);
 
   /* Queue a server console command (e.g. "mp_restartgame 1"). 1 = queued, 0 = unavailable. */
@@ -414,7 +438,63 @@ typedef struct ru_api {
   /* Copies up to cap bytes into buf; returns the blob's full size, or -1 if there is none. */
   int (*stash_get)(ru_plugin* self, const char* key, void* buf, uint32_t cap);
 
-  /* v1.2+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.2 ============================================================
+   * Appended in 1.2. Require 1.2 in ru_plugin_info.api_version, or check RU_API_HAS().
+   */
+
+  /* -- output -- */
+
+  /*
+   * Any thread. Like `log`, but without the `plugin[<name>]: ` tag: the line reads
+   * `[ReadyUp] <msg>` (`[ReadyUp] [dbg] <msg>` for RU_LOG_DEBUG). For plugins that own log
+   * formats operators and tools already parse (match: `state: ...`, `knife: ...`).
+   */
+  void (*log_untagged)(ru_plugin* self, int level, const char* msg);
+
+  /* -- commands -- */
+
+  /* register_chat_command with RU_CMD_* flags (RU_CMD_HIDE). */
+  ru_handle (*register_chat_command_ex)(ru_plugin* self, const char* name, uint32_t flags, ru_command_fn fn,
+                                        void* user);
+  /* register_console_command with RU_CMD_* flags (RU_CMD_OBSERVE). */
+  ru_handle (*register_console_command_ex)(ru_plugin* self, const char* name, uint32_t flags, ru_command_fn fn,
+                                           void* user);
+  /*
+   * A subcommand of `ru`: `ru <name> ...` on the server console / RCON and `.ru <name> ...` in
+   * chat both call fn. argv[0] is "ru" (console) or ".ru" (chat), argv[1] is the subcommand.
+   * name is [a-z0-9_-]; the core's own subcommands (help, plugin, version, selftest, sigtest,
+   * reload, status_http) and another plugin's are refused. Chat senders are not checked: use
+   * is_admin. ctx->slot is the sender's slot when known.
+   */
+  ru_handle (*register_ru_subcommand)(ru_plugin* self, const char* name, ru_command_fn fn, void* user);
+
+  /* -- frames -- */
+
+  /*
+   * Called on EVERY GameFrame, simulating or not (tick->simulating tells which), after the
+   * core's frame work, queued commands / events / log lines. For timers that must also fire
+   * while the server does not simulate (map changes, an emptied server). on_tick is the
+   * simulating-only variant.
+   */
+  ru_handle (*on_frame)(ru_plugin* self, ru_tick_fn fn, void* user);
+
+  /* -- engine capabilities -- */
+
+  /*
+   * State of a core feature or engine dependency, as `ru selftest` shows it: 1 = on / verified,
+   * 0 = pending (not decided yet, e.g. before the first map), -1 = off / failed / unknown name.
+   * Names: the feature table (`match_flow`, `knife`, `pauses`, `ready_hud`, `welcome_html`,
+   * `hud_brand`, `chat_commands`, `player_chat_print`, ...), dependencies (`fn:<engine function>`,
+   * `vtable:<slot>`, `layout:<struct>`, `hook:GameFrame`, `hook:ClientCommand`, `cmdbuf`,
+   * `loglistener`, `schema`, `entsys`, `eventmgr`) and `events_live`: engine game events are
+   * delivered and drive the round lifecycle (0 while the core still derives it from log lines).
+   */
+  int (*feature_state)(ru_plugin* self, const char* name);
+
+  /* Current map ("de_dust2"), "" before the first map. Valid until the callback returns. */
+  const char* (*current_map)(ru_plugin* self);
+
+  /* v1.3+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

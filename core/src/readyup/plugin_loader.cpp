@@ -59,14 +59,16 @@ struct Instance {
   void* dl = nullptr;
   readyup_plugin_unload_fn unload = nullptr;
   ru_api api{};
+  std::string mapCopy;  // current_map's return value (game thread)
 };
 
-enum class RegKind { Chat, Console, Tick, Event, GameEvent, LogLine };
+enum class RegKind { Chat, Console, Tick, Event, GameEvent, LogLine, RuSub, Frame };
 
 struct Reg {
   ru_handle id = 0;
   int owner = 0;
   RegKind kind = RegKind::Tick;
+  uint32_t flags = 0;  // RU_CMD_* (chat / console)
   std::string name;  // chat / console command, or engine game event name
   uint32_t eventType = 0;
   void* fn = nullptr;
@@ -76,6 +78,7 @@ struct Reg {
 struct QueuedCmd {
   ru_handle reg = 0;
   uint64_t steamid64 = 0;
+  int slot = -1;  // sender slot when the router knew it
   bool console = false;
   std::string playerName;
   std::string text;
@@ -239,13 +242,26 @@ void Reply(const std::string& line, bool toChat) {
 
 // ---- API implementation ----------------------------------------------------------
 
+// One console line (Print keeps long lines whole, e.g. a JSON dump).
+void EmitLine(const std::string& head, const std::string& m) { Print("%s%s\n", head.c_str(), m.c_str()); }
+
 void ApiLog(ru_plugin* self, int level, const char* msg) {
   if (!msg) return;
   if (level == RU_LOG_DEBUG && !DebugEnabled()) return;
   std::string m(msg);
   while (!m.empty() && (m.back() == '\n' || m.back() == '\r')) m.pop_back();
   const char* tag = level == RU_LOG_WARN ? "warn: " : level == RU_LOG_ERROR ? "error: " : level == RU_LOG_DEBUG ? "[dbg] " : "";
-  Print("plugin[%s]: %s%s\n", self ? self->name : "?", tag, m.c_str());
+  EmitLine(std::string("plugin[") + (self ? self->name : "?") + "]: " + tag, m);
+}
+
+// v1.2: `[ReadyUp] <msg>` without the plugin tag (formats operators already parse).
+void ApiLogUntagged(ru_plugin* self, int level, const char* msg) {
+  if (!self || !msg) return;
+  if (level == RU_LOG_DEBUG && !DebugEnabled()) return;
+  std::string m(msg);
+  while (!m.empty() && (m.back() == '\n' || m.back() == '\r')) m.pop_back();
+  const char* tag = level == RU_LOG_WARN ? "warn: " : level == RU_LOG_ERROR ? "error: " : level == RU_LOG_DEBUG ? "[dbg] " : "";
+  EmitLine(tag, m);
 }
 
 int ApiServerCommand(ru_plugin* self, const char* cmd) {
@@ -265,11 +281,13 @@ int ApiChatToSlot(ru_plugin* self, int slot, const char* msg) {
   return ClientPrintChat(slot, msg) ? 1 : 0;
 }
 
-ru_handle AddReg(Instance* inst, RegKind kind, std::string name, uint32_t type, void* fn, void* user) {
+ru_handle AddReg(Instance* inst, RegKind kind, std::string name, uint32_t type, void* fn, void* user,
+                 uint32_t flags = 0) {
   std::lock_guard<std::mutex> lk(g_mu);
-  if (!name.empty()) {
+  // Observers (RU_CMD_OBSERVE) never own a name, so they never conflict.
+  if (!name.empty() && !(flags & RU_CMD_OBSERVE)) {
     for (const auto& r : g_regs) {
-      if (r.kind == kind && r.name == name) {
+      if (r.kind == kind && r.name == name && !(r.flags & RU_CMD_OBSERVE)) {
         const Instance* other = FindLiveByIdLocked(r.owner);
         Print("plugin[%s]: command \"%s\" is already registered by plugin \"%s\"\n", inst->name.c_str(), name.c_str(),
               other ? other->name.c_str() : "?");
@@ -283,13 +301,14 @@ ru_handle AddReg(Instance* inst, RegKind kind, std::string name, uint32_t type, 
   r.kind = kind;
   r.name = std::move(name);
   r.eventType = type;
+  r.flags = flags;
   r.fn = fn;
   r.user = user;
   g_regs.push_back(std::move(r));
   return g_regs.back().id;
 }
 
-ru_handle ApiRegisterChat(ru_plugin* self, const char* name, ru_command_fn fn, void* user) {
+ru_handle RegisterChat(ru_plugin* self, const char* name, uint32_t flags, ru_command_fn fn, void* user) {
   Instance* inst = GameThreadCaller(self, "register_chat_command");
   if (!inst || !name || !fn) return 0;
   const std::string n = Lower(name);
@@ -306,10 +325,18 @@ ru_handle ApiRegisterChat(ru_plugin* self, const char* name, ru_command_fn fn, v
     Print("plugin[%s]: chat command \"%s\" is owned by the core\n", self->name, n.c_str());
     return 0;
   }
-  return AddReg(inst, RegKind::Chat, n, 0, reinterpret_cast<void*>(fn), user);
+  return AddReg(inst, RegKind::Chat, n, 0, reinterpret_cast<void*>(fn), user, flags & RU_CMD_HIDE);
 }
 
-ru_handle ApiRegisterConsole(ru_plugin* self, const char* name, ru_command_fn fn, void* user) {
+ru_handle ApiRegisterChat(ru_plugin* self, const char* name, ru_command_fn fn, void* user) {
+  return RegisterChat(self, name, 0, fn, user);
+}
+
+ru_handle ApiRegisterChatEx(ru_plugin* self, const char* name, uint32_t flags, ru_command_fn fn, void* user) {
+  return RegisterChat(self, name, flags, fn, user);
+}
+
+ru_handle RegisterConsole(ru_plugin* self, const char* name, uint32_t flags, ru_command_fn fn, void* user) {
   Instance* inst = GameThreadCaller(self, "register_console_command");
   if (!inst || !name || !fn) return 0;
   const std::string n = Lower(name);
@@ -322,7 +349,49 @@ ru_handle ApiRegisterConsole(ru_plugin* self, const char* name, ru_command_fn fn
     Print("plugin[%s]: invalid or reserved console command name \"%s\"\n", self->name, name);
     return 0;
   }
-  return AddReg(inst, RegKind::Console, n, 0, reinterpret_cast<void*>(fn), user);
+  return AddReg(inst, RegKind::Console, n, 0, reinterpret_cast<void*>(fn), user, flags & RU_CMD_OBSERVE);
+}
+
+ru_handle ApiRegisterConsole(ru_plugin* self, const char* name, ru_command_fn fn, void* user) {
+  return RegisterConsole(self, name, 0, fn, user);
+}
+
+ru_handle ApiRegisterConsoleEx(ru_plugin* self, const char* name, uint32_t flags, ru_command_fn fn, void* user) {
+  return RegisterConsole(self, name, flags, fn, user);
+}
+
+ru_handle ApiRegisterRuSub(ru_plugin* self, const char* name, ru_command_fn fn, void* user) {
+  Instance* inst = GameThreadCaller(self, "register_ru_subcommand");
+  if (!inst || !name || !fn) return 0;
+  const std::string n = Lower(name);
+  bool ok = !n.empty() && n.size() <= 32;
+  for (size_t i = 0; ok && i < n.size(); ++i) {
+    const unsigned char c = static_cast<unsigned char>(n[i]);
+    ok = std::islower(c) != 0 || std::isdigit(c) != 0 || c == '_' || c == '-';
+  }
+  if (!ok) {
+    Print("plugin[%s]: invalid ru subcommand name \"%s\" (want [a-z0-9_-])\n", self->name, name);
+    return 0;
+  }
+  if (IsCoreRuSubcommand(n)) {
+    Print("plugin[%s]: ru subcommand \"%s\" is owned by the core\n", self->name, n.c_str());
+    return 0;
+  }
+  return AddReg(inst, RegKind::RuSub, n, 0, reinterpret_cast<void*>(fn), user);
+}
+
+ru_handle ApiOnFrame(ru_plugin* self, ru_tick_fn fn, void* user) {
+  Instance* inst = GameThreadCaller(self, "on_frame");
+  if (!inst || !fn) return 0;
+  return AddReg(inst, RegKind::Frame, {}, 0, reinterpret_cast<void*>(fn), user);
+}
+
+const char* ApiCurrentMap(ru_plugin* self) {
+  Instance* inst = GameThreadCaller(self, "current_map");
+  if (!inst) return "";
+  std::lock_guard<std::mutex> lk(g_mu);
+  inst->mapCopy = g_currentMap;
+  return inst->mapCopy.c_str();
 }
 
 ru_handle ApiOnTick(ru_plugin* self, ru_tick_fn fn, void* user) {
@@ -725,6 +794,13 @@ bool LoadNow(const std::string& name, std::string* err) {
   a.get_interface = &ApiGetInterface;
   a.stash_put = &ApiStashPut;
   a.stash_get = &ApiStashGet;
+  // v1.2 (feature_state is engine-facing: plugin_engine_api.cpp)
+  a.log_untagged = &ApiLogUntagged;
+  a.register_chat_command_ex = &ApiRegisterChatEx;
+  a.register_console_command_ex = &ApiRegisterConsoleEx;
+  a.register_ru_subcommand = &ApiRegisterRuSub;
+  a.on_frame = &ApiOnFrame;
+  a.current_map = &ApiCurrentMap;
   // Engine-facing members (output, players, event accessors, schema/entities, round
   // suppression, is_admin). Anything left NULL there is a core bug; fail closed.
   detail::FillEngineApi(&a);
@@ -834,7 +910,7 @@ void DeliverCommand(const QueuedCmd& c) {
   ru_command_ctx ctx{};
   ctx.struct_size = sizeof(ctx);
   ctx.steamid64 = c.steamid64;
-  ctx.slot = c.console ? -1 : GameEventsSlotForSteam(c.steamid64).value_or(-1);
+  ctx.slot = c.console ? -1 : c.slot >= 0 ? c.slot : GameEventsSlotForSteam(c.steamid64).value_or(-1);
   ctx.is_console = c.console ? 1 : 0;
   ctx.name = c.playerName.c_str();
   ctx.text = c.text.c_str();
@@ -898,25 +974,21 @@ void DeliverLogLines(const std::deque<std::string>& lines) {
   }
 }
 
-void RunTicks() {
-  std::vector<ru_handle> ids;
-  {
-    std::lock_guard<std::mutex> lk(g_mu);
-    for (const auto& r : g_regs) {
-      if (r.kind == RegKind::Tick) ids.push_back(r.id);
-    }
-  }
+// on_tick (kind Tick, simulating frames only) and on_frame (kind Frame, every frame).
+void RunTicks(RegKind kind, bool simulating) {
+  const std::vector<ru_handle> ids = RegIds(kind);
   if (ids.empty()) return;
   ru_tick_info t{};
   t.struct_size = sizeof(t);
   t.frame = g_frame;
   t.now = NowSeconds();
+  t.simulating = simulating ? 1 : 0;
   for (ru_handle id : ids) {
     Reg reg;
     Instance* inst = nullptr;
     if (!LookupReg(id, &reg, &inst)) continue;
     auto fn = reinterpret_cast<ru_tick_fn>(reg.fn);
-    InvokePlugin(inst, "tick", [&] { fn(reg.user, &t); });
+    InvokePlugin(inst, kind == RegKind::Tick ? "tick" : "frame", [&] { fn(reg.user, &t); });
   }
 }
 
@@ -930,7 +1002,7 @@ bool AnyRegLocked(RegKind kind, uint32_t eventType) {
 
 bool QueueCommandLocked(RegKind kind, const std::string& token, QueuedCmd c) {
   for (const auto& r : g_regs) {
-    if (r.kind != kind || r.name != token) continue;
+    if (r.kind != kind || r.name != token || (r.flags & RU_CMD_OBSERVE)) continue;
     Instance* inst = FindLiveByIdLocked(r.owner);
     if (!inst || inst->handle.unloading.load()) return false;
     if (g_cmds.size() >= kMaxQueued) return true;  // owned, but dropped under flood
@@ -942,6 +1014,19 @@ bool QueueCommandLocked(RegKind kind, const std::string& token, QueuedCmd c) {
 }
 
 }  // namespace
+
+bool IsCoreRuSubcommand(const std::string& sub) {
+  static const char* const kCore[] = {
+      // Core (engine / plugin host).
+      "help", "plugin", "plugins", "version", "selftest", "sigtest", "reload", "status_http",
+      // Match flow (still in the core until it moves to plugins/match).
+      "admins", "hudtest", "prac", "practice", "idle", "scrim", "state", "status", "mode", "match", "start",
+      "pause", "fp", "forcepause", "unpause", "up", "fup", "forceunpause", "restart", "end", "recover", "side"};
+  for (const char* c : kCore) {
+    if (sub == c) return true;
+  }
+  return false;
+}
 
 void PostEvent(LifecycleEvent ev) {
   std::lock_guard<std::mutex> lk(g_mu);
@@ -956,16 +1041,73 @@ void PostEvent(LifecycleEvent ev) {
   g_events.push_back(std::move(ev));
 }
 
-bool TryDispatchChat(uint64_t steamid64, const std::string& playerName, const std::string& text) {
+bool TryDispatchChat(uint64_t steamid64, const std::string& playerName, const std::string& text, int slot) {
   if (steamid64 == 0) return false;
   const auto parts = SplitWS(text);
   if (parts.empty()) return false;
   QueuedCmd c;
   c.steamid64 = steamid64;
+  c.slot = slot;
   c.playerName = playerName;
   c.text = text;
   std::lock_guard<std::mutex> lk(g_mu);
   return QueueCommandLocked(RegKind::Chat, Lower(parts[0]), std::move(c));
+}
+
+bool ChatCommandOwned(const std::string& token, uint32_t* flags) {
+  std::lock_guard<std::mutex> lk(g_mu);
+  for (const auto& r : g_regs) {
+    if (r.kind != RegKind::Chat || r.name != token) continue;
+    const Instance* inst = FindLiveByIdLocked(r.owner);
+    if (!inst || inst->handle.unloading.load()) return false;
+    if (flags) *flags = r.flags;
+    return true;
+  }
+  return false;
+}
+
+bool TryDispatchRu(bool console, uint64_t steamid64, const std::string& playerName, const std::string& text, int slot) {
+  if (!console && steamid64 == 0) return false;
+  const auto parts = SplitWS(text);
+  if (parts.size() < 2) return false;
+  QueuedCmd c;
+  c.console = console;
+  c.steamid64 = console ? 0 : steamid64;
+  c.slot = console ? -1 : slot;
+  c.playerName = console ? std::string("Console") : playerName;
+  c.text = text;
+  std::lock_guard<std::mutex> lk(g_mu);
+  return QueueCommandLocked(RegKind::RuSub, Lower(parts[1]), std::move(c));
+}
+
+void ObserveConsole(const std::string& line) {
+  const auto parts = SplitWS(line);
+  if (parts.empty()) return;
+  const std::string token = Lower(parts[0]);
+  std::lock_guard<std::mutex> lk(g_mu);
+  for (const auto& r : g_regs) {
+    if (r.kind != RegKind::Console || !(r.flags & RU_CMD_OBSERVE) || r.name != token) continue;
+    const Instance* inst = FindLiveByIdLocked(r.owner);
+    if (!inst || inst->handle.unloading.load() || g_cmds.size() >= kMaxQueued) continue;
+    QueuedCmd c;
+    c.reg = r.id;
+    c.console = true;
+    c.playerName = "Console";
+    c.text = line;
+    g_cmds.push_back(std::move(c));
+  }
+}
+
+std::vector<std::string> PluginRuSubcommands() {
+  std::vector<std::string> out;
+  std::lock_guard<std::mutex> lk(g_mu);
+  for (const auto& r : g_regs) {
+    if (r.kind != RegKind::RuSub) continue;
+    const Instance* inst = FindLiveByIdLocked(r.owner);
+    out.push_back(r.name + " (" + (inst ? inst->name : std::string("?")) + ")");
+  }
+  std::sort(out.begin(), out.end());
+  return out;
 }
 
 bool TryDispatchConsole(const std::string& line) {
@@ -1028,11 +1170,12 @@ void Frame(bool simulating) {
     if (!lines.empty()) DeliverLogLines(lines);
   }
 
-  // 3. Per-tick callbacks.
+  // 3. Per-tick callbacks (simulating frames), then per-frame callbacks (every frame).
   if (simulating) {
     ++g_frame;
-    RunTicks();
+    RunTicks(RegKind::Tick, true);
   }
+  RunTicks(RegKind::Frame, simulating);
 }
 
 void HandlePluginCommand(const std::vector<std::string>& args, bool replyToChat) {
@@ -1046,8 +1189,8 @@ void HandlePluginCommand(const std::vector<std::string>& args, bool replyToChat)
         int cmds = 0, ticks = 0, subs = 0;
         for (const auto& r : g_regs) {
           if (r.owner != inst->handle.id) continue;
-          if (r.kind == RegKind::Chat || r.kind == RegKind::Console) ++cmds;
-          else if (r.kind == RegKind::Tick) ++ticks;
+          if (r.kind == RegKind::Chat || r.kind == RegKind::Console || r.kind == RegKind::RuSub) ++cmds;
+          else if (r.kind == RegKind::Tick || r.kind == RegKind::Frame) ++ticks;
           else ++subs;
         }
         char buf[512];
@@ -1119,6 +1262,11 @@ void PostLogLine(const std::string& line) {
   std::lock_guard<std::mutex> lk(g_mu);
   if (g_logLines.size() >= kMaxQueued) g_logLines.pop_front();
   g_logLines.push_back(line);
+}
+
+std::string CurrentMap() {
+  std::lock_guard<std::mutex> lk(g_mu);
+  return g_currentMap;
 }
 
 bool PluginChatPrefixFor(uint64_t steamid64, std::string* prefix) {

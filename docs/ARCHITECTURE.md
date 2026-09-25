@@ -23,9 +23,9 @@ function pointers. The goals:
    This is the main speed-up for development.
 3. **Separate shipping.** Skins is its own `.so`. Leaving it out of a release means removing one file.
 
-Status: the plugin host, API v1.1, `plugins/hello` and `plugins/skins` work (steps 0-3 of the
+Status: the plugin host, API v1.2, `plugins/hello` and `plugins/skins` work (steps 0-3 of the
 [migration plan](#migration-plan)). Match is **still compiled into the core** and behaves exactly
-as before; moving it out is step 4.
+as before; moving it out is step 4 (API v1.2 added what it needs).
 
 ---
 
@@ -143,11 +143,45 @@ Deviations from the original plan:
 - **`set_chat_name_prefix`** is keyed by SteamID64 and feeds the existing relay (the core
   re-sends `"<prefix> <name>: <msg>"` and swallows the original), not a real name swap.
 - **`RU_CMD_HIDE` / `register_chat_command_ex`** and `RouteChatCommand` carrying the sender slot
-  are not in v1.1; they land with the match move (step 4), the first plugin that needs them.
+  were not in v1.1; they are in v1.2 (below), ahead of the match move.
 
 `plugins/hello` requires 1.0 and uses every 1.1 group it can behind `RU_API_HAS` (stash load
 counter, `greeting` from config, `player_death`, log-line count, `readyup.hello.v1`), and the
 host test checks each of them, including that nothing is delivered after unload.
+
+### v1.2 (implemented)
+
+What moving the match flow out of the core needed. Appended to `ru_api` in this order (plus two
+appended struct fields); bookkeeping members in `plugin_loader.cpp`, `feature_state` in
+`plugin_engine_api.cpp`.
+
+| Member | Thread | Purpose |
+|---|---|---|
+| `log_untagged(self, level, msg)` | any | `[ReadyUp] <msg>` without the `plugin[name]: ` tag, for log formats tools already parse (`state:`, `knife:`) |
+| `register_chat_command_ex(self, name, flags, fn, user)` | game | chat command with `RU_CMD_HIDE`: the core swallows the sender's line in its ClientCommand hook, before the engine prints it |
+| `register_console_command_ex(self, name, flags, fn, user)` | game | console command with `RU_CMD_OBSERVE`: the plugin sees the line, the engine still runs it (e.g. `tv_delay 5`). Observers never conflict |
+| `register_ru_subcommand(self, name, fn, user)` | game | `ru <name> ...` (console / RCON) and `.ru <name> ...` (chat) both reach fn; argv[0] is `ru` / `.ru`. The core's subcommands (`help`, `plugin`, `version`, `selftest`, `sigtest`, `reload`, `status_http`) are reserved |
+| `on_frame(self, fn, user)` | game | every GameFrame, simulating or not (`ru_tick_info.simulating`), after `on_tick`. For timers that must fire while the server does not simulate |
+| `feature_state(self, name)` | game | 1 on / 0 pending / -1 off for a core feature (`knife`, `ready_hud`, ...) or dependency (`fn:X`, `cmdbuf`, `loglistener`, `eventmgr`, ...), plus `events_live` (engine events drive the round lifecycle) |
+| `current_map(self)` | game | the map of the last `RU_EVENT_MAP_START`, e.g. for a plugin that loads mid-map |
+
+Struct fields: `ru_tick_info.simulating`, `ru_player.userid` (the log `<N>`, what `kickid` takes).
+
+**Sender slot.** Chat commands now carry the sender's slot from the ClientCommand hook (it used
+to be looked up again from the SteamID when the command was delivered). The hook routes every
+plugin-owned chat command, not only `.ru` / `.r`; the log listener's copy of the line is deduped.
+
+**Still not in the API: `terminate_round`.** Calling `CCSGameRules::TerminateRound` needs the
+game rules pointer and a verified calling convention for the float/reason arguments; neither is
+in the engine surface, and a wrong guess crashes the server mid-match. Match keeps using
+`set_round_termination_suppressed` (the detour that returns early), which is all it needs.
+
+Plugin lines in `ru selftest` are not an API member: a plugin publishes the
+`readyup.selftest.<name>` interface (`core/include/readyup/selftest_iface.h`).
+
+`plugins/hello` (still requiring 1.0) now also registers `ru hello`, a hidden `.hellohide`, an
+`sv_cheats` observer and an `on_frame` counter; the host test checks each one, including that
+they disappear on unload.
 
 ### ABI rules
 

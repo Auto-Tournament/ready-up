@@ -17,6 +17,7 @@
 #include <unistd.h>
 
 #include <atomic>
+#include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
@@ -127,18 +128,30 @@ static void Hook_ClientCommand(void* thisptr, CPlayerSlot slot, const void* args
   const bool isTeamOnly = (cmd == "say_team");
   const std::string msg = CCommandArgString(*argv);
 
-  // Handle `.ru ...` directly here so we have a reliable sender (SteamID64 + name).
+  // Handle `.ru ...` directly here so we have a reliable sender (SteamID64 + name + slot).
   // `.ru` visibility is configurable (consume_ru_chat).
   if (msg.rfind(".ru", 0) == 0) {
     Debug("client-command: saw .ru msg=\"%s\"\n", msg.c_str());
-    RouteChatCommand(ident->steamid64, ident->name, msg);
+    RouteChatCommand(ident->steamid64, ident->name, msg, slotNum);
     if (ConsumeRuChat()) return;
   }
   // `.r` (ready toggle) and friends; RouteChatCommand dedupes a repeat of the line above.
   if (msg.rfind(".r", 0) == 0) {
     Debug("client-command: saw .r msg=\"%s\"\n", msg.c_str());
-    RouteChatCommand(ident->steamid64, ident->name, msg);
+    RouteChatCommand(ident->steamid64, ident->name, msg, slotNum);
     if (ConsumeReadyChat()) return;
+  }
+  // Plugin chat commands: routed here with the sender's slot (the log listener's copy of the
+  // line is deduped); RU_CMD_HIDE swallows the line before the engine prints it.
+  {
+    std::string first = msg.substr(0, msg.find_first_of(" \t"));
+    for (char& c : first) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    uint32_t flags = 0;
+    if (first.size() > 1 && first != ".ru" && plugins::ChatCommandOwned(first, &flags)) {
+      Debug("client-command: plugin chat command \"%s\" (hide=%d)\n", first.c_str(), (flags & RU_CMD_HIDE) ? 1 : 0);
+      RouteChatCommand(ident->steamid64, ident->name, msg, slotNum);
+      if (flags & RU_CMD_HIDE) return;
+    }
   }
 
   const uint64_t sid = ident->steamid64;

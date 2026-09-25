@@ -29,24 +29,52 @@ MsgFn Tier0Msg() {
   return fn;
 }
 
-void VPrintImpl(bool prefixed, const char* fmt, va_list ap) {
+// Formats into a string of any length (plugin log lines can carry a JSON dump).
+std::string VFormat(const char* fmt, va_list ap) {
   char buf[2048];
-  std::vsnprintf(buf, sizeof(buf), fmt, ap);
+  va_list ap2;
+  va_copy(ap2, ap);
+  const int n = std::vsnprintf(buf, sizeof(buf), fmt, ap);
+  if (n < 0) {
+    va_end(ap2);
+    return {};
+  }
+  if (static_cast<size_t>(n) < sizeof(buf)) {
+    va_end(ap2);
+    return std::string(buf, static_cast<size_t>(n));
+  }
+  std::string out(static_cast<size_t>(n) + 1, '\0');
+  std::vsnprintf(&out[0], out.size(), fmt, ap2);
+  va_end(ap2);
+  out.resize(static_cast<size_t>(n));
+  return out;
+}
+
+// tier0 Msg formats into a fixed buffer too: long text goes out in pieces (no newline added in
+// between, so it stays one console line).
+void Emit(MsgFn msgFn, const char* prefix, const std::string& s) {
+  if (prefix) msgFn("%s ", prefix);
+  for (size_t i = 0; i < s.size(); i += 1000) msgFn("%s", s.substr(i, 1000).c_str());
+}
+
+void VPrintImpl(bool prefixed, const char* fmt, va_list ap) {
+  const std::string s = VFormat(fmt, ap);
 
   auto msgFn = Tier0Msg();
   if (msgFn && g_printDepth == 0) {
     ++g_printDepth;
-    if (prefixed) {
-      msgFn("%s %s", kLogPrefix, buf);
+    if (s.size() < 1800) {
+      if (prefixed) msgFn("%s %s", kLogPrefix, s.c_str());
+      else msgFn("%s", s.c_str());
     } else {
-      msgFn("%s", buf);
+      Emit(msgFn, prefixed ? kLogPrefix : nullptr, s);
     }
     --g_printDepth;
   } else {
     if (prefixed) {
-      std::fprintf(stderr, "%s %s", kLogPrefix, buf);
+      std::fprintf(stderr, "%s %s", kLogPrefix, s.c_str());
     } else {
-      std::fprintf(stderr, "%s", buf);
+      std::fprintf(stderr, "%s", s.c_str());
     }
   }
 
