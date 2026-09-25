@@ -448,6 +448,8 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
         WebhookSetHeartbeatStatus("idle");
         SetModeIdle();
         (void)EnqueueServerCommand("exec ReadyUp/idle.cfg");
+        // Respawn everyone with the normal loadout: the practice grenades and rifles go.
+        (void)EnqueueServerCommand("mp_restartgame 1");
         sendAdmin("practice mode disabled.");
         return;
       }
@@ -457,10 +459,13 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       WebhookSetHeartbeatStatus("warmup");  // non-allocatable but online
       SetModePractice();
       (void)EnqueueServerCommand("exec ReadyUp/prac.cfg");  // MatchZy behaviour: right away
+      // Respawn everyone so they get prac.cfg's full grenade set now, not on their next death.
+      (void)EnqueueServerCommand("mp_restartgame 1");
       sendAdmin("practice mode enabled.");
       return;
     } else if (sub == "idle") {
       const bool wasScrimWarmup = (GetMode() == ReadyUpMode::ScrimWarmup);
+      const bool wasPractice = (GetMode() == ReadyUpMode::Practice);
       ClearReadyStates();
       WebhookClearMatchContext();
       persisted_match_state::ClearActiveMatch();
@@ -473,6 +478,11 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
         const char* cmds[] = {"mp_warmup_pausetimer 0", "mp_warmup_end", "mp_buy_anywhere 0", "mp_buytime 20",
                               "mp_respawn_on_death_ct 0", "mp_respawn_on_death_t 0"};
         for (const char* c : cmds) (void)EnqueueServerCommand(c);
+      }
+      if (wasPractice) {
+        // Leaving practice: its cvars back to the idle baseline, everyone respawned without them.
+        (void)EnqueueServerCommand("exec ReadyUp/idle.cfg");
+        (void)EnqueueServerCommand("mp_restartgame 1");
       }
       sendAdmin("mode set to idle (auto scrim warmup off until .ru mode scrim or a map change).");
       return;
