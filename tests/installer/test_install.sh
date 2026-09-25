@@ -124,6 +124,13 @@ check "skins gamedata removed" test ! -e "$CS/readyup/bin/linuxsteamrt64/engine-
 check "core still installed" test -f "$CS/readyup/bin/linuxsteamrt64/libserver.so"
 check "installed.json back to core fleet match" test "$(installed "$S")" = "core fleet match"
 
+echo "== add midas from the full zip (off by default), then remove it"
+run --dir "$S" --zip "$FULL" midas >"$T/out" 2>&1 || { cat "$T/out"; fail "midas install exited non-zero"; }
+check "midas.so installed" test -x "$CS/readyup/plugins/midas.so"
+check "midas.cfg seeded, all comments (midas stays off)" idle_cfg "$CS/cfg/ReadyUp/midas.cfg"
+run --dir "$S" --remove midas >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove midas exited non-zero"; }
+check "midas.so removed" test ! -e "$CS/readyup/plugins/midas.so"
+
 echo "== remove fleet (its data dir and user fleet.cfg stay), add it back from the fleet zip"
 mkdir -p "$CS/readyup/plugins/fleet" && echo '{}' >"$CS/readyup/plugins/fleet/credentials.json"
 echo "url = https://t.example.com" >>"$CS/cfg/ReadyUp/fleet.cfg"
