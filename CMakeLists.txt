@@ -344,6 +344,7 @@ add_executable(readyup_perf_stats_test tests/perf_stats_test.cpp core/src/readyu
 target_include_directories(readyup_perf_stats_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
 target_compile_options(readyup_perf_stats_test PRIVATE -Wall -Wextra)
 add_test(NAME perf_stats COMMAND readyup_perf_stats_test)
+
 # One center panel per player (core/src/readyup/center_panel_owner.h).
 add_executable(readyup_center_panel_owner_test tests/center_panel_owner_test.cpp core/src/readyup/center_panel_owner.cpp)
 target_include_directories(readyup_center_panel_owner_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
