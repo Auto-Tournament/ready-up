@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Ready Up live regression test: a bot-only match on a real CS2 server.
+"""Ready Up live regression test: a bot-only match or scrim on a real CS2 server.
 
 Drives the readyup-test server through its tmux console and checks Ready Up's
 state transitions from the console log. See scripts/livetest/README.md.
 
-Flow (all driven from the server console, no human needed):
+Match flow (default, all driven from the server console, no human needed):
   preflight   tmux session up, nobody (human) connected
   selftest    `ru selftest` must print `selftest: PASS`
   reset       `ru idle`, kick bots
@@ -15,7 +15,12 @@ Flow (all driven from the server console, no human needed):
   pick        bots-only winner -> sides stay after 3s (or `ru side ...`)
   live        mode=match_live
   rounds      round ends 1..2, halftime side swap, rounds 3.., `Game Over`
-  postgame    Ready Up clears the match: mode=idle match=none
+  postgame    mode=postgame (match still loaded) after the final round
+  idle        Ready Up clears the match: mode=idle match=none
+
+Scrim flow (--scrim): selftest, reset, `ru_dev_bots_scrim 1` (core dev flag), bots
+only -> scrim_warmup -> countdown -> scrim created -> knife -> pick -> match_live.
+The flag goes back to `cfg` in cleanup.
 
 Exit codes: 0 PASS, 1 FAIL, 2 server busy / unavailable, or restarted by someone
 else mid-test (no verdict).
@@ -47,6 +52,8 @@ KNIFE_START_RE = re.compile(r"\[ReadyUp\] knife: starting knife round")
 KNIFE_RUN_RE = re.compile(r"\[ReadyUp\] knife: round started")
 KNIFE_WIN_RE = re.compile(r"\[ReadyUp\] knife: winner=(\S+) \((team\d)\)(.*)")
 KNIFE_PICK_RE = re.compile(r"\[ReadyUp\] knife: side picked by (.+?): (\S+) \((.*?)\) -> (\S+);")
+KNIFE_SHORT_RE = re.compile(r"\[ReadyUp\] knife: dev flag on and no humans on CT/T - knife round time (\S+) min")
+DEV_SCRIM_RE = re.compile(r"\[ReadyUp\] dev_bots_scrim: ([01]) \(")
 ROUND_END_RE = re.compile(r'Team "(CT|TERRORIST)" triggered "(SFUI_Notice_\w+)" \(CT "(\d+)"\) \(T "(\d+)"\)')
 GAME_OVER_RE = re.compile(r"Game Over: (.*)")
 BOT_SIDE_RE = re.compile(r'"([^"<]+)<\d+><BOT><(CT|TERRORIST)>"')
@@ -247,6 +254,9 @@ class Facts:
     restarted: Optional[str] = None
     bot_quota: Optional[int] = None
     notes: list = field(default_factory=list)
+    armed: bool = False  # scrim mode: a scrim may go live (there is no match-load line)
+    dev_scrim: Optional[tuple] = None  # (seq, "0"|"1") reply to ru_dev_bots_scrim
+    knife_short: Optional[str] = None  # dev-flag knife round time (min)
 
     def last_state(self) -> Optional[dict]:
         return self.states[-1][1] if self.states else None
@@ -259,11 +269,18 @@ class Facts:
             self.states.append((s, fields, m.group(2)))
             mode = fields.get("mode", "?")
             label = mode + (f"/knife={fields['knife']}" if "knife" in fields else "") + \
-                (" golive=pending" if fields.get("golive") == "pending" else "")
+                (" golive=pending" if fields.get("golive") == "pending" else "") + \
+                (" countdown" if "countdown" in fields else "")
             if not self.modes or self.modes[-1] != label:
                 self.modes.append(label)
-            if mode == "match_live" and not self.live_seq and self.loaded:
+            if mode == "match_live" and not self.live_seq and (self.loaded or self.armed):
                 self.live_seq = s
+            return
+        if (m := DEV_SCRIM_RE.search(line)):
+            self.dev_scrim = (s, m.group(1))
+            return
+        if (m := KNIFE_SHORT_RE.search(line)):
+            self.knife_short = m.group(1)
             return
         if (m := SELFTEST_RE.search(line)) and s > self.selftest_after and not self.selftest:
             self.selftest = (m.group(1), m.group(2).strip(), line.strip())
@@ -358,6 +375,7 @@ class Runner:
         self.match_loaded = False
         self.touched = False
         self.timescale_set = False
+        self.flag_set = False
 
     # ---- plumbing
     def pump(self, wait: float = 0.5) -> None:
@@ -479,8 +497,8 @@ class Runner:
             return any(bots_ok(fl) for _, fl, _ in f.states_since(since("load")))
 
         def chk_countdown(_f):
-            return ("SKIP: scrim-only (needs a ready human); the match flow goes straight to the knife round. "
-                    "A bots-only scrim needs a core dev flag, see README")
+            return ("SKIP: scrim-only; the match flow goes straight to the knife round. "
+                    "Covered by `run.sh --scrim`")
 
         def chk_knife_start(_f):
             if f.live_seq:
@@ -550,16 +568,49 @@ class Runner:
             return f.game_over is not None
 
         def chk_postgame(_f):
-            fin = final_round_seq()
-            if not f.game_over or not fin:
+            # Postgame is entered at the final round end (same frame as its log line); the
+            # state: line follows on the next tick. The match stays loaded until the reset.
+            if not final_round_seq():
                 return False
-            for _, fl, _ in f.states_since(fin):
-                if fl.get("mode") in ("idle", "postgame") and fl.get("match") == "none":
+            for s, fl, _ in f.states_since(f.live_seq):
+                if fl.get("mode") == "postgame":
+                    if fl.get("match") in (None, "none"):
+                        return "postgame without a match loaded"
+                    mark["postgame"] = s
                     return True
+                if fl.get("mode") == "idle":
+                    return "went to idle without postgame"
+            return False
+
+        def chk_idle_after_postgame(_f):
+            for _, fl, _ in f.states_since(since("postgame")):
+                if fl.get("mode") == "idle" and fl.get("match") == "none":
+                    return True
+                if fl.get("mode") not in ("postgame", "idle"):
+                    return f"left postgame for {fl.get('mode')}, expected idle"
             return False
 
         def rounds_detail(_f):
             return " ".join(f"r{total}={ct}:{t}" for (_, total, ct, t, _) in f.round_ends)
+
+        def knife_detail(f_):
+            if not f_.knife_win:
+                return ""
+            short = f" [dev knife time {f_.knife_short} min]" if f_.knife_short else ""
+            return (f"winner={f_.knife_win[1]} ({f_.knife_win[2]}) {f_.knife_win[3]}"[:140]) + short
+
+        knife_steps = [
+            Step("knife: match_knife starting", 60, chk_knife_start),
+            Step("knife: round running", 60, chk_knife_run),
+            Step("knife: winner decided", 240, chk_knife_end, None, knife_detail),
+            Step(f"pick ({a.side}) -> golive pending", 30, chk_pick, act_pick,
+                 lambda f_: f"by {f_.knife_pick[1]}: {f_.knife_pick[2]} -> {f_.knife_pick[3]}" if f_.knife_pick else ""),
+            Step("match_live", 30, chk_live, None),
+        ]
+
+        if a.scrim:
+            return self.scrim_steps(f, a, mark, since, state_where, bots_ok, act_selftest, chk_selftest,
+                                    act_reset, chk_reset, knife_steps)
 
         steps = [
             Step("selftest", 45, chk_selftest, act_selftest,
@@ -571,15 +622,7 @@ class Runner:
             Step(f"bots (>= {a.bots_per_side} per side, no humans)", 60, chk_bots, None,
                  lambda f_: next((f"ct={fl.get('ct')} t={fl.get('t')}" for _, fl, _ in reversed(f_.states)), "")),
             Step("countdown", 1, chk_countdown),
-            Step("knife: match_knife starting", 60, chk_knife_start),
-            Step("knife: round running", 60, chk_knife_run),
-            Step("knife: winner decided", 240, chk_knife_end,
-                 None, lambda f_: f"winner={f_.knife_win[1]} ({f_.knife_win[2]}) {f_.knife_win[3]}"[:140]
-                 if f_.knife_win else ""),
-            Step(f"pick ({a.side}) -> golive pending", 30, chk_pick, act_pick,
-                 lambda f_: f"by {f_.knife_pick[1]}: {f_.knife_pick[2]} -> {f_.knife_pick[3]}" if f_.knife_pick else ""),
-            Step("match_live", 30, chk_live, None),
-        ]
+        ] + knife_steps
         steps.append(Step("round 1 ends", a.round_timeout, chk_round(1), act_timescale, rounds_detail))
         for n in range(2, half + 1):
             steps.append(Step(f"round {n} ends", a.round_timeout, chk_round(n), None, rounds_detail))
@@ -589,8 +632,63 @@ class Runner:
         steps.append(Step("map end (Game Over)", a.round_timeout * max(1, a.max_rounds - half - 1) + 30,
                           chk_game_over, None,
                           lambda f_: (f_.game_over[1] + " | " + rounds_detail(f_)) if f_.game_over else rounds_detail(f_)))
-        steps.append(Step("postgame: match cleared (idle, match=none)", 45, chk_postgame))
+        steps.append(Step("postgame (mode=postgame, match loaded)", 30, chk_postgame))
+        steps.append(Step("idle: match cleared (idle, match=none)", 90, chk_idle_after_postgame))
         return steps
+
+    def scrim_steps(self, f, a, mark, since, state_where, bots_ok, act_selftest, chk_selftest,
+                    act_reset, chk_reset, knife_steps) -> list[Step]:
+        """Bots-only scrim: dev_bots_scrim on, bots on both sides, no humans, no match config."""
+
+        def act_flag():
+            self.flag_set = True
+            self.srv.send("ru_dev_bots_scrim 1")
+
+        def chk_flag(_f):
+            if not f.dev_scrim:
+                return False
+            return True if f.dev_scrim[1] == "1" else "ru_dev_bots_scrim 1 did not turn the flag on"
+
+        def act_scrim():
+            mark["load"] = f.seq
+            f.armed = True
+            self.srv.send("ru scrim")  # `ru idle` (reset) turned auto scrim warmup off
+            time.sleep(0.3)
+            self.srv.send(f"bot_quota {a.bots_per_side * 2}")
+
+        def chk_scrim_warmup(_f):
+            fl = state_where(lambda fl: fl.get("mode") == "scrim_warmup", "load")
+            if fl is None:
+                return False
+            if fl.get("dev_bots_scrim") != "1":
+                return "state: line does not show dev_bots_scrim=1"
+            return True
+
+        def chk_bots(_f):
+            return any(bots_ok(fl) for _, fl, _ in f.states_since(since("load")))
+
+        def chk_countdown(_f):
+            return state_where(lambda fl: fl.get("mode") == "scrim_warmup" and "countdown" in fl, "load") is not None
+
+        def chk_created(_f):
+            fl = state_where(lambda fl: (fl.get("match") or "").startswith("scrim:"), "load")
+            if fl is None:
+                return False
+            return True
+
+        return [
+            Step("selftest", 45, chk_selftest, act_selftest,
+                 lambda f_: f_.selftest[2].split("] ", 1)[-1] if f_.selftest else ""),
+            Step("reset (idle, no match)", 30, chk_reset, act_reset),
+            Step("dev flag (ru_dev_bots_scrim 1)", 15, chk_flag, act_flag),
+            Step("scrim warmup (bots only, dev_bots_scrim=1)", 60, chk_scrim_warmup, act_scrim),
+            Step(f"bots (>= {a.bots_per_side} per side, no humans)", 60, chk_bots, None,
+                 lambda f_: next((f"ct={fl.get('ct')} t={fl.get('t')}" for _, fl, _ in reversed(f_.states)), "")),
+            Step("countdown (all ready -> 5s)", 30, chk_countdown),
+            Step("scrim created (match=scrim:...)", 30, chk_created, None,
+                 lambda f_: next((f"match={fl.get('match')}" for _, fl, _ in reversed(f_.states)
+                                  if (fl.get("match") or "").startswith("scrim:")), "")),
+        ] + knife_steps
 
     # ---- main
     def preflight(self) -> Optional[str]:
@@ -617,6 +715,9 @@ class Runner:
                 self.srv.send("sv_cheats 0")
             if self.touched:
                 self.srv.send("ru idle")    # clears the match context + persisted match
+                if self.flag_set:
+                    # Before `ru scrim`: with the flag on, the restored bots would start a scrim.
+                    self.srv.send("ru_dev_bots_scrim cfg")
                 self.srv.send("ru scrim")   # re-enable auto scrim warmup (ru idle turns it off)
                 quota = self.f.bot_quota if self.f.bot_quota is not None else self.a.restore_bot_quota
                 self.srv.send(f"bot_quota {quota}")
@@ -702,6 +803,8 @@ def parse_args(argv=None):
     p.add_argument("--http-host", default=env("LIVETEST_HTTP_HOST", "127.0.0.1"),
                    help="host the CS2 server uses to fetch match.json from this script")
     p.add_argument("--map", default=env("LIVETEST_MAP", ""), help="default: the current map")
+    p.add_argument("--scrim", action="store_true", default=env("LIVETEST_MODE", "match") == "scrim",
+                   help="bots-only scrim (dev_bots_scrim): warmup -> countdown -> knife -> pick -> live")
     p.add_argument("--max-rounds", type=int, default=int(env("LIVETEST_MAX_ROUNDS", "4")))
     p.add_argument("--bots-per-side", type=int, default=int(env("LIVETEST_BOTS_PER_SIDE", "2")))
     p.add_argument("--side", choices=["auto", "stay", "switch"], default=env("LIVETEST_SIDE", "auto"),
