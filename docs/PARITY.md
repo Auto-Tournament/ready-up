@@ -189,7 +189,7 @@ The contract is `AT: Events.cs` plus `MatchData.cs`. The platform normalizer rea
 | Practice extras: `.savenade/.loadnade/.rethrow/.noflash/.showspawns/.spawn/.god/.clear/.fastforward/.timer` | `PracticeMode.cs`, `GrenadeProjectiles.cs`, `spawns/` | none | missing | Most need pawn position/angle reads and teleports, plus projectile entity hooks | **fragile** (schema + entity writes, projectile creation) | L | P2 |
 | Map veto (in-plugin) | – | none | not needed | Veto runs on the platform (`skip_veto: true`) | – | – | – |
 | Wingman (`wingman: true` → `live_wingman.cfg`, 2v2) | `MatchConfig.cs` | none | missing | Exec a wingman cfg and set `game_mode`/`game_type` before `changelevel` | none | S | P2 |
-| Workshop maps in `maplist` (digits → `host_workshop_map`) | `MapTargetLogic.cs` | always `changelevel <entry>` (RU: `command_buffer_hook.cpp`, `modes.cpp`); the map-number lookup by name also breaks for IDs | missing | `host_workshop_map <id>`. Map the workshop ID to the loaded map name for `map_number`. | none | S | P1 |
+| Workshop maps in `maplist` (digits → `host_workshop_map`) | `MapTargetLogic.cs` | done (RU: `plugins/match/readyup/map_names.cpp`): `123`, `ws:123`, `workshop/123[/name]` load with `host_workshop_map`; the loaded bsp name (or `workshop/<id>/<name>`) is bound to the id for `map_number`, MatchState and demo names | done | – | none | S | P1 |
 | Simulation mode (`simulation`, `simulation_timescale`, bots play the match) | `SimulationMode.cs`, `SimulationRosterLogic.cs` | none (`dev_bots_ready` only for dev) | missing | Bot roster mapping + `host_timescale`. Useful for platform e2e tests. | none (mostly) | M | P2 |
 | Stats DB (`ru_get_match_stats`, SQLite/MySQL) | `DatabaseStats.cs` | none | not needed | The platform stores stats from events | – | – | – |
 | Sleep mode / safe auto-updater | `SleepMode.cs`, `AutoTournamentCS2SafeAutoUpdater.cs` | none | not needed | Out of plugin scope for Ready Up (CS2 update watch is in CI) | – | – | – |
@@ -270,7 +270,7 @@ Match JSON: Ready Up already accepts the wrapper and the raw config, `matchid`, 
 4. Match report push/pull (`ru_report_endpoint`, `ru_match_report`) for the live match page. (M)
 5. `ru_addplayer`/`ru_removeplayer` (roster substitutions from the web UI). (S)
 6. In-game team names (`mp_teamname_1/2`), and `css_switch`/`css_asay`/`css_map`/`reload_admins`/`css_prac` aliases for the web admin buttons. (S)
-7. Workshop maps (`host_workshop_map`). (S)
+7. ~~Workshop maps (`host_workshop_map`).~~ Done. (S)
 8. Forfeit when a team leaves (`ru_ffw_*`), `.forceready`, and side selection time from `ru_side_selection_time`. (S each)
 9. Persist the series score and the event retry queue across restarts. Move all HTTP off the game thread. (S+M)
 

@@ -1,8 +1,11 @@
 #include "readyup/fleet_state.h"
 
+#include "readyup/map_names.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 
 namespace readyup::fleetstate {
@@ -298,7 +301,8 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
   Json sides = Json::Array();
   if (const Json* maps = Arr(config, "maps")) {
     for (const auto& m : maps->Items()) {
-      maplist.Push(Str(m, "name"));
+      // Workshop maps: "workshop/<id>/<name>" (host_workshop_map; map_names.h).
+      maplist.Push(mapnames::MakeEntry(Str(m, "name"), Str(m, "workshop_id")));
       sides.Push(Str(m, "sides", "knife"));
     }
   }
@@ -411,6 +415,240 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
   wrapper["slug"] = matchId;
   wrapper["config"] = std::move(cfg);
   return wrapper;
+}
+
+// ---------------------------------------------------------------------------- failover resume
+
+namespace {
+
+bool IsSha256Hex(const std::string& s) {
+  if (s.size() != 64) return false;
+  for (unsigned char c : s) {
+    if (!(std::isdigit(c) || (c >= 'a' && c <= 'f'))) return false;
+  }
+  return true;
+}
+
+// {team1, team2} with non-negative integers; false when malformed.
+bool ScorePair(const Json* o, int* t1, int* t2) {
+  if (!o || !o->IsObject()) return false;
+  const Json* a = o->Find("team1");
+  const Json* b = o->Find("team2");
+  if (!IsInt(a) || !IsInt(b) || a->AsInt() < 0 || b->AsInt() < 0) return false;
+  *t1 = static_cast<int>(a->AsInt());
+  *t2 = static_cast<int>(b->AsInt());
+  return true;
+}
+
+const Json* PathObj(const Json* o, std::initializer_list<const char*> keys) {
+  for (const char* k : keys) {
+    if (!o || !o->IsObject()) return nullptr;
+    o = o->Find(k);
+  }
+  return o && o->IsObject() ? o : nullptr;
+}
+
+}  // namespace
+
+bool ParseResume(const Json& resume, const Json& config, long long epoch, ResumePlan* out, std::string* code,
+                 std::string* err) {
+  auto fail = [&](const char* c, const std::string& why) {
+    if (code) *code = c;
+    if (err) *err = "resume: " + why;
+    return false;
+  };
+  if (!resume.IsObject()) return fail("invalid_config", "must be an object");
+  ResumePlan p;
+  p.present = true;
+  if (const Json* fe = resume.Find("from_epoch")) {
+    if (!IsInt(fe) || fe->AsInt() < 1) return fail("invalid_config", "from_epoch must be an integer >= 1");
+    p.from_epoch = fe->AsInt();
+    if (epoch > 0 && p.from_epoch >= epoch) return fail("invalid_config", "from_epoch must be lower than epoch");
+  }
+  const Json* maps = Arr(config, "maps");
+  const long long mapCount =
+      std::min<long long>(Int(config, "num_maps", 1), maps ? static_cast<long long>(maps->Items().size()) : 0);
+  const Json* mn = resume.Find("map_number");
+  if (!IsInt(mn) || mn->AsInt() < 1 || mn->AsInt() > mapCount) {
+    return fail("invalid_config", "map_number must be 1..num_maps");
+  }
+  p.map_number = static_cast<int>(mn->AsInt());
+  const Json* state = Obj(resume, "state");
+  if (resume.Find("state") && !state) return fail("invalid_config", "state must be a MatchState object");
+
+  const Json* backup = Obj(resume, "backup");
+  const Json* ref = Obj(resume, "backup_ref");
+  if (resume.Find("backup") && !backup) return fail("invalid_config", "backup must be an InlineBackup object");
+  if (resume.Find("backup_ref") && !ref) return fail("invalid_config", "backup_ref must be an object");
+  if (backup && ref) return fail("invalid_config", "backup and backup_ref exclude each other");
+  long long round = -1;
+  if (const Json* r = resume.Find("round")) {
+    if (!IsInt(r) || r->AsInt() < 0 || r->AsInt() > 999) return fail("invalid_config", "round must be 0..999");
+    round = r->AsInt();
+  }
+  if (backup) {
+    if (Int(*backup, "parts", 1) > 1) {
+      return fail("unsupported", "multi-part inline backups are not accepted; send the whole file as one part");
+    }
+    p.file = Str(*backup, "file");
+    if (!SafeBackupFileName(p.file)) return fail("invalid_config", "backup.file is not a plain *.txt name");
+    if (Str(*backup, "encoding", "base64") != "base64" || !Base64Decode(Str(*backup, "data"), &p.raw) ||
+        p.raw.empty()) {
+      return fail("invalid_config", "backup.data is not base64");
+    }
+    p.sha256 = Sha256Hex(p.raw);
+    if (p.sha256 != Str(*backup, "sha256")) return fail("checksum", "backup sha256 mismatch");
+    if (Int(*backup, "size", static_cast<long long>(p.raw.size())) != static_cast<long long>(p.raw.size())) {
+      return fail("checksum", "backup size mismatch");
+    }
+    if (Int(*backup, "map_number", p.map_number) != p.map_number) {
+      return fail("invalid_config", "backup.map_number is not map_number");
+    }
+    const long long br = Int(*backup, "round", 0);
+    if (br < 1) return fail("invalid_config", "backup.round must be >= 1");
+    if (round >= 0 && round != br) return fail("invalid_config", "round is not backup.round");
+    round = br;
+    p.inline_backup = true;
+    int t1 = 0, t2 = 0;
+    if (ScorePair(backup->Find("score"), &t1, &t2)) {
+      p.score_team1 = t1;
+      p.score_team2 = t2;
+    }
+  } else if (ref) {
+    p.file = Str(*ref, "file");
+    if (!p.file.empty() && !SafeBackupFileName(p.file)) {
+      return fail("invalid_config", "backup_ref.file is not a plain *.txt name");
+    }
+    p.sha256 = Str(*ref, "sha256");
+    if (!p.sha256.empty() && !IsSha256Hex(p.sha256)) return fail("invalid_config", "backup_ref.sha256 is not a sha256");
+    if (round < 1) return fail("invalid_config", "backup_ref needs round >= 1");
+  }
+  p.round = static_cast<int>(std::max<long long>(0, round));
+
+  // Series state: maps won and the results of the maps before map_number.
+  const Json* sscore = resume.Find("series_score");
+  if (!sscore && state) sscore = PathObj(state, {"series", "score"});
+  if (sscore && !ScorePair(sscore, &p.series_team1, &p.series_team2)) {
+    return fail("invalid_config", "series_score must be {team1, team2} (integers >= 0)");
+  }
+  const Json* done = Obj(resume, "maps");
+  const bool fromState = !done;
+  if (!done && state) done = PathObj(state, {"series", "maps"});
+  if (done) {
+    for (const auto& kv : done->Members()) {
+      const int n = std::atoi(kv.first.c_str());
+      if (n < 1 || n >= p.map_number || !kv.second.IsObject()) continue;
+      if (fromState && Str(kv.second, "status") != "done") continue;
+      ResumeMapResult r;
+      r.map_number = n;
+      if (!ScorePair(kv.second.Find("score"), &r.team1, &r.team2)) r.team1 = r.team2 = 0;
+      r.winner = Str(kv.second, "winner", r.team1 > r.team2 ? "team1" : r.team2 > r.team1 ? "team2" : "none");
+      if (r.winner != "team1" && r.winner != "team2" && r.winner != "none") {
+        return fail("invalid_config", "bad winner for map " + kv.first);
+      }
+      p.maps_done.push_back(r);
+    }
+  }
+
+  // Starting sides of the resumed map: given, from the platform's state, or the config's.
+  p.sides = Str(resume, "sides");
+  if (p.sides.empty() && state) {
+    const std::string key = std::to_string(p.map_number);
+    if (const Json* m = PathObj(state, {"series", "maps", key.c_str()})) p.sides = Str(*m, "sides");
+  }
+  if (p.sides == "knife") p.sides.clear();
+  if (!p.sides.empty() && p.sides != "team1_ct" && p.sides != "team2_ct") {
+    return fail("invalid_config", "sides must be team1_ct or team2_ct");
+  }
+  const std::string cfgSides =
+      maps ? Str(maps->Items()[static_cast<size_t>(p.map_number - 1)], "sides", "knife") : std::string("knife");
+  if (p.round >= 1 && p.sides.empty() && cfgSides == "knife") {
+    return fail("invalid_config", "the resumed map's sides are still \"knife\": send the sides the knife round decided");
+  }
+
+  // Map score at the start of the round, team1's side then, the platform's stats.
+  if (const Json* sc = resume.Find("score")) {
+    if (!ScorePair(sc, &p.score_team1, &p.score_team2)) return fail("invalid_config", "score must be {team1, team2}");
+  } else if (p.score_team1 < 0 && state) {
+    const Json* a = PathObj(state, {"teams", "team1"});
+    const Json* b = PathObj(state, {"teams", "team2"});
+    if (a && b && IsInt(a->Find("score")) && IsInt(b->Find("score"))) {
+      p.score_team1 = static_cast<int>(a->Find("score")->AsInt());
+      p.score_team2 = static_cast<int>(b->Find("score")->AsInt());
+    }
+  }
+  if (const Json* t1 = PathObj(state, {"teams", "team1"})) {
+    const std::string side = Str(*t1, "side");
+    if (side == "ct" || side == "t") p.team1_side = side;
+  }
+  if (const Json* ms = resume.Find("map_stats")) {
+    if (!ms->IsObject()) return fail("invalid_config", "map_stats must be a MapStats object");
+    p.map_stats = *ms;
+  }
+  if (const Json* pz = PathObj(&config, {"rules", "pause"})) p.pause_after_restore = Bool(*pz, "pause_after_restore", true);
+  if (out) *out = std::move(p);
+  return true;
+}
+
+Json ResumeToJson(const ResumePlan& p) {
+  Json j = Json::Object();
+  j["present"] = p.present;
+  j["from_epoch"] = p.from_epoch;
+  j["map_number"] = p.map_number;
+  j["round"] = p.round;
+  j["inline_backup"] = p.inline_backup;
+  j["file"] = p.file;
+  j["sha256"] = p.sha256;
+  j["series_team1"] = p.series_team1;
+  j["series_team2"] = p.series_team2;
+  Json done = Json::Array();
+  for (const auto& m : p.maps_done) {
+    Json r = Json::Object();
+    r["map_number"] = m.map_number;
+    r["team1"] = m.team1;
+    r["team2"] = m.team2;
+    r["winner"] = m.winner;
+    done.Push(std::move(r));
+  }
+  j["maps_done"] = std::move(done);
+  j["sides"] = p.sides;
+  j["score_team1"] = p.score_team1;
+  j["score_team2"] = p.score_team2;
+  j["team1_side"] = p.team1_side;
+  j["map_stats"] = p.map_stats;
+  j["pause_after_restore"] = p.pause_after_restore;
+  return j;
+}
+
+ResumePlan ResumeFromJson(const Json& j) {
+  ResumePlan p;
+  if (!j.IsObject()) return p;
+  p.present = Bool(j, "present", false);
+  p.from_epoch = Int(j, "from_epoch", 0);
+  p.map_number = static_cast<int>(Int(j, "map_number", 1));
+  p.round = static_cast<int>(Int(j, "round", 0));
+  p.inline_backup = Bool(j, "inline_backup", false);
+  p.file = Str(j, "file");
+  p.sha256 = Str(j, "sha256");
+  p.series_team1 = static_cast<int>(Int(j, "series_team1", 0));
+  p.series_team2 = static_cast<int>(Int(j, "series_team2", 0));
+  if (const Json* done = Arr(j, "maps_done")) {
+    for (const auto& m : done->Items()) {
+      ResumeMapResult r;
+      r.map_number = static_cast<int>(Int(m, "map_number", 0));
+      r.team1 = static_cast<int>(Int(m, "team1", 0));
+      r.team2 = static_cast<int>(Int(m, "team2", 0));
+      r.winner = Str(m, "winner", "none");
+      p.maps_done.push_back(r);
+    }
+  }
+  p.sides = Str(j, "sides");
+  p.score_team1 = static_cast<int>(Int(j, "score_team1", -1));
+  p.score_team2 = static_cast<int>(Int(j, "score_team2", -1));
+  p.team1_side = Str(j, "team1_side");
+  if (const Json* ms = Obj(j, "map_stats")) p.map_stats = *ms;
+  p.pause_after_restore = Bool(j, "pause_after_restore", true);
+  return p;
 }
 
 bool ApplyUpdateOps(Json* config, const Json& ops, std::string* err, bool* passwordChanged) {
@@ -686,13 +924,7 @@ bool ValidPassword(const std::string& password) {
   return true;
 }
 
-bool SafeMapName(const std::string& name) {
-  if (name.empty() || name.size() > 128) return false;
-  for (unsigned char c : name) {
-    if (!(std::isalnum(c) || c == '_' || c == '/' || c == '.' || c == '-')) return false;
-  }
-  return name.find("..") == std::string::npos;
-}
+bool SafeMapName(const std::string& name) { return mapnames::ValidEntry(name); }
 
 bool SafeWorkshopId(const std::string& id) { return IsDigits(id, 20); }
 

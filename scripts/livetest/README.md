@@ -111,10 +111,14 @@ live, because Ready Up's restart checks use wall-clock time), `--round-timeout`,
 127.0.0.1:18095-18097) enrolls fleet.so, assigns a bot match, checks every frame against
 `plugins/fleet/protocol/v1`, and drives fencing, `match.update`, pause / unpause, `exec`, round
 backups + `restore_round`, the offline auto-pause (75 s outage, `offline_pause_minutes=1`),
-`end_match` and `match.unassign`. It checks that `live_rev` goes up by one per message and that the
-patches rebuild the snapshots. Options: `--play-out` (natural map end: `map_result` with MapStats,
-`series_end`), `--from-scrim` (assign while a bots-only scrim runs: D16 hand-over), `--no-offline`,
-`--out DIR` (frames.json, console.log, mock.log), `--save-examples DIR`.
+`end_match` and `match.unassign`, then a failover resume (`match.assign` with `resume`: map 2 of
+3 from the run's round backup, series 1-0) and the admins cache version (`admins.set` rev ->
+`admins_rev` in snapshots and the next `hello`). It checks that `live_rev` goes up by one per
+message and that the patches rebuild the snapshots. Options: `--play-out` (natural map end:
+`map_result` with MapStats, `series_end`), `--from-scrim` (assign while a bots-only scrim runs: D16
+hand-over), `--no-offline`, `--no-resume`, `--save-backup FILE` / `--resume-only --resume-backup
+FILE` (resume from a backup of an earlier run), `--map ws:<id>` (a workshop map), `--out DIR`
+(frames.json, console.log, mock.log), `--save-examples DIR`.
 
 It writes `csgo/cfg/ReadyUp/fleet.cfg` for the run and afterwards moves it and fleet.so's data dir
 (`csgo/readyup/plugins/fleet/`) to `~/readyup-test/.fleet-livetest/<time>/` and reloads fleet.so,

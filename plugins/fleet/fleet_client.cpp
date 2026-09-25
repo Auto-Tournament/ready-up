@@ -658,6 +658,8 @@ std::string Client::BuildHello() {
   if (!json::Parse(h.stateJson, &state)) state = json::Value::Null();
   p.Set("state", std::move(state));
   p.Set("availability", json::Value::Str(h.availability));
+  // The admins.set rev this server has cached: the platform sends admins.set only when it differs.
+  if (h.adminsRev >= 0) p.Set("admins_rev", json::Value::Int(h.adminsRev));
   // hello.selftest is optional (object only); left out until the core exposes its result.
   return json::Dump(p);
 }
@@ -681,7 +683,7 @@ std::string Client::BuildSnapshot(const char* reason, const std::string& extraJs
   p.Set("state", std::move(state));
   p.Set("availability", json::Value::Str(h.availability));
   p.Set("config_rev", json::Value::Int(configRev));
-  p.Set("admins_rev", json::Value::Int(0));
+  p.Set("admins_rev", json::Value::Int(h.adminsRev > 0 ? h.adminsRev : 0));
   // Extra members from the match plugin (map_stats), never overriding the ones above.
   json::Value extra;
   if (!extraJson.empty() && json::Parse(extraJson, &extra) && extra.IsObj()) {

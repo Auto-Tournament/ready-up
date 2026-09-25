@@ -1,5 +1,6 @@
 #include "readyup/modes.h"
 
+#include "readyup/map_names.h"
 #include "readyup/demo_recorder.h"
 #include "readyup/match_end.h"
 #include "readyup/match_stats.h"
@@ -848,7 +849,7 @@ static void StartDemoForMapLocked(State& st, int mapNumber, const std::string& m
   info.mapNumber = mapNumber;
   info.mapName = mapName;
   if (info.mapName.empty() && static_cast<size_t>(mapNumber) <= ctx.maplist.size()) {
-    info.mapName = ctx.maplist[static_cast<size_t>(mapNumber - 1)];
+    info.mapName = mapnames::DisplayName(ctx.maplist[static_cast<size_t>(mapNumber - 1)]);
   }
   info.team1 = ctx.team1_name;
   info.team2 = ctx.team2_name;
@@ -1335,6 +1336,13 @@ bool EndMatchResetServer() {
   readyup::persisted_match_state::ClearActiveMatch();
   st.recoveryGate = false;
   return ok;
+}
+
+void ModesSetSeriesWins(int team1, int team2) {
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  st.seriesWinsTeam1 = std::max(0, team1);
+  st.seriesWinsTeam2 = std::max(0, team2);
 }
 
 void SetRecoveryGate(bool enabled) {

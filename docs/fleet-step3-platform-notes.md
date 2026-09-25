@@ -69,7 +69,8 @@ Table `match_live_state (match_id, epoch, server_id, live_rev, config_rev, state
   (re)assignment of that match; keep the highest epoch per match (fencing, §11.4).
 - `config_rev` (new, default 1): the platform's config counter, the base for `match.update`.
 - `config` from `matchConfig.ts`: `num_maps`, `maps[] {name, workshop_id?, sides}` (sides from the
-  veto: `team1_ct` | `team2_ct` | `knife`), `team1/team2 {id, name, tag?, captain?, players[]
+  veto: `team1_ct` | `team2_ct` | `knife`; a workshop map is `workshop_id` + its name, or a name
+  `ws:<id>` / `workshop/<id>[/<name>]` / all digits: Ready Up loads it with `host_workshop_map`), `team1/team2 {id, name, tag?, captain?, players[]
   {steamid64 (string), name, role: player|sub|coach}}`, `spectators[]`, `admins[]`,
   `password` (generate one per match: printable ASCII, no space, quotes, `\` or `;`, ≤ 64),
   `rules` (§7.1, typed; replaces `maxRounds`, `overtimeMode`, `knifeDecisionSeconds`, `at_*`),
@@ -80,7 +81,7 @@ Table `match_live_state (match_id, epoch, server_id, live_rev, config_rev, state
   `MatchState.rules` but not enforced by Ready Up yet.
 - Answers: `ok`; `rejected` with `invalid_config` (message says which field), `busy` (another
   match or a local `ru match load` match; a finished-but-not-unassigned match does not block),
-  `stale_epoch`, `unsupported` (`resume` blocks are step 5, not accepted yet).
+  `stale_epoch`; with `resume` also `checksum`, `no_backup`, `unsupported` (section 11).
 - Show the connect string with the password to the roster and admins only (D9).
 - D16: the server ends a running scrim itself (chat notice, non-roster humans kicked after 5 s,
   then load). Nothing to do on the platform except allocating idle-or-scrim servers.
@@ -151,8 +152,8 @@ Match commands (`pause`, `unpause`, `force_ready`, `start`, `restore_round`, `re
 
 ## 8. Not in Ready Up's step 3 (later steps)
 
-`resume` blocks / failover (step 5; `match.assign` with `resume` is rejected `unsupported`),
-chunked demo upload (step 4; `event.demo` already flows), `server.config`, `server.drain`, `hello.state` epoch check → `match.unassign {superseded}` (the server
+Failover detection and the admin's choice (§11.1, §11.2; the server side of `resume` is done,
+section 11), chunked demo upload (step 4; `event.demo` already flows), `server.config`, `server.drain`, `hello.state` epoch check → `match.unassign {superseded}` (the server
 side is ready: `hello` carries the MatchState with `epoch`), refusing `ru match load` in fleet
 mode.
 
@@ -173,9 +174,10 @@ status as the step 3 ones, [README](../plugins/fleet/protocol/README.md) "D13"):
 `messages/skins.stattrak.json`, examples in `examples/v1/`.
 
 - **`admins.set {rev, admins: [{steamid64, name}]}`** (reliable, D5): the whole fleet-wide list.
-  Send it after **every `welcome`** (the server cannot tell you its cached rev yet:
-  `state.snapshot.admins_rev` is still `0`) and whenever the list changes; bump `rev` on every
-  change. The server ignores a lower `rev`, caches the list in `fleet-admins.json` (so an offline
+  Bump `rev` on every change (start at 1) and send it whenever the list changes. After a
+  `welcome`, send it only when `hello.admins_rev` (the rev the server has cached in
+  `fleet-admins.json`; absent = none) is not your rev. `state.snapshot.admins_rev` reports the
+  same value (0 = none), so a snapshot also tells you whether the server has the latest list. The server ignores a lower `rev`, caches the list in `fleet-admins.json` (so an offline
   boot still has admins) and, in fleet mode, uses only this list plus the per-match `admins` of
   the assignment. `ru admins add|remove` answer "Admins are managed on the platform"; `ru admins
   list` shows the platform's list and rev.
@@ -194,3 +196,42 @@ status as the step 3 ones, [README](../plugins/fleet/protocol/README.md) "D13"):
   agents, i.e. the old `readyup_weapon_*` tables. Existing Ready Up installs export theirs with
   `scripts/migrate-postgres-to-json.py`; the resulting `loadouts.json` / `admins.json` are a
   ready import format for the platform.
+
+## 11. Failover resume (`match.assign.resume`, §11.3)
+
+Ready Up accepts `resume` in `match.assign` (schema `match.defs.json#/$defs/resume`, example
+`examples/v1/match.assign.resume.json`). What the platform sends after the admin confirmed a
+failover proposal (§11.2) or a manual move:
+
+- A **new epoch** for the match (`from_epoch` = the failed one; keep the highest per match and
+  answer the old server's later `hello` with `match.unassign {superseded}`, §11.4) and the full
+  `config` (new `password`). Fix `config.maps[n].sides` (or send `resume.sides`) from
+  `event.side_picked`: a resume at round >= 1 of a map still on `knife` is `invalid_config`.
+- `map_number` + `round` (the backup's round, 1-based) and the chosen backup: `backup` = the
+  stored file as one InlineBackup part (`data` base64 of the whole file; `parts` > 1 is
+  `unsupported`) for a move to a spare server; `backup_ref {file?, sha256?}` for a restart in
+  place (the server uses its own file; `sha256` = the stored one's, checked); neither = the
+  server's own file for that map / round. Without `round` / a backup the map restarts from
+  warmup (before the first backup of a map, §11.2).
+- The series so far: `series_score` (maps won) and `maps {"<n>": {score, winner}}` for the maps
+  before `map_number`, or just your stored `state` (MatchState): its `series.score`,
+  `series.maps` (status `done`), `series.maps[n].sides` and `teams.*.score` / `side` are used when
+  the explicit fields are absent. `map_stats` (your MapStats of the map, as `state.snapshot`
+  carries it) keeps the players' stats; rounds >= `round` are dropped from it.
+- Answers: `ok`; `checksum` (inline sha256 / size, or the `backup_ref` sha256), `no_backup` (the
+  server has no such file), `invalid_config`, `unsupported`, `busy`, `stale_epoch`. A server that
+  still runs (or recovered after a crash) this match accepts the resume and reloads the match.
+
+Then: `state.snapshot {assign}` with `phase: restoring` (and the series restored); players
+connect with the new password and ready (or `cmd force_ready` / `start`); at the go-live the
+server restores the backup and sends `event.rounds_voided {from_round: round, reason: resume}`,
+`event.match_restored {map_number, round, backup_sha256, file, resume: true, from_epoch}` and
+`state.snapshot {reason: restored}` (map N, paused unless `rules.pause.pause_after_restore` is
+false). Drop your stored round stats `>= round` for that map (as for `restore_round`) and show
+the unpause button. The go-live round before the restore is never reported. The server's own
+round backups continue under the usual name; the restored file is
+`readyup_resume_<id>_map<N>_round<NN>.txt`.
+
+Checked live by `scripts/livetest/fleet_livetest.py` (end of the run, or `--resume-only
+--resume-backup FILE` with a backup saved by an earlier `--save-backup FILE`): map 2 of 3 from a
+round backup of map 1, series 1-0, map 1's result, knife-decided sides.

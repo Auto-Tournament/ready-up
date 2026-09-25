@@ -20,8 +20,18 @@ Runs on the cs2 box as sivert (like livetest.py, whose console helpers it uses):
   7. round backups arrive inline (sha256 checked) and are restored with cmd restore_round (local
      file, then the inline copy): rounds_voided + match_restored; a wrong sha256 is refused,
   8. cmd end_match (or --play-out: map_result with MapStats + series_end), match.unassign,
-  9. checks: no schema errors, cmd.result per command (ref = its id), live_rev +1 per message,
+  9. failover resume (FLEET.md §11.3): match.assign epoch+1 with `resume` {map 2 of 3, the round
+     backup captured in step 7 (or --resume-backup FILE from an earlier run), series 1-0, map 1's
+     result}: bad sha256 -> checksum, bad map -> invalid_config; then phase restoring, the go-live,
+     rounds_voided {resume} + match_restored {resume} + CS2 `Loaded server checkpoint`, a
+     `restored` snapshot (map 2, series 1-0, paused), unpause -> the next round is the backup's,
+  10. admins cache version: admins.set rev N -> state.snapshot.admins_rev = N and, after the
+     offline reconnect, hello.admins_rev = N,
+  11. checks: no schema errors, cmd.result per command (ref = its id), live_rev +1 per message,
      and the snapshots equal the state rebuilt from the assign snapshot + every patch.
+
+  --resume-only runs 1-2 and 9 only (with --resume-backup); --save-backup FILE keeps step 7's
+  backup for such a later run.
 
 Afterwards the server is standalone again: fleet.cfg and fleet.so's data dir are moved to
 ~/readyup-test/.fleet-livetest/<time>/, fleet.so reloaded, `ru idle`, `ru scrim`, bot_quota back.
@@ -119,6 +129,9 @@ class Test:
         self.failures = []
         self.cfg_path = f"{a.target}/game/csgo/cfg/ReadyUp/fleet.cfg"
         self.data_dir = f"{a.target}/game/csgo/readyup/plugins/fleet"
+        # admins.set is cached by match.so (fleet-admins.json): kept aside and put back afterwards.
+        self.admins_cache = f"{a.target}/game/csgo/readyup/plugins/match/fleet-admins.json"
+        self.admins_rev = None
         self.touched = False
         self.match_id = f"lt-{int(time.time())}"
         self.epoch = 2
@@ -201,8 +214,10 @@ class Test:
     def configure_fleet(self) -> None:
         cfg = (f"url=http://127.0.0.1:{self.a.http_port}\ninsecure_dev=1\nenroll_code={CODE}\n"
                "offline_pause_minutes=1\n")
-        self.srv.run(f"test ! -e {shlex.quote(self.cfg_path)} || cp -p {shlex.quote(self.cfg_path)} "
-                     f"{shlex.quote(self.cfg_path)}.pre-livetest; printf %s {shlex.quote(cfg)} > {shlex.quote(self.cfg_path)}",
+        q = shlex.quote
+        self.srv.run(f"test ! -e {q(self.cfg_path)} || cp -p {q(self.cfg_path)} "
+                     f"{q(self.cfg_path)}.pre-livetest; printf %s {q(cfg)} > {q(self.cfg_path)}; "
+                     f"test ! -e {q(self.admins_cache)} || cp -p {q(self.admins_cache)} {q(self.admins_cache)}.pre-livetest",
                      check=True)
         self.touched = True
 
@@ -211,7 +226,10 @@ class Test:
         q = shlex.quote
         self.srv.run(f"mkdir -p {q(trash)}; test -e {q(self.cfg_path)} && mv {q(self.cfg_path)} {q(trash)}/; "
                      f"test -e {q(self.cfg_path)}.pre-livetest && mv {q(self.cfg_path)}.pre-livetest {q(self.cfg_path)}; "
-                     f"test -d {q(self.data_dir)} && mv {q(self.data_dir)} {q(trash)}/fleet-data; true")
+                     f"test -d {q(self.data_dir)} && mv {q(self.data_dir)} {q(trash)}/fleet-data; "
+                     f"test -e {q(self.admins_cache)} && mv {q(self.admins_cache)} {q(trash)}/; "
+                     f"test -e {q(self.admins_cache)}.pre-livetest && mv {q(self.admins_cache)}.pre-livetest "
+                     f"{q(self.admins_cache)}; true")
         log(f"fleet.cfg and fleet data moved to {trash}")
 
     # ---- the test ---------------------------------------------------------------------------
@@ -264,6 +282,18 @@ class Test:
             return self.finish()
         caps = hello["payload"].get("capabilities", [])
         self.step("match.v1 capability", "match.v1" in caps, ",".join(caps))
+        self.step("match.resume.v1 + maps.workshop.v1 capabilities",
+                  "match.resume.v1" in caps and "maps.workshop.v1" in caps, ",".join(caps))
+
+        # ---- admins cache version (D13): admins.set rev N -> admins_rev N in snapshots and hellos
+        cached = hello["payload"].get("admins_rev")
+        self.admins_rev = (cached or 0) + 1
+        self.mock.send("admins.set", {"rev": self.admins_rev, "admins": []})
+        res = self.cmd("snapshot_now", {}, match=False)
+        snapa = self.wait_frame("state.snapshot", 0, lambda f: f["payload"].get("admins_rev") == self.admins_rev)
+        self.step("admins.set rev -> state.snapshot.admins_rev", self.result_ok(res) and bool(snapa),
+                  f"hello admins_rev {cached}, sent rev {self.admins_rev}, snapshot admins_rev "
+                  f"{snapa and snapa['payload'].get('admins_rev')}")
 
         # ---- assign
         cur_map = ""
@@ -274,6 +304,12 @@ class Test:
                 if cur_map:
                     break
         map_name = a.map or cur_map or "de_dust2"
+        if a.resume_only:
+            bd = self.load_backup()
+            if not self.step("backup from an earlier run", bool(bd), a.resume_backup or "(no --resume-backup)"):
+                return self.finish()
+            self.resume_scenario(bd, map_name)
+            return self.finish()
         if a.from_scrim:
             # D16: a bots-only scrim is running when the assignment arrives.
             mark = len(self.lines)
@@ -394,6 +430,10 @@ class Test:
             raw = base64.b64decode(bd["data"])
             self.step("backup sha256 matches its data", hashlib.sha256(raw).hexdigest() == bd["sha256"]
                       and len(raw) == bd["size"], f"{len(raw)} B")
+            if a.save_backup:
+                with open(a.save_backup, "w") as fh:
+                    json.dump(bd, fh)
+                log(f"round backup saved to {a.save_backup}")
             for how, args in (("local file", {"map_number": bd["map_number"], "round": bd["round"]}),
                               ("inline", {"map_number": bd["map_number"], "round": bd["round"], "backup": bd})):
                 since = len(self.frames)
@@ -430,6 +470,11 @@ class Test:
                       off and f"seq {off.get('seq')} rev {off['payload']['rev']}")
             res = self.cmd("unpause", {}, timeout=60)
             self.step("platform unpause after reconnect", self.result_ok(res), self.err_code(res) or "ok")
+            hellos = self.frames_of("hello")
+            last = hellos[-1]["frame"]["payload"] if hellos else {}
+            self.step("hello after the reconnect carries admins_rev", len(hellos) >= 2 and
+                      last.get("admins_rev") == self.admins_rev,
+                      f"{len(hellos)} hello(s), last admins_rev {last.get('admins_rev')} (want {self.admins_rev})")
 
         # ---- end
         if a.play_out:
@@ -453,30 +498,154 @@ class Test:
         self.step("match.unassign -> ok + available", self.result_ok(res) and bool(av), self.err_code(res) or "ok")
         res = self.cmd("pause", {"type": "admin"})
         self.step("cmd after unassign -> stale_epoch", self.err_code(res) == "stale_epoch", self.err_code(res))
+        if not a.no_resume:
+            src = self.load_backup() if a.resume_backup else bd
+            if self.step("round backup for the resume", bool(src), (a.resume_backup or "this run's") +
+                         (f" round {src['round']} sha256 {src['sha256'][:12]}" if src else "")):
+                self.resume_scenario(src, map_name)
         self.pump(2.0)
         return self.finish()
+
+    # ---- failover resume (FLEET.md §11.3) ------------------------------------------------------
+    def load_backup(self):
+        if not self.a.resume_backup:
+            return None
+        try:
+            with open(self.a.resume_backup) as fh:
+                return json.load(fh)
+        except (OSError, ValueError) as e:
+            log(f"cannot read {self.a.resume_backup}: {e}")
+            return None
+
+    def resume_scenario(self, bd: dict, map_name: str) -> None:
+        a = self.a
+        prev_epoch = self.epoch
+        self.epoch += 1
+        rnd = bd["round"]
+        payload = self.assign_payload(map_name)
+        payload["epoch"] = self.epoch
+        cfg = payload["config"]
+        cfg["num_maps"] = 3
+        cfg["maps"] = [{"number": n, "name": map_name, "sides": "team1_ct"} for n in (1, 2, 3)]
+        cfg["rules"]["pause"] = {"pause_after_restore": True}
+        backup = dict(bd, map_number=2)
+        backup.pop("part", None)
+        backup.pop("parts", None)
+        payload["resume"] = {"from_epoch": prev_epoch, "map_number": 2, "round": rnd, "backup": backup,
+                             "series_score": {"team1": 1, "team2": 0},
+                             "maps": {"1": {"score": {"team1": 13, "team2": 5}, "winner": "team1"}},
+                             "sides": "team1_ct"}
+
+        def assign(p):
+            since = len(self.frames)
+            aid = self.mock.send("match.assign", p, p["epoch"])
+            return since, self.wait_frame("cmd.result", since, lambda f: f.get("ref") == aid)
+
+        bad = json.loads(json.dumps(payload))
+        bad["resume"]["backup"]["sha256"] = "0" * 64
+        _, res = assign(bad)
+        self.step("resume with a wrong sha256 -> checksum", self.err_code(res) == "checksum", self.err_code(res))
+        bad = json.loads(json.dumps(payload))
+        bad["resume"]["map_number"] = 4
+        _, res = assign(bad)
+        self.step("resume of a map past num_maps -> invalid_config", self.err_code(res) == "invalid_config",
+                  self.err_code(res))
+
+        mark = len(self.lines)
+        since, res = assign(payload)
+        self.step("match.assign with resume -> ok", self.result_ok(res) and res.get("epoch") == self.epoch,
+                  json.dumps(res and res["payload"]))
+        snap = self.wait_frame("state.snapshot", since, lambda f: f["payload"].get("reason") == "assign")
+        st = snap and snap["payload"]["state"]
+        self.step("state.snapshot (assign): phase restoring, series 1-0", bool(st) and st["phase"] == "restoring" and
+                  st["series"]["score"] == {"team1": 1, "team2": 0} and st["epoch"] == self.epoch,
+                  st and f"phase={st['phase']} series={st['series']['score']} epoch={st['epoch']}")
+        line = self.wait_line(f"resumes on map 2 at round {rnd}", mark, 20)
+        self.step("Ready Up resumes map 2 at the backup's round", bool(line), line or "no `resumes on map 2` line")
+        time.sleep(3)  # the load kicks bots; add them after it
+        self.srv.send(f"bot_quota {2 * a.bots_per_side}")
+
+        rv = self.wait_frame("event.rounds_voided", since, lambda f: f["payload"]["data"]["reason"] == "resume",
+                             timeout=240)
+        mr = self.wait_frame("event.match_restored", since, lambda f: f["payload"]["data"].get("resume") is True)
+        mrd = mr and mr["payload"]["data"]
+        self.step("go-live -> rounds_voided {resume} + match_restored {resume}", bool(rv) and bool(mr) and
+                  mrd["backup_sha256"] == bd["sha256"] and mrd["round"] == rnd and mr["payload"]["map_number"] == 2
+                  and mrd.get("from_epoch") == prev_epoch,
+                  mrd and f"map {mr['payload']['map_number']} round {mrd['round']} file {mrd.get('file')} "
+                          f"sha256 {mrd['backup_sha256'][:12]} from_epoch {mrd.get('from_epoch')}")
+        eng = self.wait_line("Loaded server checkpoint", mark, 15)
+        self.step("CS2 loaded the resume backup", bool(eng), eng or "no `Loaded server checkpoint` line")
+        mr_i = next((w["i"] for w in self.frames if w["frame"] is mr), len(self.frames)) if mr else len(self.frames)
+        early = [w["frame"]["type"] for w in self.frames[since:mr_i]
+                 if w["frame"].get("type") in ("event.round_start", "event.round_end", "event.backup")]
+        rsnap = self.wait_frame("state.snapshot", since, lambda f: f["payload"].get("reason") == "restored")
+        rs = rsnap and rsnap["payload"]["state"]
+        ok = bool(rs) and rs["series"]["current_map"] == 2 and rs["series"]["score"] == {"team1": 1, "team2": 0} \
+            and rs["series"]["maps"]["1"].get("status") == "done" and rs["series"]["maps"]["1"].get("winner") == "team1" \
+            and rs["phase"] == "paused" and rs["pause"]["active"]
+        self.step("state.snapshot (restored): map 2, series 1-0, map 1 done, paused", ok,
+                  rs and f"current_map={rs['series']['current_map']} series={rs['series']['score']} "
+                         f"map1={rs['series']['maps']['1'].get('status')}/{rs['series']['maps']['1'].get('winner')} "
+                         f"phase={rs['phase']} round={rs['round']['number']} score="
+                         f"{rs['teams']['team1']['score']}-{rs['teams']['team2']['score']}")
+        self.step("no round events reported before the restore", bool(mr) and not early,
+                  f"round events before match_restored: {early}")
+        time.sleep(3)
+        res = self.cmd("unpause", {})
+        nxt = self.wait_frame("event.round_start", mr_i, timeout=30)
+        self.step("unpause after the resume -> next round is the backup's",
+                  self.result_ok(res) and bool(nxt) and nxt["payload"]["data"]["round"] == rnd and
+                  nxt["payload"]["map_number"] == 2,
+                  f"{self.err_code(res) or 'ok'}; next round_start {nxt and nxt['payload']['data']['round']} "
+                  f"map {nxt and nxt['payload']['map_number']} (want round {rnd} map 2)")
+        res = self.cmd("end_match", {"reason": "livetest-resume"})
+        self.step("cmd end_match after the resume", self.result_ok(res), self.err_code(res) or "ok")
+        since = len(self.frames)
+        uid = self.mock.send("match.unassign", {"match_id": self.match_id, "epoch": self.epoch, "reason": "ended"},
+                             self.epoch)
+        res = self.wait_frame("cmd.result", since, lambda f: f.get("ref") == uid)
+        self.step("match.unassign after the resume", self.result_ok(res), self.err_code(res) or "ok")
 
     # ---- checks over everything received -----------------------------------------------------
     def verify_stream(self) -> None:
         bad = [(f["frame"].get("type"), f["errors"]) for f in self.frames if f["errors"]]
+        if self.a.save_examples:
+            # The resume's own frames too (the generic dump below keeps the first of each type).
+            os.makedirs(self.a.save_examples, exist_ok=True)
+            for f in self.frames:
+                fr = f["frame"]
+                d = fr.get("payload", {}).get("data", {})
+                name = None
+                if fr.get("type") == "event.match_restored" and d.get("resume"):
+                    name = "live.event.match_restored.resume.json"
+                elif fr.get("type") == "state.snapshot" and fr["payload"].get("reason") == "restored":
+                    name = "live.state.snapshot.restored.json"
+                if name:
+                    with open(os.path.join(self.a.save_examples, name), "w") as fh:
+                        json.dump(fr, fh, indent=2)
+                        fh.write("\n")
         self.step("every frame matches the schemas", not bad, f"{len(self.frames)} frames" if not bad else json.dumps(bad[:5])[:600])
         # live_rev: +1 per state.patch / event.*, and patches rebuild the snapshots.
         state = None
         rev = None
         gaps, mismatches, checked = [], [], 0
+        fr_epoch = None
         for f in self.frames:
             fr = f["frame"]
             t = fr.get("type", "")
             p = fr.get("payload", {})
             if t == "state.snapshot" and p.get("state") and p["state"].get("match_id") == self.match_id:
-                if state is None or p.get("reason") == "assign":
+                if state is None or p.get("reason") == "assign" or p["state"].get("epoch") != fr_epoch:
+                    fr_epoch = p["state"].get("epoch")
                     state, rev = p["state"], p["state"]["live_rev"]
                     continue
                 if p["state"]["live_rev"] == rev:
                     checked += 1
                     if json.dumps(state, sort_keys=True) != json.dumps(p["state"], sort_keys=True):
                         mismatches.append(rev)
-            elif (t == "state.patch" or t.startswith("event.")) and state is not None and p.get("match_id") == self.match_id:
+            elif (t == "state.patch" or t.startswith("event.")) and state is not None and p.get("match_id") == self.match_id \
+                    and fr.get("epoch") == fr_epoch:
                 if p["rev"] != rev + 1:
                     gaps.append((rev, p["rev"], t))
                 rev = p["rev"]
@@ -572,6 +741,11 @@ def parse_args(argv=None):
     p.add_argument("--restore-bot-quota", type=int, default=2)
     p.add_argument("--out", default="")
     p.add_argument("--save-examples", default="", help="write the first frame of each type the server sent here")
+    p.add_argument("--no-resume", action="store_true", help="skip the failover resume (match.assign resume)")
+    p.add_argument("--resume-only", action="store_true",
+                   help="only enroll and run the resume scenario (needs --resume-backup)")
+    p.add_argument("--resume-backup", default="", help="event.backup data (JSON) from an earlier run for the resume")
+    p.add_argument("--save-backup", default="", help="write this run's round backup (JSON) here for a later --resume-only")
     return p.parse_args(argv)
 
 

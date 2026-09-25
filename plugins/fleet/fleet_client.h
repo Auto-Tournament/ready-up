@@ -64,6 +64,7 @@ struct HelloInfo {
   std::string bootId;
   std::string stateJson = "null";  // MatchState or null
   std::string availability = "available";
+  int64_t adminsRev = -1;  // cached admins.set rev (hello.admins_rev); -1 = none
   // ping health
   int players = 0;
   double tickMsP99 = 0.0;

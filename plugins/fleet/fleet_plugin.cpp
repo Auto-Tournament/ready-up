@@ -69,6 +69,7 @@ struct Settings {
 Settings g_set;
 std::string g_dataDir;
 fleet::HelloInfo g_hello;  // game thread
+int64_t g_adminsRev = -1;  // game thread: set_admins_rev
 std::vector<std::string> g_caps;
 
 struct Handler {
@@ -228,6 +229,7 @@ void BuildHello() {
   h.capabilities = g_caps;
   h.bootId = BootId();
   h.startedMs = ProcessStartMs();
+  h.adminsRev = g_adminsRev;
   h.stateJson.clear();     // keep whatever publish_state set
   h.availability.clear();
   g_hello = h;
@@ -424,7 +426,7 @@ int IfSendSnapshot(const char* reason, const char* extra) {
   auto c = Client();
   if (!c) return 0;
   const std::string r = reason && *reason ? reason : "request";
-  if (r != "hello" && r != "request" && r != "reset" && r != "periodic" && r != "assign") return 0;
+  if (r != "hello" && r != "request" && r != "reset" && r != "periodic" && r != "assign" && r != "restored") return 0;
   return c->SendSnapshot(r, extra ? extra : "") ? 1 : 0;
 }
 
@@ -436,10 +438,18 @@ int IfAddCapability(const char* cap) {
   return 1;
 }
 
+int IfSetAdminsRev(int64_t rev) {
+  if (rev < -1) return 0;
+  g_adminsRev = rev;
+  g_hello.adminsRev = rev;
+  if (auto c = Client()) c->SetHelloInfo(g_hello);
+  return 1;
+}
+
 const ru_fleet_v1 g_iface = {
     sizeof(ru_fleet_v1), &IfGetStatus,       &IfInstanceId,        &IfConnectionState, &IfSendEvent,
     &IfRegisterHandler,  &IfUnregisterHandler, &IfPublishState,    &IfAddCapability,  &IfSendReply,
-    &IfSendSnapshot,
+    &IfSendSnapshot,     &IfSetAdminsRev,
 };
 
 // ---- selftest (any thread; see selftest_iface.h) -------------------------------------------

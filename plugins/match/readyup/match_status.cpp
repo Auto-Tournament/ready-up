@@ -3,6 +3,7 @@
 // health, and merges what this returns.
 #include "readyup/match_status.h"
 
+#include "readyup/map_names.h"
 #include "readyup/demo_recorder.h"
 #include "readyup/fleet_bridge.h"
 #include "readyup/match_end.h"
@@ -281,7 +282,9 @@ void Collect(Json* sOut, Json* stOut, bool* safeOut) {
     for (size_t i = 0; i < ctx->maplist.size(); ++i) {
       const int n = static_cast<int>(i) + 1;
       Json m = Json::Object();
-      m["name"] = ctx->maplist[i];
+      m["name"] = mapnames::DisplayName(ctx->maplist[i]);
+      mapnames::MapRef ref;
+      if (mapnames::ParseEntry(ctx->maplist[i], &ref) && !ref.workshop_id.empty()) m["workshop_id"] = ref.workshop_id;
       m["sides"] = i < ctx->map_sides.size() ? ctx->map_sides[i] : std::string("knife");
       const auto res = g_mapResults.find(n);
       const char* status = "pending";
@@ -430,6 +433,17 @@ int MatchStatusGet(ru_match_status* out) {
   const size_t n = out->struct_size < sizeof(r) ? out->struct_size : sizeof(r);
   std::memcpy(out, &r, n);
   return 1;
+}
+
+void MatchStatusSeedSeries(unsigned long long matchid, int team1, int team2, const std::vector<SeededMapResult>& maps) {
+  g_seriesMatchId = matchid;
+  g_seriesT1 = std::max(0, team1);
+  g_seriesT2 = std::max(0, team2);
+  g_seriesOver = false;
+  g_mapResults.clear();
+  for (const auto& m : maps) {
+    if (m.map_number >= 1) g_mapResults[m.map_number] = MapResult{m.team1, m.team2, m.winner};
+  }
 }
 
 Json MatchStatusSnapshotJson() {

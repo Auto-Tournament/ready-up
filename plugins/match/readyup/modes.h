@@ -56,6 +56,10 @@ bool RecoveryGateEnabled();
 // Called when a match config is loaded successfully (seeds roster + enters warmup).
 void OnMatchLoaded();
 
+// Maps already won in the series (a fleet failover resuming map N, FLEET.md §11.3): call after
+// OnMatchLoaded, which starts the series at 0-0.
+void ModesSetSeriesWins(int team1, int team2);
+
 // Called when match becomes live (e.g. first observed round start).
 void OnMatchRoundStarted();
 

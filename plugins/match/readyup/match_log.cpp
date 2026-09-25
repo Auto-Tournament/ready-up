@@ -6,6 +6,7 @@
 #include "readyup/engine.h"
 #include "readyup/knife_tracker.h"
 #include "readyup/logging.h"
+#include "readyup/map_names.h"
 #include "readyup/match_events.h"
 #include "readyup/match_state.h"
 #include "readyup/modes.h"
@@ -77,7 +78,12 @@ WebhookTeam TeamForSteamid(uint64_t steamid64) {
   return it == ctx->roster_team.end() ? WebhookTeam::Unknown : it->second;
 }
 
-void MapChanged(const std::string& nextMapName) {
+void MapChanged(const std::string& loadedName) {
+  // Workshop maps: the engine reports the bsp name ("aim_map") or "workshop/<id>/aim_map"; map
+  // tracking, MatchState and demo names use the bsp name (map_names.h). A maplist entry that is
+  // a workshop id matches through the id or the name its host_workshop_map loaded.
+  mapnames::NoteMapLoaded(loadedName);
+  const std::string nextMapName = mapnames::LoadedBaseName(loadedName);
   const bool hadPrev = !g_currentMap.empty();
   if (g_mapNumber < 1) g_mapNumber = 1;
   // Map number only means something for a loaded match; without one (idle, scrim warmup) it
@@ -87,14 +93,14 @@ void MapChanged(const std::string& nextMapName) {
   if (auto ctx = WebhookGetMatchContext()) {
     int idx = -1;
     for (size_t k = static_cast<size_t>(g_mapNumber); k < ctx->maplist.size(); ++k) {
-      if (ctx->maplist[k] == nextMapName) {
+      if (mapnames::EntryMatchesLoaded(ctx->maplist[k], loadedName)) {
         idx = static_cast<int>(k);
         break;
       }
     }
     if (idx < 0) {
       for (size_t k = 0; k < ctx->maplist.size(); ++k) {
-        if (ctx->maplist[k] == nextMapName) {
+        if (mapnames::EntryMatchesLoaded(ctx->maplist[k], loadedName)) {
           idx = static_cast<int>(k);
           break;
         }
@@ -144,7 +150,10 @@ void LifecycleLocked(const std::string& line) {
 
   if (!isChat && (line.find("Loading map \"") != std::string::npos || line.find("Started map \"") != std::string::npos)) {
     std::string map;
-    if (ExtractBetween(line, "map \"", "\"", map) && !map.empty() && map != g_currentMap) MapChanged(map);
+    // "Loading map" and "Started map" of one load are one change, whichever form they use.
+    if (ExtractBetween(line, "map \"", "\"", map) && !map.empty() && mapnames::LoadedBaseName(map) != g_currentMap) {
+      MapChanged(map);
+    }
   }
 
   // CS2's own warmup started (typically when the first human joins a map). Ready Up emulates
@@ -309,7 +318,7 @@ void MatchLogRestore(const MatchLogState& s) {
 
 void MatchLogSeedMap(const std::string& map) {
   std::lock_guard<std::recursive_mutex> lk(g_mu);
-  if (map.empty() || map == g_currentMap) return;
+  if (map.empty() || mapnames::LoadedBaseName(map) == g_currentMap) return;
   MapChanged(map);
 }
 

@@ -78,7 +78,8 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9_./-]+$"
+      "pattern": "^(ws:[0-9]{1,20}|[A-Za-z0-9_./-]+)$",
+      "description": "a map name (\"de_dust2\") or a Steam Workshop map: \"3084291314\", \"ws:3084291314\", \"workshop/3084291314\" or \"workshop/3084291314/aim_map\". Workshop maps load with host_workshop_map <id>; maps[].workshop_id (with a plain name) does the same."
     },
     "workshopId": {
       "type": "string",
@@ -430,6 +431,96 @@
         }
       },
       "description": "FLEET.md §12.3. Files over 384 KiB are split: `part` / `parts` (1-based), each part carrying the same file/size/sha256."
+    },
+    "resume": {
+      "type": "object",
+      "required": [
+        "map_number"
+      ],
+      "properties": {
+        "from_epoch": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "the failed assignment's epoch (lower than this one's)"
+        },
+        "map_number": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9,
+          "description": "the map to continue (1..num_maps)"
+        },
+        "round": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 999,
+          "description": "the round to replay (1-based) = backup.round; 0 or absent without a backup: the map restarts from warmup (knife + side pick kept when sides are given)"
+        },
+        "backup": {
+          "$ref": "#/$defs/inlineBackup",
+          "description": "the chosen round backup, single part (parts > 1: rejected unsupported)"
+        },
+        "backup_ref": {
+          "type": "object",
+          "description": "a backup the server already has (restart in place): `file` in csgo/readyup or csgo/, else its own file for map_number / round; sha256 checked when given (checksum)",
+          "properties": {
+            "file": {
+              "type": "string",
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*\\.txt$"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "series_score": {
+          "$ref": "#/$defs/score",
+          "description": "maps won before map_number (default: state.series.score, else 0-0)"
+        },
+        "maps": {
+          "type": "object",
+          "description": "results of the maps before map_number (default: state.series.maps with status done)",
+          "propertyNames": {
+            "pattern": "^[1-9]$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "score": {
+                "$ref": "#/$defs/score"
+              },
+              "winner": {
+                "enum": [
+                  "team1",
+                  "team2",
+                  "none"
+                ]
+              }
+            }
+          }
+        },
+        "sides": {
+          "enum": [
+            "team1_ct",
+            "team2_ct"
+          ],
+          "description": "the resumed map's starting sides (the knife result). Default: state.series.maps[map_number].sides, else config.maps[].sides; a resume at round >= 1 of a map still on knife is rejected"
+        },
+        "score": {
+          "$ref": "#/$defs/score",
+          "description": "map score at the start of `round` (default: backup.score, else state.teams.*.score)"
+        },
+        "map_stats": {
+          "$ref": "#/$defs/mapStats",
+          "description": "the platform's stats of the map (as in state.snapshot.map_stats); rounds >= `round` are dropped. Without it the map stats start from the score only"
+        },
+        "state": {
+          "$ref": "#/$defs/matchState",
+          "description": "the platform's MatchState at that round (defaults above)"
+        }
+      },
+      "description": "FLEET.md §11.3 failover resume, in match.assign. The server loads map_number (series score and earlier results restored), phase `restoring`: warmup with password + whitelist until the roster is ready (or cmd force_ready / start); at the go-live it runs mp_backup_restore_load_file, voids rounds >= round, pauses (rules.pause.pause_after_restore, default true; false = unpause after 3 s) and sends event.rounds_voided {reason: resume}, event.match_restored {resume: true} and state.snapshot {reason: restored}."
     },
     "playerStats": {
       "type": "object",

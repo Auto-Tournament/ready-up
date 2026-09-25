@@ -5,6 +5,7 @@
 #include "readyup/game_timers.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
+#include "readyup/match_console.h"
 #include "readyup/modes.h"
 #include "readyup/players.h"
 #include "readyup/webhook.h"
@@ -100,7 +101,7 @@ void ScheduleNextMap(double delay, std::string next, unsigned gen) {
     if (g_generation.load() != gen) return;
     SetPlan(Plan{});
     ModesBeginNextMapWarmup();
-    if (!next.empty()) (void)EnqueueServerCommand(("changelevel " + next).c_str());
+    if (!next.empty()) (void)LoadMapEntry(next);  // changelevel, or host_workshop_map for a workshop map
   });
 }
 
