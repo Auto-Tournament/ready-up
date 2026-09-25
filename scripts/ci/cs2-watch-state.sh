@@ -6,6 +6,8 @@
 #   scripts/ci/cs2-watch-state.sh read
 #       prints BUILDID=, SURFACE_SHA256=, STATUS=, VERIFIED_COMMIT=, UPDATED= (empty if none)
 #   scripts/ci/cs2-watch-state.sh write <buildid> <surface-sha256> <pass|fail> <commit> [patch-version]
+#       CS2_STATE_FILES="a/compat.json a/badge.json" also commits those files (by basename) to the
+#       branch root; they are served from raw.githubusercontent.com (README badge, docs/CS2-COMPAT.md).
 set -euo pipefail
 
 BRANCH="${CS2_STATE_BRANCH:-cs2-build}"
@@ -47,6 +49,14 @@ UPDATED=$now
 EOF
     echo "$now buildid=$buildid patch=$patch status=$status commit=$commit surface=$surface" >>"$wt/history.log"
     git -C "$wt" add README.md state.env history.log 2>/dev/null || git -C "$wt" add state.env history.log
+    for f in ${CS2_STATE_FILES:-}; do
+      if [[ -f "$f" ]]; then
+        cp "$f" "$wt/$(basename "$f")"
+        git -C "$wt" add "$(basename "$f")"
+      else
+        echo "warning: $f not found, not recorded" >&2
+      fi
+    done
     if [[ "$status" == pass ]]; then msg="CS2 build $buildid verified"; else msg="CS2 build $buildid: engine surface broken"; fi
     git -C "$wt" -c user.name="github-actions[bot]" \
       -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \

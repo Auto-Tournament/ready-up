@@ -1,0 +1,3 @@
+merged fragment engine-surface.skins.json (2 functions, 1 vtables)
+OK   Host_Say                                 rva=0x1c3f0c0 prologue relocates  prologue: 55 48 89 E5 41 57 49 89 F7 41 56 41 55 41 89 D5 
+1 hook site(s) checked, 0 failed

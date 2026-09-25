@@ -1,5 +1,8 @@
 # Running Ready Up next to Metamod and CounterStrikeSharp
 
+> Looking for how each CS2 update is checked (compat.json, the README badge, the poller)? See
+> [CS2-COMPAT.md](CS2-COMPAT.md).
+
 **Short version: run Ready Up on its own.** Ready Up is its own plugin platform: the core, the
 match flow and anything else you need go on top of it as Ready Up plugins. You don't need
 Metamod or CounterStrikeSharp for anything Ready Up does.

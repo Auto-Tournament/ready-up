@@ -8,7 +8,8 @@
 #
 # <cs2-dir> is the output of fetch-cs2-binaries.sh, <tools-dir> holds readyup_sigcheck and
 # readyup_hookcheck. Writes a markdown report (default <cs2-dir>/report.md) and exits 1 if
-# any check fails.
+# any check fails. With VERIFY_RAW_DIR set, the raw checker output is kept there
+# (sigcheck.txt, hookcheck.txt, rc.env) for scripts/ci/compat-report.py.
 set -euo pipefail
 
 CS2="${1:?usage: $0 <cs2-dir> <tools-dir> [report.md]}"
@@ -38,6 +39,12 @@ sig_rc=$?
 hook_rc=$?
 set -e
 cat "$sig_out" "$hook_out"
+if [[ -n "${VERIFY_RAW_DIR:-}" ]]; then
+  mkdir -p "$VERIFY_RAW_DIR"
+  cp "$sig_out" "$VERIFY_RAW_DIR/sigcheck.txt"
+  cp "$hook_out" "$VERIFY_RAW_DIR/hookcheck.txt"
+  printf 'SIGCHECK_RC=%d\nHOOKCHECK_RC=%d\n' "$sig_rc" "$hook_rc" >"$VERIFY_RAW_DIR/rc.env"
+fi
 
 python3 - "$sig_out" "$hook_out" "$sig_rc" "$hook_rc" "$SURFACE" \
   "${BUILDID:-?}" "${PATCH_VERSION:-?}" "${SERVER_VERSION:-?}"   "$(basename "$SURFACE")" "${FRAGMENTS[@]##*/}" >"$REPORT" <<'PY'

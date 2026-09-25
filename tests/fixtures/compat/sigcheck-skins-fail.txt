@@ -1,0 +1,12 @@
+merged fragment engine-surface.skins.json (2 functions, 1 vtables)
+engine-surface for game 1.41.8.5
+OK   Host_Say                                      optional matches=1 rva=0x1c3f0c0  anchors ok (2)
+OK   UTIL_ClientPrintAll                           required matches=1 rva=0x1a0b2d0  anchors ok (1)
+FAIL CBaseModelEntity_SetModel                     optional matches=0 rva=0x0  signature matched 0 times (want 1)
+OK   CBaseEntity_ChangeSubclass                    optional matches=1 rva=0x12d0a40  anchors ok (1)
+OK   rtti   CBaseEntity                            11CBaseEntity  name ok; vtable at 0x2a1b3c8
+SKIP rtti   CSchemaSystem                          13CSchemaSystem (module schemasystem: runtime check only)
+OK   vtable ISource2Server::GameFrame              [19] target 0x1b2c3d0 anchors ok
+OK   vtable CEntityInstance::NetworkStateChanged   [29] target 0x12a0f00 == CBaseEntity_NetworkStateChanged
+OK   layout CCommand                                argc=0x438 (verified by ISource2Server::GameFrame)
+sigcheck: FAIL (1 failure)
