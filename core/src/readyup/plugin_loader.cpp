@@ -527,6 +527,8 @@ int ApiConfigGet(ru_plugin* self, const char* key, char* buf, uint32_t len) {
   if (!found) {
     const std::string dir = GetThisModuleDir();
     if (!dir.empty()) found = CfgLookup(dir + "/readyup.cfg", name, k, &v);
+    // Core keys every plugin may read (above the first section): the ruleset (docs/ESPORTS-MODE.md).
+    if (!found && !dir.empty() && k == "ruleset") found = CfgLookup(dir + "/readyup.cfg", "", k, &v);
   }
   if (!found) return -1;
   if (buf && len > 0) {

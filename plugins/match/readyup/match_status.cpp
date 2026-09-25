@@ -5,6 +5,7 @@
 
 #include "readyup/map_names.h"
 #include "readyup/demo_recorder.h"
+#include "readyup/esports.h"
 #include "readyup/fleet_bridge.h"
 #include "readyup/match_end.h"
 #include "readyup/match_state.h"
@@ -233,6 +234,7 @@ void Collect(Json* sOut, Json* stOut, bool* safeOut) {
     teams["team2"] = ctx->team2_name;
     s["teams"] = std::move(teams);
     s["paused"] = paused;
+    s["ruleset"] = RulesetName(CurrentEffectiveRules().ruleset);
   }
   if (const char* kp = KnifePhaseString()) s["knife"] = kp;
   const int countdown = ScrimCountdownSecondsLeft();
@@ -391,6 +393,11 @@ void Collect(Json* sOut, Json* stOut, bool* safeOut) {
     Json round = Json::Object();
     round["number"] = ms.round_number;
     st["round"] = std::move(round);
+
+    // Ruleset preset + overrides, and the keys that differ from the preset (ruleset.h).
+    const EffectiveRuleSet er = CurrentEffectiveRules();
+    st["ruleset"] = RulesetName(er.ruleset);
+    st["effective_rules"] = EffectiveRulesJson(er);
   }
 
   *sOut = std::move(s);

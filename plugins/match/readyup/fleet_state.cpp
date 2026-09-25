@@ -1,6 +1,7 @@
 #include "readyup/fleet_state.h"
 
 #include "readyup/map_names.h"
+#include "readyup/ruleset.h"
 
 #include <algorithm>
 #include <cctype>
@@ -233,6 +234,37 @@ bool RemoveEverywhere(Json* config, const std::string& sid) {
   return found;
 }
 
+// rules.ruleset / rules.overrides (ruleset.h), and what the ruleset refuses (knife sides under valve).
+bool ValidateRuleset(const Json& cfg, std::string* err) {
+  auto fail = [&](const std::string& why) {
+    if (err) *err = why;
+    return false;
+  };
+  Ruleset rs = ServerRuleset();
+  RuleMap overrides;
+  if (const Json* rules = Obj(cfg, "rules")) {
+    if (const Json* r = rules->Find("ruleset")) {
+      if (r->type() != Json::Type::String || !ParseRuleset(r->AsString(), &rs)) {
+        return fail("rules.ruleset must be \"default\" or \"valve\"");
+      }
+    }
+    if (const Json* o = rules->Find("overrides")) {
+      std::string e;
+      if (!ParseOverrides(*o, &overrides, &e)) return fail("rules.overrides: " + e);
+    }
+  }
+  RulesInput in;
+  in.ruleset = rs;
+  in.overrides = std::move(overrides);
+  std::vector<std::string> sides;
+  if (const Json* maps = Arr(cfg, "maps")) {
+    for (const auto& m : maps->Items()) sides.push_back(Str(m, "sides", "knife"));
+  }
+  std::string why;
+  if (!CheckMapSides(ResolveEffective(in), sides, &why)) return fail(why);
+  return true;
+}
+
 }  // namespace
 
 bool ValidateAssign(const Json& payload, std::string* err) {
@@ -276,6 +308,7 @@ bool ValidateAssign(const Json& payload, std::string* err) {
   if (!ValidPassword(pw->AsString())) return fail("password has characters that cannot go into sv_password");
   if (const Json* r = cfg->Find("rules"); r && r->type() != Json::Type::Object) return fail("rules must be an object");
   if (const Json* c = cfg->Find("cvars"); c && c->type() != Json::Type::Object) return fail("cvars must be an object");
+  if (!ValidateRuleset(*cfg, err)) return false;
   return true;
 }
 
@@ -311,6 +344,7 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
 
   Json spectators = Json::Object();
   Json specPlayers = Json::Object();
+  Json coaches = Json::Array();
   auto team = [&](const char* key) {
     Json t = Json::Object();
     const Json* src = Obj(config, key);
@@ -323,7 +357,10 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
       for (const auto& p : ps->Items()) {
         const std::string sid = Str(p, "steamid64");
         // Coaches may join and watch but are not ready-gated players: whitelisted as spectators.
-        if (Str(p, "role", "player") == "coach") specPlayers[sid] = Str(p, "name");
+        if (Str(p, "role", "player") == "coach") {
+          specPlayers[sid] = Str(p, "name");
+          coaches.Push(sid);
+        }
         else players[sid] = Str(p, "name");
       }
     }
@@ -340,6 +377,7 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
   }
   spectators["players"] = std::move(specPlayers);
   cfg["spectators"] = std::move(spectators);
+  cfg["coaches"] = std::move(coaches);
   Json admins = Json::Array();
   if (const Json* a = Arr(config, "admins")) {
     for (const auto& s : a->Items()) admins.Push(s.AsString());
@@ -364,6 +402,9 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
   }
   if (const Json* k = Obj(r, "knife")) cfg["knifeDecisionSeconds"] = Int(*k, "side_pick_seconds", 60);
   cfg["clinch_series"] = Bool(r, "clinch_series", true);
+  // Ruleset + overrides (ruleset.h; validated in ValidateAssign).
+  if (const Json* rs = r.Find("ruleset")) cfg["ruleset"] = *rs;
+  if (const Json* ov = r.Find("overrides")) cfg["overrides"] = *ov;
   // Pause / ready / forfeit rules (match_rules.h). Absent fields stay unset (server defaults).
   const Json* pause = Obj(r, "pause");
   if (pause && pause->Find("technical_per_team")) cfg["max_tech_pauses_per_team"] = Int(*pause, "technical_per_team", 0);
@@ -705,6 +746,7 @@ bool ApplyUpdateOps(Json* config, const Json& ops, std::string* err, bool* passw
       if (!r) return fail("set_rules: rules must be an object");
       const Json* cur = c.Find("rules");
       c["rules"] = MergePatchApply(cur ? *cur : Json::Object(), *r);
+      if (!ValidateRuleset(c, err)) return false;
     } else {
       return fail("unknown op \"" + kind + "\"");
     }

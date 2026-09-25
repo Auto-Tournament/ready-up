@@ -3,6 +3,7 @@
 
 #include "readyup/config.h"
 #include "readyup/engine.h"
+#include "readyup/esports.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
 #include "readyup/match_events.h"
@@ -157,10 +158,8 @@ void ForfeitTick(double now) {
 
 }  // namespace
 
-MatchRules EffectiveRules() {
-  const auto ctx = WebhookGetMatchContext();
-  return ResolveRules(ctx ? ctx->rules : MatchRules{}, Cfg().rules);
-}
+// The ruleset (esports.h): preset, the match config and readyup.cfg keys, overrides.
+MatchRules EffectiveRules() { return CurrentEffectiveRules().match_rules; }
 
 void MatchFeaturesOnGameEvent(const char* name) {
   if (!name) return;
@@ -268,7 +267,8 @@ void MatchFeaturesUnpause(WebhookTeam team, uint64_t steamid64, const std::strin
                      .c_str());
     }
   }
-  const bool both = rules.both_teams_unpause != 0;
+  // The halftime pause (mp_halftime_pausematch, esports.h) belongs to nobody: both teams resume it.
+  const bool both = rules.both_teams_unpause != 0 || cur.type == "halftime";
   const int teamsReady = (snap.team1_ready_to_unpause ? 1 : 0) + (snap.team2_ready_to_unpause ? 1 : 0);
   WebhookEmitUnpauseRequested(mapNumber, team, teamsReady, both ? 2 : 1);
   if (UnpauseSatisfied(snap.team1_ready_to_unpause, snap.team2_ready_to_unpause, both, TeamNum(cur.team))) {

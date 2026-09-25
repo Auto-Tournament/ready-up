@@ -12,6 +12,7 @@ set(MATCH_SOURCES
   readyup/cs2_version.cpp
   readyup/demo_naming.cpp
   readyup/demo_recorder.cpp
+  readyup/esports.cpp
   readyup/fleet_bridge.cpp
   readyup/fleet_state.cpp
   readyup/game_timers.cpp
@@ -43,6 +44,7 @@ set(MATCH_SOURCES
   readyup/player_registry.cpp
   readyup/ready_hud.cpp
   readyup/reload_state.cpp
+  readyup/ruleset.cpp
   readyup/scrim_flow.cpp
   readyup/webhook.cpp
   readyup/welcome.cpp
@@ -93,7 +95,7 @@ set_tests_properties(match_host PROPERTIES TIMEOUT 120)
 # sha256 / base64, validators, resume blocks), workshop map names (readyup/map_names.h) and the stats rewind
 # of round restores (ctest `match_fleet_state`).
 add_executable(match_fleet_state_test tests/fleet_state_test.cpp readyup/fleet_state.cpp readyup/map_names.cpp
-  readyup/match_stats.cpp readyup/match_config_parser.cpp readyup/match_rules.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp
+  readyup/match_stats.cpp readyup/match_config_parser.cpp readyup/match_rules.cpp readyup/ruleset.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/steamid.cpp)
 target_include_directories(match_fleet_state_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs
   ${CMAKE_SOURCE_DIR}/core/include)
@@ -106,3 +108,13 @@ add_executable(match_rules_test tests/match_rules_test.cpp readyup/match_rules.c
 target_include_directories(match_rules_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(match_rules_test PRIVATE -Wall -Wextra)
 add_test(NAME match_rules COMMAND match_rules_test)
+
+# Rulesets: presets, override parsing / validation, preset + overrides resolution, what differs,
+# the commands after the go-live cfg, knife refusal (readyup/ruleset.h; ctest `match_ruleset`).
+add_executable(match_ruleset_test tests/ruleset_test.cpp readyup/ruleset.cpp readyup/match_rules.cpp
+  readyup/match_config_parser.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/steamid.cpp)
+target_include_directories(match_ruleset_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs
+  ${CMAKE_SOURCE_DIR}/core/include)
+target_compile_options(match_ruleset_test PRIVATE -Wall -Wextra)
+add_test(NAME match_ruleset COMMAND match_ruleset_test)

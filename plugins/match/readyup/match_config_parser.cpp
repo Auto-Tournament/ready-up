@@ -1,6 +1,8 @@
 #include "readyup/match_config_parser.h"
 
 #include "readyup/minijson.h"
+#include "readyup/ruleset.h"
+#include "readyup/status_snapshot.h"
 #include "readyup/steamid.h"
 
 #include <algorithm>
@@ -9,6 +11,75 @@
 #include <string>
 
 namespace readyup {
+
+namespace {
+
+// "ruleset" / "overrides" (ruleset.h), validated here so a bad value refuses the load, and what
+// the ruleset changes in the context (knife sides, overtime, coaches).
+bool ApplyRulesetToContext(const std::string& json, WebhookMatchContext* ctx, std::string* errOut) {
+  using status::Json;
+  auto fail = [&](const std::string& why) {
+    if (errOut) *errOut = why;
+    return false;
+  };
+  Json root;
+  if (!Json::Parse(json, &root) || !root.IsObject()) return true;  // nothing more to read
+  const Json* cfg = &root;
+  if (const Json* c = root.Find("config"); c && c->IsObject()) cfg = c;
+
+  Ruleset rs = ServerRuleset();
+  if (const Json* r = cfg->Find("ruleset")) {
+    if (r->type() != Json::Type::String || !ParseRuleset(r->AsString(), &rs)) {
+      return fail("ruleset must be \"default\" or \"valve\"");
+    }
+    ctx->ruleset = RulesetName(rs);
+  }
+  RuleMap overrides;
+  if (const Json* o = cfg->Find("overrides")) {
+    std::string err;
+    if (!ParseOverrides(*o, &overrides, &err)) return fail(err);
+    ctx->overrides_json = OverridesToText(overrides);
+  }
+
+  RulesInput in;
+  in.ruleset = rs;
+  in.overrides = overrides;
+  in.match = ctx->rules;
+  for (const auto& kv : ctx->cvars) in.cvars[kv.first] = kv.second;
+  const EffectiveRuleSet e = ResolveEffective(in);
+
+  // Scrims keep their knife round (scrim_knife); matches need allow_knife for "knife" sides.
+  std::string err;
+  if (ctx->slug != "scrim" && !CheckMapSides(e, ctx->map_sides, &err)) return fail(err);
+
+  if (rs == Ruleset::Valve) {
+    // Overtime is the engine's (mp_overtime_limit, unlimited MR3 by default): Ready Up's own
+    // overtime cap and damage tiebreak do not run.
+    if (ctx->maxOvertimes >= 0 || ctx->damageTiebreakEnabled) {
+      ctx->ruleset_notes.push_back(
+          "maxOvertimes / damageTiebreak ignored (ruleset valve: overtime is the engine's, mp_overtime_limit)");
+      ctx->maxOvertimes = -1;
+      ctx->damageTiebreakEnabled = false;
+    }
+  }
+  if (rs == Ruleset::Valve || overrides.count("overtime.enabled")) ctx->overtime_enabled = e.Bool("overtime.enabled", true);
+  if (rs == Ruleset::Valve || overrides.count("overtime.maxrounds")) {
+    ctx->overtimeSegments = std::max(1, static_cast<int>(e.Int("overtime.maxrounds", 6) / 2));
+  }
+
+  if (!ctx->coaches.empty()) {
+    if (CoachesAdmitted(e)) {
+      for (uint64_t sid : ctx->coaches) ctx->spectators.insert(sid);
+    } else {
+      for (uint64_t sid : ctx->coaches) ctx->spectators.erase(sid);
+      ctx->ruleset_notes.push_back(std::to_string(ctx->coaches.size()) +
+                                   " coach(es) not admitted (online match: lan false, coaches_online false)");
+    }
+  }
+  return true;
+}
+
+}  // namespace
 
 std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::string& json, std::string* errOut) {
   using namespace readyup::minijson;
@@ -259,6 +330,15 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
   readTeam("team1", ctx.team1_name, WebhookTeam::Team1);
   readTeam("team2", ctx.team2_name, WebhookTeam::Team2);
 
+  // coaches (array of SteamID64 values): spectators unless the ruleset keeps them out.
+  if (const Value* coaches = cfg->get("coaches"); coaches && coaches->type == Value::Type::Array) {
+    for (const auto& v : coaches->arr) {
+      const uint64_t sid = v.type == Value::Type::String ? ParseSteamId64Loose(v.str) : 0;
+      if (sid) ctx.coaches.insert(sid);
+    }
+  }
+
+  if (!ApplyRulesetToContext(json, &ctx, errOut)) return std::nullopt;
   return ctx;
 }
 

@@ -86,6 +86,27 @@ The match flow up to `match_live` with rules in the match config (`max_tech_paus
 
 Cleanup also restores `bot_join_team any`, `mp_autoteambalance 1` and the old `bot_quota_mode`.
 
+### Esports mode (`--ruleset valve`)
+
+The Valve ruleset (docs/ESPORTS-MODE.md) with a few overrides (`freezetime 5`,
+`spectators_max 8`, `default_models`, `overtime.startmoney 12500`). Needs
+`cfg/ReadyUp/esports_live.cfg` on the server (`scripts/dev-deploy.sh --cfg esports_live.cfg --cfg
+esports_override.cfg --cfg live.cfg`).
+
+| Step | Driven by | Checked by |
+|---|---|---|
+| knife refused | `ru match load` of a valve config with `map_sides: ["knife"]` | `match-load[..]: error: ... knife ... allow_knife` |
+| match load | a valve config, `map_sides: ["team1_ct"]`, the overrides | `esports: ruleset=valve (match config) go-live cfg=ReadyUp/esports_live.cfg differs=freezetime,overtime.startmoney,spectators_max,default_models` |
+| live | automatic (empty roster) | `mode=match_live` without a knife round |
+| bots back | `bot_quota 4` (esports_live.cfg sets `bot_quota 0` + `bot_kick`) | bots on both sides |
+| cvars | every Valve exception cvar of `esports_live.cfg` section 2, the Premier values and the overrides, queried from the console | each value (e.g. `mp_freezetime 5`, `mp_team_timeout_time 31`, `mp_weapons_allow_zeus 5`, `mp_spectators_max 8`, `sv_matchpause_auto_5v5 1`, `mp_maxrounds` = the match cvar) |
+| `ru rules` | `ru rules` | `rules: differs from valve: freezetime 20->5 (override); ...` |
+| skins inert | `skins_status` | `skins inert (valve ruleset)` (SKIP without skins.so) |
+| default models | bot spawns | `esports: default_models: slot N (CT) -> agents/models/...` for CT and T |
+| selftest | `ru selftest` with the match loaded | PASS |
+
+Cleanup also sends `mp_unpause_match`, `sv_matchpause_auto_5v5 0` and `mp_halftime_pausematch 0`.
+
 ### Knife round time
 
 Bots do not knife each other, so a bots-only knife round always runs to the time

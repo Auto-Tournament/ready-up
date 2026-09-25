@@ -404,7 +404,8 @@ typedef struct ru_api {
 
   /*
    * Plugin config value: `key = value` from cfg/ReadyUp/<plugin>.cfg (csgo/cfg; top-level keys
-   * or a `[<plugin>]` section), then the `[<plugin>]` section of readyup.cfg. Returns the value length (truncated to len-1 in
+   * or a `[<plugin>]` section), then the `[<plugin>]` section of readyup.cfg. Core key `ruleset` falls back to the
+   * top level of readyup.cfg (docs/ESPORTS-MODE.md). Returns the value length (truncated to len-1 in
    * buf), or -1 if the key is not set.
    */
   int (*config_get)(ru_plugin* self, const char* key, char* buf, uint32_t len);
