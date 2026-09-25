@@ -113,6 +113,7 @@ Table `match_live_state (match_id, epoch, server_id, live_rev, config_rev, state
 | `event.match_restored` | failover / restore confirmation |
 | `event.demo` | turnover (`utils/serverTurnover.ts`); upload itself is step 4 |
 | `event.forfeit` / `event.gg` | admin notification / result proposal |
+| `event.admin_called {call_id, player, message, called_at}` | a player typed `.admin [message]`: notify admins, resolve on the platform (same fields as the `admin_called` webhook, docs/ADMINS.md) |
 | `event.backup` | backup store (section 7) |
 
 Bots: player ids in the dev-bot range (`PlayerLine.bot = true`) are dropped unless the match is a

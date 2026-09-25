@@ -9,6 +9,7 @@
 
 #include "readyup/engine.h"
 #include "readyup/esports.h"
+#include "readyup/golive_card.h"
 #include "readyup/welcome.h"
 #include "readyup/config.h"
 #include "readyup/match_events.h"
@@ -1245,6 +1246,7 @@ void OnMatchRoundStarted() {
   readyup::persisted_match_state::PersistLiveFlag(true);
   WebhookSetHeartbeatStatus("live");
   SendToChat("Ready Up: LIVE! Good luck, have fun.");
+  GoLiveCardArm("go-live round start", /*restartPending=*/false);  // "LIVE · GO GO GO" + commands
 
   // Emit warmup/live lifecycle events once per map transition.
   // MatchZy-style semantics: warmup_ended then going_live.
@@ -1302,6 +1304,8 @@ bool ForceStartMatch(bool force) {
     st.goingLiveSent = true;
     if (auto ctxLive = WebhookGetMatchContext()) BeginMapStats(*ctxLive, mapNumber);
   }
+
+  GoLiveCardArm("ru match start", /*restartPending=*/true);  // after the queued restart
 
   // Start per-map demo recording when map goes live (force-start path).
   StartDemoForMapLocked(st, mapNumber, ms.current_map);

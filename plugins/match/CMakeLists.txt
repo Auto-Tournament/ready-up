@@ -5,8 +5,11 @@
 # fall back to the `curl` binary. Settings, match recovery state and admins are JSON files in the
 # plugin data dir (readyup/local_store.h, docs/FLEET.md D13).
 set(MATCH_SOURCES
+  readyup/admin_call.cpp
+  readyup/admin_call_logic.cpp
   readyup/admin_check.cpp
   readyup/backup_files.cpp
+  readyup/card_html.cpp
   readyup/config.cpp
   readyup/cs2_version.cpp
   readyup/damage_ledger.cpp
@@ -17,6 +20,7 @@ set(MATCH_SOURCES
   readyup/fleet_bridge.cpp
   readyup/fleet_state.cpp
   readyup/game_timers.cpp
+  readyup/golive_card.cpp
   readyup/host.cpp
   readyup/idle_refresh.cpp
   readyup/warmup_money.cpp
@@ -152,3 +156,12 @@ add_executable(match_idle_refresh_test tests/idle_refresh_test.cpp)
 target_include_directories(match_idle_refresh_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(match_idle_refresh_test PRIVATE -Wall -Wextra)
 add_test(NAME match_idle_refresh COMMAND match_idle_refresh_test)
+
+# Go-live card and `.admin` (readyup/card_html.h, readyup/admin_call_logic.h): card HTML, escaping,
+# the per-player cooldown, message cleanup, call id / timestamp, the `admin_called` payload
+# (ctest `match_live_cards`).
+add_executable(match_live_cards_test tests/live_cards_test.cpp readyup/card_html.cpp readyup/admin_call_logic.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp)
+target_include_directories(match_live_cards_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
+target_compile_options(match_live_cards_test PRIVATE -Wall -Wextra)
+add_test(NAME match_live_cards COMMAND match_live_cards_test)

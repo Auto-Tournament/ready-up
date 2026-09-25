@@ -738,6 +738,7 @@ applies `patch` when `rev == stored_rev + 1`; on a gap it sends `state.request`.
 | `demo` | `DemoEvent` (`ToJson`): `recording_started`, `recording_stopped`, `upload_started`, `upload_succeeded`, `upload_failed` | `demo_recorder.h` | turnover (`utils/serverTurnover.ts`) |
 | `match_restored` | `{ map_number, round, backup_sha256 }` | restore | failover confirmation |
 | `forfeit` / `gg` | `{ team, reason }` | match | |
+| `admin_called` | `{ call_id, player: { steamid64, name, team: "team1"\|"team2"\|"spectator"\|null, side: "ct"\|"t"\|null }, message, called_at }` | `.admin [message]` (`admin_call.h`, [ADMINS.md](ADMINS.md)) | admin notification; the platform resolves it |
 | `error` | `{ code, message, fatal }` | any | alert admins |
 
 Server-level: `server.availability {availability, reason}` (a `ServerReset` from `match_end.h`

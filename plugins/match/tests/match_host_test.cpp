@@ -383,6 +383,17 @@ int main(int argc, char** argv) {
   rp::Frame(true);
   Check(Has(Summary(), "\"ready\":{\"ready\":1,\"total\":1}"), "alice is ready (1/1)");
 
+  std::puts("-- .admin: private answer, console log, per-player cooldown");
+  ClearLog();
+  Check(rp::TryDispatchChat(76561198000000001ull, "alice", ".admin  smoke  bug on B ", 2), ".admin dispatched");
+  rp::Frame(true);
+  Check(Chatted("admins notified."), ".admin: the caller is told admins were notified");
+  Check(Logged("admin-call: alice (76561198000000001, CT): smoke bug on B ["), ".admin: console log with the cleaned message");
+  ClearLog();
+  rp::TryDispatchChat(76561198000000001ull, "alice", ".admin again", 2);
+  rp::Frame(true);
+  Check(Chatted("you can call again in") && !Logged("admin-call:"), ".admin within the cooldown: refused");
+
   std::puts("-- reload keeps mode, ready states, settings");
   ClearLog();
   rp::HandlePluginCommand({"reload", "match"}, false);

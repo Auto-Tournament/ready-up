@@ -23,6 +23,11 @@ struct ReadyUpCfg {
   // The welcome card waits this long after a round (re)start: CS2's own "Match started"
   // announcement covers the center panel for a few seconds after the warmup restart.
   int welcome_round_delay_ms = 5000;
+  // Go-live card (golive_card.h): seconds everyone sees "LIVE · GO GO GO" + the commands once a
+  // map goes live (starts welcome_round_delay_ms after the go-live round start). 0 = off.
+  int golive_card_seconds = 10;
+  // `.admin [message]` (admin_call.h): seconds before the same player can call again.
+  int admin_call_cooldown_s = 60;
   // Per-player center-HTML ready list during scrim/match warmup + knife side pick.
   bool ready_hud = true;
   // Center-panel refresh tuning (ms / s).

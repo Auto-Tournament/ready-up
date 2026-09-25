@@ -21,16 +21,17 @@ CS2 has a single center panel per client, so the core decides who owns it (plugi
 
 | Priority | Level | Panels |
 |---|---|---|
-| 90 | `RU_HTML_PRIO_ALERT` | map change card, Workshop download bar; later: pause called, going live |
+| 90 | `RU_HTML_PRIO_ALERT` | map change card, Workshop download bar, `.admin` call card (admins only); later: pause called |
 | 80 | `RU_HTML_PRIO_MENU` | a menu the player opened (the planned WASD `.ru` menu) |
-| 70 | `RU_HTML_PRIO_NOTICE` | welcome card, vote prompts, `.ru hud test`, `.ru hud anim` |
+| 70 | `RU_HTML_PRIO_NOTICE` | welcome card, go-live card, vote prompts, `.ru hud test`, `.ru hud anim` |
 | 50 | `RU_HTML_PRIO_HUD` | ready HUD, knife panel, live / pause status panel (and every old call) |
 | 10 | `RU_HTML_PRIO_INFO` | idle / background information |
 
 While a plugin's panel is up (its `seconds` have not run out), another
 plugin's lower send is refused (-1); it goes through once that panel expires, so a HUD that
 re-sends comes back by itself. Within the match plugin the welcome card holds the ready HUD back
-itself (by SteamID or slot).
+itself (by SteamID or slot); an `.admin` call card holds back the HUD, the welcome and the go-live
+card for that admin.
 
 ## Measuring the redraw rate
 
@@ -73,3 +74,15 @@ While a map is live the panel is only shown when there is something to wait for
 - PAUSED BY ADMIN (only `.fup` ends it).
 - `<team> LEFT` with the forfeit countdown (`forfeit_after_seconds`) while a team has nobody
   connected. Chat also announces the start, 120/60/30/10 s, a cancel and the forfeit.
+
+## Go-live card
+
+When a map goes live (all ready, the knife winners' `.stay` / `.switch` / `.ct` / `.t`, a scrim going
+live, `ru match start`), everyone gets a card for `golive_card_seconds` (readyup.cfg, default 10,
+0 = off): **LIVE · GO GO GO**, the team names with their sides (`Team A (CT) vs Team B (T)`; not in
+scrims) and the commands that work: `.p` / `.pause` / `.tech`, `.up` / `.unpause`, `.tac`,
+`.admin [message]`. The go-live restart and CS2's "Match started" announcement wipe the panel, so
+the card starts `welcome_round_delay_ms` (5 s) after the go-live round start, like the welcome
+card, and is re-sent every second with a 2 s duration at `RU_HTML_PRIO_NOTICE`. It stops early when
+a pause or a forfeit countdown needs the panel (the live panel above takes over). Chat keeps the
+single "LIVE!" line; if center HTML is unavailable, one chat line lists the commands instead.

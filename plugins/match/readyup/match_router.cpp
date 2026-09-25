@@ -5,6 +5,7 @@
 // deduped the chat line and checked that chat commands are available on this build.
 #include "readyup/match_router.h"
 
+#include "readyup/admin_call.h"
 #include "readyup/admin_check.h"
 #include "readyup/config.h"
 #include "readyup/engine.h"
@@ -96,7 +97,7 @@ const std::vector<std::string>& MatchPlayerChatCommands() {
       ".r",    ".ready", ".unready", ".ur",   ".notready", ".nr",    ".pause", ".p",     ".tech",
       ".tac",  ".forceready", ".forcepause", ".fp", ".forceunpause", ".fup",
       ".unpause", ".up", ".gg",      ".ff",   ".forfeit",  ".stay",  ".switch", ".swap", ".ct",
-      ".t",    ".help",  ".stop"};
+      ".t",    ".help",  ".stop", ".admin"};
   return k;
 }
 
@@ -117,12 +118,18 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   auto ctx = WebhookGetMatchContext();
   const bool hasMatch = static_cast<bool>(ctx);
 
+  if (first == ".admin") {
+    // Anyone (roster or not, any mode): admin_call.h.
+    AdminCallCommand(steamid64, playerName, text);
+    return;
+  }
+
   if (first == ".help") {
     if (GetMode() == ReadyUpMode::Practice) {
       if (const ru_practice_v1* p = Practice()) SendToChat(p->help());
       return;
     }
-    SendToChat("Ready Up commands: .r / .ready / .ur (.nr) | .forceready | .tac (timeout) | .tech (.pause) | .unpause");
+    SendToChat("Ready Up commands: .r / .ready / .ur (.nr) | .forceready | .tac (timeout) | .tech (.pause) | .unpause | .admin [message]");
     if (hasMatch) {
       SendToChat("Ready Up: knife: .stay/.switch (.ct/.t) | forfeit: .ff (captain)");
     } else {

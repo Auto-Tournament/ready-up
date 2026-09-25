@@ -2,6 +2,7 @@
 
 #include "readyup/plugin_api.h"
 
+#include "readyup/admin_call.h"
 #include "readyup/engine.h"
 #include "readyup/config.h"
 #include "readyup/logging.h"
@@ -645,6 +646,7 @@ void ReadyHudTick() {
       // The welcome screen owns the panel while it is up (~5s after joining).
       if (WelcomeActiveFor(slot, h.steamid64)) continue;
       if (ReadyHudAnimActive(h.steamid64)) continue;  // `.ru hud anim` owns this player's panel
+      if (AdminCallCardActiveFor(slot)) continue;      // an `.admin` call card (admin_call.h)
       html = (what == What::Ready)   ? ReadyHtml(board, h.steamid64, footer)
              : (what == What::Live) ? liveHtml
                                     : KnifeHtml(knife, h.team);

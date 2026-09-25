@@ -15,6 +15,7 @@
 #include "readyup/persisted_match_state.h"
 #include "readyup/players.h"
 #include "readyup/webhook.h"
+#include "readyup/golive_card.h"
 #include "readyup/welcome.h"
 
 #include <algorithm>
@@ -607,7 +608,10 @@ void OnGameEvent(void* /*user*/, const char* name, const ru_game_event* ev) {
     OnNativeWarmupStarted("round_announce_warmup event");
     return;
   }
-  if (std::strcmp(name, "round_start") == 0) WelcomeObserveRoundStart();  // the card waits it out
+  if (std::strcmp(name, "round_start") == 0) {
+    WelcomeObserveRoundStart();     // the cards wait it out
+    GoLiveCardObserveRoundStart();  // (golive_card.h)
+  }
   if (std::strcmp(name, "round_start") == 0 || std::strcmp(name, "round_freeze_end") == 0) {
     MatchFeaturesOnGameEvent(name);  // freeze time tracking for pauses (match_features.h)
     if (name[6] == 'f') return;
