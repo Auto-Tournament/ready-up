@@ -12,6 +12,9 @@ enum class ReadyUpMode {
   MatchWarmup,
   MatchKnife,
   MatchLive,
+  // Map decided: between the final round end and the next map's changelevel (series
+  // continues) or the unload after the series-end kick delay (series over). Matches
+  // and scrims. See match_end.h.
   Postgame,
   // No match loaded, humans on CT/T: CS2 warmup (paused timer) + ready-up.
   // When every human on CT/T is ready (and both sides are populated), the

@@ -2,7 +2,10 @@
 
 // Map end and series end.
 //
-// When modes.cpp decides a map (OnMatchRoundEnded), it calls MatchEndOnMapComplete():
+// When modes.cpp decides a map (OnMatchRoundEnded), it switches to mode `postgame`
+// (state: line `mode=postgame`, heartbeat `postgame`) and calls MatchEndOnMapComplete().
+// Postgame lasts until 3a (the changelevel) or 3b (the unload); matches and scrims both
+// pass through it:
 //   1. A MapResult event (below) with the map score, the series score after the map
 //      and the final per-player stats (match_stats.h).
 //   2. Restart delay: 10 s without a demo; with a demo tv_delay + 15 s, plus 10 s
@@ -15,7 +18,8 @@
 //       SeriesEnd event. For matches, every human is kicked after
 //       (restart_delay - 1) + ru_series_end_kick_delay_{no_demo|demo_no_upload|demo_upload}
 //       (5 / 10 / 60 s), and 2 s later the match is unloaded (ServerReset event, mode
-//       idle). Scrims are not kicked; they unload at restart_delay - 1.
+//       postgame -> idle). Scrims are not kicked; they stay in postgame until
+//       restart_delay - 1 (9 s without a demo), then unload.
 //
 // Internal events are delivered to listeners (AddMatchFlowListener) on the game thread.
 // The transport that turns them into platform messages is designed separately; the
