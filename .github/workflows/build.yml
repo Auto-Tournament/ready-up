@@ -3,7 +3,7 @@ name: Build
 # Release build of libserver.so + plugins in Valve's Steam Runtime 3 "sniper" SDK (glibc 2.31,
 # what CS2 targets), verified against the CURRENT public CS2 build (sigcheck + hook-site check,
 # base gamedata + every fragment). Every run uploads the install zips as workflow artifacts:
-# ready-up-{core,match,skins,hello,essentials,full}-<version>-linuxsteamrt64.zip + SHA256SUMS.
+# ready-up-{core,match,fleet,skins,hello,essentials,full}-<version>-linuxsteamrt64.zip + SHA256SUMS.
 # The installer job then tests install.sh against those zips. Tags v* additionally publish a
 # GitHub release with the same files.
 
@@ -101,7 +101,7 @@ jobs:
           mkdir -p dist-info
           cp "$CS2_DIR/cs2-build.env" .ci/report.md dist-info/
 
-      - name: Check bundles (essentials has match and no skins; core has neither)
+      - name: Check bundles (essentials has match + fleet and no skins; core has neither)
         run: scripts/ci/check-bundles.sh dist "${{ steps.version.outputs.version }}"
 
       # One artifact with everything (what the installer job and the release use), plus one
@@ -146,6 +146,14 @@ jobs:
         with:
           name: ready-up-match-${{ steps.version.outputs.version }}
           path: dist/ready-up-match-*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ready-up-fleet
+        uses: actions/upload-artifact@v4
+        with:
+          name: ready-up-fleet-${{ steps.version.outputs.version }}
+          path: dist/ready-up-fleet-*.zip
           if-no-files-found: error
           retention-days: 30
 

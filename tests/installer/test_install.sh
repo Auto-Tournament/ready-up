@@ -5,7 +5,8 @@
 #   tests/installer/test_install.sh <dist-dir>
 #
 # Covers: fresh essentials install (with and without a Metamod line), rerun = no-op, user
-# config kept (+ *.default when a template changes), adding skins from the full zip, removing
+# config kept (+ *.default when a template changes), fleet in essentials (idle template), removing
+# and re-adding fleet (its data dir kept), adding skins from the full zip, removing
 # it, the numbered-prompt and arrow-key pickers through a pty (`script`), uninstall, --purge.
 set -euo pipefail
 
@@ -40,6 +41,8 @@ line_of() { grep -nE "^[[:space:]]*Game[[:space:]]+$2[[:space:]]*$" "$1" | cut -
 count_ru() { grep -cE '^[[:space:]]*Game[[:space:]]+csgo/readyup[[:space:]]*$' "$1" || true; }
 installed() { python3 -c 'import json,sys; print(" ".join(sorted(json.load(open(sys.argv[1]))["components"])))' "$1/game/csgo/readyup/installed.json"; }
 run() { bash "$INSTALL" "$@" </dev/null; }
+# The file exists and has no active `key = value` line (only comments / blank lines).
+idle_cfg() { [[ -f "$1" ]] && ! grep -Ev '^[[:space:]]*(//|#|$)' "$1" | grep -q .; }
 
 for mm in 0 1; do
   S="$T/server-mm$mm"
@@ -54,7 +57,9 @@ for mm in 0 1; do
   check "no skins gamedata in essentials" test ! -e "$CS/readyup/bin/linuxsteamrt64/engine-surface.skins.json"
   check "readyup.cfg created from the example" test -f "$CS/readyup/bin/linuxsteamrt64/readyup.cfg"
   check "cfg/ReadyUp templates seeded" test -f "$CS/cfg/ReadyUp/live.cfg"
-  check "installed.json lists core match" test "$(installed "$S")" = "core match"
+  check "fleet.so installed" test -x "$CS/readyup/plugins/fleet.so"
+  check "fleet.cfg seeded, all comments (fleet stays idle)" idle_cfg "$CS/cfg/ReadyUp/fleet.cfg"
+  check "installed.json lists core fleet match" test "$(installed "$S")" = "core fleet match"
   for gi in gameinfo.gi gameinfo_branchspecific.gi; do
     check "$gi: exactly one readyup line" test "$(count_ru "$CS/$gi")" = 1
     check "$gi: readyup before Game csgo" test "$(line_of "$CS/$gi" csgo/readyup)" -lt "$(line_of "$CS/$gi" csgo)"
@@ -95,16 +100,29 @@ run --dir "$S" --remove skins >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove s
 check "skins.so removed" test ! -e "$CS/readyup/plugins/skins.so"
 check "skins gamedata removed" test ! -e "$CS/readyup/bin/linuxsteamrt64/engine-surface.skins.json"
 check "core still installed" test -f "$CS/readyup/bin/linuxsteamrt64/libserver.so"
-check "installed.json back to core match" test "$(installed "$S")" = "core match"
+check "installed.json back to core fleet match" test "$(installed "$S")" = "core fleet match"
+
+echo "== remove fleet (its data dir and user fleet.cfg stay), add it back from the fleet zip"
+mkdir -p "$CS/readyup/plugins/fleet" && echo '{}' >"$CS/readyup/plugins/fleet/credentials.json"
+echo "url = https://t.example.com" >>"$CS/cfg/ReadyUp/fleet.cfg"
+run --dir "$S" --remove fleet >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove fleet exited non-zero"; }
+check "fleet.so removed" test ! -e "$CS/readyup/plugins/fleet.so"
+check "fleet credentials kept" test -f "$CS/readyup/plugins/fleet/credentials.json"
+check "user fleet.cfg kept" grep -q "t.example.com" "$CS/cfg/ReadyUp/fleet.cfg"
+check "installed.json is core match" test "$(installed "$S")" = "core match"
+run --dir "$S" --zip "$(ls "$DIST"/ready-up-fleet-*.zip)" fleet >"$T/out" 2>&1 || { cat "$T/out"; fail "fleet install exited non-zero"; }
+check "fleet.so back" test -x "$CS/readyup/plugins/fleet.so"
+check "user fleet.cfg not overwritten" grep -q "t.example.com" "$CS/cfg/ReadyUp/fleet.cfg"
+check "installed.json is core fleet match again" test "$(installed "$S")" = "core fleet match"
 
 if command -v script >/dev/null 2>&1; then
   echo "== numbered picker (TERM=dumb) through a pty"
-  printf '1,2,3\ny\n' | script -qec "TERM=dumb bash '$INSTALL' --dir '$S' --zip '$FULL'" /dev/null >"$T/out" 2>&1 || true
+  printf '1,2,3,4\ny\n' | script -qec "TERM=dumb bash '$INSTALL' --dir '$S' --zip '$FULL'" /dev/null >"$T/out" 2>&1 || true
   check "numbered picker installed skins" test -f "$CS/readyup/plugins/skins.so"
   check "numbered picker showed the prompt" grep -q "Components to install" "$T/out"
 
-  echo "== arrow-key picker through a pty: untick skins (down, down, space, enter), confirm"
-  printf '\e[B\e[B \ny\n' | script -qec "TERM=xterm bash '$INSTALL' --dir '$S' --zip '$FULL'" /dev/null >"$T/out" 2>&1 || true
+  echo "== arrow-key picker through a pty: untick skins (down x3, space, enter), confirm"
+  printf '\e[B\e[B\e[B \ny\n' | script -qec "TERM=xterm bash '$INSTALL' --dir '$S' --zip '$FULL'" /dev/null >"$T/out" 2>&1 || true
   check "arrow picker removed skins" test ! -e "$CS/readyup/plugins/skins.so"
   check "arrow picker kept core" test -f "$CS/readyup/bin/linuxsteamrt64/libserver.so"
 

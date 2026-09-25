@@ -32,9 +32,9 @@ Every zip's root is the contents of `game/csgo`:
 
 | Zip | Contents |
 |---|---|
-| `ready-up-essentials-<v>-linuxsteamrt64.zip` | core + match (default, no skins) |
-| `ready-up-full-<v>-linuxsteamrt64.zip` | core + match + skins + hello + `readyup_sigcheck` / `readyup_hookcheck` |
-| `ready-up-core-...`, `-match-...`, `-skins-...`, `-hello-...` | single components. The core runs alone, but the match flow (ready-up, knife, pauses, webhooks) is `match`. |
+| `ready-up-essentials-<v>-linuxsteamrt64.zip` | core + match + fleet (default, no skins) |
+| `ready-up-full-<v>-linuxsteamrt64.zip` | core + match + fleet + skins + hello + `readyup_sigcheck` / `readyup_hookcheck` |
+| `ready-up-core-...`, `-match-...`, `-fleet-...`, `-skins-...`, `-hello-...` | single components. The core runs alone, but the match flow (ready-up, knife, pauses, webhooks) is `match`. `fleet` links the server to the Auto Tournament platform and stays idle until configured ([FLEET.md](FLEET.md)). |
 | `SHA256SUMS` | checksums of every zip |
 
 1. Extract the zip into `game/csgo`. You should end up with `game/csgo/readyup/bin/linuxsteamrt64/libserver.so`.
@@ -66,6 +66,10 @@ your `readyup.cfg`, `cfg/` edits and the plugins' JSON data:
 - `readyup/cfg-templates/ReadyUp/*.cfg` (mode cfgs, only used when cfg exec is enabled)
 - `readyup/VERSION`, `README.md`, `INSTALL.md`, `LICENSE`, `BUILD_INFO` (commit + the CS2 build it was verified against)
 - skins only: `readyup/plugins/skins.so`, `readyup/bin/linuxsteamrt64/engine-surface.skins.json`, `readyup/SKINS-WARNING.txt`
+- fleet only: `readyup/plugins/fleet.so`, `readyup/cfg-templates/ReadyUp/fleet.cfg` (copied to
+  `cfg/ReadyUp/fleet.cfg` if missing; every line is commented out, so the link stays idle until
+  you set `url` and an enrollment code or key). Its data dir `readyup/plugins/fleet/`
+  (`install_id`, `credentials.json`, spool) is never shipped and survives updates and removal.
 - hello only: `readyup/plugins/hello.so`
 - `readyup/manifests/<component>.json`
 
@@ -86,6 +90,47 @@ updates keep it. A file that is broken or from a newer version is moved to
 
 Back up the directory to keep admins and loadouts; delete `match/state.json` to forget persisted
 settings and a half-finished match.
+
+### Console settings that survive a restart
+
+These match settings are saved in `match/state.json` (`"settings"`, one key per command name)
+when you change them on the console, over RCON or from a cfg file, and are applied again when the
+match plugin loads after a server restart:
+
+- `ru_webhook_url`, `ru_heartbeat_url`, `ru_match_token`, `ru_admins_url`,
+  `ru_admins_refresh_seconds` (`<setting> clear` forgets them)
+- `ru_cfg_exec_enable`, `ru_warmup_enable`, `ru_warmup_message_html`, `ru_warmup_respawn`,
+  `ru_warmup_ignore_win_conditions`, `ru_warmup_roundtime_minutes`, `ru_warmup_startmoney`,
+  `ru_warmup_maxmoney`, `ru_warmup_buy_anywhere`, `ru_warmup_infinite_ammo`
+- `ru_demo_recording_enabled`, `ru_demo_path`, `ru_demo_name_format`, `ru_demo_upload_url`,
+  `ru_demo_upload_method`, `ru_demo_upload_attempts`, and the headers from
+  `ru_demo_upload_header` (saved together as one key, `ru_demo_upload_headers`)
+- `ru_series_end_kick_delay_no_demo`, `ru_series_end_kick_delay_demo_no_upload`,
+  `ru_series_end_kick_delay_demo_upload`
+
+Not saved: `ru_dev_bots_scrim` (debug only; `ru_dev_bots_scrim cfg` goes back to readyup.cfg) and
+the read-only `ru_demo_status` / `ru_match_stats`.
+
+How the value is chosen, lowest to highest:
+
+1. The built-in default. None of these settings has a `readyup.cfg` key.
+2. The saved value, applied when the plugin loads at server start.
+3. Any later command. That includes lines in `server.cfg` or other cfg files the server runs after
+   Ready Up loads, so a setting kept in `server.cfg` still wins on every start, as before (and is
+   saved again).
+
+Details:
+
+- Only values that differ from the built-in default are stored. Setting a value back to its
+  default removes the key.
+- `<setting> default` (e.g. `ru_demo_path default`) applies the built-in default and removes the
+  saved value. `ru_demo_upload_header default` and `ru_demo_upload_headers_clear` both clear all
+  saved headers. `ru_warmup_message_html default` works as before and also clears the saved value.
+- A rejected value (e.g. `ru_demo_path /abs/`) changes nothing and saves nothing.
+- `ru_warmup_startmoney` can raise `ru_warmup_maxmoney`; both are saved then.
+- `ru plugin reload match` keeps every setting in memory and does not read `state.json`.
+- Saved values are plain text, like `ru_match_token`: `ru_demo_upload_url` and upload header
+  values (tokens) end up in `state.json`. An empty value is stored as `""`.
 
 ## Upgrading from Postgres
 

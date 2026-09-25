@@ -363,6 +363,16 @@ int main(int argc, char** argv) {
   Check(Has(s, "\"Alpha\"") && Has(s, "\"76561198000000002\""), "MatchState roster survives the reload");
   Check(rp::ChatCommandOwned(".r", &flags), "commands registered again by the new image");
 
+  std::puts("-- console settings go to state.json (a server restart restores them)");
+  rp::TryDispatchConsole("ru_demo_path persist/");
+  rp::TryDispatchConsole("ru_demo_path /rejected/");
+  rp::TryDispatchConsole("ru_warmup_startmoney 20000");
+  rp::TryDispatchConsole("ru_demo_upload_header \"X-Token\" \"abc\"");
+  rp::TryDispatchConsole("ru_series_end_kick_delay_demo_upload 77");
+  rp::TryDispatchConsole("ru_series_end_kick_delay_demo_upload default");
+  rp::Frame(true);
+  Check(Logged("ru_series_end_kick_delay_demo_upload: back to the default"), "`<setting> default` answered");
+
   std::puts("-- unload");
   ClearLog();
   rp::HandlePluginCommand({"unload", "match"}, false);
@@ -373,6 +383,24 @@ int main(int argc, char** argv) {
   Check(!rp::ChatCommandOwned(".r", &flags), ".r no longer routed");
   Check(rp::CoreGetInterface(RU_MATCH_IFACE_NAME, RU_MATCH_IFACE_VERSION) == nullptr, "readyup.match.v1 removed");
   Check(dlopen((pluginsDir + "/match.so").c_str(), RTLD_NOW | RTLD_NOLOAD) == nullptr, "match.so no longer mapped");
+  {
+    std::string st;
+    if (FILE* f = std::fopen((pluginsDir + "/match/state.json").c_str(), "r")) {
+      char buf[4096];
+      size_t n = 0;
+      while ((n = std::fread(buf, 1, sizeof buf, f)) > 0) st.append(buf, n);
+      std::fclose(f);
+    }
+    Check(Has(st, "\"ru_demo_path\"") && Has(st, "\"persist/\"") && !Has(st, "rejected"),
+          "state.json: ru_demo_path saved, rejected value not");
+    Check(Has(st, "\"ru_warmup_startmoney\"") && Has(st, "\"ru_warmup_maxmoney\""),
+          "state.json: startmoney + the maxmoney it raised");
+    Check(Has(st, "X-Token: abc"), "state.json: upload headers");
+    Check(Has(st, "\"ru_series_end_kick_delay_no_demo\"") && !Has(st, "ru_series_end_kick_delay_demo_upload"),
+          "state.json: kick delay saved; `default` removed the other");
+    Check(!Has(st, "ru_warmup_respawn"), "state.json: settings left at their default are not stored");
+    if (g_failed) std::printf("  state.json: %s\n", st.c_str());
+  }
 
   std::puts("-- load again: the stash still has the match");
   ClearLog();
