@@ -4,10 +4,10 @@ Ready Up has no database (docs/FLEET.md D13). Who counts as an admin:
 
 - the per-match `admins` of the loaded match config,
 - the MAT admin list (`ru_admins_url`), if configured,
-- **standalone**: `admins.json` of the essentials plugin (`plugins/essentials/admins.json`),
-- **fleet mode** (`[fleet] url` set): the platform's fleet-wide list instead of `admins.json`.
+- `admins.json` of the essentials plugin (`plugins/essentials/admins.json`), always,
+- **fleet mode** (`[fleet] url` set): also the platform's fleet-wide list.
 
-## Standalone: `admins.json`
+## `admins.json`
 
 `game/csgo/readyup/plugins/essentials/admins.json` (the essentials plugin; on its first load it copies an
 older `plugins/match/admins.json` there)
@@ -33,8 +33,9 @@ same MAT admin list (`ru_admins_url`), or use fleet mode.
 
 In fleet mode the platform sends the whole admin list (`admins.set`, D5). Ready Up caches it in
 `game/csgo/readyup/plugins/match/fleet-admins.json`, so a server that starts while the platform
-is unreachable still knows its admins. `admins.json` is ignored. `ru admins list` shows the
-platform's list and its rev. `add` and `remove` answer "Admins are managed on the platform".
+is unreachable still knows its admins. `admins.json` still counts on top of it: a local admin
+(the server owner) stays an admin even when the platform sends no list or a list without them.
+`ru admins list|add|remove` work on `admins.json`; the platform's list is edited on the platform.
 
 ## Commands
 
