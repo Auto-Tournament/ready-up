@@ -2,6 +2,7 @@
 #include "readyup/fleet_bridge.h"
 
 #include "readyup/fleet_iface.h"
+#include "readyup/whitelist_iface.h"
 
 #include "readyup/admin_check.h"
 #include "readyup/demo_recorder.h"
@@ -1445,6 +1446,37 @@ Result CmdKick(const Json& args) {
   return Rejected("not_connected", "no connected player " + sid);
 }
 
+// `plugins.set`: the core's `ru plugin enable|disable <name>` for each (remembered across restarts,
+// csgo/readyup/plugins/plugins.json); they run on the next frames, after this reply.
+Result CmdPluginsSet(const Json& args) {
+  std::vector<std::string> on, off;
+  std::string err;
+  if (!fs::ParsePluginsSet(args, &on, &off, &err)) return Rejected("bad_args", err);
+  for (const auto& n : off) {
+    if (!EnqueueServerCommand(("ru plugin disable " + n).c_str())) return Failed("engine", "the command could not be queued");
+  }
+  for (const auto& n : on) {
+    if (!EnqueueServerCommand(("ru plugin enable " + n).c_str())) return Failed("engine", "the command could not be queued");
+  }
+  Print("fleet: plugins.set: enable [%zu] disable [%zu]\n", on.size(), off.size());
+  return Ok();
+}
+
+// `whitelist.set`: the whole list through readyup.whitelist.v1 (plugins/whitelist).
+Result CmdWhitelistSet(const Json& args) {
+  bool enabled = false;
+  std::vector<uint64_t> ids;
+  std::string err;
+  if (!fs::ParseWhitelistSet(args, &enabled, &ids, &err)) return Rejected("bad_args", err);
+  const auto* w = g_api ? static_cast<const ru_whitelist_v1*>(g_api->get_interface(g_api->self, RU_WHITELIST_IFACE_NAME, 1))
+                        : nullptr;
+  if (!w || !w->set) return Rejected("unsupported", "the whitelist plugin (whitelist.so) is not loaded");
+  if (w->set(enabled ? 1 : 0, ids.data(), static_cast<uint32_t>(ids.size())) != 1) {
+    return Failed("io", "whitelist.json could not be saved");
+  }
+  return Ok();
+}
+
 void OnCmd(const ru_fleet_msg* m) {
   const Json p = ParsePayload(m);
   const std::string ref = m->id ? m->id : "";
@@ -1519,6 +1551,10 @@ void OnCmd(const ru_fleet_msg* m) {
       SendToChat((Bool(args, "as_admin") ? "[Admin] " + text : text).c_str());
       r = Ok();
     }
+  } else if (name == "plugins.set") {
+    r = CmdPluginsSet(args);
+  } else if (name == "whitelist.set") {
+    r = CmdWhitelistSet(args);
   } else if (name == "snapshot_now") {
     r = SendSnapshot("request", true) ? Ok() : Failed("offline", "not connected");
   } else if (name == "exec") {
