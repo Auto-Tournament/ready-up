@@ -759,6 +759,9 @@ static void ApplyScrimWarmupRulesLocked(State& st) {
       "mp_warmup_pausetimer 0",
       "mp_warmuptime 0",
       "mp_warmup_end",
+      // Idle is plain CS2: a round can end before warmup starts (the first player takes a bot's
+      // place and a side is briefly empty), leaving a 1:0 that the warmup never clears.
+      "mp_restartgame 1",
   };
   for (const char* c : cmds) {
     if (EnqueueServerCommand(c)) any = true;

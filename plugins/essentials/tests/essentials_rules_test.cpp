@@ -66,6 +66,8 @@ int main() {
     CHECK(f.find("100.0%") != std::string::npos);
     CHECK(f.find("#3f3f46") == std::string::npos);
   }
+  CHECK(MapChangePanelHtml("de_<x>", false).find("Changing map to de_&lt;x&gt;") != std::string::npos);
+  CHECK(MapChangePanelHtml("m", true).find("Reloading m") != std::string::npos);
   std::printf("essentials_rules_test: %s\n", g_failures ? "FAIL" : "PASS");
   return g_failures ? 1 : 0;
 }
