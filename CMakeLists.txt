@@ -344,6 +344,9 @@ add_test(NAME plugin_host_reload
   COMMAND readyup_plugin_host_test
     $<TARGET_FILE:readyup_plugin_hello> $<TARGET_FILE:readyup_plugin_hello_reload_test>)
 
+# readyup-midas (plugins/midas): fun plugin, plus its unit test (after enable_testing()).
+add_subdirectory(plugins/midas)
+
 # readyup-match (plugins/match): the match flow, plus its host test (after enable_testing()).
 add_subdirectory(plugins/match)
 
