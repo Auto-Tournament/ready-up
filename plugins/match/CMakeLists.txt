@@ -20,6 +20,7 @@ set(MATCH_SOURCES
   readyup/host.cpp
   readyup/idle_refresh.cpp
   readyup/warmup_money.cpp
+  readyup/weapon_cleanup.cpp
   readyup/knife_tracker.cpp
   readyup/local_store.cpp
   readyup/ru_commands.cpp
@@ -111,10 +112,12 @@ target_compile_options(match_fleet_state_test PRIVATE -Wall -Wextra)
 add_test(NAME match_fleet_state COMMAND match_fleet_state_test)
 
 # Pause limits / unpause rule / auto-unpause countdown, .forceready threshold, team name
-# sanitizing and the team-left forfeit timer (readyup/match_rules.h; ctest `match_rules`).
+# sanitizing, the team-left forfeit timer, warmup money and the warmup weapon cleanup (its cvars
+# against cfg/ReadyUp/*.cfg) (readyup/match_rules.h, weapon_cleanup.h; ctest `match_rules`).
 add_executable(match_rules_test tests/match_rules_test.cpp readyup/match_rules.cpp)
 target_include_directories(match_rules_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(match_rules_test PRIVATE -Wall -Wextra)
+target_compile_definitions(match_rules_test PRIVATE READYUP_CFG_DIR="${CMAKE_SOURCE_DIR}/cfg/ReadyUp")
 add_test(NAME match_rules COMMAND match_rules_test)
 
 # Damage report bookkeeping (readyup/damage_ledger.h), the .gg / .stop vote logic

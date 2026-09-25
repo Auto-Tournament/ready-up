@@ -182,6 +182,7 @@ void FillEngineApi(ru_api* a) {
   a->entity_set_model = [](ru_plugin*, void*, const char*) { return 0; };
   a->entity_set_bodygroup_by_name = [](ru_plugin*, void*, const char*, int) { return static_cast<int>(RU_BODYGROUP_UNAVAILABLE); };
   a->entity_set_abs_origin = [](ru_plugin*, void*, const float*) { return 0; };
+  a->entity_remove = [](ru_plugin*, void*) { return 0; };
   a->workshop_download_progress = [](ru_plugin*, uint64_t id, uint64_t* done, uint64_t* total) {
     if (id != 3793104017ull) return 0;  // "installed": no download info
     *done = 50ull << 20;

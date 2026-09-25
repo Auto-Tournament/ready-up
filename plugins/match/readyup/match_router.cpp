@@ -26,6 +26,7 @@
 #include "readyup/ready_hud.h"
 #include "readyup/scrim_flow.h"
 #include "readyup/votes.h"
+#include "readyup/weapon_cleanup.h"
 #include "readyup/webhook.h"
 
 #include <algorithm>
@@ -432,6 +433,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
         const char* cmds[] = {"mp_warmup_pausetimer 0", "mp_warmup_end", "mp_buy_anywhere 0", "mp_buytime 20",
                               "mp_respawn_on_death_ct 0", "mp_respawn_on_death_t 0"};
         for (const char* c : cmds) (void)EnqueueServerCommand(c);
+        for (const char* c : kLiveDropCmds) (void)EnqueueServerCommand(c);  // weapon_cleanup.h
       }
       if (wasPractice) {
         // Leaving practice: the practice plugin puts the idle cvars back and respawns everyone.

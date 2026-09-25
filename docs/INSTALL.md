@@ -176,7 +176,7 @@ The installer only creates this file if it's missing; it never overwrites your e
 The core reads `debug`, `banner`, `chat_prefix`, `chat_debug`, `consume_ru_chat` and the
 `status_http_*` keys. The match plugin (`match.so`) reads its keys (`welcome`, `ready_hud`,
 `hud_*`, `admin_prefix`, `captain_prefix_*`, `consume_ready_chat`, `dev_bots_*`, `scrim_knife`,
-`knife_pick_seconds`, `idle_map_refresh_hours`, `warmup_money`) from the same place, or from a `[match]` section of this file, or from
+`knife_pick_seconds`, `idle_map_refresh_hours`, `warmup_money`, `warmup_weapon_cleanup`) from the same place, or from a `[match]` section of this file, or from
 `game/csgo/cfg/ReadyUp/match.cfg` (later ones win). It re-reads them by itself when one of those
 files changes.
 
@@ -242,6 +242,15 @@ chat_prefix="<Green>[PUG #1]<Default>"
   `mp_warmup_pausetimer 0` on map start, and ends CS2's warmup whenever the server logs
   `World triggered "Warmup_Start"` (or fires `round_announce_warmup`) while idle, in
   scrim/match warmup or in the knife round.
+- Warmup can run for hours, so nothing piles up on the ground: in scrim and match warmup
+  nothing drops on death (`mp_death_drop_gun/grenade/defuser/taser 0`) and there is no bomb
+  (`mp_give_player_c4 0`: nobody can plant, warmup never ends a round). Both are sent with the
+  warmup rules whether or not `ru_cfg_exec_enable` runs `warmup.cfg`; `idle.cfg` and
+  `knife.cfg` have no bomb either, `prac.cfg` keeps it for plant practice. In idle, scrim warmup
+  and match warmup a weapon with no owner for 2 seconds is removed (G-drops included, and a
+  bomb handed out before warmup started once it is dropped). readyup.cfg
+  `warmup_weapon_cleanup=0` turns the removal off. Going live puts CS2's defaults back
+  (`live.cfg` / `esports_live.cfg`, or the plugin without cfg exec).
 
 ### Knife round
 

@@ -88,7 +88,7 @@
       "library": "server",
       "linux": "48 89 FE 48 85 FF 74 ? 48 8D 05 ? ? ? ? 48 8B 38",
       "required": false,
-      "description": "UTIL_Remove(CEntityInstance*). Not called: used as the anchor for g_pGameEntitySystem (`lea rax,[rip+g_pGameEntitySystem]` at +8). Skins entity lookup only.",
+      "description": "UTIL_Remove(CEntityInstance*). The anchor for g_pGameEntitySystem (`lea rax,[rip+g_pGameEntitySystem]` at +8), and called by ru_api entity_remove (match: dropped weapons in warmup).",
       "anchors": [
         {
           "type": "caller_string",
