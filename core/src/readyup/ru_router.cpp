@@ -115,7 +115,22 @@ bool IsCoreChatCommand(const std::string& firstToken) {
   return firstToken == ".ru" || IsPlayerChatCommand(firstToken);
 }
 
-void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const std::string& text) {
+namespace plugins {
+bool IsCoreRuSubcommand(const std::string& sub) {
+  static const char* const kCore[] = {
+      // Core (engine / plugin host).
+      "help", "plugin", "plugins", "version", "selftest", "sigtest", "reload", "status_http",
+      // Match flow (still in the core until it moves to plugins/match).
+      "admins", "hudtest", "prac", "practice", "idle", "scrim", "state", "status", "mode", "match", "start",
+      "pause", "fp", "forcepause", "unpause", "up", "fup", "forceunpause", "restart", "end", "recover", "side"};
+  for (const char* c : kCore) {
+    if (sub == c) return true;
+  }
+  return false;
+}
+}  // namespace plugins
+
+void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const std::string& text, int slot) {
   const std::string t = Trim(text);
   Debug("ru: RouteChatCommand steamid64=%llu name=\"%s\" text=\"%s\"\n",
         static_cast<unsigned long long>(steamid64),
@@ -143,7 +158,7 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
 
   // Commands owned by a loaded plugin (never a core command; see IsCoreChatCommand).
   // The plugin callback runs on the next GameFrame.
-  if (!IsCoreChatCommand(first) && plugins::TryDispatchChat(steamid64, playerName, t)) {
+  if (!IsCoreChatCommand(first) && plugins::TryDispatchChat(steamid64, playerName, t, slot)) {
     Debug("ru: \"%s\" queued for its plugin\n", first.c_str());
     return;
   }
@@ -492,6 +507,12 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
   const std::string cmd = parts[1];
   Debug("ru: cmd=%s argc=%zu\n", cmd.c_str(), parts.size() > 2 ? parts.size() - 2 : 0u);
 
+  // `.ru <sub>` a plugin registered (register_ru_subcommand); runs on the next GameFrame.
+  if (!plugins::IsCoreRuSubcommand(cmd) && plugins::TryDispatchRu(/*console=*/false, steamid64, playerName, t, slot)) {
+    Debug("ru: \".ru %s\" queued for its plugin\n", cmd.c_str());
+    return;
+  }
+
   auto requireAdmin = [&]() -> bool {
     // Allow server console; otherwise require admin.
     if (steamid64 == 0) return true;
@@ -829,7 +850,7 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
   if (steamid64 != 0 && !IsCoreChatCommand("." + cmd)) {
     std::string rest = "." + cmd;
     for (size_t i = 2; i < parts.size(); ++i) rest += " " + parts[i];
-    if (plugins::TryDispatchChat(steamid64, playerName, rest)) return;
+    if (plugins::TryDispatchChat(steamid64, playerName, rest, slot)) return;
   }
 
   // Unknown `ru` command; ignore to avoid chat spam.

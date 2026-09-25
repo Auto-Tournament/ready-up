@@ -14,6 +14,12 @@
  *   raw game events   player_death: attacker slot + weapon
  *   log lines         counted, shown by hello_status
  *   interfaces        publishes "readyup.hello.v1"
+ * and the 1.2 ones:
+ *   `ru hello`        (console) / `.ru hello` (chat): a plugin ru subcommand, logged untagged
+ *   .hellohide        (chat)     hidden from chat (RU_CMD_HIDE), answers the sender only
+ *   on_frame          frames counted (simulating or not), shown by hello_status
+ *   sv_cheats         observed on the console (RU_CMD_OBSERVE; the engine still runs it)
+ *   current_map       shown by hello_status
  *
  * Bump HELLO_VERSION, rebuild, `ru plugin reload hello`: the new string shows up
  * without restarting the server.
@@ -24,7 +30,7 @@
 #include <string.h>
 
 #ifndef HELLO_VERSION
-#define HELLO_VERSION "1.1.0"
+#define HELLO_VERSION "1.2.0"
 #endif
 
 static const ru_api* g_api;
@@ -33,6 +39,7 @@ static unsigned long long g_ticks;
 static unsigned g_hellos;
 static unsigned g_loads;
 static unsigned long long g_logLines;
+static unsigned long long g_frames;
 static char g_greeting[64];
 
 /* What other plugins get from get_interface("readyup.hello.v1", 1). */
@@ -60,8 +67,36 @@ static void OnHello(void* user, const ru_command_ctx* ctx) {
 static void OnStatus(void* user, const ru_command_ctx* ctx) {
   (void)user;
   (void)ctx;
-  ru_logf(g_api, RU_LOG_INFO, "status: version " HELLO_VERSION ", load #%u, %llu ticks, %u greetings, %llu log lines, core %s",
-          g_loads, g_ticks, g_hellos, g_logLines, g_api->core_version);
+  const char* map = RU_API_HAS(g_api, current_map) ? g_api->current_map(g_api->self) : "?";
+  ru_logf(g_api, RU_LOG_INFO,
+          "status: version " HELLO_VERSION ", load #%u, %llu ticks, %llu frames, %u greetings, %llu log lines, map %s, core %s",
+          g_loads, g_ticks, g_frames, g_hellos, g_logLines, map[0] ? map : "-", g_api->core_version);
+}
+
+/* v1.2: `ru hello` / `.ru hello`, logged without the plugin tag. */
+static void OnRuHello(void* user, const ru_command_ctx* ctx) {
+  (void)user;
+  char msg[256];
+  snprintf(msg, sizeof(msg), "hello-ru: %s via %s (argc=%d, slot=%d)", ctx->argc > 2 ? ctx->argv[2] : "-",
+           ctx->is_console ? "console" : "chat", ctx->argc, ctx->slot);
+  g_api->log_untagged(g_api->self, RU_LOG_INFO, msg);
+}
+
+/* v1.2: hidden chat command; the answer goes to the sender only. */
+static void OnHelloHide(void* user, const ru_command_ctx* ctx) {
+  (void)user;
+  if (ctx->slot >= 0) g_api->chat_to_slot(g_api->self, ctx->slot, "psst (only you saw that)");
+}
+
+static void OnObserveCheats(void* user, const ru_command_ctx* ctx) {
+  (void)user;
+  ru_logf(g_api, RU_LOG_INFO, "observed console: %s", ctx->text);
+}
+
+static void OnFrame(void* user, const ru_tick_info* t) {
+  (void)user;
+  (void)t;
+  ++g_frames;
 }
 
 static void OnTick(void* user, const ru_tick_info* t) {
@@ -128,6 +163,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_ticks = 0;
   g_hellos = 0;
   g_logLines = 0;
+  g_frames = 0;
   g_loads = 1;
   snprintf(g_greeting, sizeof(g_greeting), "hello");
 
@@ -148,6 +184,12 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   if (RU_API_HAS(api, subscribe_game_event)) api->subscribe_game_event(api->self, "player_death", OnDeath, NULL);
   if (RU_API_HAS(api, subscribe_log_line)) api->subscribe_log_line(api->self, OnLogLine, NULL);
   if (RU_API_HAS(api, provide_interface)) api->provide_interface(api->self, "readyup.hello.v1", 1, (void*)&g_iface);
+  if (RU_API_HAS(api, current_map)) {
+    api->register_ru_subcommand(api->self, "hello", OnRuHello, NULL);
+    api->register_chat_command_ex(api->self, ".hellohide", RU_CMD_HIDE, OnHelloHide, NULL);
+    api->register_console_command_ex(api->self, "sv_cheats", RU_CMD_OBSERVE, OnObserveCheats, NULL);
+    api->on_frame(api->self, OnFrame, NULL);
+  }
   ru_logf(api, RU_LOG_INFO, "loaded " HELLO_VERSION " (core %s, load #%u, greeting \"%s\")", api->core_version, g_loads,
           g_greeting);
   return 0;

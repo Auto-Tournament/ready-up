@@ -6,6 +6,7 @@
 
 #include "readyup/admin_check.h"
 #include "readyup/center_html.h"
+#include "readyup/features.h"
 #include "readyup/plugin_loader.h"
 #include "readyup/round_termination_hook.h"
 #include "readyup/schema.h"
@@ -44,7 +45,7 @@ int ApiCenterHtmlAll(ru_plugin* self, const char* html, int seconds) {
 
 // ---- players -----------------------------------------------------------------------
 
-void Fill(ru_player* out, int slot, uint64_t steamid64, int team, bool bot, const std::string& name) {
+void Fill(ru_player* out, int slot, uint64_t steamid64, int team, bool bot, const std::string& name, int userid) {
   // Fill only what the caller's struct has room for (struct_size is the caller's sizeof).
   ru_player p{};
   p.struct_size = out->struct_size;
@@ -54,6 +55,7 @@ void Fill(ru_player* out, int slot, uint64_t steamid64, int team, bool bot, cons
   p.is_bot = bot ? 1 : 0;
   p.connected = 1;
   std::strncpy(p.name, name.c_str(), sizeof(p.name) - 1);
+  p.userid = userid;  // v1.2
   const size_t n = out->struct_size < sizeof(p) ? out->struct_size : sizeof(p);
   std::memcpy(out, &p, n);
 }
@@ -66,7 +68,7 @@ int ApiGetPlayer(ru_plugin* self, int slot, ru_player* out) {
   if (!CheckGameThread(self, "get_player") || !ValidOut(out) || slot < 0) return 0;
   for (const auto& h : ListHumans()) {
     if (h.slot == slot) {
-      Fill(out, h.slot, h.steamid64, h.team, false, h.name);
+      Fill(out, h.slot, h.steamid64, h.team, false, h.name, h.userid);
       return 1;
     }
   }
@@ -77,7 +79,7 @@ int ApiGetPlayerBySteam(ru_plugin* self, uint64_t steamid64, ru_player* out) {
   if (!CheckGameThread(self, "get_player_by_steamid") || !ValidOut(out) || steamid64 == 0) return 0;
   for (const auto& h : ListHumans()) {
     if (h.steamid64 == steamid64) {
-      Fill(out, h.slot, h.steamid64, h.team, false, h.name);
+      Fill(out, h.slot, h.steamid64, h.team, false, h.name, h.userid);
       return 1;
     }
   }
@@ -90,12 +92,12 @@ int ApiForEachPlayer(ru_plugin* self, ru_player_fn fn, void* user) {
   ru_player p{};
   p.struct_size = sizeof(p);
   for (const auto& h : ListHumans()) {
-    Fill(&p, h.slot, h.steamid64, h.team, false, h.name);
+    Fill(&p, h.slot, h.steamid64, h.team, false, h.name, h.userid);
     ++n;
     if (!fn(user, &p)) return n;
   }
   for (const auto& b : ListBots()) {
-    Fill(&p, -1, 0, b.team, true, b.name);
+    Fill(&p, -1, 0, b.team, true, b.name, b.userid);
     ++n;
     if (!fn(user, &p)) return n;
   }
@@ -215,6 +217,13 @@ int ApiSetRoundTermSuppressed(ru_plugin* self, int suppress) {
   return RoundTerminationSuppressed() == (suppress != 0) ? 1 : 0;
 }
 
+// ---- v1.2 ---------------------------------------------------------------------------
+
+int ApiFeatureState(ru_plugin* self, const char* name) {
+  if (!CheckGameThread(self, "feature_state") || !name || !*name) return -1;
+  return FeatureStateByName(name);
+}
+
 int ApiIsAdmin(ru_plugin* self, uint64_t steamid64) {
   if (!self || steamid64 == 0) return 0;
   return IsReadyUpAdmin(steamid64) ? 1 : 0;  // asks the plugin admin provider first
@@ -248,6 +257,7 @@ void detail::FillEngineApi(ru_api* a) {
   a->entity_set_bodygroup_by_name = &ApiSetBodygroup;
   a->set_round_termination_suppressed = &ApiSetRoundTermSuppressed;
   a->is_admin = &ApiIsAdmin;
+  a->feature_state = &ApiFeatureState;
 }
 
 }  // namespace readyup::plugins

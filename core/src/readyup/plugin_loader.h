@@ -35,7 +35,28 @@ void PostEvent(LifecycleEvent ev);
 
 // Thread-safe. If a loaded plugin owns the chat command in `text` (first token), queues
 // the call for the next GameFrame and returns true. Real players only (steamid64 != 0).
-bool TryDispatchChat(uint64_t steamid64, const std::string& playerName, const std::string& text);
+// `slot` is the sender's engine slot when the caller knows it (ClientCommand), else -1.
+bool TryDispatchChat(uint64_t steamid64, const std::string& playerName, const std::string& text, int slot = -1);
+
+// Thread-safe. True if a loaded plugin owns the chat command `token` (lowercase first token,
+// e.g. ".r"); *flags gets its RU_CMD_* flags (RU_CMD_HIDE: the caller swallows the line).
+bool ChatCommandOwned(const std::string& token, uint32_t* flags);
+
+// Thread-safe. `ru <sub> ...` (console, steamid64 0) or `.ru <sub> ...` (chat): if a plugin
+// registered <sub> (register_ru_subcommand), queues the call and returns true.
+bool TryDispatchRu(bool console, uint64_t steamid64, const std::string& playerName, const std::string& text,
+                   int slot = -1);
+
+// Subcommand names plugins registered, as "<sub> (<plugin>)", for `ru help`. Thread-safe.
+std::vector<std::string> PluginRuSubcommands();
+
+// True if `sub` (lowercase) is a subcommand the core handles itself; plugins cannot take it.
+// Implemented in ru_router.cpp.
+bool IsCoreRuSubcommand(const std::string& sub);
+
+// Thread-safe. Queues the line for RU_CMD_OBSERVE console registrations of its first token
+// (the line itself is not consumed). Called for every console line the AddText hook sees.
+void ObserveConsole(const std::string& line);
 
 // Thread-safe. Same for a server console / RCON line. Only consulted after every core
 // console handler declined the line, so core commands always win.
@@ -97,6 +118,9 @@ uint64_t WantedGameEventsGeneration();
 
 // Thread-safe. Queues one server log line for subscribe_log_line subscribers.
 void PostLogLine(const std::string& line);
+
+// Thread-safe. Map of the last RU_EVENT_MAP_START ("" before the first).
+std::string CurrentMap();
 
 // Thread-safe. Chat name prefix a plugin set for this player (set_chat_name_prefix).
 bool PluginChatPrefixFor(uint64_t steamid64, std::string* prefix);

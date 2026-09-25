@@ -50,6 +50,12 @@ void Debug(const char* fmt, ...) {
   va_end(ap);
 }
 void PrintLine(const char* msg) { Print("%s", msg); }
+void PrintRaw(const char* fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  Capture(fmt, ap);
+  va_end(ap);
+}
 bool DebugEnabled() { return false; }
 void SendToChat(const char* msg) { g_chat.push_back(std::string("[all] ") + msg); }
 void SendRawToChat(const char* msg) { g_chat.push_back(std::string("[raw] ") + msg); }
@@ -66,6 +72,9 @@ std::string GetCsgoDirFromModuleDir() { return {}; }
 static std::string g_moduleDir;  // holds the test's readyup.cfg
 std::string GetThisModuleDir() { return g_moduleDir; }
 bool IsCoreChatCommand(const std::string& t) { return t == ".ru" || t == ".r" || t == ".ready"; }
+namespace plugins {
+bool IsCoreRuSubcommand(const std::string& s) { return s == "help" || s == "plugin" || s == "selftest"; }
+}  // namespace plugins
 }  // namespace readyup
 
 // ---- stub for the engine-facing API members (plugin_engine_api.cpp) -----------------
@@ -82,6 +91,7 @@ void FillEngineApi(ru_api* a) {
   };
   a->ev_get_string = [](ru_plugin*, const ru_game_event* ev, const char*, const char*) { return Fake(ev)->weapon; };
   a->ev_get_int = [](ru_plugin*, const ru_game_event* ev, const char*, int) { return Fake(ev)->headshot; };
+  a->feature_state = [](ru_plugin*, const char* name) { return std::string(name) == "events_live" ? 1 : -1; };
 }
 }  // namespace readyup::plugins::detail
 
@@ -138,7 +148,7 @@ int main(int argc, char** argv) {
 
   std::puts("-- first frame loads everything in the plugins dir");
   rp::Frame(false);
-  Check(Logged("plugin: loaded hello 1.1.0"), "hello 1.1.0 loaded on first frame");
+  Check(Logged("plugin: loaded hello 1.2.0"), "hello 1.2.0 loaded on first frame");
   Check(Logged("load #1, greeting \"hello\""), "first load: no stash, default greeting");
 
   std::puts("-- chat command");
@@ -180,12 +190,39 @@ int main(int argc, char** argv) {
   std::puts("-- console command");
   Check(rp::TryDispatchConsole("hello_status"), "hello_status is owned by the plugin");
   rp::Frame(false);
-  Check(Logged("status: version 1.1.0, load #1, 6 ticks, 1 greetings, 2 log lines"),
-        "console command ran; 6 simulating ticks and 2 log lines seen");
+  Check(Logged("status: version 1.2.0, load #1, 6 ticks, 7 frames, 1 greetings, 2 log lines, map de_dust2"),
+        "console command ran; 6 simulating ticks, 7 frames (on_frame also on non-simulating ones), 2 log lines, current map");
+
+  std::puts("-- v1.2: ru subcommand, hidden chat command, console observer");
+  Check(rp::TryDispatchRu(true, 0, "Console", "ru hello world"), "`ru hello` is owned by the plugin");
+  Check(!rp::TryDispatchRu(true, 0, "Console", "ru nope"), "unknown ru subcommand is not taken");
+  Check(rp::TryDispatchRu(false, 76561198000000001ull, "alice", ".ru hello there", 6), "`.ru hello` from chat too");
+  rp::Frame(false);
+  Check(Logged("hello-ru: world via console (argc=3, slot=-1)"), "ru subcommand ran from the console, logged untagged");
+  Check(Logged("hello-ru: there via chat (argc=3, slot=6)"), "ru subcommand ran from chat with the sender slot");
+  Check(!Logged("plugin[hello]: hello-ru"), "log_untagged has no plugin tag");
+  uint32_t flags = 0;
+  Check(rp::ChatCommandOwned(".hellohide", &flags) && (flags & RU_CMD_HIDE), ".hellohide is owned and hidden");
+  Check(rp::ChatCommandOwned(".hello", &flags) && flags == 0, ".hello is owned and visible");
+  Check(!rp::ChatCommandOwned(".nope", &flags), "unknown chat command is not owned");
+  g_chat.clear();
+  Check(rp::TryDispatchChat(76561198000000001ull, "alice", ".hellohide", 9), ".hellohide dispatched with slot 9");
+  rp::Frame(false);
+  Check(Chatted("[slot 9] psst"), "sender slot from the router reached the plugin");
+  Check(!rp::TryDispatchConsole("sv_cheats 1"), "an observed console command is not consumed");
+  rp::ObserveConsole("sv_cheats 1");
+  rp::ObserveConsole("sv_gravity 800");
+  rp::Frame(false);
+  Check(Logged("observed console: sv_cheats 1"), "console observer saw its command");
+  Check(!Logged("observed console: sv_gravity"), "console observer only sees its own command");
+  {
+    const auto subs = rp::PluginRuSubcommands();
+    Check(subs.size() == 1 && subs[0] == "hello (hello)", "ru subcommand listed for ru help");
+  }
 
   std::puts("-- list");
   rp::HandlePluginCommand({"list"}, false);
-  Check(Logged("hello 1.1.0 (api 1.0) cmds=2 ticks=1 subs=3"), "list shows the plugin and its registrations");
+  Check(Logged("hello 1.2.0 (api 1.0) cmds=5 ticks=2 subs=3"), "list shows the plugin and its registrations");
 
   std::puts("-- hot reload with a rebuilt hello.so");
   if (!CopyFile(argv[2], so)) return 2;
@@ -221,6 +258,7 @@ int main(int argc, char** argv) {
   Check(!rp::TryDispatchConsole("hello_status"), "hello_status no longer routed");
   Check(dlopen(so.c_str(), RTLD_NOW | RTLD_NOLOAD) == nullptr, "hello.so no longer mapped");
   Check(rp::WantedGameEvents().empty(), "game event subscription removed on unload");
+  Check(!rp::TryDispatchRu(true, 0, "Console", "ru hello"), "ru subcommand removed on unload");
   g_log.clear();
   rp::DispatchGameEvent("player_death", &death);
   Check(!Logged("player_death"), "no delivery into the unloaded image");

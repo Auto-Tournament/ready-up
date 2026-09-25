@@ -817,6 +817,9 @@ static bool HandleRuCommandLine(const std::string& line) {
     return true;
   }
 
+  // `ru <sub>` a plugin registered (register_ru_subcommand); runs on the next GameFrame.
+  if (plugins::TryDispatchRu(/*console=*/true, 0, "Console", t)) return true;
+
   // `ru <cmd> ...` reaches a console command a plugin registered, so plugins can offer
   // `ru fleet status` next to the core's own `ru ...` commands (runs on the next GameFrame).
   {
@@ -830,6 +833,8 @@ static bool HandleRuCommandLine(const std::string& line) {
 }
 
 static bool HandleReadyUpConsoleCommandLine(const std::string& line) {
+  // RU_CMD_OBSERVE console registrations see the line; it still runs normally.
+  plugins::ObserveConsole(Trim(line));
   // Handle standalone Ready Up console/RCON commands (not part of `ru ...`).
   if (HandleMatchTokenCommand(line)) return true;
   if (HandleWebhookUrlCommand(line)) return true;

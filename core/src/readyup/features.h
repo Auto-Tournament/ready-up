@@ -52,4 +52,8 @@ struct FeatureReport {
 };
 std::vector<FeatureReport> FeatureReports();
 
+// ru_api feature_state (v1.2): a feature name ("knife") or a dependency ("fn:Host_Say", "cmdbuf",
+// "events_live", ...). 1 = on / ok, 0 = pending, -1 = off / failed / unknown.
+int FeatureStateByName(const std::string& name);
+
 }  // namespace readyup

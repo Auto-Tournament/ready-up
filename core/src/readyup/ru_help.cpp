@@ -1,6 +1,7 @@
 #include "readyup/ru_help.h"
 
 #include "readyup/logging.h"
+#include "readyup/plugin_loader.h"
 #include "readyup/version.h"
 
 namespace readyup {
@@ -108,6 +109,11 @@ void PrintRuHelp() {
       "    - jointeam is forced based on roster + map_sides (when provided)\n"
       "  - no match loaded: idle -> scrim warmup when a human joins CT/T; everyone on CT/T\n"
       "    types .r -> 5s countdown -> live (scrims skip whitelist/team enforcement).\n");
+  const auto subs = plugins::PluginRuSubcommands();
+  if (!subs.empty()) {
+    PrintRaw("\nPlugin commands (ru <sub> / .ru <sub>):\n");
+    for (const auto& s : subs) PrintRaw("  - ru %s\n", s.c_str());
+  }
 }
 
 }  // namespace readyup

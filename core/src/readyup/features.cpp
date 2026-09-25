@@ -145,6 +145,11 @@ DepStatus DependencyStatusImpl(const std::string& dep, int depth) {
     const int tri = GameEventManagerStatus(&d);
     return FromTri(tri, d);
   }
+  if (dep == "events_live") {
+    // Engine game events are delivered (they then drive the round lifecycle instead of log lines).
+    if (GameEventsListenerInstalled()) return Ok("engine events delivered");
+    return Pending("round lifecycle from log lines");
+  }
   if (dep == "db") {
     if (!pg::Available()) return Fail("built without Postgres");
     if (!DbCfg()) return Fail("readyup_db.json missing/invalid");
@@ -242,6 +247,15 @@ bool FeatureEnabled(Feature f) {
     Print("feature %s DISABLED: needs %s. Everything else keeps working.\n", def->name, e.missing.c_str());
   }
   return Settled()[i].load(std::memory_order_acquire) == 1;
+}
+
+int FeatureStateByName(const std::string& name) {
+  if (const FeatureDef* d = DefByName(name)) {
+    if (FeatureEnabled(d->id)) return 1;
+    return Settled()[static_cast<size_t>(d->id)].load(std::memory_order_acquire) == 2 ? -1 : 0;
+  }
+  const DepStatus s = DependencyStatus(name);
+  return s.state == DepStatus::State::Ok ? 1 : s.state == DepStatus::State::Fail ? -1 : 0;
 }
 
 std::vector<FeatureReport> FeatureReports() {
