@@ -16,6 +16,7 @@
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
 #include "readyup/selftest_iface.h"
+#include "readyup/whitelist_iface.h"
 
 #include <cstdio>
 #include <fstream>
@@ -168,6 +169,24 @@ void RunSelftest(ru_selftest_add_fn add, void* ctx) {
 }
 const ru_selftest_iface_v1 g_selftestIface = {sizeof(ru_selftest_iface_v1), &RunSelftest};
 
+// readyup.whitelist.v1 (fleet `whitelist.set`).
+int IfaceSet(int enabled, const uint64_t* ids, uint32_t count) {
+  State s;
+  s.enabled = enabled != 0;
+  for (uint32_t i = 0; ids && i < count; ++i) {
+    if (ParseSteamId64(std::to_string(ids[i]))) s.steamids.insert(ids[i]);
+  }
+  g_state = std::move(s);
+  g_lastSweep = -1e9;
+  ru_logf(g_api, RU_LOG_INFO, "set: %s, %zu player(s)", g_state.enabled ? "on" : "off", g_state.steamids.size());
+  return Save() ? 1 : 0;
+}
+int IfaceGet(uint32_t* count) {
+  if (count) *count = static_cast<uint32_t>(g_state.steamids.size());
+  return g_state.enabled ? 1 : 0;
+}
+const ru_whitelist_v1 g_iface = {sizeof(ru_whitelist_v1), &IfaceSet, &IfaceGet};
+
 }  // namespace
 }  // namespace whitelist
 
@@ -202,6 +221,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   api->on_tick(api->self, &OnTick, nullptr);
   api->subscribe(api->self, RU_EVENT_PLAYER_CONNECT, &OnConnect, nullptr);
   if (RU_API_HAS(api, provide_interface)) {
+    api->provide_interface(api->self, RU_WHITELIST_IFACE_NAME, RU_WHITELIST_IFACE_VERSION,
+                           const_cast<ru_whitelist_v1*>(&g_iface));
     api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "whitelist", RU_SELFTEST_IFACE_VERSION,
                            const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
   }

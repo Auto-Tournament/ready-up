@@ -719,6 +719,32 @@ static void TestResume() {
   CHECK(rejects(J(R"([1])"), 3, "invalid_config"));
 }
 
+// `cmd plugins.set` / `cmd whitelist.set` argument checks.
+static void TestServerControl() {
+  std::vector<std::string> on, off;
+  std::string err;
+  CHECK(fs::ParsePluginsSet(J(R"({"enable": ["practice", "skins"], "disable": ["midas"]})"), &on, &off, &err));
+  CHECK(on.size() == 2 && on[0] == "practice" && off.size() == 1 && off[0] == "midas");
+  CHECK(fs::ParsePluginsSet(J(R"({"disable": ["skins"]})"), &on, &off, &err) && on.empty());
+  CHECK(!fs::ParsePluginsSet(J(R"({})"), &on, &off, &err));
+  CHECK(!fs::ParsePluginsSet(J(R"({"disable": ["match"]})"), &on, &off, &err) && err.find("match") != std::string::npos);
+  CHECK(!fs::ParsePluginsSet(J(R"({"disable": ["fleet"]})"), &on, &off, &err));
+  CHECK(!fs::ParsePluginsSet(J(R"({"enable": ["skins"], "disable": ["skins"]})"), &on, &off, &err));
+  CHECK(!fs::ParsePluginsSet(J(R"({"enable": ["../x"]})"), &on, &off, &err));
+  CHECK(!fs::ParsePluginsSet(J(R"({"enable": ["skins; quit"]})"), &on, &off, &err));
+  CHECK(!fs::ParsePluginsSet(J(R"({"enable": "skins"})"), &on, &off, &err));
+
+  bool enabled = false;
+  std::vector<uint64_t> ids;
+  CHECK(fs::ParseWhitelistSet(J(R"({"enabled": true, "steamids": ["76561198000000001", "76561198000000002"]})"),
+                              &enabled, &ids, &err));
+  CHECK(enabled && ids.size() == 2 && ids[1] == 76561198000000002ull);
+  CHECK(fs::ParseWhitelistSet(J(R"({"enabled": false})"), &enabled, &ids, &err) && !enabled && ids.empty());
+  CHECK(!fs::ParseWhitelistSet(J(R"({"steamids": []})"), &enabled, &ids, &err));
+  CHECK(!fs::ParseWhitelistSet(J(R"({"enabled": true, "steamids": [76561198000000001]})"), &enabled, &ids, &err));
+  CHECK(!fs::ParseWhitelistSet(J(R"({"enabled": true, "steamids": ["123"]})"), &enabled, &ids, &err));
+}
+
 int main() {
   TestLiveStream();
   TestFence();
@@ -730,6 +756,7 @@ int main() {
   TestRewind();
   TestMapNames();
   TestResume();
+  TestServerControl();
   if (g_failures) {
     std::fprintf(stderr, "fleet_state_test: %d of %d checks FAILED\n", g_failures, g_checks);
     return 1;

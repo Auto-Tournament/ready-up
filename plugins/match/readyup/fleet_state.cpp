@@ -934,6 +934,70 @@ std::string SanitizeSay(const std::string& text) {
   return s;
 }
 
+namespace {
+bool ValidPluginName(const std::string& n) {
+  if (n.empty() || n.size() > 32) return false;
+  for (unsigned char c : n) {
+    if (!(std::islower(c) || std::isdigit(c) || c == '_' || c == '-')) return false;
+  }
+  return true;
+}
+}  // namespace
+
+bool ParsePluginsSet(const Json& args, std::vector<std::string>* enable, std::vector<std::string>* disable,
+                     std::string* err) {
+  auto fail = [&](const std::string& why) {
+    if (err) *err = why;
+    return false;
+  };
+  std::vector<std::string> on, off;
+  for (const char* key : {"enable", "disable"}) {
+    const Json* list = args.Find(key);
+    if (!list || list->IsNull()) continue;
+    if (list->type() != Json::Type::Array) return fail(std::string(key) + " must be an array of plugin names");
+    if (list->Items().size() > 16) return fail(std::string(key) + ": at most 16 plugins");
+    auto& out = std::string(key) == "enable" ? on : off;
+    for (const Json& v : list->Items()) {
+      if (v.type() != Json::Type::String || !ValidPluginName(v.AsString())) {
+        return fail(std::string(key) + ": not a plugin name (want [a-z0-9_-], 1..32)");
+      }
+      out.push_back(v.AsString());
+    }
+  }
+  if (on.empty() && off.empty()) return fail("nothing to enable or disable");
+  for (const auto& n : off) {
+    if (n == "match" || n == "fleet") return fail("cannot disable " + n + " over the fleet link (the link runs in it)");
+    if (std::find(on.begin(), on.end(), n) != on.end()) return fail(n + " is in both enable and disable");
+  }
+  if (enable) *enable = std::move(on);
+  if (disable) *disable = std::move(off);
+  return true;
+}
+
+bool ParseWhitelistSet(const Json& args, bool* enabled, std::vector<uint64_t>* steamids, std::string* err) {
+  auto fail = [&](const std::string& why) {
+    if (err) *err = why;
+    return false;
+  };
+  const Json* e = args.Find("enabled");
+  if (!e || e->type() != Json::Type::Bool) return fail("enabled (boolean) is required");
+  std::vector<uint64_t> ids;
+  if (const Json* list = args.Find("steamids"); list && !list->IsNull()) {
+    if (list->type() != Json::Type::Array) return fail("steamids must be an array of SteamID64 strings");
+    if (list->Items().size() > 1000) return fail("steamids: at most 1000");
+    for (const Json& v : list->Items()) {
+      const std::string s = v.type() == Json::Type::String ? v.AsString() : std::string();
+      bool ok = s.size() == 17 && s.compare(0, 7, "7656119") == 0;
+      for (unsigned char c : s) ok = ok && std::isdigit(c);
+      if (!ok) return fail("steamids: \"" + s.substr(0, 32) + "\" is not a SteamID64 string");
+      ids.push_back(std::strtoull(s.c_str(), nullptr, 10));
+    }
+  }
+  if (enabled) *enabled = e->AsBool();
+  if (steamids) *steamids = std::move(ids);
+  return true;
+}
+
 bool ValidateExec(const std::string& command, std::string* err) {
   auto fail = [&](const std::string& why) {
     if (err) *err = why;
