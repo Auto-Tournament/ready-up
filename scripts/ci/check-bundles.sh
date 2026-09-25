@@ -6,6 +6,8 @@
 #   - core / match / essentials contain NO skins code or gamedata: no skins.so, no
 #     engine-surface.skins.json, no skins warning, and libserver.so has no skins SQL/symbols
 #   - skins / full do contain skins.so + engine-surface.skins.json
+#   - match / essentials / full contain plugins/match.so (+ the cfg/ReadyUp templates); the core
+#     zip does not, and its libserver.so has no match flow in it (it must run without match.so)
 #
 #   scripts/ci/check-bundles.sh <dist-dir> <version>
 set -euo pipefail
@@ -75,6 +77,24 @@ no_skins() {  # <bundle>
   fi
 }
 
+has_match() {  # <bundle>
+  local dir="$WORK/$1"
+  for f in readyup/plugins/match.so readyup/cfg-templates/ReadyUp/live.cfg; do
+    if [[ -f "$dir/$f" ]]; then ok "$1 has $f"; else bad "$1 lacks $f"; fi
+  done
+}
+
+core_without_match() {
+  local dir="$WORK/core"
+  if [[ -e "$dir/readyup/plugins/match.so" ]]; then bad "core contains match.so"; else ok "core: no match.so"; fi
+  # The match flow's log formats / commands must not be compiled into the core any more.
+  if grep -aq 'match-load\[\|knife: starting knife round\|ru_match_token' "$dir/readyup/bin/linuxsteamrt64/libserver.so"; then
+    bad "core: libserver.so still contains the match flow"
+  else
+    ok "core: libserver.so has no match flow"
+  fi
+}
+
 has_skins() {  # <bundle>
   local dir
   dir="$(extract "$1")"
@@ -83,12 +103,12 @@ has_skins() {  # <bundle>
   done
 }
 
-echo "core:";       no_skins core;       check_manifests "$WORK/core" core
-echo "match:";      no_skins match;      check_manifests "$WORK/match" match
-echo "essentials:"; no_skins essentials; check_manifests "$WORK/essentials" core match
+echo "core:";       no_skins core;       check_manifests "$WORK/core" core; core_without_match
+echo "match:";      no_skins match;      check_manifests "$WORK/match" match; has_match match
+echo "essentials:"; no_skins essentials; check_manifests "$WORK/essentials" core match; has_match essentials
 echo "hello:";      no_skins hello;      check_manifests "$WORK/hello" hello
 echo "skins:";      has_skins skins;     check_manifests "$WORK/skins" skins
-echo "full:";       has_skins full
+echo "full:";       has_skins full; has_match full
 full_components=(core match skins hello)
 [[ -f "$WORK/full/readyup/manifests/tools.json" ]] && full_components+=(tools)
 check_manifests "$WORK/full" "${full_components[@]}"

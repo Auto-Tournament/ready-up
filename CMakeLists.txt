@@ -20,8 +20,6 @@ set_source_files_properties("${READYUP_ENGINE_SURFACE_CPP}" PROPERTIES COMPILE_O
 
 add_library(server_shim SHARED
   core/src/readyup/admin_check.cpp
-  core/src/readyup/admins.cpp
-  core/src/readyup/backup_files.cpp
   core/src/readyup/banner.cpp
   core/src/readyup/ccommand.cpp
   core/src/readyup/chat.cpp
@@ -33,55 +31,30 @@ add_library(server_shim SHARED
   core/src/readyup/config.cpp
   core/src/readyup/console_command.cpp
   core/src/readyup/crash_handler.cpp
-  libs/readyup/db_config.cpp
-  core/src/readyup/db_config_file.cpp
   core/src/readyup/disabled.cpp
   core/src/readyup/features.cpp
   core/src/readyup/game_frame_hook.cpp
   core/src/readyup/game_events.cpp
   core/src/readyup/host_say_hook.cpp
-  libs/readyup/http_client.cpp
   core/src/readyup/log_receiver.cpp
   core/src/readyup/logging.cpp
-  core/src/readyup/mat_admins.cpp
-  core/src/readyup/match_config_parser.cpp
-  core/src/readyup/match_recovery.cpp
-  core/src/readyup/match_token.cpp
   libs/readyup/minijson.cpp
-  core/src/readyup/match_state.cpp
-  core/src/readyup/match_stats.cpp
-  core/src/readyup/match_end.cpp
-  core/src/readyup/match_end_logic.cpp
-  core/src/readyup/demo_recorder.cpp
-  core/src/readyup/demo_naming.cpp
-  core/src/readyup/game_timers.cpp
-  core/src/readyup/modes.cpp
-  core/src/readyup/persisted_settings.cpp
-  core/src/readyup/persisted_match_state.cpp
   core/src/readyup/path.cpp
-  core/src/readyup/pause_state.cpp
-  core/src/readyup/player_registry.cpp
-  libs/readyup/postgres.cpp
   core/src/readyup/real_server.cpp
   core/src/readyup/round_termination_hook.cpp
   core/src/readyup/ru_help.cpp
   core/src/readyup/ru_router.cpp
   core/src/readyup/server_game_clients_hook.cpp
   core/src/readyup/schema.cpp
-  core/src/readyup/scrim_flow.cpp
   core/src/readyup/selftest.cpp
   core/src/readyup/status_feed.cpp
   core/src/readyup/status_http.cpp
   core/src/readyup/status_server.cpp
-  core/src/readyup/status_snapshot.cpp
+  libs/readyup/status_snapshot.cpp
   core/src/readyup/signature_scan.cpp
   core/src/readyup/sigtest.cpp
   core/src/readyup/slot_registry.cpp
   libs/readyup/steamid.cpp
-  core/src/readyup/webhook.cpp
-  core/src/readyup/welcome.cpp
-  core/src/readyup/ready_hud.cpp
-  core/src/readyup/knife_tracker.cpp
   core/src/readyup/entity.cpp
   core/src/readyup/plugin_loader.cpp
   core/src/readyup/plugin_engine_api.cpp
@@ -164,16 +137,16 @@ target_include_directories(server_shim PRIVATE
   ${CMAKE_SOURCE_DIR}  # "third_party/funchook/include/funchook.h"
 )
 
-# READYUP_STATIC_LIBPQ: link libpq statically so the shim does not need
-# libpq.so.5 on the game server host. Needs libpq.a (libpq-dev) plus the PIC
-# pgcommon/pgport archives (postgresql-server-dev-NN). Used by
-# scripts/docker-build.sh.
+# READYUP_STATIC_LIBPQ: link libpq statically into the plugins that use it (match, skins) so
+# they do not need libpq.so.5 on the game server host. Needs libpq.a (libpq-dev) plus the PIC
+# pgcommon/pgport archives (postgresql-server-dev-NN). Used by scripts/docker-build.sh.
+# The core itself links neither libpq nor libcurl (docs/ARCHITECTURE.md §5).
 option(READYUP_STATIC_LIBPQ "Link libpq statically" OFF)
 
 # READYUP_DEPS_PREFIX: release builds (scripts/sniper-build.sh, CI). Points at a
 # prefix produced by scripts/ci/build-static-deps.sh holding static PIC OpenSSL,
-# libpq and libcurl. Everything (plus libstdc++/libgcc) is linked in and hidden,
-# so the shim only needs glibc (<= 2.31, Steam Runtime sniper) on the host.
+# libpq and libcurl for the plugins. Everything (plus libstdc++/libgcc) is linked in and
+# hidden, so the shim and the plugins only need glibc (<= 2.31, Steam Runtime sniper).
 set(READYUP_DEPS_PREFIX "" CACHE PATH "Prefix with static OpenSSL/libpq/libcurl (release builds)")
 
 if (READYUP_DEPS_PREFIX)
@@ -182,16 +155,7 @@ if (READYUP_DEPS_PREFIX)
       message(FATAL_ERROR "READYUP_DEPS_PREFIX: missing ${READYUP_DEPS_PREFIX}/lib/lib${lib}.a (run scripts/ci/build-static-deps.sh)")
     endif()
   endforeach()
-  target_include_directories(server_shim PRIVATE "${READYUP_DEPS_PREFIX}/include")
-  target_compile_definitions(server_shim PRIVATE CURL_STATICLIB READYUP_CURL_CA_PROBE=1)
-  target_link_libraries(server_shim PRIVATE
-    "${READYUP_DEPS_PREFIX}/lib/libpq.a"
-    "${READYUP_DEPS_PREFIX}/lib/libpgcommon_shlib.a"
-    "${READYUP_DEPS_PREFIX}/lib/libpgport_shlib.a"
-    "${READYUP_DEPS_PREFIX}/lib/libcurl.a"
-    "${READYUP_DEPS_PREFIX}/lib/libssl.a"
-    "${READYUP_DEPS_PREFIX}/lib/libcrypto.a"
-    pthread dl m)
+  target_link_libraries(server_shim PRIVATE pthread dl m)
   # libstdc++ is linked statically by hand (see the end of this file) instead of via
   # -static-libstdc++, because the driver appends that after every object and its static
   # initializers would then run after readyup_ctor.
@@ -204,46 +168,22 @@ if (READYUP_DEPS_PREFIX)
     "LINKER:--version-script=${CMAKE_SOURCE_DIR}/core/src/exports.map"
     "LINKER:--no-undefined")
   set_property(TARGET server_shim APPEND PROPERTY LINK_DEPENDS "${CMAKE_SOURCE_DIR}/core/src/exports.map")
-  message(STATUS "Linking static release deps from ${READYUP_DEPS_PREFIX}")
+  message(STATUS "Static release deps (for the plugins) from ${READYUP_DEPS_PREFIX}")
 else()
+  # For the plugins (plugins/match, plugins/skins, plugins/fleet).
   find_package(PostgreSQL QUIET)
   find_package(CURL QUIET)
 endif()
 
-if (READYUP_DEPS_PREFIX)
-  # libpq linked above.
-elseif (PostgreSQL_FOUND AND READYUP_STATIC_LIBPQ)
+if (READYUP_STATIC_LIBPQ AND PostgreSQL_FOUND)
   execute_process(COMMAND pg_config --pkglibdir OUTPUT_VARIABLE PG_PKGLIBDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
   find_library(PQ_STATIC NAMES libpq.a REQUIRED)
   find_library(PGCOMMON_SHLIB NAMES libpgcommon_shlib.a HINTS ${PG_PKGLIBDIR} REQUIRED)
   find_library(PGPORT_SHLIB NAMES libpgport_shlib.a HINTS ${PG_PKGLIBDIR} REQUIRED)
-  target_include_directories(server_shim PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-  target_link_libraries(server_shim PRIVATE
-    ${PQ_STATIC} ${PGCOMMON_SHLIB} ${PGPORT_SHLIB}
-    ssl crypto gssapi_krb5 ldap lber pthread)
-  # Keep libpq symbols out of our dynamic symbol table.
-  target_link_options(server_shim PRIVATE "LINKER:--exclude-libs,ALL")
-  message(STATUS "Linking libpq statically: ${PQ_STATIC}")
-elseif (PostgreSQL_FOUND)
-  target_include_directories(server_shim PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-  target_link_libraries(server_shim PRIVATE ${PostgreSQL_LIBRARIES})
-else()
-  target_compile_definitions(server_shim PRIVATE READYUP_NO_POSTGRES=1)
-  message(WARNING "PostgreSQL dev files not found; building without Postgres support (READYUP_NO_POSTGRES=1).")
+  message(STATUS "Plugins link libpq statically: ${PQ_STATIC}")
 endif()
-
-if (READYUP_DEPS_PREFIX)
-  # libcurl linked above.
-elseif (CURL_FOUND)
-  if (TARGET CURL::libcurl)
-    target_link_libraries(server_shim PRIVATE CURL::libcurl)
-  else()
-    target_include_directories(server_shim PRIVATE ${CURL_INCLUDE_DIRS})
-    target_link_libraries(server_shim PRIVATE ${CURL_LIBRARIES})
-  endif()
-else()
-  target_compile_definitions(server_shim PRIVATE READYUP_NO_CURL=1)
-  message(WARNING "libcurl dev files not found; building without libcurl (READYUP_NO_CURL=1). URL fetch will fall back to `curl` binary at runtime if available.")
+if (NOT READYUP_DEPS_PREFIX AND NOT PostgreSQL_FOUND)
+  message(WARNING "PostgreSQL dev files not found; plugins build without Postgres support (READYUP_NO_POSTGRES=1).")
 endif()
 
 target_link_libraries(server_shim PRIVATE readyup_funchook dl)
@@ -392,12 +332,14 @@ target_link_libraries(readyup_plugin_host_test PRIVATE dl)
 # (engine-free sources only).
 add_executable(readyup_match_flow_test
   tests/match_flow_test.cpp
-  core/src/readyup/match_stats.cpp
-  core/src/readyup/match_end_logic.cpp
-  core/src/readyup/demo_naming.cpp
+  plugins/match/readyup/match_stats.cpp
+  plugins/match/readyup/match_end_logic.cpp
+  plugins/match/readyup/demo_naming.cpp
   libs/readyup/minijson.cpp
+  libs/readyup/status_snapshot.cpp
 )
-target_include_directories(readyup_match_flow_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs)
+target_include_directories(readyup_match_flow_test PRIVATE ${CMAKE_SOURCE_DIR}/plugins/match ${CMAKE_SOURCE_DIR}/libs
+  ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(readyup_match_flow_test PRIVATE -Wall -Wextra)
 
 # Offline tests for the local status endpoint (docs/FLEET.md §17): HTTP parsing, routing,
@@ -406,7 +348,7 @@ add_executable(readyup_status_http_test
   tests/status_http_test.cpp
   core/src/readyup/status_http.cpp
   core/src/readyup/status_server.cpp
-  core/src/readyup/status_snapshot.cpp
+  libs/readyup/status_snapshot.cpp
   libs/readyup/minijson.cpp
 )
 target_include_directories(readyup_status_http_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs)
@@ -420,6 +362,9 @@ add_test(NAME status_http COMMAND readyup_status_http_test)
 add_test(NAME plugin_host_reload
   COMMAND readyup_plugin_host_test
     $<TARGET_FILE:readyup_plugin_hello> $<TARGET_FILE:readyup_plugin_hello_reload_test>)
+
+# readyup-match (plugins/match): the match flow, plus its host test (after enable_testing()).
+add_subdirectory(plugins/match)
 
 # readyup-fleet (plugins/fleet): the Auto Tournament platform link, plus its unit and
 # integration tests (after enable_testing() so ctest sees them).

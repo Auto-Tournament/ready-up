@@ -4,18 +4,13 @@
 
 #include "readyup/config.h"
 #include "readyup/engine_surface.h"
-#include "readyup/game_timers.h"
 #include "readyup/features.h"
 #include "readyup/game_events.h"
 #include "readyup/logging.h"
-#include "readyup/modes.h"
 #include "readyup/plugin_loader.h"
 #include "readyup/real_server.h"
-#include "readyup/scrim_flow.h"
-#include "readyup/ready_hud.h"
 #include "readyup/selftest.h"
 #include "readyup/status_feed.h"
-#include "readyup/welcome.h"
 
 #include <sys/mman.h>
 #include <unistd.h>
@@ -59,9 +54,6 @@ static void Hook_GameFrame(void* thisptr, bool simulating, bool bFirstTick, bool
   // Our logic is best-effort. Every feature below gates itself on its engine-surface
   // dependencies (features.cpp; one log line when one is disabled).
   const bool plugins = FeatureEnabled(Feature::Plugins);
-  // Map-end / series-end timers and the demo stop (game_timers.h) also run while the
-  // server is not simulating (e.g. empty after the series-end kick).
-  readyup::GameTimersFrameTick();
   if (!simulating) {
     // Plugin load/unload + queued commands/events still run while not simulating.
     if (plugins) readyup::plugins::Frame(/*simulating=*/false);
@@ -71,23 +63,14 @@ static void Hook_GameFrame(void* thisptr, bool simulating, bool bFirstTick, bool
   if (g_simTicks.fetch_add(1, std::memory_order_relaxed) == 0 && DebugEnabled()) {
     DebugLine("gameframe: first simulating tick observed");
   }
-  if (FeatureEnabled(Feature::MatchFlow)) {
-    // Tick() also registers engine event listeners (GameEventsFrameTick, gated by "events").
-    readyup::Tick();
-    // Scrim flow + `state:` log; outside Tick() (which holds the modes mutex).
-    readyup::ScrimTick();
-  } else {
-    readyup::GameEventsFrameTick();
-  }
-  // Runs after Tick() returns (Tick holds the modes mutex; WelcomeTick reads mode).
-  if (FeatureEnabled(Feature::WelcomeHtml)) readyup::WelcomeTick();
-  // Ready list / knife pick panel (skips players whose welcome screen is up).
-  if (FeatureEnabled(Feature::ReadyHud)) readyup::ReadyHudTick();
+  // Engine event listener: register / verify (throttled; gated by the "events" feature).
+  readyup::GameEventsFrameTick();
   // Entity primitives status (once the entity system verified on the first map). Skins itself
   // is a plugin now (plugins/skins); its per-tick work runs in plugins::Frame below.
   if (readyup::entity::EntitySystemReady()) readyup::entity::LogEngineStatusOnce();
   // Plugins last: pending load/unload/reload (a safe point: no plugin code is on the
-  // stack), then queued commands/events, then per-tick callbacks.
+  // stack), then queued commands/events, then per-tick callbacks. The match flow (ready-up,
+  // knife, HUD, timers) is plugins/match and runs here too.
   if (plugins) readyup::plugins::Frame(/*simulating=*/true);
   // READYUP_SELFTEST_AND_QUIT: runs the selftest once the first map is up, then quits.
   readyup::SelftestFrameTick();

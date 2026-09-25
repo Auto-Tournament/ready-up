@@ -36,7 +36,7 @@ const char* FeatureName(Feature f);
 bool FeatureEnabled(Feature f);
 
 // Tri-state of one dependency ("fn:Host_Say", "vtable:ISource2Server::GameFrame", "hook:GameFrame",
-// "cmdbuf", "loglistener", "schema", "entsys", "eventmgr", "db", "layout:CCommand", "feature:skins").
+// "cmdbuf", "loglistener", "schema", "entsys", "eventmgr", "layout:CCommand", "feature:skins").
 struct DepStatus {
   enum class State { Ok, Pending, Fail };
   State state = State::Pending;

@@ -562,8 +562,6 @@ for c in "${ordered[@]}"; do
   else
     ok "$c $old → $new"
   fi
-  [[ "$c" == match && "$(manifest_field "$RU/manifests/match.json" description)" == PLACEHOLDER* ]] &&
-    say "  ${D}match is built into the core in this version; the component has no files yet${N}"
 done
 # The full bundle also carries the offline checkers: installed with `full`, kept up to date after.
 if [[ -n "${STAGED[tools]:-}" ]] && [[ $WANT_FULL -eq 1 || -n "${INSTALLED[tools]:-}" ]]; then

@@ -48,6 +48,7 @@ for mm in 0 1; do
   echo "== fresh essentials install (metamod=$mm)"
   run --dir "$S" --zip "$ESS" essentials >"$T/out" 2>&1 || { cat "$T/out"; fail "install exited non-zero"; continue; }
   check "core libserver.so installed" test -x "$CS/readyup/bin/linuxsteamrt64/libserver.so"
+  check "match.so installed" test -x "$CS/readyup/plugins/match.so"
   check "engine-surface.json installed" test -f "$CS/readyup/bin/linuxsteamrt64/engine-surface.json"
   check "no skins.so in essentials" test ! -e "$CS/readyup/plugins/skins.so"
   check "no skins gamedata in essentials" test ! -e "$CS/readyup/bin/linuxsteamrt64/engine-surface.skins.json"
