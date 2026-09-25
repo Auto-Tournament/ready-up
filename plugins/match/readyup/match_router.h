@@ -5,8 +5,8 @@
 // ru_api registrations (match_plugin.cpp):
 //
 //   player chat commands  .r .ready .ur .unready .notready .nr .pause .p .tech .unpause .up .gg
-//                         .ff .forfeit .stay .switch .swap .ct .t .help .prac .tactics
-//                         .bot .cbot .crouchbot .boost .crouchboost .nobots
+//                         .ff .forfeit .stay .switch .swap .ct .t .help .stop
+//                         (.prac and the practice tools are the practice plugin's, plugins/practice)
 //   ru main commands      chat `.ru <main> <sub>` and console `ru <main> <sub>`: match, map,
 //                         mode, admins, hud (subcommands and help: ru_commands.h)
 //   console commands      ru_match_token, ru_webhook_url, ru_heartbeat_url, ru_admins_url, ... (match_console.cpp)
@@ -26,6 +26,11 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
 
 // `ru <main> <sub> ...` typed on the server console / RCON: MatchRuCommand from the console.
 void MatchRuConsole(const std::string& line);
+
+// readyup.match.v1 set_practice (the practice plugin, plugins/practice): on = the match flow's
+// practice mode (refused while a match is loaded), off = back to idle. The practice plugin execs
+// the cvar cfgs and respawns players. Game thread.
+bool MatchSetPractice(bool on);
 
 // Every player chat command / ru main command the plugin registers.
 const std::vector<std::string>& MatchPlayerChatCommands();

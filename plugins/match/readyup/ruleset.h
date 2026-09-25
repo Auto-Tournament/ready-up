@@ -125,5 +125,8 @@ bool CheckMapSides(const EffectiveRuleSet& e, const std::vector<std::string>& ma
 bool CoachesAdmitted(const EffectiveRuleSet& e);
 // Players' inventories must not be modified (cosmetics "inventory"): the skins plugin is inert.
 bool InventoryLocked(const EffectiveRuleSet& e);
+// Player extras outside Valve's rulebook (practice tools, end-of-round damage report, .gg / .stop
+// votes) run only outside the valve ruleset; under it they do nothing, like the skins plugin.
+bool PlayerExtrasAllowed(const EffectiveRuleSet& e);
 
 }  // namespace readyup

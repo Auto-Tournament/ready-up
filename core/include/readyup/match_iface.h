@@ -52,6 +52,11 @@ typedef struct ru_match_v1 {
   /* Effective ruleset of the loaded match (readyup.cfg's when none is loaded): "default" or
    * "valve". Static string. */
   const char* (*ruleset)(void);
+  /* v1.2 (practice plugin, plugins/practice). Game thread. on = 1: the match flow enters its
+   * practice mode (no scrim warmup, heartbeat "warmup", ru_mode "practice"); refused (0) while a
+   * match is loaded. on = 0: back to idle. Returns 1 when the mode is what was asked. The
+   * practice plugin execs the cvar cfgs and respawns players itself. */
+  int (*set_practice)(int on);
   /* v1.x: members are appended here. */
 } ru_match_v1;
 

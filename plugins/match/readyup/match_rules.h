@@ -28,7 +28,19 @@ struct MatchRules {
   int allow_force_ready = -1;      // `.forceready`
   int min_players_to_ready = -1;   // connected players a team needs for .forceready; 0 = full roster
   int forfeit_after_seconds = -1;  // whole team disconnected while live -> forfeit; 0 = off
+  // `.gg` surrender vote and `.stop` round-restore vote (votes.h). MAT keys gg_enabled,
+  // gg_threshold (0.8 or 80), gg_min_score_diff, stop_command_available, stop_command_no_damage,
+  // stop_vote_seconds; fleet rules.forfeit.gg_vote.{enabled,threshold,min_score_diff}.
+  int gg_enabled = -1;              // .gg is a team vote that forfeits the map (else it only emits player_gg)
+  int gg_threshold_pct = -1;        // share of the team's connected players that must vote, percent
+  int gg_min_score_diff = -1;       // the team must trail by at least this many rounds
+  int stop_command_available = -1;  // .stop: both teams restore the start of the current round
+  int stop_command_no_damage = -1;  // .stop only while no player damaged an opponent this round
+  int stop_vote_seconds = -1;       // the other team has this long to confirm a .stop
 };
+
+// gg_threshold as written in a config: a fraction (0.8) or a percent (80). -1 if invalid.
+int GgThresholdPctFromText(const std::string& text);
 
 MatchRules BuiltinDefaultRules();
 // Every -1 in `match` is taken from `base`, then from BuiltinDefaultRules(). The result has no -1.

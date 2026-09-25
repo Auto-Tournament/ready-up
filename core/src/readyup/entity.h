@@ -39,6 +39,9 @@ bool AttrSetOrAddByName(void* attributeList, const char* name, float value);
 bool ChangeSubclass(void* entity, const char* subclass);
 // CBaseModelEntity::SetModel(this, "agents/models/....vmdl").
 bool SetModel(void* entity, const char* model);
+// CBaseEntity::SetAbsOrigin(this, &origin): moves the entity, the way setpos / ent_setpos do.
+// False if unresolved or the origin is not finite / off the map.
+bool SetAbsOrigin(void* entity, const float origin[3]);
 // Model lookup + FindBodygroupByName + CBaseModelEntity::SetBodygroup(group, value).
 enum class BodygroupResult {
   kOk,

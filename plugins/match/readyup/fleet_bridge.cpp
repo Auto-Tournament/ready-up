@@ -1845,6 +1845,34 @@ void Tick(double now) {
 
 bool Assigned() { return g_asg.active; }
 
+bool RestoreRoundFromLocalBackup(int round, const std::string& by, const std::string& reason, std::string* err) {
+  const auto ctx = WebhookGetMatchContext();
+  if (!ctx) {
+    if (err) *err = "no match loaded";
+    return false;
+  }
+  if (round < 1) {
+    if (err) *err = "round must be >= 1";
+    return false;
+  }
+  const int mapNumber = std::max(1, MatchStateGet().map_number);
+  const std::string prefix = "readyup_backup_" + std::to_string(static_cast<unsigned long long>(ctx->matchid)) + "_map" +
+                             std::to_string(mapNumber) + "_";
+  std::string dir;
+  const std::string file = FindLocalBackup(mapNumber, round, &dir, prefix);
+  if (file.empty()) {
+    if (err) *err = "no backup " + prefix + "round" + (round - 1 < 10 ? "0" : "") + std::to_string(round - 1) + ".txt";
+    return false;
+  }
+  std::ifstream in(dir + "/" + file, std::ios::binary);
+  std::ostringstream ss;
+  ss << in.rdbuf();
+  DoRestore(mapNumber, round, file, fs::Sha256Hex(ss.str()), by, reason, Json::Object());
+  if (g_asg.active) g_phaseReason = "vote:" + reason;
+  else g_restoring = false;  // only the fleet link reads (and clears) it
+  return true;
+}
+
 bool CurrentState(Json* out) {
   if (!g_asg.active || !g_stream.HasState()) return false;
   if (out) *out = g_stream.State();

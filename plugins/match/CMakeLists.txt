@@ -10,6 +10,8 @@ set(MATCH_SOURCES
   readyup/backup_files.cpp
   readyup/config.cpp
   readyup/cs2_version.cpp
+  readyup/damage_ledger.cpp
+  readyup/damage_report.cpp
   readyup/demo_naming.cpp
   readyup/demo_recorder.cpp
   readyup/esports.cpp
@@ -48,6 +50,8 @@ set(MATCH_SOURCES
   readyup/reload_state.cpp
   readyup/ruleset.cpp
   readyup/scrim_flow.cpp
+  readyup/vote_logic.cpp
+  readyup/votes.cpp
   readyup/webhook.cpp
   readyup/welcome.cpp
   readyup/workers.cpp
@@ -90,7 +94,7 @@ target_include_directories(match_host_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src 
   ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(match_host_test PRIVATE -Wall -Wextra)
 target_link_libraries(match_host_test PRIVATE dl pthread)
-add_test(NAME match_host COMMAND match_host_test $<TARGET_FILE:readyup_plugin_match>)
+add_test(NAME match_host COMMAND match_host_test $<TARGET_FILE:readyup_plugin_match> $<TARGET_FILE:readyup_plugin_practice>)
 set_tests_properties(match_host PROPERTIES TIMEOUT 120)
 
 # The engine-free half of the fleet match link (readyup/fleet_state.h: merge patch + live_rev,
@@ -111,6 +115,14 @@ add_executable(match_rules_test tests/match_rules_test.cpp readyup/match_rules.c
 target_include_directories(match_rules_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(match_rules_test PRIVATE -Wall -Wextra)
 add_test(NAME match_rules COMMAND match_rules_test)
+
+# Damage report bookkeeping (readyup/damage_ledger.h), the .gg / .stop vote logic
+# (readyup/vote_logic.h) and their rules (ctest `match_damage_votes`).
+add_executable(match_damage_votes_test tests/damage_votes_test.cpp readyup/damage_ledger.cpp readyup/vote_logic.cpp
+  readyup/match_rules.cpp)
+target_include_directories(match_damage_votes_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(match_damage_votes_test PRIVATE -Wall -Wextra)
+add_test(NAME match_damage_votes COMMAND match_damage_votes_test)
 
 # Rulesets: presets, override parsing / validation, preset + overrides resolution, what differs,
 # the commands after the go-live cfg, knife refusal (readyup/ruleset.h; ctest `match_ruleset`).
