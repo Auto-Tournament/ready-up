@@ -33,8 +33,10 @@ constexpr auto kAfterSpawn = std::chrono::milliseconds(750);       // let the sp
 constexpr auto kSpawnWait = std::chrono::seconds(20);              // no spawn seen: show anyway
 // After a round (re)start: readyup.cfg welcome_round_delay_ms (CS2's "Match started" announcement).
 constexpr auto kDelayTentative = std::chrono::milliseconds(1500);  // give log/event a chance to confirm
-constexpr auto kShowFor = std::chrono::milliseconds(4000);         // last send at ~4s
-constexpr auto kHandOver = std::chrono::milliseconds(5000);        // HUD replaces the card here
+// How long the card stays: readyup.cfg welcome_show_seconds (default 8). The last send is a
+// second before the end (each send lasts 2 s); the HUD takes the panel over at the end.
+std::chrono::milliseconds ShowFor() { return std::chrono::milliseconds(std::max(1, Cfg().welcome_show_seconds) * 1000 - 1000); }
+std::chrono::milliseconds HandOver() { return std::chrono::milliseconds(std::max(1, Cfg().welcome_show_seconds) * 1000); }
 constexpr auto kResendEvery = std::chrono::milliseconds(1000);
 constexpr int kEventDurationSeconds = 2;
 
@@ -332,6 +334,7 @@ void WelcomeTick() {
   // Snapshot mode before taking our lock (GetMode takes the modes mutex).
   const ReadyUpMode mode = GetMode();
   const auto now = Clock::now();
+  const auto showFor = ShowFor();
 
   struct Send {
     int slot;
@@ -354,7 +357,7 @@ void WelcomeTick() {
         if (DebugEnabled()) Debug("welcome: dropped unconfirmed jointeam for slot=%d\n", kv.first);
         continue;
       }
-      if (now - s.startAt > kShowFor) {
+      if (now - s.startAt > showFor) {
         s.active = false;
         continue;
       }
@@ -387,6 +390,7 @@ void WelcomeTick() {
 bool WelcomeActiveFor(int slot, uint64_t steamid64) {
   if (steamid64 == 0 && slot < 0) return false;
   const auto now = Clock::now();
+  const auto handOver = HandOver();
   std::lock_guard<std::mutex> lk(g_mu);
   for (const auto& kv : g_slots) {
     const SlotState& s = kv.second;
@@ -401,7 +405,7 @@ bool WelcomeActiveFor(int slot, uint64_t steamid64) {
     if (s.active && s.waitingSpawn) return true;  // the card comes at spawn
     // Covers the queue delay and the display window; after kHandOver the ready
     // HUD's next send replaces the card (no gap: the last card send lasts 2s).
-    if (now < s.startAt + kHandOver) return true;
+    if (now < s.startAt + handOver) return true;
   }
   return false;
 }

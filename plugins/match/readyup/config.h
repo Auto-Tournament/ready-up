@@ -23,6 +23,8 @@ struct ReadyUpCfg {
   // The welcome card waits this long after a round (re)start: CS2's own "Match started"
   // announcement covers the center panel for a few seconds after the warmup restart.
   int welcome_round_delay_ms = 5000;
+  // How long the welcome card stays up once shown, then the ready HUD takes over.
+  int welcome_show_seconds = 8;
   // Per-player center-HTML ready list during scrim/match warmup + knife side pick.
   bool ready_hud = true;
   // Center-panel refresh tuning (ms / s).
