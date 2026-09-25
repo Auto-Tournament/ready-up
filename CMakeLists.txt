@@ -385,6 +385,9 @@ add_subdirectory(plugins/midas)
 # readyup-whitelist (plugins/whitelist), plus its unit test (after enable_testing()).
 add_subdirectory(plugins/whitelist)
 
+# readyup-deathmatch (plugins/deathmatch): FFA / team deathmatch, plus its unit test.
+add_subdirectory(plugins/deathmatch)
+
 # readyup-match (plugins/match): the match flow, plus its host test (after enable_testing()).
 add_subdirectory(plugins/match)
 

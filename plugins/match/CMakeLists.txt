@@ -96,7 +96,7 @@ target_include_directories(match_host_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src 
 target_compile_options(match_host_test PRIVATE -Wall -Wextra)
 target_link_libraries(match_host_test PRIVATE dl pthread)
 add_test(NAME match_host COMMAND match_host_test $<TARGET_FILE:readyup_plugin_match> $<TARGET_FILE:readyup_plugin_practice>
-  $<TARGET_FILE:readyup_plugin_essentials>)
+  $<TARGET_FILE:readyup_plugin_essentials> $<TARGET_FILE:readyup_plugin_deathmatch>)
 set_tests_properties(match_host PROPERTIES TIMEOUT 120)
 
 # The engine-free half of the fleet match link (readyup/fleet_state.h: merge patch + live_rev,

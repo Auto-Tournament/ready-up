@@ -34,9 +34,10 @@ SCHEMA = 1
 CORE_ID = "core"
 # Plugins that never touch the engine directly: nothing to check statically, they are loaded
 # at runtime and only the dynamic stage (selftest/livetest, not built yet) can verify them.
-RUNTIME_ONLY = ["match", "practice", "essentials", "midas", "whitelist", "fleet"]
+RUNTIME_ONLY = ["match", "practice", "essentials", "midas", "whitelist", "deathmatch", "fleet"]
 NAMES = {"core": "Core", "skins": "Skins", "match": "Match", "practice": "Practice",
-         "essentials": "Essentials", "midas": "Midas", "whitelist": "Whitelist", "fleet": "Fleet"}
+         "essentials": "Essentials", "midas": "Midas", "whitelist": "Whitelist", "deathmatch": "Deathmatch",
+         "fleet": "Fleet"}
 # Order of static check kinds inside a component.
 STATIC_KINDS = ["signature", "rtti", "vtable", "hook_site", "layout"]
 TRIGGERS = ("build_change", "surface_change", "nightly", "release", "manual")

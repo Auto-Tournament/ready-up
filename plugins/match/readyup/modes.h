@@ -23,6 +23,11 @@ enum class ReadyUpMode {
   // When every human on CT/T is ready (and both sides are populated), the
   // scrim flow (scrim_flow.cpp) creates a scrim match context and goes live.
   ScrimWarmup,
+  // Another plugin runs the server (readyup.match.v1 set_external_mode, e.g. the deathmatch
+  // plugin): no scrim warmup, ready HUD, idle cfg, practice rules or round-termination
+  // suppression, and CS2's own warmup is left alone. Left for idle by the plugin or `.ru mode
+  // idle`; a match load takes over (OnMatchLoaded).
+  External,
 };
 
 // Mode + ready-state controls (best-effort; in-memory).
@@ -31,6 +36,11 @@ const char* GetModeString();
 
 void SetModeIdle();
 void SetModePractice();
+// External mode owned by the plugin mode `name` ([a-z0-9_], e.g. "deathmatch"). Only from idle,
+// scrim warmup or External itself (false otherwise: a match is loaded, practice is on).
+bool SetModeExternal(const std::string& name);
+// The name given to SetModeExternal ("" when the mode is not External).
+std::string ExternalModeName();
 // Enter scrim warmup (only from Idle / no match loaded). Returns false if the
 // current mode doesn't allow it. Warmup rules are applied from Tick().
 bool SetModeScrimWarmup();

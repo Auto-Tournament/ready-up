@@ -23,8 +23,8 @@ CS2 has a single center panel per client, so the core decides who owns it (plugi
 |---|---|---|
 | 90 | `RU_HTML_PRIO_ALERT` | map change card, Workshop download bar; later: pause called, going live |
 | 80 | `RU_HTML_PRIO_MENU` | a menu the player opened (the planned WASD `.ru` menu) |
-| 70 | `RU_HTML_PRIO_NOTICE` | welcome card, vote prompts, `.ru hud test`, `.ru hud anim` |
-| 50 | `RU_HTML_PRIO_HUD` | ready HUD, knife panel, live / pause status panel (and every old call) |
+| 70 | `RU_HTML_PRIO_NOTICE` | welcome card, vote prompts, `.ru hud test`, `.ru hud anim`, deathmatch winner card |
+| 50 | `RU_HTML_PRIO_HUD` | ready HUD, knife panel, live / pause status panel, deathmatch leaderboard (every `hud_interval_ms`, [DEATHMATCH.md](DEATHMATCH.md)) (and every old call) |
 | 10 | `RU_HTML_PRIO_INFO` | idle / background information |
 
 While a plugin's panel is up (its `seconds` have not run out), another

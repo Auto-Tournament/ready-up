@@ -32,6 +32,12 @@ void MatchRuConsole(const std::string& line);
 // the cvar cfgs and respawns players. Game thread.
 bool MatchSetPractice(bool on);
 
+// readyup.match.v1 set_external_mode (e.g. the deathmatch plugin, plugins/deathmatch): a
+// non-empty name ([a-z0-9_], at most 32) = the match flow steps aside (ReadyUpMode::External;
+// refused while a match is loaded or practice is on); "" = back to idle (scrim warmup comes back
+// by itself when enabled). The plugin sets its cvars / game mode and loads maps itself. Game thread.
+bool MatchSetExternal(const std::string& name);
+
 // Every player chat command / ru main command the plugin registers.
 const std::vector<std::string>& MatchPlayerChatCommands();
 const std::vector<std::string>& MatchRuSubcommands();

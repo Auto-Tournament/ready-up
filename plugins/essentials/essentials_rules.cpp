@@ -1,5 +1,6 @@
 #include "essentials_rules.h"
 
+#include "readyup/map_names.h"
 #include "readyup/status_snapshot.h"
 
 #include <algorithm>
@@ -118,6 +119,71 @@ std::string MapArgToEntry(const std::string& arg) {
 
 bool MapCommandBlocked(const std::string& ruMode) {
   return ruMode == "match_live" || ruMode == "match_knife" || ruMode == "knife";
+}
+
+const std::vector<std::string>& KnownDefaultMapModes() {
+  static const std::vector<std::string> k = {"ffa", "tdm", "practice", "warmup", "retakes"};
+  return k;
+}
+
+bool ValidModeName(const std::string& mode) {
+  if (mode.empty() || mode.size() > 32) return false;
+  for (unsigned char c : mode) {
+    if (!std::islower(c) && !std::isdigit(c) && c != '_') return false;
+  }
+  return true;
+}
+
+DefaultMaps ParseDefaultMaps(const std::string& json, bool* ok) {
+  DefaultMaps out;
+  if (ok) *ok = true;
+  if (json.find_first_not_of(" \t\r\n") == std::string::npos) return out;
+  Json doc;
+  if (!Json::Parse(json, &doc) || !doc.IsObject()) {
+    if (ok) *ok = false;
+    return out;
+  }
+  const Json* maps = doc.Find("maps");
+  if (!maps || !maps->IsObject()) return out;
+  for (const auto& kv : maps->Members()) {
+    if (kv.second.type() != Json::Type::String) continue;
+    std::string err;
+    (void)SetDefaultMap(&out, kv.first, kv.second.AsString(), &err);
+  }
+  return out;
+}
+
+std::string DefaultMapsJson(const DefaultMaps& maps) {
+  Json doc = Json::Object();
+  doc["version"] = 1;
+  Json m = Json::Object();
+  for (const auto& kv : maps) m[kv.first] = kv.second;
+  doc["maps"] = std::move(m);
+  return doc.Dump() + "\n";
+}
+
+std::string DefaultMapFor(const DefaultMaps& maps, const std::string& mode) {
+  const auto it = maps.find(Lower(mode));
+  return it == maps.end() ? std::string() : it->second;
+}
+
+bool SetDefaultMap(DefaultMaps* maps, const std::string& mode, const std::string& mapArg, std::string* err) {
+  const std::string m = Lower(mode);
+  if (!ValidModeName(m)) {
+    if (err) *err = "\"" + mode.substr(0, 40) + "\" is not a mode name (a-z, 0-9, _)";
+    return false;
+  }
+  if (mapArg.empty() || Lower(mapArg) == "clear") {
+    maps->erase(m);
+    return true;
+  }
+  const std::string entry = MapArgToEntry(mapArg);
+  if (!readyup::mapnames::ValidEntry(entry)) {
+    if (err) *err = "\"" + mapArg.substr(0, 64) + "\" is not a map name, workshop id or workshop link";
+    return false;
+  }
+  (*maps)[m] = entry;
+  return true;
 }
 
 namespace {

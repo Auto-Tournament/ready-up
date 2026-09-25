@@ -341,7 +341,10 @@ void ClearState(bool restorePawns) {
 bool Enter(const char** why) {
   if (MatchOwnsMode()) {
     if (Match()->set_practice(1) != 1) {
-      if (why) *why = "a match is loaded (.ru match end first)";
+      if (why) {
+        *why = RuMode() == "external" ? "another plugin's mode is on (deathmatch: .ru dm off first)"
+                                      : "a match is loaded (.ru match end first)";
+      }
       return false;
     }
   } else {
@@ -797,7 +800,10 @@ int IfaceActive() { return IsActive() ? 1 : 0; }
 int IfaceSetActive(int on, const char** why) {
   std::string r;
   const bool ok = Toggle(on != 0, &r);
-  if (!ok && why) *why = "a match is loaded (.ru match end first)";
+  if (!ok && why) {
+    *why = RuMode() == "external" ? "another plugin's mode is on (deathmatch: .ru dm off first)"
+                                  : "a match is loaded (.ru match end first)";
+  }
   return ok ? 1 : 0;
 }
 const char* IfaceHelp() { return HelpLine(); }

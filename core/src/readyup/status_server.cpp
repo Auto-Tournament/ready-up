@@ -261,7 +261,7 @@ void StatusServer::Run() {
       const Json* mode = cur->summary.Find("mode");
       if (mode && mode->type() == Json::Type::String) {
         m += "# HELP readyup_mode Current Ready Up mode.\n# TYPE readyup_mode gauge\n";
-        for (const char* k : {"idle", "scrim", "match", "practice"}) {
+        for (const char* k : {"idle", "scrim", "match", "practice", "external"}) {
           m += std::string("readyup_mode{mode=\"") + k + "\"} " + (mode->AsString() == k ? "1" : "0") + "\n";
         }
       }

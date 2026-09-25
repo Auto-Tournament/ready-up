@@ -1,9 +1,11 @@
 #pragma once
 
 // readyup-essentials pure logic (ctest `essentials_rules`): the admins list (admins.json), finding
-// a player by a name fragment, and when map commands are refused. No engine calls.
+// a player by a name fragment, when map commands are refused and the default map per mode
+// (default_maps.json). No engine calls.
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -42,6 +44,25 @@ std::string MapArgToEntry(const std::string& arg);
 // Map commands (change / reload / restart) are refused in these match plugin modes (a knife round
 // or a live map) unless the admin adds `force`.
 bool MapCommandBlocked(const std::string& ruMode);
+
+// ---- default maps per mode (default_maps.json, readyup.essentials.v1 default_map) ----------------
+//
+// {"version": 1, "maps": {"ffa": "aim_map", "tdm": "de_dust2", "practice": "workshop/3084291314"}}
+// Keys are mode names ([a-z0-9_]{1,32}: ffa, tdm, practice, warmup, retakes, ... whatever a plugin
+// asks for); values are map entries as `ru map change` takes them (a Workshop link is stored as its
+// id). Bad keys / values are dropped.
+using DefaultMaps = std::map<std::string, std::string>;
+
+// The modes `ru map defaults` always lists (set or not).
+const std::vector<std::string>& KnownDefaultMapModes();
+bool ValidModeName(const std::string& mode);
+DefaultMaps ParseDefaultMaps(const std::string& json, bool* ok);
+std::string DefaultMapsJson(const DefaultMaps& maps);
+// The entry for `mode` (lower-cased), "" when none.
+std::string DefaultMapFor(const DefaultMaps& maps, const std::string& mode);
+// Sets `mode` to `mapArg` (anything MapArgToEntry takes); "" or "clear" removes it. False and
+// *err for a bad mode name or map.
+bool SetDefaultMap(DefaultMaps* maps, const std::string& mode, const std::string& mapArg, std::string* err);
 
 // Center-screen panel while the server downloads a Workshop map: a `segments`-wide bar of block
 // characters, the percentage and MB. total 0 = Steam does not know the size yet. `name` is
