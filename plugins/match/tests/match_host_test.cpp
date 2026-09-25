@@ -27,6 +27,8 @@
 #include <functional>
 #include <mutex>
 #include <optional>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -307,6 +309,13 @@ int main(int argc, char** argv) {
     return 2;
   }
   setenv("READYUP_PLUGINS_DIR", pluginsDir.c_str(), 1);
+  if (withEssentials) {
+    // An older install: the admins list in the match plugin's folder, no essentials folder yet.
+    std::system(("rm -rf '" + pluginsDir + "/essentials' && mkdir -p '" + pluginsDir + "/match'").c_str());
+    FILE* old = std::fopen((pluginsDir + "/match/admins.json").c_str(), "w");
+    std::fputs(R"({"version": 1, "admins": [{"steamid64": "76561198000000077", "name": "owner"}]})", old);
+    std::fclose(old);
+  }
   {
     FILE* cfg = std::fopen((readyup::g_moduleDir + "/readyup.cfg").c_str(), "w");
     std::fputs("debug=0\nwelcome=0\nconsume_ready_chat=1\n[match]\nknife_pick_seconds=33\n", cfg);
@@ -320,6 +329,13 @@ int main(int argc, char** argv) {
   rp::PostEvent(map);  // the core's current map before the plugin loads
   rp::Frame(false);
   Check(Logged("plugin: loaded match"), "match.so loaded");
+  if (withEssentials) {
+    std::ifstream copied(pluginsDir + "/essentials/admins.json");
+    std::stringstream text;
+    text << copied.rdbuf();
+    Check(text.str().find("76561198000000077") != std::string::npos,
+          "essentials: the core made its folder, and the old match/admins.json was copied into it");
+  }
   uint32_t flags = 0;
   Check(rp::ChatCommandOwned(".r", &flags) && (flags & RU_CMD_HIDE), ".r owned, hidden (consume_ready_chat=1)");
   Check(rp::ChatCommandOwned(".pause", &flags) && flags == 0, ".pause owned, visible");
