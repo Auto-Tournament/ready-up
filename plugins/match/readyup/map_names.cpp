@@ -152,6 +152,19 @@ std::string BoundName(const std::string& workshopId) {
   return it == g_bound.end() ? std::string() : it->second;
 }
 
+std::string ReloadEntry(const std::string& loaded) {
+  const std::string base = LoadedBaseName(loaded);
+  std::string id = WorkshopIdOfLoaded(loaded);
+  if (id.empty() && !base.empty()) {
+    std::lock_guard<std::mutex> lk(g_mu);
+    for (const auto& kv : g_bound) {
+      if (kv.second == base) id = kv.first;
+    }
+  }
+  const std::string entry = id.empty() ? base : MakeEntry(base, id);
+  return ValidEntry(entry) ? entry : std::string();
+}
+
 void ResetBindings() {
   std::lock_guard<std::mutex> lk(g_mu);
   g_bound.clear();

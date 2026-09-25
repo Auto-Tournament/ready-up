@@ -13,7 +13,7 @@
 //     ru_cfg_exec_enable, ru_dev_bots_scrim, demo settings, series-end kick delays,
 //   - undelivered webhook events, the demo recording in progress, a pending GOTV-flush stop,
 //     demo uploads the unload interrupted (restarted), the pending postgame step (next map /
-//     kick / unload; rescheduled with the time left), `.ru idle`.
+//     kick / unload; rescheduled with the time left), `.ru mode idle`.
 // Not kept: per-player UI throttles, the scrim countdown (it restarts), the round in progress in
 // the stats model (starts over empty), log lines / events that arrived while no image was
 // loaded (one frame). The stash lives in core memory only: a server restart uses the

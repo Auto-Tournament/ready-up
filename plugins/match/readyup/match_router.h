@@ -7,9 +7,8 @@
 //   player chat commands  .r .ready .ur .unready .notready .nr .pause .p .tech .unpause .up .gg
 //                         .ff .forfeit .stay .switch .swap .ct .t .help .prac .tactics
 //                         .bot .cbot .crouchbot .boost .crouchboost .nobots
-//   ru subcommands        chat `.ru <sub>` and console `ru <sub>`: admins hudtest prac practice
-//                         idle scrim state status mode match start pause fp forcepause unpause up
-//                         fup forceunpause restart end recover side
+//   ru main commands      chat `.ru <main> <sub>` and console `ru <main> <sub>`: match, map,
+//                         mode, admins, hud (subcommands and help: ru_commands.h)
 //   console commands      ru_match_token, ru_webhook_url, ru_heartbeat_url, ru_admins_url, ... (match_console.cpp)
 
 #include <cstdint>
@@ -21,15 +20,14 @@ namespace readyup {
 // Player chat command lines (first token is one of the player commands above).
 void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const std::string& text);
 
-// `.ru <sub> ...` from chat (steamid64 != 0) or from the console (steamid64 == 0, replies go
-// to the console only where the old console path did).
-void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std::string& text);
+// `.ru <main> <sub> ...` from chat (steamid64 != 0; slot: the sender's, -1 if unknown) or from
+// the console (steamid64 == 0, replies go to the console).
+void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std::string& text, int slot);
 
-// `ru <sub> ...` typed on the server console / RCON. Console-only behaviour (ru match load,
-// ru mode, ru side, ...) first, everything else as MatchRuCommand from the console.
+// `ru <main> <sub> ...` typed on the server console / RCON: MatchRuCommand from the console.
 void MatchRuConsole(const std::string& line);
 
-// Every player chat command / ru subcommand the plugin registers.
+// Every player chat command / ru main command the plugin registers.
 const std::vector<std::string>& MatchPlayerChatCommands();
 const std::vector<std::string>& MatchRuSubcommands();
 

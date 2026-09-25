@@ -266,6 +266,6 @@ Proposed schema: `match.defs.json` `rules.ruleset`, `rules.overrides`, `matchSta
   `differs` lists every key whose value is not the preset's, whatever set it: an override, a
   per-match pause key (`source: "match"`) or a raw `cvars` entry that touches a rule's cvar
   (`source: "cvars"`). Show it as "differs from Valve" next to the match; it is in every
-  `state.snapshot` and `/status`. `ru rules` prints the same on the server.
+  `state.snapshot` and `/status`. `ru match rules` prints the same on the server.
 - Prefer overrides over raw `cvars` for anything the table covers: overrides are validated and
   reported, and they go out after the cfg **and** after the match `cvars`.

@@ -2,10 +2,12 @@
 
 #include "readyup/admin_check.h"
 #include "readyup/chat.h"
+#include "readyup/client_print.h"
 #include "readyup/config.h"
 #include "readyup/features.h"
 #include "readyup/logging.h"
 #include "readyup/plugin_loader.h"
+#include "readyup/ru_help_text.h"
 #include "readyup/selftest.h"
 #include "readyup/version.h"
 
@@ -140,6 +142,12 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
     return;
   }
 
+  // Help and "unknown command" go to the sender only when the slot is known.
+  auto replyPrivate = [&](const std::string& msg) {
+    if (slot >= 0) (void)ClientPrintChat(slot, (" " + msg).c_str());
+    else SendToChat(msg.c_str());
+  };
+
   auto requireAdmin = [&]() -> bool {
     // Allow server console; otherwise require admin.
     if (steamid64 == 0) return true;
@@ -163,11 +171,23 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
   }
 
   if (cmd == "help") {
-    SendToChat("Ready Up: admins: .ru plugin list|reload <name> | .ru reload | .ru selftest | .ru version");
-    std::string subs;
-    for (const auto& s : plugins::PluginRuSubcommands()) subs += (subs.empty() ? "" : " ") + s.substr(0, s.find(' '));
-    if (!subs.empty()) SendToChat(("Ready Up: plugins: .ru " + subs).c_str());
-    SendToChat("Ready Up: players: .help (match commands, when the match plugin is loaded)");
+    // `.ru help`: main commands. `.ru help <main>`: the core's own, or the plugin's (forwarded as
+    // `.ru <main> help`, answered by the plugin).
+    if (parts.size() >= 3) {
+      const std::string main = parts[2];
+      const auto lines = CoreRuSubHelpLines(main);
+      for (const auto& l : lines) replyPrivate(l);
+      if (!lines.empty()) return;
+      if (!plugins::IsCoreRuSubcommand(main) &&
+          plugins::TryDispatchRu(/*console=*/false, steamid64, playerName, ".ru " + main + " help", slot)) {
+        return;
+      }
+      replyPrivate(RuUnknownCommandReply(main));
+      return;
+    }
+    std::vector<std::string> mains;
+    for (const auto& s : plugins::PluginRuSubcommands()) mains.push_back(s.substr(0, s.find(' ')));
+    for (const auto& l : RuMainHelpLines(mains)) replyPrivate(l);
     return;
   }
 
@@ -213,8 +233,8 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
     if (plugins::TryDispatchChat(steamid64, playerName, rest, slot)) return;
   }
 
-  // Unknown `ru` command; ignore to avoid chat spam.
-  Debug("ru: unknown subcommand \"%s\" ignored\n", cmd.c_str());
+  Debug("ru: unknown subcommand \"%s\"\n", cmd.c_str());
+  if (steamid64 != 0) replyPrivate(RuUnknownCommandReply(cmd));
 }
 
 }  // namespace readyup
