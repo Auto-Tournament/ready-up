@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 4
+#define READYUP_PLUGIN_API_VERSION_MINOR 5
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -522,7 +522,19 @@ typedef struct ru_api {
    */
   int (*workshop_download_progress)(ru_plugin* self, uint64_t workshop_id, uint64_t* downloaded, uint64_t* total);
 
-  /* v1.5+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.5 ============================================================
+   * Appended in 1.5. Require 1.5 in ru_plugin_info.api_version, or check RU_API_HAS().
+   */
+
+  /*
+   * Removes an entity with UTIL_Remove (engine surface: the same verified function the entity
+   * system global is read from); the engine deletes it at the end of the frame. Refuses the world
+   * and player controllers (index 0..64) and a pointer that does not round-trip through its
+   * handle. Game thread. 1 = queued for removal, 0 = refused or unavailable.
+   */
+  int (*entity_remove)(ru_plugin* self, void* entity);
+
+  /* v1.6+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

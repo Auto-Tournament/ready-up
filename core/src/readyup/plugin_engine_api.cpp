@@ -235,6 +235,11 @@ int ApiIsAdmin(ru_plugin* self, uint64_t steamid64) {
   return IsReadyUpAdmin(steamid64) ? 1 : 0;  // asks the plugin admin provider first
 }
 
+int ApiEntityRemove(ru_plugin* self, void* ent) {
+  if (!CheckGameThread(self, "entity_remove") || !ent) return 0;
+  return entity::RemoveEntity(ent) ? 1 : 0;
+}
+
 int ApiWorkshopDownloadProgress(ru_plugin* self, uint64_t id, uint64_t* downloaded, uint64_t* total) {
   if (!self) return 0;
   return steam_ugc::DownloadProgress(id, downloaded, total) ? 1 : 0;
@@ -271,6 +276,7 @@ void detail::FillEngineApi(ru_api* a) {
   a->feature_state = &ApiFeatureState;
   a->entity_set_abs_origin = &ApiSetAbsOrigin;  // v1.3
   a->workshop_download_progress = &ApiWorkshopDownloadProgress;  // v1.4
+  a->entity_remove = &ApiEntityRemove;                            // v1.5
 }
 
 }  // namespace readyup::plugins

@@ -22,6 +22,7 @@
 #include "readyup/host.h"
 #include "readyup/idle_refresh.h"
 #include "readyup/warmup_money.h"
+#include "readyup/weapon_cleanup.h"
 #include "readyup/local_store.h"
 #include "readyup/logging.h"
 #include "readyup/match_console.h"
@@ -166,6 +167,7 @@ void OnTick(void*, const ru_tick_info* t) {
       DamageReportTick();       // damage reports built at round_end (damage_report.h)
       VotesTick(t->now);        // .gg / .stop vote timeouts (votes.h)
       WarmupMoneyTick(t->now);  // warmup money top-up (warmup_money.h)
+      WeaponCleanupTick(t->now);  // dropped weapons in warmup (weapon_cleanup.h)
     }
     // Fleet link (no-op without fleet.so): platform handlers, MatchState patches, events.
     fleet_bridge::Tick(t->now);
@@ -244,6 +246,8 @@ void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   add(ctx, "INFO", "match", ("readyup-match " MATCH_VERSION ", mode=" + std::string(GetModeString())).c_str());
   add(ctx, "OK", "store", local_store::Summary().c_str());
   add(ctx, "INFO", "ruleset", EsportsSelftestLine().c_str());
+  add(ctx, "INFO", "weapon cleanup",
+      (Cfg().warmup_weapon_cleanup ? WeaponCleanupStatus() : std::string("off (warmup_weapon_cleanup=0)")).c_str());
   add(ctx, "INFO", "ready HUD",
       (std::string("showing=") + (g_hudShowing.load() ? "yes" : "no") + " (feature " +
        (g_hudFeature.load() ? "on" : "off") + ")")
@@ -334,6 +338,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     DamageReportInstall(api);   // end-of-round damage report
     VotesInstall(api);          // .gg / .stop
     WarmupMoneyInstall(api);    // warmup money top-up
+    WeaponCleanupInstall(api);  // dropped weapons in warmup
     EsportsInstall(api);  // default_models (player_spawn), halftime pause
     api->set_admin_provider(api->self, &AdminProvider, nullptr);
     api->provide_interface(api->self, RU_MATCH_IFACE_NAME, RU_MATCH_IFACE_VERSION, const_cast<ru_match_v1*>(&g_matchIface));

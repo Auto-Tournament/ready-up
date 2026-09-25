@@ -29,8 +29,8 @@ constexpr FnSpec kFindBodygroup{"CModel::FindBodygroupByName", "CModel_FindBodyg
 constexpr FnSpec kSetBodygroup{"CBaseModelEntity::SetBodygroup", "CBaseModelEntity_SetBodygroup"};
 constexpr FnSpec kSetAbsOrigin{"CBaseEntity::SetAbsOrigin", "CBaseEntity_SetAbsOrigin"};
 constexpr FnSpec kStateChanged{"CEntityInstance::NetworkStateChanged (CBaseEntity impl)", "CBaseEntity_NetworkStateChanged"};
-// UTIL_Remove is only used as an anchor: its body does `lea rax, [rip+g_pGameEntitySystem]`
-// (those bytes are part of its verified signature).
+// UTIL_Remove is the anchor for the entity system: its body does `lea rax, [rip+g_pGameEntitySystem]`
+// (those bytes are part of its verified signature). RemoveEntity (ru_api entity_remove) calls it.
 constexpr FnSpec kUtilRemove{"UTIL_Remove (entity system anchor)", "UTIL_Remove"};
 constexpr const char* kStateChangedSlot = "CEntityInstance::NetworkStateChanged";
 
@@ -300,6 +300,19 @@ bool SetAbsOrigin(void* entity, const float origin[3]) {
   alignas(16) float v[4] = {origin[0], origin[1], origin[2], 0.f};
   using Fn = void (*)(void*, const float*);
   reinterpret_cast<Fn>(g_setAbsOrigin.addr)(entity, v);
+  return true;
+}
+
+bool RemoveEntity(void* entity) {
+  ResolveEngine();
+  if (!g_utilRemove.addr || !entity || !EntitySystemReady()) return false;
+  // Only a live entity: its handle must lead back to the same pointer.
+  const uint32_t h = EntityHandleOf(entity);
+  if (h == 0xFFFFFFFFu || EntityFromHandle(h) != entity) return false;
+  if (static_cast<int>(h & kIndexMask) <= 64) return false;  // world, player controllers
+  // Signature: 48 89 FE (mov rsi, rdi) | 48 85 FF (test rdi, rdi): one argument, the entity.
+  using Fn = void (*)(void*);
+  reinterpret_cast<Fn>(g_utilRemove.addr)(entity);
   return true;
 }
 
