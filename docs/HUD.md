@@ -17,12 +17,17 @@ event (`loc_token` = HTML). Tested in game on CS2 1.41.8.3 with `.ru hud test 1-
 ## One panel per player
 
 CS2 has a single center panel per client, so the core decides who owns it (plugin API 1.6,
-`center_html_to_slot_prio` / `center_html_all_prio`). Each send carries a priority:
-`RU_HTML_PRIO_ALERT` 90 (the workshop download bar), `RU_HTML_PRIO_NOTICE` 70 (the welcome card,
-`.ru hud test`, `.ru hud anim`), `RU_HTML_PRIO_HUD` 50 (the ready HUD; the old calls),
-`RU_HTML_PRIO_INFO` 10. The deathmatch leaderboard ([DEATHMATCH.md](DEATHMATCH.md)) is sent at
-`RU_HTML_PRIO_HUD` every `hud_interval_ms` (default 1000; 0 = every tick), its winner card at
-`RU_HTML_PRIO_NOTICE`. While a plugin's panel is up (its `seconds` have not run out), another
+`center_html_to_slot_prio` / `center_html_all_prio`). Each send carries a priority, highest wins:
+
+| Priority | Level | Panels |
+|---|---|---|
+| 90 | `RU_HTML_PRIO_ALERT` | map change card, Workshop download bar; later: pause called, going live |
+| 80 | `RU_HTML_PRIO_MENU` | a menu the player opened (the planned WASD `.ru` menu) |
+| 70 | `RU_HTML_PRIO_NOTICE` | welcome card, vote prompts, `.ru hud test`, `.ru hud anim`, deathmatch winner card |
+| 50 | `RU_HTML_PRIO_HUD` | ready HUD, knife panel, live / pause status panel, deathmatch leaderboard (every `hud_interval_ms`, [DEATHMATCH.md](DEATHMATCH.md)) (and every old call) |
+| 10 | `RU_HTML_PRIO_INFO` | idle / background information |
+
+While a plugin's panel is up (its `seconds` have not run out), another
 plugin's lower send is refused (-1); it goes through once that panel expires, so a HUD that
 re-sends comes back by itself. Within the match plugin the welcome card holds the ready HUD back
 itself (by SteamID or slot).
@@ -54,7 +59,7 @@ come back).
 
 ## Knife panel and chat
 
-- After the knife round starts, the KNIFE ROUND panel stays up for `hud_knife_hold_s` seconds (default 30), also while the round is running.
+- After the knife round starts, the KNIFE ROUND panel stays up for `hud_knife_hold_s` seconds (default 10), also while the round is running.
 - While the panel reaches players, flow updates (ready, countdown, knife start, knife winner, side pick) are shown only in the panel, not in chat. Replies that explain a refused command, admin actions and the LIVE line still go to chat. With `ready_hud=0`, or if a panel send fails, the chat messages come back.
 
 ## Live panel (pauses, forfeit)

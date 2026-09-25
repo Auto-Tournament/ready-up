@@ -20,6 +20,11 @@ namespace readyup {
 struct ReadyUpCfg {
   // Per-player center-HTML welcome screen on first T/CT join each map.
   bool welcome = true;
+  // The welcome card waits this long after a round (re)start: CS2's own "Match started"
+  // announcement covers the center panel for a few seconds after the warmup restart.
+  int welcome_round_delay_ms = 5000;
+  // How long the welcome card stays up once shown, then the ready HUD takes over.
+  int welcome_show_seconds = 8;
   // Per-player center-HTML ready list during scrim/match warmup + knife side pick.
   bool ready_hud = true;
   // Center-panel refresh tuning (ms / s).
@@ -27,7 +32,7 @@ struct ReadyUpCfg {
   int hud_resend_ms = 0;
   int hud_duration_s = 1;
   // Seconds the KNIFE ROUND panel stays up after the knife round begins.
-  int hud_knife_hold_s = 30;
+  int hud_knife_hold_s = 10;
   // Header of the welcome card + ready HUD: optional logo image URL + brand text.
   std::string hud_brand = "Auto Tournament";
   std::string hud_logo_url;

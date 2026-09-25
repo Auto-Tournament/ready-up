@@ -1,4 +1,5 @@
 #include "readyup/modes.h"
+#include "readyup/scrim_flow.h"
 
 #include "readyup/map_names.h"
 #include "readyup/demo_recorder.h"
@@ -56,6 +57,9 @@ struct State {
   bool cfgExecEnabled = false;
   // Run once per idle entry (avoid spamming `exec` every tick).
   bool idleCfgExecuted = false;
+  // Idle as a waiting room (scrim_auto on): rounds cannot end, so the first player taking a bot's
+  // place does not hand the other side a round before scrim warmup starts. -1 = not sent yet.
+  int idleIgnoreWinSent = -1;
   bool warmupRespawn = true;
   bool warmupIgnoreWin = true;
   int warmupRoundTimeMinutes = 60;
@@ -766,6 +770,9 @@ static void ApplyScrimWarmupRulesLocked(State& st) {
       "mp_warmup_pausetimer 0",
       "mp_warmuptime 0",
       "mp_warmup_end",
+      // Idle is plain CS2: a round can end before warmup starts (the first player takes a bot's
+      // place and a side is briefly empty), leaving a 1:0 that the warmup never clears.
+      "mp_restartgame 1",
   };
   for (const char* c : cmds) {
     if (EnqueueServerCommand(c)) any = true;
@@ -2122,6 +2129,7 @@ void Tick() {
 
   auto& st = St();
   static std::atomic<int> s_lastSuppress{-1};
+  const bool scrimAuto = ScrimAutoEnabled();  // before st.mu (scrim_flow has its own lock)
   std::unique_lock<std::mutex> lk(st.mu);
 
   // MatchZy behavior: treat map changes as a fresh baseline and re-exec cfgs once.
@@ -2131,6 +2139,7 @@ void Tick() {
       st.lastSeenMap = ms.current_map;
       // Force re-application of cfg-driven baselines on the new map.
       st.idleCfgExecuted = false;
+      st.idleIgnoreWinSent = -1;
       st.warmupRulesApplied = false;
       st.practiceRulesApplied = false;
       st.practiceResetPending = false;
@@ -2158,8 +2167,18 @@ void Tick() {
     if (st.cfgExecEnabled && !st.idleCfgExecuted) {
       if (EnqueueServerCommand("exec ReadyUp/idle.cfg")) {
         st.idleCfgExecuted = true;
+        st.idleIgnoreWinSent = -1;  // idle.cfg may set it: send ours after
       }
     }
+    // Waiting for players (scrim_auto): no round can end. `ru mode idle` (scrim_auto off) is plain
+    // CS2 again: rounds end normally.
+    const int want = scrimAuto ? 1 : 0;
+    if (st.idleIgnoreWinSent != want &&
+        EnqueueServerCommand(want ? "mp_ignore_round_win_conditions 1" : "mp_ignore_round_win_conditions 0")) {
+      st.idleIgnoreWinSent = want;
+    }
+  } else {
+    st.idleIgnoreWinSent = -1;
   }
   if (st.mode == ReadyUpMode::ScrimWarmup && !st.warmupRulesApplied) {
     const auto now = std::chrono::steady_clock::now();

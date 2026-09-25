@@ -67,6 +67,10 @@ bool SetDefaultMap(DefaultMaps* maps, const std::string& mode, const std::string
 // Center-screen panel while the server downloads a Workshop map: a `segments`-wide bar of block
 // characters, the percentage and MB. total 0 = Steam does not know the size yet. `name` is
 // HTML-escaped. (CS2's center panel runs no script; the plugin resends this ~10x a second.)
+// The card shown to everyone for a few seconds when an admin changes / reloads the map (before
+// any Workshop download bar): "Changing map to <name>" (or "Reloading <name>"). HTML-escaped.
+std::string MapChangePanelHtml(const std::string& name, bool reload);
+
 std::string DownloadPanelHtml(const std::string& name, uint64_t downloaded, uint64_t total, int segments = 30);
 
 }  // namespace essentials

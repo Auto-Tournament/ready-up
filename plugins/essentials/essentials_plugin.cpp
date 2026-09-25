@@ -250,6 +250,15 @@ void OnAdmins(const ru_command_ctx* c, const std::string& sub, const std::vector
   Reply(c, (sub == "add" ? "added " : "removed ") + who);
 }
 
+// A center panel to everyone at alert level (API 1.6), else the plain call.
+void SendAlertAll(const std::string& html, int seconds) {
+  if (RU_API_HAS(g_api, center_html_all_prio) && g_api->center_html_all_prio) {
+    g_api->center_html_all_prio(g_api->self, html.c_str(), seconds, RU_HTML_PRIO_ALERT);
+  } else {
+    g_api->center_html_all(g_api->self, html.c_str(), seconds);
+  }
+}
+
 bool LoadEntry(const std::string& entry) {
   const std::string cmd = readyup::mapnames::LoadCommand(entry);
   if (cmd.empty()) return false;
@@ -333,6 +342,8 @@ void OnMap(const ru_command_ctx* c, const std::string& sub, std::vector<std::str
   }
   if (!LoadEntry(entry)) return Reply(c, "map change unavailable yet");
   ru_logf(g_api, RU_LOG_INFO, "map %s by %s: %s", sub.c_str(), who.c_str(), entry.c_str());
+  // Over every other panel until the level changes (a cached map loads with no download bar).
+  SendAlertAll(MapChangePanelHtml(readyup::mapnames::DisplayName(entry), sub != "change"), 5);
   g_api->chat_all(g_api->self, ("Ready Up: " + std::string(sub == "change" ? "changing map to " : "reloading ") +
                                 readyup::mapnames::DisplayName(entry) + ".")
                                    .c_str(),
@@ -378,12 +389,7 @@ void PollDownload(double now) {
             done / 1048576.0, total / 1048576.0);
   }
   // Over the ready HUD and the welcome card while it downloads (API 1.6: one panel per player).
-  const std::string html = DownloadPanelHtml(g_dl.name, done, total);
-  if (RU_API_HAS(g_api, center_html_all_prio) && g_api->center_html_all_prio) {
-    g_api->center_html_all_prio(g_api->self, html.c_str(), 1, RU_HTML_PRIO_ALERT);
-  } else {
-    g_api->center_html_all(g_api->self, html.c_str(), 1);
-  }
+  SendAlertAll(DownloadPanelHtml(g_dl.name, done, total), 1);
 }
 
 void OnTick(void*, const ru_tick_info* t) {
@@ -412,6 +418,7 @@ int IfaceLoadMap(const char* entry) {
     if (!readyup::mapnames::ValidEntry(e)) return 0;
     if (!LoadEntry(e)) return 0;
     ru_logf(g_api, RU_LOG_INFO, "map change for another plugin: %s", e.c_str());
+    SendAlertAll(MapChangePanelHtml(readyup::mapnames::DisplayName(e), false), 5);  // like `ru map change`
     return 1;
   } catch (...) {
     return 0;

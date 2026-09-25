@@ -28,8 +28,8 @@ typedef struct ru_essentials_v1 {
    * `ru map change` takes it. "" when none is set. Valid until the next call. Never NULL. */
   const char* (*default_map)(const char* mode);
   /* Loads a map entry (a map name, a Workshop id, ws:<id>, workshop/<id>[/<name>] or a pasted
-   * Workshop link): changelevel / host_workshop_map, with the download progress bar. No mode check
-   * (the caller decides). 1 = queued, 0 = not a valid entry / the command buffer is not ready. */
+   * Workshop link): changelevel / host_workshop_map, with the map change card and the download
+   * progress bar. No mode check (the caller decides). 1 = queued, 0 = not a valid entry / the command buffer is not ready. */
   int (*load_map)(const char* entry);
 } ru_essentials_v1;
 

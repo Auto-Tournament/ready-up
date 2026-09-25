@@ -99,6 +99,8 @@ int main() {
       CHECK(std::find(known.begin(), known.end(), k) != known.end());
     }
   }
+  CHECK(MapChangePanelHtml("de_<x>", false).find("Changing map to de_&lt;x&gt;") != std::string::npos);
+  CHECK(MapChangePanelHtml("m", true).find("Reloading m") != std::string::npos);
   std::printf("essentials_rules_test: %s\n", g_failures ? "FAIL" : "PASS");
   return g_failures ? 1 : 0;
 }
