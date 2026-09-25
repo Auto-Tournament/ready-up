@@ -29,6 +29,7 @@
 #include "readyup/match_events.h"
 #include "readyup/match_features.h"
 #include "readyup/match_log.h"
+#include "readyup/match_stats.h"
 #include "readyup/match_recovery.h"
 #include "readyup/match_router.h"
 #include "readyup/match_status.h"
@@ -44,6 +45,7 @@
 #include "readyup/welcome.h"
 #include "readyup/workers.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
@@ -234,8 +236,43 @@ int SetPracticeIface(int on) {
   return rc;
 }
 const char* ModeIface() { return GetModeString(); }
+// v1.4: per-player totals of the map being recorded (the midas plugin's best-player rule).
+int MapStatsIface(ru_match_map_info* info, ru_match_player_stats_fn fn, void* user) {
+  if (!info || info->struct_size < sizeof(uint32_t)) return 0;
+  int rc = 0;
+  Guard("map_stats", [&] {
+    const auto ctx = WebhookGetMatchContext();
+    ru_match_map_info out{};
+    out.struct_size = info->struct_size;
+    out.scrim = ctx && ctx->slug == "scrim" ? 1 : 0;
+    out.half = MatchEventsSnapshot().swapCount + 1;
+    stats::MapStats snap;
+    {
+      std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
+      out.live = stats::Current().Live() ? 1 : 0;
+      out.rounds = stats::Current().RoundsRecorded();
+      if (out.live && fn) snap = stats::Current().Snapshot();
+    }
+    std::memcpy(info, &out, std::min<size_t>(info->struct_size, sizeof(out)));
+    for (const auto& p : snap.players) {
+      if (p.bot || p.id == 0) continue;
+      ru_match_player_stats ps{};
+      ps.struct_size = sizeof(ps);
+      ps.steamid64 = p.id;
+      ps.side = p.last_side;
+      ps.kills = p.stats.kills;
+      ps.deaths = p.stats.deaths;
+      ps.assists = p.stats.assists;
+      ps.damage = p.stats.damage;
+      ps.rounds_played = p.stats.rounds_played;
+      fn(user, &ps);
+    }
+    rc = 1;
+  });
+  return rc;
+}
 const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus, &InventoryLockedIface, &RulesetIface,
-                                  &SetPracticeIface, &ModeIface};
+                                  &SetPracticeIface, &ModeIface, &MapStatsIface};
 
 std::atomic<int> g_hudShowing{0}, g_hudFeature{0};
 std::mutex g_brandMu;
