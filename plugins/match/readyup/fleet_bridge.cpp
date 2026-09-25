@@ -325,6 +325,20 @@ Json ConfigState() {
       maps[std::to_string(n)] = std::move(mj);
     }
   }
+  if (g_resumeActive) {
+    // Failover resume: the platform's series state until the match flow reports its own.
+    series["current_map"] = g_resume.map_number;
+    series["score"]["team1"] = g_resume.series_team1;
+    series["score"]["team2"] = g_resume.series_team2;
+    for (const auto& r : g_resume.maps_done) {
+      const std::string k = std::to_string(r.map_number);
+      if (!maps.Find(k)) continue;
+      maps[k]["status"] = "done";
+      maps[k]["score"]["team1"] = r.team1;
+      maps[k]["score"]["team2"] = r.team2;
+      maps[k]["winner"] = r.winner;
+    }
+  }
   series["maps"] = std::move(maps);
   st["series"] = std::move(series);
 
