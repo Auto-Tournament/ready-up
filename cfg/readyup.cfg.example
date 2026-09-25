@@ -10,6 +10,7 @@ chat_debug=0
 banner=1
 # Per-player "Ready Up is live" center screen on first T/CT join each map.
 welcome=1
+# welcome_round_delay_ms=5000   the welcome card waits this long after a round (re)start (CS2's "Match started" covers the panel)
 
 # DEBUG ONLY: bots on CT/T count as always-ready scrim players, so one human can
 # test ready -> live with bots. Never enable on a real match server.
