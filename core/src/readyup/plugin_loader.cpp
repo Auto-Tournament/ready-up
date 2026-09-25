@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
@@ -763,6 +764,11 @@ bool LoadNow(const std::string& name, std::string* err) {
   inst->author = info->author ? info->author : "";
   inst->description = info->description ? info->description : "";
   inst->dataDir = dir + "/" + name;
+  // The directory data_dir() names exists before the plugin loads: a new plugin's first write
+  // (essentials copying an older admins.json, `ru admins add`) must not fail on a missing folder.
+  if (mkdir(inst->dataDir.c_str(), 0755) != 0 && errno != EEXIST) {
+    PrintLine(("plugin: could not create " + inst->dataDir + ": " + std::strerror(errno)).c_str());
+  }
   inst->apiVersion = want;
   inst->dl = dl;
   inst->unload = unloadFn;

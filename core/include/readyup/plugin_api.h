@@ -298,7 +298,8 @@ typedef struct ru_api {
   /* Engine slot of a connected player, or -1. */
   int (*slot_for_steamid)(ru_plugin* self, uint64_t steamid64);
 
-  /* Absolute directory for this plugin's data/config files (csgo/readyup/plugins/<name>/). */
+  /* Absolute directory for this plugin's data/config files (csgo/readyup/plugins/<name>/).
+   * The core creates it (if missing) before readyup_plugin_load. */
   const char* (*data_dir)(ru_plugin* self);
 
   /* ==== v1.1 ============================================================
