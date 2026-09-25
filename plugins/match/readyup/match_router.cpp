@@ -388,6 +388,13 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       sendAdmin("hud test: the ready HUD (per-client center HTML) is off on this server; see `ru selftest`.");
       return;
     }
+    if (sub == "anim") {
+      const int hz = args.empty() ? 0 : std::atoi(args[0].c_str());
+      const int secs = args.size() < 2 ? 0 : std::atoi(args[1].c_str());
+      sendAdmin("hud anim for " + playerName + ": " + ReadyHudRequestAnim(steamid64, hz, secs) +
+                ". Record it and count the distinct frame numbers in one second.");
+      return;
+    }
     const int n = args.empty() ? 0 : std::atoi(args[0].c_str());
     const std::string desc = ReadyHudRequestTest(steamid64, n);
     if (desc.empty()) {
