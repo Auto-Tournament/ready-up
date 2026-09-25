@@ -34,7 +34,7 @@ It shows the components (installed -> $VERSION), installs or updates what you ti
 
 | Download | Contents |
 |---|---|
-| \`ready-up-essentials-$VERSION-linuxsteamrt64.zip\` | core + match. The default. No skins. |
+| \`ready-up-essentials-$VERSION-linuxsteamrt64.zip\` | core + essentials + match + fleet + practice. The default. No skins. |
 | \`ready-up-full-$VERSION-linuxsteamrt64.zip\` | core + match + skins + hello + gamedata checkers |
 | \`ready-up-core\`, \`-match\`, \`-skins\`, \`-hello\` | single components (core alone runs without the match flow) |
 | \`SHA256SUMS\` | checksums (the installer verifies them) |

@@ -203,7 +203,7 @@ void OnLogLine(void*, const char* line) {
 
 int AdminProvider(void*, uint64_t steamid64) {
   try {
-    return IsReadyUpAdmin(steamid64) ? 1 : 0;
+    return MatchOwnAdmin(steamid64) ? 1 : 0;  // essentials answers for admins.json itself
   } catch (...) {
     return -1;
   }
@@ -353,7 +353,6 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
       persisted_settings::Restore();
       match_recovery::TryRecoverAsync();
     }
-    AdminCacheRefreshNow();
     (void)DevBotsReadyEnabled();  // loud warning if a debug-only flag is on
     (void)DevBotsScrimEnabled();
     ru_logf(api, RU_LOG_INFO, "loaded " MATCH_VERSION " (core %s): mode=%s", api->core_version, GetModeString());

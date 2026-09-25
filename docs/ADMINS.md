@@ -4,12 +4,13 @@ Ready Up has no database (docs/FLEET.md D13). Who counts as an admin:
 
 - the per-match `admins` of the loaded match config,
 - the MAT admin list (`ru_admins_url`), if configured,
-- **standalone**: `admins.json` in the match plugin's data dir,
+- **standalone**: `admins.json` of the essentials plugin (`plugins/essentials/admins.json`),
 - **fleet mode** (`[fleet] url` set): the platform's fleet-wide list instead of `admins.json`.
 
 ## Standalone: `admins.json`
 
-`game/csgo/readyup/plugins/match/admins.json`
+`game/csgo/readyup/plugins/essentials/admins.json` (the essentials plugin; on its first load it copies an
+older `plugins/match/admins.json` there)
 
 ```json
 {
@@ -59,13 +60,13 @@ always may. An admin's `.help` points at `.ru help`.
 | `.ru match tech\|tac team1\|team2` | admin | technical pause / tactical timeout for a team, with its limits |
 | `.ru match side stay\|switch\|ct\|t` | knife winners, admin | knife side pick (`.stay` / `.switch`) |
 | `.ru match state` / `rules` | everyone | match and mode state / effective rules |
-| `.ru map change <name\|workshop id>` | admin | `changelevel <name>`, or `host_workshop_map <id>` for `3084291314`, `ws:<id>`, `workshop/<id>[/name]` |
-| `.ru map reload` | admin | loads the current map again (a workshop map by its id) |
-| `.ru map restart` | admin | restarts the game (`mp_restartgame 1`); a loaded match stays loaded |
+| `.ru map change <name\|workshop id\|link> [force]` | admin | `changelevel <name>`, or `host_workshop_map <id>` for `3084291314`, `ws:<id>`, `workshop/<id>[/name]` or a pasted Workshop link (`…/filedetails/?id=3084291314`); refused during a knife round or a live map unless `force` (essentials plugin) |
+| `.ru map reload [force]` | admin | loads the current map again (a workshop map by its id) (essentials plugin) |
+| `.ru map restart [force]` | admin | restarts the game (`mp_restartgame 1`); a loaded match stays loaded (essentials plugin) |
 | `.ru mode show` | everyone | the current mode |
 | `.ru mode idle` / `practice` / `scrim` | admin | plain CS2 / practice mode (toggles, `.prac`; needs the practice plugin) / auto scrim warmup back on |
 | `.ru practice on\|off\|status` | admin | practice plugin: practice mode (`status`: everyone) |
-| `.ru admins list` | everyone | the admins |
+| `.ru admins list` | everyone | the admins (essentials plugin) |
 | `.ru admins add\|remove <steamid64\|name_fragment>` | admin (standalone) | edit `admins.json` |
 | `.ru hud test <1-11>` | admin | a HUD test panel, to you only |
 | `.ru whitelist on\|off\|add\|remove\|list\|clear` | admin | whitelist plugin: only listed players may stay (not during a match) |

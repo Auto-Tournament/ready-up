@@ -358,6 +358,9 @@ add_test(NAME plugin_host_reload
   COMMAND readyup_plugin_host_test
     $<TARGET_FILE:readyup_plugin_hello> $<TARGET_FILE:readyup_plugin_hello_reload_test>)
 
+# readyup-essentials (plugins/essentials): admins + map commands, plus its unit test.
+add_subdirectory(plugins/essentials)
+
 # readyup-practice (plugins/practice): practice mode + tools, plus its unit test.
 add_subdirectory(plugins/practice)
 
