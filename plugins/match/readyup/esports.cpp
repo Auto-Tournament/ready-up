@@ -161,6 +161,11 @@ std::string LiveCfgExecCommand() {
   return std::string("exec ") + LiveCfgFor(CtxRuleset(ctx ? &*ctx : nullptr));
 }
 
+bool LiveCfgRequired() {
+  const auto ctx = WebhookGetMatchContext();
+  return CtxRuleset(ctx ? &*ctx : nullptr) == Ruleset::Valve;
+}
+
 void AppendRuleCommands(std::vector<std::string>* cmds) {
   const auto ctx = WebhookGetMatchContext();
   for (auto& c : RuleCommands(EffectiveRulesFor(ctx ? &*ctx : nullptr))) {

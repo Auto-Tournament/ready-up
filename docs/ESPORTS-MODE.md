@@ -324,7 +324,8 @@ reports 10000 (the spec's 12500 was a guess).
 ### Go-live
 
 `ruleset=valve` execs `ReadyUp/esports_live.cfg` wherever the default flow execs `ReadyUp/live.cfg`
-(straight to live, after the knife pick, scrim go-live). The cfg is the spec's file with one
+(straight to live, after the knife pick, scrim go-live). It runs even with `ru_cfg_exec_enable 0`
+(the ruleset is its cfg; that switch only turns off `live.cfg`). The cfg is the spec's file with one
 addition: section 4 resets to engine defaults the cvars Ready Up's warmup / knife / practice cfgs
 change and the Premier cfgs do not set (`mp_ignore_round_win_conditions`, `mp_give_player_c4`,
 `mp_overtime_startmoney`, `mp_c4timer`, `mp_round_restart_delay`, ...), so nothing leaks from the
@@ -377,6 +378,11 @@ pauses the default flow does not expect.
 
 - Emulated warmup stays (spec conflict 2): Ready Up's warmup runs before go-live; Valve's
   `mp_warmuptime 60` / `mp_warmup_pausetimer 1` are set by the cfg for the live state only.
+- Seven rulebook cvars do not exist on CS2 1.41.8 (the server answers "Unknown command"):
+  `sv_maxusrcmdprocessticks`, `sv_max_dropped_packets_to_process`, `sv_damage_print_enable`,
+  `sv_occlude_players`, `sv_force_transmit_players`, `sv_force_transmit_ents`, `sv_holiday_mode`.
+  `esports_live.cfg` keeps them; the live test expects exactly these to be missing. On this build
+  `mp_logmoney` is a bool (Valve's `2` reads back as `true`).
 - `tv_broadcast` is `0` unless the match has a `tv_broadcast_url` (Valve: `1`; a broadcast needs a
   relay URL, a Major-only TO item).
 - Not built: refusing go-live when GOTV was off at map load, recognising the engine's

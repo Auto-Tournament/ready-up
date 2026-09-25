@@ -21,6 +21,8 @@ EffectiveRuleSet EffectiveRulesFor(const WebhookMatchContext* ctx);
 
 // "exec ReadyUp/live.cfg" | "exec ReadyUp/esports_live.cfg" for the loaded match.
 std::string LiveCfgExecCommand();
+// True under the valve ruleset: go-live execs its cfg even with ru_cfg_exec_enable 0.
+bool LiveCfgRequired();
 // Rule commands that go out after the go-live cfg and the match cvars (RuleCommands).
 void AppendRuleCommands(std::vector<std::string>* cmds);
 // Players' inventories must not be modified right now (skins plugin inert).

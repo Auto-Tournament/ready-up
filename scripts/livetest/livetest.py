@@ -88,6 +88,7 @@ DEFAULT_MODEL_RE = re.compile(r"\[ReadyUp\] esports: default_models: slot (-?\d+
 DEFAULT_MODEL_FAIL_RE = re.compile(r"\[ReadyUp\] esports: default_models: entity_set_model failed")
 RULES_DIFF_RE = re.compile(r"\[ReadyUp\] rules: (differs from \S+:.*|no differences from \S+)")
 SKINS_STATUS_RE = re.compile(r"status: version \S+; (skins inert \([^)]*\); )?loadouts")
+UNKNOWN_CMD_RE = re.compile(r"Unknown command '([a-z0-9_]+)'!")
 CVAR_RE = re.compile(r'^\s*"?([a-z][a-z0-9_]+)"?\s*=\s*"?([^"\s]*)')
 
 MATCH_SLUG = "livetest"
@@ -111,6 +112,11 @@ VALVE_EXTRA_CVARS = {
     "tv_delay": "105",
     "mp_overtime_enable": "1",
 }
+
+# Rulebook cvars CS2 1.41.8 does not have ("Unknown command" when esports_live.cfg sets them and when
+# queried). The cfg keeps them (Valve's list); the test fails if any other cvar goes missing.
+VALVE_ABSENT = {"sv_maxusrcmdprocessticks", "sv_max_dropped_packets_to_process", "sv_damage_print_enable",
+                "sv_occlude_players", "sv_force_transmit_players", "sv_force_transmit_ents", "sv_holiday_mode"}
 
 
 def valve_exception_cvars() -> dict:
@@ -137,6 +143,8 @@ def cvar_equal(got: str, want: str) -> bool:
     g, w = norm.get(got.lower(), got), norm.get(want.lower(), want)
     if g == w:
         return True
+    if got.lower() == "true" and w not in ("0", ""):
+        return True  # a bool cvar on this build (mp_logmoney 2 reads back as true)
     try:
         return float(g) == float(w)
     except ValueError:
@@ -369,6 +377,7 @@ class Facts:
     rules_diff: list = field(default_factory=list)  # (seq, text) `ru rules` difference line
     skins_status: list = field(default_factory=list)  # (seq, "skins inert (...); " or "")
     cvars: dict = field(default_factory=dict)  # name -> (seq, value) from console cvar queries
+    unknown_cmds: dict = field(default_factory=dict)  # name -> seq of "Unknown command 'name'!"
 
     def last_state(self) -> Optional[dict]:
         return self.states[-1][1] if self.states else None
@@ -412,6 +421,8 @@ class Facts:
         if (m := SKINS_STATUS_RE.search(line)):
             self.skins_status.append((s, m.group(1) or ""))
             return
+        if (m := UNKNOWN_CMD_RE.search(line)):
+            self.unknown_cmds[m.group(1)] = s
         if "[ReadyUp]" not in line and (m := CVAR_RE.match(line)):
             self.cvars[m.group(1)] = (s, m.group(2))
         if "[ReadyUp]" not in line and (m := TEAMNAME_RE.search(line)):
@@ -962,9 +973,6 @@ class Runner:
                 return f"esports line: ruleset={rs} ({src}) cfg={cfg} differs={differs}; want valve / {VALVE_DIFFERS}"
             return True
 
-        def chk_bots(_f):
-            return any(bots_ok(fl) for _, fl, _ in f.states_since(since("load")))
-
         def chk_live(_f):
             if f.knife_start > since("load"):
                 return "a knife round started under ruleset valve"
@@ -975,6 +983,8 @@ class Runner:
             mark["bots2"] = f.seq
             time.sleep(2.0)
             self.srv.send(f"bot_quota {a.bots_per_side * 2}")
+            time.sleep(8.0)
+            self.srv.send("ru state")  # a fresh state: line even when the bot count did not change
 
         def chk_bots_again(_f):
             return any(bots_ok(fl) for _, fl, _ in f.states_since(since("bots2")))
@@ -986,27 +996,34 @@ class Runner:
 
         def act_cvars():
             mark["cvars"] = f.seq
-            for i in range(0, len(names), 12):
-                self.srv.send("; ".join(names[i:i + 12]))
+            # Short batches: the console input line is cut at ~255 bytes.
+            for i in range(0, len(names), 6):
+                self.srv.send("; ".join(names[i:i + 6]))
 
         def cvar_report():
             got = {k: v for k, (sq, v) in f.cvars.items() if sq > since("cvars") and k in want}
-            missing = [k for k in names if k not in got]
+            unknown = sorted(k for k, sq in f.unknown_cmds.items() if sq > since("cvars") and k in want)
+            missing = [k for k in names if k not in got and k not in unknown]
             bad = [f"{k}={got[k]} (want {want[k]})" for k in names if k in got and not cvar_equal(got[k], want[k])]
-            return got, missing, bad
+            # Rulebook cvars this CS2 build does not have are expected (VALVE_ABSENT); any other
+            # "Unknown command" means CS2 or the rulebook renamed one.
+            bad += [f"{k} unknown to this CS2 build" for k in unknown if k not in VALVE_ABSENT]
+            return got, missing, bad, unknown
 
         def chk_cvars(_f):
-            got, missing, bad = cvar_report()
+            got, missing, bad, _ = cvar_report()
             if missing:
                 return False
             return True if not bad else "cvars differ: " + ", ".join(bad)
 
         def cvars_detail(_f):
-            got, missing, bad = cvar_report()
-            s = f"{len(got)}/{len(names)} cvars checked"
+            got, missing, bad, unknown = cvar_report()
+            s = f"{len(got)}/{len(names)} cvars as expected" if not bad else f"{len(got)}/{len(names)} cvars replied"
+            if unknown:
+                s += "; not on this CS2 build: " + ", ".join(unknown)
             if missing:
                 s += "; no reply: " + ", ".join(missing[:8])
-            return s + (f"; {len(bad)} wrong" if bad else "; all as Valve + overrides")
+            return s + (f"; {len(bad)} wrong" if bad else "")
 
         def act_rules():
             mark["rules"] = f.seq
@@ -1059,8 +1076,8 @@ class Runner:
                  lambda f_: (f_.load_error or "")[:160]),
             Step("valve: match load (ruleset + overrides)", 30, chk_load, act_load,
                  lambda f_: " ".join(str(x) for x in (f_.esports[-1][1:] if f_.esports else ()))),
+            # Empty roster: everyone is ready at once, so the match may go live before the bots join.
             Step("warmup (match_warmup)", 20, chk_warmup, act_bots),
-            Step(f"bots (>= {a.bots_per_side} per side, no humans)", 60, chk_bots),
             Step("valve: straight to match_live (no knife round)", 90, chk_live),
             Step("valve: bots back (esports_live.cfg kicks them)", 60, chk_bots_again, act_bots_again),
             Step(f"valve: {len(names)} cvars after go-live (Valve exceptions, Premier, overrides)", 30, chk_cvars,

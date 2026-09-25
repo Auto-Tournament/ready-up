@@ -881,7 +881,8 @@ static void ClearMapStats() {
 static void ApplyLiveRulesAndRestartLocked(State& st, const WebhookMatchContext& ctx) {
   bool any = false;
   ApplyMatchCvarsLocked(ctx);
-  if (st.cfgExecEnabled) {
+  // The valve ruleset is its cfg: it runs even with ru_cfg_exec_enable 0 (esports.h).
+  if (st.cfgExecEnabled || LiveCfgRequired()) {
     if (EnqueueServerCommand(LiveCfgExecCommand().c_str())) any = true;
   } else {
     const char* cmds[] = {
