@@ -668,12 +668,14 @@ std::string BackupPrefixFor(const std::string& matchId, int mapNumber) {
 }
 std::string BackupPrefix(int mapNumber) { return BackupPrefixFor(g_asg.match_id, mapNumber); }
 
-// Where CS2 writes mp_backup_round_file backups (and reads mp_backup_restore_load_file from):
-// csgo/readyup/ on Ready Up servers (observed), csgo/ otherwise. Any thread.
+// Where CS2 writes mp_backup_round_file backups (and reads mp_backup_restore_load_file from): the
+// first Game search path of gameinfo.gi, i.e. csgo/readyup/ on Ready Up servers (observed),
+// csgo/addons/metamod/ when a Metamod line comes first (observed on a csm-managed install), csgo/
+// otherwise. Any thread.
 std::vector<std::string> BackupDirs() {
   const std::string csgo = GetCsgoDirFromModuleDir();
   if (csgo.empty()) return {};
-  return {csgo + "/readyup", csgo};
+  return {csgo + "/readyup", csgo + "/addons/metamod", csgo};
 }
 
 // Worker thread: forwards backup files with `prefix` that were not sent yet.
@@ -782,7 +784,16 @@ std::string FindLocalBackup(int mapNumber, int round, std::string* dirOut, const
 
 // The directory a platform-sent backup is written to: where this server's backups are.
 std::string RestoreDir() {
-  for (const auto& dir : BackupDirs()) {
+  // Where CS2 wrote its own round backups (its write path); else the first that exists.
+  const auto dirs = BackupDirs();
+  for (const auto& dir : dirs) {
+    std::error_code ec;
+    for (const auto& it : std::filesystem::directory_iterator(dir, ec)) {
+      if (ec) break;
+      if (it.path().filename().string().rfind("readyup_backup_", 0) == 0) return dir;
+    }
+  }
+  for (const auto& dir : dirs) {
     std::error_code ec;
     if (std::filesystem::is_directory(dir, ec)) return dir;
   }
