@@ -22,9 +22,16 @@ From the server root (the folder with `game/`), as the server's user:
 curl -fsSL https://raw.githubusercontent.com/Auto-Tournament/ready-up/master/install.sh | bash
 ```
 
+It asks once whether you use Ready Up noncommercially (accept the PolyForm Noncommercial
+license by typing `yes`) or commercially (needs a paid license; see the
+[README](../README.md#commercial-use)), and saves the answer and a UTC timestamp in
+`game/csgo/readyup/license-acceptance.json`. Unattended runs pass
+`--accept-license=noncommercial|commercial` instead; without it (and no saved choice) they stop
+before changing anything. Removing components and uninstalling never ask.
+
 See the [README](../README.md#install) for the checklist, the non-interactive forms
 (`essentials`, `full`, `--yes`, `--remove`, `--uninstall [--purge]`, `--zip`, `--version`,
-`--dir`) and what it touches. It records what is installed in
+`--dir`, `--accept-license`) and what it touches. It records what is installed in
 `game/csgo/readyup/installed.json` (component -> version) and each component's file list in
 `game/csgo/readyup/manifests/<component>.json`, which is how updates remove files a newer
 version no longer ships and how unticking a component removes it.
