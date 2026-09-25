@@ -31,7 +31,7 @@ using Clock = std::chrono::steady_clock;
 // over (WelcomeActiveForSteam turns false at kHandOver).
 constexpr auto kAfterSpawn = std::chrono::milliseconds(750);       // let the spawn fade finish
 constexpr auto kSpawnWait = std::chrono::seconds(20);              // no spawn seen: show anyway
-constexpr auto kAfterRoundStart = std::chrono::milliseconds(1500); // a round restart settles
+// After a round (re)start: readyup.cfg welcome_round_delay_ms (CS2's "Match started" announcement).
 constexpr auto kDelayTentative = std::chrono::milliseconds(1500);  // give log/event a chance to confirm
 constexpr auto kShowFor = std::chrono::milliseconds(4000);         // last send at ~4s
 constexpr auto kHandOver = std::chrono::milliseconds(5000);        // HUD replaces the card here
@@ -53,6 +53,9 @@ struct SlotState {
 };
 
 std::mutex g_mu;
+// When the panel is free again after the last round (re)start; a card starting on a spawn waits
+// until then too (the spawn usually comes right after the restart).
+Clock::time_point g_lastRoundStart{};
 std::unordered_map<int, SlotState> g_slots;
 std::unordered_set<uint64_t> g_shownSteam;  // once-per-map by SteamID64 (survives reconnect)
 std::string g_map;                           // map the state above belongs to
@@ -239,14 +242,14 @@ void WelcomeObservePlayerSpawn(int slot) {
     // warmup and resets the score) wipes the center panel. Start the card again, a few times.
     if (s.respawnRestarts >= 3) return;
     ++s.respawnRestarts;
-    s.startAt = Clock::now() + kAfterSpawn;
+    s.startAt = std::max(Clock::now() + kAfterSpawn, g_lastRoundStart);
     s.nextSend = s.startAt;
     if (DebugEnabled()) Debug("welcome: slot=%d respawned while the card was up; showing it again\n", slot);
     return;
   }
   s.waitingSpawn = false;
   s.tentative = false;  // spawned on a team: the join went through
-  s.startAt = Clock::now() + kAfterSpawn;
+  s.startAt = std::max(Clock::now() + kAfterSpawn, g_lastRoundStart);
   s.nextSend = s.startAt;
   if (DebugEnabled()) Debug("welcome: slot=%d spawned, card in %lldms\n", slot, static_cast<long long>(kAfterSpawn.count()));
 }
@@ -254,8 +257,9 @@ void WelcomeObservePlayerSpawn(int slot) {
 void WelcomeObserveRoundStart() {
   // A round (re)start respawns everyone and clears the center panel: a card that is waiting or
   // showing starts (again) once the round has settled.
-  const auto at = Clock::now() + kAfterRoundStart;
+  const auto at = Clock::now() + std::chrono::milliseconds(Cfg().welcome_round_delay_ms);
   std::lock_guard<std::mutex> lk(g_mu);
+  g_lastRoundStart = at;
   for (auto& kv : g_slots) {
     SlotState& s = kv.second;
     if (!s.active || s.waitingSpawn) continue;
