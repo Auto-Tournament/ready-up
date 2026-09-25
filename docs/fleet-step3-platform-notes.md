@@ -200,7 +200,8 @@ status as the step 3 ones, [README](../plugins/fleet/protocol/README.md) "D13"):
 ## 11. Failover resume (`match.assign.resume`, §11.3)
 
 Ready Up accepts `resume` in `match.assign` (schema `match.defs.json#/$defs/resume`, example
-`examples/v1/match.assign.resume.json`). What the platform sends after the admin confirmed a
+`examples/v1/match.assign.resume.json`; frames Ready Up sent in the live test:
+`live.event.match_restored.resume.json`, `live.state.snapshot.restored.json`). What the platform sends after the admin confirmed a
 failover proposal (§11.2) or a manual move:
 
 - A **new epoch** for the match (`from_epoch` = the failed one; keep the highest per match and
