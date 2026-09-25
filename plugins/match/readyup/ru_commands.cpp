@@ -22,13 +22,6 @@ const std::vector<RuMainCommand>& MatchRuCommands() {
            {"state", "", "match and mode state", false},
            {"rules", "", "effective rules (ruleset + overrides)", false},
        }},
-      {"map",
-       "maps and the game",
-       {
-           {"change", "<name|workshop id>", "change map", true},
-           {"reload", "", "load the current map again", true},
-           {"restart", "", "restart the game (mp_restartgame 1)", true},
-       }},
       {"mode",
        "server mode",
        {
@@ -36,13 +29,6 @@ const std::vector<RuMainCommand>& MatchRuCommands() {
            {"idle", "", "plain CS2; no auto scrim warmup until `mode scrim` or a map change", true},
            {"practice", "", "practice mode on / off (practice plugin; also .prac)", true},
            {"scrim", "", "auto scrim warmup back on", true},
-       }},
-      {"admins",
-       "Ready Up admins",
-       {
-           {"list", "", "list the admins", false},
-           {"add", "<steamid64|name>", "add an admin (standalone)", true},
-           {"remove", "<steamid64|name>", "remove an admin (standalone)", true},
        }},
       {"hud",
        "center-screen HUD",

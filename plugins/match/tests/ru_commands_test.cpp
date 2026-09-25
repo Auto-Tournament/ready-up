@@ -34,33 +34,27 @@ static bool Admin(const char* main, const char* sub) {
 static void TestTree() {
   std::vector<std::string> mains;
   for (const auto& m : MatchRuCommands()) mains.push_back(m.name);
-  CHECK((mains == std::vector<std::string>{"match", "map", "mode", "admins", "hud"}));
+  CHECK((mains == std::vector<std::string>{"match", "mode", "hud"}));
   // The old flat commands are gone: nothing named like them at the top level.
   for (const char* old : {"restart", "start", "end", "pause", "idle", "state", "fp", "reloadmap", "load", "side"}) {
     CHECK(FindRuMain(old) == nullptr);
   }
-  const RuMainCommand* map = FindRuMain("map");
-  CHECK(map && FindRuSub(*map, "change") && FindRuSub(*map, "reload") && FindRuSub(*map, "restart"));
-  CHECK(map && !FindRuSub(*map, "nope"));
+  CHECK(FindRuMain("map") == nullptr && FindRuMain("admins") == nullptr);  // the essentials plugin's
   // Admin-only vs public.
   for (const auto& p : std::vector<std::pair<const char*, const char*>>{
            {"match", "load"}, {"match", "start"}, {"match", "restart"}, {"match", "end"}, {"match", "pause"},
-           {"match", "unpause"}, {"map", "change"}, {"map", "reload"}, {"map", "restart"}, {"mode", "idle"},
-           {"mode", "practice"}, {"mode", "scrim"}, {"admins", "add"}, {"hud", "test"}}) {
+           {"match", "unpause"}, {"mode", "idle"}, {"mode", "practice"}, {"mode", "scrim"}, {"hud", "test"}}) {
     CHECK(Admin(p.first, p.second));
   }
   CHECK(!Admin("match", "state") && !Admin("match", "rules") && !Admin("match", "side") && !Admin("mode", "show"));
-  CHECK(!Admin("admins", "list"));
 }
 
 static void TestHelp() {
-  const auto lines = RuHelpLines(*FindRuMain("map"));
-  CHECK(lines.size() == 4);
-  CHECK(lines[0] == ".ru map: maps and the game");
-  CHECK(lines[1] == ".ru map change <name|workshop id>: change map (admin)");
-  CHECK(lines[3] == ".ru map restart: restart the game (mp_restartgame 1) (admin)");
+  const auto lines = RuHelpLines(*FindRuMain("mode"));
+  CHECK(lines.size() == FindRuMain("mode")->subs.size() + 1);
+  CHECK(lines[0] == ".ru mode: server mode");
   CHECK(RuHelpLines(*FindRuMain("match")).size() == FindRuMain("match")->subs.size() + 1);
-  CHECK(RuUnknownSubReply("map", "nope") == "Ready Up: unknown command \".ru map nope\". Type .ru help map for the list.");
+  CHECK(RuUnknownSubReply("mode", "nope") == "Ready Up: unknown command \".ru mode nope\". Type .ru help mode for the list.");
 }
 
 static void TestMapChange() {

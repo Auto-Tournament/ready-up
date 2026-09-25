@@ -145,7 +145,9 @@ struct AdminProvider {
   ru_admin_provider_fn fn = nullptr;
   void* user = nullptr;
 };
-AdminProvider g_admin;
+// One per plugin (essentials: admins.json; match: the match config's admins and the platform's
+// list). A player is an admin when any of them says so.
+std::vector<AdminProvider> g_admins;
 thread_local bool t_inAdminProvider = false;
 
 // Game thread only.
@@ -614,15 +616,10 @@ int ApiSetAdminProvider(ru_plugin* self, ru_admin_provider_fn fn, void* user) {
   Instance* inst = GameThreadCaller(self, "set_admin_provider");
   if (!inst) return 0;
   std::unique_lock<std::shared_mutex> lk(g_adminMu);
-  if (!fn) {
-    if (g_admin.owner == inst->handle.id) g_admin = AdminProvider{};
-    return 1;
-  }
-  if (g_admin.fn && g_admin.owner != inst->handle.id) {
-    Print("plugin[%s]: an admin provider is already registered by another plugin\n", self->name);
-    return 0;
-  }
-  g_admin = AdminProvider{inst->handle.id, fn, user};
+  const int id = inst->handle.id;
+  g_admins.erase(std::remove_if(g_admins.begin(), g_admins.end(), [id](const AdminProvider& p) { return p.owner == id; }),
+                 g_admins.end());
+  if (fn) g_admins.push_back(AdminProvider{id, fn, user});
   return 1;
 }
 
@@ -657,7 +654,8 @@ void DropOwnedLocked(int id) {
 
 void DropAdminProvider(int id) {
   std::unique_lock<std::shared_mutex> lk(g_adminMu);
-  if (g_admin.owner == id) g_admin = AdminProvider{};
+  g_admins.erase(std::remove_if(g_admins.begin(), g_admins.end(), [id](const AdminProvider& p) { return p.owner == id; }),
+                 g_admins.end());
 }
 
 // dlclose + verify the image really went away (STB_GNU_UNIQUE symbols, a leaked thread's
@@ -1337,16 +1335,25 @@ bool PluginChatPrefixFor(uint64_t steamid64, std::string* prefix) {
 int PluginAdminVerdict(uint64_t steamid64) {
   if (t_inAdminProvider) return -1;  // a provider asking is_admin must not recurse into itself
   std::shared_lock<std::shared_mutex> lk(g_adminMu);
-  if (!g_admin.fn) return -1;
+  if (g_admins.empty()) return -1;
+  // 1 if any provider says admin; 0 if at least one answered and none said admin; -1 otherwise.
+  int verdict = -1;
   t_inAdminProvider = true;
-  int v = -1;
-  try {
-    v = g_admin.fn(g_admin.user, steamid64);
-  } catch (...) {
-    v = -1;
+  for (const auto& p : g_admins) {
+    int v = -1;
+    try {
+      v = p.fn(p.user, steamid64);
+    } catch (...) {
+      v = -1;
+    }
+    if (v > 0) {
+      verdict = 1;
+      break;
+    }
+    if (v == 0) verdict = 0;
   }
   t_inAdminProvider = false;
-  return v < 0 ? -1 : (v ? 1 : 0);
+  return verdict;
 }
 
 void* CoreGetInterface(const char* name, uint32_t minVersion) {

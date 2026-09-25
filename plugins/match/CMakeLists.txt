@@ -6,7 +6,6 @@
 # plugin data dir (readyup/local_store.h, docs/FLEET.md D13).
 set(MATCH_SOURCES
   readyup/admin_check.cpp
-  readyup/admins.cpp
   readyup/backup_files.cpp
   readyup/config.cpp
   readyup/cs2_version.cpp
@@ -95,7 +94,8 @@ target_include_directories(match_host_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src 
   ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(match_host_test PRIVATE -Wall -Wextra)
 target_link_libraries(match_host_test PRIVATE dl pthread)
-add_test(NAME match_host COMMAND match_host_test $<TARGET_FILE:readyup_plugin_match> $<TARGET_FILE:readyup_plugin_practice>)
+add_test(NAME match_host COMMAND match_host_test $<TARGET_FILE:readyup_plugin_match> $<TARGET_FILE:readyup_plugin_practice>
+  $<TARGET_FILE:readyup_plugin_essentials>)
 set_tests_properties(match_host PROPERTIES TIMEOUT 120)
 
 # The engine-free half of the fleet match link (readyup/fleet_state.h: merge patch + live_rev,

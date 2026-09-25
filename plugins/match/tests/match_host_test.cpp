@@ -180,7 +180,9 @@ void FillEngineApi(ru_api* a) {
     g_suppressed.store(s);
     return 1;
   };
-  a->is_admin = [](ru_plugin*, uint64_t) { return 0; };
+  // Like the core: ask every plugin's admin provider (match: match config / MAT / fleet;
+  // essentials: admins.json).
+  a->is_admin = [](ru_plugin*, uint64_t sid) { return readyup::plugins::PluginAdminVerdict(sid) == 1 ? 1 : 0; };
   a->feature_state = [](ru_plugin*, const char* name) {
     const std::string n = name;
     if (n == "events_live" || n == "fn:UTIL_ClientPrintAll") return 0;
@@ -285,8 +287,11 @@ int main(int argc, char** argv) {
   readyup::g_moduleDir = csgo + "/readyup/bin/linuxsteamrt64";
   // argv[2] (optional): practice.so, loaded next to match.so (readyup.practice.v1 <-> set_practice).
   const bool withPractice = argc >= 3;
+  // argv[3] (optional): essentials.so (admins.json, `ru admins`, `ru map`).
+  const bool withEssentials = argc >= 4;
   if (std::system(("mkdir -p '" + pluginsDir + "' '" + readyup::g_moduleDir + "' && cp '" + argv[1] + "' '" +
-                   pluginsDir + "/match.so'" + (withPractice ? " && cp '" + std::string(argv[2]) + "' '" + pluginsDir + "/practice.so'" : ""))
+                   pluginsDir + "/match.so'" + (withPractice ? " && cp '" + std::string(argv[2]) + "' '" + pluginsDir + "/practice.so'" : "") +
+                   (withEssentials ? " && cp '" + std::string(argv[3]) + "' '" + pluginsDir + "/essentials.so'" : ""))
                       .c_str()) != 0) {
     return 2;
   }
@@ -359,39 +364,43 @@ int main(int argc, char** argv) {
   ClearCmds();
   Check(!rp::TryDispatchRu(true, 0, "Console", "ru restart"), "old flat `ru restart` is not a match command");
   Check(!rp::TryDispatchRu(true, 0, "Console", "ru idle"), "old flat `ru idle` is not a match command");
-  rp::TryDispatchRu(false, 76561198000000001ull, "alice", ".ru map", 2);
-  rp::TryDispatchRu(false, 76561198000000001ull, "alice", ".ru map nope", 2);
-  rp::Frame(true);
-  Check(Chatted(".ru map change <name|workshop id>: change map (admin)"), ".ru map: its subcommands, to the sender");
-  Check(Chatted("unknown command \".ru map nope\". Type .ru help map"), ".ru map <unknown>: points at .ru help map");
-  for (const char* c : {".ru map change de_other", ".ru map reload", ".ru map restart", ".ru match load http://127.0.0.1:1/x",
-                        ".ru mode idle"}) {
-    rp::TryDispatchRu(false, 76561198000000001ull, "alice", c, 2);
+  if (withEssentials) {
+    rp::TryDispatchRu(false, 76561198000000001ull, "alice", ".ru map", 2);
+    rp::TryDispatchRu(false, 76561198000000001ull, "alice", ".ru map nope", 2);
+    rp::Frame(true);
+    Check(Chatted(".ru map change <name|workshop id|link> [force]: change map (admin)"), ".ru map: its subcommands, to the sender");
+    Check(Chatted("unknown command. Type .ru help map"), ".ru map <unknown>: points at .ru help map");
+    for (const char* c : {".ru map change de_other", ".ru map reload", ".ru map restart", ".ru match load http://127.0.0.1:1/x",
+                          ".ru mode idle"}) {
+      rp::TryDispatchRu(false, 76561198000000001ull, "alice", c, 2);
+    }
+    rp::Frame(true);
+    Check(Chatted("not authorized") && !Sent("changelevel de_other") && !Sent("changelevel de_test") &&
+              !Sent("mp_restartgame 1") && !Logged("match-load[") && !Logged("state: mode=idle"),
+          "non-admin: map change / reload / restart, match load, mode idle refused");
+    Check(rp::TryDispatchRu(true, 0, "Console", "ru map change 3084291314"), "`ru map` is the essentials plugin's");
+    rp::TryDispatchRu(true, 0, "Console", "ru map change de_x;quit");
+    rp::TryDispatchRu(true, 0, "Console", "ru map change https://steamcommunity.com/sharedfiles/filedetails/?id=3793104017&searchtext=x");
+    rp::TryDispatchRu(true, 0, "Console", "ru map reload");
+    rp::TryDispatchRu(true, 0, "Console", "ru map restart");
+    rp::Frame(true);
+    Check(Sent("host_workshop_map 3084291314"), "console: ru map change <workshop id> -> host_workshop_map");
+    Check(Logged("not a map name, workshop id or workshop link") && !Sent("changelevel de_x;quit"), "console: bad map name refused");
+    Check(Sent("host_workshop_map 3793104017"), "console: a pasted Workshop link loads its id");
+    Check(Sent("changelevel de_test"), "console: ru map reload -> changelevel to the current map");
+    Check(Sent("mp_restartgame 1"), "console: ru map restart -> mp_restartgame 1");
+    rp::TryDispatchRu(true, 0, "Console", "ru admins add 76561198000000001");
+    rp::Frame(true);
+    ClearLog();
+    ClearCmds();
+    rp::TryDispatchRu(false, 76561198000000001ull, "alice", ".ru map change de_other", 2);
+    rp::TryDispatchChat(76561198000000001ull, "alice", ".help", 2);
+    rp::Frame(true);
+    Check(Sent("changelevel de_other"), "admin: .ru map change de_other -> changelevel");
+    Check(Chatted("Ready Up admin: .ru help"), "admin: .help points at .ru help");
+    rp::TryDispatchRu(true, 0, "Console", "ru admins remove 76561198000000001");
+    rp::Frame(true);
   }
-  rp::Frame(true);
-  Check(Chatted("not authorized") && !Sent("changelevel de_other") && !Sent("changelevel de_test") &&
-            !Sent("mp_restartgame 1") && !Logged("match-load[") && !Logged("state: mode=idle"),
-        "non-admin: map change / reload / restart, match load, mode idle refused");
-  Check(rp::TryDispatchRu(true, 0, "Console", "ru map change 3084291314"), "`ru map` is a match main command");
-  rp::TryDispatchRu(true, 0, "Console", "ru map change de_x;quit");
-  rp::TryDispatchRu(true, 0, "Console", "ru map reload");
-  rp::TryDispatchRu(true, 0, "Console", "ru map restart");
-  rp::Frame(true);
-  Check(Sent("host_workshop_map 3084291314"), "console: ru map change <workshop id> -> host_workshop_map");
-  Check(Logged("not a map name or workshop id") && !Sent("changelevel de_x;quit"), "console: bad map name refused");
-  Check(Sent("changelevel de_test"), "console: ru map reload -> changelevel to the current map");
-  Check(Sent("mp_restartgame 1"), "console: ru map restart -> mp_restartgame 1");
-  rp::TryDispatchRu(true, 0, "Console", "ru admins add 76561198000000001");
-  rp::Frame(true);
-  ClearLog();
-  ClearCmds();
-  rp::TryDispatchRu(false, 76561198000000001ull, "alice", ".ru map change de_other", 2);
-  rp::TryDispatchChat(76561198000000001ull, "alice", ".help", 2);
-  rp::Frame(true);
-  Check(Sent("changelevel de_other"), "admin: .ru map change de_other -> changelevel");
-  Check(Chatted("Ready Up admin: .ru help"), "admin: .help points at .ru help");
-  rp::TryDispatchRu(true, 0, "Console", "ru admins remove 76561198000000001");
-  rp::Frame(true);
 
   if (withPractice) {
     std::puts("-- practice.so next to match.so: .ru mode practice goes through readyup.practice.v1");

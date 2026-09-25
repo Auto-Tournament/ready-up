@@ -29,7 +29,7 @@ struct RuMainCommand {
   std::vector<RuSubcommand> subs;
 };
 
-// In display order: match, map, mode, admins, hud.
+// In display order: match, mode, hud. (map and admins are the essentials plugin's.)
 const std::vector<RuMainCommand>& MatchRuCommands();
 const RuMainCommand* FindRuMain(const std::string& name);
 const RuSubcommand* FindRuSub(const RuMainCommand& main, const std::string& sub);

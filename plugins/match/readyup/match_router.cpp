@@ -6,7 +6,6 @@
 #include "readyup/match_router.h"
 
 #include "readyup/admin_check.h"
-#include "readyup/admins.h"
 #include "readyup/config.h"
 #include "readyup/engine.h"
 #include "readyup/esports.h"
@@ -377,50 +376,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   }
   if (sc->admin && !requireAdmin()) return;
 
-  // ---- .ru map ------------------------------------------------------------------------------
-  if (main == "map") {
-    if (sub == "change") {
-      std::string entry, err;
-      if (!ParseMapChange(args, &entry, &err)) {
-        replyPrivate("Ready Up: " + err);
-        return;
-      }
-      if (!LoadMapEntry(entry)) {
-        replyPrivate("Ready Up: map change unavailable yet.");
-        return;
-      }
-      Print("admin: %s: map change %s\n", who.c_str(), entry.c_str());
-      sendAdmin("changing map to " + mapnames::DisplayName(entry) + ".");
-    } else if (sub == "reload") {
-      const std::string entry = mapnames::ReloadEntry(MatchStateGet().current_map);
-      if (entry.empty()) {
-        replyPrivate("Ready Up: current map not known yet.");
-        return;
-      }
-      if (!LoadMapEntry(entry)) {
-        replyPrivate("Ready Up: map change unavailable yet.");
-        return;
-      }
-      Print("admin: %s: map reload %s\n", who.c_str(), entry.c_str());
-      sendAdmin("reloading " + mapnames::DisplayName(entry) + ".");
-    } else if (sub == "restart") {
-      if (!EnqueueServerCommand("mp_restartgame 1")) {
-        replyPrivate("Ready Up: restart unavailable yet.");
-        return;
-      }
-      Print("admin: %s: map restart (mp_restartgame 1)\n", who.c_str());
-      sendAdmin("game restarting.");
-    }
-    return;
-  }
-
-  // ---- .ru admins / .ru hud -----------------------------------------------------------------
-  if (main == "admins") {
-    std::vector<std::string> a{sub};
-    a.insert(a.end(), args.begin(), args.end());
-    HandleAdminsCommand(steamid64, playerName, a);
-    return;
-  }
+  // ---- .ru hud -------------------------------------------------------------------------------
   if (main == "hud") {
     // Center-HTML test variant to the caller only (what the CS2 client renders).
     if (steamid64 == 0) {

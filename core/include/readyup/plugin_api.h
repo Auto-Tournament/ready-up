@@ -397,7 +397,8 @@ typedef struct ru_api {
 
   /* Any thread; may block (DB lookup). 1 = admin. Asks the provider first, then the core. */
   int (*is_admin)(ru_plugin* self, uint64_t steamid64);
-  /* Registers the admin provider (one at a time; NULL clears it). Removed on unload. */
+  /* Registers this plugin's admin provider (one per plugin; NULL clears it). Several plugins
+   * may have one: a player is an admin when any provider says so. Removed on unload. */
   int (*set_admin_provider)(ru_plugin* self, ru_admin_provider_fn fn, void* user);
 
   /* -- config -- */
