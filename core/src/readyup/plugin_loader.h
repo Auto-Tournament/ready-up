@@ -51,7 +51,6 @@ bool TryDispatchRu(bool console, uint64_t steamid64, const std::string& playerNa
 std::vector<std::string> PluginRuSubcommands();
 
 // True if `sub` (lowercase) is a subcommand the core handles itself; plugins cannot take it.
-// Implemented in ru_router.cpp.
 bool IsCoreRuSubcommand(const std::string& sub);
 
 // Thread-safe. Queues the line for RU_CMD_OBSERVE console registrations of its first token

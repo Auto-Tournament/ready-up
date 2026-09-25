@@ -50,12 +50,7 @@ void Debug(const char* fmt, ...) {
   va_end(ap);
 }
 void PrintLine(const char* msg) { Print("%s", msg); }
-void PrintRaw(const char* fmt, ...) {
-  va_list ap;
-  va_start(ap, fmt);
-  Capture(fmt, ap);
-  va_end(ap);
-}
+
 bool DebugEnabled() { return false; }
 void SendToChat(const char* msg) { g_chat.push_back(std::string("[all] ") + msg); }
 void SendRawToChat(const char* msg) { g_chat.push_back(std::string("[raw] ") + msg); }
@@ -72,9 +67,6 @@ std::string GetCsgoDirFromModuleDir() { return {}; }
 static std::string g_moduleDir;  // holds the test's readyup.cfg
 std::string GetThisModuleDir() { return g_moduleDir; }
 bool IsCoreChatCommand(const std::string& t) { return t == ".ru" || t == ".r" || t == ".ready"; }
-namespace plugins {
-bool IsCoreRuSubcommand(const std::string& s) { return s == "help" || s == "plugin" || s == "selftest"; }
-}  // namespace plugins
 }  // namespace readyup
 
 // ---- stub for the engine-facing API members (plugin_engine_api.cpp) -----------------

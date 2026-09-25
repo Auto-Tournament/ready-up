@@ -115,21 +115,6 @@ bool IsCoreChatCommand(const std::string& firstToken) {
   return firstToken == ".ru" || IsPlayerChatCommand(firstToken);
 }
 
-namespace plugins {
-bool IsCoreRuSubcommand(const std::string& sub) {
-  static const char* const kCore[] = {
-      // Core (engine / plugin host).
-      "help", "plugin", "plugins", "version", "selftest", "sigtest", "reload", "status_http",
-      // Match flow (still in the core until it moves to plugins/match).
-      "admins", "hudtest", "prac", "practice", "idle", "scrim", "state", "status", "mode", "match", "start",
-      "pause", "fp", "forcepause", "unpause", "up", "fup", "forceunpause", "restart", "end", "recover", "side"};
-  for (const char* c : kCore) {
-    if (sub == c) return true;
-  }
-  return false;
-}
-}  // namespace plugins
-
 void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const std::string& text, int slot) {
   const std::string t = Trim(text);
   Debug("ru: RouteChatCommand steamid64=%llu name=\"%s\" text=\"%s\"\n",

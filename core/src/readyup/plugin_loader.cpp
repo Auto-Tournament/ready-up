@@ -242,17 +242,8 @@ void Reply(const std::string& line, bool toChat) {
 
 // ---- API implementation ----------------------------------------------------------
 
-// One console line. Print() formats into a 2 KB buffer, so a long line (e.g. a JSON dump) goes
-// out in pieces without a newline in between: still one line in the console / log file.
-void EmitLine(const std::string& head, const std::string& m) {
-  if (head.size() + m.size() < 1800) {
-    Print("%s%s\n", head.c_str(), m.c_str());
-    return;
-  }
-  PrintRaw("%s %s", kLogPrefix, head.c_str());
-  for (size_t i = 0; i < m.size(); i += 1000) PrintRaw("%s", m.substr(i, 1000).c_str());
-  PrintRaw("\n");
-}
+// One console line (Print keeps long lines whole, e.g. a JSON dump).
+void EmitLine(const std::string& head, const std::string& m) { Print("%s%s\n", head.c_str(), m.c_str()); }
 
 void ApiLog(ru_plugin* self, int level, const char* msg) {
   if (!msg) return;
@@ -1023,6 +1014,19 @@ bool QueueCommandLocked(RegKind kind, const std::string& token, QueuedCmd c) {
 }
 
 }  // namespace
+
+bool IsCoreRuSubcommand(const std::string& sub) {
+  static const char* const kCore[] = {
+      // Core (engine / plugin host).
+      "help", "plugin", "plugins", "version", "selftest", "sigtest", "reload", "status_http",
+      // Match flow (still in the core until it moves to plugins/match).
+      "admins", "hudtest", "prac", "practice", "idle", "scrim", "state", "status", "mode", "match", "start",
+      "pause", "fp", "forcepause", "unpause", "up", "fup", "forceunpause", "restart", "end", "recover", "side"};
+  for (const char* c : kCore) {
+    if (sub == c) return true;
+  }
+  return false;
+}
 
 void PostEvent(LifecycleEvent ev) {
   std::lock_guard<std::mutex> lk(g_mu);
