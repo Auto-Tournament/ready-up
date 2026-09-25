@@ -364,6 +364,25 @@ static std::string TestHtml(int n) {
       if (!c.hud_logo_url.empty() && url.empty()) h += "<br>" + Font(kNo, "hud_logo_url rejected (needs http(s), no quotes/spaces)");
       return h;
     }
+    // 8..11: measuring the center panel (how many lines, how wide, how images scale), so HUDs can
+    // be designed to fit. Screenshot each and read the cut-off.
+    case 8: {
+      std::string h = title;
+      for (int i = 1; i <= 18; ++i) h += std::string(i < 10 ? "row 0" : "row ") + std::to_string(i) + (i < 18 ? "<br>" : "");
+      return h;
+    }
+    case 9:
+      return title + "0123456789012345678901234567890123456789012345678901234567890123456789<br>" +
+             "<font class='fontSize-s'>0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890</font><br>" +
+             "<font class='fontSize-l'>01234567890123456789012345678901234567890123456789</font><br>" +
+             "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW";
+    case 10:
+      return title + "a " + Img(kTestPng, 24) + " b " + Img(kTestPng, 48) + " c <img src='" + std::string(kTestPng) +
+             "' style='width:32px;height:32px'> d <img src='" + std::string(kTestPng) + "' height='32'>";
+    case 11:
+      return title + "wide " + "<img src='" + std::string(kTestPngWiki) + "' width='200' height='40'><br>" +
+             "e <img src='" + std::string(kTestPngWiki) + "' width='16' height='16'> f " + Img(kTestSvg, 16) + " g " +
+             Img(kTestSvg, 96);
     default:
       return {};
   }
@@ -378,6 +397,10 @@ static const char* TestDescription(int n) {
     case 5: return "PNG only (Auto Tournament icon-192.png)";
     case 6: return "PNG only (wikimedia 250px)";
     case 7: return "configured header (hud_logo_url + hud_brand)";
+    case 8: return "height ruler: rows 01-18 (the last row you see = how many lines fit)";
+    case 9: return "width ruler: digits in default / s / l fonts and W's (the last digit you see = the width)";
+    case 10: return "PNG sizes: a width/height 24, b 48, c style 32px, d height 32 only";
+    case 11: return "wide PNG 200x40, tiny PNG 16, SVG 16 and 96";
     default: return nullptr;
   }
 }

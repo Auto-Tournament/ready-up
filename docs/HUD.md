@@ -1,7 +1,7 @@
 # Center HUD (CS2 center panel)
 
 Ready Up draws per-player HTML with the `show_survival_respawn_status` game
-event (`loc_token` = HTML). Tested in game on CS2 1.41.8.3 with `.ru hud test 1-7`.
+event (`loc_token` = HTML). Tested in game on CS2 1.41.8.3 with `.ru hud test 1-7`; `.ru hud test 8-11` measure the panel (rows, width, image sizes).
 
 ## Refresh rules
 
