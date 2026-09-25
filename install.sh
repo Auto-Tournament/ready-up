@@ -23,6 +23,11 @@
 #                    SHA256SUMS file next to the zip is used to verify it.
 #   --remove NAME    remove an installed component (repeatable; not core)
 #   -y, --yes        no questions: update what is installed (or install essentials)
+#   --accept-license=noncommercial|commercial
+#                    your use of Ready Up (PolyForm Noncommercial 1.0.0; commercial use needs a
+#                    paid license). Asked in a terminal; required for unattended installs
+#                    (--yes, a bundle/component name, no terminal) until a choice is saved in
+#                    game/csgo/readyup/license-acceptance.json
 #   --uninstall      remove Ready Up: the gameinfo.gi line and its files. Config is kept
 #   --purge          with --uninstall: also delete readyup.cfg, the plugins' JSON data
 #                    (admins, match state, skins loadouts) and cfg/ReadyUp
@@ -54,6 +59,10 @@ REMOVE=()
 YES=0
 UNINSTALL=0
 PURGE=0
+ACCEPT_LICENSE=""
+LICENSE_URL="https://polyformproject.org/licenses/noncommercial/1.0.0/"
+LICENSE_CONTACT="sivert@autotournament.gg"
+PRICING_URL="https://autotournament.gg/pricing"
 
 # ---- output ---------------------------------------------------------------------------------
 if [[ -t 1 && -z "${NO_COLOR:-}" && "${TERM:-dumb}" != "dumb" ]]; then
@@ -80,6 +89,8 @@ while [[ $# -gt 0 ]]; do
     -y | --yes) YES=1; shift ;;
     --uninstall) UNINSTALL=1; shift ;;
     --purge) PURGE=1; shift ;;
+    --accept-license=*) ACCEPT_LICENSE="${1#*=}"; shift ;;
+    --accept-license) ACCEPT_LICENSE="${2:?--accept-license needs noncommercial or commercial}"; shift 2 ;;
     -h | --help)
       if [[ -f "$0" ]]; then usage; else say "See https://github.com/$REPO#install"; fi
       exit 0
@@ -91,6 +102,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ $PURGE -eq 0 || $UNINSTALL -eq 1 ]] || die "--purge only goes with --uninstall"
+case "$ACCEPT_LICENSE" in
+  "" | noncommercial | commercial) ;;
+  *) die "--accept-license must be noncommercial or commercial (got: $ACCEPT_LICENSE)" ;;
+esac
 for c in "${REMOVE[@]}"; do
   case "$c" in match | fleet | skins | hello | midas) ;; core) die "core can't be removed on its own; use --uninstall" ;; *) die "unknown component: $c" ;; esac
 done
@@ -258,6 +273,112 @@ if [[ $UNINSTALL -eq 1 ]]; then
   say ""
   say "Restart the server to finish. CS2 then loads its own libserver.so again."
   exit 0
+fi
+
+# ---- license ----------------------------------------------------------------------------------
+# Ready Up is PolyForm Noncommercial 1.0.0. Installing or updating needs a recorded choice:
+# asked once in a terminal, or --accept-license=... (required for unattended installs). The
+# choice and when it was made go to readyup/license-acceptance.json. Removing components and
+# uninstalling never ask.
+LICENSE_FILE="$RU/license-acceptance.json"
+license_saved() {  # -> the saved choice, or nothing
+  [[ -f "$LICENSE_FILE" ]] || return 0
+  python3 -c 'import json,sys
+try:
+    c = json.load(open(sys.argv[1])).get("use", "")
+except Exception:
+    c = ""
+print(c if c in ("noncommercial", "commercial") else "")' "$LICENSE_FILE"
+}
+license_save() {  # <noncommercial|commercial> <how>
+  mkdir -p "$RU"
+  python3 - "$LICENSE_FILE" "$1" "$2" <<'PY'
+import json, sys, datetime
+path, use, how = sys.argv[1:]
+json.dump({"use": use,
+           "license": "PolyForm-Noncommercial-1.0.0" if use == "noncommercial" else "commercial (separate paid license)",
+           "accepted_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+           "how": how},
+          open(path + ".tmp", "w"), indent=2)
+open(path + ".tmp", "a").write("\n")
+PY
+  mv -f "$LICENSE_FILE.tmp" "$LICENSE_FILE"
+}
+license_commercial_text() {
+  say "Commercial use of Ready Up needs a paid license. Commercial use means anyone earning money"
+  say "from it: a business, a profit-making event, a paid server operator, or selling Ready Up or a"
+  say "service built on it. The free license does not cover this."
+  say ""
+  say "  Pricing: $PRICING_URL"
+  say "  Contact: $LICENSE_CONTACT"
+}
+license_gate() {
+  if [[ -n "$ACCEPT_LICENSE" ]]; then
+    license_save "$ACCEPT_LICENSE" flag
+    if [[ "$ACCEPT_LICENSE" == commercial ]]; then
+      ok "license: commercial use, under your separate paid license (saved in $LICENSE_FILE)"
+    else
+      ok "license: noncommercial use, PolyForm Noncommercial 1.0.0 (saved in $LICENSE_FILE)"
+    fi
+    return 0
+  fi
+  local saved
+  saved="$(license_saved)"
+  if [[ -n "$saved" ]]; then
+    say "  ${D}license: $saved use (accepted earlier, $LICENSE_FILE)${N}"
+    return 0
+  fi
+  if [[ $YES -eq 1 || ${#WANT[@]} -gt 0 ]] || ! (exec 3<>/dev/tty) 2>/dev/null; then
+    die "Ready Up needs a license choice before it installs. For an unattended install, add
+       --accept-license=noncommercial (personal / noncommercial use, PolyForm Noncommercial 1.0.0)
+       or --accept-license=commercial (only with a paid commercial license: $PRICING_URL).
+       Or run the installer in a terminal to be asked."
+  fi
+  exec 3<>/dev/tty
+  local answer
+  {
+    say "${B}Ready Up license${N}"
+    say "How will you use Ready Up?"
+    say "  1) personal / noncommercial"
+    say "  2) commercial"
+  } >&3
+  while :; do
+    printf 'Choose 1 or 2: ' >&3
+    IFS= read -r answer <&3 || answer=""
+    case "$answer" in 1 | 2) break ;; *) say "  please enter 1 or 2" >&3 ;; esac
+  done
+  if [[ "$answer" == 2 ]]; then
+    { say ""; license_commercial_text; say ""
+      say "Nothing was installed. Once you have a commercial license, run the installer again with"
+      say "--accept-license=commercial."; } >&3
+    exit 1
+  fi
+  {
+    say ""
+    say "Ready Up is licensed under the PolyForm Noncommercial License 1.0.0. In short:"
+    say "  - You may use, change and share it for noncommercial purposes: your own servers, friends,"
+    say "    a community or club, a school, a charity, or a free event."
+    say "  - Commercial use is not allowed without a separate paid license: a business, a"
+    say "    profit-making event, a paid server operator, or selling it or a service built on it."
+    say "  - Keep the license and the copyright notice when you share it."
+    say "  - It comes with no warranty."
+    say "This is a summary, not the license. Full text: $LICENSE_URL"
+    say ""
+  } >&3
+  while :; do
+    printf 'Type "yes" to accept these terms for noncommercial use: ' >&3
+    IFS= read -r answer <&3 || answer=""
+    case "$answer" in
+      yes | YES | Yes) break ;;
+      "" | n | no | NO | No) say "Nothing was installed." >&3; exit 1 ;;
+      *) say "  please type yes (or no to stop)" >&3 ;;
+    esac
+  done
+  license_save noncommercial prompt
+  ok "license: noncommercial use accepted (saved in $LICENSE_FILE)"
+}
+if [[ ${#REMOVE[@]} -eq 0 || ${#WANT[@]} -gt 0 ]]; then
+  license_gate
 fi
 
 # ---- where the files come from ----------------------------------------------------------------

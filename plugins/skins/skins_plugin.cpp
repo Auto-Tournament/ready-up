@@ -136,6 +136,12 @@ void OnPrefetchEvent(void*, const char*, const ru_game_event* ev) {
   if (const uint64_t sid = SteamOfEventPlayer(ev, "userid")) MaybeRefreshAsync(sid);
 }
 
+void OnSpawnEvent(void* user, const char* name, const ru_game_event* ev) {
+  OnPrefetchEvent(user, name, ev);
+  if (Inert()) return;
+  RequestSpawnCosmetics(g_api->ev_get_player_slot(g_api->self, ev, "userid"));
+}
+
 void OnDeathEvent(void*, const char*, const ru_game_event* ev) {
   if (Inert()) return;  // no StatTrak counting either
   try {
@@ -223,7 +229,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     g_haveStore = LoadoutStart();
     if (!g_haveStore) Log(RU_LOG_WARN, "loadouts unavailable (%s); skins stay idle", LoadoutStatus().c_str());
     api->on_tick(api->self, OnTick, nullptr);
-    api->subscribe_game_event(api->self, "player_spawn", OnPrefetchEvent, nullptr);
+    api->subscribe_game_event(api->self, "player_spawn", OnSpawnEvent, nullptr);
     api->subscribe_game_event(api->self, "item_equip", OnPrefetchEvent, nullptr);
     api->subscribe_game_event(api->self, "item_pickup", OnPrefetchEvent, nullptr);
     api->subscribe_game_event(api->self, "player_death", OnDeathEvent, nullptr);
