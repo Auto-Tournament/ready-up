@@ -4,23 +4,14 @@
 #include "readyup/plugin_loader.h"
 
 #include "readyup/config.h"
-#include "readyup/command_buffer_hook.h"
 #include "readyup/engine_surface.h"
 #include "readyup/features.h"
 #include "readyup/sdk/igameevents.h"
 #include "readyup/logging.h"
-#include "readyup/match_state.h"
-#include "readyup/match_stats.h"
-#include "readyup/modes.h"
-#include "readyup/backup_files.h"
-#include "readyup/persisted_match_state.h"
 #include "readyup/schema.h"
 #include "readyup/signature_scan.h"
 #include "readyup/slot_registry.h"
 #include "readyup/real_server.h"
-#include "readyup/webhook.h"
-#include "readyup/postgres.h"
-#include "readyup/welcome.h"
 
 
 #include "third_party/funchook/include/funchook.h"
@@ -188,30 +179,22 @@ static void EnsureGameEventManagerResolved() {
 }
 
 
-struct PlayerStats {
-  std::string name;
-  WebhookTeam team = WebhookTeam::Unknown;
-  int kills = 0;
-  int deaths = 0;
-  int assists = 0;
-  int headshot_kills = 0;
-  int damage = 0;
-};
-
-// Recursive: event handlers run with g_mu held and re-enter this module on the same thread
-// (player_spawn -> GetCsTeamNumForSlot; round_end -> OnMatchRoundEnded ->
-// GetRosterTeamDamageTotals). With a plain std::mutex those paths self-deadlock the game thread.
+// Recursive: the listener re-enters this module on the same thread (player_spawn ->
+// GetCsTeamNumForSlot). With a plain std::mutex those paths self-deadlock the game thread.
 using EventsMutex = std::recursive_mutex;
 EventsMutex g_mu;
-int g_roundNumber = 0;
-int g_lastMapNumber = 0;
-std::unordered_map<uint64_t, PlayerStats> g_stats;
-std::unordered_map<int, void*> g_slotController;
+std::unordered_map<int, void*> g_slotController;  // last controller seen per slot (this map)
+std::string g_controllersMap;                     // map g_slotController belongs to
+int g_roundNumber = 0;                            // RU_EVENT_ROUND_START/END round (this game)
 
-// Lifecycle tracking (per map).
-int g_swapCount = 0;                  // number of side swaps applied so far (0 at map start)
-int g_lastHalfStartTotal = -1;        // last (team1+team2) total rounds at which we emitted halftime+swap
-int g_lastOvertimeNumber = 0;         // last overtime_number we emitted overtime_started for
+// A new map drops the controllers and the round counter (game thread, under g_mu).
+static void MaybeResetForMapLocked() {
+  const std::string map = plugins::CurrentMap();
+  if (map == g_controllersMap) return;
+  g_controllersMap = map;
+  g_slotController.clear();
+  g_roundNumber = 0;
+}
 
 static std::optional<uint64_t> SteamForSlot(int slot) {
   auto ident = GetSlotIdentity(slot);
@@ -223,27 +206,6 @@ static std::string NameForSlot(int slot) {
   auto ident = GetSlotIdentity(slot);
   if (!ident) return {};
   return ident->name;
-}
-
-static WebhookTeam TeamForSteam(uint64_t steamid64) {
-  auto ctx = WebhookGetMatchContext();
-  if (!ctx) return WebhookTeam::Unknown;
-  auto it = ctx->roster_team.find(steamid64);
-  if (it == ctx->roster_team.end()) return WebhookTeam::Unknown;
-  return it->second;
-}
-
-static void MaybeResetForMapLocked(int mapNumber) {
-  if (mapNumber <= 0) mapNumber = 1;
-  if (g_lastMapNumber != mapNumber) {
-    g_lastMapNumber = mapNumber;
-    g_roundNumber = 0;
-    g_stats.clear();
-    g_slotController.clear();
-    g_swapCount = 0;
-    g_lastHalfStartTotal = -1;
-    g_lastOvertimeNumber = 0;
-  }
 }
 
 template <typename T>
@@ -285,526 +247,6 @@ static uint64_t ResolveEventSteam(IGameEvent* ev, int slot, const char* what) {
           static_cast<unsigned long long>(fromCtrl), static_cast<unsigned long long>(fromLog));
   }
   return fromCtrl != 0 ? fromCtrl : fromLog;
-}
-
-static std::optional<int> FindRosterSlot(uint64_t steamid64) {
-  if (!steamid64) return std::nullopt;
-  for (const auto& s : ListSlotIdentities()) {
-    if (s.steamid64 == steamid64 && s.slot >= 0) return s.slot;
-  }
-  return std::nullopt;
-}
-
-static const char* WinnerToTeamString(int csWinnerTeamNum) {
-  // CS team numbers: 2=T, 3=CT. We report MatchZy team1/team2 based on map_sides when present.
-  auto ctx = WebhookGetMatchContext();
-  const auto ms = MatchStateGet();
-  bool team1IsCt = true;
-  if (ctx) {
-    if (ms.map_number >= 1 && static_cast<size_t>(ms.map_number) <= ctx->map_sides.size()) {
-      const std::string& side = ctx->map_sides[static_cast<size_t>(ms.map_number - 1)];
-      if (side == "team2_ct") team1IsCt = false;
-      else if (side == "team1_ct") team1IsCt = true;
-    }
-  }
-
-  if (csWinnerTeamNum == 3) {  // CT won
-    return team1IsCt ? "team1" : "team2";
-  }
-  if (csWinnerTeamNum == 2) {  // T won
-    return team1IsCt ? "team2" : "team1";
-  }
-  return "team1";
-}
-
-static std::optional<int> GetEventIntIfPresent(IGameEvent* ev, const char* key) {
-  if (!ev || !key || !*key) return std::nullopt;
-  CKV3MemberName k(key);
-  if (ev->IsEmpty(k)) return std::nullopt;
-  return ev->GetInt(k, 0);
-}
-
-static std::optional<int> ReadScoreFromEvent(IGameEvent* ev, const char* const* keys, size_t keyCount) {
-  for (size_t i = 0; i < keyCount; ++i) {
-    if (auto v = GetEventIntIfPresent(ev, keys[i])) return v;
-  }
-  return std::nullopt;
-}
-
-static bool InitialTeam1IsCtForMap(int mapNumber) {
-  bool team1IsCt = true;
-  auto ctx = WebhookGetMatchContext();
-  if (ctx) {
-    if (mapNumber >= 1 && static_cast<size_t>(mapNumber) <= ctx->map_sides.size()) {
-      const std::string& side = ctx->map_sides[static_cast<size_t>(mapNumber - 1)];
-      if (side == "team2_ct") team1IsCt = false;
-      else if (side == "team1_ct") team1IsCt = true;
-    }
-  }
-  return team1IsCt;
-}
-
-static bool Team1IsCtWithSwapCount(int mapNumber, int swapCount) {
-  bool team1IsCt = InitialTeam1IsCtForMap(mapNumber);
-  if ((swapCount % 2) != 0) team1IsCt = !team1IsCt;
-  return team1IsCt;
-}
-
-// ---- Match stats (match_stats.h) --------------------------------------------------------
-// Engine events -> stats ids/sides. Humans are keyed by SteamID64; bots (no SteamID) get an
-// id in the dev-bot range from their slot, so the per-map model is complete; consumers
-// decide whether to show them.
-
-static double StatsNowSeconds() {
-  return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
-}
-
-static std::optional<int> ControllerOffset(const char* field, std::initializer_list<const char*> classes) {
-  for (const char* c : classes) {
-    if (auto off = SchemaFindOffset("server", c, field)) return off;
-  }
-  return std::nullopt;
-}
-
-static int ControllerSide(void* controller, int slot) {
-  static const std::optional<int> s_off = ControllerOffset("m_iTeamNum", {"CCSPlayerController", "CBaseEntity"});
-  if (controller && s_off) {
-    if (auto v = ReadAt<uint8_t>(controller, *s_off)) {
-      if (*v == 2 || *v == 3) return *v;
-    }
-  }
-  if (auto t = GetCsTeamNumForSlot(slot)) return *t;
-  return 0;
-}
-
-static std::string ControllerName(void* controller) {
-  static const std::optional<int> s_off =
-      ControllerOffset("m_iszPlayerName", {"CCSPlayerController", "CBasePlayerController"});
-  if (!controller || !s_off) return {};
-  char buf[128];
-  std::memcpy(buf, reinterpret_cast<const unsigned char*>(controller) + *s_off, sizeof(buf));
-  buf[sizeof(buf) - 1] = 0;
-  return buf;
-}
-
-static uint64_t StatsIdForController(void* controller, int slot, int* sideOut) {
-  if (slot < 0 || slot >= 64) return 0;
-  uint64_t id = SteamFromController(controller);
-  if (id == 0) id = SteamForSlot(slot).value_or(0);
-  bool bot = false;
-  if (id == 0) {
-    if (!controller) return 0;
-    id = kDevBotIdBase | 0x100000000ull | static_cast<uint64_t>(slot);
-    bot = true;
-  }
-  const int side = ControllerSide(controller, slot);
-  if (sideOut) *sideOut = side;
-  std::string name = bot ? ControllerName(controller) : NameForSlot(slot);
-  if (name.empty()) name = ControllerName(controller);
-  int teamSlot = 0;
-  if (!bot) {
-    const WebhookTeam t = TeamForSteam(id);
-    teamSlot = t == WebhookTeam::Team1 ? 1 : t == WebhookTeam::Team2 ? 2 : 0;
-  }
-  stats::Current().ObservePlayer(id, name, side, teamSlot, bot);
-  return id;
-}
-
-static uint64_t StatsIdForEvent(IGameEvent* ev, const char* key) {
-  if (!ev) return 0;
-  const int slot = ev->GetPlayerSlot(CKV3MemberName(key)).value;
-  return StatsIdForController(ev->GetPlayerController(CKV3MemberName(key)), slot, nullptr);
-}
-
-static void StatsSyncSidesLocked() {
-  const auto ms = MatchStateGet();
-  stats::Current().SetTeam1IsCt(Team1IsCtWithSwapCount(ms.map_number <= 0 ? 1 : ms.map_number, g_swapCount));
-}
-
-// Every connected player on CT/T takes part in the round that just started.
-static void StatsRegisterRoundPlayersLocked() {
-  std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
-  StatsSyncSidesLocked();
-  stats::Current().OnRoundStart();
-  if (!stats::Current().Live()) return;
-  for (const auto& kv : g_slotController) {
-    if (kv.second) (void)StatsIdForController(kv.second, kv.first, nullptr);
-  }
-}
-
-static void StatsOnGameEventLocked(const char* name, IGameEvent* ev) {
-  std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
-  auto& st = stats::Current();
-  if (!st.Live()) return;
-  StatsSyncSidesLocked();
-  if (std::strcmp(name, "player_death") == 0) {
-    const uint64_t victim = StatsIdForEvent(ev, "userid");
-    const uint64_t attacker = StatsIdForEvent(ev, "attacker");
-    const uint64_t assister = StatsIdForEvent(ev, "assister");
-    st.OnPlayerDeath(victim, attacker, assister, ev->GetBool(CKV3MemberName("assistedflash"), false),
-                     ev->GetBool(CKV3MemberName("headshot"), false), ev->GetString(CKV3MemberName("weapon"), ""),
-                     StatsNowSeconds());
-  } else if (std::strcmp(name, "player_hurt") == 0) {
-    st.OnPlayerHurt(StatsIdForEvent(ev, "userid"), StatsIdForEvent(ev, "attacker"),
-                    ev->GetInt(CKV3MemberName("dmg_health"), 0), ev->GetInt(CKV3MemberName("health"), 0),
-                    ev->GetString(CKV3MemberName("weapon"), ""));
-  } else if (std::strcmp(name, "player_blind") == 0) {
-    st.OnPlayerBlind(StatsIdForEvent(ev, "userid"), StatsIdForEvent(ev, "attacker"),
-                     ev->GetFloat(CKV3MemberName("blind_duration"), 0.0f));
-  } else if (std::strcmp(name, "bomb_planted") == 0) {
-    st.OnBombPlanted(StatsIdForEvent(ev, "userid"));
-  } else if (std::strcmp(name, "bomb_defused") == 0) {
-    st.OnBombDefused(StatsIdForEvent(ev, "userid"));
-  } else if (std::strcmp(name, "round_mvp") == 0) {
-    st.OnRoundMvp(StatsIdForEvent(ev, "userid"));
-  }
-}
-
-// Closes the round in the stats model. Returns true (and the team1/team2 map score) when
-// stats are live. That score comes from round winners mapped through the current sides, so it
-// stays right after halftime (the log-derived MatchState score is CT/T based).
-static bool StatsOnRoundEndLocked(int csWinnerTeamNum, int reason, int* team1, int* team2) {
-  std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
-  auto& st = stats::Current();
-  if (!st.Live()) return false;
-  StatsSyncSidesLocked();
-  static const std::optional<int> s_offScore = ControllerOffset("m_iScore", {"CCSPlayerController"});
-  for (const auto& kv : g_slotController) {
-    if (!kv.second) continue;
-    const uint64_t id = StatsIdForController(kv.second, kv.first, nullptr);
-    if (id && s_offScore) {
-      if (auto v = ReadAt<int>(kv.second, *s_offScore)) {
-        if (*v >= 0 && *v < 1000000) st.SetScore(id, *v);
-      }
-    }
-  }
-  st.OnRoundEnd(csWinnerTeamNum, reason);
-  *team1 = st.Team1Score();
-  *team2 = st.Team2Score();
-  return true;
-}
-
-static void EmitRoundEndLocked(int csWinnerTeamNum, int reason) {
-  auto ctxOpt = WebhookGetMatchContext();
-  if (!ctxOpt) return;
-  const auto& ctx = *ctxOpt;
-  const auto ms = MatchStateGet();
-
-  auto bestNameForSteam = [&](uint64_t steamid64) -> std::string {
-    if (steamid64 == 0) return {};
-    // Prefer last observed via events.
-    auto it = g_stats.find(steamid64);
-    if (it != g_stats.end() && !it->second.name.empty()) return it->second.name;
-    // Fall back to slot identity observations.
-    for (const auto& s : ListSlotIdentities()) {
-      if (s.steamid64 == steamid64 && !s.name.empty()) return s.name;
-    }
-    return {};
-  };
-
-  std::vector<WebhookPlayerStats> team1;
-  std::vector<WebhookPlayerStats> team2;
-  team1.reserve(ctx.roster_team.size());
-  team2.reserve(ctx.roster_team.size());
-
-  // Netvar offsets (best-effort). If these fail, we keep event-accumulated stats.
-  const auto offKills = SchemaFindOffset("server", "CCSPlayerController", "m_iKills");
-  const auto offDeaths = SchemaFindOffset("server", "CCSPlayerController", "m_iDeaths");
-  const auto offAssists = SchemaFindOffset("server", "CCSPlayerController", "m_iAssists");
-  const auto offMvps = SchemaFindOffset("server", "CCSPlayerController", "m_iMVPs");
-  const auto offScore = SchemaFindOffset("server", "CCSPlayerController", "m_iScore");
-  auto findFirst = [&](std::initializer_list<const char*> names) -> std::optional<int> {
-    for (const char* n : names) {
-      if (!n || !*n) continue;
-      if (auto off = SchemaFindOffset("server", "CCSPlayerController", n)) return off;
-    }
-    return std::nullopt;
-  };
-  const auto offHeadshots = findFirst({"m_iHeadshotKills", "m_iHeadShotKills", "m_iMatchStats_HeadshotKills"});
-
-  for (const auto& kv : ctx.roster_team) {
-    const uint64_t sid = kv.first;
-    const WebhookTeam team = kv.second;
-    PlayerStats st{};
-    if (auto it = g_stats.find(sid); it != g_stats.end()) st = it->second;
-    if (st.team == WebhookTeam::Unknown) st.team = team;
-    if (st.name.empty()) st.name = bestNameForSteam(sid);
-
-    // Try netvar snapshot from controller if we can resolve it.
-    if (auto slotOpt = FindRosterSlot(sid)) {
-      auto itc = g_slotController.find(*slotOpt);
-      if (itc != g_slotController.end() && itc->second) {
-        void* ctrl = itc->second;
-        if (offKills) {
-          if (auto v = ReadAt<int>(ctrl, *offKills)) st.kills = *v;
-        }
-        if (offDeaths) {
-          if (auto v = ReadAt<int>(ctrl, *offDeaths)) st.deaths = *v;
-        }
-        if (offAssists) {
-          if (auto v = ReadAt<int>(ctrl, *offAssists)) st.assists = *v;
-        }
-        if (offMvps) {
-          if (auto v = ReadAt<int>(ctrl, *offMvps)) {
-            if (*v >= 0 && *v < 1000) {
-              // store in a temp field via g_stats? we keep it local below.
-            }
-          }
-        }
-        if (offScore) {
-          if (auto v = ReadAt<int>(ctrl, *offScore)) {
-            if (*v >= 0 && *v < 1000000) {
-              // store in a temp field via g_stats? we keep it local below.
-            }
-          }
-        }
-        if (offHeadshots) {
-          if (auto v = ReadAt<int>(ctrl, *offHeadshots)) {
-            // Only trust if plausible.
-            if (*v >= 0 && *v <= st.kills) {
-              st.headshot_kills = std::max(st.headshot_kills, *v);
-            }
-          }
-        }
-      }
-    }
-
-    WebhookPlayerStats out;
-    out.steamid64 = sid;
-    out.name = st.name.empty() ? std::to_string(sid) : st.name;
-    out.kills = st.kills;
-    out.deaths = st.deaths;
-    out.assists = st.assists;
-    out.headshot_kills = st.headshot_kills;
-    out.damage = st.damage;
-    // Score/MVPs are optional; read directly from controller when possible.
-    // If unavailable, they remain 0.
-    if (auto slotOpt = FindRosterSlot(sid)) {
-      auto itc = g_slotController.find(*slotOpt);
-      if (itc != g_slotController.end() && itc->second) {
-        void* ctrl = itc->second;
-        if (offMvps) {
-          if (auto v = ReadAt<int>(ctrl, *offMvps)) {
-            if (*v >= 0 && *v < 1000) out.mvps = *v;
-          }
-        }
-        if (offScore) {
-          if (auto v = ReadAt<int>(ctrl, *offScore)) {
-            if (*v >= 0 && *v < 1000000) out.score = *v;
-          }
-        }
-      }
-    }
-
-    if (team == WebhookTeam::Team1) team1.push_back(out);
-    else if (team == WebhookTeam::Team2) team2.push_back(out);
-  }
-
-  WebhookEmitRoundEndMatchzy(
-      ms.map_number,
-      ms.round_number > 0 ? ms.round_number : g_roundNumber,
-      /*round_time=*/0,
-      reason,
-      WinnerToTeamString(csWinnerTeamNum),
-      ms.team1_score,
-      ms.team2_score,
-      team1,
-      team2);
-
-  // Persist a minimal snapshot for crash/restart recovery.
-  readyup::persisted_match_state::PersistSnapshot(
-      ms.map_number <= 0 ? 1 : ms.map_number,
-      ms.round_number > 0 ? ms.round_number : g_roundNumber,
-      ms.team1_score,
-      ms.team2_score);
-
-  // Best-effort: update backup prefix for current map and discover latest backup file.
-  {
-    const int mapNumber = ms.map_number <= 0 ? 1 : ms.map_number;
-    const std::string prefix =
-        "readyup_backup_" + std::to_string(static_cast<unsigned long long>(ctx.matchid)) +
-        "_map" + std::to_string(mapNumber) + "_";
-    readyup::persisted_match_state::PersistBackupPrefix(prefix);
-    const std::string cmd = "mp_backup_round_file " + prefix;
-    (void)EnqueueServerCommand(cmd.c_str());
-    readyup::backup_files::DiscoverAndPersistNewestBackupFileAsync(prefix);
-  }
-
-  // Detect end-of-map (demo stop + map_result) once scores are known. Prefer the stats
-  // model's team1/team2 score (engine round winners); fall back to the log-derived one.
-  int mapScore1 = ms.team1_score;
-  int mapScore2 = ms.team2_score;
-  (void)StatsOnRoundEndLocked(csWinnerTeamNum, reason, &mapScore1, &mapScore2);
-  OnMatchRoundEnded(ms.map_number, mapScore1, mapScore2, ms.current_map);
-}
-
-static void OnRoundStartLocked(IGameEvent* ev) {
-  const auto ms = MatchStateGet();
-  MaybeResetForMapLocked(ms.map_number);
-  const int mapNumber = ms.map_number <= 0 ? 1 : ms.map_number;
-
-  // Knife decider: do not emit match rounds or advance counters.
-  if (GetMode() == ReadyUpMode::MatchKnife) {
-    KnifeOnRoundStart(mapNumber, "event");
-    return;
-  }
-
-  // Best-effort score snapshot. Prefer engine event keys when present.
-  int team1Score = ms.team1_score;
-  int team2Score = ms.team2_score;
-  {
-    static const char* const kCtKeys[] = {"ct_score", "score_ct", "ct_score_total"};
-    static const char* const kTKeys[] = {"t_score", "score_t", "t_score_total"};
-    const auto ct = ReadScoreFromEvent(ev, kCtKeys, sizeof(kCtKeys) / sizeof(kCtKeys[0]));
-    const auto tt = ReadScoreFromEvent(ev, kTKeys, sizeof(kTKeys) / sizeof(kTKeys[0]));
-    if (ct && tt) {
-      // Use the side mapping for *this round*. If we decide a swap happens at this boundary
-      // below, we'll apply it before mapping ct/t -> team1/team2.
-      // (We map again below once we finalize swapCountForThisRound.)
-    }
-  }
-
-  auto ctxOpt = WebhookGetMatchContext();
-  if (ctxOpt) {
-    const auto& ctx = *ctxOpt;
-    const int maxRounds = std::max(1, ctx.maxRounds);
-    const bool otEnabled = ctx.overtime_enabled;
-    const int seg = std::max(1, ctx.overtimeSegments);
-    const int sum = team1Score + team2Score;
-
-    bool emitHalfStart = false;
-    bool emitOvertimeStart = false;
-    int overtimeNumber = 0;
-
-    // Regulation halftime boundary.
-    const int regHalf = maxRounds / 2;
-    if (sum == regHalf && g_lastHalfStartTotal != sum) {
-      emitHalfStart = true;
-    }
-
-    // Overtime boundaries.
-    if (otEnabled && sum >= maxRounds && team1Score == team2Score) {
-      const int roundsPastReg = sum - maxRounds;
-      const int blockSize = 2 * seg;
-      if (blockSize > 0) {
-        const int block = roundsPastReg / blockSize;  // 0-based OT index
-        const int offset = roundsPastReg % blockSize;
-        overtimeNumber = block + 1;
-
-        if (offset == 0) {
-          // Start of OT block (OT1/OT2/...) after a tied segment.
-          if (overtimeNumber > g_lastOvertimeNumber) {
-            emitOvertimeStart = true;
-            g_lastOvertimeNumber = overtimeNumber;
-          }
-          // Treat OT start as a half start (swap + halftime_started) too.
-          if (g_lastHalfStartTotal != sum) {
-            emitHalfStart = true;
-          }
-        } else if (offset == seg) {
-          // Start of OT half 2.
-          if (g_lastHalfStartTotal != sum) {
-            emitHalfStart = true;
-          }
-        }
-      }
-    }
-
-    if (emitOvertimeStart && overtimeNumber > 0) {
-      WebhookEmitOvertimeStarted(mapNumber, overtimeNumber);
-    }
-
-    // Every half start implies a side swap (except the very first half, which does not emit).
-    if (emitHalfStart) {
-      g_lastHalfStartTotal = sum;
-      const int swapCountForThisRound = g_swapCount + 1;
-      const bool team1IsCtNow = Team1IsCtWithSwapCount(mapNumber, swapCountForThisRound);
-      const char* t1Side = team1IsCtNow ? "CT" : "T";
-      const char* t2Side = team1IsCtNow ? "T" : "CT";
-
-      WebhookEmitHalftimeStarted(mapNumber, team1Score, team2Score);
-      WebhookEmitSideSwap(mapNumber, t1Side, t2Side);
-
-      g_swapCount = swapCountForThisRound;
-    }
-
-    // If we have event-provided ct/t scores, map them now using the current swap count
-    // (after applying any boundary swap above).
-    static const char* const kCtKeys[] = {"ct_score", "score_ct", "ct_score_total"};
-    static const char* const kTKeys[] = {"t_score", "score_t", "t_score_total"};
-    const auto ct = ReadScoreFromEvent(ev, kCtKeys, sizeof(kCtKeys) / sizeof(kCtKeys[0]));
-    const auto tt = ReadScoreFromEvent(ev, kTKeys, sizeof(kTKeys) / sizeof(kTKeys[0]));
-    if (ct && tt) {
-      const bool team1IsCtNow = Team1IsCtWithSwapCount(mapNumber, g_swapCount);
-      const int ctScore = std::max(0, *ct);
-      const int tScore = std::max(0, *tt);
-      team1Score = team1IsCtNow ? ctScore : tScore;
-      team2Score = team1IsCtNow ? tScore : ctScore;
-    }
-  }
-
-  g_roundNumber += 1;
-  MatchStateSetRound(g_roundNumber);
-
-  // Warmup -> live transition (first real round start).
-  if (GetMode() == ReadyUpMode::MatchWarmup) {
-    OnMatchRoundStarted();
-  }
-  WebhookEmitRoundStarted(mapNumber, g_roundNumber, team1Score, team2Score);
-  StatsRegisterRoundPlayersLocked();
-}
-
-static void OnPlayerDeathLocked(IGameEvent* ev) {
-  if (!ev) return;
-  const int attackerSlot = ev->GetPlayerSlot(CKV3MemberName("attacker")).value;
-  const int victimSlot = ev->GetPlayerSlot(CKV3MemberName("userid")).value;
-  const int assisterSlot = ev->GetPlayerSlot(CKV3MemberName("assister")).value;
-  const bool headshot = ev->GetBool(CKV3MemberName("headshot"), false);
-
-  const auto attackerSid = SteamForSlot(attackerSlot);
-  const auto victimSid = SteamForSlot(victimSlot);
-  const auto assisterSid = SteamForSlot(assisterSlot);
-
-  if (attackerSid && *attackerSid != 0) {
-    auto& s = g_stats[*attackerSid];
-    const std::string nm = NameForSlot(attackerSlot);
-    if (!nm.empty()) s.name = nm;
-    s.team = TeamForSteam(*attackerSid);
-    s.kills += 1;
-    if (headshot) s.headshot_kills += 1;
-  }
-
-  if (victimSid && *victimSid != 0) {
-    auto& s = g_stats[*victimSid];
-    const std::string nm = NameForSlot(victimSlot);
-    if (!nm.empty()) s.name = nm;
-    s.team = TeamForSteam(*victimSid);
-    s.deaths += 1;
-  }
-
-  if (assisterSid && attackerSid && victimSid) {
-    if (*assisterSid != 0 && *assisterSid != *attackerSid && *assisterSid != *victimSid) {
-      auto& s = g_stats[*assisterSid];
-      const std::string nm = NameForSlot(assisterSlot);
-      if (!nm.empty()) s.name = nm;
-      s.team = TeamForSteam(*assisterSid);
-      s.assists += 1;
-    }
-  }
-
-}
-
-static void OnPlayerHurtLocked(IGameEvent* ev) {
-  if (!ev) return;
-  const int attackerSlot = ev->GetPlayerSlot(CKV3MemberName("attacker")).value;
-  const int dmg = ev->GetInt(CKV3MemberName("dmg_health"), 0);
-  const auto attackerSid = SteamForSlot(attackerSlot);
-  if (!attackerSid || *attackerSid == 0) return;
-  auto& s = g_stats[*attackerSid];
-  const std::string nm = NameForSlot(attackerSlot);
-  if (!nm.empty()) s.name = nm;
-  s.team = TeamForSteam(*attackerSid);
-  s.damage += std::max(0, dmg);
 }
 
 static void OnPlayerSpawnLocked(IGameEvent* ev) {
@@ -883,21 +325,8 @@ struct ListenerImpl : IGameEventListener2 {
     // Raw events for plugins (subscribe_game_event): synchronous, before any core lock is taken.
     plugins::DispatchGameEvent(name, event);
 
-    // Clear ready state on disconnect before taking g_mu (ClearReady takes the modes mutex).
-    if (std::strcmp(name, "player_disconnect") == 0) {
-      const uint64_t xuid = event->GetUint64(CKV3MemberName("xuid"), 0);
-      if (xuid != 0) ClearReady(xuid);
-    }
-    // CS2 native warmup (re)started: Ready Up emulates warmup, end the real one
-    // (takes the modes mutex, so before g_mu).
-    if (std::strcmp(name, "round_announce_warmup") == 0) {
-      OnNativeWarmupStarted("round_announce_warmup event");
-      return;
-    }
-
-    const auto ms = MatchStateGet();
     std::lock_guard<EventsMutex> lk(g_mu);
-    MaybeResetForMapLocked(ms.map_number);
+    MaybeResetForMapLocked();
 
     // Lightweight debug logs for common lifecycle events.
     if (DebugEnabled()) {
@@ -916,14 +345,6 @@ struct ListenerImpl : IGameEventListener2 {
         const int disc = event->GetInt(CKV3MemberName("disconnect"), 0);
         const int slot = event->GetPlayerSlot(CKV3MemberName("userid")).value;
         Debug("game-events: player_team slot=%d old=%d new=%d disconnect=%d\n", slot, oldteam, team, disc);
-      } else if (std::strcmp(name, "player_spawn") == 0) {
-        const int slot = event->GetPlayerSlot(CKV3MemberName("userid")).value;
-        const int team = event->GetInt(CKV3MemberName("team"), 0);
-        Debug("game-events: player_spawn slot=%d team=%d\n", slot, team);
-      } else if (std::strcmp(name, "weapon_reload") == 0) {
-        const char* w = event->GetString(CKV3MemberName("weapon"), "");
-        const int slot = event->GetPlayerSlot(CKV3MemberName("userid")).value;
-        Debug("game-events: weapon_reload slot=%d weapon=\"%s\"\n", slot, w ? w : "");
       }
     }
 
@@ -946,49 +367,20 @@ struct ListenerImpl : IGameEventListener2 {
           Debug("teams: player_team steamid64=%llu slot=%d team=%d%s\n", static_cast<unsigned long long>(sid), slot,
                 team, known ? "" : " (not a connected human yet; ignored)");
         }
-        // Welcome screen trigger (one of several sources; deduped in welcome.cpp).
-        if (team == 2 || team == 3) {
-          WelcomeObserveTeamJoin(slot, team, sid, NameForSlot(slot), WelcomeSource::GameEvent);
-        }
       }
       return;
     }
+    if (std::strcmp(name, "begin_new_match") == 0) {
+      g_roundNumber = 0;  // warmup end / mp_restartgame
+      return;
+    }
     if (std::strcmp(name, "round_start") == 0) {
-      OnRoundStartLocked(event);
+      g_roundNumber += 1;
       PostPluginEvent(RU_EVENT_ROUND_START, event, g_roundNumber);
       return;
     }
     if (std::strcmp(name, "round_end") == 0) {
       PostPluginEvent(RU_EVENT_ROUND_END, event, g_roundNumber);
-      const int winner = event->GetInt(CKV3MemberName("winner"), 0);
-      const int reason = event->GetInt(CKV3MemberName("reason"), 0);
-      if (GetMode() == ReadyUpMode::MatchKnife) {
-        // Only eliminations are decided from the event (CS2 reasons: 8 = CTs win,
-        // 9 = Terrorists win). Time-outs/draws need the alive/HP tiebreak, which the
-        // log path (SFUI_Notice_* line) runs; it also covers eliminations when
-        // events are down. The first source wins, the other is ignored by phase.
-        if (reason == 8 || reason == 9) {
-          KnifeOnRoundEnd(ms.map_number <= 0 ? 1 : ms.map_number, winner, /*elimination=*/true, "event",
-                          reason == 8 ? "reason=8" : "reason=9");
-        }
-        return;
-      }
-      EmitRoundEndLocked(winner, reason);
-      return;
-    }
-    if (std::strcmp(name, "player_death") == 0) {
-      OnPlayerDeathLocked(event);
-      StatsOnGameEventLocked(name, event);
-      return;
-    }
-    if (std::strcmp(name, "player_hurt") == 0) {
-      OnPlayerHurtLocked(event);
-      StatsOnGameEventLocked(name, event);
-      return;
-    }
-    if (std::strcmp(name, "player_blind") == 0 || std::strcmp(name, "bomb_planted") == 0 ||
-        std::strcmp(name, "bomb_defused") == 0 || std::strcmp(name, "round_mvp") == 0) {
-      StatsOnGameEventLocked(name, event);
       return;
     }
     if (std::strcmp(name, "player_spawn") == 0) {
@@ -1003,48 +395,21 @@ ListenerImpl g_listener;
 
 }  // namespace
 
-std::pair<int, int> GetRosterTeamDamageTotals() {
-  std::lock_guard<EventsMutex> lk(g_mu);
-  auto ctxOpt = WebhookGetMatchContext();
-  if (!ctxOpt) return {0, 0};
-  const auto& ctx = *ctxOpt;
-
-  int team1 = 0;
-  int team2 = 0;
-  for (const auto& kv : ctx.roster_team) {
-    const uint64_t sid = kv.first;
-    const WebhookTeam team = kv.second;
-    auto it = g_stats.find(sid);
-    if (it == g_stats.end()) continue;
-    const int dmg = std::max(0, it->second.damage);
-    if (team == WebhookTeam::Team1) team1 += dmg;
-    else if (team == WebhookTeam::Team2) team2 += dmg;
-  }
-  return {team1, team2};
-}
-
-
 // Events ListenerImpl consumes. `core` events must all be registered before we report
 // "installed"; the others are best-effort.
 struct ListenedEvent {
   const char* name;
   bool core;
 };
+// Plugins get more through subscribe_game_event (RegisterPluginGameEvents).
 static constexpr ListenedEvent kListenedEvents[] = {
     {"round_start", true},
     {"round_end", true},
-    {"player_death", true},
-    {"player_hurt", true},
     {"player_spawn", true},
     {"player_team", false},
     {"player_connect_full", false},
     {"player_disconnect", false},
-    {"round_announce_warmup", false},
-    // Match stats (match_stats.h).
-    {"player_blind", false},
-    {"bomb_planted", false},
-    {"bomb_defused", false},
-    {"round_mvp", false},
+    {"begin_new_match", false},
 };
 
 // Probe used to tell (a) whether the manager has loaded its descriptors and (b) whether our

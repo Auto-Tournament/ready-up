@@ -79,4 +79,9 @@ void EmitStateLog(const char* reason);
 // Multi-line human-readable report for `.ru state` / `ru state`.
 std::vector<std::string> BuildStateReport();
 
+// Plugin reload (reload_state.cpp): the `.ru idle` flag and the map it was set on (a map
+// change re-enables auto scrim warmup; a reload must not look like one).
+std::string ScrimLastMap();
+void ScrimRestore(bool autoEnabled, const std::string& lastMap);
+
 }  // namespace readyup

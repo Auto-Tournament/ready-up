@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 namespace readyup {
 
@@ -30,5 +31,15 @@ void KnifeTrackerObserveLine(const std::string& line);
 
 // cs team: 2 = T, 3 = CT.
 KnifeSideStats KnifeTrackerStats(int csTeam);
+
+// Plugin reload (reload_state.cpp): who died / their last HP in the running knife round.
+struct KnifeTrackerMember {
+  int userid = -1;
+  int team = 0;
+  bool dead = false;
+  int health = 100;
+};
+std::vector<KnifeTrackerMember> KnifeTrackerSave();
+void KnifeTrackerRestore(bool active, const std::vector<KnifeTrackerMember>& members);
 
 }  // namespace readyup

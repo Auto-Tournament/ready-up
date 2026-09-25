@@ -36,7 +36,7 @@ It shows the components (installed -> $VERSION), installs or updates what you ti
 |---|---|
 | \`ready-up-essentials-$VERSION-linuxsteamrt64.zip\` | core + match. The default. No skins. |
 | \`ready-up-full-$VERSION-linuxsteamrt64.zip\` | core + match + skins + hello + gamedata checkers |
-| \`ready-up-core\`, \`-match\`, \`-skins\`, \`-hello\` | single components (match is built into core for now; its zip is a placeholder) |
+| \`ready-up-core\`, \`-match\`, \`-skins\`, \`-hello\` | single components (core alone runs without the match flow) |
 | \`SHA256SUMS\` | checksums (the installer verifies them) |
 
 Skins (weapon paints, knives, gloves, agents) can get a server's GSLT banned; only install them on purpose.

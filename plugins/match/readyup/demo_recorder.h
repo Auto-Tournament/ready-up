@@ -31,6 +31,8 @@
 //   ru_demo_status                         print settings, recording and the last upload
 // `tv_delay N` typed on the console is observed (not consumed) for the flush timing.
 
+#include "readyup/status_snapshot.h"
+
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -138,6 +140,11 @@ struct DemoCandidate {
 };
 std::string PickDemoForMatch(const std::vector<DemoCandidate>& files, const std::string& expectedFileName,
                              long long matchid, const std::string& mapName, long long notBeforeEpoch);
+
+// Plugin reload (reload_state.cpp): settings, the recording in progress, a pending GOTV-flush
+// stop (rescheduled with the time left) and uploads the unload interrupted (restarted).
+status::Json SnapshotJson();
+void RestoreJson(const status::Json& j);
 
 // Settings commands above. Returns true if the line was consumed.
 bool HandleConsoleLine(const std::vector<std::string>& args);

@@ -12,8 +12,6 @@
 #include "readyup/log_receiver.h"
 #include "readyup/logging.h"
 #include "readyup/path.h"
-#include "readyup/persisted_settings.h"
-#include "readyup/match_recovery.h"
 #include "readyup/real_server.h"
 #include "readyup/server_game_clients_hook.h"
 #include "readyup/host_say_hook.h"
@@ -170,15 +168,9 @@ __attribute__((constructor)) static void readyup_ctor() {
   // Local status endpoint (docs/FLEET.md §17): its own thread, fed from GameFrame.
   readyup::status_feed::StartAtLoad();
 
-  // Best-effort: restore persisted MAT/RU initialization settings so a rebooted
-  // server can reconnect without requiring MAT to resend initialization.
-  readyup::persisted_settings::RestoreFromDbAsync();
-  readyup::match_recovery::TryRecoverFromDbAsync();
-
+  // (Persisted MAT settings and boot-time match recovery belong to plugins/match, which loads
+  // on the first server frame.)
   readyup::InstallClientCommandHook();
-  // Logs a loud warning at boot if the debug-only dev_bots_ready flag is on.
-  (void)readyup::DevBotsReadyEnabled();
-  (void)readyup::DevBotsScrimEnabled();
   readyup::TryRegisterConsoleCommands();
   readyup::InstallCommandBufferHook();
 

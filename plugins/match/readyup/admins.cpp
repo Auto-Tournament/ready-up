@@ -1,6 +1,6 @@
 #include "readyup/admins.h"
 
-#include "readyup/chat.h"
+#include "readyup/engine.h"
 #include "readyup/logging.h"
 #include "readyup/admin_check.h"
 #include "readyup/player_registry.h"
@@ -187,6 +187,7 @@ void HandleAdminsCommand(uint64_t senderSteamid64, const std::string& senderName
       Reply(senderSteamid64, err.empty() ? "Admins: failed to add admin" : ("Admins: DB error: " + err));
       return;
     }
+    AdminCacheRefreshNow();
     Reply(senderSteamid64, "Admins: added " + targetName + " (" + std::to_string(targetSteamid64) + ")");
     return;
   }
@@ -199,6 +200,7 @@ void HandleAdminsCommand(uint64_t senderSteamid64, const std::string& senderName
     Reply(senderSteamid64, err.empty() ? "Admins: failed to remove admin" : ("Admins: DB error: " + err));
     return;
   }
+  AdminCacheRefreshNow();
   Reply(senderSteamid64, "Admins: removed (" + std::to_string(targetSteamid64) + ")");
 }
 

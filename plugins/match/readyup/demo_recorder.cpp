@@ -1,11 +1,13 @@
 #include "readyup/demo_recorder.h"
 
-#include "readyup/command_buffer_hook.h"
+#include "readyup/engine.h"
 #include "readyup/game_timers.h"
 #include "readyup/logging.h"
 #include "readyup/match_stats.h"
-#include "readyup/path.h"
+#include "readyup/host.h"
+#include "readyup/status_snapshot.h"
 #include "readyup/webhook.h"
+#include "readyup/workers.h"
 
 #include <algorithm>
 #include <cctype>
@@ -40,6 +42,17 @@ struct Recording {
   long long startedEpoch = 0;
 };
 
+struct UploadJob;
+
+// tv_stoprecord scheduled for the GOTV flush (StopAfterDelayAndUpload), so a plugin reload in
+// that window can schedule it again.
+struct PendingStop {
+  bool active = false;
+  double due = 0;  // host::NowSeconds()
+  std::string relPath;
+  int round = 0, team1Score = 0, team2Score = 0;
+};
+
 struct State {
   std::mutex mu;
   Settings s;
@@ -47,6 +60,8 @@ struct State {
   Recording rec;
   std::string lastUpload;
   std::vector<Listener> listeners;
+  PendingStop stop;
+  std::vector<status::Json> interruptedUploads;  // UploadJob as JSON (unload stopped them)
 };
 
 State& St() {
@@ -132,6 +147,9 @@ struct PostResult {
 #if !defined(READYUP_NO_CURL)
 size_t ReadCb(char* buf, size_t size, size_t n, void* ud) { return std::fread(buf, size, n, static_cast<FILE*>(ud)); }
 
+// Plugin unload: abort a running upload (it is handed to the next image and restarted).
+int ProgressCb(void*, curl_off_t, curl_off_t, curl_off_t, curl_off_t) { return workers::ShuttingDown() ? 1 : 0; }
+
 size_t WriteCb(char* ptr, size_t size, size_t n, void* ud) {
   auto* s = static_cast<std::string*>(ud);
   const size_t len = size * n;
@@ -197,6 +215,8 @@ PostResult SendFile(const std::string& method, const std::string& url, const std
   curl_easy_setopt(c, CURLOPT_LOW_SPEED_LIMIT, 1024L);
   curl_easy_setopt(c, CURLOPT_LOW_SPEED_TIME, 30L);
   curl_easy_setopt(c, CURLOPT_TIMEOUT, 1800L);
+  curl_easy_setopt(c, CURLOPT_XFERINFOFUNCTION, &ProgressCb);
+  curl_easy_setopt(c, CURLOPT_NOPROGRESS, 0L);
   if (const char* ca = CaBundle()) curl_easy_setopt(c, CURLOPT_CAINFO, ca);
   const CURLcode rc = curl_easy_perform(c);
   if (rc != CURLE_OK) r.error = curl_easy_strerror(rc);
@@ -271,9 +291,101 @@ struct UploadJob {
   Settings s;
 };
 
+status::Json InfoToJson(const RecordingInfo& i) {
+  status::Json j = status::Json::Object();
+  j["matchid"] = i.matchid;
+  j["slug"] = i.slug;
+  j["map_number"] = i.mapNumber;
+  j["map_name"] = i.mapName;
+  j["team1"] = i.team1;
+  j["team2"] = i.team2;
+  return j;
+}
+
+RecordingInfo InfoFromJson(const status::Json* j) {
+  RecordingInfo i;
+  if (!j) return i;
+  if (auto* v = j->Find("matchid")) i.matchid = v->AsInt();
+  if (auto* v = j->Find("slug")) i.slug = v->AsString();
+  if (auto* v = j->Find("map_number")) i.mapNumber = static_cast<int>(v->AsInt());
+  if (auto* v = j->Find("map_name")) i.mapName = v->AsString();
+  if (auto* v = j->Find("team1")) i.team1 = v->AsString();
+  if (auto* v = j->Find("team2")) i.team2 = v->AsString();
+  return i;
+}
+
+status::Json SettingsToJson(const Settings& s) {
+  status::Json j = status::Json::Object();
+  j["recording_enabled"] = s.recordingEnabled;
+  j["path"] = s.path;
+  j["name_format"] = s.nameFormat;
+  j["upload_url"] = s.uploadUrl;
+  j["upload_method"] = s.uploadMethod;
+  status::Json h = status::Json::Array();
+  for (const auto& kv : s.uploadHeaders) {
+    status::Json p = status::Json::Array();
+    p.Push(kv.first);
+    p.Push(kv.second);
+    h.Push(std::move(p));
+  }
+  j["upload_headers"] = std::move(h);
+  j["upload_attempts"] = s.uploadAttempts;
+  return j;
+}
+
+Settings SettingsFromJson(const status::Json* j) {
+  Settings s;
+  if (!j) return s;
+  if (auto* v = j->Find("recording_enabled")) s.recordingEnabled = v->AsBool();
+  if (auto* v = j->Find("path")) s.path = v->AsString();
+  if (auto* v = j->Find("name_format")) s.nameFormat = v->AsString();
+  if (auto* v = j->Find("upload_url")) s.uploadUrl = v->AsString();
+  if (auto* v = j->Find("upload_method")) s.uploadMethod = v->AsString();
+  if (auto* v = j->Find("upload_headers")) {
+    for (const auto& p : v->Items()) {
+      if (p.Items().size() == 2) s.uploadHeaders.emplace_back(p.Items()[0].AsString(), p.Items()[1].AsString());
+    }
+  }
+  if (auto* v = j->Find("upload_attempts")) s.uploadAttempts = static_cast<int>(v->AsInt());
+  return s;
+}
+
+status::Json JobToJson(const UploadJob& job) {
+  status::Json j = status::Json::Object();
+  j["info"] = InfoToJson(job.info);
+  j["round"] = job.round;
+  j["team1_score"] = job.team1Score;
+  j["team2_score"] = job.team2Score;
+  j["expected_path"] = job.expectedPath;
+  j["demo_dir"] = job.demoDir;
+  j["started_epoch"] = job.startedEpoch;
+  j["settings"] = SettingsToJson(job.s);
+  return j;
+}
+
+UploadJob JobFromJson(const status::Json& j) {
+  UploadJob job;
+  job.info = InfoFromJson(j.Find("info"));
+  if (auto* v = j.Find("round")) job.round = static_cast<int>(v->AsInt());
+  if (auto* v = j.Find("team1_score")) job.team1Score = static_cast<int>(v->AsInt());
+  if (auto* v = j.Find("team2_score")) job.team2Score = static_cast<int>(v->AsInt());
+  if (auto* v = j.Find("expected_path")) job.expectedPath = v->AsString();
+  if (auto* v = j.Find("demo_dir")) job.demoDir = v->AsString();
+  if (auto* v = j.Find("started_epoch")) job.startedEpoch = v->AsInt();
+  job.s = SettingsFromJson(j.Find("settings"));
+  return job;
+}
+
+// Unload stopped the job before it finished: keep it for the next plugin image.
+void Interrupted(const UploadJob& job) {
+  Print("demo: upload of %s interrupted by the plugin unload; the next load retries it\n", job.expectedPath.c_str());
+  std::lock_guard<std::mutex> lk(St().mu);
+  St().interruptedUploads.push_back(JobToJson(job));
+}
+
 void RunUpload(UploadJob job) {
   // Let GOTV finish writing: a few seconds, then until the size settles.
-  std::this_thread::sleep_for(std::chrono::seconds(3));
+  if (!workers::SleepFor(std::chrono::seconds(3))) return Interrupted(job);
   std::string path = job.expectedPath;
   long long lastSize = -1;
   int stable = 0;
@@ -285,7 +397,7 @@ void RunUpload(UploadJob job) {
       stable = 0;
       lastSize = StatFile(path, &sz, nullptr) ? sz : -1;
     }
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    if (!workers::SleepFor(std::chrono::seconds(1))) return Interrupted(job);
   }
   if (!StatFile(path, nullptr, nullptr)) {
     std::vector<DemoCandidate> files;
@@ -350,11 +462,12 @@ void RunUpload(UploadJob job) {
   for (int attempt = 1; attempt <= attempts; ++attempt) {
     used = attempt;
     r = SendFile(job.s.uploadMethod, url, path, size, headers);
+    if (workers::ShuttingDown()) return Interrupted(job);
     const bool transient = !r.error.empty() || r.status == 429 || r.status >= 500;
     if (!transient || attempt == attempts) break;
     Print("demo: upload attempt %d/%d failed (status=%ld %s); retrying\n", attempt, attempts, r.status,
           r.error.c_str());
-    std::this_thread::sleep_for(std::chrono::seconds(attempt * attempt));
+    if (!workers::SleepFor(std::chrono::seconds(attempt * attempt))) return Interrupted(job);
   }
   ev.attempts = used;
   ev.httpStatus = r.status;
@@ -371,6 +484,10 @@ void RunUpload(UploadJob job) {
                     std::to_string(r.status) + " " + ev.fileName + (ev.error.empty() ? "" : " (" + ev.error + ")");
 }
 
+void StartUpload(UploadJob job) {
+  if (!workers::Spawn("demo-upload", [job]() mutable { RunUpload(std::move(job)); })) Interrupted(job);
+}
+
 std::string Trimmed(std::string s) {
   while (!s.empty() && (s.back() == ' ' || s.back() == '\t')) s.pop_back();
   size_t i = 0;
@@ -379,6 +496,82 @@ std::string Trimmed(std::string s) {
 }
 
 }  // namespace
+
+void ScheduleStop(double delaySeconds, const Recording& rec, int roundNumber, int team1Score, int team2Score);
+
+// ------------------------------------------------------------------------------ reload state
+
+status::Json SnapshotJson() {
+  std::lock_guard<std::mutex> lk(St().mu);
+  const auto& st = St();
+  status::Json j = status::Json::Object();
+  j["settings"] = SettingsToJson(st.s);
+  j["observed_tv_delay"] = st.observedTvDelay;
+  status::Json rec = status::Json::Object();
+  rec["active"] = st.rec.active;
+  rec["info"] = InfoToJson(st.rec.info);
+  rec["rel_path"] = st.rec.relPath;
+  rec["file_name"] = st.rec.fileName;
+  rec["started_epoch"] = st.rec.startedEpoch;
+  j["recording"] = std::move(rec);
+  j["last_upload"] = st.lastUpload;
+  if (st.stop.active) {
+    status::Json s = status::Json::Object();
+    s["due"] = st.stop.due;
+    s["rel_path"] = st.stop.relPath;
+    s["round"] = st.stop.round;
+    s["team1_score"] = st.stop.team1Score;
+    s["team2_score"] = st.stop.team2Score;
+    j["pending_stop"] = std::move(s);
+  }
+  status::Json up = status::Json::Array();
+  for (const auto& u : st.interruptedUploads) up.Push(u);
+  j["interrupted_uploads"] = std::move(up);
+  return j;
+}
+
+void RestoreJson(const status::Json& j) {
+  Recording rec;
+  PendingStop stop;
+  std::vector<UploadJob> uploads;
+  {
+    std::lock_guard<std::mutex> lk(St().mu);
+    auto& st = St();
+    st.s = SettingsFromJson(j.Find("settings"));
+    if (auto* v = j.Find("observed_tv_delay")) st.observedTvDelay = static_cast<int>(v->AsInt());
+    if (auto* r = j.Find("recording")) {
+      if (auto* v = r->Find("active")) st.rec.active = v->AsBool();
+      st.rec.info = InfoFromJson(r->Find("info"));
+      if (auto* v = r->Find("rel_path")) st.rec.relPath = v->AsString();
+      if (auto* v = r->Find("file_name")) st.rec.fileName = v->AsString();
+      if (auto* v = r->Find("started_epoch")) st.rec.startedEpoch = v->AsInt();
+    }
+    if (auto* v = j.Find("last_upload")) st.lastUpload = v->AsString();
+    if (auto* s = j.Find("pending_stop")) {
+      stop.active = true;
+      if (auto* v = s->Find("due")) stop.due = v->type() == status::Json::Type::Double ? v->AsDouble() : v->AsInt();
+      if (auto* v = s->Find("rel_path")) stop.relPath = v->AsString();
+      if (auto* v = s->Find("round")) stop.round = static_cast<int>(v->AsInt());
+      if (auto* v = s->Find("team1_score")) stop.team1Score = static_cast<int>(v->AsInt());
+      if (auto* v = s->Find("team2_score")) stop.team2Score = static_cast<int>(v->AsInt());
+      st.stop = stop;
+    }
+    if (auto* v = j.Find("interrupted_uploads")) {
+      for (const auto& u : v->Items()) uploads.push_back(JobFromJson(u));
+    }
+    rec = st.rec;
+  }
+  if (stop.active && rec.active && rec.relPath == stop.relPath) {
+    const double left = std::max(0.0, stop.due - host::NowSeconds());
+    Print("demo: rescheduling the stop of %s in %.1fs (plugin reloaded during the GOTV flush)\n", rec.relPath.c_str(),
+          left);
+    ScheduleStop(left, rec, stop.round, stop.team1Score, stop.team2Score);
+  }
+  for (auto& u : uploads) {
+    Print("demo: restarting the interrupted upload of %s\n", u.expectedPath.c_str());
+    StartUpload(std::move(u));
+  }
+}
 
 // ------------------------------------------------------------------------------ settings
 
@@ -518,10 +711,20 @@ bool StopAfterDelayAndUpload(double delaySeconds, int roundNumber, int team1Scor
     rec = St().rec;
   }
   Print("demo: stopping %s in %.1fs (GOTV flush)\n", rec.relPath.c_str(), delaySeconds);
-  ScheduleOnGameThread(delaySeconds, [rec, roundNumber, team1Score, team2Score]() {
+  {
+    std::lock_guard<std::mutex> lk(St().mu);
+    St().stop = PendingStop{true, host::NowSeconds() + delaySeconds, rec.relPath, roundNumber, team1Score, team2Score};
+  }
+  ScheduleStop(delaySeconds, rec, roundNumber, team1Score, team2Score);
+  return true;
+}
+
+void ScheduleStop(double delaySeconds, const Recording& recIn, int roundNumber, int team1Score, int team2Score) {
+  ScheduleOnGameThread(delaySeconds, [rec = recIn, roundNumber, team1Score, team2Score]() {
     Settings s;
     {
       std::lock_guard<std::mutex> lk(St().mu);
+      St().stop.active = false;
       // A newer recording (next map) is not ours to stop.
       if (!St().rec.active || St().rec.relPath != rec.relPath) return;
       St().rec.active = false;
@@ -544,9 +747,8 @@ bool StopAfterDelayAndUpload(double delaySeconds, int roundNumber, int team1Scor
     job.demoDir = CsgoDir() + "/" + s.path;
     job.startedEpoch = rec.startedEpoch;
     job.s = s;
-    std::thread(RunUpload, std::move(job)).detach();
+    StartUpload(std::move(job));
   });
-  return true;
 }
 
 void StopNowWithoutUpload() {

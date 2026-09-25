@@ -163,6 +163,8 @@ class StatsAccumulator {
   TeamLine Team1Line() const { return t1_; }
   TeamLine Team2Line() const { return t2_; }
   MapStats Snapshot() const;
+  // Plugin reload: continue a map from a Snapshot() (the round in progress starts over empty).
+  void Restore(const MapStats& m);
 
  private:
   struct Player {
@@ -200,6 +202,8 @@ std::string ToJson(const PlayerStats& s);
 std::string ToJson(const RoundSummary& r);
 std::string ToJson(const MapStats& m);
 std::string JsonEscape(const std::string& s);
+// Inverse of ToJson(const MapStats&). False if `json` is not such a document.
+bool FromJson(const std::string& json, MapStats* out);
 
 // Process-wide accumulator for the current map. Lock Mutex() around every access.
 StatsAccumulator& Current();

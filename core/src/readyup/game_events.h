@@ -1,6 +1,5 @@
 #pragma once
 
-// Damage totals helper returns {team1Damage, team2Damage}.
 #include <optional>
 #include <string>
 #include <utility>
@@ -32,10 +31,6 @@ std::optional<int> GetCsTeamNumForSlot(int slot);
 // "switched from team <X> to <Y>"). GetCsTeamNumForSlot falls back to this
 // when engine events are unavailable. team: 0 unassigned, 1 spec, 2 T, 3 CT.
 void ObserveSlotTeamFromLog(int slot, int team);
-
-// Sum total roster-team damage for the current map.
-// Damage is sourced from `player_hurt.dmg_health` and attributed to the attacker.
-std::pair<int, int> GetRosterTeamDamageTotals();
 
 // Last CCSPlayerController* seen for a slot in engine events (nullptr if unknown).
 void* GameEventsControllerForSlot(int slot);

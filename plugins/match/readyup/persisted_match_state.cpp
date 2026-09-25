@@ -2,7 +2,9 @@
 
 #include "readyup/config.h"
 #include "readyup/logging.h"
+#include "readyup/db_writer.h"
 #include "readyup/postgres.h"
+#include "readyup/workers.h"
 
 #include <atomic>
 #include <chrono>
@@ -23,16 +25,9 @@ static constexpr const char* kKeyT2 = "ru_active_team2_score";
 static constexpr const char* kKeyBackupPrefix = "ru_active_backup_prefix";
 static constexpr const char* kKeyBackupFile = "ru_active_backup_file";
 
+// Ordered, on the plugin's DB writer thread (db_writer.h).
 static void SetAsync(std::string key, std::optional<std::string> value) {
-  if (!pg::Available()) return;
-  if (key.empty()) return;
-  std::thread([key = std::move(key), value = std::move(value)]() mutable {
-    std::string err;
-    if (!pg::EnsureSchema(&err)) return;
-    err.clear();
-    if (value.has_value()) (void)pg::SetSetting(key, *value, &err);
-    else (void)pg::ClearSetting(key, &err);
-  }).detach();
+  db_writer::SetSettingAsync(std::move(key), std::move(value));
 }
 
 static std::optional<std::string> GetSync(const char* key) {
@@ -58,8 +53,8 @@ static void ScheduleSnapshotWrite() {
   bool expected = false;
   if (!g_snapScheduled.compare_exchange_strong(expected, true)) return;
 
-  std::thread([] {
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+  const bool spawned = workers::Spawn("snapshot-write", [] {
+    (void)workers::SleepFor(std::chrono::milliseconds(250));  // unload: write it right away
     int map = 0, round = 0, t1 = 0, t2 = 0;
     {
       std::lock_guard<std::mutex> lk(g_snapMu);
@@ -75,7 +70,8 @@ static void ScheduleSnapshotWrite() {
     SetAsync(kKeyT2, std::to_string(t2));
 
     g_snapScheduled.store(false);
-  }).detach();
+  });
+  if (!spawned) g_snapScheduled.store(false);
 }
 
 }  // namespace

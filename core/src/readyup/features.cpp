@@ -2,12 +2,10 @@
 
 #include "readyup/client_command_hook.h"
 #include "readyup/command_buffer_hook.h"
-#include "readyup/db_config.h"
 #include "readyup/engine_surface.h"
 #include "readyup/game_events.h"
 #include "readyup/game_frame_hook.h"
 #include "readyup/logging.h"
-#include "readyup/postgres.h"
 #include "readyup/schema.h"
 #include "readyup/server_game_clients_hook.h"
 #include "readyup/entity.h"
@@ -39,7 +37,6 @@ struct FeatureDef {
 // schema    SchemaSystem located (RTTI) and its class-info layout verified
 // entsys    entity system global located and its layout round-trip verified (after a map loads)
 // eventmgr  CGameEventManager located and RTTI-verified
-// db        Postgres compiled in and configured (readyup_db.json)
 const std::vector<FeatureDef>& Defs() {
   static const std::vector<FeatureDef> defs = {
       {Feature::ChatCommands, "chat_commands", {{"loglistener", "hook:ClientCommand"}, {"fn:UTIL_ClientPrintAll", "cmdbuf"}}},
@@ -149,11 +146,6 @@ DepStatus DependencyStatusImpl(const std::string& dep, int depth) {
     // Engine game events are delivered (they then drive the round lifecycle instead of log lines).
     if (GameEventsListenerInstalled()) return Ok("engine events delivered");
     return Pending("round lifecycle from log lines");
-  }
-  if (dep == "db") {
-    if (!pg::Available()) return Fail("built without Postgres");
-    if (!DbCfg()) return Fail("readyup_db.json missing/invalid");
-    return Ok("configured");
   }
   if (dep.rfind("feature:", 0) == 0) {
     const FeatureDef* d = DefByName(after("feature:"));

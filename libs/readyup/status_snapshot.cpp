@@ -1,7 +1,9 @@
 #include "readyup/status_snapshot.h"
 
+#include <cerrno>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 
 namespace readyup::status {
 
@@ -121,6 +123,223 @@ bool Json::operator==(const Json& o) const {
     }
   }
   return false;
+}
+
+namespace {
+
+struct JsonParser {
+  const std::string& s;
+  size_t i = 0;
+  std::string err;
+
+  void Ws() {
+    while (i < s.size() && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r')) ++i;
+  }
+  bool Fail(const char* m) {
+    if (err.empty()) err = std::string(m) + " at offset " + std::to_string(i);
+    return false;
+  }
+  bool Lit(const char* lit) {
+    const size_t n = std::char_traits<char>::length(lit);
+    if (s.compare(i, n, lit) != 0) return Fail("bad literal");
+    i += n;
+    return true;
+  }
+  static void Utf8(std::string& out, unsigned cp) {
+    if (cp < 0x80) {
+      out += static_cast<char>(cp);
+    } else if (cp < 0x800) {
+      out += static_cast<char>(0xC0 | (cp >> 6));
+      out += static_cast<char>(0x80 | (cp & 0x3F));
+    } else if (cp < 0x10000) {
+      out += static_cast<char>(0xE0 | (cp >> 12));
+      out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+      out += static_cast<char>(0x80 | (cp & 0x3F));
+    } else {
+      out += static_cast<char>(0xF0 | (cp >> 18));
+      out += static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
+      out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+      out += static_cast<char>(0x80 | (cp & 0x3F));
+    }
+  }
+  bool Hex4(unsigned* v) {
+    if (i + 4 > s.size()) return Fail("short \\u escape");
+    *v = 0;
+    for (int k = 0; k < 4; ++k) {
+      const char c = s[i++];
+      *v <<= 4;
+      if (c >= '0' && c <= '9') *v |= static_cast<unsigned>(c - '0');
+      else if (c >= 'a' && c <= 'f') *v |= static_cast<unsigned>(c - 'a' + 10);
+      else if (c >= 'A' && c <= 'F') *v |= static_cast<unsigned>(c - 'A' + 10);
+      else return Fail("bad \\u escape");
+    }
+    return true;
+  }
+  bool Str(std::string* out) {
+    if (i >= s.size() || s[i] != '"') return Fail("expected string");
+    ++i;
+    while (i < s.size()) {
+      const char c = s[i++];
+      if (c == '"') return true;
+      if (static_cast<unsigned char>(c) < 0x20) return Fail("control character in string");
+      if (c != '\\') {
+        *out += c;
+        continue;
+      }
+      if (i >= s.size()) break;
+      const char e = s[i++];
+      switch (e) {
+        case '"': *out += '"'; break;
+        case '\\': *out += '\\'; break;
+        case '/': *out += '/'; break;
+        case 'b': *out += '\b'; break;
+        case 'f': *out += '\f'; break;
+        case 'n': *out += '\n'; break;
+        case 'r': *out += '\r'; break;
+        case 't': *out += '\t'; break;
+        case 'u': {
+          unsigned cp = 0;
+          if (!Hex4(&cp)) return false;
+          if (cp >= 0xD800 && cp < 0xDC00 && i + 6 <= s.size() && s[i] == '\\' && s[i + 1] == 'u') {
+            i += 2;
+            unsigned lo = 0;
+            if (!Hex4(&lo)) return false;
+            if (lo >= 0xDC00 && lo < 0xE000) cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00);
+          }
+          Utf8(*out, cp);
+          break;
+        }
+        default: return Fail("bad escape");
+      }
+    }
+    return Fail("unterminated string");
+  }
+  bool Num(Json* out) {
+    const size_t start = i;
+    bool isInt = true;
+    if (i < s.size() && s[i] == '-') ++i;
+    while (i < s.size() && ((s[i] >= '0' && s[i] <= '9') || s[i] == '.' || s[i] == 'e' || s[i] == 'E' ||
+                            s[i] == '+' || s[i] == '-')) {
+      if (s[i] == '.' || s[i] == 'e' || s[i] == 'E') isInt = false;
+      ++i;
+    }
+    const std::string t = s.substr(start, i - start);
+    if (t.empty() || t == "-") return Fail("bad number");
+    errno = 0;
+    char* end = nullptr;
+    if (isInt) {
+      const long long v = std::strtoll(t.c_str(), &end, 10);
+      if (errno == 0 && end && *end == '\0') {
+        *out = Json(v);
+        return true;
+      }
+    }
+    errno = 0;
+    const double d = std::strtod(t.c_str(), &end);
+    if (!end || *end != '\0') return Fail("bad number");
+    *out = Json(d);
+    return true;
+  }
+  bool Value(Json* out, int depth) {
+    if (depth > 64) return Fail("nesting too deep");
+    Ws();
+    if (i >= s.size()) return Fail("unexpected end");
+    const char c = s[i];
+    if (c == '{') {
+      ++i;
+      *out = Json::Object();
+      Ws();
+      if (i < s.size() && s[i] == '}') {
+        ++i;
+        return true;
+      }
+      for (;;) {
+        Ws();
+        std::string key;
+        if (!Str(&key)) return false;
+        Ws();
+        if (i >= s.size() || s[i] != ':') return Fail("expected ':'");
+        ++i;
+        Json v;
+        if (!Value(&v, depth + 1)) return false;
+        (*out)[key] = std::move(v);
+        Ws();
+        if (i < s.size() && s[i] == ',') {
+          ++i;
+          continue;
+        }
+        if (i < s.size() && s[i] == '}') {
+          ++i;
+          return true;
+        }
+        return Fail("expected ',' or '}'");
+      }
+    }
+    if (c == '[') {
+      ++i;
+      *out = Json::Array();
+      Ws();
+      if (i < s.size() && s[i] == ']') {
+        ++i;
+        return true;
+      }
+      for (;;) {
+        Json v;
+        if (!Value(&v, depth + 1)) return false;
+        out->Push(std::move(v));
+        Ws();
+        if (i < s.size() && s[i] == ',') {
+          ++i;
+          continue;
+        }
+        if (i < s.size() && s[i] == ']') {
+          ++i;
+          return true;
+        }
+        return Fail("expected ',' or ']'");
+      }
+    }
+    if (c == '"') {
+      std::string str;
+      if (!Str(&str)) return false;
+      *out = Json(std::move(str));
+      return true;
+    }
+    if (c == 't') {
+      if (!Lit("true")) return false;
+      *out = Json(true);
+      return true;
+    }
+    if (c == 'f') {
+      if (!Lit("false")) return false;
+      *out = Json(false);
+      return true;
+    }
+    if (c == 'n') {
+      if (!Lit("null")) return false;
+      *out = Json();
+      return true;
+    }
+    return Num(out);
+  }
+};
+
+}  // namespace
+
+bool Json::Parse(const std::string& text, Json* out, std::string* err) {
+  JsonParser p{text, 0, {}};
+  Json v;
+  bool ok = p.Value(&v, 0);
+  if (ok) {
+    p.Ws();
+    if (p.i != text.size()) ok = p.Fail("trailing characters");
+  }
+  if (!ok) {
+    if (err) *err = p.err;
+    return false;
+  }
+  if (out) *out = std::move(v);
+  return true;
 }
 
 bool MergeDiff(const Json& from, const Json& to, Json* patch) {

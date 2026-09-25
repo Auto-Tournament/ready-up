@@ -28,5 +28,9 @@ PauseSnapshot PauseStateGet();
 // Returns seconds since pause started (0 if not paused).
 int PauseStatePauseDurationSeconds();
 
+// Plugin reload (reload_state.cpp). startTicks: the pause start as steady_clock ticks.
+void PauseStateSave(PauseSnapshot* snap, long long* startTicks);
+void PauseStateRestore(const PauseSnapshot& snap, long long startTicks);
+
 }  // namespace readyup
 

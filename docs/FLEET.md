@@ -14,9 +14,9 @@ The server-side model the protocol carries already exists (PR #8):
 
 | File | Owns | Carried as |
 |---|---|---|
-| `core/src/readyup/match_stats.h` | `PlayerStats`, `PlayerRound`, `RoundSummary`, `MapStats`, `StatsAccumulator` | `event.round_end.data.round` (`RoundSummary`), `event.map_result.data.stats` (`MapStats`) |
-| `core/src/readyup/match_end.h` | map end / series end flow, `MatchFlowEvent` (`MapResult`, `SeriesEnd`, `ServerReset`), kick delays | `event.map_result`, `event.series_end`, `server.availability` |
-| `core/src/readyup/demo_recorder.h` | per-map GOTV recording, uploader, `DemoEvent` | `event.demo`, the demo upload (§12) |
+| `plugins/match/readyup/match_stats.h` | `PlayerStats`, `PlayerRound`, `RoundSummary`, `MapStats`, `StatsAccumulator` | `event.round_end.data.round` (`RoundSummary`), `event.map_result.data.stats` (`MapStats`) |
+| `plugins/match/readyup/match_end.h` | map end / series end flow, `MatchFlowEvent` (`MapResult`, `SeriesEnd`, `ServerReset`), kick delays | `event.map_result`, `event.series_end`, `server.availability` |
+| `plugins/match/readyup/demo_recorder.h` | per-map GOTV recording, uploader, `DemoEvent` | `event.demo`, the demo upload (§12) |
 
 The fleet link subscribes to those listeners (`AddMatchFlowListener`, `demo::AddListener`) and
 the `ToJson` serializers define the payload field names. The existing `ru_demo_*` and
@@ -1183,10 +1183,13 @@ Decision: hand-rolled (implemented).
 ### 17.5 As built
 
 - **Where:** the core, not `fleet.so` (see the top of this section). Files:
-  `core/src/readyup/status_snapshot.*` (JSON value, RFC 7386 merge-patch diff, the `Hub` hand-off and
+  `libs/readyup/status_snapshot.*` (JSON value, RFC 7386 merge-patch diff, the `Hub` hand-off and
   event ring), `status_http.*` (request parser, responses, token check, per-IP token bucket),
   `status_server.*` (the `poll()` loop), `status_feed.*` (game-thread collector, config, discovery
-  file). The first three are engine-free and covered by `tests/status_http_test.cpp` (ctest
+  file). The match part of the snapshot (summary, MatchState, `update_safe`) comes from the match
+  plugin through `readyup.match.v1` (`core/include/readyup/match_iface.h`,
+  `plugins/match/readyup/match_status.cpp`); without match.so `/status` says
+  `summary.match_plugin: "none"`. The first three are engine-free and covered by `tests/status_http_test.cpp` (ctest
   `status_http`, which also runs the real server on an ephemeral port).
 - **Game thread cost:** the collector runs from the GameFrame hook at most every 250 ms, builds a
   `StatusInputs` tree and swaps a `shared_ptr` under a mutex that the HTTP thread only holds for

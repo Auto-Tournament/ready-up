@@ -6,13 +6,10 @@
 #include "readyup/ru_router.h"
 #include "readyup/log_receiver.h"
 #include "readyup/logging.h"
-#include "readyup/modes.h"
 #include "readyup/plugin_api.h"
 #include "readyup/plugin_loader.h"
-#include "readyup/player_registry.h"
 #include "readyup/slot_registry.h"
 #include "readyup/steamid.h"
-#include "readyup/welcome.h"
 
 #include <dlfcn.h>
 
@@ -126,9 +123,6 @@ static void HandleLogLine(const char* lineCStr) {
   // Avoid feedback loops: our own Msg()/Print() output can be observed by this listener.
   if (line.find(kLogPrefix) != std::string::npos) return;
 
-  // Welcome screen: `"Name<slot><steam>" switched from team <X> to <CT|TERRORIST>`.
-  WelcomeObserveLogLine(line);
-
   const bool isChat =
       line.find("\" say \"") != std::string::npos || line.find("\" say_team \"") != std::string::npos;
 
@@ -139,9 +133,9 @@ static void HandleLogLine(const char* lineCStr) {
     ResetHumanTeams();
   }
 
-  // Match/round lifecycle (map, Match_Start, Round_Start -> going live, round-end
-  // scores). This listener is the primary log source: without engine game events
-  // it is the only thing that advances match_warmup -> match_live.
+  // Plugin lifecycle events from log lines (map, Match_Start, rounds) and the line itself for
+  // subscribe_log_line (the match plugin drives its round lifecycle from them when engine
+  // events are not delivered).
   ObserveLifecycleLogLine(line);
 
   // Typical: L 02/07/2026 - 12:00:00: "Name<...><STEAM_...><...>" say "message"
@@ -171,7 +165,6 @@ static void HandleLogLine(const char* lineCStr) {
 
   // Only treat as a player header if it looks like one.
   if (header.find('<') != std::string::npos && steamid64 != 0) {
-    ObservePlayer(steamid64, name);
     ObserveSlotIdentity(slot, steamid64, name);
     int team = TeamFromHeader(header);
     const int switched = isChat ? -1 : TeamFromSwitchLine(line);
@@ -195,14 +188,13 @@ static void HandleLogLine(const char* lineCStr) {
       }
       if (e.type != 0) plugins::PostEvent(std::move(e));
     }
-    // `"Name<2><[U:1:x]><CT>" disconnected (reason ...)`: ready state must not
-    // survive a reconnect, and the player must drop out of the scrim roster.
+    // `"Name<2><[U:1:x]><CT>" disconnected (reason ...)`: the player leaves the registry
+    // (plugins get RU_EVENT_PLAYER_DISCONNECT and drop their own state, e.g. ready).
     if (!isChat && line.find("\" disconnected (reason") != std::string::npos) {
-      ClearReady(steamid64);
       ForgetHuman(steamid64);
       ForgetSlotIdentitiesForSteam(steamid64);
       ObserveSlotTeamFromLog(slot, 0);
-      Debug("chat-hook: cleared ready + presence for disconnected steamid64=%llu\n",
+      Debug("chat-hook: cleared presence for disconnected steamid64=%llu\n",
             static_cast<unsigned long long>(steamid64));
     } else {
       ObserveHuman(slot, steamid64, name, team);

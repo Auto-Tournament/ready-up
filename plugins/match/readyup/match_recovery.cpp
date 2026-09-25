@@ -1,6 +1,6 @@
 #include "readyup/match_recovery.h"
 
-#include "readyup/command_buffer_hook.h"
+#include "readyup/engine.h"
 #include "readyup/config.h"
 #include "readyup/logging.h"
 #include "readyup/match_config_parser.h"
@@ -8,6 +8,7 @@
 #include "readyup/modes.h"
 #include "readyup/persisted_match_state.h"
 #include "readyup/webhook.h"
+#include "readyup/workers.h"
 
 #include <chrono>
 #include <optional>
@@ -80,11 +81,11 @@ static void RecoverWorker() {
 }  // namespace
 
 void TryRecoverFromDbAsync() {
-  std::thread([] {
+  workers::Spawn("match-recovery", [] {
     // Give other init a moment to run first (RCON init, schema ensure, etc).
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    if (!workers::SleepFor(std::chrono::milliseconds(500))) return;
     RecoverWorker();
-  }).detach();
+  });
 }
 
 }  // namespace readyup::match_recovery

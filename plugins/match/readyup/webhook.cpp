@@ -5,8 +5,8 @@
 #include "readyup/http_client.h"
 #include "readyup/logging.h"
 #include "readyup/match_state.h"
-#include "readyup/path.h"
-#include "readyup/version.h"
+#include "readyup/engine.h"
+#include "readyup/workers.h"
 
 #include <atomic>
 #include <chrono>
@@ -128,7 +128,9 @@ static void SenderThread() {
   // MAT allocator heartbeat tick.
   auto nextHeartbeat = std::chrono::steady_clock::now() + std::chrono::seconds(5);
 
-  for (;;) {
+  // Unload wakes the loop (workers::AddWaker in WebhookStartSenderThread); undelivered events
+  // stay queued and are handed to the next plugin image (WebhookTakePending / reload_state.cpp).
+  while (!workers::ShuttingDown()) {
     State::QItem item;
     bool haveItem = false;
     std::string url;
@@ -145,9 +147,11 @@ static void SenderThread() {
         nextDue = std::min(nextDue, st.q.top().due);
       }
       st.cv.wait_until(lk, nextDue, [&] {
+        if (workers::ShuttingDown()) return true;
         if (!st.q.empty() && st.q.top().due <= std::chrono::steady_clock::now()) return true;
         return false;
       });
+      if (workers::ShuttingDown()) break;
 
       const auto now = std::chrono::steady_clock::now();
       if (now >= nextHeartbeat) {
@@ -248,7 +252,37 @@ void WebhookStartSenderThread() {
   auto& st = St();
   bool expected = false;
   if (!st.started.compare_exchange_strong(expected, true)) return;
-  std::thread(SenderThread).detach();
+  workers::AddWaker([] {
+    auto& s = St();
+    {
+      std::lock_guard<std::mutex> lk(s.mu);
+    }
+    s.cv.notify_all();
+  });
+  if (!workers::Spawn("webhook-sender", SenderThread)) st.started.store(false);
+}
+
+std::vector<std::string> WebhookTakePending() {
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  std::vector<std::string> out;
+  while (!st.q.empty()) {
+    out.push_back(st.q.top().json);
+    st.q.pop();
+  }
+  return out;
+}
+
+void WebhookRestorePending(std::vector<std::string> events) {
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  for (auto& e : events) EnqueueLocked(st, std::move(e));
+}
+
+std::string WebhookHeartbeatStatusString() {
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  return HbStatusToString(st.hbStatus);
 }
 
 void WebhookConfigure(std::string baseEventsUrl) {

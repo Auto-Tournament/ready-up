@@ -1017,11 +1017,8 @@ bool QueueCommandLocked(RegKind kind, const std::string& token, QueuedCmd c) {
 
 bool IsCoreRuSubcommand(const std::string& sub) {
   static const char* const kCore[] = {
-      // Core (engine / plugin host).
-      "help", "plugin", "plugins", "version", "selftest", "sigtest", "reload", "status_http",
-      // Match flow (still in the core until it moves to plugins/match).
-      "admins", "hudtest", "prac", "practice", "idle", "scrim", "state", "status", "mode", "match", "start",
-      "pause", "fp", "forcepause", "unpause", "up", "fup", "forceunpause", "restart", "end", "recover", "side"};
+      // The core's own (engine / plugin host); the match flow's are plugins/match's.
+      "help", "plugin", "plugins", "version", "selftest", "sigtest", "reload", "status_http"};
   for (const char* c : kCore) {
     if (sub == c) return true;
   }
@@ -1096,6 +1093,23 @@ void ObserveConsole(const std::string& line) {
     c.text = line;
     g_cmds.push_back(std::move(c));
   }
+}
+
+std::vector<std::string> PluginCommandSummary() {
+  std::map<std::string, std::string> lines;  // "<plugin> <kind>" -> names
+  std::lock_guard<std::mutex> lk(g_mu);
+  for (const auto& r : g_regs) {
+    const char* kind = r.kind == RegKind::Chat ? "chat" : r.kind == RegKind::Console && !(r.flags & RU_CMD_OBSERVE) ? "console"
+                       : r.kind == RegKind::RuSub                                    ? "ru"
+                                                                                     : nullptr;
+    if (!kind) continue;
+    const Instance* inst = FindLiveByIdLocked(r.owner);
+    std::string& l = lines[(inst ? inst->name : std::string("?")) + " " + kind];
+    l += (l.empty() ? "" : " ") + r.name;
+  }
+  std::vector<std::string> out;
+  for (const auto& kv : lines) out.push_back(kv.first + ": " + kv.second);
+  return out;
 }
 
 std::vector<std::string> PluginRuSubcommands() {

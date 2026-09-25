@@ -1,14 +1,12 @@
 #include "readyup/welcome.h"
 
-#include "readyup/center_html.h"
+#include "readyup/engine.h"
 #include "readyup/config.h"
-#include "readyup/disabled.h"
 #include "readyup/logging.h"
 #include "readyup/modes.h"
 #include "readyup/ready_hud.h"
-#include "readyup/slot_registry.h"
+#include "readyup/players.h"
 #include "readyup/steamid.h"
-#include "readyup/version.h"
 
 #include <algorithm>
 #include <atomic>

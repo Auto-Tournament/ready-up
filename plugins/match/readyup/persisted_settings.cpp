@@ -4,7 +4,9 @@
 #include "readyup/logging.h"
 #include "readyup/mat_admins.h"
 #include "readyup/match_token.h"
+#include "readyup/db_writer.h"
 #include "readyup/postgres.h"
+#include "readyup/workers.h"
 #include "readyup/webhook.h"
 
 #include <algorithm>
@@ -24,21 +26,9 @@ static constexpr const char* kKeyMatchToken = "ru_match_token";
 static constexpr const char* kKeyAdminsUrl = "ru_admins_url";
 static constexpr const char* kKeyAdminsRefreshSeconds = "ru_admins_refresh_seconds";
 
+// Ordered, on the plugin's DB writer thread (db_writer.h).
 static void PersistAsync(std::string key, std::optional<std::string> value) {
-  if (!pg::Available()) return;
-  if (key.empty()) return;
-
-  std::thread([key = std::move(key), value = std::move(value)]() mutable {
-    std::string err;
-    if (!pg::EnsureSchema(&err)) return;
-
-    err.clear();
-    if (value.has_value()) {
-      (void)pg::SetSetting(key, *value, &err);
-    } else {
-      (void)pg::ClearSetting(key, &err);
-    }
-  }).detach();
+  db_writer::SetSettingAsync(std::move(key), std::move(value));
 }
 
 static int ClampRefreshSeconds(int seconds) {
@@ -80,7 +70,7 @@ void RestoreFromDbAsync() {
   std::call_once(once, [] {
     if (!pg::Available()) return;
 
-    std::thread([] {
+    workers::Spawn("settings-restore", [] {
       std::string err;
       if (!pg::EnsureSchema(&err)) {
         if (readyup::DebugEnabled()) readyup::Debug("persisted_settings: EnsureSchema failed: %s\n", err.c_str());
@@ -131,7 +121,7 @@ void RestoreFromDbAsync() {
                        adminsUrl ? "1" : "0",
                        adminsRefresh ? "1" : "0");
       }
-    }).detach();
+    });
   });
 }
 

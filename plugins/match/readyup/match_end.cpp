@@ -1,12 +1,12 @@
 #include "readyup/match_end.h"
 
-#include "readyup/chat.h"
-#include "readyup/command_buffer_hook.h"
+#include "readyup/engine.h"
 #include "readyup/demo_recorder.h"
 #include "readyup/game_timers.h"
+#include "readyup/host.h"
 #include "readyup/logging.h"
 #include "readyup/modes.h"
-#include "readyup/slot_registry.h"
+#include "readyup/players.h"
 #include "readyup/webhook.h"
 
 #include <algorithm>
@@ -26,6 +26,22 @@ int g_kickDemoUpload = 60;
 std::vector<MatchFlowListener> g_listeners;
 std::atomic<unsigned> g_generation{0};
 std::atomic<int> g_pending{0};
+
+// The step scheduled after a map ended (so a plugin reload in postgame can schedule it again).
+struct Plan {
+  enum Kind { None = 0, NextMap, Reset, KickThenReset };
+  Kind kind = None;
+  double due = 0;  // host::NowSeconds()
+  std::string next;        // NextMap
+  std::string kickReason;  // KickThenReset
+  MatchFlowEvent base;     // Reset / KickThenReset: the ServerReset event
+};
+Plan g_plan;  // guarded by g_mu
+
+void SetPlan(Plan p) {
+  std::lock_guard<std::mutex> lk(g_mu);
+  g_plan = std::move(p);
+}
 
 void Emit(const MatchFlowEvent& e) {
   std::vector<MatchFlowListener> ls;
@@ -74,6 +90,43 @@ std::vector<std::string> SplitArgs(const std::string& line) {
   }
   if (any || !cur.empty()) out.push_back(cur);
   return out;
+}
+
+void ScheduleNextMap(double delay, std::string next, unsigned gen) {
+  g_pending.fetch_add(1);
+  SetPlan(Plan{Plan::NextMap, host::NowSeconds() + delay, next, {}, {}});
+  ScheduleOnGameThread(delay, [next, gen]() {
+    g_pending.fetch_sub(1);
+    if (g_generation.load() != gen) return;
+    SetPlan(Plan{});
+    ModesBeginNextMapWarmup();
+    if (!next.empty()) (void)EnqueueServerCommand(("changelevel " + next).c_str());
+  });
+}
+
+void ScheduleReset(double delay, MatchFlowEvent base, unsigned gen) {
+  g_pending.fetch_add(1);
+  SetPlan(Plan{Plan::Reset, host::NowSeconds() + delay, {}, {}, base});
+  ScheduleOnGameThread(delay, [base, gen]() {
+    g_pending.fetch_sub(1);
+    if (g_generation.load() != gen) return;
+    SetPlan(Plan{});
+    MatchFlowEvent ev = base;
+    ev.type = MatchFlowEventType::ServerReset;
+    Emit(ev);
+    ModesFinishSeriesResetToIdle();
+  });
+}
+
+void ScheduleKickThenReset(double delay, std::string kickReason, MatchFlowEvent base, unsigned gen) {
+  g_pending.fetch_add(1);
+  SetPlan(Plan{Plan::KickThenReset, host::NowSeconds() + delay, {}, kickReason, base});
+  ScheduleOnGameThread(delay, [kickReason, base, gen]() {
+    g_pending.fetch_sub(1);
+    if (g_generation.load() != gen) return;
+    KickAllHumans(kickReason);
+    ScheduleReset(kResetAfterKickSeconds, base, gen);
+  });
 }
 
 }  // namespace
@@ -148,14 +201,7 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
         in.seriesOver ? 1 : 0);
 
   if (!in.seriesOver) {
-    const std::string next = in.nextMap;
-    g_pending.fetch_add(1);
-    ScheduleOnGameThread(std::max(1, plan.restartDelay - 1), [next, gen]() {
-      g_pending.fetch_sub(1);
-      if (g_generation.load() != gen) return;
-      ModesBeginNextMapWarmup();
-      if (!next.empty()) (void)EnqueueServerCommand(("changelevel " + next).c_str());
-    });
+    ScheduleNextMap(std::max(1, plan.restartDelay - 1), in.nextMap, gen);
     return plan;
   }
 
@@ -184,19 +230,9 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
     SendToChat("Ready Up: the series ended in a draw.");
   }
 
-  auto reset = [base, gen]() {
-    g_pending.fetch_sub(1);
-    if (g_generation.load() != gen) return;
-    MatchFlowEvent ev = base;
-    ev.type = MatchFlowEventType::ServerReset;
-    Emit(ev);
-    ModesFinishSeriesResetToIdle();
-  };
-
-  g_pending.fetch_add(1);
   if (base.scrim) {
     // Pickup games: nobody is kicked, the scrim just unloads.
-    ScheduleOnGameThread(resetIn, reset);
+    ScheduleReset(resetIn, base, gen);
     return plan;
   }
 
@@ -205,14 +241,80 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
                  .c_str());
   const std::string kickReason = winnerName.empty() ? std::string("Series over. Thanks for playing!")
                                                     : winnerName + " won the match";
-  ScheduleOnGameThread(resetIn, [kickReason, gen, reset]() {
-    if (g_generation.load() == gen) KickAllHumans(kickReason);
-    ScheduleOnGameThread(kResetAfterKickSeconds, reset);
-  });
+  ScheduleKickThenReset(resetIn, kickReason, base, gen);
   return plan;
 }
 
-void MatchEndCancelPending() { g_generation.fetch_add(1); }
+void MatchEndCancelPending() {
+  g_generation.fetch_add(1);
+  SetPlan(Plan{});
+}
+
+status::Json MatchEndSnapshotJson() {
+  status::Json j = status::Json::Object();
+  int a = 0, b = 0, c = 0;
+  GetSeriesEndKickDelays(&a, &b, &c);
+  j["kick_no_demo"] = a;
+  j["kick_demo_no_upload"] = b;
+  j["kick_demo_upload"] = c;
+  std::lock_guard<std::mutex> lk(g_mu);
+  if (g_plan.kind != Plan::None) {
+    status::Json p = status::Json::Object();
+    p["kind"] = static_cast<int>(g_plan.kind);
+    p["due"] = g_plan.due;
+    p["next"] = g_plan.next;
+    p["kick_reason"] = g_plan.kickReason;
+    status::Json e = status::Json::Object();
+    e["matchid"] = static_cast<long long>(g_plan.base.matchid);
+    e["slug"] = g_plan.base.slug;
+    e["scrim"] = g_plan.base.scrim;
+    e["map_number"] = g_plan.base.mapNumber;
+    e["team1_name"] = g_plan.base.team1Name;
+    e["team2_name"] = g_plan.base.team2Name;
+    e["team1_series_score"] = g_plan.base.team1SeriesScore;
+    e["team2_series_score"] = g_plan.base.team2SeriesScore;
+    e["demo_recorded"] = g_plan.base.demoRecorded;
+    e["demo_upload_configured"] = g_plan.base.demoUploadConfigured;
+    p["base"] = std::move(e);
+    j["plan"] = std::move(p);
+  }
+  return j;
+}
+
+void MatchEndRestoreJson(const status::Json& j) {
+  auto i = [&](const status::Json* o, const char* k, int def) {
+    const auto* v = o ? o->Find(k) : nullptr;
+    return v ? static_cast<int>(v->AsInt()) : def;
+  };
+  auto s = [&](const status::Json* o, const char* k) {
+    const auto* v = o ? o->Find(k) : nullptr;
+    return v ? v->AsString() : std::string();
+  };
+  SetSeriesEndKickDelays(i(&j, "kick_no_demo", -1), i(&j, "kick_demo_no_upload", -1), i(&j, "kick_demo_upload", -1));
+  const status::Json* p = j.Find("plan");
+  if (!p) return;
+  const auto kind = static_cast<Plan::Kind>(i(p, "kind", 0));
+  const auto* dueV = p->Find("due");
+  const double left = std::max(0.0, (dueV ? dueV->AsDouble() : 0.0) - host::NowSeconds());
+  MatchFlowEvent base;
+  const status::Json* e = p->Find("base");
+  if (const auto* v = e ? e->Find("matchid") : nullptr) base.matchid = static_cast<unsigned long long>(v->AsInt());
+  base.slug = s(e, "slug");
+  if (const auto* v = e ? e->Find("scrim") : nullptr) base.scrim = v->AsBool();
+  base.mapNumber = i(e, "map_number", 1);
+  base.team1Name = s(e, "team1_name");
+  base.team2Name = s(e, "team2_name");
+  base.team1SeriesScore = i(e, "team1_series_score", 0);
+  base.team2SeriesScore = i(e, "team2_series_score", 0);
+  if (const auto* v = e ? e->Find("demo_recorded") : nullptr) base.demoRecorded = v->AsBool();
+  if (const auto* v = e ? e->Find("demo_upload_configured") : nullptr) base.demoUploadConfigured = v->AsBool();
+  const unsigned gen = g_generation.load();
+  const char* what = kind == Plan::NextMap ? "next map" : kind == Plan::Reset ? "match unload" : "series-end kick";
+  Print("map-end: rescheduling the %s in %.1fs (plugin reloaded in postgame)\n", what, left);
+  if (kind == Plan::NextMap) ScheduleNextMap(left, s(p, "next"), gen);
+  else if (kind == Plan::Reset) ScheduleReset(left, base, gen);
+  else if (kind == Plan::KickThenReset) ScheduleKickThenReset(left, s(p, "kick_reason"), base, gen);
+}
 
 bool MatchEndPending() { return g_pending.load() > 0; }
 
@@ -238,11 +340,9 @@ bool MatchFlowHandleConsoleLine(const std::string& line) {
       std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
       json = stats::ToJson(stats::Current().Snapshot());
     }
-    // One line: consumers take everything after the first '{'.
-    // Print() formats into a 2 KB buffer, so the JSON goes out in chunks on one line.
-    PrintRaw("%s match_stats ", kLogPrefix);
-    for (size_t i = 0; i < json.size(); i += 1000) PrintRaw("%s", json.substr(i, 1000).c_str());
-    PrintRaw("\n");
+    // One line: consumers take everything after the first '{' (the core keeps long plugin
+    // log lines whole).
+    PrintLine(("match_stats " + json).c_str());
     return true;
   }
   return false;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "readyup/status_snapshot.h"
+
 #include <cstdint>
 #include <string>
 
@@ -183,6 +185,11 @@ void OnNativeWarmupStarted(const char* source);
 
 // Tick from server thread (e.g. GameFrame hook).
 void Tick();
+
+// Plugin reload (reload_state.cpp): mode, ready states, warmup settings, lifecycle / knife /
+// series bookkeeping.
+status::Json ModesSnapshotJson();
+void ModesRestoreJson(const status::Json& j);
 
 }  // namespace readyup
 

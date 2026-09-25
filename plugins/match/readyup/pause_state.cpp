@@ -50,6 +50,20 @@ PauseSnapshot PauseStateGet() {
   return SnapshotLocked();
 }
 
+void PauseStateSave(PauseSnapshot* snap, long long* startTicks) {
+  std::lock_guard<std::mutex> lk(g_mu);
+  if (snap) *snap = SnapshotLocked();
+  if (startTicks) *startTicks = static_cast<long long>(g_pauseStart.time_since_epoch().count());
+}
+
+void PauseStateRestore(const PauseSnapshot& snap, long long startTicks) {
+  std::lock_guard<std::mutex> lk(g_mu);
+  g_paused = snap.paused;
+  g_t1 = snap.team1_ready_to_unpause;
+  g_t2 = snap.team2_ready_to_unpause;
+  g_pauseStart = std::chrono::steady_clock::time_point(std::chrono::steady_clock::duration(startTicks));
+}
+
 int PauseStatePauseDurationSeconds() {
   std::lock_guard<std::mutex> lk(g_mu);
   if (!g_paused) return 0;

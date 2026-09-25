@@ -50,6 +50,10 @@ bool TryDispatchRu(bool console, uint64_t steamid64, const std::string& playerNa
 // Subcommand names plugins registered, as "<sub> (<plugin>)", for `ru help`. Thread-safe.
 std::vector<std::string> PluginRuSubcommands();
 
+// For `ru help`: one line per plugin and kind, e.g. "match chat: .r .ready ..." /
+// "match console: ru_match_token ...". Thread-safe.
+std::vector<std::string> PluginCommandSummary();
+
 // True if `sub` (lowercase) is a subcommand the core handles itself; plugins cannot take it.
 bool IsCoreRuSubcommand(const std::string& sub);
 

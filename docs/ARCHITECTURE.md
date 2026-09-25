@@ -23,9 +23,11 @@ function pointers. The goals:
    This is the main speed-up for development.
 3. **Separate shipping.** Skins is its own `.so`. Leaving it out of a release means removing one file.
 
-Status: the plugin host, API v1.2, `plugins/hello` and `plugins/skins` work (steps 0-3 of the
-[migration plan](#migration-plan)). Match is **still compiled into the core** and behaves exactly
-as before; moving it out is step 4 (API v1.2 added what it needs).
+Status: the split is done ([migration plan](#migration-plan) steps 0-4, and step 5's "drop
+libpq/libcurl from the core link"). The core only owns engine-facing infrastructure; the match
+flow is `plugins/match` (`match.so`), skins is `plugins/skins`, both talk to the core through
+API v1.2 only. The core runs on its own without any plugin (engine checks, `ru selftest`, the
+status endpoint with `summary.match_plugin: "none"`).
 
 ---
 
@@ -54,7 +56,13 @@ The core owns:
 - **Players**: the identity and team registry (slot ↔ SteamID64 ↔ name ↔ team, bots).
 - **Infrastructure**: config (`readyup.cfg` core keys, plus per-plugin config lookup), logging, the crash handler.
 - **Admin checks**: the permission check (`is_admin`). Who counts as an admin comes from a
-  provider; the match plugin registers the MAT/DB-backed one.
+  provider; the match plugin registers the MAT/DB-backed one (without it, only the console is).
+- **Status endpoint** (`/health /status /stream /metrics /selftest`, docs/FLEET.md §17): the
+  HTTP server, versions, selftest and health are the core's; the match part of `/status`
+  (summary, MatchState, `update_safe`) comes from the match plugin through `readyup.match.v1`
+  (`core/include/readyup/match_iface.h`), the platform part from `readyup.fleet.v1`.
+- **Selftest**: engine surface, hooks, schema, events, plugin host, features; plugins add their
+  own lines through `readyup.selftest.<name>` (`core/include/readyup/selftest_iface.h`).
 
 Plugins own **policy**. They decide what happens on a round start, what `.r` means, which
 webhook to send and which skin to apply. They get engine access only through `ru_api`.
@@ -225,9 +233,10 @@ they disappear on unload.
   `subscribe_game_event` callbacks, which are synchronous by design) the engine's event dispatch,
   and never while a core mutex is held (no lock-order problems between core and plugin
   locks). The cost is at most one frame of latency (about 15 ms at 64 tick).
-- **Frame order**: original GameFrame → core ticks (modes, scrim, welcome, skins, for now) →
-  `plugins::Frame`: pending load/unload/reload, then posted tasks, commands and events (FIFO
-  per queue), then `on_tick` if simulating. Queues and ops also drain on non-simulating frames.
+- **Frame order**: original GameFrame → core frame work (event listener registration, entity
+  system status) → `plugins::Frame`: pending load/unload/reload, then posted tasks, commands,
+  events and log lines (FIFO per queue), then `on_tick` if simulating, then `on_frame` (every
+  frame). Queues and ops also drain on non-simulating frames.
 - **Worker threads** (DB, HTTP) belong to the plugin. It starts them in load, **joins them in
   unload**, and hands results back with `post_to_game_thread`.
 - Queues are bounded (1024 commands / events, 4096 tasks). Floods drop the oldest events and
@@ -285,20 +294,38 @@ itself mid-callback.
   gamedata fragment (`engine-surface.skins.json`) that ships **only in the skins zip**. The
   default core then does not even resolve them, and the matching `ru_api` members return 0.
 
-**Match-specific:** a reload mid-match drops in-memory match state. The plugin must restore
-from `persisted_match_state` (the crash-recovery path it already has) or from `stash_*`.
-During development, reload between matches.
+**Match-specific** (`plugins/match/readyup/reload_state.h`): `ru plugin reload match` keeps the
+match going. Unload stops and joins every worker thread (webhook sender, DB writer, admin
+refresh, demo upload: an upload in progress is aborted and restarted by the next image), then
+keeps one JSON document in the stash; load restores it before anything runs. What survives:
+
+- the loaded match (full match context), the mode (warmup / knife / live / postgame / scrim /
+  practice) and every ready state;
+- map number, round, scores (log-derived and the stats model's team1/team2 score), the per-map
+  stats model and event totals, halftime / overtime counters, series wins and map results;
+- the knife round (phase, winner, pick deadline, deaths / HP so far) and the pause state;
+- runtime settings: webhook / heartbeat / admins URLs, match token, `ru_warmup_*`,
+  `ru_cfg_exec_enable`, `ru_dev_bots_scrim`, demo settings, series-end kick delays, `.ru idle`;
+- undelivered webhook events, the demo recording in progress, a pending GOTV-flush stop and the
+  pending postgame step (next map / series-end kick / unload), rescheduled with the time left.
+
+Not kept: per-player UI throttles, the scrim countdown (it restarts), the round in progress in
+the stats model (starts over empty), and log lines / events of the one frame no image was
+loaded. The stash is core memory: a server restart still recovers through the Postgres-persisted
+match state (`match_recovery`), as before. A cold load (no stash) does that DB restore.
+
+While match is unloaded, round-termination suppression is lifted (unload turns it off) and chat
+commands like `.r` are not routed; the core keeps working.
 
 **Hibernation:** reload runs in GameFrame. If an empty server stops producing frames, a
 queued reload waits until it wakes. Dev servers should run with `sv_hibernate_when_empty 0`.
 
 ## 5. Where the current modules go
 
-The physical move (step 1) is done: core sources are in `core/src/readyup/` (the
-`readyup/` subdirectory keeps every `#include "readyup/..."` unchanged), the shim entry
-points in `core/src/exports.{cpp,map}`, vendored code in `third_party/`, and the non-engine
-helpers in `libs/readyup/`. Match and skins sources still sit in `core/src/readyup/` and are
-still linked into the core until steps 3 and 4 move them.
+Done. Core sources are in `core/src/readyup/` (the `readyup/` subdirectory keeps every
+`#include "readyup/..."` unchanged), the shim entry points in `core/src/exports.{cpp,map}`,
+vendored code in `third_party/`, the non-engine helpers in `libs/readyup/`, the match flow in
+`plugins/match/readyup/` and skins in `plugins/skins/`.
 
 ### Core (`core/src/readyup/`)
 
@@ -307,24 +334,50 @@ still linked into the core until steps 3 and 4 move them.
 | `exports.cpp`, `real_server.*`, `path.*`, `disabled.*`, `banner.*`, `version.h`, `cs2_version.*` | shim, loading |
 | `engine_surface.*`, `engine_surface_core.*`, `signature_scan.*`, `sigtest.*`, `sdk/*` | engine surface |
 | `game_frame_hook.*`, `host_say_hook.*`, `client_command_hook.*`, `round_termination_hook.*`, `console_command.*` | hooks (`console_command` is a probe and can go) |
-| `server_game_clients_hook.*` | **split**: the ClientCommand hook + name-swap primitive stay; the admin/captain prefix *policy* goes to match |
-| `command_buffer_hook.*` | **split**: the AddText hook, `EnqueueServerCommand` and core `ru` subcommands (`help`, `plugin`, `sigtest`, `reload`, `mode` forwarding) stay; `ru match load`, token/url/warmup cvar commands go to match as console commands |
-| `game_events.*` | **split**: listener install, RTTI, registration, normalized events, slot→controller map and team-for-slot stay; round stats, damage, halftime/OT, knife and webhook emission go to match |
-| `log_receiver.*` | **split**: the file-tail fallback and line fan-out stay; `LifecycleImpl`'s webhook/score/backup logic goes to match |
+| `server_game_clients_hook.*` | the ClientCommand hook: routes plugin chat commands with the sender slot (`RU_CMD_HIDE` swallows the line) and relays chat name prefixes plugins set (match sets the admin / captain ones) |
+| `command_buffer_hook.*` | the AddText hook, `EnqueueServerCommand`, the core `ru` subcommands (`help`, `plugin`, `sigtest`, `selftest`, `reload`, `status_http`, `version`) and the dispatch of plugin console commands / `ru <sub>` / `RU_CMD_OBSERVE` |
+| `game_events.*` | listener install, RTTI, registration (core events + what plugins subscribe to), normalized events, the per-slot controller map, team-for-slot, the human team table's `player_team` source |
+| `log_receiver.*` | the file-tail fallback, the line fan-out to plugins and the log-derived normalized events |
 | `chat.*`, `chat_colors.h`, `client_print.*`, `center_html.*` | output |
 | `schema.*`, `entity.*` (was `skins_engine.*`) | schema and entity primitives (the generic half of skins) |
-| `slot_registry.*`, `player_registry.*`, `steamid.*` | identity and team registry |
-| `ru_router.*`, `ru_help.*` | **split**: routing, dedupe, `.ru` / `.ru plugin` / version stay; every match command (`.r`, `.pause`, `.ru start`, …) becomes a match registration |
-| `config.*` | core keys stay (debug, banner, prefixes, log port); match keys move behind `config_get` |
-| `logging.*`, `crash_handler.*`, `minijson.*` | infrastructure |
-| `plugin_loader.*` (new) | plugin host |
+| `slot_registry.*`, `steamid.*` | identity and team registry |
+| `ru_router.*`, `ru_help.*` | routing, dedupe, `.ru` / `.ru plugin` / `.ru selftest` / `.ru reload` / version; everything else goes to the plugin that registered it |
+| `config.*` | core keys (debug, banner, chat_prefix, consume_ru_chat, status_http_*); plugins read their own |
+| `admin_check.*` | `is_admin`: the plugin admin provider's answer |
+| `status_feed.*`, `status_http.*`, `status_server.*` | local status endpoint (JSON / hub in `libs/readyup/status_snapshot.*`) |
+| `selftest.*`, `features.*` | `ru selftest`, the feature table plugins query with `feature_state` |
+| `logging.*`, `crash_handler.*` | infrastructure |
+| `plugin_loader.*`, `plugin_engine_api.cpp` | plugin host, API implementation |
 
 ### readyup-match (`plugins/match/`)
 
-`modes.*`, `scrim_flow.*`, `match_state.*`, `pause_state.*`, `match_config_parser.*`,
-`match_recovery.*`, `match_token.*`, `persisted_settings.*`, `persisted_match_state.*`,
-`backup_files.*`, `webhook.*`, `welcome.*`, `admins.*`, `admin_check.*` (it becomes the admin
-provider), `mat_admins.*`, plus the match halves of the split files above.
+**Done (step 4).** `plugins/match/readyup/`:
+
+| Files | What |
+|---|---|
+| `match_plugin.cpp` | entry points; registers the player chat commands (`.r` & co, `RU_CMD_HIDE` when `consume_ready_chat=1`), the `ru` subcommands, the console settings (`ru_match_token`, `ru_webhook_url`, `ru_warmup_*`, `ru_demo_*`, ...), a `tv_delay` observer, ticks / frames, lifecycle events, log lines, raw engine events, the admin provider, `readyup.match.v1` and `readyup.selftest.match` |
+| `host.*`, `engine.h`, `logging.h`, `players.h`, `workers.*`, `config.*` | the adapters: the functions the match flow called in the core (`Print`, `SendToChat`, `EnqueueServerCommand`, `ListHumans`, `FeatureEnabled`, ...) on top of `ru_api`; calls from worker threads are queued to the next frame. `workers` tracks every thread so unload can join them. Settings come from readyup.cfg (top level, as before, then `[match]`) and `cfg/ReadyUp/match.cfg`, re-read when a file changes |
+| `modes.*`, `scrim_flow.*`, `pause_state.*`, `match_state.*`, `knife_tracker.*` | the flow: idle / scrim / warmup / knife / live / postgame / practice |
+| `match_events.*` | the match half of the old `game_events.cpp`: round lifecycle, halftime / OT swaps, knife round end, per-map stats, damage totals (round events are handled on the frame's tick, after its log lines) |
+| `match_log.*` | the match half of `log_receiver`'s `LifecycleImpl`: map number, scores, the log-driven knife round, the log fallback of the round lifecycle, connect / disconnect webhooks |
+| `match_router.*`, `match_console.*` | chat / `ru` / console commands (the match parts of `ru_router.cpp` and `command_buffer_hook.cpp`, incl. `ru match load`) |
+| `webhook.*`, `match_token.*`, `mat_admins.*`, `admins.*`, `admin_check.*`, `persisted_*.*`, `db_writer.*`, `backup_files.*`, `match_recovery.*`, `match_config_parser.*` | platform link, admins (DB list cached in the background), Postgres persistence, boot recovery |
+| `match_stats.*`, `match_end*.*`, `demo_*.*`, `game_timers.*` | stats model, map / series end, GOTV demos + upload, game-thread timers (`on_frame`, also on non-simulating frames) |
+| `welcome.*`, `ready_hud.*` | the welcome card and the ready HUD (center HTML) |
+| `match_status.*` | `readyup.match.v1`: the match part of `/status` |
+| `reload_state.*` | what survives `ru plugin reload match` (§4) |
+
+It links libpq / libcurl itself (static in release builds); the core links neither.
+
+Behaviour changes that come with the move:
+
+- Match console / chat commands run on the next frame (up to ~15 ms later), never inside the
+  engine's AddText or event dispatch.
+- The `jointeam` early trigger of the welcome card is gone (the ClientCommand hook only routes
+  chat now); the card still shows on the team-switch log line / `player_team` event.
+- Admin checks never wait on the database: the admin table is re-read in the background every
+  30 s and right after `ru admins add|remove`.
+- Settings can also live in a `[match]` section or `cfg/ReadyUp/match.cfg`.
 
 ### readyup-skins (`plugins/skins/`)
 
@@ -357,17 +410,19 @@ arguments and `scripts/ci/verify-cs2.sh` passes every fragment in `gamedata/`.
 
 ### Shared non-engine code (`libs/`)
 
-`postgres.*`, `db_config.*`, `http_client.*`, `minijson.*` and `steamid.*` become small static
-PIC libraries. Step 3 made a start: `readyup_libs_db` (`db_config` parsing + `pg_client`, no core
-dependencies) is what skins links; the core's `postgres.*` (admins, settings) goes with match. Each plugin links in what it needs, statically and with hidden visibility.
-This is source-level sharing: nothing crosses the ABI, and none of it touches the engine. The
-core keeps only `minijson`/`steamid` and, after the move, needs neither libpq nor libcurl.
+`postgres.*`, `db_config.*`, `pg_client.*`, `http_client.*`, `minijson.*`, `steamid.*` and
+`status_snapshot.*` (JSON value with an order-keeping parser, merge-patch diff, the status hub).
+`readyup_libs_db` (`db_config` parsing + `pg_client`) is what skins links; match compiles
+`postgres`, `http_client`, `minijson`, `steamid` and `status_snapshot` in. Each plugin links in
+what it needs, statically and with hidden visibility. This is source-level sharing: nothing
+crosses the ABI, and none of it touches the engine. The core keeps only `minijson`, `steamid`
+and `status_snapshot`, and needs neither libpq nor libcurl.
 
 ### Target monorepo layout
 
 ```
 core/                     libserver.so shim: engine surface, hooks, events, loader, API impl
-core/include/readyup/plugin_api.h   public C ABI (plugins include only this)
+core/include/readyup/plugin_api.h   public C ABI (plugins include only this + the *_iface.h)
 plugins/match/            readyup-match
 plugins/skins/            readyup-skins (separately shippable)
 plugins/hello/            example plugin
@@ -416,14 +471,15 @@ all of them. `READYUP_PLUGINS_DIR` overrides the directory (tests).
 
 **Release** (`scripts/package-release.sh`, built and uploaded by CI on every run):
 
-- component zips `ready-up-{core,match,skins,hello}-X.Y.Z-linuxsteamrt64.zip` (match is a
-  manifest-only placeholder until step 4), which the root `install.sh` mixes;
+- component zips `ready-up-{core,match,skins,hello}-X.Y.Z-linuxsteamrt64.zip` (match: `match.so`
+  plus the `cfg/ReadyUp/*.cfg` templates it execs), which the root `install.sh` mixes;
 - bundles `ready-up-essentials-...` (core + match, the default, no skins) and
   `ready-up-full-...` (core + match + skins + hello + the gamedata checkers);
 - `SHA256SUMS`.
 
 Every zip carries `readyup/manifests/<component>.json` (its file list). `scripts/ci/check-bundles.sh`
-fails CI if core, match or essentials contain skins code or gamedata, and the `installer` job
+fails CI if core, match or essentials contain skins code or gamedata, if match / essentials /
+full lack `match.so`, or if the core zip carries `match.so` or match code, and the `installer` job
 runs `tests/installer/test_install.sh` against the built zips. Plugins carry the release version; the API version is separate.
 CI runs sigcheck against the core only; plugins have nothing to check.
 
@@ -431,10 +487,10 @@ CI runs sigcheck against the core only; plugins have nothing to check.
 
 ```bash
 scripts/dev-deploy.sh --plugin match      # build only readyup_plugin_match, copy match.so to
-                                          # server-4/game/csgo/readyup/plugins/, then send
-                                          # `ru plugin reload match` into the ru-4 tmux console
+                                          # readyup-test/game/csgo/readyup/plugins/, then send
+                                          # `ru plugin reload match` into the ru-test tmux console
                                           # as cs2servermanager and print the result
-scripts/dev-deploy.sh --restart           # core changes still need the old full deploy + restart
+scripts/dev-deploy.sh --restart           # core changes still need the full deploy + restart
 ```
 
 `--plugin` renames the file into place (a running image is never overwritten), keeps
@@ -452,8 +508,8 @@ docs branches are still open, because every one of them touched `src/readyup/*` 
 | 1 | **Done.** One `git mv` commit to the target layout (`src/readyup` → `core/src/readyup`, `src/third_party` → `third_party`, `src/exports.*` → `core/src`, postgres/db_config/http_client/minijson/steamid → `libs/readyup`), with CMake, scripts, CI and docs paths updated. No code changes, so review is trivial and `git log --follow` keeps history. | 0.5 day |
 | 2 | **Done.** API v1.1: the additions listed in §2 (players, center HTML, raw engine events, log lines, schema/entity/econ, terminate round, name prefix, admins, config, interfaces, stash) and `RouteChatCommand` carrying the sender slot (Host_Say already knows it). | 2–3 days |
 | 3 | **Done.** Extract **skins** to `plugins/skins`: `libs/` for postgres/db_config, `skins_engine` → core `entity.*`, split out the skins gamedata fragment, replace `weapon_paints::GameFrameTick` / `MaybeRefreshAsync` call sites with `on_tick` and event subscriptions. Verify on server-4 (paints, knife, gloves, agents; reload mid-map). Release script: two zips. | 2–3 days |
-| 4 | Extract **match**. This is the big one: `modes` (1.8k lines), `webhook`, the match half of `game_events` (~1k), `ru_router`, `command_buffer_hook` commands, `log_receiver` lifecycle, scrim, welcome and admins become plugin code using the v1.1 API. The core keeps the split halves. Then a full regression on server-4 with MAT: match load, ready, knife and side pick, pause/unpause, halftime/OT, recovery after restart, webhooks, scrim flow, practice. | 5–7 days |
-| 5 | Cleanup: drop libpq/libcurl from the core link, document writing third-party plugins, and add the CI job that builds both zips and runs the host test. | 1 day |
+| 4 | **Done.** Extract **match** to `plugins/match` (§5): `modes`, `webhook`, the match half of `game_events`, `ru_router`, `command_buffer_hook` commands, `log_receiver` lifecycle, scrim, welcome, HUD, admins, Postgres, demos, stats and the match part of the status endpoint (`readyup.match.v1`) are plugin code on API v1.2. `ru plugin reload match` keeps the match (§4); the core runs without match.so. Verified with `scripts/livetest` (match and scrim) on readyup-test, including a reload mid-warmup. | 5–7 days |
+| 5 | Cleanup. **Done:** libpq/libcurl dropped from the core link (with step 4); CI builds every zip and runs the host test. Open: a guide for writing third-party plugins. | 1 day |
 
 **Total: roughly 2–2.5 weeks of focused work** after step 1 is unblocked. Steps 3 and 4 are
 independent once step 2 lands, so skins can ship as a plugin before match moves.

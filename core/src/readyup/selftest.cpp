@@ -6,7 +6,6 @@
 #include "readyup/command_buffer_hook.h"
 #include "readyup/config.h"
 #include "readyup/cs2_version.h"
-#include "readyup/db_config.h"
 #include "readyup/disabled.h"
 #include "readyup/engine_surface.h"
 #include "readyup/features.h"
@@ -16,8 +15,6 @@
 #include "readyup/logging.h"
 #include "readyup/path.h"
 #include "readyup/plugin_loader.h"
-#include "readyup/postgres.h"
-#include "readyup/ready_hud.h"
 #include "readyup/round_termination_hook.h"
 #include "readyup/schema.h"
 #include "readyup/entity.h"
@@ -96,6 +93,8 @@ constexpr FieldUse kSchemaFields[] = {
     {"CEconItemView", "m_szCustomName", false, "skins (name tags)"},
     {"CCSPlayerPawn", "m_EconGloves", true, "skins (gloves)"},
     {"CCSPlayerPawn", "m_nEconGlovesChanged", false, "skins (gloves)"},
+    // plugins/match (match_events.cpp).
+    {"CCSPlayerController", "m_iszPlayerName", false, "stats (bot names)"},
     {"CCSPlayerController", "m_iKills", false, "stats (else from events)"},
     {"CCSPlayerController", "m_iDeaths", false, "stats (else from events)"},
     {"CCSPlayerController", "m_iAssists", false, "stats (else from events)"},
@@ -130,36 +129,6 @@ struct Report {
     Check(st, name, s.detail);
   }
 };
-
-// ---- Async DB ping (network I/O never runs on the game thread) --------------------------------
-
-struct DbProbe {
-  std::mutex mu;
-  int state = 0;  // 0 never, 1 running, 2 done
-  bool ok = false;
-  std::string err;
-};
-DbProbe& Probe() {
-  static DbProbe p;
-  return p;
-}
-
-void KickDbPing() {
-  if (!pg::Available() || !DbCfg()) return;
-  {
-    std::lock_guard<std::mutex> lk(Probe().mu);
-    if (Probe().state == 1) return;
-    Probe().state = 1;
-  }
-  std::thread([] {
-    std::string err;
-    const bool ok = pg::Ping(&err);
-    std::lock_guard<std::mutex> lk(Probe().mu);
-    Probe().state = 2;
-    Probe().ok = ok;
-    Probe().err = err;
-  }).detach();
-}
 
 // ---- Sections -----------------------------------------------------------------------------------
 
@@ -238,7 +207,7 @@ void AddSchema(Report& r) {
   }
 }
 
-void AddRuntime(Report& r, bool waitForDb) {
+void AddRuntime(Report& r) {
   r.Section("runtime");
   r.Dep("hook GameFrame (tick)", DependencyStatus("hook:GameFrame"));
   r.Check(GameFrameSimulatingTicks() > 0 ? "OK" : "PEND", "GameFrame ticking",
@@ -261,40 +230,6 @@ void AddRuntime(Report& r, bool waitForDb) {
     r.Check(ev.delivered ? "OK" : "WARN", "engine event delivery", d);
   }
   r.Dep("entity system", DependencyStatus("entsys"));
-
-  // Database.
-  if (!pg::Available()) {
-    r.Check("SKIP", "database", "built without Postgres");
-  } else if (!DbCfg()) {
-    r.Check("SKIP", "database", "not configured (readyup_db.json missing)");
-  } else {
-    if (waitForDb) {
-      KickDbPing();
-      for (int i = 0; i < 50; ++i) {
-        {
-          std::lock_guard<std::mutex> lk(Probe().mu);
-          if (Probe().state == 2) break;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      }
-    }
-    int st;
-    bool ok;
-    std::string err;
-    {
-      std::lock_guard<std::mutex> lk(Probe().mu);
-      st = Probe().state;
-      ok = Probe().ok;
-      err = Probe().err;
-    }
-    const std::string where = DbCfg()->conninfo_sanitized;
-    if (st == 2) {
-      r.Check(ok ? "OK" : "FAIL", "database", (ok ? "SELECT 1 ok (" : "ping failed: " + err + " (") + where + ")");
-    } else {
-      r.Check("PEND", "database", "ping in progress (" + where + "); run selftest again");
-    }
-    KickDbPing();  // refresh for the next run (async)
-  }
 
   // Chat output paths (the functions themselves are counted above).
   const bool all = EngineFunctionResolution("UTIL_ClientPrintAll").ok;
@@ -366,15 +301,8 @@ void AddPluginsAndHud(Report& r) {
     }
   }
 
-  r.Section("hud");
-  const auto c = Cfg();
-  r.Check("INFO", "ready HUD", Fmt("showing=%s (feature %s)", ReadyHudShowing() ? "yes" : "no",
-                                   FeatureEnabled(Feature::ReadyHud) ? "on" : "off"));
-  const std::string header = HudBrandHtml(24, "fontSize-l");
-  r.Check("INFO", "hud brand",
-          Fmt("hud_brand=\"%s\" hud_logo_url=%s -> header %zu bytes%s", c.hud_brand.c_str(),
-              c.hud_logo_url.empty() ? "(none)" : c.hud_logo_url.c_str(), header.size(),
-              !c.hud_logo_url.empty() && header.find("<img") == std::string::npos ? " (logo url rejected)" : ""));
+  // (The database, ready HUD and hud brand lines come from plugins/match:
+  // "readyup.selftest.match", in the [plugins] section above.)
 }
 
 void AddFeatures(Report& r) {
@@ -392,7 +320,7 @@ void AddFeatures(Report& r) {
   }
 }
 
-SelftestResult Build(bool waitForDb, const std::string& extraFailure) {
+SelftestResult Build(const std::string& extraFailure) {
   Report r;
   const Cs2VersionSnapshot v = GetCs2VersionSnapshot();
   const es::EngineSurface* s = GetEngineSurface();
@@ -409,7 +337,7 @@ SelftestResult Build(bool waitForDb, const std::string& extraFailure) {
     AddFunchookSites(r, *s);
   }
   AddSchema(r);
-  AddRuntime(r, waitForDb);
+  AddRuntime(r);
   AddPluginsAndHud(r);
   AddFeatures(r);
 
@@ -479,7 +407,7 @@ std::string StatusFilePath() {
 
 void FinishAndQuit(const std::string& extraFailure, bool fromGameThread) {
   if (g_quitDone.exchange(true)) return;
-  const SelftestResult r = Build(/*waitForDb=*/!fromGameThread, extraFailure);
+  const SelftestResult r = Build(extraFailure);
   for (const auto& l : r.lines) Print("%s\n", l.c_str());
   const std::string path = StatusFilePath();
   {
@@ -505,7 +433,7 @@ void FinishAndQuit(const std::string& extraFailure, bool fromGameThread) {
 }  // namespace
 
 SelftestResult RunSelftest(bool printToConsole) {
-  SelftestResult r = Build(/*waitForDb=*/false, {});
+  SelftestResult r = Build({});
   status_feed::NoteSelftest(r);  // last result for /health, /status and /selftest
   if (printToConsole) {
     for (const auto& l : r.lines) Print("%s\n", l.c_str());
@@ -546,7 +474,6 @@ void SelftestFrameTick() {
   if (!SelftestAndQuitRequested() || g_quitDone.load(std::memory_order_relaxed)) return;
   if (!g_sawTick.exchange(true)) {
     g_firstTick = Clock::now();
-    KickDbPing();  // so the result is in by the time the report is built
     return;
   }
   const int delayS = EnvInt("READYUP_SELFTEST_DELAY", 5);

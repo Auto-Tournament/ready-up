@@ -5,24 +5,19 @@
 #include "readyup/match_stats.h"
 #include "readyup/ready_hud.h"
 
-#include "readyup/center_html.h"
+#include "readyup/engine.h"
 #include "readyup/welcome.h"
-#include "readyup/chat.h"
-#include "readyup/command_buffer_hook.h"
 #include "readyup/config.h"
-#include "readyup/disabled.h"
-#include "readyup/features.h"
-#include "readyup/game_events.h"
+#include "readyup/match_events.h"
 #include "readyup/game_timers.h"
 #include "readyup/knife_tracker.h"
 #include "readyup/logging.h"
 #include "readyup/match_state.h"
+#include "readyup/admin_check.h"
 #include "readyup/mat_admins.h"
 #include "readyup/persisted_match_state.h"
-#include "readyup/postgres.h"
-#include "readyup/slot_registry.h"
-#include "readyup/round_termination_hook.h"
-#include "readyup/server_game_clients_hook.h"
+#include "readyup/players.h"
+#include "readyup/status_snapshot.h"
 #include "readyup/webhook.h"
 
 #include <atomic>
@@ -81,8 +76,6 @@ struct State {
   // Track current map so cfg baselines are re-executed on map changes (MatchZy behavior).
   std::string lastSeenMap;
 
-  // admin cache: steamid64 -> (isAdmin, lastChecked)
-  std::unordered_map<uint64_t, std::pair<bool, std::chrono::steady_clock::time_point>> adminCache;
 
   // Best-effort warmup rules + transition into live.
   bool warmupRulesApplied = false;
@@ -580,27 +573,9 @@ static void EnforceWhitelistLocked(State& st) {
 
   const auto now = std::chrono::steady_clock::now();
   const auto minKickInterval = std::chrono::seconds(3);
-  const auto adminCacheTtl = std::chrono::seconds(30);
 
-  auto isAdmin = [&](uint64_t steamid64) -> bool {
-    if (steamid64 == 0) return false;
-    if (ctx.admins.find(steamid64) != ctx.admins.end()) return true;
-    if (readyup::mat_admins::IsMatAdmin(steamid64)) return true;
-    if (!pg::Available()) return false;
-    auto it = st.adminCache.find(steamid64);
-    if (it != st.adminCache.end() && (now - it->second.second) < adminCacheTtl) {
-      return it->second.first;
-    }
-    std::string err;
-    if (!pg::EnsureSchema(&err)) {
-      st.adminCache[steamid64] = {false, now};
-      return false;
-    }
-    err.clear();
-    const bool ok = pg::IsAdmin(steamid64, &err);
-    st.adminCache[steamid64] = {ok, now};
-    return ok;
-  };
+  // Match admins, MAT admins and the (cached) database admins; never waits on the database.
+  auto isAdmin = [&](uint64_t steamid64) -> bool { return IsReadyUpAdmin(steamid64); };
 
   auto slots = ListSlotIdentities();
   std::unordered_set<uint64_t> seenSteam;
@@ -1934,8 +1909,7 @@ void OnNativeWarmupStarted(const char* source) {
 }
 
 void Tick() {
-  // Game events are required for correct match flow; register/verify on the server thread.
-  GameEventsFrameTick();
+  // (The core registers the engine event listener; this plugin only consumes events.)
   static const auto s_boot = std::chrono::steady_clock::now();
   static std::atomic<bool> s_warned{false};
   if (!GameEventsListenerInstalled()) {
@@ -2024,6 +1998,152 @@ void Tick() {
   }
   lk.unlock();
   SetRoundTerminationSuppressed(suppressRoundEnd);
+}
+
+// ---------------------------------------------------------------------------- reload state
+// steady_clock time points are CLOCK_MONOTONIC: the same process, so their raw counts stay
+// valid from one plugin image to the next.
+
+namespace {
+long long Tp(std::chrono::steady_clock::time_point t) { return static_cast<long long>(t.time_since_epoch().count()); }
+std::chrono::steady_clock::time_point FromTp(long long v) {
+  return std::chrono::steady_clock::time_point(std::chrono::steady_clock::duration(v));
+}
+}  // namespace
+
+status::Json ModesSnapshotJson() {
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  status::Json j = status::Json::Object();
+  j["mode"] = static_cast<int>(st.mode);
+  j["warmup_enabled"] = st.warmupEnabled;
+  j["warmup_html"] = st.warmupHtml;
+  j["warmup_html_custom"] = st.warmupHtmlCustom;
+  j["cfg_exec_enabled"] = st.cfgExecEnabled;
+  j["idle_cfg_executed"] = st.idleCfgExecuted;
+  j["warmup_respawn"] = st.warmupRespawn;
+  j["warmup_ignore_win"] = st.warmupIgnoreWin;
+  j["warmup_round_time_minutes"] = st.warmupRoundTimeMinutes;
+  j["warmup_start_money"] = st.warmupStartMoney;
+  j["warmup_max_money"] = st.warmupMaxMoney;
+  j["warmup_buy_anywhere"] = st.warmupBuyAnywhere;
+  j["warmup_infinite_ammo"] = st.warmupInfiniteAmmo;
+  status::Json ready = status::Json::Array();
+  for (const auto& kv : st.ready) {
+    if (kv.second) ready.Push(std::to_string(kv.first));
+  }
+  j["ready"] = std::move(ready);
+  j["match_loaded_chat_sent"] = st.matchLoadedChatSent;
+  j["last_not_ready_chat"] = Tp(st.lastNotReadyChat);
+  j["last_seen_map"] = st.lastSeenMap;
+  j["warmup_rules_applied"] = st.warmupRulesApplied;
+  j["start_triggered"] = st.startTriggered;
+  j["last_gate_cmd"] = Tp(st.lastGateCmd);
+  j["recovery_gate"] = st.recoveryGate;
+  j["lifecycle_map_number"] = st.lifecycleMapNumber;
+  j["warmup_ended_sent"] = st.warmupEndedSent;
+  j["going_live_sent"] = st.goingLiveSent;
+  j["practice_rules_applied"] = st.practiceRulesApplied;
+  j["practice_reset_pending"] = st.practiceResetPending;
+  j["demo_recording"] = st.demoRecording;
+  j["demo_map_number"] = st.demoMapNumber;
+  j["demo_name"] = st.demoName;
+  j["map_result_emitted_for"] = st.mapResultEmittedForMapNumber;
+  j["series_wins_team1"] = st.seriesWinsTeam1;
+  j["series_wins_team2"] = st.seriesWinsTeam2;
+  status::Json k = status::Json::Object();
+  k["map_number"] = st.knifeMapNumber;
+  k["rules_applied"] = st.knifeRulesApplied;
+  k["started_sent"] = st.knifeStartedSent;
+  k["ended_sent"] = st.knifeEndedSent;
+  k["winner"] = static_cast<int>(st.knifeWinner);
+  k["awaiting_pick"] = st.knifeAwaitingPick;
+  k["pick_deadline"] = Tp(st.knifePickDeadline);
+  k["phase"] = static_cast<int>(st.knifePhase);
+  k["triggered_at"] = Tp(st.knifeTriggeredAt);
+  k["winner_cs"] = st.knifeWinnerCs;
+  k["reason_short"] = st.knifeReasonShort;
+  k["reminder_sent"] = st.knifeReminderSent;
+  k["logdetail_set"] = st.knifeLogdetailSet;
+  j["knife"] = std::move(k);
+  j["last_native_warmup_end"] = Tp(st.lastNativeWarmupEnd);
+  return j;
+}
+
+void ModesRestoreJson(const status::Json& j) {
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  auto b = [&](const status::Json* o, const char* key, bool& out) {
+    if (const auto* v = o ? o->Find(key) : nullptr) out = v->AsBool();
+  };
+  auto i = [&](const status::Json* o, const char* key, int& out) {
+    if (const auto* v = o ? o->Find(key) : nullptr) out = static_cast<int>(v->AsInt());
+  };
+  auto s = [&](const status::Json* o, const char* key, std::string& out) {
+    if (const auto* v = o ? o->Find(key) : nullptr) out = v->AsString();
+  };
+  auto t = [&](const status::Json* o, const char* key, std::chrono::steady_clock::time_point& out) {
+    if (const auto* v = o ? o->Find(key) : nullptr) out = FromTp(v->AsInt());
+  };
+  int mode = static_cast<int>(st.mode);
+  i(&j, "mode", mode);
+  st.mode = static_cast<ReadyUpMode>(mode);
+  b(&j, "warmup_enabled", st.warmupEnabled);
+  s(&j, "warmup_html", st.warmupHtml);
+  b(&j, "warmup_html_custom", st.warmupHtmlCustom);
+  b(&j, "cfg_exec_enabled", st.cfgExecEnabled);
+  b(&j, "idle_cfg_executed", st.idleCfgExecuted);
+  b(&j, "warmup_respawn", st.warmupRespawn);
+  b(&j, "warmup_ignore_win", st.warmupIgnoreWin);
+  i(&j, "warmup_round_time_minutes", st.warmupRoundTimeMinutes);
+  i(&j, "warmup_start_money", st.warmupStartMoney);
+  i(&j, "warmup_max_money", st.warmupMaxMoney);
+  b(&j, "warmup_buy_anywhere", st.warmupBuyAnywhere);
+  b(&j, "warmup_infinite_ammo", st.warmupInfiniteAmmo);
+  st.ready.clear();
+  if (const auto* r = j.Find("ready")) {
+    for (const auto& v : r->Items()) {
+      const uint64_t sid = std::strtoull(v.AsString().c_str(), nullptr, 10);
+      if (sid) st.ready[sid] = true;
+    }
+  }
+  b(&j, "match_loaded_chat_sent", st.matchLoadedChatSent);
+  t(&j, "last_not_ready_chat", st.lastNotReadyChat);
+  s(&j, "last_seen_map", st.lastSeenMap);
+  b(&j, "warmup_rules_applied", st.warmupRulesApplied);
+  b(&j, "start_triggered", st.startTriggered);
+  t(&j, "last_gate_cmd", st.lastGateCmd);
+  b(&j, "recovery_gate", st.recoveryGate);
+  i(&j, "lifecycle_map_number", st.lifecycleMapNumber);
+  b(&j, "warmup_ended_sent", st.warmupEndedSent);
+  b(&j, "going_live_sent", st.goingLiveSent);
+  b(&j, "practice_rules_applied", st.practiceRulesApplied);
+  b(&j, "practice_reset_pending", st.practiceResetPending);
+  b(&j, "demo_recording", st.demoRecording);
+  i(&j, "demo_map_number", st.demoMapNumber);
+  s(&j, "demo_name", st.demoName);
+  i(&j, "map_result_emitted_for", st.mapResultEmittedForMapNumber);
+  i(&j, "series_wins_team1", st.seriesWinsTeam1);
+  i(&j, "series_wins_team2", st.seriesWinsTeam2);
+  const status::Json* k = j.Find("knife");
+  i(k, "map_number", st.knifeMapNumber);
+  b(k, "rules_applied", st.knifeRulesApplied);
+  b(k, "started_sent", st.knifeStartedSent);
+  b(k, "ended_sent", st.knifeEndedSent);
+  int winner = static_cast<int>(st.knifeWinner);
+  i(k, "winner", winner);
+  st.knifeWinner = static_cast<WebhookTeam>(winner);
+  b(k, "awaiting_pick", st.knifeAwaitingPick);
+  t(k, "pick_deadline", st.knifePickDeadline);
+  int phase = static_cast<int>(st.knifePhase);
+  i(k, "phase", phase);
+  st.knifePhase = static_cast<KnifePhase>(phase);
+  t(k, "triggered_at", st.knifeTriggeredAt);
+  i(k, "winner_cs", st.knifeWinnerCs);
+  s(k, "reason_short", st.knifeReasonShort);
+  b(k, "reminder_sent", st.knifeReminderSent);
+  b(k, "logdetail_set", st.knifeLogdetailSet);
+  t(&j, "last_native_warmup_end", st.lastNativeWarmupEnd);
 }
 
 }  // namespace readyup

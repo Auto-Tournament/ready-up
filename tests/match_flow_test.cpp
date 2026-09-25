@@ -191,6 +191,41 @@ static void TestStatsSidesAndGate() {
   CHECK(!st.Live());
 }
 
+// Plugin reload: ToJson(MapStats) -> FromJson -> Restore continues the map with the same
+// totals, sides and round list.
+static void TestStatsRestore() {
+  stats::StatsAccumulator st;
+  st.BeginMap(/*team1IsCt=*/true);
+  st.OnRoundStart();
+  ObserveAll(st, 3);
+  st.OnPlayerDeath(B1, A1, A2, /*assistedFlash=*/false, /*headshot=*/true, "ak47", 1.0);
+  st.OnPlayerHurt(B2, A2, 40, 60, "m4a1");
+  st.OnRoundEnd(3, 8);
+  st.SetTeam1IsCt(false);  // halftime
+  const auto before = st.Snapshot();
+  const std::string json = stats::ToJson(before);
+
+  stats::MapStats parsed;
+  CHECK(stats::FromJson(json, &parsed));
+  stats::StatsAccumulator st2;
+  st2.Restore(parsed);
+  CHECK(st2.Live());
+  CHECK(!st2.Team1IsCt());
+  CHECK_EQ(st2.Team1Score(), 1);
+  CHECK_EQ(st2.Team2Score(), 0);
+  CHECK_STR(stats::ToJson(st2.Snapshot()), json);
+  // The next round continues on top of the restored totals.
+  st2.OnRoundStart();
+  ObserveAll(st2, 2);
+  st2.OnPlayerDeath(A1, B1, 0, false, false, "glock", 2.0);
+  st2.OnRoundEnd(3, 8);  // team2 is CT now
+  CHECK_EQ(st2.Team2Score(), 1);
+  const auto* a1 = FindPlayer(st2.Snapshot(), A1);
+  CHECK(a1 && a1->stats.kills == 1 && a1->stats.deaths == 1 && a1->stats.headshot_kills == 1);
+  CHECK_EQ(st2.Snapshot().rounds.size(), 2u);
+  CHECK(!stats::FromJson("[1,2]", &parsed));
+}
+
 static void TestMapEndPlan() {
   auto p = ComputeMapEndPlan(/*demo=*/false, /*upload=*/false, 10, 5, 10, 60);
   CHECK_EQ(p.restartDelay, 10);
@@ -289,6 +324,7 @@ static void TestMatchFlowEventJson() {
 int main() {
   TestStatsRound1();
   TestStatsSidesAndGate();
+  TestStatsRestore();
   TestMapEndPlan();
   TestSeriesOver();
   TestDemoNaming();

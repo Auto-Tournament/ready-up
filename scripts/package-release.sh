@@ -5,14 +5,15 @@
 #
 #   scripts/package-release.sh <build-dir> <version> <out-dir>
 #
-# <build-dir> holds libserver.so, plugins/skins.so, plugins/hello.so and (optionally)
-# readyup_sigcheck / readyup_hookcheck.
+# <build-dir> holds libserver.so, plugins/match.so, plugins/skins.so, plugins/hello.so and
+# (optionally) readyup_sigcheck / readyup_hookcheck.
 #
 # Component zips (the installer mixes these):
-#   ready-up-core-<v>-linuxsteamrt64.zip    the core (libserver.so, engine-surface.json, cfg
-#                                            templates, readyup.cfg.example, tools, docs)
-#   ready-up-match-<v>-linuxsteamrt64.zip   PLACEHOLDER: match is still built into the core
-#                                            (migration step 4); only a manifest for now
+#   ready-up-core-<v>-linuxsteamrt64.zip    the core (libserver.so, engine-surface.json,
+#                                            readyup.cfg.example, tools, docs)
+#   ready-up-match-<v>-linuxsteamrt64.zip   plugins/match.so (ready-up, scrims, knife, pauses,
+#                                            practice, match configs, webhooks, demos) + the
+#                                            cfg/ReadyUp/*.cfg templates it execs
 #   ready-up-skins-<v>-linuxsteamrt64.zip   plugins/skins.so + engine-surface.skins.json
 #   ready-up-hello-<v>-linuxsteamrt64.zip   plugins/hello.so (example plugin)
 # Bundles (for manual download):
@@ -38,7 +39,7 @@ trap 'rm -rf "$WORK"' EXIT
 EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 SUFFIX="$VERSION-linuxsteamrt64.zip"
 
-for f in libserver.so plugins/skins.so plugins/hello.so; do
+for f in libserver.so plugins/match.so plugins/skins.so plugins/hello.so; do
   [[ -f "$BUILD/$f" ]] || { echo "package-release: missing $BUILD/$f" >&2; exit 1; }
 done
 
@@ -73,9 +74,6 @@ core_files=(
   "$ROOT_DIR/docs/INSTALL.md:INSTALL.md"
 )
 [[ -f "$ROOT_DIR/LICENSE" ]] && core_files+=("$ROOT_DIR/LICENSE:LICENSE")
-for f in "$ROOT_DIR"/cfg/ReadyUp/*.cfg; do
-  core_files+=("$f:cfg-templates/ReadyUp/$(basename "$f")")
-done
 printf '%s\n' "$VERSION" >"$WORK/VERSION"
 {
   echo "version=$VERSION"
@@ -86,10 +84,14 @@ printf '%s\n' "$VERSION" >"$WORK/VERSION"
   [[ -n "${CS2_PATCH_VERSION:-}" ]] && echo "verified_cs2_patch_version=$CS2_PATCH_VERSION"
 } >"$WORK/BUILD_INFO"
 core_files+=("$WORK/VERSION:VERSION" "$WORK/BUILD_INFO:BUILD_INFO")
-stage_component core "Ready Up core: libserver.so, engine surface, plugin host (match logic is still built in)" "${core_files[@]}"
+stage_component core "Ready Up core: libserver.so, engine surface, plugin host, status endpoint" "${core_files[@]}"
 
-# Match is still part of libserver.so until migration step 4 moves it to plugins/match.so.
-stage_component match "PLACEHOLDER: match logic is built into the core for now; this component installs no files yet"
+# The match flow (plugins/match) and the ReadyUp/*.cfg files it execs (warmup, knife, live, ...).
+match_files=("$BUILD/plugins/match.so:plugins/match.so:755")
+for f in "$ROOT_DIR"/cfg/ReadyUp/*.cfg; do
+  match_files+=("$f:cfg-templates/ReadyUp/$(basename "$f")")
+done
+stage_component match "Ready-up, scrims, knife round, pauses, practice, match configs, webhooks, demos" "${match_files[@]}"
 
 cat >"$WORK/SKINS-WARNING.txt" <<'EOF'
 Ready Up skins (weapon paints, knives, gloves, agents)

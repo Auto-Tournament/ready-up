@@ -1,17 +1,13 @@
 #include "readyup/server_game_clients_hook.h"
 #include "readyup/plugin_loader.h"
 
-#include "readyup/admin_check.h"
 #include "readyup/ccommand.h"
 #include "readyup/chat.h"
-#include "readyup/chat_colors.h"
 #include "readyup/config.h"
 #include "readyup/engine_surface.h"
 #include "readyup/logging.h"
 #include "readyup/ru_router.h"
 #include "readyup/slot_registry.h"
-#include "readyup/webhook.h"
-#include "readyup/welcome.h"
 
 #include <sys/mman.h>
 #include <unistd.h>
@@ -56,15 +52,6 @@ static bool PatchVtable(void** vtable, int index, void* replacement, void** outO
   return true;
 }
 
-static bool IsAdminSteam(uint64_t steamid64) {
-  // Allow per-match admins from match config (plus global admins).
-  if (auto ctxOpt = WebhookGetMatchContext()) {
-    const auto& ctx = *ctxOpt;
-    if (ctx.admins.find(steamid64) != ctx.admins.end()) return true;
-  }
-  return readyup::IsReadyUpAdmin(steamid64);
-}
-
 static std::string StripChatColorBytes(const std::string& s) {
   std::string out;
   out.reserve(s.size());
@@ -81,15 +68,6 @@ static bool HasPrefixAlready(const std::string& name, const std::string& prefix)
   if (want.empty()) return false;
   const std::string stripped = StripChatColorBytes(name);
   return stripped.rfind(want + " ", 0) == 0;
-}
-
-static std::string CaptainPrefixFor(uint64_t steamid64) {
-  auto ctxOpt = WebhookGetMatchContext();
-  if (!ctxOpt) return {};
-  const auto& ctx = *ctxOpt;
-  if (steamid64 != 0 && steamid64 == ctx.team1_captain_steamid64) return CaptainPrefixTeam1();
-  if (steamid64 != 0 && steamid64 == ctx.team2_captain_steamid64) return CaptainPrefixTeam2();
-  return {};
 }
 
 static void Hook_ClientCommand(void* thisptr, CPlayerSlot slot, const void* args) {
@@ -111,17 +89,6 @@ static void Hook_ClientCommand(void* thisptr, CPlayerSlot slot, const void* args
   Debug("client-command: slot=%d cmd=\"%s\" argc=%zu ident=%s steamid64=%llu\n", slotNum, cmd.c_str(), argv->size(),
         ident ? "yes" : "no", static_cast<unsigned long long>(ident ? ident->steamid64 : 0ull));
 
-  if (cmd == "jointeam") {
-    // Tentative welcome trigger for an explicit `jointeam 2|3` (0 = auto-assign is left to the
-    // confirmed log/event sources, which know the final team).
-    const int req = argv->size() >= 2 ? std::atoi((*argv)[1].c_str()) : -1;
-    if (req == 2 || req == 3) {
-      WelcomeObserveTeamJoin(slotNum, req, ident ? ident->steamid64 : 0, ident ? ident->name : std::string(),
-                             WelcomeSource::ClientCommand);
-    }
-    return g_origClientCommand(thisptr, slot, args);
-  }
-
   if (cmd != "say" && cmd != "say_team") return g_origClientCommand(thisptr, slot, args);
   if (!ident) return g_origClientCommand(thisptr, slot, args);
 
@@ -134,12 +101,6 @@ static void Hook_ClientCommand(void* thisptr, CPlayerSlot slot, const void* args
     Debug("client-command: saw .ru msg=\"%s\"\n", msg.c_str());
     RouteChatCommand(ident->steamid64, ident->name, msg, slotNum);
     if (ConsumeRuChat()) return;
-  }
-  // `.r` (ready toggle) and friends; RouteChatCommand dedupes a repeat of the line above.
-  if (msg.rfind(".r", 0) == 0) {
-    Debug("client-command: saw .r msg=\"%s\"\n", msg.c_str());
-    RouteChatCommand(ident->steamid64, ident->name, msg, slotNum);
-    if (ConsumeReadyChat()) return;
   }
   // Plugin chat commands: routed here with the sender's slot (the log listener's copy of the
   // line is deduped); RU_CMD_HIDE swallows the line before the engine prints it.
@@ -154,17 +115,14 @@ static void Hook_ClientCommand(void* thisptr, CPlayerSlot slot, const void* args
     }
   }
 
-  const uint64_t sid = ident->steamid64;
-  std::string pluginPrefix;
-  const bool hasPluginPrefix = plugins::PluginChatPrefixFor(sid, &pluginPrefix);  // set_chat_name_prefix
-  const bool isAdmin = !hasPluginPrefix && IsAdminSteam(sid);
-  const std::string capPrefix = hasPluginPrefix ? pluginPrefix : CaptainPrefixFor(sid);
-  if (!isAdmin && capPrefix.empty()) return g_origClientCommand(thisptr, slot, args);
-
-  // Admin/captain prefix: relay a prefixed line and consume the original to avoid duplicates.
-  // (A "true" prefix via a temporary name swap needs IVEngineServer::ClientCommand, which is not
-  // part of the verified engine surface.)
-  const std::string prefix = isAdmin ? AdminPrefix() : capPrefix;
+  // Chat name prefix a plugin set for this player (set_chat_name_prefix; readyup-match sets the
+  // admin / captain prefixes): relay a prefixed line and consume the original to avoid
+  // duplicates. (A "true" prefix via a temporary name swap needs IVEngineServer::ClientCommand,
+  // which is not part of the verified engine surface.)
+  std::string prefix;
+  if (!plugins::PluginChatPrefixFor(ident->steamid64, &prefix) || prefix.empty()) {
+    return g_origClientCommand(thisptr, slot, args);
+  }
   if (HasPrefixAlready(ident->name, prefix) || msg.empty()) return g_origClientCommand(thisptr, slot, args);
   std::string line;
   line.reserve(prefix.size() + ident->name.size() + msg.size() + 32);

@@ -2,8 +2,9 @@
 
 #include "readyup/config.h"
 #include "readyup/logging.h"
-#include "readyup/path.h"
+#include "readyup/engine.h"
 #include "readyup/persisted_match_state.h"
+#include "readyup/workers.h"
 
 #include <chrono>
 #include <filesystem>
@@ -52,9 +53,9 @@ std::optional<std::string> FindNewestBackupFileByPrefix(const std::string& prefi
 
 void DiscoverAndPersistNewestBackupFileAsync(std::string prefix) {
   if (prefix.empty()) return;
-  std::thread([prefix = std::move(prefix)]() mutable {
+  workers::Spawn("backup-files", [prefix = std::move(prefix)]() mutable {
     // Give the game a moment to flush the backup file.
-    std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    if (!workers::SleepFor(std::chrono::milliseconds(250))) return;
     auto fn = FindNewestBackupFileByPrefix(prefix);
     if (fn) {
       readyup::persisted_match_state::PersistBackupFile(*fn);
@@ -64,7 +65,7 @@ void DiscoverAndPersistNewestBackupFileAsync(std::string prefix) {
     } else if (DebugEnabled()) {
       Debug("backup_files: no backup file found for prefix=%s\n", prefix.c_str());
     }
-  }).detach();
+  });
 }
 
 }  // namespace readyup::backup_files

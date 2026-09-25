@@ -3,9 +3,10 @@
 //
 // Owns the Hub + StatusServer (status_snapshot.h / status_server.h), the discovery file
 // `csgo/readyup/status.json` and the game-thread collector. The collector runs from the
-// GameFrame hook at most every 250 ms: it reads mode / match context / scores / roster / pause /
-// knife / stats team lines / plugins / fleet status (`readyup.fleet.v1`, fleet_iface.h), builds
-// a StatusInputs and hands it to the HTTP thread with one pointer swap. The HTTP thread never
+// GameFrame hook at most every 250 ms: it reads the match plugin's summary / MatchState /
+// update_safe (`readyup.match.v1`, match_iface.h; "no match plugin" without it), plugins and
+// fleet status (`readyup.fleet.v1`, fleet_iface.h), builds a StatusInputs and hands it to the
+// HTTP thread with one pointer swap. The HTTP thread never
 // calls back into the core, so a slow or hostile client cannot cost a frame.
 //
 // readyup.cfg (core keys):

@@ -60,10 +60,15 @@ class Json {
   const std::vector<Json>& Items() const { return arr_; }
   bool AsBool() const { return i_ != 0; }
   long long AsInt() const { return t_ == Type::Double ? static_cast<long long>(d_) : i_; }
+  double AsDouble() const { return t_ == Type::Double ? d_ : static_cast<double>(i_); }
   const std::string& AsString() const { return s_; }
 
   std::string Dump() const;
   void DumpTo(std::string& out) const;
+
+  // Parses JSON text (RFC 8259; object key order is kept, integers without a fraction or
+  // exponent stay Int). False and *err on a syntax error or nesting deeper than 64.
+  static bool Parse(const std::string& text, Json* out, std::string* err = nullptr);
 
   bool operator==(const Json& o) const;  // object key order does not matter
   bool operator!=(const Json& o) const { return !(*this == o); }

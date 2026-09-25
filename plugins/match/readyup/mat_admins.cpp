@@ -4,6 +4,7 @@
 #include "readyup/logging.h"
 #include "readyup/minijson.h"
 #include "readyup/steamid.h"
+#include "readyup/workers.h"
 
 #include <algorithm>
 #include <atomic>
@@ -22,7 +23,6 @@ namespace {
 struct State {
   std::mutex mu;
   std::condition_variable cv;
-  std::thread th;
   std::atomic<bool> started{false};
   bool stop = false;
 
@@ -151,8 +151,16 @@ static void StartThreadIfNeededLocked(State& st) {
   if (st.started.load()) return;
   st.started.store(true);
   st.stop = false;
-  st.th = std::thread(ThreadMain);
-  st.th.detach();
+  // A tracked worker: unload wakes it (stop) and joins it before the image goes away.
+  workers::AddWaker([] {
+    auto& s = St();
+    {
+      std::lock_guard<std::mutex> lk(s.mu);
+      s.stop = true;
+    }
+    s.cv.notify_all();
+  });
+  if (!workers::Spawn("mat-admins", ThreadMain)) st.started.store(false);
 }
 
 static int ClampRefreshSeconds(int seconds) {

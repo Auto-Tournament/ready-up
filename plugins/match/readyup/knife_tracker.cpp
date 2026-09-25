@@ -1,7 +1,7 @@
 #include "readyup/knife_tracker.h"
 
 #include "readyup/logging.h"
-#include "readyup/slot_registry.h"
+#include "readyup/players.h"
 
 #include <algorithm>
 #include <atomic>
@@ -120,6 +120,22 @@ void KnifeTrackerObserveLine(const std::string& line) {
   const int hp = std::atoi(line.c_str() + h + 9);
   m.health = std::max(0, std::min(100, hp));
   if (m.health == 0) m.dead = true;
+}
+
+std::vector<KnifeTrackerMember> KnifeTrackerSave() {
+  std::vector<KnifeTrackerMember> out;
+  std::lock_guard<std::mutex> lk(g_mu);
+  for (const auto& kv : g_members) out.push_back(KnifeTrackerMember{kv.first, kv.second.team, kv.second.dead, kv.second.health});
+  return out;
+}
+
+void KnifeTrackerRestore(bool active, const std::vector<KnifeTrackerMember>& members) {
+  {
+    std::lock_guard<std::mutex> lk(g_mu);
+    g_members.clear();
+    for (const auto& m : members) g_members[m.userid] = Member{m.team, m.dead, m.health};
+  }
+  g_active.store(active, std::memory_order_release);
 }
 
 KnifeSideStats KnifeTrackerStats(int csTeam) {

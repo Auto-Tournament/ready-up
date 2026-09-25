@@ -194,5 +194,11 @@ void WebhookEmitRoundEndMatchzy(int map_number,
 // Starts sender thread (idempotent). Safe to call early during startup.
 void WebhookStartSenderThread();
 
+// Plugin reload (reload_state.cpp): events not delivered yet (the old image's sender stopped),
+// re-queued by the new image; and the current heartbeat status string.
+std::vector<std::string> WebhookTakePending();
+void WebhookRestorePending(std::vector<std::string> events);
+std::string WebhookHeartbeatStatusString();
+
 }  // namespace readyup
 

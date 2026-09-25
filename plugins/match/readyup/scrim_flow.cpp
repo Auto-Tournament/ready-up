@@ -1,15 +1,13 @@
 #include "readyup/scrim_flow.h"
 
-#include "readyup/chat.h"
-#include "readyup/client_print.h"
+#include "readyup/engine.h"
 #include "readyup/config.h"
-#include "readyup/disabled.h"
-#include "readyup/game_events.h"
+#include "readyup/match_events.h"
 #include "readyup/logging.h"
 #include "readyup/match_state.h"
 #include "readyup/modes.h"
 #include "readyup/ready_hud.h"
-#include "readyup/slot_registry.h"
+#include "readyup/players.h"
 #include "readyup/webhook.h"
 
 #include <algorithm>
@@ -440,6 +438,19 @@ int ScrimCountdownSecondsLeft() {
   const auto leftMs =
       std::chrono::duration_cast<std::chrono::milliseconds>(f.countdownDeadline - Clock::now()).count();
   return static_cast<int>(std::max<long long>(0, (leftMs + 999) / 1000));
+}
+
+std::string ScrimLastMap() {
+  auto& f = F();
+  std::lock_guard<std::recursive_mutex> lk(f.mu);
+  return f.lastMap;
+}
+
+void ScrimRestore(bool autoEnabled, const std::string& lastMap) {
+  auto& f = F();
+  std::lock_guard<std::recursive_mutex> lk(f.mu);
+  f.autoEnabled = autoEnabled;
+  f.lastMap = lastMap;
 }
 
 void ScrimNoteReadyChanged() {

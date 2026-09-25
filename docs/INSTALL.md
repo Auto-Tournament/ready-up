@@ -32,7 +32,7 @@ Every zip's root is the contents of `game/csgo`:
 |---|---|
 | `ready-up-essentials-<v>-linuxsteamrt64.zip` | core + match (default, no skins) |
 | `ready-up-full-<v>-linuxsteamrt64.zip` | core + match + skins + hello + `readyup_sigcheck` / `readyup_hookcheck` |
-| `ready-up-core-...`, `-match-...`, `-skins-...`, `-hello-...` | single components. Match is still built into the core, so its zip only carries a manifest for now. |
+| `ready-up-core-...`, `-match-...`, `-skins-...`, `-hello-...` | single components. The core runs alone, but the match flow (ready-up, knife, pauses, webhooks) is `match`. |
 | `SHA256SUMS` | checksums of every zip |
 
 1. Extract the zip into `game/csgo`. You should end up with `game/csgo/readyup/bin/linuxsteamrt64/libserver.so`.
@@ -78,6 +78,13 @@ Location (next to the shim):
 - `game/csgo/readyup/bin/linuxsteamrt64/readyup.cfg`
 
 The installer only creates this file if it's missing; it never overwrites your edits (a changed default is written as `readyup.cfg.default`).
+
+The core reads `debug`, `banner`, `chat_prefix`, `chat_debug`, `consume_ru_chat` and the
+`status_http_*` keys. The match plugin (`match.so`) reads its keys (`welcome`, `ready_hud`,
+`hud_*`, `admin_prefix`, `captain_prefix_*`, `consume_ready_chat`, `dev_bots_*`, `scrim_knife`,
+`knife_pick_seconds`) from the same place, or from a `[match]` section of this file, or from
+`game/csgo/cfg/ReadyUp/match.cfg` (later ones win). It re-reads them by itself when one of those
+files changes.
 
 ### Prefix keys
 

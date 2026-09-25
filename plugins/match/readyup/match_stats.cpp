@@ -1,7 +1,10 @@
 #include "readyup/match_stats.h"
 
+#include "readyup/minijson.h"
+
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 
 namespace readyup::stats {
 
@@ -282,6 +285,23 @@ MapStats StatsAccumulator::Snapshot() const {
   return m;
 }
 
+void StatsAccumulator::Restore(const MapStats& m) {
+  Clear();
+  live_ = m.live;
+  team1IsCt_ = m.team1_is_ct;
+  t1_ = m.team1;
+  t2_ = m.team2;
+  for (const auto& l : m.players) {
+    auto& p = players_[l.id];
+    p.name = l.name;
+    p.team = l.team;
+    p.lastSide = l.last_side;
+    p.bot = l.bot;
+    p.s = l.stats;
+  }
+  rounds_ = m.rounds;
+}
+
 // ---------------------------------------------------------------------------- JSON
 
 std::string JsonEscape(const std::string& s) {
@@ -435,6 +455,130 @@ std::string ToJson(const MapStats& m) {
       .R("players", players)
       .R("rounds", rounds)
       .Done();
+}
+
+namespace {
+
+using minijson::Value;
+
+int JI(const Value* o, const char* k) {
+  const Value* v = o ? o->get(k) : nullptr;
+  return v && v->type == Value::Type::Number ? static_cast<int>(v->num) : 0;
+}
+bool JB(const Value* o, const char* k) {
+  const Value* v = o ? o->get(k) : nullptr;
+  return v && v->type == Value::Type::Bool && v->b;
+}
+std::string JS(const Value* o, const char* k) {
+  const Value* v = o ? o->get(k) : nullptr;
+  return v && v->type == Value::Type::String ? v->str : std::string();
+}
+uint64_t JId(const Value* o) { return std::strtoull(JS(o, "id").c_str(), nullptr, 10); }
+void JA(const Value* o, const char* k, std::array<int, 5>* out) {
+  const Value* v = o ? o->get(k) : nullptr;
+  if (!v || v->type != Value::Type::Array) return;
+  for (size_t i = 0; i < out->size() && i < v->arr.size(); ++i) (*out)[i] = static_cast<int>(v->arr[i].num);
+}
+TeamLine JTeam(const Value* o) {
+  TeamLine t;
+  t.score = JI(o, "score");
+  t.score_ct = JI(o, "score_ct");
+  t.score_t = JI(o, "score_t");
+  return t;
+}
+PlayerStats JStats(const Value* o) {
+  PlayerStats s;
+  s.kills = JI(o, "kills");
+  s.deaths = JI(o, "deaths");
+  s.assists = JI(o, "assists");
+  s.flash_assists = JI(o, "flash_assists");
+  s.team_kills = JI(o, "team_kills");
+  s.suicides = JI(o, "suicides");
+  s.headshot_kills = JI(o, "headshot_kills");
+  s.knife_kills = JI(o, "knife_kills");
+  s.damage = JI(o, "damage");
+  s.utility_damage = JI(o, "utility_damage");
+  s.enemies_flashed = JI(o, "enemies_flashed");
+  s.friendlies_flashed = JI(o, "friendlies_flashed");
+  s.bomb_plants = JI(o, "bomb_plants");
+  s.bomb_defuses = JI(o, "bomb_defuses");
+  s.entry_kills_t = JI(o, "entry_kills_t");
+  s.entry_kills_ct = JI(o, "entry_kills_ct");
+  s.entry_deaths_t = JI(o, "entry_deaths_t");
+  s.entry_deaths_ct = JI(o, "entry_deaths_ct");
+  s.trade_kills = JI(o, "trade_kills");
+  s.traded_deaths = JI(o, "traded_deaths");
+  s.kast_rounds = JI(o, "kast_rounds");
+  s.rounds_played = JI(o, "rounds_played");
+  s.mvp = JI(o, "mvp");
+  s.score = JI(o, "score");
+  JA(o, "multi_kills", &s.multi_kills);
+  JA(o, "clutches_won", &s.clutches_won);
+  return s;
+}
+
+}  // namespace
+
+bool FromJson(const std::string& json, MapStats* out) {
+  minijson::ParseError err;
+  auto root = minijson::Parse(json, &err);
+  if (!root || root->type != Value::Type::Object || !out) return false;
+  MapStats m;
+  m.live = JB(&*root, "live");
+  m.team1_is_ct = JB(&*root, "team1_is_ct");
+  m.team1 = JTeam(root->get("team1"));
+  m.team2 = JTeam(root->get("team2"));
+  if (const Value* ps = root->get("players"); ps && ps->type == Value::Type::Array) {
+    for (const auto& p : ps->arr) {
+      PlayerLine l;
+      l.id = JId(&p);
+      l.name = JS(&p, "name");
+      l.team = JI(&p, "team");
+      l.last_side = JI(&p, "last_side");
+      l.bot = JB(&p, "bot");
+      l.stats = JStats(p.get("stats"));
+      if (l.id) m.players.push_back(std::move(l));
+    }
+  }
+  if (const Value* rs = root->get("rounds"); rs && rs->type == Value::Type::Array) {
+    for (const auto& r : rs->arr) {
+      RoundSummary s;
+      s.round_number = JI(&r, "round_number");
+      s.winner_side = JI(&r, "winner_side");
+      s.winner_team = JI(&r, "winner_team");
+      s.reason = JI(&r, "reason");
+      s.team1_score = JI(&r, "team1_score");
+      s.team2_score = JI(&r, "team2_score");
+      s.team1_was_ct = JB(&r, "team1_was_ct");
+      if (const Value* pl = r.get("players"); pl && pl->type == Value::Type::Array) {
+        for (const auto& p : pl->arr) {
+          PlayerRound x;
+          x.id = JId(&p);
+          x.team = JI(&p, "team");
+          x.side = JI(&p, "side");
+          x.kills = JI(&p, "kills");
+          x.assists = JI(&p, "assists");
+          x.flash_assists = JI(&p, "flash_assists");
+          x.damage = JI(&p, "damage");
+          x.utility_damage = JI(&p, "utility_damage");
+          x.headshot_kills = JI(&p, "headshot_kills");
+          x.died = JB(&p, "died");
+          x.survived = JB(&p, "survived");
+          x.traded = JB(&p, "traded");
+          x.kast = JB(&p, "kast");
+          x.entry_kill = JB(&p, "entry_kill");
+          x.entry_death = JB(&p, "entry_death");
+          x.mvp = JB(&p, "mvp");
+          x.clutch_vs = JI(&p, "clutch_vs");
+          x.clutch_won = JB(&p, "clutch_won");
+          s.players.push_back(x);
+        }
+      }
+      m.rounds.push_back(std::move(s));
+    }
+  }
+  *out = std::move(m);
+  return true;
 }
 
 StatsAccumulator& Current() {

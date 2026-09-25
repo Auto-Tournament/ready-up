@@ -101,7 +101,7 @@ Everything lives in this repo. The core is always installed; plugins are separat
 
 <br />
 
-Loads into CS2, owns every engine touchpoint (`gamedata/engine-surface.json`), and gives plugins a small, versioned C API: chat and console commands, game and log events, center-screen HTML, server commands, player and team lookup. Also ships `ru selftest`.
+Loads into CS2, owns every engine touchpoint (`gamedata/engine-surface.json`), and gives plugins a small, versioned C API: chat and console commands, game and log events, center-screen HTML, server commands, player and team lookup. Also ships `ru selftest` and the local status endpoint. It runs on its own too: without plugins it checks the engine and serves `/status`, but there is no match flow.
 
 </details>
 
@@ -110,7 +110,7 @@ Loads into CS2, owns every engine touchpoint (`gamedata/engine-surface.json`), a
 
 <br />
 
-The match flow: scrim ready-up with a center-screen panel, knife round and side pick, pauses, practice mode, admins, match configs and webhooks for the Auto Tournament platform. Currently built into the core while it moves to its own plugin, so the `match` download is a placeholder for now.
+The match flow: scrim ready-up with a center-screen panel, knife round and side pick, pauses, practice mode, admins, match configs, webhooks for the Auto Tournament platform, GOTV demos and per-map stats. Ships as `plugins/match.so` in both bundles. `ru plugin reload match` swaps in a new build without dropping a loaded match: ready states, scores and the knife round carry over.
 
 </details>
 

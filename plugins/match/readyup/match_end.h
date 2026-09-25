@@ -33,6 +33,7 @@
 // plus the demo settings in demo_recorder.h.
 
 #include "readyup/match_stats.h"
+#include "readyup/status_snapshot.h"
 
 #include <functional>
 #include <string>
@@ -114,5 +115,10 @@ bool MatchEndPending();
 
 // Settings commands (this file + demo_recorder.h). Returns true if consumed.
 bool MatchFlowHandleConsoleLine(const std::string& line);
+
+// Plugin reload (reload_state.cpp): kick delays and the pending postgame step (next map,
+// series-end kick, match unload), rescheduled with the time it had left.
+status::Json MatchEndSnapshotJson();
+void MatchEndRestoreJson(const status::Json& j);
 
 }  // namespace readyup
