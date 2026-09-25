@@ -334,6 +334,18 @@ int main(int argc, char** argv) {
     if (!ok) std::printf("  summary: %s\n", s0.c_str());
   }
   {
+    // v1.4 map_stats: nothing recording before a map goes live; fn is not called.
+    const auto* m = static_cast<const ru_match_v1*>(rp::CoreGetInterface(RU_MATCH_IFACE_NAME, RU_MATCH_IFACE_VERSION));
+    ru_match_map_info info{};
+    info.struct_size = sizeof(info);
+    info.live = info.rounds = -1;
+    int calls = 0;
+    const bool has = RU_API_HAS(m, map_stats) && m->map_stats;
+    const int rc = has ? m->map_stats(&info, [](void* u, const ru_match_player_stats*) { ++*static_cast<int*>(u); }, &calls) : 0;
+    Check(rc == 1 && info.struct_size == sizeof(info) && info.live == 0 && info.rounds == 0 && info.half >= 1 && calls == 0,
+          "readyup.match.v1 map_stats: not live before going live");
+  }
+  {
     bool db = false, hud = false;
     for (const auto& c : rp::RunPluginSelftests()) {
       if (c.plugin != "match") continue;

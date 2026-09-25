@@ -402,6 +402,9 @@ How it talks to the core, all through `ru_api` v1.1:
 - loadouts: `data_dir()/loadouts.json` (+ `stattrak.json`) on one worker thread that unload
   joins; in fleet mode `skins.loadout` / `skins.invalidate` over `readyup.fleet.v1` and
   `skins.stattrak` back (capability `skins.v1`).
+- to other plugins: `readyup.skins.v1` (`core/include/readyup/skins_iface.h`): `paint_weapon`
+  puts a paint kit on one weapon entity (the midas plugin's gold finish) and keeps the loadout off
+  it until handed back with paint kit 0; `active` is 0 while skins is inert.
 
 **Gamedata fragment.** The engine entries only skins uses (the econ/model functions and the
 `CEntityInstance::NetworkStateChanged` slot) moved from `engine-surface.json` to

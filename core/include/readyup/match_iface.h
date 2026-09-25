@@ -41,6 +41,31 @@ typedef struct ru_match_status {
   const char* ru_mode;
 } ru_match_status;
 
+/* v1.4 (map_stats): one human player's totals on the map being recorded (definitions in
+ * plugins/match/readyup/match_stats.h). The PROVIDER sets struct_size to its sizeof; readers
+ * check it before touching trailing members. */
+typedef struct ru_match_player_stats {
+  uint32_t struct_size;
+  uint64_t steamid64;
+  int32_t side;          /* last side seen: 2 = T, 3 = CT */
+  int32_t kills;         /* team kills and suicides excluded */
+  int32_t deaths;
+  int32_t assists;
+  int32_t damage;        /* health removed from enemies (ADR = damage / rounds_played) */
+  int32_t rounds_played;
+} ru_match_player_stats;
+
+/* v1.4 (map_stats): the map being played. */
+typedef struct ru_match_map_info {
+  uint32_t struct_size; /* set by the CALLER to sizeof(ru_match_map_info); fill only what fits */
+  int32_t live;         /* 1 = stats are recording (a live match or scrim map; never warmup / knife) */
+  int32_t scrim;        /* 1 = the loaded match is a scrim (pickup); 0 = a real match, or none */
+  int32_t rounds;       /* rounds completed (recorded) on this map */
+  int32_t half;         /* 1 = first half; +1 at every side swap (halftime, overtime halves) */
+} ru_match_map_info;
+
+typedef void (*ru_match_player_stats_fn)(void* user, const ru_match_player_stats* player);
+
 typedef struct ru_match_v1 {
   uint32_t struct_size; /* sizeof(ru_match_v1) of the provider */
   /* Game thread. Fills *out (up to out->struct_size bytes). Returns 1 on success. */
@@ -60,6 +85,10 @@ typedef struct ru_match_v1 {
   /* v1.3. Game thread. The ru mode string ("idle", "practice", "match_live", ...), without
    * building the whole status (get_status does). Static string. Use this in per-tick code. */
   const char* (*mode)(void);
+  /* v1.4 (midas plugin, best player). Game thread. Fills *info (up to info->struct_size bytes)
+   * and, while stats are recording (info->live = 1) and fn is not NULL, calls fn once per human
+   * player with their totals on this map (bots are not reported). Returns 1 on success. */
+  int (*map_stats)(ru_match_map_info* info, ru_match_player_stats_fn fn, void* user);
   /* v1.x: members are appended here. */
 } ru_match_v1;
 

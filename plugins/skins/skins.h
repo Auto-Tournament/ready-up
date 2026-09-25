@@ -96,6 +96,10 @@ bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late);
 // player_spawn (game thread): gloves + agent again for that slot on its next alive tick, also
 // when the pawn stayed alive (mp_restartgame, round start).
 void RequestSpawnCosmetics(int slot);
+// readyup.skins.v1 (skins_iface.h), game thread. ExternalPaintReady: not inert, entity system and
+// schema fields ready. PaintWeaponExternal: paint_weapon (paintKit 0 hands the weapon back).
+bool ExternalPaintReady();
+bool PaintWeaponExternal(uint32_t handle, uint64_t steamid64, int paintKit, float wear, int seed);
 // `.skins reload`: about a second from now, gloves + agent again and the held weapons repainted
 // with the (re-read) loadout. Game thread.
 void RequestReapply(int slot);

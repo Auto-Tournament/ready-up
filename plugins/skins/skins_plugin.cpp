@@ -18,6 +18,7 @@
 
 #include "readyup/match_iface.h"
 #include "readyup/selftest_iface.h"
+#include "readyup/skins_iface.h"
 
 #include <atomic>
 #include <cctype>
@@ -102,6 +103,23 @@ void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   add(ctx, "INFO", "skins", g_inertReason.empty() ? "active (ruleset default)" : g_inertReason.c_str());
 }
 const ru_selftest_iface_v1 g_selftestIface = {sizeof(ru_selftest_iface_v1), &RunSelftest};
+
+// readyup.skins.v1 (the midas plugin paints its gold weapons through this).
+int SkinsActiveIface() {
+  try {
+    return ExternalPaintReady() ? 1 : 0;
+  } catch (...) {
+    return 0;
+  }
+}
+int PaintWeaponIface(uint32_t handle, uint64_t steamid64, int32_t paintKit, float wear, int32_t seed) {
+  try {
+    return PaintWeaponExternal(handle, steamid64, paintKit, wear, seed) ? 1 : 0;
+  } catch (...) {
+    return 0;
+  }
+}
+const ru_skins_v1 g_skinsIface = {sizeof(ru_skins_v1), &SkinsActiveIface, &PaintWeaponIface};
 }  // namespace
 
 bool Inert() { return g_inert.load(); }
@@ -292,6 +310,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     if (RU_API_HAS(api, provide_interface)) {
       api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "skins", RU_SELFTEST_IFACE_VERSION,
                              const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
+      api->provide_interface(api->self, RU_SKINS_IFACE_NAME, RU_SKINS_IFACE_VERSION, const_cast<ru_skins_v1*>(&g_skinsIface));
     }
     g_lastInertCheck = -1e9;
     Log(RU_LOG_INFO, "loaded " SKINS_VERSION " (%s)", LoadoutStatus().c_str());
