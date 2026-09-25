@@ -129,4 +129,36 @@ bool InventoryLocked(const EffectiveRuleSet& e);
 // votes) run only outside the valve ruleset; under it they do nothing, like the skins plugin.
 bool PlayerExtrasAllowed(const EffectiveRuleSet& e);
 
+
+// ---- GOTV at go-live -------------------------------------------------------------------------
+//
+// Under valve every map is recorded (rulebook L356-357), and GOTV only records when tv_enable was
+// 1 when the map loaded. So a valve match does not go live on a map without GOTV, unless an admin
+// forces it (`ru match start force`, fleet cmd `start` {"force": true}).
+
+enum class GotvState { Unknown, Up, Down };
+const char* GotvStateName(GotvState s);  // "unknown" | "up" | "down"
+
+// What the engine side saw. scanOk: the controllers could be read (entity system + the
+// CBasePlayerController::m_bIsHLTV offset); hltvSeen: one of them is the GOTV client. The GOTV
+// client joins a moment after the map loads, so "down" needs the map to have run
+// kGotvGraceSeconds first (until then: unknown).
+constexpr double kGotvGraceSeconds = 15.0;
+GotvState GotvStateFrom(bool scanOk, bool hltvSeen, double secondsSinceMapStart);
+
+struct GoLiveVerdict {
+  bool allowed = true;
+  std::string log;   // console line ("" = nothing to say)
+  std::string chat;  // chat line ("" = nothing to say)
+};
+// Default ruleset: always allowed, nothing to say. Valve: GOTV down refuses unless forced (then a
+// warning); unknown is allowed with a note (the check needs the engine surface).
+GoLiveVerdict GotvGoLiveCheck(Ruleset r, GotvState gotv, bool forced);
+
+// ---- sv_matchpause_auto_5v5 ------------------------------------------------------------------
+
+// Whether the engine's "not 5v5" pause is on for a match: esports_live.cfg sets it to 1 (valve),
+// live.cfg to 0 (default); a match cvar `sv_matchpause_auto_5v5` (nullptr: not set) wins.
+bool AutoPause5v5On(Ruleset r, const std::string* matchCvar);
+
 }  // namespace readyup

@@ -316,6 +316,11 @@ static void MaybeEnterKnifeModeLocked(State& st) {
   const auto now = std::chrono::steady_clock::now();
   if (st.lastGateCmd.time_since_epoch().count() != 0 && (now - st.lastGateCmd) < std::chrono::milliseconds(800)) return;
   if (!AllRosterReadyAndConnectedLocked(st, ctx)) return;
+  // valve: GOTV must be up before the match starts (esports.h). Asked again on the next gate.
+  if (!EsportsGoLiveAllowed(/*forced=*/false)) {
+    st.lastGateCmd = now;
+    return;
+  }
   (void)StartKnifeLocked(st, ctx);
 }
 
@@ -989,8 +994,10 @@ static void MaybeGateMatchLocked(State& st) {
     }
     const bool allReady = AllRosterReadyAndConnectedLocked(st, *ctxOpt);
     if (allReady) {
-      ApplyLiveRulesAndRestartLocked(st, *ctxOpt);
       st.lastGateCmd = now;
+      // valve: GOTV must be up (esports.h); refused until it is or an admin forces the start.
+      if (!EsportsGoLiveAllowed(/*forced=*/false)) return;
+      ApplyLiveRulesAndRestartLocked(st, *ctxOpt);
     }
   }
 }
@@ -1236,9 +1243,10 @@ void OnMatchRoundStarted() {
   StartDemoForMapLocked(st, mapNumber, ms.current_map);
 }
 
-bool ForceStartMatch() {
+bool ForceStartMatch(bool force) {
   auto ctxOpt = WebhookGetMatchContext();
   if (!ctxOpt) return false;
+  if (!EsportsGoLiveAllowed(force)) return false;  // valve without GOTV needs `force`
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
 

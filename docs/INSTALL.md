@@ -374,7 +374,7 @@ Ready Up maintains its own lightweight mode state machine and can display a **no
   - `ru mode idle`
   - `ru mode practice`
 - **Admin match controls (server console / RCON)**:
-  - `ru match start` (force start live rules regardless of ready)
+  - `ru match start [force]` (force start live rules regardless of ready; `force` also without GOTV under the valve ruleset)
   - `ru match restart` (restart and return to match warmup)
   - `ru match end` (force end: emits `series_end` with winner=none, clears match context, resets server)
   - the full list (`.ru map change|reload|restart`, ...) is in [ADMINS.md](ADMINS.md#commands);

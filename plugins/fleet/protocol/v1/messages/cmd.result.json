@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://auto-tournament.dev/fleet/v1/messages/cmd.result.json",
   "title": "cmd.result (server → platform, reliable (critical))",
-  "description": "The answer to match.assign / match.update / match.unassign / cmd; envelope `ref` = that message's id, `epoch` = its epoch. Error codes: invalid_config, invalid_update, busy, stale_epoch, not_assigned, conflict, bad_phase, bad_args, bad_request, already_paused, not_paused, no_backup, checksum, not_connected, forbidden, invalid_command, unknown_command, unsupported, engine, io, offline.",
+  "description": "The answer to match.assign / match.update / match.unassign / cmd; envelope `ref` = that message's id, `epoch` = its epoch. Error codes: invalid_config, invalid_update, busy, stale_epoch, not_assigned, conflict, bad_phase, bad_args, bad_request, already_paused, not_paused, no_backup, checksum, not_connected, gotv_off, forbidden, invalid_command, unknown_command, unsupported, engine, io, offline.",
   "type": "object",
   "required": [
     "status"

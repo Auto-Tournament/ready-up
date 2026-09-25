@@ -545,4 +545,44 @@ bool InventoryLocked(const EffectiveRuleSet& e) { return e.Str("cosmetics") == "
 
 bool PlayerExtrasAllowed(const EffectiveRuleSet& e) { return e.ruleset != Ruleset::Valve; }
 
+const char* GotvStateName(GotvState s) {
+  return s == GotvState::Up ? "up" : s == GotvState::Down ? "down" : "unknown";
+}
+
+GotvState GotvStateFrom(bool scanOk, bool hltvSeen, double secondsSinceMapStart) {
+  if (!scanOk) return GotvState::Unknown;
+  if (hltvSeen) return GotvState::Up;
+  return secondsSinceMapStart >= kGotvGraceSeconds ? GotvState::Down : GotvState::Unknown;
+}
+
+GoLiveVerdict GotvGoLiveCheck(Ruleset r, GotvState gotv, bool forced) {
+  GoLiveVerdict v;
+  if (r != Ruleset::Valve || gotv == GotvState::Up) return v;
+  if (gotv == GotvState::Unknown) {
+    v.log = "esports: gotv=unknown (GOTV client not readable): going live without the GOTV check";
+    return v;
+  }
+  if (forced) {
+    v.log = "esports: gotv=down: going live anyway (forced by an admin); this map has no demo";
+    v.chat = "Ready Up: going live WITHOUT GOTV (forced by an admin) - this map is not recorded.";
+    return v;
+  }
+  v.allowed = false;
+  v.log = "esports: gotv=down: go-live refused (valve ruleset records every map; tv_enable was 0 when the map "
+          "loaded). tv_enable 1 is set now: reload the map, or force it: ru match start force";
+  v.chat = "Ready Up: not going live - GOTV is off on this map (the valve ruleset records every map). "
+           "An admin reloads the map (.ru map reload) or forces it: .ru match start force";
+  return v;
+}
+
+bool AutoPause5v5On(Ruleset r, const std::string* matchCvar) {
+  if (matchCvar) {
+    const std::string& v = *matchCvar;
+    size_t b = v.find_first_not_of(" \t\"");
+    if (b == std::string::npos) return false;
+    return v[b] != '0' && v.compare(b, 5, "false") != 0;
+  }
+  return r == Ruleset::Valve;
+}
+
 }  // namespace readyup

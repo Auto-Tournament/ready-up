@@ -1,6 +1,6 @@
 // Offline tests for readyup/match_rules.h: rule resolution, technical pause limits, the unpause
-// rule, the auto-unpause countdown, the .forceready threshold, team name sanitizing and the
-// team-left forfeit timer. ctest `match_rules`.
+// rule, the auto-unpause countdown, the engine's auto 5v5 pause, the .forceready threshold, team
+// name sanitizing and the team-left forfeit timer. ctest `match_rules`.
 #include "readyup/match_rules.h"
 #include "readyup/warmup_money.h"
 
@@ -77,6 +77,28 @@ static void TestPauses() {
   CHECK(UnpauseSatisfied(false, true, false, 2));
   CHECK(UnpauseSatisfied(false, true, false, 0));  // no pausing team: either one
   CHECK(!UnpauseSatisfied(false, false, false, 0));
+}
+
+static void TestAuto5v5() {
+  // Rule on, live, not paused: a side short of 5 players at a round start means the engine pauses.
+  CHECK(!Auto5v5PauseExpected(true, true, false, 5, 5));
+  CHECK(!Auto5v5PauseExpected(true, true, false, 6, 5));  // more than 5 is not "short"
+  CHECK(Auto5v5PauseExpected(true, true, false, 4, 5));
+  CHECK(Auto5v5PauseExpected(true, true, false, 5, 4));
+  CHECK(Auto5v5PauseExpected(true, true, false, 0, 0));
+  // Off, not live, or a pause already running: nothing to mark.
+  CHECK(!Auto5v5PauseExpected(false, true, false, 4, 5));
+  CHECK(!Auto5v5PauseExpected(true, false, false, 4, 5));
+  CHECK(!Auto5v5PauseExpected(true, true, true, 4, 5));
+  // The short side: the one with fewer players, CT on a tie; 0 when both are full.
+  CHECK(Auto5v5ShortSide(5, 5) == 0);
+  CHECK(Auto5v5ShortSide(4, 5) == 3);
+  CHECK(Auto5v5ShortSide(5, 3) == 2);
+  CHECK(Auto5v5ShortSide(4, 4) == 3);
+  CHECK(Auto5v5ShortSide(2, 7) == 3);
+  // Both teams resume it (it belongs to nobody): the pauser is ignored when both are required.
+  CHECK(!UnpauseSatisfied(true, false, true, 1));
+  CHECK(UnpauseSatisfied(true, true, true, 2));
 }
 
 static void TestForceReady() {
@@ -157,6 +179,7 @@ static void TestForfeit() {
 int main() {
   TestResolve();
   TestPauses();
+  TestAuto5v5();
   TestForceReady();
   TestTeamNames();
   TestForfeit();

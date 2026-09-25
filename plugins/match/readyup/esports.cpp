@@ -105,9 +105,41 @@ void MaybeMarkHalftimePause() {
   SendToChat("Ready Up: halftime pause. Both teams type .unpause to start the second half.");
 }
 
+// ---- GOTV on this map (game thread; read from any thread) ------------------------------------
+
+std::atomic<int> g_gotv{static_cast<int>(GotvState::Unknown)};
+double g_mapStartAt = 0;  // tick_info.now of the first simulating frame after a map start (0 = not yet)
+int g_hltvOffset = -2;    // CBasePlayerController::m_bIsHLTV, -2 = not looked up yet
+GotvState g_gotvLogged = GotvState::Unknown;
+
+void RefreshGotv(double now) {
+  if (g_mapStartAt == 0) g_mapStartAt = now;
+  bool scanOk = false, seen = false;
+  if (g_api->entity_system_status(g_api->self) == RU_ENTSYS_OK) {
+    if (g_hltvOffset == -2) g_hltvOffset = g_api->schema_offset(g_api->self, "CBasePlayerController", "m_bIsHLTV");
+    if (g_hltvOffset >= 0) {
+      scanOk = true;
+      for (int i = 1; i <= 64 && !seen; ++i) {
+        void* e = g_api->entity_by_index(g_api->self, i);
+        if (!e) continue;
+        const char* cls = g_api->entity_classname(g_api->self, e);
+        if (!cls || std::strcmp(cls, "cs_player_controller") != 0) continue;
+        seen = *(static_cast<const unsigned char*>(e) + g_hltvOffset) != 0;
+      }
+    }
+  }
+  const GotvState st = GotvStateFrom(scanOk, seen, now - g_mapStartAt);
+  g_gotv = static_cast<int>(st);
+  if (st != g_gotvLogged && st != GotvState::Unknown) {
+    g_gotvLogged = st;
+    Debug("esports: gotv=%s\n", GotvStateName(st));
+  }
+}
+
 void OnFrame(void*, const ru_tick_info* t) {
   if (!t || !t->simulating) return;
   MaybeMarkHalftimePause();
+  if (g_frame % 32 == 0) RefreshGotv(t->now);
   ++g_frame;
   if (g_pending.empty()) return;
   std::vector<PendingModel> later;
@@ -179,6 +211,7 @@ bool InventoryLockedNow() { return InventoryLocked(CurrentEffectiveRules()); }
 void EsportsInstall(const ru_api* api) {
   g_api = api;
   g_teamOffset = -2;
+  g_hltvOffset = -2;
   g_pending.clear();
   api->subscribe_game_event(api->self, "player_spawn", &OnPlayerSpawn, nullptr);
   api->on_frame(api->self, &OnFrame, nullptr);
@@ -200,6 +233,44 @@ void EsportsOnMatchLoaded(const WebhookMatchContext& ctx) {
     for (const auto& n : ctx.ruleset_notes) Print("esports: %s\n", n.c_str());
   }
   if (InventoryLocked(e)) Print("esports: players' inventories are not modified (skins plugin inert)\n");
+}
+
+void EsportsOnMapStart() {
+  g_mapStartAt = 0;
+  g_gotv = static_cast<int>(GotvState::Unknown);
+  g_gotvLogged = GotvState::Unknown;
+}
+
+GotvState EsportsGotvState() { return static_cast<GotvState>(g_gotv.load()); }
+
+bool EsportsGoLiveAllowed(bool forced) {
+  const auto ctx = WebhookGetMatchContext();
+  const GoLiveVerdict v = GotvGoLiveCheck(CtxRuleset(ctx ? &*ctx : nullptr), EsportsGotvState(), forced);
+  static std::chrono::steady_clock::time_point lastSaid{};
+  static std::string lastLog;
+  const auto now = std::chrono::steady_clock::now();
+  if (!v.allowed) {
+    if (lastSaid.time_since_epoch().count() == 0 || now - lastSaid >= std::chrono::seconds(30)) {
+      lastSaid = now;
+      Print("%s\n", v.log.c_str());
+      SendToChat(v.chat.c_str());
+      // Takes effect when the map (re)loads: a reload then brings the GOTV client up.
+      (void)EnqueueServerCommand("tv_enable 1");
+    }
+    return false;
+  }
+  lastSaid = {};
+  if (!v.log.empty() && v.log != lastLog) Print("%s\n", v.log.c_str());
+  lastLog = v.log;
+  if (!v.chat.empty()) SendToChat(v.chat.c_str());
+  return true;
+}
+
+bool AutoPause5v5Enabled() {
+  const auto ctx = WebhookGetMatchContext();
+  if (!ctx) return false;
+  const auto it = ctx->cvars.find("sv_matchpause_auto_5v5");
+  return AutoPause5v5On(CtxRuleset(&*ctx), it == ctx->cvars.end() ? nullptr : &it->second);
 }
 
 void EsportsOnHalftime() {

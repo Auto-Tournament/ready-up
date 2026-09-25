@@ -1,8 +1,9 @@
 #pragma once
 
 // The engine side of rulesets (ruleset.h, docs/ESPORTS-MODE.md): which cfg go-live execs, the
-// rule commands after it, the default player models, the halftime pause, `ru match rules`, and what
-// the skins plugin asks (readyup.match.v1 inventory_locked).
+// rule commands after it, the default player models, the halftime pause, the GOTV go-live check,
+// whether the engine's auto 5v5 pause is on, `ru match rules`, and what the skins plugin asks
+// (readyup.match.v1 inventory_locked).
 
 #include "readyup/plugin_api.h"
 #include "readyup/ruleset.h"
@@ -35,6 +36,18 @@ void EsportsOnMatchLoaded(const WebhookMatchContext& ctx);
 // match_events: the regulation halftime started. With halftime_pausematch the engine pauses the
 // match when the second half starts; Ready Up marks that pause ("halftime": both teams .unpause).
 void EsportsOnHalftime();
+
+// A map started (RU_EVENT_MAP_START): the GOTV client is looked for again.
+void EsportsOnMapStart();
+// GOTV on this map: the GOTV client's controller (CBasePlayerController::m_bIsHLTV), looked up
+// about twice a second on the game thread. Any thread.
+GotvState EsportsGotvState();
+// The go-live check (GotvGoLiveCheck): false = refused under the valve ruleset because GOTV is
+// down. Logs, tells chat (at most every 30 s) and sets tv_enable 1 so a map reload brings GOTV
+// up. forced: an admin's `ru match start force` / fleet cmd start {"force": true}.
+bool EsportsGoLiveAllowed(bool forced);
+// sv_matchpause_auto_5v5 is on for the loaded match (AutoPause5v5On). Any thread.
+bool AutoPause5v5Enabled();
 
 // `ru match rules`.
 std::vector<std::string> EsportsRulesReport();

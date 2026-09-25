@@ -31,6 +31,7 @@ std::atomic<int> g_freezeEndSeq{0};
 std::atomic<bool> g_inFreeze{false};
 
 // Game thread only.
+int g_rsSeqAuto5v5 = 0;  // the round start the auto_5v5 check last ran for
 bool g_wasPaused = false;
 double g_effectiveAt = 0;  // technical: when the pause took effect (0 = waiting for freeze time)
 int g_rsSeqAtPause = 0;
@@ -156,6 +157,34 @@ void ForfeitTick(double now) {
   }
 }
 
+// sv_matchpause_auto_5v5 (on under the valve ruleset, esports.h): at a round start of a live map
+// with a side short of 5 players the engine pauses the match in freeze time. Ready Up marks that
+// pause "auto_5v5" (it belongs to nobody: both teams .unpause, or an admin; it counts against
+// neither team). If the engine did not pause after all, the freeze time ends and the tick clears it.
+void MaybeMarkAuto5v5Pause() {
+  const auto ctx = WebhookGetMatchContext();
+  if (!ctx) return;
+  int ct = 0, t = 0;
+  for (const auto& h : ListHumans()) {
+    if (h.team == 3) ++ct;
+    else if (h.team == 2) ++t;
+  }
+  for (const auto& b : ListBots()) {
+    if (b.team == 3) ++ct;
+    else if (b.team == 2) ++t;
+  }
+  if (!Auto5v5PauseExpected(AutoPause5v5Enabled(), LiveMap(), PauseStateGet().paused, ct, t)) return;
+  const int side = Auto5v5ShortSide(ct, t);
+  const WebhookTeam shortTeam = CsSideOf(*ctx, WebhookTeam::Team1) == side ? WebhookTeam::Team1 : WebhookTeam::Team2;
+  PauseStateOnPaused("auto_5v5", "server", shortTeam);
+  WebhookEmitMatchPaused(MatchStateGet().map_number, WebhookPlayer{0, "server", shortTeam}, /*is_tactical=*/false,
+                         /*is_admin=*/false, /*pause_time=*/0);
+  Print("pause: auto_5v5 (sv_matchpause_auto_5v5 1): CT %d, T %d players; %s is short\n", ct, t, TeamKey(shortTeam));
+  SendToChat(("Ready Up: paused - " + TeamName(*ctx, shortTeam) +
+              " is not full (5v5). Both teams type .unpause when ready, or an admin unpauses.")
+                 .c_str());
+}
+
 }  // namespace
 
 // The ruleset (esports.h): preset, the match config and readyup.cfg keys, overrides.
@@ -267,8 +296,9 @@ void MatchFeaturesUnpause(WebhookTeam team, uint64_t steamid64, const std::strin
                      .c_str());
     }
   }
-  // The halftime pause (mp_halftime_pausematch, esports.h) belongs to nobody: both teams resume it.
-  const bool both = rules.both_teams_unpause != 0 || cur.type == "halftime";
+  // The halftime pause (mp_halftime_pausematch, esports.h) and the engine's auto 5v5 pause
+  // (sv_matchpause_auto_5v5) belong to nobody: both teams resume them.
+  const bool both = rules.both_teams_unpause != 0 || cur.type == "halftime" || cur.type == "auto_5v5";
   const int teamsReady = (snap.team1_ready_to_unpause ? 1 : 0) + (snap.team2_ready_to_unpause ? 1 : 0);
   WebhookEmitUnpauseRequested(mapNumber, team, teamsReady, both ? 2 : 1);
   if (UnpauseSatisfied(snap.team1_ready_to_unpause, snap.team2_ready_to_unpause, both, TeamNum(cur.team))) {
@@ -334,6 +364,10 @@ void MatchFeaturesForceReady(uint64_t steamid64, const std::string& name) {
 
 void MatchFeaturesTick() {
   const double now = host::NowSeconds();
+  if (const int rs = g_roundStartSeq.load(); rs != g_rsSeqAuto5v5) {
+    g_rsSeqAuto5v5 = rs;
+    MaybeMarkAuto5v5Pause();
+  }
   const PauseSnapshot ps = PauseStateGet();
   const auto ctx = WebhookGetMatchContext();
   const MatchRules rules = EffectiveRules();
@@ -352,6 +386,8 @@ void MatchFeaturesTick() {
     if (g_effectiveAt == 0 && g_roundStartSeq.load() != g_rsSeqAtPause) g_effectiveAt = now;
     if (ps.type == "tactical" && g_freezeEndSeq.load() != g_feSeqAtPause) {
       Unpause("tactical timeout over");
+    } else if (ps.type == "auto_5v5" && g_freezeEndSeq.load() != g_feSeqAtPause) {
+      Unpause("freeze time ended: the engine is not paused (auto_5v5)");
     } else if (ps.type == "technical" && rules.tech_pause_max_seconds > 0 && g_effectiveAt > 0 && LiveMap()) {
       secondsLeft = TechPauseSecondsLeft(static_cast<int>(now - g_effectiveAt), rules.tech_pause_max_seconds);
       if (secondsLeft <= 10 && secondsLeft > 0 && !g_warnedAutoUnpause) {

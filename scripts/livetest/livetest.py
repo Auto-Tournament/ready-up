@@ -84,6 +84,7 @@ PAUSE_RE = re.compile(r"\[ReadyUp\] pause: (.*)")
 FORFEIT_RE = re.compile(r"\[ReadyUp\] forfeit: (.*)")
 
 ESPORTS_RE = re.compile(r"\[ReadyUp\] esports: ruleset=(\S+) \((.*?)\) go-live cfg=(\S+) differs=(\S+)")
+GOTV_REFUSED_RE = re.compile(r"\[ReadyUp\] esports: gotv=down: go-live refused")
 DEFAULT_MODEL_RE = re.compile(r"\[ReadyUp\] esports: default_models: slot (-?\d+) \((CT|T)\) -> (\S+)")
 DEFAULT_MODEL_FAIL_RE = re.compile(r"\[ReadyUp\] esports: default_models: entity_set_model failed")
 RULES_DIFF_RE = re.compile(r"\[ReadyUp\] rules: (differs from \S+:.*|no differences from \S+)")
@@ -372,6 +373,7 @@ class Facts:
     bot_quota_mode: Optional[str] = None
     bots_gone: set = field(default_factory=set)  # bot names that disconnected
     esports: list = field(default_factory=list)  # (seq, ruleset, source, cfg, differs) at match load
+    gotv_refused: int = 0  # seq of the last "esports: gotv=down: go-live refused" line
     default_models: list = field(default_factory=list)  # (seq, slot, side, model)
     default_model_fail: Optional[str] = None
     rules_diff: list = field(default_factory=list)  # (seq, text) `ru match rules` difference line
@@ -408,6 +410,9 @@ class Facts:
             return
         if (m := ESPORTS_RE.search(line)):
             self.esports.append((s, m.group(1), m.group(2), m.group(3), m.group(4)))
+            return
+        if GOTV_REFUSED_RE.search(line):
+            self.gotv_refused = s
             return
         if (m := DEFAULT_MODEL_RE.search(line)):
             self.default_models.append((s, m.group(1), m.group(2), m.group(3)))
@@ -976,6 +981,8 @@ class Runner:
         def chk_live(_f):
             if f.knife_start > since("load"):
                 return "a knife round started under ruleset valve"
+            if f.gotv_refused > since("load"):
+                return "go-live refused: GOTV is off on the test server (valve needs tv_enable 1 before the map loads)"
             return f.live_seq > since("load")
 
         def act_bots_again():

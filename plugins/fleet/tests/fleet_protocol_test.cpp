@@ -109,6 +109,13 @@ int main() {
   CHECK(broken("state.patch.json", [](Value* p) { p->Set("rev", Value::Int(0)); }));
   CHECK(broken("event.pause.json", [](Value* p) { p->Get("data")->Set("type", Value::Str("coffee")); }));
 
+  // Every pause type the match plugin reports (pause_state.h) validates.
+  for (const char* type : {"tactical", "technical", "admin", "offline", "halftime", "auto_5v5"}) {
+    Value env = Load(std::string(FLEET_EXAMPLES_DIR) + "/event.pause.json");
+    env.Get("payload")->Get("data")->Set("type", Value::Str(type));
+    CHECK(ValidateFrame(set, env, std::string("event.pause.json type=") + type));
+  }
+
   if (g_failures) {
     std::fprintf(stderr, "fleet_protocol_test: %d of %d checks FAILED (%zu examples)\n", g_failures, g_checks, files.size());
     return 1;

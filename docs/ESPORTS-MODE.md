@@ -355,7 +355,28 @@ pauses the default flow does not expect.
   `tech_pauses_per_team` / `tech_pause_seconds`. With `halftime_pausematch` the round start after
   the regulation halftime is marked as a `halftime` pause (`pause.type: "halftime"`): both teams
   `.unpause`, or an admin. `ru match unpause` now also sends `mp_unpause_match` when Ready Up did not
-  start the pause (an engine pause: `sv_matchpause_auto_5v5`, a vote).
+  start the pause (an engine pause Ready Up did not mark, a vote).
+- Auto 5v5 pause: with `sv_matchpause_auto_5v5` on (valve: `esports_live.cfg`; default: `live.cfg`
+  sets 0; a match cvar `sv_matchpause_auto_5v5` wins either way) a round start of a live map with a
+  side short of 5 players (humans + bots on CT / T) is marked as a pause of type `auto_5v5`
+  (`pause.type: "auto_5v5"`, `by: "server"`, `team` = the short team) in MatchState, `event.pause`,
+  the `match_paused` webhook, the console (`pause: auto_5v5 (sv_matchpause_auto_5v5 1): CT 4, T 5
+  players; team1 is short`), chat and the HUD ("NOT 5v5 - PAUSED"). Like the halftime pause it
+  belongs to nobody: both teams `.unpause` (then `mp_unpause_match`), or an admin; it counts against
+  neither team. If the engine did not pause after all, the freeze time ends and Ready Up clears it
+  (`pause: ended (freeze time ended: the engine is not paused (auto_5v5))`). The halftime pause now
+  has its own HUD panel too (it showed "PAUSED BY ADMIN").
+- GOTV at go-live: under `valve` the match does not go live (straight to live, the knife round, `ru
+  match start`, fleet cmd `start`) while no GOTV client is on the map: the match plugin looks for a
+  player controller with `CBasePlayerController::m_bIsHLTV` about twice a second, and calls GOTV down
+  once the map has run 15 s without one (`ruleset.h` `GotvStateFrom` / `GotvGoLiveCheck`). The
+  console says `esports: gotv=down: go-live refused (...)`, chat says `Ready Up: not going live -
+  GOTV is off on this map ...` (at most every 30 s), and `tv_enable 1` is sent so a map reload
+  (`.ru map reload`) brings GOTV up. Admin override: `ru match start force` (`.ru match start force`),
+  fleet `start {"force": true}`; chat then says the map is not recorded. Without `force`, fleet
+  `start` gets `rejected gotv_off`. If the controllers cannot be read (entity system or the schema
+  field missing) the check is skipped with `esports: gotv=unknown ...`. Scrims (`readyup.cfg`
+  `ruleset=valve`) keep their own go-live and are not gated; `ru match start` on a scrim is.
 - Skins: when the effective rules lock inventories (`valve`, or `cosmetics: "inventory"`) the
   skins plugin applies, restores and counts nothing (no paints, knives, gloves, agents, StatTrak).
   It asks the match plugin (`readyup.match.v1` `inventory_locked` / `ruleset`, appended members)
@@ -390,9 +411,9 @@ pauses the default flow does not expect.
   `mp_logmoney` is a bool (Valve's `2` reads back as `true`).
 - `tv_broadcast` is `0` unless the match has a `tv_broadcast_url` (Valve: `1`; a broadcast needs a
   relay URL, a Major-only TO item).
-- Not built: refusing go-live when GOTV was off at map load, recognising the engine's
-  `sv_matchpause_auto_5v5` pause as `pause.type: "auto_5v5"` (admins resume it with `ru match unpause`),
-  mid-match substitution limits, the `game_type` / `game_mode` check, blocking `tv_delay` lowering
+- The auto 5v5 pause is inferred from the player counts at a round start, the way the halftime pause
+  is inferred from the round count: Ready Up does not read the engine's pause flag.
+- Not built: mid-match substitution limits, the `game_type` / `game_mode` check, blocking `tv_delay` lowering
   while live. `esports_default_agents.cfg` became the two `readyup.cfg` keys above.
 
 ### Tests
@@ -400,7 +421,10 @@ pauses the default flow does not expect.
 - ctest `match_ruleset`: presets, override validation (unknown / nested / type / range), preset,
   overrides, cvars and per-match keys together, `differs`, the commands after the cfg, the
   MatchState JSON (no null), the `ru match rules` text, knife refusal, parser integration (coaches,
-  overtime, `readyup.cfg` ruleset). `match_fleet_state`: `rules.ruleset` / `rules.overrides`
+  overtime, `readyup.cfg` ruleset), the GOTV state and go-live verdicts (default / valve, up / down /
+  unknown, forced) and when `sv_matchpause_auto_5v5` is on. `match_rules`: when the auto 5v5 pause is
+  expected and which side is short. `fleet_protocol`: every pause type validates against the
+  `event.pause` schema. `match_fleet_state`: `rules.ruleset` / `rules.overrides`
   through `match.assign` and `set_rules`.
 - `scripts/livetest/run.sh --ruleset valve` (bots, readyup-test): a knife config is refused; a
   valve match with the overrides `freezetime 5`, `spectators_max 8`, `default_models`,
@@ -409,3 +433,5 @@ pauses the default flow does not expect.
   (`mp_team_timeout_time 31`, zeus 5, `mp_respawn_immunitytime -1`, technical timeout 1 x 120 s,
   `tv_delay 105`, ...) and the overrides are queried from the console after go-live; then `ru
   rules`, `skins_status` (inert), default models on CT and T, and `ru selftest` PASS.
+  The test server needs GOTV (`tv_enable 1` before the map loads): otherwise the go-live step fails
+  with "go-live refused: GOTV is off on the test server".
