@@ -53,7 +53,7 @@ always may. An admin's `.help` points at `.ru help`.
 | Command | Who | Does |
 |---|---|---|
 | `.ru match load <url>` | admin | loads a match config (http/https; the URL is visible in chat) |
-| `.ru match start` | admin | force-starts the loaded match |
+| `.ru match start [force]` | admin | force-starts the loaded match (`force`: also under the valve ruleset without GOTV, [ESPORTS-MODE.md](ESPORTS-MODE.md)) |
 | `.ru match restart` | admin | the loaded match back to its warmup; everyone readies again |
 | `.ru match end` | admin | ends the loaded match (`series_end` winner none) and resets the server |
 | `.ru match recover [round]` | admin | asks the platform to recover the match (`recover_requested`) |

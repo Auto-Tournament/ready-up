@@ -184,6 +184,7 @@ void OnEvent(void*, const ru_event* e) {
   Guard("event", [&] {
     if (e->type == RU_EVENT_MAP_START) {
       IdleRefreshOnMapStart(host::NowSeconds());
+      EsportsOnMapStart();  // the GOTV client is looked for again
       fleet_bridge::OnMapStart();
     } else if (e->type == RU_EVENT_PLAYER_DISCONNECT) {
       // Ready state must not survive a reconnect.

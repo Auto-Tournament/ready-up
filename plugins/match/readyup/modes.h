@@ -133,11 +133,12 @@ bool KnifeIsAwaitingPick();
 const char* KnifeWinnerTeamString();
 
 // Admin controls (best-effort).
-// - ForceStartMatch: applies live rules + restarts game, sets mode to match_live
+// - ForceStartMatch: applies live rules + restarts game, sets mode to match_live. Under the
+//   valve ruleset it refuses (false) while GOTV is down unless `force` (esports.h).
 // - RestartMatch: restarts game, returns to match_warmup (requires players to ready again)
 // - EndMatchResetServer: resets server rules + restarts game; intended to be used
 //   alongside WebhookEmitSeriesEnd + WebhookClearMatchContext by the caller.
-bool ForceStartMatch();
+bool ForceStartMatch(bool force = false);
 bool RestartMatch();
 bool EndMatchResetServer();
 

@@ -654,7 +654,7 @@ Every command gets exactly one `cmd.result`.
 | `pause` | `{ type: "admin" \| "technical" }` | admin pause is only unpaused by an admin or the platform |
 | `unpause` | `{}` | also clears an offline auto-pause |
 | `force_ready` | `{ team?: "team1" \| "team2" }` | both teams if omitted |
-| `start` | `{}` | skip ready |
+| `start` | `{ force?: boolean }` | skip ready. Under the valve ruleset a map without GOTV is `rejected gotv_off` unless `force` (the map then has no demo; docs/ESPORTS-MODE.md) |
 | `restore_round` | `{ map_number, round, backup?: InlineBackup }` | the admin picked this backup from the platform's list (D8). `backup` is sent when the server does not have the file locally |
 | `restart_map` | `{}` | back to warmup on the same map; that map's stats are voided |
 | `end_match` | `{ reason: string, winner?: "team1" \| "team2" }` | with `winner` = forfeit/admin result |
@@ -730,7 +730,7 @@ applies `patch` when `rev == stored_rev + 1`; on a gap it sends `state.request`.
 | `round_start` | `{ round }` | core events | |
 | `round_end` | `{ round: RoundSummary, players?: PlayerLine[] }` | `match_stats.h` (`OnRoundEnd`, `ToJson(RoundSummary)`) | `score.updated`, `player.stats` |
 | `backup` | `InlineBackup` (§12.3) | CS2 round backup file | backup store |
-| `pause` | `{ action: "paused"\|"unpause_requested"\|"unpaused", type: "tactical"\|"technical"\|"admin"\|"offline", by, team?, duration_s? }` | pause state | `phase.changed` |
+| `pause` | `{ action: "paused"\|"unpause_requested"\|"unpaused", type: "tactical"\|"technical"\|"admin"\|"offline"\|"halftime"\|"auto_5v5", by, team?, duration_s? }` | pause state | `phase.changed` |
 | `halftime` / `overtime` | `{ score, overtime_number? }` | modes | `phase.changed` |
 | `rounds_voided` | `{ from_round, reason: "restore"\|"restart_map" }` | restore | drop stats for rounds ≥ from_round |
 | `map_result` | `MatchFlowEvent` `MapResult` (`ToJson`): winner, map + series score, `stats: MapStats` | `match_end.h` | `map.result` |
@@ -786,7 +786,7 @@ MatchState {
   spectators: { [steamid64: string]: { name: string, connected: boolean } }
   ready: { required_per_team: number, countdown_ends_at?: number }
   knife: { status: "none" | "running" | "picking" | "done", winner?: "team1" | "team2", pick_deadline?: number }
-  pause: { active: boolean, type?: "tactical" | "technical" | "admin" | "offline", by?: string, started_at?: number,
+  pause: { active: boolean, type?: "tactical" | "technical" | "admin" | "offline" | "halftime" | "auto_5v5", by?: string, started_at?: number,
            unpause: { team1: boolean, team2: boolean },
            used: { team1: { tactical: number, technical: number }, team2: { tactical: number, technical: number } } }
   round: { number: number, started_at?: number, overtime?: number }

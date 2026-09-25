@@ -10,7 +10,7 @@ const std::vector<RuMainCommand>& MatchRuCommands() {
        "the loaded match",
        {
            {"load", "<url>", "load a match config", true},
-           {"start", "", "force-start the loaded match", true},
+           {"start", "[force]", "force-start the loaded match (force: valve without GOTV)", true},
            {"restart", "", "the loaded match back to warmup (everyone readies again)", true},
            {"end", "", "end the loaded match (winner none) and reset the server", true},
            {"recover", "[round]", "ask the platform to recover the match", true},

@@ -1,6 +1,7 @@
 // Offline tests for readyup/ruleset.h: presets, override parsing and validation, preset +
 // overrides resolution (with the legacy per-match keys and match cvars), what differs, the
-// commands after the go-live cfg, knife refusal and the match config parser integration.
+// commands after the go-live cfg, knife refusal, the match config parser integration, the GOTV
+// go-live check and whether sv_matchpause_auto_5v5 is on.
 // ctest `match_ruleset`.
 #include "readyup/match_config_parser.h"
 #include "readyup/ruleset.h"
@@ -315,6 +316,57 @@ static void TestParser() {
   CHECK(ctx.has_value() && ctx->ruleset.empty() && ctx->overrides_json.empty() && ctx->maxOvertimes == 2);
 }
 
+static void TestGotvGoLive() {
+  // State from the controller scan: unreadable -> unknown; GOTV seen -> up; not seen -> down only
+  // after the grace period (the GOTV client joins a moment after the map loads).
+  CHECK(GotvStateFrom(false, false, 100) == GotvState::Unknown);
+  CHECK(GotvStateFrom(false, true, 100) == GotvState::Unknown);
+  CHECK(GotvStateFrom(true, true, 0) == GotvState::Up);
+  CHECK(GotvStateFrom(true, false, 0) == GotvState::Unknown);
+  CHECK(GotvStateFrom(true, false, kGotvGraceSeconds - 0.1) == GotvState::Unknown);
+  CHECK(GotvStateFrom(true, false, kGotvGraceSeconds) == GotvState::Down);
+  CHECK(std::string(GotvStateName(GotvState::Down)) == "down");
+  CHECK(std::string(GotvStateName(GotvState::Up)) == "up");
+  CHECK(std::string(GotvStateName(GotvState::Unknown)) == "unknown");
+
+  // Default ruleset: never refused, nothing said.
+  for (GotvState g : {GotvState::Up, GotvState::Down, GotvState::Unknown}) {
+    for (bool forced : {false, true}) {
+      const GoLiveVerdict v = GotvGoLiveCheck(Ruleset::Default, g, forced);
+      CHECK(v.allowed && v.log.empty() && v.chat.empty());
+    }
+  }
+  // Valve + GOTV up: allowed, nothing said (forced or not).
+  CHECK(GotvGoLiveCheck(Ruleset::Valve, GotvState::Up, false).allowed);
+  CHECK(GotvGoLiveCheck(Ruleset::Valve, GotvState::Up, true).chat.empty());
+  // Valve + GOTV down: refused with a console line and a chat line naming the override.
+  GoLiveVerdict v = GotvGoLiveCheck(Ruleset::Valve, GotvState::Down, false);
+  CHECK(!v.allowed);
+  CHECK(v.log.find("gotv=down") != std::string::npos && v.log.find("refused") != std::string::npos);
+  CHECK(v.log.find("ru match start force") != std::string::npos);
+  CHECK(v.chat.find("GOTV is off") != std::string::npos && v.chat.find(".ru match start force") != std::string::npos);
+  CHECK(v.chat.size() < 190);  // one chat message
+  // Forced: allowed, but everyone is told the map is not recorded.
+  v = GotvGoLiveCheck(Ruleset::Valve, GotvState::Down, true);
+  CHECK(v.allowed && v.log.find("forced") != std::string::npos && v.chat.find("WITHOUT GOTV") != std::string::npos);
+  // Unknown (engine surface missing): allowed with a note, no chat.
+  v = GotvGoLiveCheck(Ruleset::Valve, GotvState::Unknown, false);
+  CHECK(v.allowed && v.log.find("gotv=unknown") != std::string::npos && v.chat.empty());
+}
+
+static void TestAutoPause5v5() {
+  // esports_live.cfg turns it on, live.cfg off; a match cvar wins either way.
+  CHECK(AutoPause5v5On(Ruleset::Valve, nullptr));
+  CHECK(!AutoPause5v5On(Ruleset::Default, nullptr));
+  const std::string zero = "0", one = "1", quotedZero = "\"0\"", f = "false", t = "true", empty = "";
+  CHECK(!AutoPause5v5On(Ruleset::Valve, &zero));
+  CHECK(!AutoPause5v5On(Ruleset::Valve, &quotedZero));
+  CHECK(!AutoPause5v5On(Ruleset::Valve, &f));
+  CHECK(!AutoPause5v5On(Ruleset::Valve, &empty));
+  CHECK(AutoPause5v5On(Ruleset::Default, &one));
+  CHECK(AutoPause5v5On(Ruleset::Default, &t));
+}
+
 int main() {
   TestRulesetNames();
   TestValvePreset();
@@ -326,6 +378,8 @@ int main() {
   TestReports();
   TestMapSides();
   TestParser();
+  TestGotvGoLive();
+  TestAutoPause5v5();
   std::printf("match_ruleset: %d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;
 }

@@ -12,6 +12,9 @@
 //                      pause the match unpauses by itself (countdown in the center HUD).
 //   .unpause .up       both teams (both_teams_unpause_required=1) or the pausing team alone.
 //                      An admin pause only ends with .forceunpause.
+// Engine pauses Ready Up marks: "halftime" (mp_halftime_pausematch, esports.h) and "auto_5v5"
+// (sv_matchpause_auto_5v5: a side short of 5 players at a round start). Both teams .unpause them,
+// or an admin; neither is counted against a team.
 //   .forcepause .fp / .forceunpause .fup   admins (same as `.ru match pause` / `.ru match unpause`).
 // .forceready          (allow_force_ready) readies the caller's whole team in warmup once it has
 //                      min_players_to_ready connected (0 = the full roster).
@@ -50,7 +53,7 @@ void MatchFeaturesForceReady(uint64_t steamid64, const std::string& name);
 // Center HUD while a map is live (ready_hud.cpp).
 struct LiveHudInfo {
   bool paused = false;
-  std::string type;            // "tactical" | "technical" | "admin"
+  std::string type;            // "tactical" | "technical" | "admin" | "offline" | "halftime" | "auto_5v5"
   std::string byTeam;          // pausing team's name (empty for admins)
   bool pendingFreeze = false;  // technical: waiting for freeze time
   int secondsLeft = -1;        // technical auto-unpause countdown (-1 = none)

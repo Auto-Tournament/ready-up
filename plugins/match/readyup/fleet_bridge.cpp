@@ -8,6 +8,7 @@
 #include "readyup/admin_check.h"
 #include "readyup/demo_recorder.h"
 #include "readyup/engine.h"
+#include "readyup/esports.h"
 #include "readyup/fleet_state.h"
 #include "readyup/local_store.h"
 #include "readyup/logging.h"
@@ -1531,8 +1532,13 @@ void OnCmd(const ru_fleet_msg* m) {
   } else if (name == "force_ready") {
     r = CmdForceReady(args);
   } else if (name == "start") {
+    // args.force: also under the valve ruleset without GOTV (esports.h).
+    const bool force = Bool(args, "force");
     if (!IsWarmupMode()) r = Rejected("bad_phase", "start works in warmup only");
-    else r = ForceStartMatch() ? Ok() : Failed("engine", "force start failed");
+    else if (ForceStartMatch(force)) r = Ok();
+    else if (!force && LiveCfgRequired() && EsportsGotvState() == GotvState::Down)
+      r = Rejected("gotv_off", "GOTV is off on this map (valve ruleset): reload the map, or start with {\"force\": true}");
+    else r = Failed("engine", "force start failed");
     if (r.status == "ok") g_phaseReason = "cmd:start";
   } else if (name == "restore_round" || name == "restart_round") {
     r = CmdRestore(args, by);

@@ -60,6 +60,14 @@ int TechPauseSecondsLeft(int elapsedSeconds, int maxSeconds);
 // the pauser is not a team).
 bool UnpauseSatisfied(bool team1Confirmed, bool team2Confirmed, bool bothRequired, int pauserTeam);
 
+// sv_matchpause_auto_5v5: the engine pauses the match at freeze time when a side is short of
+// kFullTeamPlayers. At a round start of a live map, with the rule on and no pause running, Ready Up
+// marks that pause as type "auto_5v5". ct / t: players (humans + bots) on each side.
+constexpr int kFullTeamPlayers = 5;
+bool Auto5v5PauseExpected(bool ruleOn, bool liveMap, bool alreadyPaused, int ctPlayers, int tPlayers);
+// The short side (3 CT / 2 T; the one with fewer players, CT on a tie), 0 when both are full.
+int Auto5v5ShortSide(int ctPlayers, int tPlayers);
+
 // ---- .forceready -----------------------------------------------------------------------------
 
 // connected: roster players of the team on the server; rosterSize: the team's roster; minPlayers:

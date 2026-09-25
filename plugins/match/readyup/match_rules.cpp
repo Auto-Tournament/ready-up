@@ -75,6 +75,16 @@ bool UnpauseSatisfied(bool team1Confirmed, bool team2Confirmed, bool bothRequire
   return team1Confirmed || team2Confirmed;
 }
 
+bool Auto5v5PauseExpected(bool ruleOn, bool liveMap, bool alreadyPaused, int ctPlayers, int tPlayers) {
+  if (!ruleOn || !liveMap || alreadyPaused) return false;
+  return Auto5v5ShortSide(ctPlayers, tPlayers) != 0;
+}
+
+int Auto5v5ShortSide(int ctPlayers, int tPlayers) {
+  if (ctPlayers >= kFullTeamPlayers && tPlayers >= kFullTeamPlayers) return 0;
+  return ctPlayers <= tPlayers ? 3 : 2;
+}
+
 int ForceReadyRequired(int rosterSize, int minPlayers) {
   if (rosterSize <= 0) return 0;
   if (minPlayers <= 0) return rosterSize;

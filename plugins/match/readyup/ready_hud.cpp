@@ -319,6 +319,17 @@ static std::string LiveHtml(const LiveHudInfo& l) {
       auto mark = [&](bool ok, const std::string& n) { return Font(ok ? kOk : kDim, (ok ? "&#10004; " : "&#10006; ") + Esc(n, 16)); };
       h += "<br>" + Font(kGrey, l.bothRequired ? "both teams: " : "pausing team: ") + "<b>.unpause</b><br>" +
            mark(l.team1Confirmed, l.team1) + " &#183; " + mark(l.team2Confirmed, l.team2);
+    } else if (l.type == "halftime" || l.type == "auto_5v5") {
+      // Engine pauses that belong to nobody: both teams resume them (match_features.h).
+      if (l.type == "halftime") {
+        h += Font(kGold, "<b>HALFTIME PAUSE</b>");
+      } else {
+        h += Font(kNo, "<b>NOT 5v5 - PAUSED</b>");
+        if (!l.byTeam.empty()) h += "<br>" + Font(kGrey, Esc(l.byTeam, 24) + " is short");
+      }
+      auto mark = [&](bool ok, const std::string& n) { return Font(ok ? kOk : kDim, (ok ? "&#10004; " : "&#10006; ") + Esc(n, 16)); };
+      h += "<br>" + Font(kGrey, "both teams: ") + "<b>.unpause</b><br>" + mark(l.team1Confirmed, l.team1) +
+           " &#183; " + mark(l.team2Confirmed, l.team2);
     } else {
       h += Font(kNo, "<b>PAUSED BY ADMIN</b>") + "<br>" + Font(kGrey, "an admin unpauses (.fup)");
     }

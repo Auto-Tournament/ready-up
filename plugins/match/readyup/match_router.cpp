@@ -543,8 +543,13 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     return;
   }
   if (sub == "start") {
-    (void)ForceStartMatch();
-    sendAdmin("match force-started.");
+    // `force`: also under the valve ruleset without GOTV (no demo for this map).
+    const bool force = !args.empty() && Lower(args[0]) == "force";
+    if (!ForceStartMatch(force)) {
+      replyPrivate("Ready Up: match not started (GOTV is off under the valve ruleset: .ru match start force).");
+      return;
+    }
+    sendAdmin(force ? "match force-started (force)." : "match force-started.");
   } else if (sub == "restart") {
     (void)RestartMatch();
     sendAdmin("match restarted (back to warmup).");
@@ -582,8 +587,8 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       return;
     }
     if (!PauseStateGet().paused) {
-      // An engine pause Ready Up did not start (sv_matchpause_auto_5v5 under the valve ruleset, a
-      // vote): resumed anyway.
+      // An engine pause Ready Up did not mark (a vote, an auto_5v5 pause it did not see): resumed
+      // anyway.
       sendAdmin("not paused by Ready Up; sent mp_unpause_match (engine pause).");
       return;
     }

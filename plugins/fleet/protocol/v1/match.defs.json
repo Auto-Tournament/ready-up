@@ -1301,7 +1301,8 @@
                 "technical",
                 "admin",
                 "offline",
-                "halftime"
+                "halftime",
+                "auto_5v5"
               ]
             },
             "by": {
