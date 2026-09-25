@@ -243,11 +243,14 @@ chat_prefix="<Green>[PUG #1]<Default>"
   `World triggered "Warmup_Start"` (or fires `round_announce_warmup`) while idle, in
   scrim/match warmup or in the knife round.
 - Warmup can run for hours, so nothing piles up on the ground: in scrim and match warmup
-  nothing drops on death (`mp_death_drop_gun/grenade/defuser/taser 0`, sent with the warmup
-  rules whether or not `ru_cfg_exec_enable` runs `warmup.cfg`), and in idle, scrim warmup and
-  match warmup a weapon with no owner for 2 seconds is removed (G-drops included; the C4 is
-  left alone). readyup.cfg `warmup_weapon_cleanup=0` turns the removal off. Going live puts
-  CS2's drop defaults back (`live.cfg` / `esports_live.cfg`, or the plugin without cfg exec).
+  nothing drops on death (`mp_death_drop_gun/grenade/defuser/taser 0`) and there is no bomb
+  (`mp_give_player_c4 0`: nobody can plant, warmup never ends a round). Both are sent with the
+  warmup rules whether or not `ru_cfg_exec_enable` runs `warmup.cfg`; `idle.cfg` and
+  `knife.cfg` have no bomb either, `prac.cfg` keeps it for plant practice. In idle, scrim warmup
+  and match warmup a weapon with no owner for 2 seconds is removed (G-drops included, and a
+  bomb handed out before warmup started once it is dropped). readyup.cfg
+  `warmup_weapon_cleanup=0` turns the removal off. Going live puts CS2's defaults back
+  (`live.cfg` / `esports_live.cfg`, or the plugin without cfg exec).
 
 ### Knife round
 

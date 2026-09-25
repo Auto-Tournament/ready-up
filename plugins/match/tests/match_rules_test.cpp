@@ -188,10 +188,10 @@ static void TestWeaponCleanup() {
   CHECK(!WeaponCleanupActive("practice", false, true) && !WeaponCleanupActive("postgame", false, true));
   CHECK(!WeaponCleanupActive(nullptr, false, true));
 
-  // Classes: every weapon but the C4; no projectiles, no players, no items.
+  // Classes: every weapon, the C4 too (no bomb in warmup); no projectiles, players or items.
   CHECK(WeaponCleanupClass("weapon_ak47") && WeaponCleanupClass("weapon_hegrenade") && WeaponCleanupClass("weapon_knife"));
   CHECK(WeaponCleanupClass("weapon_taser") && WeaponCleanupClass("weapon_m4a1_silencer"));
-  CHECK(!WeaponCleanupClass("weapon_c4") && !WeaponCleanupClass("hegrenade_projectile"));
+  CHECK(WeaponCleanupClass("weapon_c4") && !WeaponCleanupClass("hegrenade_projectile") && !WeaponCleanupClass("planted_c4"));
   CHECK(!WeaponCleanupClass("cs_player_pawn") && !WeaponCleanupClass("weaponworldmodel") && !WeaponCleanupClass(nullptr));
 
   // Grace: removed only after kWeaponCleanupGraceSeconds unowned; a pickup starts it over.
@@ -219,6 +219,9 @@ static void TestWeaponCleanup() {
     for (const char* l : kLiveDropCmds) restored = restored || std::string(l).rfind(cvar + " ", 0) == 0;
     CHECK(restored);
   }
+  // No bomb in warmup / idle (idle.cfg repeats it for an older warmup.cfg), practice keeps it.
+  CHECK(CfgSets(ReadCfg("idle.cfg"), "mp_give_player_c4 0") && CfgSets(ReadCfg("knife.cfg"), "mp_give_player_c4 0"));
+  CHECK(CfgSets(ReadCfg("prac.cfg"), "mp_give_player_c4 \"1\""));
   // And the shipped cfgs agree: warmup.cfg sets the warmup values, live.cfg and esports_live.cfg
   // the go-live ones.
   const std::string warmup = ReadCfg("warmup.cfg"), live = ReadCfg("live.cfg"), esports = ReadCfg("esports_live.cfg");

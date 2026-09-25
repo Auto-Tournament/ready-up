@@ -2,14 +2,13 @@
 
 // Warmup weapon cleanup: warmup is emulated and can run for hours, so dropped weapons must not
 // pile up on the ground (every one is a networked entity). Two layers:
-//  - cvars: nothing drops on death (kWarmupNoDropCmds), sent with the warmup rules whether or
-//    not ru_cfg_exec_enable runs warmup.cfg; the go-live paths put CS2's defaults back
-//    (kLiveDropCmds; live.cfg / esports_live.cfg set the same values).
+//  - cvars: nothing drops on death and no bomb (kWarmupNoDropCmds), sent with the warmup rules
+//    whether or not ru_cfg_exec_enable runs warmup.cfg; the go-live paths put CS2's defaults
+//    back (kLiveDropCmds; live.cfg / esports_live.cfg set the same values).
 //  - sweep: in idle, scrim warmup and match warmup (not once go-live is pending), a weapon_*
 //    entity with no owner for kWeaponCleanupGraceSeconds is removed (ru_api entity_remove, core
 //    API 1.5). Covers G-drops, which weapon_auto_cleanup_time only removes when no player is
-//    near. The C4 is left alone. readyup.cfg / match.cfg `warmup_weapon_cleanup=0` turns the
-//    sweep off. Log lines: `weapon-cleanup: ...` (debug only, plus one line if unavailable).
+//    near. readyup.cfg / match.cfg `warmup_weapon_cleanup=0` turns the sweep off. Log lines: `weapon-cleanup: ...` (debug only, plus one line if unavailable).
 
 #include <cstdint>
 #include <cstring>
@@ -31,6 +30,9 @@ inline constexpr const char* kWarmupNoDropCmds[] = {
     "mp_death_drop_taser 0",
     "weapon_auto_cleanup_time 1",
     "weapon_max_before_cleanup 10",
+    // No bomb in warmup: nobody can plant (warmup never ends a round). Takes effect at the next
+    // round start; a bomb already carried is removed by the sweep once it is dropped.
+    "mp_give_player_c4 0",
 };
 // Go-live without a cfg (ru_cfg_exec_enable 0): CS2's defaults, as live.cfg sets them.
 inline constexpr const char* kLiveDropCmds[] = {
@@ -40,6 +42,7 @@ inline constexpr const char* kLiveDropCmds[] = {
     "mp_death_drop_taser 1",
     "weapon_auto_cleanup_time 0",
     "weapon_max_before_cleanup 0",
+    "mp_give_player_c4 1",
 };
 
 // A weapon on the ground this long (seconds, seen unowned on two sweeps) is removed.
@@ -53,10 +56,10 @@ inline bool WeaponCleanupActive(const char* ruMode, bool goLivePending, bool ena
   return m == "idle" || m == "scrim_warmup" || m == "match_warmup";
 }
 
-// Pure: a designer name the sweep removes when it has no owner (every weapon but the C4).
+// Pure: a designer name the sweep removes when it has no owner (every weapon, the C4 too: warmup
+// has no bomb). A carried weapon is never touched.
 inline bool WeaponCleanupClass(const char* designer) {
-  if (!designer || std::strncmp(designer, "weapon_", 7) != 0) return false;
-  return std::strcmp(designer, "weapon_c4") != 0;
+  return designer && std::strncmp(designer, "weapon_", 7) == 0;
 }
 
 // Pure: grace tracking by entity handle. Unowned() returns true once the same handle was seen
