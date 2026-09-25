@@ -32,7 +32,6 @@
 #include "readyup/match_status.h"
 #include "readyup/modes.h"
 #include "readyup/persisted_settings.h"
-#include "readyup/practice_tools.h"
 #include "readyup/player_registry.h"
 #include "readyup/players.h"
 #include "readyup/ready_hud.h"
@@ -165,7 +164,6 @@ void OnTick(void*, const ru_tick_info* t) {
       MatchFeaturesTick();  // tactical timeout end, technical auto-unpause, forfeit timer
       DamageReportTick();       // damage reports built at round_end (damage_report.h)
       VotesTick(t->now);        // .gg / .stop vote timeouts (votes.h)
-      PracticeToolsTick(t->now);  // practice bot placement, toggles (practice_tools.h)
     }
     // Fleet link (no-op without fleet.so): platform handlers, MatchState patches, events.
     fleet_bridge::Tick(t->now);
@@ -226,7 +224,13 @@ const char* RulesetIface() {
   Guard("ruleset", [&] { r = RulesetName(CurrentEffectiveRules().ruleset); });
   return r;
 }
-const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus, &InventoryLockedIface, &RulesetIface};
+int SetPracticeIface(int on) {
+  int rc = 0;
+  Guard("set_practice", [&] { rc = MatchSetPractice(on != 0) ? 1 : 0; });
+  return rc;
+}
+const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus, &InventoryLockedIface, &RulesetIface,
+                                  &SetPracticeIface};
 
 std::atomic<int> g_hudShowing{0}, g_hudFeature{0};
 std::mutex g_brandMu;
@@ -326,7 +330,6 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     MatchEventsInstall(api);
     DamageReportInstall(api);   // end-of-round damage report
     VotesInstall(api);          // .gg / .stop
-    PracticeToolsInstall(api);  // practice tools + `ru as`
     EsportsInstall(api);  // default_models (player_spawn), halftime pause
     api->set_admin_provider(api->self, &AdminProvider, nullptr);
     api->provide_interface(api->self, RU_MATCH_IFACE_NAME, RU_MATCH_IFACE_VERSION, const_cast<ru_match_v1*>(&g_matchIface));

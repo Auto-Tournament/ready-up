@@ -282,8 +282,10 @@ int main(int argc, char** argv) {
   const std::string pluginsDir = csgo + "/readyup/plugins";
   readyup::g_csgoDir = csgo;
   readyup::g_moduleDir = csgo + "/readyup/bin/linuxsteamrt64";
+  // argv[2] (optional): practice.so, loaded next to match.so (readyup.practice.v1 <-> set_practice).
+  const bool withPractice = argc >= 3;
   if (std::system(("mkdir -p '" + pluginsDir + "' '" + readyup::g_moduleDir + "' && cp '" + argv[1] + "' '" +
-                   pluginsDir + "/match.so'")
+                   pluginsDir + "/match.so'" + (withPractice ? " && cp '" + std::string(argv[2]) + "' '" + pluginsDir + "/practice.so'" : ""))
                       .c_str()) != 0) {
     return 2;
   }
@@ -390,6 +392,26 @@ int main(int argc, char** argv) {
   rp::TryDispatchRu(true, 0, "Console", "ru admins remove 76561198000000001");
   rp::Frame(true);
 
+  if (withPractice) {
+    std::puts("-- practice.so next to match.so: .ru mode practice goes through readyup.practice.v1");
+    ClearLog();
+    ClearCmds();
+    uint32_t pf = 0;
+    Check(rp::ChatCommandOwned(".prac", &pf) && rp::ChatCommandOwned(".rethrow", &pf), ".prac / .rethrow owned by practice.so");
+    rp::TryDispatchRu(true, 0, "Console", "ru mode practice");
+    rp::Frame(true);
+    Check(Sent("exec ReadyUp/prac.cfg") && Sent("mp_restartgame 1"), "practice on: prac.cfg + respawn everyone");
+    Check(Has(Summary(), "\"ru_mode\":\"practice\""), "match flow mode is practice");
+    rp::TryDispatchChat(76561198000000001ull, "alice", ".prac", 2);
+    rp::Frame(true);
+    Check(Chatted("not authorized") && Has(Summary(), "\"ru_mode\":\"practice\""), ".prac from a non-admin refused");
+    ClearCmds();
+    rp::TryDispatchRu(true, 0, "Console", "ru practice off");
+    rp::Frame(true);
+    Check(Sent("exec ReadyUp/idle.cfg") && Sent("mp_restartgame 1"), "practice off: idle.cfg + respawn everyone");
+    Check(!Has(Summary(), "\"ru_mode\":\"practice\""), "match flow left practice");
+  }
+
   std::puts("-- ru match load, then reload with the match loaded");
   g_players.push_back({3, 3, 76561198000000002ull, 2, false, "bob"});
   const std::string body =
@@ -408,6 +430,11 @@ int main(int argc, char** argv) {
   rp::Frame(true);
   http.join();
   Check(Logged("match context set: matchid=4242 slug=hosttest"), "match loaded");
+  if (withPractice) {
+    rp::TryDispatchRu(true, 0, "Console", "ru practice on");
+    rp::Frame(true);
+    Check(Logged("practice mode refused: a match is loaded"), "practice refused while a match is loaded");
+  }
   Check(Sent("changelevel de_test"), "match load changes map also onto the map the server is on");
   Check(FramesUntil([] { return Has(Summary(), "\"ru_mode\":\"match_warmup\""); }, 2000), "mode match_warmup");
   Check(FramesUntil([] { return g_suppressed.load() == 1; }, 2000), "warmup suppresses round termination");

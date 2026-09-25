@@ -60,7 +60,8 @@ always may. An admin's `.help` points at `.ru help`.
 | `.ru map reload` | admin | loads the current map again (a workshop map by its id) |
 | `.ru map restart` | admin | restarts the game (`mp_restartgame 1`); a loaded match stays loaded |
 | `.ru mode show` | everyone | the current mode |
-| `.ru mode idle` / `practice` / `scrim` | admin | plain CS2 / practice mode (toggles, `.prac`) / auto scrim warmup back on |
+| `.ru mode idle` / `practice` / `scrim` | admin | plain CS2 / practice mode (toggles, `.prac`; needs the practice plugin) / auto scrim warmup back on |
+| `.ru practice on\|off\|status` | admin | practice plugin: practice mode (`status`: everyone) |
 | `.ru admins list` | everyone | the admins |
 | `.ru admins add\|remove <steamid64\|name_fragment>` | admin (standalone) | edit `admins.json` |
 | `.ru hud test <1-7>` | admin | a HUD test panel, to you only |

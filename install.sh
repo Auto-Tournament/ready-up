@@ -11,9 +11,9 @@
 #
 # Usage: install.sh [BUNDLE|COMPONENT ...] [options]
 #
-#   essentials   core + match + fleet (default for a fresh install; no skins)
-#   full         core + match + fleet + skins + hello + midas + whitelist
-#   core | match | fleet | skins | hello | midas | whitelist   single components (core is always included).
+#   essentials   core + match + fleet + practice (default for a fresh install; no skins)
+#   full         core + match + fleet + practice + skins + hello + midas + whitelist
+#   core | match | fleet | practice | skins | hello | midas | whitelist   single components (core is always included).
 #                fleet links the server to the Auto Tournament platform; it stays idle until
 #                cfg/ReadyUp/fleet.cfg (or readyup.cfg [fleet]) sets a url
 #
@@ -43,12 +43,13 @@ set -euo pipefail
 REPO="${READYUP_REPO:-Auto-Tournament/ready-up}"
 API="${READYUP_API:-https://api.github.com}"
 GAME_PATH="csgo/readyup"
-COMPONENTS=(core match fleet skins hello midas whitelist)
-declare -A LABEL=([core]="Core" [match]="Match" [fleet]="Fleet" [skins]="Skins" [hello]="Hello" [midas]="Midas" [whitelist]="Whitelist")
+COMPONENTS=(core match fleet skins hello midas whitelist practice)
+declare -A LABEL=([core]="Core" [match]="Match" [fleet]="Fleet" [skins]="Skins" [hello]="Hello" [midas]="Midas" [whitelist]="Whitelist" [practice]="Practice")
 declare -A NOTE=([core]="required" [match]="ready-up, knife, pauses, webhooks"
   [fleet]="link to the Auto Tournament platform (idle until configured)" [skins]="may get servers banned"
   [hello]="example plugin" [midas]="fun: gold weapons (off until enabled)"
-  [whitelist]="only listed players may join (off until turned on)")
+  [whitelist]="only listed players may join (off until turned on)"
+  [practice]="practice mode + tools (.prac, .savepos, .rethrow, .bot)")
 
 DIR="."
 VERSION=""
@@ -96,9 +97,9 @@ while [[ $# -gt 0 ]]; do
       if [[ -f "$0" ]]; then usage; else say "See https://github.com/$REPO#install"; fi
       exit 0
       ;;
-    essentials) WANT+=(core match fleet); BUNDLE_FLEET=1; shift ;;
-    full) WANT+=(core match fleet skins hello midas whitelist); WANT_FULL=1; BUNDLE_FLEET=1; shift ;;
-    core | match | fleet | skins | hello | midas | whitelist) WANT+=("$1"); shift ;;
+    essentials) WANT+=(core match fleet practice); BUNDLE_FLEET=1; shift ;;
+    full) WANT+=(core match fleet practice skins hello midas whitelist); WANT_FULL=1; BUNDLE_FLEET=1; shift ;;
+    core | match | fleet | skins | hello | midas | whitelist | practice) WANT+=("$1"); shift ;;
     *) die "unknown argument: $1 (see --help)" ;;
   esac
 done
@@ -108,7 +109,7 @@ case "$ACCEPT_LICENSE" in
   *) die "--accept-license must be noncommercial or commercial (got: $ACCEPT_LICENSE)" ;;
 esac
 for c in "${REMOVE[@]}"; do
-  case "$c" in match | fleet | skins | hello | midas | whitelist) ;; core) die "core can't be removed on its own; use --uninstall" ;; *) die "unknown component: $c" ;; esac
+  case "$c" in match | fleet | skins | hello | midas | whitelist | practice) ;; core) die "core can't be removed on its own; use --uninstall" ;; *) die "unknown component: $c" ;; esac
 done
 
 # ---- requirements ---------------------------------------------------------------------------
@@ -257,7 +258,7 @@ if [[ $UNINSTALL -eq 1 ]]; then
   else
     warn "patch_gameinfo.py is missing; remove the \"Game $GAME_PATH\" line from gameinfo.gi by hand"
   fi
-  for c in whitelist midas hello skins fleet match core; do
+  for c in practice whitelist midas hello skins fleet match core; do
     [[ -n "${INSTALLED[$c]:-}" || -f "$RU/manifests/$c.json" ]] || continue
     remove_component "$c"
     ok "removed $c"
@@ -457,7 +458,7 @@ for a in rel.get("assets", []):
     name, url = a.get("name", ""), a.get("browser_download_url", "")
     if name == "SHA256SUMS":
         print("sums\t%s\t%s" % (name, url))
-    elif re.match(r"^ready-up-(core|match|fleet|skins|hello|midas|whitelist)-.*\.zip$", name):
+    elif re.match(r"^ready-up-(core|match|fleet|skins|hello|midas|whitelist|practice)-.*\.zip$", name):
         print("asset\t%s\t%s" % (name, url))
 PY
   )
@@ -485,7 +486,10 @@ declare -A SEL=()
 for c in "${COMPONENTS[@]}"; do
   [[ -n "${INSTALLED[$c]:-}" ]] && SEL[$c]=1 || SEL[$c]=0
 done
-if [[ ${#INSTALLED[@]} -eq 0 ]]; then SEL[core]=1 SEL[match]=1 SEL[fleet]=1 BUNDLE_FLEET=1; fi
+if [[ ${#INSTALLED[@]} -eq 0 ]]; then SEL[core]=1 SEL[match]=1 SEL[fleet]=1 SEL[practice]=1 BUNDLE_FLEET=1; fi
+# Practice mode moved out of match.so into its own plugin: servers that have match get it on
+# their next update (untick it to go without).
+if [[ -n "${INSTALLED[match]:-}" && -z "${INSTALLED[practice]:-}" ]]; then SEL[practice]=1 BUNDLE_FLEET=1; fi
 SEL[core]=1
 
 TTY_OK=0
@@ -612,7 +616,7 @@ fi
 keep=()
 for c in "${TO_INSTALL[@]}"; do
   if [[ -z "${AVAIL[$c]:-}" ]]; then
-    [[ "$c" == fleet && $BUNDLE_FLEET -eq 1 ]] && continue
+    [[ ( "$c" == fleet || "$c" == practice ) && $BUNDLE_FLEET -eq 1 ]] && continue
     [[ "$c" == core && -n "${INSTALLED[core]:-}" ]] && continue
   fi
   keep+=("$c")
@@ -686,7 +690,7 @@ for c in "${!INSTALLED[@]}"; do BEFORE[$c]="${INSTALLED[$c]}"; done
 
 # Core first (the patcher and the plugin host come with it).
 ordered=()
-for c in core match fleet skins hello midas whitelist; do
+for c in core match fleet practice skins hello midas whitelist; do
   for t in "${TO_INSTALL[@]}"; do [[ "$t" == "$c" ]] && ordered+=("$c"); done
 done
 for c in "${ordered[@]}"; do

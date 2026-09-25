@@ -118,7 +118,58 @@ WebhookTeam VotesTeamForSide(int csTeam) {
   return CsSideOf(*ctx, WebhookTeam::Team1) == csTeam ? WebhookTeam::Team1 : WebhookTeam::Team2;
 }
 
+// `ru as <slot> <.gg|.stop>`: the server console votes as that player (bot-only live tests).
+static void OnRuAs(void*, const ru_command_ctx* c) {
+  if (!c->is_console) return;
+  if (c->argc < 4) {
+    PrintLine("usage: ru as <slot> <.gg|.stop> (vote as that player; practice tools: ru practice as)");
+    return;
+  }
+  const int slot = std::atoi(c->argv[2]);
+  const std::string cmd = c->argv[3] ? c->argv[3] : "";
+  struct Found {
+    int slot;
+    ru_player p;
+    bool found;
+  } f{slot, {}, false};
+  const ru_api* a = host::Api();
+  a->for_each_player(
+      a->self,
+      [](void* u, const ru_player* pl) -> int {
+        auto* f = static_cast<Found*>(u);
+        if ((pl->slot >= 0 ? pl->slot : pl->userid) != f->slot) return 1;
+        std::memcpy(&f->p, pl, std::min<size_t>(sizeof(ru_player), pl->struct_size));
+        f->found = true;
+        return 0;
+      },
+      &f);
+  if (!f.found) {
+    Print("ru as: no player in slot %d\n", slot);
+    return;
+  }
+  const uint64_t id = f.p.is_bot ? DevBotIdForUserid(slot) : f.p.steamid64;
+  WebhookTeam team = WebhookTeam::Unknown;
+  if (auto ctx = WebhookGetMatchContext()) {
+    if (auto it = ctx->roster_team.find(id); it != ctx->roster_team.end()) team = it->second;
+  }
+  if (team == WebhookTeam::Unknown) {
+    const auto cs = GetCsTeamNumForSlot(slot);
+    team = VotesTeamForSide(cs ? *cs : f.p.team);
+  }
+  Print("ru as: slot %d (%s) runs %s\n", slot, f.p.name, cmd.c_str());
+  if (team == WebhookTeam::Unknown) {
+    Print("ru as: slot %d has no match team\n", slot);
+  } else if (cmd == ".gg") {
+    if (!VotesGg(id, team, f.p.name)) Print("ru as: .gg vote is off (gg_enabled=0)\n");
+  } else if (cmd == ".stop") {
+    VotesStop(id, team, f.p.name);
+  } else {
+    Print("ru as: %s is not supported (.gg, .stop; practice tools: ru practice as)\n", cmd.c_str());
+  }
+}
+
 void VotesInstall(const ru_api* api) {
+  if (!api->register_ru_subcommand(api->self, "as", &OnRuAs, nullptr)) Print("vote: could not register `ru as`\n");
   if (!api->subscribe_game_event(api->self, "round_start", &OnGameEvent, nullptr)) {
     Print("vote: could not subscribe to round_start\n");
   }

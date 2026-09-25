@@ -10,6 +10,7 @@
 #include "readyup/config.h"
 #include "readyup/engine.h"
 #include "readyup/esports.h"
+#include "readyup/host.h"
 #include "readyup/logging.h"
 #include "readyup/map_names.h"
 #include "readyup/match_console.h"
@@ -20,7 +21,7 @@
 #include "readyup/modes.h"
 #include "readyup/pause_state.h"
 #include "readyup/persisted_match_state.h"
-#include "readyup/practice_tools.h"
+#include "readyup/practice_iface.h"
 #include "readyup/ru_commands.h"
 #include "readyup/players.h"
 #include "readyup/ready_hud.h"
@@ -59,6 +60,13 @@ std::string Lower(std::string s) {
   return s;
 }
 
+const ru_practice_v1* Practice() {
+  const ru_api* a = host::Api();
+  if (!a) return nullptr;
+  const auto* p = static_cast<const ru_practice_v1*>(a->get_interface(a->self, RU_PRACTICE_IFACE_NAME, 1));
+  return p && p->active && p->set_active && p->help ? p : nullptr;
+}
+
 void SendAdmin(const std::string& msg) {
   // SendToChat() adds the chat prefix; the admin prefix goes inside the message.
   SendToChat((AdminPrefix() + " " + msg).c_str());
@@ -72,13 +80,29 @@ void Reply(uint64_t steamid64, const std::string& msg) {
 
 }  // namespace
 
+bool MatchSetPractice(bool on) {
+  if (on) {
+    if (WebhookGetMatchContext()) return false;  // a loaded match keeps its own flow
+    if (GetMode() == ReadyUpMode::Practice) return true;
+    ClearReadyStates();
+    persisted_match_state::ClearActiveMatch();
+    WebhookSetHeartbeatStatus("warmup");  // non-allocatable but online
+    SetModePractice();
+    return true;
+  }
+  if (GetMode() != ReadyUpMode::Practice) return true;
+  ClearReadyStates();
+  WebhookSetHeartbeatStatus("idle");
+  SetModeIdle();
+  return true;
+}
+
 const std::vector<std::string>& MatchPlayerChatCommands() {
   static const std::vector<std::string> k = {
       ".r",    ".ready", ".unready", ".ur",   ".notready", ".nr",    ".pause", ".p",     ".tech",
       ".tac",  ".forceready", ".forcepause", ".fp", ".forceunpause", ".fup",
       ".unpause", ".up", ".gg",      ".ff",   ".forfeit",  ".stay",  ".switch", ".swap", ".ct",
-      ".t",    ".help",  ".prac",    ".tactics", ".bot",   ".cbot",  ".crouchbot", ".boost",
-      ".crouchboost", ".nobots", ".stop"};
+      ".t",    ".help",  ".stop"};
   return k;
 }
 
@@ -101,7 +125,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
 
   if (first == ".help") {
     if (GetMode() == ReadyUpMode::Practice) {
-      SendToChat(PracticeToolsHelp());
+      if (const ru_practice_v1* p = Practice()) SendToChat(p->help());
       return;
     }
     SendToChat("Ready Up commands: .r / .ready / .ur (.nr) | .forceready | .tac (timeout) | .tech (.pause) | .unpause");
@@ -122,19 +146,6 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   }
   if (first == ".forceunpause" || first == ".fup") {
     MatchRuCommand(steamid64, playerName, ".ru match unpause", -1);
-    return;
-  }
-
-  if (first == ".prac" || first == ".tactics") {
-    // MatchZy-style alias of the admin command.
-    MatchRuCommand(steamid64, playerName, ".ru mode practice", -1);
-    return;
-  }
-
-  // Practice bot helpers (practice_tools.cpp: the bot is placed where the caller stands).
-  if (first == ".nobots" || first == ".bot" || first == ".cbot" || first == ".crouchbot" || first == ".boost" ||
-      first == ".crouchboost") {
-    PracticeToolsBotCommand(GameEventsSlotForSteam(steamid64).value_or(-1), steamid64, first);
     return;
   }
 
@@ -440,28 +451,20 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     if (sub == "show") {
       Reply(steamid64, std::string("mode: ") + GetModeString());
     } else if (sub == "practice") {
-      if (GetMode() == ReadyUpMode::Practice) {
-        // Toggle off: back to idle (idle.cfg reverts the practice cvars right away).
-        ClearReadyStates();
-        WebhookClearMatchContext();
-        persisted_match_state::ClearActiveMatch();
-        WebhookSetHeartbeatStatus("idle");
-        SetModeIdle();
-        (void)EnqueueServerCommand("exec ReadyUp/idle.cfg");
-        // Respawn everyone with the normal loadout: the practice grenades and rifles go.
-        (void)EnqueueServerCommand("mp_restartgame 1");
-        sendAdmin("practice mode disabled.");
+      // Practice mode and its tools are the practice plugin's (plugins/practice): it asks back
+      // through readyup.match.v1 set_practice (MatchSetPractice).
+      const ru_practice_v1* p = Practice();
+      if (!p) {
+        Reply(steamid64, "Ready Up: practice mode needs the practice plugin (practice.so), which is not loaded.");
         return;
       }
-      ClearReadyStates();
-      WebhookClearMatchContext();
-      persisted_match_state::ClearActiveMatch();
-      WebhookSetHeartbeatStatus("warmup");  // non-allocatable but online
-      SetModePractice();
-      (void)EnqueueServerCommand("exec ReadyUp/prac.cfg");  // MatchZy behaviour: right away
-      // Respawn everyone so they get prac.cfg's full grenade set now, not on their next death.
-      (void)EnqueueServerCommand("mp_restartgame 1");
-      sendAdmin("practice mode enabled.");
+      const bool on = p->active() == 0;
+      const char* why = "";
+      if (p->set_active(on ? 1 : 0, &why) != 1) {
+        Reply(steamid64, std::string("Ready Up: practice mode refused: ") + (why ? why : "") + ".");
+        return;
+      }
+      sendAdmin(on ? "practice mode enabled." : "practice mode disabled.");
       return;
     } else if (sub == "idle") {
       const bool wasScrimWarmup = (GetMode() == ReadyUpMode::ScrimWarmup);
@@ -480,9 +483,8 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
         for (const char* c : cmds) (void)EnqueueServerCommand(c);
       }
       if (wasPractice) {
-        // Leaving practice: its cvars back to the idle baseline, everyone respawned without them.
-        (void)EnqueueServerCommand("exec ReadyUp/idle.cfg");
-        (void)EnqueueServerCommand("mp_restartgame 1");
+        // Leaving practice: the practice plugin puts the idle cvars back and respawns everyone.
+        if (const ru_practice_v1* p = Practice()) (void)p->set_active(0, nullptr);
       }
       sendAdmin("mode set to idle (auto scrim warmup off until .ru mode scrim or a map change).");
       return;
