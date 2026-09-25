@@ -9,6 +9,7 @@
 #include "readyup/selftest.h"
 #include "readyup/game_events.h"
 #include "readyup/game_frame_hook.h"
+#include "readyup/load_order.h"
 #include "readyup/log_receiver.h"
 #include "readyup/logging.h"
 #include "readyup/path.h"
@@ -90,7 +91,13 @@ __attribute__((visibility("default"))) void ExtractModuleMetadata() {
 }
 
 // Engine entrypoint.
-extern "C" __attribute__((visibility("default"))) void* CreateInterface(const char* name, int* returnCode) {
+//
+// Protected, not default, visibility: still in the dynamic symbol table (the engine and Metamod
+// find it with dlsym), but st_other != 0. CounterStrikeSharp builds its module list from every
+// loaded ".../bin/linuxsteamrt64/*.so" exporting a default-visibility CreateInterface and takes
+// the first "libserver.so"; under Metamod that was this shim instead of Valve's library, so its
+// signatures and vtables all failed and it refused to load (docs/COMPATIBILITY.md).
+extern "C" __attribute__((visibility("protected"))) void* CreateInterface(const char* name, int* returnCode) {
   static thread_local int s_depth = 0;
   struct DepthGuard {
     int& d;
@@ -143,6 +150,22 @@ __attribute__((constructor)) static void readyup_ctor() {
     readyup::Print("loaded from: %s\n", p.c_str());
   }
   readyup::PrintLine("libserver.so loaded.");
+
+  // One Ready Up per process. A second copy (two csgo/readyup-style lines, or a copy chained
+  // behind another) would install every hook twice; it stays inert and only forwards the
+  // engine's calls to Valve's library.
+  {
+    std::string other;
+    if (!readyup::ClaimShimInstance(&other)) {
+      readyup::Disable("another Ready Up shim is already active in this process");
+      readyup::Print("Ready Up disabled: another copy is already active in this process (%s). This copy only "
+                     "forwards to Valve's libserver.so. Keep exactly one csgo/readyup line in gameinfo.gi.\n",
+                     other.c_str());
+      return;
+    }
+  }
+  // Warn about a gameinfo.gi order that silently keeps Metamod from loading.
+  readyup::CheckLoadOrder();
 
   readyup::InstallCrashHandlersMaybe();
   readyup::EnsureRealServerLoaded();

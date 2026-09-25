@@ -2,12 +2,16 @@
 
 #include "readyup/config.h"
 #include "readyup/logging.h"
+#include "readyup/path.h"
+#include "readyup/real_server.h"
 
+#include <dlfcn.h>
 #include <link.h>
 
 #include <cctype>
 #include <cstdint>
 #include <cstring>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -54,58 +58,34 @@ static std::vector<int> ParsePattern(const std::string& pattern) {
   return out;
 }
 
-static std::string CanonicalizePath(std::string s) {
-  // Purely lexical canonicalization: collapses `/./` and `/../` segments.
-  // This is important because dlpi_name may include `..` (e.g. when dlopen() used a relative path),
-  // and our module filters rely on substring checks.
-  const bool abs = !s.empty() && s[0] == '/';
-
-  std::vector<std::string> parts;
-  parts.reserve(32);
-
-  size_t i = 0;
-  while (i < s.size()) {
-    while (i < s.size() && s[i] == '/') ++i;
-    if (i >= s.size()) break;
-    size_t j = i;
-    while (j < s.size() && s[j] != '/') ++j;
-    std::string seg = s.substr(i, j - i);
-    i = j;
-
-    if (seg.empty() || seg == ".") continue;
-    if (seg == "..") {
-      if (!parts.empty() && parts.back() != "..") {
-        parts.pop_back();
-      } else if (!abs) {
-        parts.push_back("..");
-      }
-      continue;
-    }
-    parts.push_back(std::move(seg));
-  }
-
-  std::string out;
-  if (abs) out.push_back('/');
-  for (size_t k = 0; k < parts.size(); ++k) {
-    if (k != 0) out.push_back('/');
-    out.append(parts[k]);
-  }
-  if (out.empty()) out = abs ? "/" : ".";
-  return out;
+// Which loaded object is Valve's server library? Primarily the one we dlopen()ed ourselves
+// (real_server.cpp): its link_map load address is compared with each dl_iterate_phdr entry.
+// Matching by file name alone is not enough: under Metamod the process also contains
+// csgo/addons/metamod/bin/linuxsteamrt64/libserver.so, loaded before Valve's, and scanning
+// that one made every signature miss and disabled Ready Up (docs/COMPATIBILITY.md).
+static bool RealServerLoadBase(uintptr_t* out) {
+  static std::once_flag once;
+  static bool ok = false;
+  static uintptr_t base = 0;
+  std::call_once(once, [] {
+    void* h = RealServerHandle();
+    if (!h) return;
+    struct link_map* lm = nullptr;
+    if (dlinfo(h, RTLD_DI_LINKMAP, &lm) != 0 || !lm) return;
+    base = static_cast<uintptr_t>(lm->l_addr);
+    ok = true;
+  });
+  if (ok && out) *out = base;
+  return ok;
 }
 
-static bool IsRealValveServerModuleName(const char* name) {
-  if (!name || !*name) return false;
-  const std::string s = CanonicalizePath(std::string(name));
-  if (s.find("/bin/linuxsteamrt64/libserver.so") == std::string::npos) return false;
-  // Exclude our shim: typically lives under /csgo/<gamepath>/.../readyup/.../libserver.so.
-  // We canonicalize first so paths like ".../readyup/.../../../../bin/.../libserver.so"
-  // don't get incorrectly rejected.
-  if (s.find("/csgo/") != std::string::npos &&
-      s.find("/readyup/bin/linuxsteamrt64/libserver.so") != std::string::npos) {
-    return false;
-  }
-  return true;
+static bool IsRealValveServerModule(const struct dl_phdr_info* info) {
+  if (!info) return false;
+  uintptr_t base = 0;
+  if (RealServerLoadBase(&base)) return static_cast<uintptr_t>(info->dlpi_addr) == base;
+  // No handle (the real module failed to load): name-based fallback, which skips our shim and
+  // Metamod's proxy library.
+  return info->dlpi_name && LooksLikeValveServerModule(info->dlpi_name);
 }
 
 static void* ScanRegion(const uint8_t* base, size_t size, const std::vector<int>& pat) {
@@ -165,7 +145,7 @@ static int IterateCb(struct dl_phdr_info* info, size_t, void* data) {
   auto* ctx = reinterpret_cast<FindCtx*>(data);
   if (!ctx || ctx->found) return 1;
 
-  if (!IsRealValveServerModuleName(info->dlpi_name)) return 0;
+  if (!IsRealValveServerModule(info)) return 0;
 
   for (ElfW(Half) i = 0; i < info->dlpi_phnum; ++i) {
     const ElfW(Phdr)& ph = info->dlpi_phdr[i];
@@ -187,6 +167,7 @@ static int IterateCb(struct dl_phdr_info* info, size_t, void* data) {
 }  // namespace
 
 void* FindInRealServerText(const std::string& pattern) {
+  RealServerLoadBase(nullptr);  // resolve outside the dl_iterate_phdr callback (loader lock)
   FindCtx ctx;
   ctx.pat = ParsePattern(pattern);
   if (ctx.pat.empty()) return nullptr;
@@ -199,6 +180,7 @@ void* FindInRealServerText(const std::string& pattern) {
 }
 
 SigResult FindInRealServerTextCount(const std::string& pattern, int maxMatches) {
+  RealServerLoadBase(nullptr);  // resolve outside the dl_iterate_phdr callback (loader lock)
   SigResult out;
   const auto pat = ParsePattern(pattern);
   out.pat_len = pat.size();
@@ -217,7 +199,7 @@ SigResult FindInRealServerTextCount(const std::string& pattern, int maxMatches) 
     auto* c = reinterpret_cast<CountCtx*>(data);
     if (!c) return 0;
     if (c->res.matches >= c->maxMatches) return 1;
-    if (!IsRealValveServerModuleName(info->dlpi_name)) return 0;
+    if (!IsRealValveServerModule(info)) return 0;
 
     for (ElfW(Half) i = 0; i < info->dlpi_phnum; ++i) {
       const ElfW(Phdr)& ph = info->dlpi_phdr[i];
@@ -245,10 +227,11 @@ SigResult FindInRealServerTextCount(const std::string& pattern, int maxMatches) 
 }
 
 es::Image SnapshotRealServerImage() {
+  RealServerLoadBase(nullptr);  // resolve outside the dl_iterate_phdr callback (loader lock)
   es::Image img;
   auto cb = [](struct dl_phdr_info* info, size_t, void* data) -> int {
     auto* out = reinterpret_cast<es::Image*>(data);
-    if (!IsRealValveServerModuleName(info->dlpi_name)) return 0;
+    if (!IsRealValveServerModule(info)) return 0;
     for (ElfW(Half) i = 0; i < info->dlpi_phnum; ++i) {
       const ElfW(Phdr)& ph = info->dlpi_phdr[i];
       if (ph.p_type != PT_LOAD) continue;

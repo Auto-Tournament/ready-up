@@ -9,7 +9,7 @@ Placement rules (SearchPaths block):
     libserver.so and Ready Up never runs.
   * If Metamod is installed (`Game csgo/addons/metamod` above `Game csgo`), Ready Up goes
     directly AFTER Metamod's line. Metamod then loads first and Ready Up is what it loads as
-    "the game"; the other order (Ready Up loading Metamod) recursed at startup.
+    "the game". In the other order Metamod never loads (Ready Up warns at startup).
 
 The patch is idempotent: an entry that already satisfies the rules is left alone, and
 duplicate or misplaced entries are collapsed into one correctly placed line. A timestamped
