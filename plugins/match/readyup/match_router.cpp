@@ -429,7 +429,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   if (main == "hud") {
     // Center-HTML test variant to the caller only (what the CS2 client renders).
     if (steamid64 == 0) {
-      PrintLine("ru hud test: run it from in-game chat (.ru hud test <1-7>); the panel is shown to the caller.");
+      PrintLine("ru hud test: run it from in-game chat (.ru hud test <1-11>); the panel is shown to the caller.");
       return;
     }
     if (!FeatureEnabled(Feature::ReadyHud)) {
@@ -439,7 +439,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     const int n = args.empty() ? 0 : std::atoi(args[0].c_str());
     const std::string desc = ReadyHudRequestTest(steamid64, n);
     if (desc.empty()) {
-      sendAdmin("usage: .ru hud test <n> - 1 fonts, 2 images (svg+png), 3 unicode, 4 svg, 5 png, 6 wiki png, 7 configured header");
+      sendAdmin("usage: .ru hud test <n> - 1 fonts, 2 images, 3 unicode, 4 svg, 5 png, 6 wiki png, 7 header, 8 height ruler, 9 width ruler, 10-11 image sizes");
       return;
     }
     sendAdmin("hud test " + std::to_string(n) + " for " + playerName + " (10s): " + desc);
