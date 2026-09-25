@@ -12,6 +12,7 @@
 #include "readyup/mat_admins.h"
 #include "readyup/match_config_parser.h"
 #include "readyup/match_end.h"
+#include "readyup/match_log.h"
 #include "readyup/match_state.h"
 #include "readyup/match_token.h"
 #include "readyup/modes.h"
@@ -543,6 +544,14 @@ void ApplyLoadedMatch(const WebhookMatchContext& ctx, const std::string& configJ
 
   // Change to the first map (map 1, or the map a failover resumes) unless the server is on it.
   const size_t idx = static_cast<size_t>(firstMapNumber - 1);
+  // The new match is on map N from here: a match loaded on the map the server is on gets no map
+  // change, so the map number of a previous match must not carry over.
+  {
+    MatchLogState ls = MatchLogSnapshot();
+    ls.mapNumber = firstMapNumber;
+    MatchLogRestore(ls);
+    MatchStateSetMap(firstMapNumber, MatchStateGet().current_map);
+  }
   if (idx < ctx.maplist.size()) {
     const std::string& entry = ctx.maplist[idx];
     const auto ms = MatchStateGet();

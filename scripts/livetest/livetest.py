@@ -340,7 +340,9 @@ class Facts:
         if (m := KNIFE_PICK_RE.search(line)):
             self.knife_pick = (s, m.group(1), m.group(2), m.group(4))
             return
-        if any(mk in line for mk in BOOT_MARKERS):
+        # "player server started" alone is also printed by host_workshop_map (a workshop map starts
+        # a new server host state); only the core's own load line means the process restarted.
+        if BOOT_MARKERS[0] in line:
             self.restarted = self.restarted or line.strip()
         if CRASH_RE.search(line):
             self.crash = line.strip()
