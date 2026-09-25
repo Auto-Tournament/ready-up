@@ -336,12 +336,18 @@ add_executable(readyup_ru_help_test tests/ru_help_test.cpp core/src/readyup/ru_h
 target_include_directories(readyup_ru_help_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
 target_compile_options(readyup_ru_help_test PRIVATE -Wall -Wextra)
 
+# `.skins reload` rules (plugins/skins/skins_reload.h).
+add_executable(skins_reload_test plugins/skins/tests/skins_reload_test.cpp)
+target_include_directories(skins_reload_test PRIVATE ${CMAKE_SOURCE_DIR}/plugins/skins)
+target_compile_options(skins_reload_test PRIVATE -Wall -Wextra)
+
 # Persistent plugin enable / disable (core/src/readyup/plugin_state.h).
 add_executable(readyup_plugin_state_test tests/plugin_state_test.cpp core/src/readyup/plugin_state.cpp libs/readyup/minijson.cpp)
 target_include_directories(readyup_plugin_state_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(readyup_plugin_state_test PRIVATE -Wall -Wextra)
 
 enable_testing()
+add_test(NAME skins_reload COMMAND skins_reload_test)
 add_test(NAME plugin_state COMMAND readyup_plugin_state_test)
 add_test(NAME ru_help COMMAND readyup_ru_help_test)
 add_test(NAME load_order COMMAND readyup_load_order_test)

@@ -12,6 +12,7 @@
 //   skins_debug_as <slot> <steamid64>  (console, debug=1 only) decorate a bot with a player's
 //                              loadout, to test the apply path without a human client
 #include "skins.h"
+#include "skins_reload.h"
 
 #include "apply_internal.h"
 
@@ -20,11 +21,13 @@
 
 #include <atomic>
 #include <cctype>
+#include <chrono>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <map>
 #include <mutex>
 #include <string>
 
@@ -142,6 +145,55 @@ void OnSpawnEvent(void* user, const char* name, const ru_game_event* ev) {
   RequestSpawnCosmetics(g_api->ev_get_player_slot(g_api->self, ev, "userid"));
 }
 
+std::map<uint64_t, double> g_lastReload;  // steamid64 -> when `.skins reload` last ran
+
+// The match plugin's ru_mode ("" without it).
+std::string RuMode() {
+  const auto* m = static_cast<const ru_match_v1*>(g_api->get_interface(g_api->self, RU_MATCH_IFACE_NAME, 1));
+  if (!m || !m->get_status) return {};
+  ru_match_status st{};
+  st.struct_size = sizeof(st);
+  if (m->get_status(&st) != 1 || !st.ru_mode) return "unknown";  // can't tell: treat as live
+  return st.ru_mode;
+}
+
+// `.skins reload` (also `.ru skins reload`): re-read the caller's loadout and re-apply it.
+void OnSkinsChat(void*, const ru_command_ctx* ctx) {
+  auto reply = [&](const char* msg) {
+    if (ctx->slot >= 0) g_api->chat_to_slot(g_api->self, ctx->slot, msg);
+  };
+  const std::string sub = ctx->argc >= 2 && ctx->argv[1] ? ctx->argv[1] : "";
+  if (sub != "reload") {
+    reply("Ready Up skins: .skins reload  (re-read your skins; not while a match is live)");
+    return;
+  }
+  if (ctx->steamid64 == 0 || ctx->slot < 0) return;
+  if (Inert()) {
+    reply("Ready Up skins: skins are off on this server right now.");
+    return;
+  }
+  const std::string mode = RuMode();
+  if (!SkinsReloadAllowed(mode)) {
+    reply("Ready Up skins: .skins reload is not available while a match is live.");
+    Log(RU_LOG_INFO, "skins reload by %llu refused (mode %s)", static_cast<unsigned long long>(ctx->steamid64),
+        mode.c_str());
+    return;
+  }
+  const double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+  const auto it = g_lastReload.find(ctx->steamid64);
+  if (!SkinsReloadCooldownOk(now, it == g_lastReload.end() ? -1 : it->second)) {
+    reply("Ready Up skins: wait a few seconds before reloading again.");
+    return;
+  }
+  g_lastReload[ctx->steamid64] = now;
+  Invalidate(ctx->steamid64);
+  MaybeRefreshAsync(ctx->steamid64);
+  RequestReapply(ctx->slot);
+  Log(RU_LOG_INFO, "skins reload by %llu (slot %d, mode %s)", static_cast<unsigned long long>(ctx->steamid64),
+      ctx->slot, mode.empty() ? "no match plugin" : mode.c_str());
+  reply("Ready Up skins: reloading your skins. Gloves, agent and the weapons you hold update in a second.");
+}
+
 void OnDeathEvent(void*, const char*, const ru_game_event* ev) {
   if (Inert()) return;  // no StatTrak counting either
   try {
@@ -235,6 +287,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     api->subscribe_game_event(api->self, "player_death", OnDeathEvent, nullptr);
     api->register_console_command(api->self, "skins_status", OnStatus, nullptr);
     api->register_console_command(api->self, "skins_refresh", OnRefresh, nullptr);
+    api->register_chat_command(api->self, ".skins", OnSkinsChat, nullptr);
     api->register_console_command(api->self, "skins_debug_as", OnDebugAs, nullptr);
     if (RU_API_HAS(api, provide_interface)) {
       api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "skins", RU_SELFTEST_IFACE_VERSION,
