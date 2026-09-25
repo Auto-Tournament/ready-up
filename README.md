@@ -77,7 +77,7 @@ Unattended installs have to state the license choice once with
 
 ```bash
 curl -fsSL .../install.sh | bash -s -- essentials --accept-license=noncommercial   # core + essentials + match + fleet + practice (the default)
-curl -fsSL .../install.sh | bash -s -- full --accept-license=noncommercial         # + skins + hello + midas
+curl -fsSL .../install.sh | bash -s -- full --accept-license=noncommercial         # + skins + hello + midas + whitelist
 bash install.sh --yes                                    # update whatever is installed
 bash install.sh --remove skins                           # or --remove fleet, --remove hello
 bash install.sh --uninstall [--purge]                    # --purge also deletes your config
@@ -90,7 +90,7 @@ CS2 updates rewrite `gameinfo.gi`: run the installer again after each one (it on
 
 ### Manual install
 
-1. Download a zip from [Releases](https://github.com/Auto-Tournament/ready-up/releases/latest): `ready-up-essentials-<version>-linuxsteamrt64.zip` (core + essentials + match + fleet + practice) or `ready-up-full-...` (+ skins + hello + midas).
+1. Download a zip from [Releases](https://github.com/Auto-Tournament/ready-up/releases/latest): `ready-up-essentials-<version>-linuxsteamrt64.zip` (core + essentials + match + fleet + practice) or `ready-up-full-...` (+ skins + hello + midas + whitelist).
 2. Extract it into `game/csgo`. You should end up with `game/csgo/readyup/bin/linuxsteamrt64/libserver.so`.
 3. Add Ready Up to `gameinfo.gi` (and `gameinfo_branchspecific.gi` if you have it):
 

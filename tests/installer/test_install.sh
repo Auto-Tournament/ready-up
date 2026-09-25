@@ -8,7 +8,9 @@
 # config kept (+ *.default when a template changes), fleet in essentials (idle template), removing
 # and re-adding fleet (its data dir kept), adding skins from the full zip, removing
 # it, the numbered-prompt and arrow-key pickers through a pty (`script`), uninstall, --purge,
-# the license choice (--accept-license, saved choice, the prompt through a pty).
+# the license choice (--accept-license, saved choice, the prompt through a pty), migrating an
+# older core + match install (practice and essentials come with the next update), the full
+# bundle by name, and release mode (ready-up-essentials-plugin-* is the essentials component).
 set -euo pipefail
 
 DIST="$(cd "${1:?usage: $0 <dist-dir>}" && pwd)"
@@ -154,6 +156,30 @@ check "fleet.so back" test -x "$CS/readyup/plugins/fleet.so"
 check "user fleet.cfg not overwritten" grep -q "t.example.com" "$CS/cfg/ReadyUp/fleet.cfg"
 check "installed.json is core essentials fleet match practice again" test "$(installed "$S")" = "core essentials fleet match practice"
 
+echo "== older install (core + match, before practice / essentials were split out) -> update adds both"
+S3="$T/server-old"
+make_server "$S3" 0
+CS3="$S3/game/csgo"
+run --dir "$S3" --zip "$(ls "$DIST"/ready-up-core-*.zip)" --zip "$(ls "$DIST"/ready-up-match-*.zip)" \
+  --accept-license=noncommercial core match >"$T/out" 2>&1 || { cat "$T/out"; fail "core + match install exited non-zero"; }
+check "old-style install is core match" test "$(installed "$S3")" = "core match"
+run --dir "$S3" --zip "$ESS" -y >"$T/out" 2>&1 || { cat "$T/out"; fail "update of the old install exited non-zero"; }
+check "update added practice.so" test -x "$CS3/readyup/plugins/practice.so"
+check "update added essentials.so" test -x "$CS3/readyup/plugins/essentials.so"
+check "update did not add fleet (not asked for)" test ! -e "$CS3/readyup/plugins/fleet.so"
+check "installed.json is core essentials match practice" test "$(installed "$S3")" = "core essentials match practice"
+
+echo "== full bundle by name"
+S4="$T/server-full"
+make_server "$S4" 0
+run --dir "$S4" --zip "$FULL" --accept-license=noncommercial full >"$T/out" 2>&1 || { cat "$T/out"; fail "full install exited non-zero"; }
+# (+ tools: the offline gamedata checkers, when the build had them)
+check "installed.json is every component" \
+  test "$(installed "$S4" | sed "s/ tools / /; s/ tools$//")" = "core essentials fleet hello match midas practice skins whitelist"
+for so in match fleet practice essentials skins hello midas whitelist; do
+  check "full: $so.so installed" test -x "$S4/game/csgo/readyup/plugins/$so.so"
+done
+
 if command -v script >/dev/null 2>&1; then
   echo "== numbered picker (TERM=dumb) through a pty"
   printf '1,2,3,4\ny\n' | script -qec "TERM=dumb bash '$INSTALL' --dir '$S' --zip '$FULL'" /dev/null >"$T/out" 2>&1 || true
@@ -213,6 +239,9 @@ PY
   READYUP_API="http://127.0.0.1:$PORT" READYUP_REPO=test/ready-up run --dir "$S" --accept-license=noncommercial essentials >"$T/out" 2>&1 ||
     { cat "$T/out"; fail "release-mode install exited non-zero"; }
   check "release mode installed core" test -f "$S/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
+  check "release mode: essentials.so from ready-up-essentials-plugin-*" test -x "$S/game/csgo/readyup/plugins/essentials.so"
+  check "release mode installed core essentials fleet match practice" \
+    test "$(installed "$S")" = "core essentials fleet match practice"
   check "release mode printed the release notes" grep -q "Test release notes line 1" "$T/out"
   # Pretend an older core is installed: the update shows old -> new.
   python3 -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["components"]["core"]="0.0.1"; json.dump(d,open(p,"w"))' \
