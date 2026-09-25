@@ -1,5 +1,7 @@
 #pragma once
 
+#include "readyup/match_rules.h"
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -100,6 +102,13 @@ struct WebhookMatchContext {
 
   // SteamID64 -> team mapping derived from match config.
   std::unordered_map<uint64_t, WebhookTeam> roster_team;
+
+  // Optional team flags (2-letter country codes, `mp_teamflag_N`); team tags are shown by name.
+  std::string team1_flag;
+  std::string team2_flag;
+
+  // Pause / ready / forfeit rules from the match config (-1 = unset; match_rules.h).
+  MatchRules rules;
 };
 
 // Configure base events URL (e.g. https://mat.example.com/api/events).

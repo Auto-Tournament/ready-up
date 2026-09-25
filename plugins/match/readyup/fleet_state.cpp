@@ -313,6 +313,7 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
     if (!src) return t;
     t["name"] = Str(*src, "name");
     if (!Str(*src, "tag").empty()) t["tag"] = Str(*src, "tag");
+    if (!Str(*src, "flag").empty()) t["flag"] = Str(*src, "flag");
     Json players = Json::Object();
     if (const Json* ps = Arr(*src, "players")) {
       for (const auto& p : ps->Items()) {
@@ -359,11 +360,26 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
   }
   if (const Json* k = Obj(r, "knife")) cfg["knifeDecisionSeconds"] = Int(*k, "side_pick_seconds", 60);
   cfg["clinch_series"] = Bool(r, "clinch_series", true);
+  // Pause / ready / forfeit rules (match_rules.h). Absent fields stay unset (server defaults).
+  const Json* pause = Obj(r, "pause");
+  if (pause && pause->Find("technical_per_team")) cfg["max_tech_pauses_per_team"] = Int(*pause, "technical_per_team", 0);
+  if (pause && pause->Find("technical_seconds")) cfg["tech_pause_max_seconds"] = Int(*pause, "technical_seconds", 0);
+  if (pause && !Str(*pause, "unpause").empty()) cfg["both_teams_unpause_required"] = Str(*pause, "unpause") != "caller_team";
+  if (const Json* ready = Obj(r, "ready")) {
+    if (ready->Find("allow_force_ready")) cfg["allow_force_ready"] = Bool(*ready, "allow_force_ready", true);
+    if (ready->Find("min_per_team")) cfg["min_players_to_ready"] = Int(*ready, "min_per_team", 0);
+  }
+  if (const Json* ff = Obj(r, "forfeit"); ff && ff->Find("team_absent_seconds")) {
+    cfg["forfeit_after_seconds"] = Int(*ff, "team_absent_seconds", 240);
+  }
 
   Json cvars = Json::Object();
   cvars["mp_maxrounds"] = std::to_string(maxRounds);
   cvars["mp_overtime_enable"] = otOn ? "1" : "0";
   cvars["mp_overtime_maxrounds"] = std::to_string(otHalf * 2);
+  // Tactical timeouts are CS2's own: their count and length are engine cvars.
+  if (pause && pause->Find("tactical_per_team")) cvars["mp_team_timeout_max"] = std::to_string(Int(*pause, "tactical_per_team", 3));
+  if (pause && pause->Find("tactical_seconds")) cvars["mp_team_timeout_time"] = std::to_string(Int(*pause, "tactical_seconds", 30));
   if (const Json* c = Obj(config, "cvars")) {
     for (const auto& kv : c->Members()) {
       const std::string& k = kv.first;

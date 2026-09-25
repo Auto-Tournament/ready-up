@@ -78,6 +78,48 @@ void PauseStateRestore(const PauseSnapshot& snap, long long startTicks) {
   g_pauseStart = std::chrono::steady_clock::time_point(std::chrono::steady_clock::duration(startTicks));
 }
 
+namespace {
+int g_used[2][2] = {{0, 0}, {0, 0}};  // [team1/team2][tactical/technical], under g_mu
+
+int UsedIndex(WebhookTeam team) { return team == WebhookTeam::Team1 ? 0 : team == WebhookTeam::Team2 ? 1 : -1; }
+int TypeIndex(const std::string& type) { return type == "tactical" ? 0 : type == "technical" ? 1 : -1; }
+}  // namespace
+
+void PauseStateCountUse(WebhookTeam team, const std::string& type) {
+  const int t = UsedIndex(team), k = TypeIndex(type);
+  if (t < 0 || k < 0) return;
+  std::lock_guard<std::mutex> lk(g_mu);
+  ++g_used[t][k];
+}
+
+int PauseStateUsed(WebhookTeam team, const std::string& type) {
+  const int t = UsedIndex(team), k = TypeIndex(type);
+  if (t < 0 || k < 0) return 0;
+  std::lock_guard<std::mutex> lk(g_mu);
+  return g_used[t][k];
+}
+
+void PauseStateResetUsage() {
+  std::lock_guard<std::mutex> lk(g_mu);
+  for (auto& row : g_used) row[0] = row[1] = 0;
+}
+
+void PauseStateUsageSave(int out[4]) {
+  std::lock_guard<std::mutex> lk(g_mu);
+  out[0] = g_used[0][0];
+  out[1] = g_used[0][1];
+  out[2] = g_used[1][0];
+  out[3] = g_used[1][1];
+}
+
+void PauseStateUsageRestore(const int in[4]) {
+  std::lock_guard<std::mutex> lk(g_mu);
+  g_used[0][0] = in[0];
+  g_used[0][1] = in[1];
+  g_used[1][0] = in[2];
+  g_used[1][1] = in[3];
+}
+
 int PauseStatePauseDurationSeconds() {
   std::lock_guard<std::mutex> lk(g_mu);
   if (!g_paused) return 0;

@@ -7,6 +7,7 @@
 #include "readyup/host.h"
 #include "readyup/logging.h"
 #include "readyup/match_signals.h"
+#include "readyup/match_features.h"
 #include "readyup/match_state.h"
 #include "readyup/match_stats.h"
 #include "readyup/modes.h"
@@ -603,6 +604,10 @@ void OnGameEvent(void* /*user*/, const char* name, const ru_game_event* ev) {
     OnNativeWarmupStarted("round_announce_warmup event");
     return;
   }
+  if (std::strcmp(name, "round_start") == 0 || std::strcmp(name, "round_freeze_end") == 0) {
+    MatchFeaturesOnGameEvent(name);  // freeze time tracking for pauses (match_features.h)
+    if (name[6] == 'f') return;
+  }
   if (std::strcmp(name, "round_start") == 0 || std::strcmp(name, "round_end") == 0) {
     PendingRound p;
     const ru_api* a = A();
@@ -660,7 +665,7 @@ void MatchEventsIgnoreRoundEndsFor(double seconds) {
 
 void MatchEventsInstall(const ru_api* api) {
   static const char* const kEvents[] = {
-      "round_start", "round_end", "round_announce_warmup", "player_spawn", "player_disconnect", "player_death",
+      "round_start", "round_end", "round_freeze_end", "round_announce_warmup", "player_spawn", "player_disconnect", "player_death",
       "player_hurt", "player_blind", "bomb_planted", "bomb_defused", "round_mvp",
   };
   for (const char* e : kEvents) {

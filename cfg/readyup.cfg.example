@@ -35,6 +35,15 @@ admin_prefix=<DarkRed>[Admin]<Default>
 # status_http_token=          (empty = generated once and kept in status.json)
 # status_http_metrics=0
 
+# Match rules (readyup-match). Scrims use these; a match config's own values win for matches.
+# max_tech_pauses_per_team=3     technical pauses (.tech/.pause) per team per map, 0 = unlimited
+# tech_pause_max_seconds=300     auto-unpause after this long, 0 = never
+# both_teams_unpause_required=1  0 = the pausing team alone can unpause
+# allow_force_ready=1            .forceready readies the caller's team
+# min_players_to_ready=0         players a team needs connected to go live / force ready (0 = all)
+# forfeit_after_seconds=240      a team with nobody connected on a live map forfeits, 0 = off
+# Tactical timeouts (.tac) are CS2's: mp_team_timeout_max / mp_team_timeout_time (ReadyUp/live.cfg).
+
 # Plugin settings. Everything after the first [section] line belongs to a plugin and is read
 # with ru_api config_get (the plugin's own csgo/cfg/ReadyUp/<plugin>.cfg wins over this).
 # Core keys must stay above the first section.

@@ -24,9 +24,11 @@ set(MATCH_SOURCES
   readyup/match_end.cpp
   readyup/match_end_logic.cpp
   readyup/match_events.cpp
+  readyup/match_features.cpp
   readyup/match_log.cpp
   readyup/match_plugin.cpp
   readyup/match_recovery.cpp
+  readyup/match_rules.cpp
   readyup/match_router.cpp
   readyup/match_signals.cpp
   readyup/match_state.cpp
@@ -89,9 +91,16 @@ set_tests_properties(match_host PROPERTIES TIMEOUT 120)
 # epoch fence, config_rev CAS, match.assign -> MAT config through the real parser, update ops,
 # sha256 / base64, validators) and the stats rewind of round restores (ctest `match_fleet_state`).
 add_executable(match_fleet_state_test tests/fleet_state_test.cpp readyup/fleet_state.cpp readyup/match_stats.cpp
-  readyup/match_config_parser.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp
+  readyup/match_config_parser.cpp readyup/match_rules.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/steamid.cpp)
 target_include_directories(match_fleet_state_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs
   ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(match_fleet_state_test PRIVATE -Wall -Wextra)
 add_test(NAME match_fleet_state COMMAND match_fleet_state_test)
+
+# Pause limits / unpause rule / auto-unpause countdown, .forceready threshold, team name
+# sanitizing and the team-left forfeit timer (readyup/match_rules.h; ctest `match_rules`).
+add_executable(match_rules_test tests/match_rules_test.cpp readyup/match_rules.cpp)
+target_include_directories(match_rules_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(match_rules_test PRIVATE -Wall -Wextra)
+add_test(NAME match_rules COMMAND match_rules_test)

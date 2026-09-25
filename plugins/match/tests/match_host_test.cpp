@@ -337,6 +337,7 @@ int main(int argc, char** argv) {
   const std::string body =
       "{\"id\":4242,\"slug\":\"hosttest\",\"config\":{\"matchid\":4242,\"num_maps\":1,\"maplist\":[\"de_test\"],"
       "\"map_sides\":[\"team1_ct\"],\"maxRounds\":24,\"overtimeMode\":\"disabled\","
+      "\"max_tech_pauses_per_team\":2,\"tech_pause_max_seconds\":45,\"forfeit_after_seconds\":0,"
       "\"team1\":{\"name\":\"Alpha\",\"players\":{\"76561198000000001\":\"alice\"}},"
       "\"team2\":{\"name\":\"Bravo\",\"players\":{\"76561198000000002\":\"bob\"}}}}";
   std::thread http;
@@ -362,6 +363,11 @@ int main(int argc, char** argv) {
         "loaded match + ready states survive the reload");
   Check(Has(s, "\"Alpha\"") && Has(s, "\"76561198000000002\""), "MatchState roster survives the reload");
   Check(rp::ChatCommandOwned(".r", &flags), "commands registered again by the new image");
+  ClearLog();
+  Check(rp::TryDispatchRu(true, 0, "Console", "ru state"), "`ru state` after the reload");
+  rp::Frame(true);
+  Check(Logged("rules: tech_pauses=2 tech_max_s=45 unpause=both force_ready=1 min_ready=0 forfeit_s=0"),
+        "match rules survive the reload");
 
   std::puts("-- console settings go to state.json (a server restart restores them)");
   rp::TryDispatchConsole("ru_demo_path persist/");

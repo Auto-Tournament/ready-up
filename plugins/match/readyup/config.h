@@ -11,6 +11,8 @@
 // `ru reload`. Environment overrides as before: READYUP_DEV_BOTS_READY, READYUP_DEV_BOTS_SCRIM,
 // READYUP_CHAT_DEBUG. `debug` is the core's (ru_api debug_enabled).
 
+#include "readyup/match_rules.h"
+
 #include <string>
 
 namespace readyup {
@@ -44,6 +46,10 @@ struct ReadyUpCfg {
   bool scrim_knife = true;
   // Scrim knife side-pick window in seconds (match configs use knifeDecisionSeconds).
   int knife_pick_seconds = 60;
+  // Pause / ready / forfeit rules (match_rules.h): the values for scrims, and the fallback for
+  // match configs that leave a rule out. Keys: max_tech_pauses_per_team, tech_pause_max_seconds,
+  // both_teams_unpause_required, allow_force_ready, min_players_to_ready, forfeit_after_seconds.
+  MatchRules rules;
 };
 
 ReadyUpCfg Cfg();

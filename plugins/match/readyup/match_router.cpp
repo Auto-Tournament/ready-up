@@ -10,6 +10,7 @@
 #include "readyup/engine.h"
 #include "readyup/logging.h"
 #include "readyup/match_console.h"
+#include "readyup/match_features.h"
 #include "readyup/match_signals.h"
 #include "readyup/match_state.h"
 #include "readyup/modes.h"
@@ -67,6 +68,7 @@ void Reply(uint64_t steamid64, const std::string& msg) {
 const std::vector<std::string>& MatchPlayerChatCommands() {
   static const std::vector<std::string> k = {
       ".r",    ".ready", ".unready", ".ur",   ".notready", ".nr",    ".pause", ".p",     ".tech",
+      ".tac",  ".forceready", ".forcepause", ".fp", ".forceunpause", ".fup",
       ".unpause", ".up", ".gg",      ".ff",   ".forfeit",  ".stay",  ".switch", ".swap", ".ct",
       ".t",    ".help",  ".prac",    ".tactics", ".bot",   ".cbot",  ".crouchbot", ".boost",
       ".crouchboost", ".nobots"};
@@ -76,7 +78,8 @@ const std::vector<std::string>& MatchPlayerChatCommands() {
 const std::vector<std::string>& MatchRuSubcommands() {
   static const std::vector<std::string> k = {
       "admins", "hudtest", "prac", "practice", "idle", "scrim", "state", "status", "mode", "match", "start",
-      "pause",  "fp",      "forcepause", "unpause", "up", "fup", "forceunpause", "restart", "end", "recover", "side"};
+      "pause",  "fp",      "forcepause", "unpause", "up", "fup", "forceunpause", "restart", "end", "recover", "side",
+      "tech",   "tac"};
   return k;
 }
 
@@ -88,7 +91,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   const bool hasMatch = static_cast<bool>(ctx);
 
   if (first == ".help") {
-    SendToChat("Ready Up commands: .r / .ready / .ur (.nr) | .pause (.tech) | .unpause");
+    SendToChat("Ready Up commands: .r / .ready / .ur (.nr) | .forceready | .tac (timeout) | .tech (.pause) | .unpause");
     if (hasMatch) {
       SendToChat("Ready Up: knife: .stay/.switch (.ct/.t) | forfeit: .ff (captain)");
     } else {
@@ -96,6 +99,15 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
                      ? "Ready Up: scrim: when everyone on CT/T is READY: 5s countdown, knife round, winners .stay/.switch, live."
                      : "Ready Up: scrim: when everyone on CT/T is READY, a 5s countdown starts and the scrim goes live.");
     }
+    return;
+  }
+
+  if (first == ".forcepause" || first == ".fp") {
+    MatchRuCommand(steamid64, playerName, ".ru fp");
+    return;
+  }
+  if (first == ".forceunpause" || first == ".fup") {
+    MatchRuCommand(steamid64, playerName, ".ru fup");
     return;
   }
 
@@ -159,7 +171,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   } else {
     // Pre-match scrim: only ready/unready work; say so instead of staying silent.
     if (first != ".r" && first != ".ready" && first != ".unready" && first != ".ur" && first != ".notready" &&
-        first != ".nr") {
+        first != ".nr" && first != ".forceready") {
       if (first == ".stay" || first == ".switch" || first == ".swap" || first == ".ct" || first == ".t") {
         SendToChat("Ready Up: no knife side pick pending (no match loaded).");
       } else {
@@ -256,73 +268,26 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     ScrimNoteReadyChanged();
     return;
   }
-  const bool isPauseCmd = first == ".pause" || first == ".p" || first == ".tech" || first == ".unpause" || first == ".up";
+  if (first == ".forceready") {
+    MatchFeaturesForceReady(steamid64, playerName);
+    return;
+  }
+  const bool isPauseCmd = first == ".pause" || first == ".p" || first == ".tech" || first == ".tac" ||
+                          first == ".unpause" || first == ".up";
   if (isPauseCmd && !FeatureEnabled(Feature::Pauses)) {
     SendToChat("Ready Up: pauses are unavailable on this server build (see `ru selftest`).");
     return;
   }
   if (first == ".pause" || first == ".p" || first == ".tech") {
-    if (PauseStateGet().paused) {
-      SendToChat("Ready Up: match is already paused.");
-      return;
-    }
-    if (!EnqueueServerCommand("mp_pause_match")) {
-      SendToChat("Ready Up: pause unavailable yet.");
-      return;
-    }
-    PauseStateOnPaused(first == ".tech" ? "technical" : "tactical", std::to_string(steamid64),
-                       ctx->roster_team[steamid64]);
-    const auto ms = MatchStateGet();
-    WebhookEmitMatchPaused(ms.map_number, WebhookPlayer{steamid64, playerName, ctx->roster_team[steamid64]},
-                           /*is_tactical=*/false, /*is_admin=*/false, /*pause_time=*/0);
-    SendToChat("Ready Up: pause requested.");
+    MatchFeaturesTechPause(ctx->roster_team[steamid64], steamid64, playerName);
+    return;
+  }
+  if (first == ".tac") {
+    MatchFeaturesTacticalTimeout(ctx->roster_team[steamid64], steamid64, playerName);
     return;
   }
   if (first == ".unpause" || first == ".up") {
-    if (!PauseStateGet().paused) {
-      SendToChat("Ready Up: match is not paused.");
-      return;
-    }
-    const auto ms = MatchStateGet();
-    auto snap = PauseStateRequestUnpause(ctx->roster_team[steamid64]);
-    // dev_bots_ready: a team with no connected human on the roster is all bots (or empty);
-    // nobody can confirm for it, so confirm on its behalf.
-    if (DevBotsReadyEnabled()) {
-      std::unordered_set<uint64_t> connected;
-      for (const auto& h : ListHumans()) connected.insert(h.steamid64);
-      auto botOnly = [&](WebhookTeam team) {
-        for (const auto& kv : ctx->roster_team) {
-          if (kv.second == team && connected.count(kv.first)) return false;
-        }
-        return true;
-      };
-      const std::pair<WebhookTeam, bool> teams[] = {{WebhookTeam::Team1, snap.team1_ready_to_unpause},
-                                                    {WebhookTeam::Team2, snap.team2_ready_to_unpause}};
-      for (const auto& t : teams) {
-        if (t.second || !botOnly(t.first)) continue;
-        snap = PauseStateRequestUnpause(t.first);
-        const std::string tn = (t.first == WebhookTeam::Team1) ? ctx->team1_name : ctx->team2_name;
-        Print("dev_bots_ready: auto-confirmed unpause for bot-only %s\n",
-              t.first == WebhookTeam::Team1 ? "team1" : "team2");
-        SendToChat(("Ready Up: dev_bots_ready - unpause confirmed for bot-only team " +
-                    (tn.empty() ? std::string(t.first == WebhookTeam::Team1 ? "Team1" : "Team2") : tn) + ".")
-                       .c_str());
-      }
-    }
-    const int teams_ready = (snap.team1_ready_to_unpause ? 1 : 0) + (snap.team2_ready_to_unpause ? 1 : 0);
-    WebhookEmitUnpauseRequested(ms.map_number, ctx->roster_team[steamid64], teams_ready, /*teams_needed=*/2);
-    if (teams_ready >= 2) {
-      if (!EnqueueServerCommand("mp_unpause_match")) {
-        SendToChat("Ready Up: unpause unavailable yet.");
-        return;
-      }
-      const int dur = PauseStatePauseDurationSeconds();
-      PauseStateOnUnpaused();
-      WebhookEmitMatchUnpaused(ms.map_number, dur);
-      SendToChat("Ready Up: unpause accepted.");
-    } else {
-      SendToChat("Ready Up: unpause requested (waiting for other team).");
-    }
+    MatchFeaturesUnpause(ctx->roster_team[steamid64], steamid64, playerName);
     return;
   }
   auto teamStr = [&](WebhookTeam t) {
@@ -529,6 +494,20 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     WebhookEmitMatchPaused(ms.map_number, WebhookPlayer{steamid64, steamid64 == 0 ? "Console" : playerName, team},
                            /*is_tactical=*/false, /*is_admin=*/true, /*pause_time=*/0);
     sendAdmin("admin pause.");
+    return;
+  }
+
+  if (cmd == "tech" || cmd == "tac") {
+    // Admin / console on behalf of a team, with the team's limits: `ru tech team1`, `ru tac team2`.
+    if (!requireAdmin()) return;
+    const std::string t = parts.size() > 2 ? Lower(parts[2]) : std::string();
+    const WebhookTeam team = t == "team1" ? WebhookTeam::Team1 : t == "team2" ? WebhookTeam::Team2 : WebhookTeam::Unknown;
+    if (team == WebhookTeam::Unknown) {
+      Reply(steamid64, "usage: ru " + cmd + " team1|team2");
+      return;
+    }
+    if (cmd == "tech") MatchFeaturesTechPause(team, steamid64, steamid64 == 0 ? "Console" : playerName);
+    else MatchFeaturesTacticalTimeout(team, steamid64, steamid64 == 0 ? "Console" : playerName);
     return;
   }
 

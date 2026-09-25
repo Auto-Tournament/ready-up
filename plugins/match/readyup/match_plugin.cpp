@@ -22,6 +22,7 @@
 #include "readyup/logging.h"
 #include "readyup/match_console.h"
 #include "readyup/match_events.h"
+#include "readyup/match_features.h"
 #include "readyup/match_log.h"
 #include "readyup/match_recovery.h"
 #include "readyup/match_router.h"
@@ -155,6 +156,7 @@ void OnTick(void*, const ru_tick_info* t) {
     if (FeatureEnabled(Feature::MatchFlow)) {
       Tick();
       ScrimTick();  // scrim flow + `state:` log; outside Tick() (which holds the modes mutex)
+      MatchFeaturesTick();  // tactical timeout end, technical auto-unpause, forfeit timer
     }
     // Fleet link (no-op without fleet.so): platform handlers, MatchState patches, events.
     fleet_bridge::Tick(t->now);
