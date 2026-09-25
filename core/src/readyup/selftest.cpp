@@ -17,6 +17,7 @@
 #include "readyup/plugin_loader.h"
 #include "readyup/round_termination_hook.h"
 #include "readyup/schema.h"
+#include "readyup/steam_ugc.h"
 #include "readyup/entity.h"
 #include "readyup/version.h"
 
@@ -239,6 +240,8 @@ void AddRuntime(Report& r) {
   r.Check("INFO", "clientprint",
           Fmt("broadcast=%s (UTIL_ClientPrintAll%s) per-player=%s (ClientPrint)", all ? "yes" : "no",
               all ? "" : "; falls back to `say`", one ? "yes" : "no"));
+  // Workshop download progress (plugin API 1.4): Steam's flat C API, not the engine surface.
+  r.Check("INFO", "steam ugc", steam_ugc::Status());
 }
 
 // Runtime equivalent of readyup_hookcheck: every "hook": "funchook" function must be detoured

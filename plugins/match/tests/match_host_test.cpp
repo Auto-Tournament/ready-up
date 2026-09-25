@@ -93,6 +93,7 @@ std::optional<int> GameEventsSlotForSteam(unsigned long long steamid64) {
 }
 static std::string g_csgoDir;
 static std::string g_moduleDir;
+static std::string g_lastCenterAll;  // essentials: the workshop download bar
 std::string GetCsgoDirFromModuleDir() { return g_csgoDir; }
 std::string GetThisModuleDir() { return g_moduleDir; }
 bool IsCoreChatCommand(const std::string& t) { return t == ".ru"; }
@@ -127,7 +128,10 @@ static void FillPlayer(ru_player* out, const FakePlayer& p) {
 namespace readyup::plugins::detail {
 void FillEngineApi(ru_api* a) {
   a->center_html_to_slot = [](ru_plugin*, int, const char*, int) { return 1; };
-  a->center_html_all = [](ru_plugin*, const char*, int) { return 0; };
+  a->center_html_all = [](ru_plugin*, const char* html, int) {
+    g_lastCenterAll = html ? html : "";
+    return 0;
+  };
   a->get_player = [](ru_plugin*, int slot, ru_player* out) {
     for (const auto& p : g_players) {
       if (p.slot == slot) {
@@ -176,6 +180,12 @@ void FillEngineApi(ru_api* a) {
   a->entity_set_model = [](ru_plugin*, void*, const char*) { return 0; };
   a->entity_set_bodygroup_by_name = [](ru_plugin*, void*, const char*, int) { return static_cast<int>(RU_BODYGROUP_UNAVAILABLE); };
   a->entity_set_abs_origin = [](ru_plugin*, void*, const float*) { return 0; };
+  a->workshop_download_progress = [](ru_plugin*, uint64_t id, uint64_t* done, uint64_t* total) {
+    if (id != 3793104017ull) return 0;  // "installed": no download info
+    *done = 50ull << 20;
+    *total = 200ull << 20;
+    return 1;
+  };
   a->set_round_termination_suppressed = [](ru_plugin*, int s) {
     g_suppressed.store(s);
     return 1;
@@ -389,6 +399,9 @@ int main(int argc, char** argv) {
     Check(Sent("host_workshop_map 3793104017"), "console: a pasted Workshop link loads its id");
     Check(Sent("changelevel de_test"), "console: ru map reload -> changelevel to the current map");
     Check(Sent("mp_restartgame 1"), "console: ru map restart -> mp_restartgame 1");
+    rp::Frame(true);
+    Check(readyup::g_lastCenterAll.find("25.0% &#183; 50.0 / 200.0 MB") != std::string::npos,
+          "workshop map change: download progress bar in the center panel");
     rp::TryDispatchRu(true, 0, "Console", "ru admins add 76561198000000001");
     rp::Frame(true);
     ClearLog();

@@ -4,6 +4,7 @@
 // the C ABI in core/include/readyup/plugin_api.h. Every member except is_admin is game thread
 // only (detail::CheckGameThread).
 
+#include "readyup/steam_ugc.h"
 #include "readyup/admin_check.h"
 #include "readyup/center_html.h"
 #include "readyup/features.h"
@@ -234,6 +235,11 @@ int ApiIsAdmin(ru_plugin* self, uint64_t steamid64) {
   return IsReadyUpAdmin(steamid64) ? 1 : 0;  // asks the plugin admin provider first
 }
 
+int ApiWorkshopDownloadProgress(ru_plugin* self, uint64_t id, uint64_t* downloaded, uint64_t* total) {
+  if (!self) return 0;
+  return steam_ugc::DownloadProgress(id, downloaded, total) ? 1 : 0;
+}
+
 }  // namespace
 
 void detail::FillEngineApi(ru_api* a) {
@@ -264,6 +270,7 @@ void detail::FillEngineApi(ru_api* a) {
   a->is_admin = &ApiIsAdmin;
   a->feature_state = &ApiFeatureState;
   a->entity_set_abs_origin = &ApiSetAbsOrigin;  // v1.3
+  a->workshop_download_progress = &ApiWorkshopDownloadProgress;  // v1.4
 }
 
 }  // namespace readyup::plugins

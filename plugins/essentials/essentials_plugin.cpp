@@ -8,6 +8,9 @@
 //   ru map reload [force]                    the current map again (workshop maps by id)
 //   ru map restart [force]                   mp_restartgame 1
 //
+// While the server downloads a Workshop map (host_workshop_map), everyone sees a progress bar in
+// the center panel, resent ~10x a second (core API 1.4 workshop_download_progress).
+//
 // Chat: `.ru admins ...`, `.ru map ...`. Map commands are refused during a knife round or a live
 // map (the match plugin's mode) unless `force` is added.
 //
@@ -25,6 +28,7 @@
 #include "readyup/selftest_iface.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <mutex>
 #include <sstream>
@@ -46,6 +50,16 @@ std::vector<Admin> g_admins;
 std::string g_path;
 int64_t g_mtime = -1;
 double g_nextReload = 0;
+
+// Workshop download being shown (game thread only).
+struct Download {
+  uint64_t id = 0;
+  std::string name;
+  double started = 0, nextPoll = 0, nextLog = 0;
+  bool announced = false;
+} g_dl;
+constexpr double kDownloadPollSeconds = 0.1;
+constexpr double kDownloadTimeoutSeconds = 600;
 
 int64_t MtimeNs(const std::string& path) {
   struct stat st {};
@@ -199,7 +213,12 @@ bool LoadEntry(const std::string& entry) {
   const std::string cmd = readyup::mapnames::LoadCommand(entry);
   if (cmd.empty()) return false;
   readyup::mapnames::MapRef ref;
-  if (readyup::mapnames::ParseEntry(entry, &ref) && !ref.workshop_id.empty()) readyup::mapnames::NoteWorkshopLoad(ref.workshop_id);
+  if (readyup::mapnames::ParseEntry(entry, &ref) && !ref.workshop_id.empty()) {
+    readyup::mapnames::NoteWorkshopLoad(ref.workshop_id);
+    g_dl = Download{};
+    g_dl.id = std::strtoull(ref.workshop_id.c_str(), nullptr, 10);
+    g_dl.name = readyup::mapnames::DisplayName(entry);
+  }
   return g_api->server_command(g_api->self, cmd.c_str()) == 1;
 }
 
@@ -256,10 +275,39 @@ void OnRu(void*, const ru_command_ctx* c) {
 }
 
 void OnMapStart(void*, const ru_event* e) {
+  g_dl = Download{};  // downloaded (or cached) and loaded
   if (e && e->map && *e->map) readyup::mapnames::NoteMapLoaded(e->map);  // binds a workshop id to its map
 }
 
+// Progress bar for the Workshop map being downloaded. Nothing is shown while Steam reports no
+// download (an installed map loads straight away).
+void PollDownload(double now) {
+  if (!g_dl.id || !RU_API_HAS(g_api, workshop_download_progress) || !g_api->workshop_download_progress) return;
+  if (g_dl.started == 0) g_dl.started = now;
+  if (now - g_dl.started > kDownloadTimeoutSeconds) {
+    ru_logf(g_api, RU_LOG_WARN, "workshop %llu: no map start after %.0f s; progress bar stopped",
+            static_cast<unsigned long long>(g_dl.id), kDownloadTimeoutSeconds);
+    g_dl = Download{};
+    return;
+  }
+  if (now < g_dl.nextPoll) return;
+  g_dl.nextPoll = now + kDownloadPollSeconds;
+  uint64_t done = 0, total = 0;
+  if (!g_api->workshop_download_progress(g_api->self, g_dl.id, &done, &total)) return;
+  if (!g_dl.announced) {
+    g_dl.announced = true;
+    ru_logf(g_api, RU_LOG_INFO, "workshop %llu: downloading", static_cast<unsigned long long>(g_dl.id));
+  }
+  if (now >= g_dl.nextLog && total > 0) {
+    g_dl.nextLog = now + 5.0;
+    ru_logf(g_api, RU_LOG_INFO, "workshop %llu: %.1f / %.1f MB", static_cast<unsigned long long>(g_dl.id),
+            done / 1048576.0, total / 1048576.0);
+  }
+  g_api->center_html_all(g_api->self, DownloadPanelHtml(g_dl.name, done, total).c_str(), 1);
+}
+
 void OnTick(void*, const ru_tick_info* t) {
+  PollDownload(t->now);
   if (t->now < g_nextReload) return;
   g_nextReload = t->now + 30.0;
   LoadAdmins();  // re-read when admins.json changed on disk
