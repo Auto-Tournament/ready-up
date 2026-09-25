@@ -20,6 +20,7 @@ set(MATCH_SOURCES
   readyup/game_timers.cpp
   readyup/host.cpp
   readyup/idle_refresh.cpp
+  readyup/warmup_money.cpp
   readyup/knife_tracker.cpp
   readyup/local_store.cpp
   readyup/ru_commands.cpp

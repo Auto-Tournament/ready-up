@@ -58,6 +58,7 @@ bool DebugEnabled() { return true; }
 void SendToChat(const char*) {}
 void SendRawToChat(const char*) {}
 bool ClientPrintChat(int, const char*) { return true; }
+bool SendToSlotChat(int, const char*) { return true; }
 bool EnqueueServerCommand(const char*) { return true; }
 std::optional<int> GameEventsSlotForSteam(unsigned long long) { return std::nullopt; }
 std::string GetCsgoDirFromModuleDir() { return {}; }

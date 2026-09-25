@@ -2,6 +2,7 @@
 // rule, the auto-unpause countdown, the .forceready threshold, team name sanitizing and the
 // team-left forfeit timer. ctest `match_rules`.
 #include "readyup/match_rules.h"
+#include "readyup/warmup_money.h"
 
 #include <cstdio>
 #include <string>
@@ -159,6 +160,10 @@ int main() {
   TestForceReady();
   TestTeamNames();
   TestForfeit();
+  // Warmup money top-up: scrim and match warmup only, and only when enabled.
+  CHECK(WarmupMoneyActive("scrim_warmup", true) && WarmupMoneyActive("match_warmup", true));
+  CHECK(!WarmupMoneyActive("scrim_warmup", false) && !WarmupMoneyActive("match_live", true));
+  CHECK(!WarmupMoneyActive("practice", true) && !WarmupMoneyActive("idle", true) && !WarmupMoneyActive(nullptr, true));
   std::printf("match_rules: %d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;
 }
