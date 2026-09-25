@@ -81,7 +81,7 @@ void OnPlayerChat(void*, const ru_command_ctx* c) {
 void OnRuSub(void*, const ru_command_ctx* c) {
   Guard("ru command", [&] {
     if (c->is_console) MatchRuConsole(c->text);
-    else MatchRuCommand(c->steamid64, c->name, c->text);
+    else MatchRuCommand(c->steamid64, c->name, c->text, c->slot);
   });
 }
 

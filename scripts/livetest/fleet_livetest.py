@@ -34,7 +34,7 @@ Runs on the cs2 box as sivert (like livetest.py, whose console helpers it uses):
   backup for such a later run.
 
 Afterwards the server is standalone again: fleet.cfg and fleet.so's data dir are moved to
-~/readyup-test/.fleet-livetest/<time>/, fleet.so reloaded, `ru idle`, `ru scrim`, bot_quota back.
+~/readyup-test/.fleet-livetest/<time>/, fleet.so reloaded, `ru mode idle`, `ru mode scrim`, bot_quota back.
 Exit 0 PASS, 1 FAIL, 2 no verdict (server busy / down).
 """
 import argparse
@@ -271,7 +271,7 @@ class Test:
         a = self.a
         # ---- enroll + hello
         mark = len(self.lines)
-        self.srv.send("ru idle")
+        self.srv.send("ru mode idle")
         self.srv.send("bot_kick")
         self.configure_fleet()
         self.srv.send("ru plugin reload fleet")
@@ -315,7 +315,7 @@ class Test:
             mark = len(self.lines)
             self.scrim_flag = True
             self.srv.send("ru_dev_bots_scrim 1")
-            self.srv.send("ru scrim")
+            self.srv.send("ru mode scrim")
             self.srv.send(f"bot_quota {2 * a.bots_per_side}")
             kv = self.state_line(mark, lambda kv: kv.get("match", "").startswith("scrim:"), 120)
             self.step("scrim running before the assignment", bool(kv), kv and f"mode={kv.get('mode')} match={kv.get('match')}")
@@ -700,14 +700,14 @@ class Test:
             if self.scrim_flag:
                 self.srv.send("ru_dev_bots_scrim cfg")
             if self.touched:
-                self.srv.send("ru idle")
+                self.srv.send("ru mode idle")
                 self.srv.send("bot_kick")
                 self.unconfigure_fleet()
                 mark = len(self.lines)
                 self.srv.send("ru plugin reload fleet")
                 ok = self.wait_line("standalone (no [fleet] url)", mark, 20)
                 log("fleet.so standalone again" if ok else "WARNING: fleet.so did not report standalone")
-                self.srv.send("ru scrim")
+                self.srv.send("ru mode scrim")
                 self.srv.send(f"bot_quota {self.a.restore_bot_quota}")
         except Exception as e:  # noqa: BLE001
             log(f"cleanup error: {e}")

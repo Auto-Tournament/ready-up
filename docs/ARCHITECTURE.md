@@ -305,7 +305,7 @@ keeps one JSON document in the stash; load restores it before anything runs. Wha
   stats model and event totals, halftime / overtime counters, series wins and map results;
 - the knife round (phase, winner, pick deadline, deaths / HP so far) and the pause state;
 - runtime settings: webhook / heartbeat / admins URLs, match token, `ru_warmup_*`,
-  `ru_cfg_exec_enable`, `ru_dev_bots_scrim`, demo settings, series-end kick delays, `.ru idle`;
+  `ru_cfg_exec_enable`, `ru_dev_bots_scrim`, demo settings, series-end kick delays, `.ru mode idle`;
 - undelivered webhook events, the demo recording in progress, a pending GOTV-flush stop and the
   pending postgame step (next map / series-end kick / unload), rescheduled with the time left.
 

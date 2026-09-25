@@ -481,7 +481,7 @@ void ScrimTick() {
   if (!IsZero(f.lastRun) && (now - f.lastRun) < kTickInterval) return;
   f.lastRun = now;
 
-  // Map change: re-arm auto scrim warmup (undo a previous `.ru idle`).
+  // Map change: re-arm auto scrim warmup (undo a previous `.ru mode idle`).
   {
     const auto ms = MatchStateGet();
     if (ms.current_map != f.lastMap) {

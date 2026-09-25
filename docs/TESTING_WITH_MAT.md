@@ -21,7 +21,7 @@ Your manual match must include (at minimum):
 
 - `matchid`: non-zero
 - `team1.players` + `team2.players`: map of `steamid64 -> playerName`
-- `team1.captain_steamid64` + `team2.captain_steamid64` (required if you test knife + `.ru side`)
+- `team1.captain_steamid64` + `team2.captain_steamid64` (required if you test knife + `.ru match side`)
 - `maplist`: `["de_anubis"]` (or any installed map)
 - `map_sides`: one of:
   - `["knife"]` to test knife flow, or
@@ -109,8 +109,8 @@ During server initialization + load, MAT should send these (via RCON):
 - Expected:
   - Ready Up enters **knife mode**, restarts, and the knife round plays
   - At knife end, the winner must pick:
-    - captain command: `.ru side stay|switch|ct|t`
-    - console/admin override: `ru side stay|switch|ct|t`
+    - captain command: `.ru match side stay|switch|ct|t`
+    - console/admin override: `ru match side stay|switch|ct|t`
   - After side pick, Ready Up returns to **RU warmup** and you must **ready up again** to go live.
 
 ### 4b) If predetermined sides (`team1_ct` / `team2_ct`)

@@ -37,27 +37,40 @@ platform's list and its rev. `add` and `remove` answer "Admins are managed on th
 
 ## Commands
 
-- **Public**:
-  - `.ru admins` or `.ru admins list`
-- **Admin-only** (standalone):
-  - `.ru admins add <steamid64|name_fragment>`
-  - `.ru admins remove <steamid64|name_fragment>`
+`ru` commands are main commands with subcommands: `.ru <command> <subcommand> [args]` in chat,
+`ru <command> <subcommand> [args]` on the server console / RCON. `.ru help` lists the main
+commands, `.ru help <command>` (or just `.ru <command>`) lists its subcommands. An unknown command
+answers "unknown command, type .ru help". Help goes to the sender only.
 
-## In-game server controls
+Admin-only commands answer "not authorized" to anyone else and do nothing; the server console
+always may. An admin's `.help` points at `.ru help`.
 
-Admin-only in chat (`.ru <command>`); the server console / RCON (`ru <command>`) always may. A
-non-admin gets "not authorized" and nothing runs. An admin's `.help` lists them too.
+| Command | Who | Does |
+|---|---|---|
+| `.ru match load <url>` | admin | loads a match config (http/https; the URL is visible in chat) |
+| `.ru match start` | admin | force-starts the loaded match |
+| `.ru match restart` | admin | the loaded match back to its warmup; everyone readies again |
+| `.ru match end` | admin | ends the loaded match (`series_end` winner none) and resets the server |
+| `.ru match recover [round]` | admin | asks the platform to recover the match (`recover_requested`) |
+| `.ru match pause` / `unpause` | admin | admin pause / unpause (`.fp` / `.fup` in chat) |
+| `.ru match tech\|tac team1\|team2` | admin | technical pause / tactical timeout for a team, with its limits |
+| `.ru match side stay\|switch\|ct\|t` | knife winners, admin | knife side pick (`.stay` / `.switch`) |
+| `.ru match state` / `rules` | everyone | match and mode state / effective rules |
+| `.ru map change <name\|workshop id>` | admin | `changelevel <name>`, or `host_workshop_map <id>` for `3084291314`, `ws:<id>`, `workshop/<id>[/name]` |
+| `.ru map reload` | admin | loads the current map again (a workshop map by its id) |
+| `.ru map restart` | admin | restarts the game (`mp_restartgame 1`); a loaded match stays loaded |
+| `.ru mode show` | everyone | the current mode |
+| `.ru mode idle` / `practice` / `scrim` | admin | plain CS2 / practice mode (toggles, `.prac`) / auto scrim warmup back on |
+| `.ru admins list` | everyone | the admins |
+| `.ru admins add\|remove <steamid64\|name_fragment>` | admin (standalone) | edit `admins.json` |
+| `.ru hud test <1-7>` | admin | a HUD test panel, to you only |
+| `.ru plugin list\|load\|unload\|reload <name>` | admin | plugins (core) |
+| `.ru reload` | admin | reloads `readyup.cfg` (core) |
+| `.ru selftest` / `.ru version` | admin / everyone | core |
 
-| Command | Does |
-|---|---|
-| `.ru map <name\|workshop id>` | `changelevel <name>`, or `host_workshop_map <id>` for a workshop id (`3084291314`, `ws:<id>`, `workshop/<id>[/name]`) |
-| `.ru reloadmap` | loads the current map again (a workshop map by its id) |
-| `.ru restart` | restarts the game (`mp_restartgame 1`); a loaded match stays loaded |
-| `.ru load <url>` | loads a match config (same as `ru match load <url>`); the URL is visible in chat |
-| `.ru end` | ends the loaded match (`series_end` winner none) and resets the server |
-| `.ru match restart` | the loaded match back to its warmup; everyone readies again (this was `ru restart` before) |
-| `.ru start` | force-starts the loaded match |
-| `.ru reload` | reloads `readyup.cfg` (core) |
+Before this layout the match commands were flat (`ru start`, `ru end`, `ru idle`, `ru state`,
+`ru side`, `ru fp`, ...). Those names are gone: use the table above. `ru match load <url>` is
+unchanged.
 
 Notes:
 - If no admins exist yet, the **first admin must be added from the server console** (or in

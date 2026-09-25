@@ -201,7 +201,7 @@ chat_prefix="<Green>[PUG #1]<Default>"
 - `hud_brand=Auto Tournament` (default) and `hud_logo_url=` (default empty = no image):
   the header of the welcome card and the ready HUD is `<img src='hud_logo_url'>` (when
   set) followed by `hud_brand`. Admins can check what the CS2 client renders (font
-  classes, PNG/SVG images, unicode) with `.ru hudtest 1..7`; the variant is shown only to
+  classes, PNG/SVG images, unicode) with `.ru hud test 1..7`; the variant is shown only to
   the admin who typed it, for ~10 seconds.
 - It needs `LegacyGameEventListener` from `gamedata/engine-surface.json` (resolved and
   anchor-verified at load) and the RTTI-verified game event manager. If either is missing,
@@ -236,7 +236,7 @@ chat_prefix="<Green>[PUG #1]<Default>"
   (time ran out, draw) is decided by players alive, then HP left (from `attacked`
   log lines), then a coin flip.
 - Any player of the winning team types `.stay` / `.switch` (or `.ct` / `.t`);
-  admins can use `.ru side ...`. Window: match `knifeDecisionSeconds` (default 60),
+  admins can use `.ru match side ...`. Window: match `knifeDecisionSeconds` (default 60),
   scrims `knife_pick_seconds` (default 60). No pick = stay. Winning side with no
   humans (bots only) = stay after 3s.
 - Then `mp_swapteams` (if switching), `exec ReadyUp/live.cfg`, `mp_restartgame 1`,
@@ -352,15 +352,15 @@ Ready Up maintains its own lightweight mode state machine and can display a **no
   - `.gg`
   - `.ff` / `.forfeit` (captain-only; captains come from match config)
 - **Mode control (server console / RCON)**:
-  - `ru mode` (prints current mode)
+  - `ru mode show` (prints current mode)
   - `ru mode idle`
   - `ru mode practice`
 - **Admin match controls (server console / RCON)**:
-  - `ru start` (force start live rules regardless of ready)
+  - `ru match start` (force start live rules regardless of ready)
   - `ru match restart` (restart and return to match warmup)
-  - `ru end` (force end: emits `series_end` with winner=none, clears match context, resets server)
-  - these and the server controls in [ADMINS.md](ADMINS.md#in-game-server-controls) also work
-    in chat as `.ru <command>` for admins
+  - `ru match end` (force end: emits `series_end` with winner=none, clears match context, resets server)
+  - the full list (`.ru map change|reload|restart`, ...) is in [ADMINS.md](ADMINS.md#commands);
+    every one also works in chat as `.ru ...` for admins
 - **Match ready-up gate (server console / RCON)**:
   - `ru_warmup_enable 0|1` (default `1`). Despite the name this is more than the banner:
     - `1`: a loaded match waits in `match_warmup` until every roster player is ready, then

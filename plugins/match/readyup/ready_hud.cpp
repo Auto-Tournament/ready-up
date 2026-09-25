@@ -69,12 +69,12 @@ std::unordered_map<int, Sent> g_sent;  // GameFrame thread only
 Clock::time_point g_lastRun{};
 std::atomic<bool> g_showing{false};
 
-// `.ru hudtest <n>` requests: steamid64 -> (variant, shown until).
+// `.ru hud test <n>` requests: steamid64 -> (variant, shown until).
 constexpr auto kTestShowFor = std::chrono::seconds(10);
 std::mutex g_testMu;
 std::unordered_map<uint64_t, std::pair<int, Clock::time_point>> g_tests;
 
-// Public test images for `.ru hudtest` (all checked to return 200 with curl).
+// Public test images for `.ru hud test` (all checked to return 200 with curl).
 constexpr const char* kTestSvg = "https://raw.githubusercontent.com/Auto-Tournament/auto-tournament/main/client/public/icon.svg";
 constexpr const char* kTestPng = "https://raw.githubusercontent.com/Auto-Tournament/auto-tournament/main/client/public/icon-192.png";
 constexpr const char* kTestPngWiki =
@@ -327,7 +327,7 @@ static std::string LiveHtml(const LiveHudInfo& l) {
   return h;
 }
 
-// `.ru hudtest <n>` variants. Each one fits well under ~1 KB.
+// `.ru hud test <n>` variants. Each one fits well under ~1 KB.
 static std::string TestHtml(int n) {
   const std::string title = Font(kGrey, "hudtest " + std::to_string(n)) + "<br>";
   switch (n) {
@@ -426,7 +426,7 @@ void ReadyHudTick() {
   if (g_lastRun.time_since_epoch().count() != 0 && (now - g_lastRun) < std::chrono::milliseconds(Cfg().hud_tick_ms)) return;
   g_lastRun = now;
 
-  // Pending `.ru hudtest` panels (shown even with ready_hud=0 and outside warmup).
+  // Pending `.ru hud test` panels (shown even with ready_hud=0 and outside warmup).
   std::unordered_map<uint64_t, int> tests;
   {
     std::lock_guard<std::mutex> lk(g_testMu);

@@ -45,6 +45,7 @@ add_library(server_shim SHARED
   core/src/readyup/real_server.cpp
   core/src/readyup/round_termination_hook.cpp
   core/src/readyup/ru_help.cpp
+  core/src/readyup/ru_help_text.cpp
   core/src/readyup/ru_router.cpp
   core/src/readyup/server_game_clients_hook.cpp
   core/src/readyup/schema.cpp
@@ -328,7 +329,13 @@ target_include_directories(readyup_load_order_test PRIVATE ${CMAKE_SOURCE_DIR}/c
 target_compile_options(readyup_load_order_test PRIVATE -Wall -Wextra)
 target_link_libraries(readyup_load_order_test PRIVATE dl)
 
+# `ru help` text (core/src/readyup/ru_help_text.h).
+add_executable(readyup_ru_help_test tests/ru_help_test.cpp core/src/readyup/ru_help_text.cpp)
+target_include_directories(readyup_ru_help_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
+target_compile_options(readyup_ru_help_test PRIVATE -Wall -Wextra)
+
 enable_testing()
+add_test(NAME ru_help COMMAND readyup_ru_help_test)
 add_test(NAME load_order COMMAND readyup_load_order_test)
 add_test(NAME match_flow COMMAND readyup_match_flow_test)
 add_test(NAME status_http COMMAND readyup_status_http_test)

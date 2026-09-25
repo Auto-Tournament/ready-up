@@ -25,7 +25,7 @@ namespace readyup {
 // idle -> scrim_warmup, the bots count as everyone ready (countdown, knife, live as
 // above) and the 60s empty-scrim timeout is skipped.
 //
-// `.ru idle` pauses the idle -> scrim_warmup auto-entry until `.ru scrim` or
+// `.ru mode idle` pauses the idle -> scrim_warmup auto-entry until `.ru mode scrim` or
 // the next map change.
 
 struct ScrimRoster {
@@ -63,7 +63,7 @@ bool MaybeStartScrimIfAllReady(const ScrimRoster& roster);
 // GameFrame thread (after modes Tick()).
 void ScrimTick();
 
-// `.ru idle` -> false, `.ru scrim` / map change -> true.
+// `.ru mode idle` -> false, `.ru mode scrim` / map change -> true.
 void ScrimSetAutoEnabled(bool enabled);
 bool ScrimAutoEnabled();
 
@@ -76,10 +76,10 @@ void ScrimNoteReadyChanged();
 // One-line structured state log: `[ReadyUp] state: mode=... reason=<reason>`.
 void EmitStateLog(const char* reason);
 
-// Multi-line human-readable report for `.ru state` / `ru state`.
+// Multi-line human-readable report for `.ru match state` / `ru match state`.
 std::vector<std::string> BuildStateReport();
 
-// Plugin reload (reload_state.cpp): the `.ru idle` flag and the map it was set on (a map
+// Plugin reload (reload_state.cpp): the `.ru mode idle` flag and the map it was set on (a map
 // change re-enables auto scrim warmup; a reload must not look like one).
 std::string ScrimLastMap();
 void ScrimRestore(bool autoEnabled, const std::string& lastMap);

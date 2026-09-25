@@ -12,14 +12,14 @@
 //                      pause the match unpauses by itself (countdown in the center HUD).
 //   .unpause .up       both teams (both_teams_unpause_required=1) or the pausing team alone.
 //                      An admin pause only ends with .forceunpause.
-//   .forcepause .fp / .forceunpause .fup   admins (same as `.ru fp` / `.ru fup`).
+//   .forcepause .fp / .forceunpause .fup   admins (same as `.ru match pause` / `.ru match unpause`).
 // .forceready          (allow_force_ready) readies the caller's whole team in warmup once it has
 //                      min_players_to_ready connected (0 = the full roster).
 // Forfeit              a team with nobody connected for forfeit_after_seconds while a map is live
 //                      forfeits the map and the series (modes.h ForfeitCurrentMap). Countdown in
 //                      chat and the HUD; cancelled when someone reconnects.
 //
-// Admin / console, on behalf of a team: `ru tech team1|team2`, `ru tac team1|team2` (same limits).
+// Admin / console, on behalf of a team: `ru match tech team1|team2`, `ru match tac team1|team2` (same limits).
 // Log lines (scripts/livetest): `pause: ...`, `forfeit: ...`.
 
 #include "readyup/match_rules.h"

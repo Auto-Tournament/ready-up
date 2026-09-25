@@ -1145,7 +1145,7 @@ standalone plugin. Postgres is gone in both modes (D13):
 | Demos | local disk; optional `ru_demo_upload_url` (the existing generic uploader in `demo_recorder.h`) |
 | Round backups | local disk |
 | Events | optional `ru_webhook_url` (existing sender, no platform contract) |
-| Status | `/status`, `/stream` (§17), `ru state` |
+| Status | `/status`, `/stream` (§17), `ru match state` |
 
 Dev platform: the normal platform in dev mode. `fleet_insecure_dev 1` allows `ws://localhost`,
 and the platform's `fake` integration tests can drive a fake fleet client that speaks the protocol.

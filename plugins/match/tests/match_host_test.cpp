@@ -303,9 +303,9 @@ int main(int argc, char** argv) {
   uint32_t flags = 0;
   Check(rp::ChatCommandOwned(".r", &flags) && (flags & RU_CMD_HIDE), ".r owned, hidden (consume_ready_chat=1)");
   Check(rp::ChatCommandOwned(".pause", &flags) && flags == 0, ".pause owned, visible");
-  Check(rp::TryDispatchRu(true, 0, "Console", "ru state"), "`ru state` is a match subcommand");
+  Check(rp::TryDispatchRu(true, 0, "Console", "ru match state"), "`ru match state` is a match command");
   rp::Frame(true);
-  Check(Logged("state: mode=idle") && !Logged("plugin[match]: state:"), "`ru state` answered, log lines untagged");
+  Check(Logged("state: mode=idle") && !Logged("plugin[match]: state:"), "`ru match state` answered, log lines untagged");
   {
     // scrim_auto=1 and alice on CT: the same frame may already have moved idle -> scrim_warmup.
     const std::string s0 = Summary();
@@ -350,34 +350,42 @@ int main(int argc, char** argv) {
   Check(Logged("warmup roundtime minutes: 7"), "ru_warmup_* survives the reload");
   Check(Logged("no_demo=9"), "series-end kick delay survives the reload");
 
-  std::puts("-- admin commands: map, reloadmap, restart, load (admin-only; the console always)");
+  std::puts("-- main commands + subcommands: help, unknown, admin-only (the console always may)");
   ClearLog();
   ClearCmds();
-  for (const char* c : {".ru map de_other", ".ru reloadmap", ".ru restart", ".ru load http://127.0.0.1:1/x"}) {
+  Check(!rp::TryDispatchRu(true, 0, "Console", "ru restart"), "old flat `ru restart` is not a match command");
+  Check(!rp::TryDispatchRu(true, 0, "Console", "ru idle"), "old flat `ru idle` is not a match command");
+  rp::TryDispatchRu(false, 76561198000000001ull, "alice", ".ru map", 2);
+  rp::TryDispatchRu(false, 76561198000000001ull, "alice", ".ru map nope", 2);
+  rp::Frame(true);
+  Check(Chatted(".ru map change <name|workshop id>: change map (admin)"), ".ru map: its subcommands, to the sender");
+  Check(Chatted("unknown command \".ru map nope\". Type .ru help map"), ".ru map <unknown>: points at .ru help map");
+  for (const char* c : {".ru map change de_other", ".ru map reload", ".ru map restart", ".ru match load http://127.0.0.1:1/x",
+                        ".ru mode idle"}) {
     rp::TryDispatchRu(false, 76561198000000001ull, "alice", c, 2);
   }
   rp::Frame(true);
   Check(Chatted("not authorized") && !Sent("changelevel de_other") && !Sent("changelevel de_test") &&
-            !Sent("mp_restartgame 1") && !Logged("match-load["),
-        "non-admin: map / reloadmap / restart / load refused");
-  Check(rp::TryDispatchRu(true, 0, "Console", "ru map 3084291314"), "`ru map` is a match subcommand");
-  rp::TryDispatchRu(true, 0, "Console", "ru map de_x;quit");
-  rp::TryDispatchRu(true, 0, "Console", "ru reloadmap");
-  rp::TryDispatchRu(true, 0, "Console", "ru restart");
+            !Sent("mp_restartgame 1") && !Logged("match-load[") && !Logged("state: mode=idle"),
+        "non-admin: map change / reload / restart, match load, mode idle refused");
+  Check(rp::TryDispatchRu(true, 0, "Console", "ru map change 3084291314"), "`ru map` is a match main command");
+  rp::TryDispatchRu(true, 0, "Console", "ru map change de_x;quit");
+  rp::TryDispatchRu(true, 0, "Console", "ru map reload");
+  rp::TryDispatchRu(true, 0, "Console", "ru map restart");
   rp::Frame(true);
-  Check(Sent("host_workshop_map 3084291314"), "console: ru map <workshop id> -> host_workshop_map");
+  Check(Sent("host_workshop_map 3084291314"), "console: ru map change <workshop id> -> host_workshop_map");
   Check(Logged("not a map name or workshop id") && !Sent("changelevel de_x;quit"), "console: bad map name refused");
-  Check(Sent("changelevel de_test"), "console: ru reloadmap -> changelevel to the current map");
-  Check(Sent("mp_restartgame 1"), "console: ru restart -> mp_restartgame 1");
+  Check(Sent("changelevel de_test"), "console: ru map reload -> changelevel to the current map");
+  Check(Sent("mp_restartgame 1"), "console: ru map restart -> mp_restartgame 1");
   rp::TryDispatchRu(true, 0, "Console", "ru admins add 76561198000000001");
   rp::Frame(true);
   ClearLog();
   ClearCmds();
-  rp::TryDispatchRu(false, 76561198000000001ull, "alice", ".ru map de_other", 2);
+  rp::TryDispatchRu(false, 76561198000000001ull, "alice", ".ru map change de_other", 2);
   rp::TryDispatchChat(76561198000000001ull, "alice", ".help", 2);
   rp::Frame(true);
-  Check(Sent("changelevel de_other"), "admin: .ru map de_other -> changelevel");
-  Check(Chatted("Ready Up admin: .ru map"), "admin: .help lists the admin commands");
+  Check(Sent("changelevel de_other"), "admin: .ru map change de_other -> changelevel");
+  Check(Chatted("Ready Up admin: .ru help"), "admin: .help points at .ru help");
   rp::TryDispatchRu(true, 0, "Console", "ru admins remove 76561198000000001");
   rp::Frame(true);
 
@@ -413,7 +421,7 @@ int main(int argc, char** argv) {
   Check(Has(s, "\"Alpha\"") && Has(s, "\"76561198000000002\""), "MatchState roster survives the reload");
   Check(rp::ChatCommandOwned(".r", &flags), "commands registered again by the new image");
   ClearLog();
-  Check(rp::TryDispatchRu(true, 0, "Console", "ru state"), "`ru state` after the reload");
+  Check(rp::TryDispatchRu(true, 0, "Console", "ru match state"), "`ru match state` after the reload");
   rp::Frame(true);
   Check(Logged("rules: tech_pauses=2 tech_max_s=45 unpause=both force_ready=1 min_ready=0 forfeit_s=0"),
         "match rules survive the reload");
