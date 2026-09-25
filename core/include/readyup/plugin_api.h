@@ -547,7 +547,8 @@ typedef struct ru_api {
 #define RU_HTML_PRIO_INFO 10   /* idle / background information */
 #define RU_HTML_PRIO_HUD 50    /* status HUDs re-sent all the time (the ready HUD) */
 #define RU_HTML_PRIO_NOTICE 70 /* one-off cards for a few seconds (welcome, votes, test panels) */
-#define RU_HTML_PRIO_ALERT 90  /* must be seen now (map download, pause called) */
+#define RU_HTML_PRIO_MENU 80   /* a menu the player opened on purpose */
+#define RU_HTML_PRIO_ALERT 90  /* must be seen now (map change / download, pause called, going live) */
 
   /* center_html_to_slot at `priority`. 1 = sent, -1 = refused (another plugin's higher panel is
    * up: try again later, nothing is wrong), 0 = failed (center HTML unavailable, bad args). */

@@ -142,6 +142,11 @@ std::string Repeat(const char* s, int n) {
 
 }  // namespace
 
+std::string MapChangePanelHtml(const std::string& name, bool reload) {
+  return std::string("<font class='fontSize-l' color='#ffffff'>") + (reload ? "Reloading " : "Changing map to ") +
+         EscapeHtml(name) + "</font><br><font class='fontSize-m' color='#d4d4d8'>hold on...</font>";
+}
+
 std::string DownloadPanelHtml(const std::string& name, uint64_t downloaded, uint64_t total, int segments) {
   if (segments < 1) segments = 1;
   if (total > 0 && downloaded > total) downloaded = total;

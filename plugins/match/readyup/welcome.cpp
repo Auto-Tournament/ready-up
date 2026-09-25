@@ -45,6 +45,7 @@ struct SlotState {
   bool active = false;     // currently being displayed (or waiting to start)
   bool tentative = false;  // team came only from a `jointeam` request so far
   bool waitingSpawn = false;  // queued; the card starts at the player's next spawn
+  int respawnRestarts = 0;    // a respawn while the card was up (round restart) started it again
   Clock::time_point startAt{};
   Clock::time_point nextSend{};
   int sent = 0;
@@ -231,7 +232,17 @@ void WelcomeObservePlayerSpawn(int slot) {
   auto it = g_slots.find(slot);
   if (it == g_slots.end()) return;
   SlotState& s = it->second;
-  if (!s.active || !s.waitingSpawn) return;
+  if (!s.active) return;
+  if (!s.waitingSpawn) {
+    // The card is up and the player respawned: a round restart (entering scrim warmup ends CS2's
+    // warmup and resets the score) wipes the center panel. Start the card again, a few times.
+    if (s.respawnRestarts >= 3) return;
+    ++s.respawnRestarts;
+    s.startAt = Clock::now() + kAfterSpawn;
+    s.nextSend = s.startAt;
+    if (DebugEnabled()) Debug("welcome: slot=%d respawned while the card was up; showing it again\n", slot);
+    return;
+  }
   s.waitingSpawn = false;
   s.tentative = false;  // spawned on a team: the join went through
   s.startAt = Clock::now() + kAfterSpawn;
