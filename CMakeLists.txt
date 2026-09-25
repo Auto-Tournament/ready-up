@@ -334,7 +334,13 @@ add_executable(readyup_ru_help_test tests/ru_help_test.cpp core/src/readyup/ru_h
 target_include_directories(readyup_ru_help_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
 target_compile_options(readyup_ru_help_test PRIVATE -Wall -Wextra)
 
+# `.skins reload` rules (plugins/skins/skins_reload.h).
+add_executable(skins_reload_test plugins/skins/tests/skins_reload_test.cpp)
+target_include_directories(skins_reload_test PRIVATE ${CMAKE_SOURCE_DIR}/plugins/skins)
+target_compile_options(skins_reload_test PRIVATE -Wall -Wextra)
+
 enable_testing()
+add_test(NAME skins_reload COMMAND skins_reload_test)
 add_test(NAME ru_help COMMAND readyup_ru_help_test)
 add_test(NAME load_order COMMAND readyup_load_order_test)
 add_test(NAME match_flow COMMAND readyup_match_flow_test)
