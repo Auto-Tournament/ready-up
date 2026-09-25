@@ -1,6 +1,7 @@
 // Offline tests for plugins/essentials/essentials_rules.h. ctest `essentials_rules`.
 #include "essentials_rules.h"
 
+#include <algorithm>
 #include <cstdio>
 
 using namespace essentials;
@@ -65,6 +66,38 @@ int main() {
     const std::string f = DownloadPanelHtml("m", 300, 200, 10);  // clamped
     CHECK(f.find("100.0%") != std::string::npos);
     CHECK(f.find("#3f3f46") == std::string::npos);
+  }
+  {
+    // default_maps.json: bad keys / values dropped, a Workshop link stored as its id.
+    const auto maps = ParseDefaultMaps(R"({"version": 1, "maps": {"ffa": "aim_map", "TDM": "de_dust2",
+        "practice": "https://steamcommunity.com/sharedfiles/filedetails/?id=3084291314", "bad mode": "de_x",
+        "warmup": "de_x;quit", "retakes": 5}})", &ok);
+    CHECK(ok && maps.size() == 3);
+    CHECK(DefaultMapFor(maps, "ffa") == "aim_map" && DefaultMapFor(maps, "FFA") == "aim_map");
+    CHECK(DefaultMapFor(maps, "tdm") == "de_dust2");  // keys are lower-cased
+    CHECK(DefaultMapFor(maps, "practice") == "3084291314");
+    CHECK(DefaultMapFor(maps, "warmup").empty() && DefaultMapFor(maps, "retakes").empty() && DefaultMapFor(maps, "").empty());
+    CHECK(ParseDefaultMaps("", &ok).empty() && ok);
+    CHECK(ParseDefaultMaps("[1", &ok).empty() && !ok);
+    CHECK(ParseDefaultMaps(R"({"version": 1})", &ok).empty() && ok);
+    const auto back = ParseDefaultMaps(DefaultMapsJson(maps), &ok);
+    CHECK(ok && back == maps);
+
+    DefaultMaps m;
+    std::string err;
+    CHECK(SetDefaultMap(&m, "ffa", "workshop/3084291314/aim_x", &err) && DefaultMapFor(m, "ffa") == "workshop/3084291314/aim_x");
+    CHECK(SetDefaultMap(&m, "retakes", "ws:123", &err) && DefaultMapFor(m, "retakes") == "ws:123");
+    CHECK(!SetDefaultMap(&m, "ffa", "../evil", &err) && err.find("not a map name") != std::string::npos);
+    CHECK(DefaultMapFor(m, "ffa") == "workshop/3084291314/aim_x");  // a refused set keeps the old value
+    CHECK(!SetDefaultMap(&m, "a-b", "de_x", &err) && err.find("not a mode name") != std::string::npos);
+    CHECK(!SetDefaultMap(&m, std::string(33, 'a'), "de_x", &err));
+    CHECK(SetDefaultMap(&m, "ffa", "clear", &err) && DefaultMapFor(m, "ffa").empty());
+    CHECK(SetDefaultMap(&m, "retakes", "", &err) && m.empty());
+    CHECK(ValidModeName("ffa") && ValidModeName("retakes_2") && !ValidModeName("") && !ValidModeName("Ffa"));
+    const auto& known = KnownDefaultMapModes();
+    for (const char* k : {"ffa", "tdm", "practice", "warmup", "retakes"}) {
+      CHECK(std::find(known.begin(), known.end(), k) != known.end());
+    }
   }
   CHECK(MapChangePanelHtml("de_<x>", false).find("Changing map to de_&lt;x&gt;") != std::string::npos);
   CHECK(MapChangePanelHtml("m", true).find("Reloading m") != std::string::npos);

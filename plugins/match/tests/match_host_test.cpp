@@ -256,6 +256,14 @@ static bool Chatted(const std::string& needle) {
   }
   return false;
 }
+// Index of the first command equal to `cmd`, -1 if none.
+static int SentAt(const std::string& cmd) {
+  std::lock_guard<std::mutex> lk(g_logMu);
+  for (size_t i = 0; i < g_cmds.size(); ++i) {
+    if (g_cmds[i] == cmd) return static_cast<int>(i);
+  }
+  return -1;
+}
 static void ClearCmds() {
   std::lock_guard<std::mutex> lk(g_logMu);
   g_cmds.clear();
@@ -302,9 +310,12 @@ int main(int argc, char** argv) {
   const bool withPractice = argc >= 3;
   // argv[3] (optional): essentials.so (admins.json, `ru admins`, `ru map`).
   const bool withEssentials = argc >= 4;
+  // argv[4] (optional): deathmatch.so (readyup.match.v1 set_external_mode, essentials default maps).
+  const bool withDeathmatch = argc >= 5;
   if (std::system(("mkdir -p '" + pluginsDir + "' '" + readyup::g_moduleDir + "' && cp '" + argv[1] + "' '" +
                    pluginsDir + "/match.so'" + (withPractice ? " && cp '" + std::string(argv[2]) + "' '" + pluginsDir + "/practice.so'" : "") +
-                   (withEssentials ? " && cp '" + std::string(argv[3]) + "' '" + pluginsDir + "/essentials.so'" : ""))
+                   (withEssentials ? " && cp '" + std::string(argv[3]) + "' '" + pluginsDir + "/essentials.so'" : "") +
+                   (withDeathmatch ? " && cp '" + std::string(argv[4]) + "' '" + pluginsDir + "/deathmatch.so'" : ""))
                       .c_str()) != 0) {
     return 2;
   }
@@ -475,6 +486,78 @@ int main(int argc, char** argv) {
     Check(!Has(Summary(), "\"ru_mode\":\"practice\""), "match flow left practice");
   }
 
+  if (withDeathmatch && withEssentials) {
+    std::puts("-- deathmatch.so: the match flow steps aside (set_external_mode), default map from essentials");
+    ClearLog();
+    ClearCmds();
+    rp::TryDispatchRu(true, 0, "Console", "ru map default tdm de_dm");
+    rp::TryDispatchRu(true, 0, "Console", "ru dm tdm");
+    rp::Frame(true);
+    Check(Sent("game_type 1") && Sent("game_mode 2") && Sent("changelevel de_dm") &&
+              SentAt("game_mode 2") < SentAt("changelevel de_dm"),
+          "ru dm tdm: deathmatch game mode, then the default map for tdm (essentials default_maps.json)");
+    Check(Has(Summary(), "\"ru_mode\":\"external\"") && Has(Summary(), "\"phase\":\"deathmatch\""),
+          "match flow in external mode (status phase deathmatch)");
+    ClearCmds();
+    map.map = "de_dm";
+    rp::PostEvent(map);
+    rp::Frame(true);
+    rp::Frame(true);
+    Check(Sent("mp_teammates_are_enemies 0") && Sent("mp_dm_teammode 1") && Sent("mp_ignore_round_win_conditions 1"),
+          "map start: team deathmatch rules");
+    Check(!Logged("state: mode=scrim_warmup") && Has(Summary(), "\"ru_mode\":\"external\""), "no scrim warmup over deathmatch");
+    Check(g_suppressed.load() == 0, "no round-termination suppression in external mode");
+    rp::TryDispatchChat(76561198000000001ull, "alice", ".r", 2);
+    rp::Frame(true);
+    Check(Chatted("ready-up is not used in deathmatch mode"), ".r: ready-up is not used in deathmatch mode");
+    if (withPractice) {
+      rp::TryDispatchRu(true, 0, "Console", "ru practice on");
+      rp::Frame(true);
+      Check(Logged("practice mode refused: another plugin's mode is on"), "practice refused while deathmatch is on");
+    }
+    rp::TryDispatchRu(true, 0, "Console", "ru dm status");
+    rp::Frame(true);
+    Check(Logged("Team deathmatch on de_dm, first to 100"), "ru dm status");
+    rp::TryDispatchRu(false, 76561198000000001ull, "alice", ".ru dm ffa", 2);
+    rp::Frame(true);
+    Check(Chatted("not authorized") && !Sent("mp_teammates_are_enemies 1"), "non-admin .ru dm ffa refused");
+    ClearCmds();
+    rp::TryDispatchRu(true, 0, "Console", "ru dm ffa");  // no ffa default: stays on this map
+    rp::Frame(true);
+    Check(Sent("mp_teammates_are_enemies 1") && Sent("mp_restartgame 1") && !Sent("changelevel de_dm") && !Sent("game_type 1"),
+          "ru dm ffa on a deathmatch map: rules switched + game restart, no map load");
+    ClearLog();
+    rp::HandlePluginCommand({"reload", "deathmatch"}, false);
+    rp::Frame(true);
+    Check(Logged("resumed ffa after a reload"), "ru plugin reload deathmatch keeps the mode");
+    ClearLog();
+    ClearCmds();
+    rp::TryDispatchRu(true, 0, "Console", "ru mode idle");
+    Check(FramesUntil([] { return Logged("deathmatch: off (match plugin mode idle)"); }, 2000),
+          ".ru mode idle: deathmatch notices and turns itself off");
+    Check(Sent("game_type 0") && Sent("game_mode 1") && Sent("mp_damage_headshot_only 0") && Sent("changelevel de_dm"),
+          "... competitive again, the map loads again");
+    Check(Has(Summary(), "\"ru_mode\":\"idle\""), "... match flow idle");
+    ClearLog();
+    ClearCmds();
+    rp::TryDispatchRu(true, 0, "Console", "ru dm ffa aim_x");
+    rp::Frame(true);
+    map.map = "aim_x";
+    rp::PostEvent(map);
+    rp::Frame(true);
+    Check(Sent("changelevel aim_x") && Sent("mp_teammates_are_enemies 1"), "ru dm ffa aim_x: that map, free for all");
+    ClearCmds();
+    rp::TryDispatchRu(true, 0, "Console", "ru dm off");
+    rp::Frame(true);
+    Check(SentAt("game_type 0") >= 0 && SentAt("game_type 0") < SentAt("changelevel aim_x") && Sent("mp_teammates_are_enemies 0"),
+          "ru dm off: competitive, then the map again");
+    Check(!Has(Summary(), "\"ru_mode\":\"external\""), "ru dm off: the match flow has the server back");
+    rp::TryDispatchRu(true, 0, "Console", "ru mode scrim");
+    map.map = "de_test";
+    rp::PostEvent(map);
+    rp::Frame(true);
+  }
+
   std::puts("-- ru match load, then reload with the match loaded");
   g_players.push_back({3, 3, 76561198000000002ull, 2, false, "bob"});
   const std::string body =
@@ -499,6 +582,10 @@ int main(int argc, char** argv) {
     Check(Logged("practice mode refused: a match is loaded"), "practice refused while a match is loaded");
   }
   Check(Sent("changelevel de_test"), "match load changes map also onto the map the server is on");
+  if (withDeathmatch && withEssentials) {
+    Check(SentAt("game_type 0") >= 0 && SentAt("game_type 0") < SentAt("changelevel de_test"),
+          "match load after deathmatch: game_type 0 / game_mode 1 before its map change");
+  }
   Check(FramesUntil([] { return Has(Summary(), "\"ru_mode\":\"match_warmup\""); }, 2000), "mode match_warmup");
   Check(FramesUntil([] { return g_suppressed.load() == 1; }, 2000), "warmup suppresses round termination");
   rp::TryDispatchChat(76561198000000002ull, "bob", ".ready", 3);

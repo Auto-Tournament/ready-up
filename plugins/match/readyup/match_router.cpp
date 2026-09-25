@@ -79,6 +79,7 @@ bool MatchSetPractice(bool on) {
   if (on) {
     if (WebhookGetMatchContext()) return false;  // a loaded match keeps its own flow
     if (GetMode() == ReadyUpMode::Practice) return true;
+    if (GetMode() == ReadyUpMode::External) return false;  // another plugin's mode (deathmatch) first
     ClearReadyStates();
     persisted_match_state::ClearActiveMatch();
     WebhookSetHeartbeatStatus("warmup");  // non-allocatable but online
@@ -89,6 +90,29 @@ bool MatchSetPractice(bool on) {
   ClearReadyStates();
   WebhookSetHeartbeatStatus("idle");
   SetModeIdle();
+  return true;
+}
+
+bool MatchSetExternal(const std::string& name) {
+  if (name.empty()) {
+    if (GetMode() != ReadyUpMode::External) return true;
+    ClearReadyStates();
+    WebhookSetHeartbeatStatus("idle");
+    SetModeIdle();
+    return true;
+  }
+  if (name.size() > 32) return false;
+  for (unsigned char c : name) {
+    if (!std::islower(c) && !std::isdigit(c) && c != '_') return false;
+  }
+  if (WebhookGetMatchContext()) return false;  // a loaded match keeps its own flow
+  const ReadyUpMode was = GetMode();
+  if (was == ReadyUpMode::External && ExternalModeName() == name) return true;
+  if (!SetModeExternal(name)) return false;  // practice is on (or a match is loading)
+  ClearReadyStates();
+  persisted_match_state::ClearActiveMatch();
+  WebhookSetHeartbeatStatus("warmup");  // non-allocatable but online, like practice
+  Print("state: mode=external (%s)%s\n", name.c_str(), was == ReadyUpMode::ScrimWarmup ? " (scrim warmup ended)" : "");
   return true;
 }
 
@@ -127,6 +151,11 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   if (first == ".help") {
     if (GetMode() == ReadyUpMode::Practice) {
       if (const ru_practice_v1* p = Practice()) SendToChat(p->help());
+      return;
+    }
+    if (GetMode() == ReadyUpMode::External) {
+      const std::string ext = ExternalModeName();
+      SendToChat(("Ready Up: " + ext + " mode is on. Commands: .ru help " + ext).c_str());
       return;
     }
     SendToChat("Ready Up commands: .r / .ready / .ur (.nr) | .forceready | .tac (timeout) | .tech (.pause) | .unpause | .admin [message]");
@@ -174,6 +203,10 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     const ReadyUpMode curMode = GetMode();
     if (curMode == ReadyUpMode::Practice) {
       SendToChat("Ready Up: ready-up is not used in practice mode.");
+      return;
+    }
+    if (curMode == ReadyUpMode::External) {
+      SendToChat(("Ready Up: ready-up is not used in " + ExternalModeName() + " mode.").c_str());
       return;
     }
     if (curMode == ReadyUpMode::Idle && !ScrimAutoEnabled()) {
@@ -459,6 +492,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       ScrimSetAutoEnabled(true);
       if (WebhookGetMatchContext()) sendAdmin("scrim warmup re-enabled; a match is loaded, it applies once that match ends.");
       else if (GetMode() == ReadyUpMode::Practice) sendAdmin("scrim warmup re-enabled; leave practice (.prac) to start it.");
+      else if (GetMode() == ReadyUpMode::External) sendAdmin("scrim warmup re-enabled; it starts once " + ExternalModeName() + " mode is off.");
       else sendAdmin("scrim warmup enabled (starts as soon as a player is on CT/T).");
       EmitStateLog("scrim_enable");
       return;

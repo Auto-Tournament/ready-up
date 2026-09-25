@@ -34,6 +34,7 @@ CI checks the file against every new CS2 build, usually within minutes of the up
 - Match configs loaded from the Auto Tournament platform, with a roster whitelist and team locks
 - Pauses (`.pause` / `.unpause`) and captain forfeit
 - Practice mode (its own plugin): `.prac`, `.savepos`/`.loadpos`, `.spawn N`, `.rethrow`, `.bot`, `.noflash`, `.god`; a dedicated practice server with `always=1`
+- Deathmatch (its own plugin, Full bundle): free for all or team deathmatch with a kill / time limit, a live leaderboard, headshot only and weapon rounds (`.ru dm ffa|tdm [map]`)
 - Admins, settings, crash recovery and skins loadouts in small JSON files, no database (`ru admins add|remove|list`); in fleet mode admins and loadouts come from the platform
 - Per-player center-screen HTML, such as the welcome screen
 - Webhooks and a heartbeat for the platform
@@ -65,6 +66,7 @@ In a terminal it then shows the components with the installed and latest version
   [ ] Whitelist new 0.2.0  only listed players may join (off until turned on)
   [x] Practice new 0.2.0   practice mode + tools (.prac, .savepos, .rethrow, .bot)
   [x] Essentials new 0.2.0 admins + map commands (needed for admins without a match config)
+  [ ] Deathmatch new 0.2.0 FFA / team deathmatch with a leaderboard (off until .ru dm ffa|tdm)
 ```
 
 It downloads the ticked components from the latest release (checking `SHA256SUMS`), puts them in `game/csgo/readyup/`, and adds `Game csgo/readyup` to `gameinfo.gi` and `gameinfo_branchspecific.gi` (right after Metamod's line if you have Metamod; a backup is saved as `gameinfo.gi.readyup-backup-<time>`). Your `readyup.cfg`, `cfg/ReadyUp/*.cfg` and the plugins' JSON data are never overwritten: when a shipped default changes, it lands next to yours as `*.default`. Then restart the server and run `ru selftest` in its console.
@@ -116,8 +118,8 @@ bundles below are just zips with several of them. The in-house plugins use nothi
 API, so they double as examples for your own.
 
 Plugins cooperate through named interfaces (`provide_interface` / `get_interface`): the match plugin
-publishes `readyup.match.v1` (mode, ruleset, map stats), the practice plugin `readyup.practice.v1`, the whitelist
-plugin `readyup.whitelist.v1`, the skins plugin `readyup.skins.v1` (paint one weapon; Midas uses it). The match plugin owns the match phase; the others read it and stand
+publishes `readyup.match.v1` (mode, ruleset, map stats; `set_external_mode` lets another plugin such as deathmatch take the server), the practice plugin `readyup.practice.v1`, the whitelist
+plugin `readyup.whitelist.v1`, the skins plugin `readyup.skins.v1` (paint one weapon; Midas uses it), the essentials plugin `readyup.essentials.v1` (default map per mode, map loads). The match plugin owns the match phase; the others read it and stand
 down while a match is loaded or live, and under the valve ruleset. None of them needs another to be
 loaded: each checks for the interface and works on its own (a practice-only server is core + practice).
 
@@ -146,7 +148,7 @@ The match flow: scrim ready-up with a center-screen panel, knife round and side 
 
 <br />
 
-Server basics kept apart from the match flow, so every kind of server has them: the admins list (`ru admins`, `plugins/essentials/admins.json`) and `.ru map change <name|workshop id|link>` / `reload` / `restart` (refused during a live map unless `force`). While the server downloads a Workshop map, everyone sees a progress bar in the center of the screen. A practice-only server is core + essentials + practice; an esports server can run core + match alone. In both bundles.
+Server basics kept apart from the match flow, so every kind of server has them: the admins list (`ru admins`, `plugins/essentials/admins.json`) and `.ru map change <name|workshop id|link>` / `reload` / `restart` (refused during a live map unless `force`). Default maps per mode (`ffa`, `tdm`, `practice`, `warmup`, `retakes`, ...): `.ru map default <mode> <map|workshop id|link>` and `.ru map defaults`, saved in `plugins/essentials/default_maps.json`; other plugins read them through `readyup.essentials.v1` (the deathmatch plugin loads its mode's default map). While the server downloads a Workshop map, everyone sees a progress bar in the center of the screen. A practice-only server is core + essentials + practice; an esports server can run core + match alone. In both bundles.
 
 </details>
 
@@ -199,6 +201,15 @@ For practice and scrim servers: `ru whitelist on`, `ru whitelist add <steamid64>
 </details>
 
 <details>
+<summary><b>Deathmatch</b> (<code>plugins/deathmatch</code>): FFA / team deathmatch, Full bundle</summary>
+
+<br />
+
+`.ru dm ffa [map]` / `.ru dm tdm [map]` (admin) switch the server to CS2's own deathmatch game mode (`game_type 1` / `game_mode 2`, so a map loads: the one given, else the mode's default map from essentials, else the current map again), free for all (`mp_teammates_are_enemies 1`) or team deathmatch (`0`, team kills score for the team). Ready Up's rules on top, in `cfg/ReadyUp/deathmatch.cfg`: first player / team to the kill limit (30 / 100) or the leader after the time limit (10 min) wins, announced in chat and on a winner card, then the next game starts. A small leaderboard (top 5 + your rank) is on every player's screen (`.ru dm hud` hides yours), plus spawn protection, `headshot_only=1` and weapon rounds (every N minutes everyone spawns with the next weapon of a list). `.ru dm status` / `.ru dm top` for everyone, `.ru dm off` (admin) goes back to competitive and the match plugin's idle / scrim. While it is on, the match plugin steps aside (no scrim warmup or ready panel); a match load or `.ru mode idle` ends it. See [docs/DEATHMATCH.md](docs/DEATHMATCH.md).
+
+</details>
+
+<details>
 <summary><b>Hello</b> (<code>plugins/hello</code>): example plugin</summary>
 
 <br />
@@ -207,7 +218,7 @@ A minimal plugin that registers `.hello` in chat. Start here to write your own.
 
 </details>
 
-Downloads: `ready-up-core`, `ready-up-match`, `ready-up-fleet`, `ready-up-skins`, `ready-up-hello`, `ready-up-midas`, `ready-up-whitelist`, `ready-up-practice`, `ready-up-essentials-plugin`, and two bundles: **Essentials** (core + essentials + match + fleet + practice) and **Full** (core + essentials + match + fleet + practice + skins + hello + midas + whitelist + the gamedata checkers). The installer mixes the single components. `fleet` is the link to the Auto Tournament platform; it stays idle until you set a `url` in `cfg/ReadyUp/fleet.cfg` (shipped fully commented out), so it is safe on standalone servers.
+Downloads: `ready-up-core`, `ready-up-match`, `ready-up-fleet`, `ready-up-skins`, `ready-up-hello`, `ready-up-midas`, `ready-up-whitelist`, `ready-up-practice`, `ready-up-essentials-plugin`, `ready-up-deathmatch`, and two bundles: **Essentials** (core + essentials + match + fleet + practice) and **Full** (core + essentials + match + fleet + practice + skins + hello + midas + whitelist + deathmatch + the gamedata checkers). The installer mixes the single components. `fleet` is the link to the Auto Tournament platform; it stays idle until you set a `url` in `cfg/ReadyUp/fleet.cfg` (shipped fully commented out), so it is safe on standalone servers.
 
 ## FAQ
 
@@ -239,6 +250,7 @@ Full docs are at **[docs.autotournament.gg](https://docs.autotournament.gg)**. I
 - [Running next to Metamod / CounterStrikeSharp](docs/COMPATIBILITY.md)
 - [CS2 update checks, compat.json and the badge](docs/CS2-COMPAT.md)
 - [Admins](docs/ADMINS.md)
+- [Deathmatch (FFA / TDM)](docs/DEATHMATCH.md)
 - [Esports mode (Valve ruleset) spec](docs/ESPORTS-MODE.md)
 - [Development and debugging](docs/DEVELOPMENT.md)
 - [Testing with Auto Tournament](docs/TESTING_WITH_MAT.md)

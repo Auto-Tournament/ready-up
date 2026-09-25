@@ -78,6 +78,7 @@ for mm in 0 1; do
   check "engine-surface.json installed" test -f "$CS/readyup/bin/linuxsteamrt64/engine-surface.json"
   check "no skins.so in essentials" test ! -e "$CS/readyup/plugins/skins.so"
   check "no skins gamedata in essentials" test ! -e "$CS/readyup/bin/linuxsteamrt64/engine-surface.skins.json"
+  check "no deathmatch.so in essentials (Full only)" test ! -e "$CS/readyup/plugins/deathmatch.so"
   check "readyup.cfg created from the example" test -f "$CS/readyup/bin/linuxsteamrt64/readyup.cfg"
   check "cfg/ReadyUp templates seeded" test -f "$CS/cfg/ReadyUp/live.cfg"
   check "fleet.so installed" test -x "$CS/readyup/plugins/fleet.so"
@@ -143,6 +144,13 @@ check "whitelist.so installed" test -x "$CS/readyup/plugins/whitelist.so"
 run --dir "$S" --remove whitelist >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove whitelist exited non-zero"; }
 check "whitelist.so removed" test ! -e "$CS/readyup/plugins/whitelist.so"
 
+echo "== add deathmatch from the full zip (off until .ru dm ffa|tdm), then remove it"
+run --dir "$S" --zip "$FULL" deathmatch >"$T/out" 2>&1 || { cat "$T/out"; fail "deathmatch install exited non-zero"; }
+check "deathmatch.so installed" test -x "$CS/readyup/plugins/deathmatch.so"
+check "deathmatch.cfg seeded, all comments (defaults)" idle_cfg "$CS/cfg/ReadyUp/deathmatch.cfg"
+run --dir "$S" --remove deathmatch >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove deathmatch exited non-zero"; }
+check "deathmatch.so removed" test ! -e "$CS/readyup/plugins/deathmatch.so"
+
 echo "== remove fleet (its data dir and user fleet.cfg stay), add it back from the fleet zip"
 mkdir -p "$CS/readyup/plugins/fleet" && echo '{}' >"$CS/readyup/plugins/fleet/credentials.json"
 echo "url = https://t.example.com" >>"$CS/cfg/ReadyUp/fleet.cfg"
@@ -175,8 +183,8 @@ make_server "$S4" 0
 run --dir "$S4" --zip "$FULL" --accept-license=noncommercial full >"$T/out" 2>&1 || { cat "$T/out"; fail "full install exited non-zero"; }
 # (+ tools: the offline gamedata checkers, when the build had them)
 check "installed.json is every component" \
-  test "$(installed "$S4" | sed "s/ tools / /; s/ tools$//")" = "core essentials fleet hello match midas practice skins whitelist"
-for so in match fleet practice essentials skins hello midas whitelist; do
+  test "$(installed "$S4" | sed "s/ tools / /; s/ tools$//")" = "core deathmatch essentials fleet hello match midas practice skins whitelist"
+for so in match fleet practice essentials skins hello midas whitelist deathmatch; do
   check "full: $so.so installed" test -x "$S4/game/csgo/readyup/plugins/$so.so"
 done
 

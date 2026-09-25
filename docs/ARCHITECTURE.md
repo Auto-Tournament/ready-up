@@ -414,6 +414,17 @@ fragment, the others do not. `readyup_sigcheck` / `readyup_hookcheck` take fragm
 arguments and `scripts/ci/verify-cs2.sh` passes every fragment in `gamedata/`.
 `dev-deploy.sh --plugin skins` installs the fragment too (a new fragment needs `--restart`).
 
+### readyup-deathmatch (`plugins/deathmatch/`)
+
+FFA / team deathmatch on CS2's deathmatch game mode ([DEATHMATCH.md](DEATHMATCH.md)).
+`deathmatch_plugin.cpp` (commands, events, tick), `dm_rules.*` (settings, cvars, scoring, win
+conditions, leaderboard HTML, weapon rounds, map choice; ctest `deathmatch_rules`). Only `ru_api`
+calls that exist already: `server_command` for the cvars / `game_type` / map loads, raw
+`player_death`, `center_html_*_prio`, `for_each_player`. Talks to the match plugin through
+`readyup.match.v1` `set_external_mode` (v1.5: the match flow's `External` mode) and to essentials
+through `readyup.essentials.v1` (`core/include/readyup/essentials_iface.h`: `default_map(mode)`
+from `default_maps.json`, `load_map(entry)` with the Workshop download bar).
+
 ### Shared non-engine code (`libs/`)
 
 `json_store.*` (versioned JSON files: atomic replace, corrupt files moved aside, flock),

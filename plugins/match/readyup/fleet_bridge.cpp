@@ -1119,7 +1119,9 @@ void OnAssign(const ru_fleet_msg* m) {
     // D16: a scrim / pickup ends unreported; everyone not in the match is kicked after 5 s.
     const auto ctx = WebhookGetMatchContext();
     const ReadyUpMode mode = GetMode();
-    const bool scrim = mode == ReadyUpMode::ScrimWarmup || mode == ReadyUpMode::Practice || (ctx && ctx->slug == "scrim");
+    // A plugin mode (deathmatch) ends like a scrim; the match load then restores competitive.
+    const bool scrim = mode == ReadyUpMode::ScrimWarmup || mode == ReadyUpMode::Practice ||
+                       mode == ReadyUpMode::External || (ctx && ctx->slug == "scrim");
     bool outsiders = false;
     for (const auto& h : ListHumans()) outsiders = outsiders || (h.steamid64 && !KeepOnHandOver(h.steamid64));
     ScrimSetAutoEnabled(false);

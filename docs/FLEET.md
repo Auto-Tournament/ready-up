@@ -1196,7 +1196,7 @@ platform depends on it. It works in standalone mode too.
               auto_pause_in_s?: number },                        // countdown while offline in a live match (D12)
   update_safe: boolean,          // true when idle, scrim/pickup, or postgame with no demo upload pending
   summary: {                     // flat fields for a table row
-    mode: "idle" | "scrim" | "match" | "practice",
+    mode: "idle" | "scrim" | "match" | "practice" | "external",   // external: another plugin runs the server; phase = its name ("deathmatch")
     phase: string, map: string, map_number: number, num_maps: number, round: number,
     score: { team1: number, team2: number }, series_score: { team1: number, team2: number },
     players: { connected: number, expected: number },
@@ -1284,6 +1284,10 @@ Decision: hand-rolled (implemented).
   the swap. Serializing, diffing, `rev` and the event ring all happen on the HTTP thread. Build
   time and the spacing of simulating frames are exported (`readyup_status_feed_build_us_*`,
   `readyup_game_frame_gap_ms_*_10s` in `/metrics`; `ru status_http` on the console).
+- **External mode:** while a plugin mode such as deathmatch runs the server (readyup.match.v1
+  `set_external_mode`, docs/DEATHMATCH.md), `summary.mode` is `external`, `summary.phase` the
+  plugin mode's name (`deathmatch`) and `ru_mode` `external`; `update_safe` is true. There is no
+  `deathmatch.set` command yet: `plugins.set` + root `exec` (`ru dm ffa <map>`) work today.
 - **Extras over §17.2:** `/status` has `rev`; `summary` also has `ru_mode` (the raw Ready Up mode),
   `slug`, `ready {ready,total}`, `knife`, `countdown_s` (scrim all-ready countdown) and
   `demo_uploads_pending`; `/stream` `status` events can also carry `summary`, `versions`,

@@ -7,6 +7,8 @@
 //   ru map change <name|workshop id> [force] changelevel / host_workshop_map (admin)
 //   ru map reload [force]                    the current map again (workshop maps by id)
 //   ru map restart [force]                   mp_restartgame 1
+//   ru map defaults                          the default map per mode (default_maps.json)
+//   ru map default <mode> [<map>|clear]      show / set one (admin), e.g. `ru map default ffa aim_map`
 //
 // While the server downloads a Workshop map (host_workshop_map), everyone sees a progress bar in
 // the center panel, resent ~10x a second (core API 1.4 workshop_download_progress).
@@ -19,14 +21,22 @@
 // (a player is an admin when any provider says so: the match plugin adds the match config's
 // admins, the MAT list and, in fleet mode, the platform's list). admins.json counts in fleet mode
 // too (docs/FLEET.md D5 adds the platform's list, it does not replace the local one).
+//
+// Default maps: csgo/readyup/plugins/essentials/default_maps.json maps a mode name (ffa, tdm,
+// practice, warmup, retakes, ...) to a map entry; re-read when it changes. Other plugins get them
+// through readyup.essentials.v1 (default_map, plus load_map: a map change with the download bar);
+// the deathmatch plugin loads its mode's default map with them. The platform is meant to push the
+// file over the fleet link later.
 #include "essentials_rules.h"
 
+#include "readyup/essentials_iface.h"
 #include "readyup/fleet_iface.h"
 #include "readyup/map_names.h"
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
 #include "readyup/selftest_iface.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -50,6 +60,11 @@ std::vector<Admin> g_admins;
 std::string g_path;
 int64_t g_mtime = -1;
 double g_nextReload = 0;
+
+// default_maps.json (game thread only).
+DefaultMaps g_defaultMaps;
+std::string g_mapsPath;
+int64_t g_mapsMtime = -1;
 
 // Workshop download being shown (game thread only).
 struct Download {
@@ -84,6 +99,29 @@ void LoadAdmins() {
   std::lock_guard<std::mutex> lk(g_mu);
   if (ok) g_admins = std::move(list);
   g_mtime = m;
+}
+
+void LoadDefaultMaps() {
+  const int64_t m = MtimeNs(g_mapsPath);
+  if (m == g_mapsMtime) return;
+  bool ok = true;
+  auto maps = ParseDefaultMaps(ReadFile(g_mapsPath), &ok);
+  if (!ok) ru_logf(g_api, RU_LOG_WARN, "%s is not valid JSON; keeping the previous default maps", g_mapsPath.c_str());
+  else g_defaultMaps = std::move(maps);
+  g_mapsMtime = m;
+}
+
+bool SaveDefaultMaps() {
+  const std::string tmp = g_mapsPath + ".tmp";
+  {
+    std::ofstream f(tmp, std::ios::trunc);
+    if (!f) return false;
+    f << DefaultMapsJson(g_defaultMaps);
+    if (!f) return false;
+  }
+  if (std::rename(tmp.c_str(), g_mapsPath.c_str()) != 0) return false;
+  g_mapsMtime = MtimeNs(g_mapsPath);
+  return true;
 }
 
 bool SaveAdmins() {
@@ -234,15 +272,48 @@ bool LoadEntry(const std::string& entry) {
   return g_api->server_command(g_api->self, cmd.c_str()) == 1;
 }
 
+// "(none)", the entry, or "aim_map (workshop/123/aim_map)".
+std::string Shown(const std::string& entry) {
+  if (entry.empty()) return "(none)";
+  const std::string d = readyup::mapnames::DisplayName(entry);
+  return d == entry ? entry : d + " (" + entry + ")";
+}
+
+void OnMapDefaults(const ru_command_ctx* c, const std::string& sub, const std::vector<std::string>& args) {
+  LoadDefaultMaps();
+  if (sub == "defaults" || args.empty()) {
+    std::vector<std::string> modes = KnownDefaultMapModes();
+    for (const auto& kv : g_defaultMaps) {
+      if (std::find(modes.begin(), modes.end(), kv.first) == modes.end()) modes.push_back(kv.first);
+    }
+    if (sub == "default" && !args.empty()) modes = {args[0]};
+    for (const auto& m : modes) Reply(c, "default map " + m + ": " + Shown(DefaultMapFor(g_defaultMaps, m)));
+    return;
+  }
+  if (args.size() == 1) return Reply(c, "default map " + args[0] + ": " + Shown(DefaultMapFor(g_defaultMaps, args[0])));
+  if (!SenderIsAdmin(c)) return Reply(c, "not authorized");
+  if (args.size() != 2) return Reply(c, "usage: .ru map default <mode> [<name|workshop id|link>|clear]");
+  std::string err;
+  if (!SetDefaultMap(&g_defaultMaps, args[0], args[1], &err)) return Reply(c, err);
+  if (!SaveDefaultMaps()) return Reply(c, "could not save " + g_mapsPath);
+  const std::string e = DefaultMapFor(g_defaultMaps, args[0]);
+  ru_logf(g_api, RU_LOG_INFO, "default map %s = %s by %s", args[0].c_str(), e.empty() ? "(none)" : e.c_str(),
+          c->is_console ? "Console" : (c->name ? c->name : "?"));
+  Reply(c, "default map " + args[0] + ": " + Shown(e));
+}
+
 void OnMap(const ru_command_ctx* c, const std::string& sub, std::vector<std::string> args) {
   if (sub.empty() || sub == "help") {
     for (const char* l : {".ru map change <name|workshop id|link> [force]: change map (admin)",
                           ".ru map reload [force]: load the current map again (admin)",
-                          ".ru map restart [force]: restart the game, mp_restartgame 1 (admin)"}) {
+                          ".ru map restart [force]: restart the game, mp_restartgame 1 (admin)",
+                          ".ru map defaults: the default map per mode (ffa, tdm, practice, ...)",
+                          ".ru map default <mode> [<map>|clear]: show / set one (admin)"}) {
       Reply(c, l);
     }
     return;
   }
+  if (sub == "defaults" || sub == "default") return OnMapDefaults(c, sub, args);
   if (sub != "change" && sub != "reload" && sub != "restart") return Reply(c, "unknown command. Type .ru help map for the list.");
   if (!SenderIsAdmin(c)) return Reply(c, "not authorized");
   const bool force = !args.empty() && args.back() == "force";
@@ -326,7 +397,34 @@ void OnTick(void*, const ru_tick_info* t) {
   if (t->now < g_nextReload) return;
   g_nextReload = t->now + 30.0;
   LoadAdmins();  // re-read when admins.json changed on disk
+  LoadDefaultMaps();
 }
+
+// ---- readyup.essentials.v1 ------------------------------------------------------------------------
+
+std::string g_defaultMapRet;  // default_map's return value (valid until the next call)
+const char* IfaceDefaultMap(const char* mode) {
+  try {
+    LoadDefaultMaps();  // a stat(): picks up a hand-edited file right away
+    g_defaultMapRet = DefaultMapFor(g_defaultMaps, mode ? mode : "");
+  } catch (...) {
+    g_defaultMapRet.clear();
+  }
+  return g_defaultMapRet.c_str();
+}
+int IfaceLoadMap(const char* entry) {
+  try {
+    const std::string e = MapArgToEntry(entry ? entry : "");
+    if (!readyup::mapnames::ValidEntry(e)) return 0;
+    if (!LoadEntry(e)) return 0;
+    ru_logf(g_api, RU_LOG_INFO, "map change for another plugin: %s", e.c_str());
+    SendAlertAll(MapChangePanelHtml(readyup::mapnames::DisplayName(e), false), 5);  // like `ru map change`
+    return 1;
+  } catch (...) {
+    return 0;
+  }
+}
+const ru_essentials_v1 g_iface = {sizeof(ru_essentials_v1), &IfaceDefaultMap, &IfaceLoadMap};
 
 void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   std::string d;
@@ -335,6 +433,7 @@ void RunSelftest(ru_selftest_add_fn add, void* ctx) {
     d = std::to_string(g_admins.size()) + " admin(s) in " + g_path;
   }
   if (FleetMode()) d += ", plus the platform's list (fleet mode)";
+  d += "; " + std::to_string(g_defaultMaps.size()) + " default map(s)";
   add(ctx, "INFO", "essentials", d.c_str());
 }
 const ru_selftest_iface_v1 g_selftestIface = {sizeof(ru_selftest_iface_v1), &RunSelftest};
@@ -353,7 +452,7 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
       "essentials",
       ESSENTIALS_VERSION,
       "Ready Up",
-      "server basics: admins (admins.json), map change / reload / restart",
+      "server basics: admins (admins.json), map change / reload / restart, default maps per mode",
   };
   return &info;
 }
@@ -368,6 +467,10 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_nextReload = 0;
   MigrateFromMatch(dataDir);
   LoadAdmins();
+  g_mapsPath = dataDir + "/default_maps.json";
+  g_mapsMtime = -1;
+  g_defaultMaps.clear();
+  LoadDefaultMaps();
   for (const char* m : {"admins", "map"}) {
     if (!api->register_ru_subcommand(api->self, m, &OnRu, nullptr)) {
       ru_logf(api, RU_LOG_WARN, "could not register `ru %s` (another plugin owns it)", m);
@@ -376,6 +479,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   api->set_admin_provider(api->self, &Provider, nullptr);
   api->subscribe(api->self, RU_EVENT_MAP_START, &OnMapStart, nullptr);
   api->on_tick(api->self, &OnTick, nullptr);
+  api->provide_interface(api->self, RU_ESSENTIALS_IFACE_NAME, RU_ESSENTIALS_IFACE_VERSION,
+                         const_cast<ru_essentials_v1*>(&g_iface));
   api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "essentials", RU_SELFTEST_IFACE_VERSION,
                          const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
   {
