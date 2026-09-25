@@ -1,8 +1,10 @@
 // Offline tests for the engine-free half of the fleet match link (readyup/fleet_state.h) and the
 // stats rewind used by round restores (match_stats.h RewindTo): merge patches and live_rev,
 // epoch fencing, config_rev compare-and-set, match.assign -> MAT config (through the real
-// parser), match.update ops, sha256 / base64, validators. ctest `match_fleet_state`.
+// parser), match.update ops, sha256 / base64, validators, workshop map entries / loaded map names
+// (map_names.h) and failover resume blocks. ctest `match_fleet_state`.
 #include "readyup/fleet_state.h"
+#include "readyup/map_names.h"
 #include "readyup/match_config_parser.h"
 #include "readyup/match_stats.h"
 
@@ -189,7 +191,7 @@ static void TestAssign() {
   CHECK(ctx->matchid == fs::NumericMatchId("ko-r1-m3"));
   CHECK_STR(ctx->slug, "ko-r1-m3");
   CHECK(ctx->num_maps == 3);
-  CHECK(ctx->maplist.size() == 3 && ctx->maplist[2] == "de_nuke");
+  CHECK(ctx->maplist.size() == 3 && ctx->maplist[2] == "workshop/3070284539/de_nuke");  // host_workshop_map
   CHECK(ctx->map_sides.size() == 3 && ctx->map_sides[1] == "team1_ct");
   CHECK_STR(ctx->team1_name, "Alpha");
   CHECK(ctx->team1_captain_steamid64 == 76561198000000001ull);
@@ -447,6 +449,229 @@ static void TestRewind() {
   CHECK(resumed.Team1Score() == want.team1.score);
 }
 
+// ---------------------------------------------------------------------------- workshop maps
+
+static void TestMapNames() {
+  namespace mn = readyup::mapnames;
+  mn::ResetBindings();
+  mn::MapRef r;
+  CHECK(mn::ParseEntry("de_dust2", &r) && r.workshop_id.empty() && r.name == "de_dust2");
+  CHECK(mn::ParseEntry("3084291314", &r) && r.workshop_id == "3084291314" && r.name.empty());
+  CHECK(mn::ParseEntry("ws:3084291314", &r) && r.workshop_id == "3084291314" && r.name.empty());
+  CHECK(mn::ParseEntry("workshop/3084291314", &r) && r.workshop_id == "3084291314" && r.name.empty());
+  CHECK(mn::ParseEntry("workshop/3084291314/aim_map", &r) && r.workshop_id == "3084291314" && r.name == "aim_map");
+  CHECK(!mn::ValidEntry(""));
+  CHECK(!mn::ValidEntry("ws:"));
+  CHECK(!mn::ValidEntry("ws:12a"));
+  CHECK(!mn::ValidEntry("workshop/x/aim_map"));
+  CHECK(!mn::ValidEntry("workshop/123/../x"));
+  CHECK(!mn::ValidEntry("de_dust2;quit"));
+  CHECK(!mn::ValidEntry("de dust2"));
+  CHECK(!mn::ValidEntry(std::string(21, '1')));  // > 20 digits
+
+  // Entries from match.assign maps[] {name, workshop_id}.
+  CHECK_STR(mn::MakeEntry("de_nuke", ""), "de_nuke");
+  CHECK_STR(mn::MakeEntry("aim_map", "3084291314"), "workshop/3084291314/aim_map");
+  CHECK_STR(mn::MakeEntry("ws:3084291314", ""), "ws:3084291314");
+  CHECK_STR(mn::MakeEntry("ws:1", "3084291314"), "workshop/3084291314");  // the id field wins
+  CHECK_STR(mn::MakeEntry("", "3084291314"), "workshop/3084291314");
+  CHECK_STR(mn::MakeEntry("bad name", ""), "");
+  CHECK_STR(mn::MakeEntry("x", "12y"), "");
+
+  CHECK_STR(mn::LoadCommand("de_dust2"), "changelevel de_dust2");
+  CHECK_STR(mn::LoadCommand("3084291314"), "host_workshop_map 3084291314");
+  CHECK_STR(mn::LoadCommand("ws:3084291314"), "host_workshop_map 3084291314");
+  CHECK_STR(mn::LoadCommand("workshop/3084291314/aim_map"), "host_workshop_map 3084291314");
+  CHECK_STR(mn::LoadCommand("de_dust2; quit"), "");
+
+  // Loaded map names: the bsp name (CS2 1.41 logs `Loading map "aim_map"` after
+  // host_workshop_map) or "workshop/<id>/<name>".
+  CHECK_STR(mn::LoadedBaseName("aim_map"), "aim_map");
+  CHECK_STR(mn::LoadedBaseName("workshop/3084291314/aim_map"), "aim_map");
+  CHECK_STR(mn::LoadedBaseName("maps/aim_map.vpk"), "aim_map");
+  CHECK_STR(mn::LoadedBaseName("workshop/3084291314"), "");
+  CHECK_STR(mn::WorkshopIdOfLoaded("workshop/3084291314/aim_map"), "3084291314");
+  CHECK_STR(mn::WorkshopIdOfLoaded("aim_map"), "");
+
+  CHECK(mn::EntryMatchesLoaded("de_dust2", "de_dust2"));
+  CHECK(mn::EntryMatchesLoaded("de_dust2", "DE_DUST2"));
+  CHECK(!mn::EntryMatchesLoaded("de_dust2", "de_nuke"));
+  CHECK(!mn::EntryMatchesLoaded("de_dust2", ""));
+  CHECK(mn::EntryMatchesLoaded("workshop/3084291314/aim_map", "aim_map"));
+  CHECK(mn::EntryMatchesLoaded("workshop/3084291314/aim_map", "workshop/3084291314/aim_map"));
+  CHECK(!mn::EntryMatchesLoaded("workshop/3084291314/aim_map", "workshop/999/aim_map"));
+  CHECK(mn::EntryMatchesLoaded("ws:3084291314", "workshop/3084291314/aim_map"));
+  // An id-only entry matches a bare bsp name once its host_workshop_map loaded that map.
+  CHECK(!mn::EntryMatchesLoaded("3084291314", "aim_map"));
+  CHECK_STR(mn::DisplayName("3084291314"), "workshop/3084291314");
+  mn::NoteWorkshopLoad("3084291314");
+  mn::NoteMapLoaded("aim_map");
+  CHECK_STR(mn::BoundName("3084291314"), "aim_map");
+  CHECK(mn::EntryMatchesLoaded("3084291314", "aim_map"));
+  CHECK(mn::EntryMatchesLoaded("ws:3084291314", "aim_map"));
+  CHECK(!mn::EntryMatchesLoaded("3084291314", "de_dust2"));
+  CHECK_STR(mn::DisplayName("3084291314"), "aim_map");
+  CHECK_STR(mn::DisplayName("workshop/3084291314/aim_map"), "aim_map");
+  CHECK_STR(mn::DisplayName("de_dust2"), "de_dust2");
+  // The next map change without a pending load binds nothing; a "workshop/<id>/x" name binds itself.
+  mn::NoteMapLoaded("de_dust2");
+  CHECK_STR(mn::BoundName("3084291314"), "aim_map");
+  mn::NoteMapLoaded("workshop/3070244462/aim_botz");
+  CHECK_STR(mn::BoundName("3070244462"), "aim_botz");
+  // A pending load overtaken by another workshop map does not bind the wrong name.
+  mn::NoteWorkshopLoad("111");
+  mn::NoteMapLoaded("workshop/222/other");
+  CHECK_STR(mn::BoundName("111"), "");
+  CHECK_STR(mn::BoundName("222"), "other");
+  mn::ResetBindings();
+  CHECK_STR(mn::BoundName("3084291314"), "");
+
+  // match.assign: workshop maps in the maplist the MAT parser takes, "ws:<id>" names accepted.
+  const Json p = J(R"({"match_id":"ws-1","epoch":1,"config":{"num_maps":3,
+    "maps":[{"name":"ws:3084291314","sides":"knife"},{"name":"aim_map","workshop_id":"3084291314","sides":"team1_ct"},
+            {"name":"workshop/3070244462","sides":"knife"}],
+    "team1":{"name":"A","players":[]},"team2":{"name":"B","players":[]},"password":""}})");
+  std::string err;
+  CHECK(fs::ValidateAssign(p, &err));
+  if (!err.empty()) std::fprintf(stderr, "validate: %s\n", err.c_str());
+  const Json mat = fs::AssignToMatConfig("ws-1", *p.Find("config"), nullptr);
+  auto ctx = ParseWebhookMatchContextFromJson(mat.Dump(), &err);
+  CHECK(ctx.has_value());
+  if (ctx) {
+    CHECK(ctx->maplist.size() == 3);
+    CHECK_STR(ctx->maplist[0], "ws:3084291314");
+    CHECK_STR(ctx->maplist[1], "workshop/3084291314/aim_map");
+    CHECK_STR(ctx->maplist[2], "workshop/3070244462");
+  }
+  Json bad = p;
+  bad["config"]["maps"] = J(R"([{"name":"ws:abc","sides":"knife"}])");
+  bad["config"]["num_maps"] = 1;
+  CHECK(!fs::ValidateAssign(bad, &err));
+}
+
+// ---------------------------------------------------------------------------- failover resume
+
+static Json ResumeConfig() {
+  return J(R"({"num_maps":3,
+    "maps":[{"name":"de_mirage","sides":"knife"},{"name":"de_inferno","sides":"knife"},{"name":"de_nuke","sides":"team2_ct"}],
+    "team1":{"name":"A","players":[]},"team2":{"name":"B","players":[]},"password":"",
+    "rules":{"pause":{"pause_after_restore":false}}})");
+}
+
+static Json InlineBackup(const std::string& raw, int map, int round) {
+  Json b = Json::Object();
+  b["map_number"] = map;
+  b["round"] = round;
+  b["file"] = "readyup_backup_77_map" + std::to_string(map) + "_round0" + std::to_string(round - 1) + ".txt";
+  b["size"] = static_cast<long long>(raw.size());
+  b["sha256"] = fs::Sha256Hex(raw);
+  Json sc = Json::Object();
+  sc["team1"] = 4;
+  sc["team2"] = 2;
+  b["score"] = sc;
+  b["encoding"] = "base64";
+  b["data"] = fs::Base64Encode(raw);
+  return b;
+}
+
+static void TestResume() {
+  const Json cfg = ResumeConfig();
+  const std::string raw = "\"SaveFile\"\n{\n\t\"round\"\t\"7\"\n}\n";
+  std::string code, err;
+  fs::ResumePlan p;
+
+  // Inline backup + the platform's state: series score, map 1's result, the knife-decided sides.
+  Json r = J(R"({"from_epoch":2,"map_number":2,"round":7,
+    "state":{"match_id":"m","epoch":2,"config_rev":1,"live_rev":40,"phase":"live",
+      "series":{"num_maps":3,"current_map":2,"score":{"team1":1,"team2":0},
+        "maps":{"1":{"name":"de_mirage","sides":"team1_ct","status":"done","score":{"team1":13,"team2":7},"winner":"team1"},
+                "2":{"name":"de_inferno","sides":"team2_ct","status":"live","score":{"team1":4,"team2":2}},
+                "3":{"name":"de_nuke","sides":"team2_ct","status":"pending"}}},
+      "teams":{"team1":{"id":"a","name":"A","side":"t","score":4,"players":{}},
+               "team2":{"id":"b","name":"B","side":"ct","score":2,"players":{}}}}})");
+  r["backup"] = InlineBackup(raw, 2, 7);
+  CHECK(fs::ParseResume(r, cfg, 3, &p, &code, &err));
+  if (!err.empty()) std::fprintf(stderr, "resume: %s\n", err.c_str());
+  CHECK(p.present && p.from_epoch == 2 && p.map_number == 2 && p.round == 7);
+  CHECK(p.inline_backup && p.raw == raw && p.sha256 == fs::Sha256Hex(raw));
+  CHECK(p.series_team1 == 1 && p.series_team2 == 0);
+  CHECK(p.maps_done.size() == 1 && p.maps_done[0].map_number == 1 && p.maps_done[0].team1 == 13 &&
+        p.maps_done[0].winner == "team1");
+  CHECK_STR(p.sides, "team2_ct");
+  CHECK(p.score_team1 == 4 && p.score_team2 == 2);  // backup.score
+  CHECK_STR(p.team1_side, "t");
+  CHECK(!p.pause_after_restore);
+
+  // Round-trip for plugin reloads (the raw file is not kept).
+  const fs::ResumePlan q = fs::ResumeFromJson(fs::ResumeToJson(p));
+  CHECK(q.present && q.map_number == 2 && q.round == 7 && q.sha256 == p.sha256 && q.raw.empty());
+  CHECK(q.maps_done.size() == 1 && q.maps_done[0].team1 == 13 && q.sides == "team2_ct" && !q.pause_after_restore);
+  CHECK(q.score_team1 == 4 && q.team1_side == "t" && q.from_epoch == 2);
+
+  // Explicit fields win over the state.
+  Json r2 = r;
+  r2["series_score"] = J(R"({"team1":0,"team2":1})");
+  r2["maps"] = J(R"({"1":{"score":{"team1":8,"team2":13},"winner":"team2"}})");
+  r2["sides"] = "team1_ct";
+  r2["score"] = J(R"({"team1":3,"team2":3})");
+  CHECK(fs::ParseResume(r2, cfg, 3, &p, &code, &err));
+  CHECK(p.series_team2 == 1 && p.maps_done.size() == 1 && p.maps_done[0].winner == "team2");
+  CHECK_STR(p.sides, "team1_ct");
+  CHECK(p.score_team1 == 3 && p.score_team2 == 3);
+
+  // Errors: codes the platform shows.
+  auto rejects = [&](Json bad, long long epoch, const char* wantCode) {
+    std::string c, e;
+    const bool ok = fs::ParseResume(bad, cfg, epoch, nullptr, &c, &e);
+    if (ok || c != wantCode) std::fprintf(stderr, "  resume case: ok=%d code=%s (%s)\n", ok, c.c_str(), e.c_str());
+    return !ok && c == wantCode;
+  };
+  Json b = r;
+  b["backup"]["sha256"] = std::string(64, '0');
+  CHECK(rejects(b, 3, "checksum"));
+  b = r;
+  b["backup"]["size"] = 1;
+  CHECK(rejects(b, 3, "checksum"));
+  b = r;
+  b["backup"]["parts"] = 2;
+  CHECK(rejects(b, 3, "unsupported"));
+  b = r;
+  b["backup"]["data"] = "!!";
+  CHECK(rejects(b, 3, "invalid_config"));
+  b = r;
+  b["backup"]["file"] = "../x_round06.txt";
+  CHECK(rejects(b, 3, "invalid_config"));
+  b = r;
+  b["round"] = 6;  // not the backup's round
+  CHECK(rejects(b, 3, "invalid_config"));
+  b = r;
+  b["map_number"] = 4;  // > num_maps
+  CHECK(rejects(b, 3, "invalid_config"));
+  b = r;
+  b["from_epoch"] = 3;  // not older than the new epoch
+  CHECK(rejects(b, 3, "invalid_config"));
+  b = r;
+  b["backup_ref"] = Json::Object();  // both
+  CHECK(rejects(b, 3, "invalid_config"));
+  // A knife map without decided sides cannot resume mid-map.
+  b = J(R"({"map_number":1,"round":3,"backup_ref":{}})");
+  CHECK(rejects(b, 3, "invalid_config"));
+  b["sides"] = "team1_ct";
+  CHECK(fs::ParseResume(b, cfg, 3, &p, &code, &err));
+  CHECK(!p.inline_backup && p.file.empty() && p.round == 3 && p.series_team1 == 0);
+  // backup_ref needs a round; its sha256 must look like one.
+  CHECK(rejects(J(R"({"map_number":3,"backup_ref":{"file":"x_round01.txt"}})"), 3, "invalid_config"));
+  CHECK(rejects(J(R"({"map_number":3,"round":2,"backup_ref":{"sha256":"xyz"}})"), 3, "invalid_config"));
+  CHECK(fs::ParseResume(J(R"({"map_number":3,"round":2,"backup_ref":{"file":"x_round01.txt"}})"), cfg, 3, &p, &code, &err));
+  CHECK_STR(p.file, "x_round01.txt");
+  CHECK(p.sides.empty());  // map 3 has fixed sides in the config
+  // No backup, no round: map 3 restarts from warmup (the knife map 1 could too).
+  CHECK(fs::ParseResume(J(R"({"map_number":1,"series_score":{"team1":0,"team2":0}})"), cfg, 3, &p, &code, &err));
+  CHECK(p.round == 0 && p.file.empty() && p.pause_after_restore == false);
+  CHECK(rejects(J(R"({"map_number":1,"series_score":{"team1":-1,"team2":0}})"), 3, "invalid_config"));
+  CHECK(rejects(J(R"([1])"), 3, "invalid_config"));
+}
+
 int main() {
   TestLiveStream();
   TestFence();
@@ -455,6 +680,8 @@ int main() {
   TestCodecs();
   TestValidators();
   TestRewind();
+  TestMapNames();
+  TestResume();
   if (g_failures) {
     std::fprintf(stderr, "fleet_state_test: %d of %d checks FAILED\n", g_failures, g_checks);
     return 1;

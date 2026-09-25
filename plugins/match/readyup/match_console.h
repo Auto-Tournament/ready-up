@@ -21,10 +21,14 @@ bool LoadMatchFromUrl(const std::string& url);
 
 // Loads a parsed match: closes a previous match's webhooks, sets the context, enters warmup,
 // persists `configJson` for recovery, kicks bots, turns on CS2 round backups
-// (readyup_backup_<matchid>_map1_*) and changes to map 1 (`changelevel <maplist[0]>` unless
-// already there, or `map1Command` when given, e.g. `host_workshop_map <id>`). Game thread.
+// (readyup_backup_<matchid>_map<N>_*) and changes to map N = `firstMapNumber` (1, or the map a
+// fleet failover resumes) unless the server is already on it (LoadMapEntry). Game thread.
 // Used by `ru match load` and by the fleet link's match.assign (fleet_bridge.cpp).
-void ApplyLoadedMatch(const WebhookMatchContext& ctx, const std::string& configJson,
-                      const std::string& map1Command = {});
+void ApplyLoadedMatch(const WebhookMatchContext& ctx, const std::string& configJson, int firstMapNumber = 1);
+
+// Changes to a map list entry (map_names.h): `host_workshop_map <id>` for a workshop map (and
+// remembers the id so the map that loads is bound to it), else `changelevel <name>`. False (and
+// logged) for an invalid entry. Game thread.
+bool LoadMapEntry(const std::string& entry);
 
 }  // namespace readyup

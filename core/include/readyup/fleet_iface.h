@@ -139,6 +139,13 @@ typedef struct ru_fleet_v1 {
    * The envelope epoch and config_rev are taken from the published state.
    */
   int (*send_snapshot)(const char* reason, const char* extra_json);
+  /* ---- appended (admins cache version, D13) ---- */
+  /*
+   * Game thread. The rev of the admins.set list the server has cached (fleet-admins.json);
+   * -1 = none. Sent as hello.admins_rev (left out when -1) and state.snapshot.admins_rev (0 when
+   * -1), so the platform sends admins.set only when its rev differs. 1 = stored, 0 = invalid.
+   */
+  int (*set_admins_rev)(int64_t rev);
   /* v1.x: members are appended here. */
 } ru_fleet_v1;
 

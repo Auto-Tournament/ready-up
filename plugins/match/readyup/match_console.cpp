@@ -8,9 +8,11 @@
 #include "readyup/engine.h"
 #include "readyup/http_client.h"
 #include "readyup/logging.h"
+#include "readyup/map_names.h"
 #include "readyup/mat_admins.h"
 #include "readyup/match_config_parser.h"
 #include "readyup/match_end.h"
+#include "readyup/match_log.h"
 #include "readyup/match_state.h"
 #include "readyup/match_token.h"
 #include "readyup/modes.h"
@@ -492,7 +494,19 @@ static bool HandleWarmupInfiniteAmmoCommand(const std::string& line) {
 
 }  // namespace
 
-void ApplyLoadedMatch(const WebhookMatchContext& ctx, const std::string& configJson, const std::string& map1Command) {
+bool LoadMapEntry(const std::string& entry) {
+  const std::string cmd = mapnames::LoadCommand(entry);
+  if (cmd.empty()) {
+    Print("match: map \"%s\" is not a valid map name or workshop id; not loading it\n", entry.c_str());
+    return false;
+  }
+  mapnames::MapRef ref;
+  if (mapnames::ParseEntry(entry, &ref) && !ref.workshop_id.empty()) mapnames::NoteWorkshopLoad(ref.workshop_id);
+  return EnqueueServerCommand(cmd.c_str());
+}
+
+void ApplyLoadedMatch(const WebhookMatchContext& ctx, const std::string& configJson, int firstMapNumber) {
+  if (firstMapNumber < 1) firstMapNumber = 1;
   WebhookStartSenderThread();
   if (auto prev = WebhookGetMatchContext()) {
     if (prev->matchid != 0 && prev->matchid != ctx.matchid) {
@@ -517,7 +531,7 @@ void ApplyLoadedMatch(const WebhookMatchContext& ctx, const std::string& configJ
   // Enable CS2 round backups for recovery.
   // Prefix includes matchid and map number to avoid collisions.
   {
-    const int mapNumber = 1;
+    const int mapNumber = firstMapNumber;
     const std::string prefix =
         "readyup_backup_" + std::to_string(static_cast<unsigned long long>(ctx.matchid)) +
         "_map" + std::to_string(mapNumber) + "_";
@@ -528,26 +542,20 @@ void ApplyLoadedMatch(const WebhookMatchContext& ctx, const std::string& configJ
     readyup::persisted_match_state::PersistBackupPrefix(prefix);
   }
 
-  // Force-load map 1 when maplist is provided.
-  auto isSafeMapName = [](const std::string& s) -> bool {
-    if (s.empty()) return false;
-    for (unsigned char c : s) {
-      // Allow workshop-like paths and common map chars, but keep injection-safe (no spaces/quotes/;).
-      if (c == ';' || c == '\n' || c == '\r' || c == '"' || c == '\\' || std::isspace(c) != 0) return false;
-      if (!(std::isalnum(c) != 0 || c == '_' || c == '/' || c == '.' || c == '-')) return false;
-    }
-    return true;
-  };
-
-  if (!map1Command.empty()) {
-    (void)EnqueueServerCommand(map1Command.c_str());
-  } else if (!ctx.maplist.empty()) {
-    const std::string& map1 = ctx.maplist[0];
+  // Change to the first map (map 1, or the map a failover resumes) unless the server is on it.
+  const size_t idx = static_cast<size_t>(firstMapNumber - 1);
+  // The new match is on map N from here: a match loaded on the map the server is on gets no map
+  // change, so the map number of a previous match must not carry over.
+  {
+    MatchLogState ls = MatchLogSnapshot();
+    ls.mapNumber = firstMapNumber;
+    MatchLogRestore(ls);
+    MatchStateSetMap(firstMapNumber, MatchStateGet().current_map);
+  }
+  if (idx < ctx.maplist.size()) {
+    const std::string& entry = ctx.maplist[idx];
     const auto ms = MatchStateGet();
-    if (isSafeMapName(map1) && ms.current_map != map1) {
-      const std::string cmd = "changelevel " + map1;
-      (void)EnqueueServerCommand(cmd.c_str());
-    }
+    if (!mapnames::EntryMatchesLoaded(entry, ms.current_map)) (void)LoadMapEntry(entry);
   }
 }
 

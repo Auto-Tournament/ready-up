@@ -134,13 +134,43 @@ Choices made where this document leaves room:
 - Fixed on the way: with engine events live, the round counter now restarts on `Match_Start`
   (it used to continue from the previous match on the same map).
 
+**Failover resume (§11.3, build-order step 5, the server side), workshop maps, admins cache
+version.**
+
+- `match.assign` with `resume` (schema `match.defs.json#/$defs/resume`) is accepted: the backup
+  comes inline (`backup`, single part, sha256 + size checked before the ack: `checksum`), as a
+  file the server has (`backup_ref {file?, sha256?}`: restart in place) or, with neither, as the
+  server's own file for `map_number` / `round` (`no_backup` when missing). It is written as
+  `readyup_resume_<id>_map<N>_round<NN>.txt` (never overwritten by CS2's own backups, never
+  forwarded). The series score, the earlier maps' results (`series_score` / `maps`, else from
+  `resume.state`) and the resumed map's knife-decided `sides` are restored; map N loads (no map
+  change when the server is on it); phase `restoring` is warmup with password + whitelist until
+  the roster is ready (or `force_ready` / `start`). The go-live round is not reported; 1 s after it
+  the bridge seeds the stats model (`resume.map_stats`, else the backup's score), runs the same
+  restore as `restore_round` (`mp_backup_restore_load_file`, rounds >= `round` voided), pauses
+  (`rules.pause.pause_after_restore`, default true; false = unpause after 3 s), sends
+  `rounds_voided {reason: resume}`, `match_restored {resume: true, from_epoch}` and
+  `state.snapshot {reason: restored}`. A resume of the match this server already has (running,
+  or recovered from `state.json` after a crash) reloads it instead of answering `busy`.
+- Workshop maps (`plugins/match/readyup/map_names.*`): a map entry is a name or a workshop id
+  (`123`, `ws:123`, `workshop/123`, `workshop/123/<name>`; `maps[].workshop_id` + name becomes
+  `workshop/<id>/<name>`) in match configs, `match.assign` and `cmd change_map`; it loads with
+  `host_workshop_map <id>`. CS2 1.41 logs the bsp name (`Loading map "aim_map"`); other sources
+  say `workshop/<id>/aim_map`: both reduce to the bsp name for map tracking, MatchState and demo
+  names, and an id-only entry is bound to the map its `host_workshop_map` loaded.
+- `hello.admins_rev` / `state.snapshot.admins_rev` carry the rev of the `admins.set` list the
+  server has cached (`fleet-admins.json`, pushed to fleet.so with `set_admins_rev` in
+  `readyup.fleet.v1`); `hello` leaves it out when there is none. Capabilities `match.resume.v1`
+  and `maps.workshop.v1`.
+
 Tests: `match_fleet_state` (merge patch / rev, fencing, CAS, assign → MAT config through the real
 parser, update ops, sha256 / base64, validators, stats rewind), `fleet_protocol` (schemas vs the
 example frames), `fleet_integration` (its frames now validate against the step-3 schemas too) and
 `scripts/livetest/fleet_livetest.py`: a Python mock platform in Docker assigns a bot match to the
 test server and checks acks, fencing, CAS, events, backups + restore, the offline auto-pause and
 the `live_rev` stream against the schemas (`--play-out` for the natural map end, `--from-scrim`
-for the D16 hand-over).
+for the D16 hand-over; the run ends with a failover resume on map 2 of 3 and checks the admins
+cache version).
 
 ## 0. Decisions
 

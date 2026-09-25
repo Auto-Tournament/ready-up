@@ -43,7 +43,8 @@
         "reason": {
           "enum": [
             "restore",
-            "restart_map"
+            "restart_map",
+            "resume"
           ]
         }
       }

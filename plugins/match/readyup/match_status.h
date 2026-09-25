@@ -8,6 +8,9 @@
 #include "readyup/match_iface.h"
 #include "readyup/status_snapshot.h"
 
+#include <string>
+#include <vector>
+
 namespace readyup {
 
 // Load: registers the match-flow / demo listeners.
@@ -19,6 +22,15 @@ int MatchStatusGet(ru_match_status* out);
 // The MatchState of the loaded match / scrim as the status endpoint builds it from the match
 // flow (null when none is loaded). fleet_bridge overlays it on the platform's config. Game thread.
 status::Json MatchStatusStateJson();
+
+// A fleet failover resuming map N (FLEET.md §11.3): the series score and the results of the maps
+// played before it, for the match `matchid` (the one just loaded). Game thread.
+struct SeededMapResult {
+  int map_number = 0;
+  int team1 = 0, team2 = 0;
+  std::string winner;  // team1 | team2 | none
+};
+void MatchStatusSeedSeries(unsigned long long matchid, int team1, int team2, const std::vector<SeededMapResult>& maps);
 
 // Plugin reload (reload_state.cpp): series score / map results / demo states.
 status::Json MatchStatusSnapshotJson();

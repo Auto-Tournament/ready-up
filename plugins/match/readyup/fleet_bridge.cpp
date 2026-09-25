@@ -9,6 +9,7 @@
 #include "readyup/fleet_state.h"
 #include "readyup/local_store.h"
 #include "readyup/logging.h"
+#include "readyup/map_names.h"
 #include "readyup/match_config_parser.h"
 #include "readyup/match_console.h"
 #include "readyup/match_end.h"
@@ -99,6 +100,15 @@ struct ExecCapture {
 };
 std::vector<ExecCapture> g_execs;
 double g_backupScanAt = -1;
+
+// Failover resume (§11.3) of this assignment: map N loads, warmup until everyone is ready, the
+// go-live, then the chosen backup is restored (DoRestore) and the match waits paused.
+fs::ResumePlan g_resume;
+bool g_resumeActive = false;           // from the assign until the backup was restored
+double g_resumeRestoreAt = -1;         // restore time (1 s after the go-live)
+bool g_resumeRestored = false;         // RunResumeRestore ran
+double g_resumeUnpauseAt = -1;         // rules.pause.pause_after_restore = false
+bool g_resumeSnapshotPending = false;  // state.snapshot (restored) after match_restored went out
 
 // Sent backup files as "name|size|mtime" (worker thread + game thread): CS2 rewrites a round's
 // file when the round is played again after a restore, and the new version is sent too.
@@ -230,6 +240,21 @@ bool LocalMatchActive() {
   return ctx && ctx->slug != "scrim" && !CtxIsOurs(ctx);
 }
 
+// The loaded match (e.g. recovered from state.json after a crash) is `matchId`'s.
+bool LocalMatchIs(const std::string& matchId) {
+  const auto ctx = WebhookGetMatchContext();
+  return ctx && ctx->slug != "scrim" && ctx->matchid == fs::NumericMatchId(matchId);
+}
+
+// hello.admins_rev / state.snapshot.admins_rev: the admins.set rev cached in fleet-admins.json.
+void PublishAdminsRev() {
+  const ru_fleet_v1* f = Fleet();
+  if (!FLEET_HAS(f, set_admins_rev)) return;
+  int64_t rev = -1;
+  (void)local_store::FleetAdmins(&rev);
+  f->set_admins_rev(rev);
+}
+
 std::string ServerId() {
   const ru_fleet_v1* f = Fleet();
   if (!f) return {};
@@ -291,11 +316,27 @@ Json ConfigState() {
       ++n;
       Json mj = Json::Object();
       mj["name"] = Str(m, "name");
+      mapnames::MapRef ref;
       if (!Str(m, "workshop_id").empty()) mj["workshop_id"] = Str(m, "workshop_id");
+      else if (mapnames::ParseEntry(Str(m, "name"), &ref) && !ref.workshop_id.empty()) mj["workshop_id"] = ref.workshop_id;
       mj["sides"] = Str(m, "sides", "knife");
       mj["status"] = "pending";
       mj["score"] = zero;
       maps[std::to_string(n)] = std::move(mj);
+    }
+  }
+  if (g_resumeActive) {
+    // Failover resume: the platform's series state until the match flow reports its own.
+    series["current_map"] = g_resume.map_number;
+    series["score"]["team1"] = g_resume.series_team1;
+    series["score"]["team2"] = g_resume.series_team2;
+    for (const auto& r : g_resume.maps_done) {
+      const std::string k = std::to_string(r.map_number);
+      if (!maps.Find(k)) continue;
+      maps[k]["status"] = "done";
+      maps[k]["score"]["team1"] = r.team1;
+      maps[k]["score"]["team2"] = r.team2;
+      maps[k]["winner"] = r.winner;
     }
   }
   series["maps"] = std::move(maps);
@@ -635,17 +676,20 @@ void EmitAll(const Json& st, std::vector<Ev>& evs) {
 
 // ---------------------------------------------------------------------------- round backups
 
-std::string BackupPrefix(int mapNumber) {
-  return "readyup_backup_" + std::to_string(fs::NumericMatchId(g_asg.match_id)) + "_map" +
+std::string BackupPrefixFor(const std::string& matchId, int mapNumber) {
+  return "readyup_backup_" + std::to_string(fs::NumericMatchId(matchId)) + "_map" +
          std::to_string(std::max(1, mapNumber)) + "_";
 }
+std::string BackupPrefix(int mapNumber) { return BackupPrefixFor(g_asg.match_id, mapNumber); }
 
-// Where CS2 writes mp_backup_round_file backups (and reads mp_backup_restore_load_file from):
-// csgo/readyup/ on Ready Up servers (observed), csgo/ otherwise. Any thread.
+// Where CS2 writes mp_backup_round_file backups (and reads mp_backup_restore_load_file from): the
+// first Game search path of gameinfo.gi, i.e. csgo/readyup/ on Ready Up servers (observed),
+// csgo/addons/metamod/ when a Metamod line comes first (observed on a csm-managed install), csgo/
+// otherwise. Any thread.
 std::vector<std::string> BackupDirs() {
   const std::string csgo = GetCsgoDirFromModuleDir();
   if (csgo.empty()) return {};
-  return {csgo + "/readyup", csgo};
+  return {csgo + "/readyup", csgo + "/addons/metamod", csgo};
 }
 
 // Worker thread: forwards backup files with `prefix` that were not sent yet.
@@ -736,8 +780,8 @@ void RunBackupScan() {
 
 // Finds a local backup file for `round` (1-based: the round it starts) on `mapNumber`; *dir = its
 // directory.
-std::string FindLocalBackup(int mapNumber, int round, std::string* dirOut) {
-  const std::string prefix = BackupPrefix(mapNumber);
+std::string FindLocalBackup(int mapNumber, int round, std::string* dirOut, const std::string& prefixIn = {}) {
+  const std::string prefix = prefixIn.empty() ? BackupPrefix(mapNumber) : prefixIn;
   for (const auto& dir : BackupDirs()) {
     std::error_code ec;
     for (const auto& it : std::filesystem::directory_iterator(dir, ec)) {
@@ -754,11 +798,137 @@ std::string FindLocalBackup(int mapNumber, int round, std::string* dirOut) {
 
 // The directory a platform-sent backup is written to: where this server's backups are.
 std::string RestoreDir() {
-  for (const auto& dir : BackupDirs()) {
+  // Where CS2 wrote its own round backups (its write path); else the first that exists.
+  const auto dirs = BackupDirs();
+  for (const auto& dir : dirs) {
+    std::error_code ec;
+    for (const auto& it : std::filesystem::directory_iterator(dir, ec)) {
+      if (ec) break;
+      if (it.path().filename().string().rfind("readyup_backup_", 0) == 0) return dir;
+    }
+  }
+  for (const auto& dir : dirs) {
     std::error_code ec;
     if (std::filesystem::is_directory(dir, ec)) return dir;
   }
   return GetCsgoDirFromModuleDir();
+}
+
+// Writes a backup file where CS2 loads it from (temp + rename) and marks it as sent (it came from
+// the platform or is a copy).
+Result WriteBackupFile(const std::string& name, const std::string& raw) {
+  const std::string dir = RestoreDir();
+  const std::string tmp = dir + "/." + name + ".tmp";
+  {
+    std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+    out.write(raw.data(), static_cast<std::streamsize>(raw.size()));
+    if (!out) return Failed("io", "cannot write the backup file");
+  }
+  std::error_code ec;
+  std::filesystem::rename(tmp, dir + "/" + name, ec);
+  if (ec) return Failed("io", "cannot move the backup file into place: " + ec.message());
+  const std::string key = BackupKey(dir + "/" + name);
+  std::lock_guard<std::mutex> lk(g_backupMu);
+  g_sentBackups.insert(key);
+  return Ok();
+}
+
+// A resume's backup (inline, a named local file, or this match's own file for map / round) as
+// readyup_resume_<id>_map<N>_round<NN>.txt: a name CS2's own round backups never overwrite and the
+// backup scan never forwards. Sets plan->file / sha256.
+Result PrepareResumeBackup(const std::string& matchId, fs::ResumePlan* plan) {
+  char nn[16];
+  std::snprintf(nn, sizeof(nn), "%02d", std::max(0, plan->round - 1));
+  const std::string dest = "readyup_resume_" + std::to_string(fs::NumericMatchId(matchId)) + "_map" +
+                           std::to_string(plan->map_number) + "_round" + nn + ".txt";
+  std::string raw;
+  if (plan->inline_backup) {
+    raw = std::move(plan->raw);
+  } else {
+    std::string dir, name = plan->file;
+    if (name.empty()) {
+      name = FindLocalBackup(plan->map_number, plan->round, &dir, BackupPrefixFor(matchId, plan->map_number));
+    } else {
+      for (const auto& d : BackupDirs()) {
+        std::error_code ec;
+        if (std::filesystem::is_regular_file(d + "/" + name, ec)) {
+          dir = d;
+          break;
+        }
+      }
+    }
+    if (name.empty() || dir.empty()) {
+      return Rejected("no_backup", "no local backup for map " + std::to_string(plan->map_number) + " round " +
+                                       std::to_string(plan->round) + "; send it inline");
+    }
+    std::ifstream in(dir + "/" + name, std::ios::binary);
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    raw = ss.str();
+    if (raw.empty()) return Rejected("no_backup", "the local backup " + name + " is empty");
+    const std::string sha = fs::Sha256Hex(raw);
+    if (!plan->sha256.empty() && sha != plan->sha256) return Rejected("checksum", "backup_ref sha256 mismatch");
+    plan->sha256 = sha;
+  }
+  plan->raw.clear();
+  Result r = WriteBackupFile(dest, raw);
+  if (r.status != "ok") return r;
+  plan->file = dest;
+  return Ok();
+}
+
+// The restore itself (cmd restore_round, a resume): loads `file` (mp_backup_restore_load_file,
+// autopaused), voids rounds >= `round` in the stats model, the round counters and the scores
+// (`scoreT1` / `scoreT2` >= 0: the backup's score wins over the stats), pauses and emits
+// rounds_voided + match_restored (`extra` members added to its data).
+void DoRestore(int mapNumber, int round, const std::string& file, const std::string& sha, const std::string& by,
+               const std::string& reason, const Json& extra, int scoreT1 = -1, int scoreT2 = -1) {
+  g_restoring = true;
+  MatchEventsIgnoreRoundEndsFor(5.0);  // the reload ends the current round as a draw
+  (void)EnqueueServerCommand(("mp_backup_restore_load_file " + file).c_str());
+  // mp_backup_restore_load_autopause 1 (set on load) pauses the restored round; mirror it.
+  if (!PauseStateGet().paused) PauseStateOnPaused("admin", by);
+  // Ready Up state: rounds >= `round` are voided (stats, round counter, scores).
+  int t1 = 0, t2 = 0;
+  {
+    std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
+    stats::MapStats snap = stats::Current().Snapshot();
+    stats::RewindTo(&snap, round);
+    if (scoreT1 >= 0 && scoreT2 >= 0) {
+      snap.team1.score = scoreT1;
+      snap.team2.score = scoreT2;
+    }
+    stats::Current().Restore(snap);
+    t1 = snap.team1.score;
+    t2 = snap.team2.score;
+  }
+  MatchStateSetRound(round - 1);
+  MatchStateSetScore(t1, t2);
+  MatchEventsState es = MatchEventsSnapshot();
+  es.roundNumber = round - 1;
+  MatchEventsRestore(es);
+  MatchLogState ls = MatchLogSnapshot();
+  ls.roundNumber = round - 1;
+  ls.team1Score = t1;
+  ls.team2Score = t2;
+  MatchLogRestore(ls);
+  {
+    Json d = Json::Object();
+    d["from_round"] = round;
+    d["reason"] = reason;
+    signals::Emit("rounds_voided", std::move(d), round, mapNumber);
+    Json r = Json::Object();
+    r["map_number"] = mapNumber;
+    r["round"] = round;
+    r["backup_sha256"] = sha;
+    r["file"] = file;
+    if (extra.IsObject()) {
+      for (const auto& kv : extra.Members()) r[kv.first] = kv.second;
+    }
+    signals::Emit("match_restored", std::move(r), round, mapNumber);
+  }
+  Print("fleet: restored map %d round %d from %s (sha256 %s, %s)\n", mapNumber, round, file.c_str(), sha.c_str(),
+        reason.c_str());
 }
 
 // ---------------------------------------------------------------------------- loading
@@ -776,15 +946,24 @@ void BeginLoad() {
     return;
   }
   SetPassword(Str(g_config, "password"));
-  std::string map1Cmd;
-  if (const Json* maps = g_config.Find("maps"); maps && !maps->Items().empty()) {
-    const std::string ws = Str(maps->Items()[0], "workshop_id");
-    if (!ws.empty()) map1Cmd = "host_workshop_map " + ws;
-  }
   const char* cm = g_api ? g_api->current_map(g_api->self) : nullptr;
   g_loadFromMap = cm ? cm : "";
   ScrimSetAutoEnabled(false);
-  ApplyLoadedMatch(*ctx, matJson, map1Cmd);
+  // Map 1, or the map a failover resumes (workshop maps load with host_workshop_map).
+  const int first = g_resumeActive ? g_resume.map_number : 1;
+  ApplyLoadedMatch(*ctx, matJson, first);
+  if (g_resumeActive) {
+    // Series state from the platform: maps won and the results of the maps before this one.
+    ModesSetSeriesWins(g_resume.series_team1, g_resume.series_team2);
+    std::vector<SeededMapResult> done;
+    for (const auto& m : g_resume.maps_done) done.push_back(SeededMapResult{m.map_number, m.team1, m.team2, m.winner});
+    MatchStatusSeedSeries(ctx->matchid, g_resume.series_team1, g_resume.series_team2, done);
+    Print("fleet: match %s resumes on map %d %s (series %d-%d, from epoch %lld)\n", g_asg.match_id.c_str(),
+          g_resume.map_number,
+          g_resume.round >= 1 ? ("at round " + std::to_string(g_resume.round) + " from " + g_resume.file).c_str()
+                              : "from warmup",
+          g_resume.series_team1, g_resume.series_team2, g_resume.from_epoch);
+  }
   g_loading = true;
   g_loadStarted = g_now;
   g_phaseReason = "assign";
@@ -796,11 +975,15 @@ void CheckLoaded() {
   if (!g_loading) return;
   const char* cm = g_api ? g_api->current_map(g_api->self) : nullptr;
   const std::string cur = cm ? cm : "";
-  std::string map1;
-  if (const Json* maps = g_config.Find("maps"); maps && !maps->Items().empty()) map1 = Str(maps->Items()[0], "name");
+  const int target = g_resumeActive ? g_resume.map_number : 1;
+  std::string entry;
+  if (const Json* maps = g_config.Find("maps"); maps && static_cast<int>(maps->Items().size()) >= target) {
+    const Json& m = maps->Items()[static_cast<size_t>(target - 1)];
+    entry = mapnames::MakeEntry(Str(m, "name"), Str(m, "workshop_id"));
+  }
   const bool changed = !cur.empty() && cur != g_loadFromMap;
-  const bool onMap1 = !cur.empty() && cur == map1;
-  if (changed || onMap1 || g_now - g_loadStarted > kLoadTimeoutS) {
+  const bool onTarget = !cur.empty() && mapnames::EntryMatchesLoaded(entry, cur);
+  if (changed || onTarget || g_now - g_loadStarted > kLoadTimeoutS) {
     // The engine's map start runs before the match flow's warmup; give it a tick to settle.
     if (g_now - g_loadStarted > 1.0) g_loading = false;
   }
@@ -816,6 +999,9 @@ void ClearAssignment() {
   g_lastLive = Json();
   g_pauseSeen = false;
   g_execs.clear();
+  g_resume = fs::ResumePlan{};
+  g_resumeActive = g_resumeSnapshotPending = g_resumeRestored = false;
+  g_resumeRestoreAt = g_resumeUnpauseAt = -1;
   g_backupScanAt = -1;
   signals::SetEnabled(false);
   {
@@ -848,15 +1034,22 @@ void OnAssign(const ru_fleet_msg* m) {
     return;
   }
   const std::string mid = Str(p, "match_id");
-  if (p.Find("resume")) {
-    Reply(ref, epoch, Rejected("unsupported", "resume blocks (failover, FLEET.md §11.3) are not implemented yet"));
-    return;
+  // Failover resume (§11.3): checked (and an inline backup verified) before anything changes.
+  fs::ResumePlan resume;
+  if (const Json* rs = p.Find("resume")) {
+    std::string code;
+    if (!fs::ParseResume(*rs, *p.Find("config"), epoch, &resume, &code, &err)) {
+      Reply(ref, epoch, Rejected(code, err));
+      return;
+    }
   }
   // A finished match the platform did not unassign yet (series over, match unloaded) does not
-  // block the next one.
+  // block the next one. Neither does this match's own copy recovered from state.json after a
+  // crash when the platform resumes it.
   fs::Assignment cur = g_asg;
   if (cur.active && g_serverReset && cur.match_id != mid) cur.active = false;
-  const fs::Verdict v = g_fence.CheckAssign(cur, mid, epoch, LocalMatchActive());
+  const bool localBusy = LocalMatchActive() && !(resume.present && LocalMatchIs(mid));
+  const fs::Verdict v = g_fence.CheckAssign(cur, mid, epoch, localBusy);
   if (v == fs::Verdict::Duplicate) {
     Reply(ref, epoch, Ok());
     return;
@@ -868,6 +1061,13 @@ void OnAssign(const ru_fleet_msg* m) {
                                            : "epoch " + std::to_string(epoch) + " is older than this server's"));
     return;
   }
+  if (resume.present && resume.round >= 1) {
+    const Result r = PrepareResumeBackup(mid, &resume);
+    if (r.status != "ok") {
+      Reply(ref, epoch, r);
+      return;
+    }
+  }
   const bool sameMatch = g_asg.active && g_asg.match_id == mid;
   if (g_asg.active && !sameMatch) ClearAssignment();
   g_asg.active = true;
@@ -875,18 +1075,42 @@ void OnAssign(const ru_fleet_msg* m) {
   g_asg.epoch = epoch;
   g_asg.config_rev = std::max<long long>(1, Int(p, "config_rev", 1));
   g_config = *p.Find("config");
+  if (resume.present && !resume.sides.empty()) {
+    // The sides the knife round decided (platform's state / resume.sides) replace "knife".
+    Json& maps = g_config["maps"];
+    Json fixed = Json::Array();
+    int n = 0;
+    for (const auto& m : maps.Items()) {
+      Json c = m;
+      if (++n == resume.map_number) c["sides"] = resume.sides;
+      fixed.Push(std::move(c));
+    }
+    maps = std::move(fixed);
+  }
   g_fence.Retire(mid, epoch);
   signals::SetEnabled(true);
   Reply(ref, epoch, Ok());
-  Print("fleet: assigned match %s epoch %lld (config_rev %lld)\n", mid.c_str(), epoch, g_asg.config_rev);
+  Print("fleet: assigned match %s epoch %lld (config_rev %lld)%s\n", mid.c_str(), epoch, g_asg.config_rev,
+        resume.present ? " with a failover resume" : "");
 
-  if (sameMatch && CtxIsOurs(WebhookGetMatchContext())) {
+  if (sameMatch && CtxIsOurs(WebhookGetMatchContext()) && !resume.present) {
     // Same match, newer epoch (§11.4 re-issue): keep playing, adopt the new epoch and config.
     SetPassword(Str(g_config, "password"));
   } else {
     g_seriesOver = g_serverReset = false;
     g_latestBackupRound = -1;
     g_lastLive = Json();
+    g_resume = resume;
+    g_resumeActive = resume.present;
+    g_resumeRestoreAt = g_resumeUnpauseAt = -1;
+    g_resumeSnapshotPending = g_resumeRestored = false;
+    g_restoring = resume.present && resume.round >= 1;
+    if (resume.present && LocalMatchIs(mid)) {
+      // This match is loaded already (still running here, or recovered after a crash): the
+      // resume reloads it from the platform's state.
+      WebhookClearMatchContext();
+      (void)EndMatchResetServer();
+    }
     // D16: a scrim / pickup ends unreported; everyone not in the match is kicked after 5 s.
     const auto ctx = WebhookGetMatchContext();
     const ReadyUpMode mode = GetMode();
@@ -1053,6 +1277,7 @@ Result CmdForceReady(const Json& args) {
 Result CmdRestore(const Json& args, const std::string& by) {
   const auto ctx = WebhookGetMatchContext();
   if (!CtxIsOurs(ctx)) return Rejected("bad_phase", "no match loaded");
+  if (g_resumeActive) return Rejected("bad_phase", "the failover resume has not restored its backup yet");
   const ReadyUpMode mode = GetMode();
   if (mode != ReadyUpMode::MatchLive && mode != ReadyUpMode::MatchWarmup) {
     return Rejected("bad_phase", "restore needs warmup or a live map");
@@ -1077,19 +1302,8 @@ Result CmdRestore(const Json& args, const std::string& by) {
     if (Int(*b, "size", static_cast<long long>(raw.size())) != static_cast<long long>(raw.size())) {
       return Rejected("checksum", "backup size mismatch");
     }
-    const std::string dir = RestoreDir();
-    const std::string tmp = dir + "/." + file + ".tmp";
-    {
-      std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
-      out.write(raw.data(), static_cast<std::streamsize>(raw.size()));
-      if (!out) return Failed("io", "cannot write the backup file");
-    }
-    std::error_code ec;
-    std::filesystem::rename(tmp, dir + "/" + file, ec);
-    if (ec) return Failed("io", "cannot move the backup file into place: " + ec.message());
-    const std::string key = BackupKey(dir + "/" + file);
-    std::lock_guard<std::mutex> lk(g_backupMu);
-    g_sentBackups.insert(key);  // it came from the platform
+    const Result w = WriteBackupFile(file, raw);  // it came from the platform
+    if (w.status != "ok") return w;
   } else {
     std::string dir;
     file = FindLocalBackup(mapNumber, round, &dir);
@@ -1100,47 +1314,47 @@ Result CmdRestore(const Json& args, const std::string& by) {
     ss << in.rdbuf();
     sha = fs::Sha256Hex(ss.str());
   }
-  g_restoring = true;
-  MatchEventsIgnoreRoundEndsFor(5.0);  // the reload ends the current round as a draw
-  (void)EnqueueServerCommand(("mp_backup_restore_load_file " + file).c_str());
-  // mp_backup_restore_load_autopause 1 (set on load) pauses the restored round; mirror it.
-  if (!PauseStateGet().paused) PauseStateOnPaused("admin", by);
-  // Ready Up state: rounds >= `round` are voided (stats, round counter, scores).
-  int t1 = 0, t2 = 0;
-  {
-    std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
-    stats::MapStats snap = stats::Current().Snapshot();
-    stats::RewindTo(&snap, round);
-    stats::Current().Restore(snap);
-    t1 = snap.team1.score;
-    t2 = snap.team2.score;
-  }
-  MatchStateSetRound(round - 1);
-  MatchStateSetScore(t1, t2);
-  MatchEventsState es = MatchEventsSnapshot();
-  es.roundNumber = round - 1;
-  MatchEventsRestore(es);
-  MatchLogState ls = MatchLogSnapshot();
-  ls.roundNumber = round - 1;
-  ls.team1Score = t1;
-  ls.team2Score = t2;
-  MatchLogRestore(ls);
-  {
-    Json d = Json::Object();
-    d["from_round"] = round;
-    d["reason"] = "restore";
-    signals::Emit("rounds_voided", std::move(d), round, mapNumber);
-    Json r = Json::Object();
-    r["map_number"] = mapNumber;
-    r["round"] = round;
-    r["backup_sha256"] = sha;
-    r["file"] = file;
-    signals::Emit("match_restored", std::move(r), round, mapNumber);
-  }
+  DoRestore(mapNumber, round, file, sha, by, "restore", Json::Object());
   g_phaseReason = "cmd:restore_round";
   SendToChat(("Ready Up: round " + std::to_string(round) + " restored by a tournament admin. Unpause when ready.").c_str());
-  Print("fleet: restored map %d round %d from %s (sha256 %s)\n", mapNumber, round, file.c_str(), sha.c_str());
   return Ok();
+}
+
+// The resume's go-live happened: seed the stats model with the platform's view of the map (or
+// the backup's score), then restore the backup like restore_round.
+void RunResumeRestore() {
+  {
+    std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
+    stats::MapStats seed;
+    const bool have = !g_resume.map_stats.IsNull() && stats::FromJson(g_resume.map_stats.Dump(), &seed);
+    if (!have) {
+      seed = stats::Current().Snapshot();
+      seed.rounds.clear();
+      seed.team1 = stats::TeamLine{};
+      seed.team2 = stats::TeamLine{};
+      if (g_resume.score_team1 >= 0) {
+        seed.team1.score = g_resume.score_team1;
+        seed.team2.score = g_resume.score_team2;
+      }
+    }
+    seed.live = true;
+    if (!g_resume.team1_side.empty()) seed.team1_is_ct = g_resume.team1_side == "ct";
+    stats::Current().Restore(seed);
+  }
+  Json extra = Json::Object();
+  extra["resume"] = true;
+  if (g_resume.from_epoch > 0) extra["from_epoch"] = g_resume.from_epoch;
+  DoRestore(g_resume.map_number, g_resume.round, g_resume.file, g_resume.sha256, "platform:resume", "resume", extra,
+            g_resume.score_team1, g_resume.score_team2);
+  g_phaseReason = "resume";
+  if (!g_resume.pause_after_restore) {
+    g_resumeUnpauseAt = g_now + 3.0;
+    SendToChat(("Ready Up: match moved here and restored at round " + std::to_string(g_resume.round) +
+                ". Live in 3 seconds.").c_str());
+  } else {
+    SendToChat(("Ready Up: match moved here and restored at round " + std::to_string(g_resume.round) +
+                ". Unpause when ready.").c_str());
+  }
 }
 
 Result CmdEnd(const Json& args) {
@@ -1171,26 +1385,31 @@ Result CmdChangeMap(const Json& args) {
   if (!IsWarmupMode()) return Rejected("bad_phase", "change_map works before the map goes live only");
   auto ctx = WebhookGetMatchContext();
   if (!CtxIsOurs(ctx)) return Rejected("bad_phase", "no match loaded");
-  std::string name, ws;
+  // A map entry: a name, a workshop id ("123", "ws:123", "workshop/123[/name]") or name +
+  // workshop_id (map_names.h).
+  std::string entry;
   const long long n = Int(args, "map_number", 0);
   if (n > 0) {
     const Json* maps = g_config.Find("maps");
     if (!maps || n > static_cast<long long>(maps->Items().size())) return Rejected("bad_args", "no such map_number");
-    name = Str(maps->Items()[static_cast<size_t>(n - 1)], "name");
-    ws = Str(maps->Items()[static_cast<size_t>(n - 1)], "workshop_id");
+    const Json& m = maps->Items()[static_cast<size_t>(n - 1)];
+    entry = mapnames::MakeEntry(Str(m, "name"), Str(m, "workshop_id"));
   } else {
-    name = Str(args, "name");
-    ws = Str(args, "workshop_id");
-    if (!fs::SafeMapName(name) || (!ws.empty() && !fs::SafeWorkshopId(ws))) return Rejected("bad_args", "bad map");
+    const std::string name = Str(args, "name");
+    const std::string ws = Str(args, "workshop_id");
+    if ((!name.empty() && !fs::SafeMapName(name)) || (!ws.empty() && !fs::SafeWorkshopId(ws))) {
+      return Rejected("bad_args", "bad map");
+    }
+    entry = mapnames::MakeEntry(name, ws);
+    if (entry.empty()) return Rejected("bad_args", "name or workshop_id needed");
     const auto ms = MatchStateGet();
     const size_t idx = static_cast<size_t>(std::max(1, ms.map_number) - 1);
     if (idx < ctx->maplist.size()) {
-      ctx->maplist[idx] = name;
+      ctx->maplist[idx] = entry;
       WebhookSetMatchContext(*ctx);
     }
   }
-  const std::string cmd = ws.empty() ? "changelevel " + name : "host_workshop_map " + ws;
-  (void)EnqueueServerCommand(cmd.c_str());
+  if (!LoadMapEntry(entry)) return Rejected("bad_args", "bad map");
   g_phaseReason = "cmd:change_map";
   return Ok();
 }
@@ -1366,6 +1585,7 @@ void OnAdminsSet(const ru_fleet_msg* m) {
   }
   const size_t n = admins.size();
   if (local_store::SetFleetAdmins(rev, std::move(admins))) {
+    PublishAdminsRev();
     Print("fleet: admins.set rev %lld: %zu admin(s)\n", rev, n);
   } else {
     Print("fleet: admins.set rev %lld is older than the stored list; kept it\n", rev);
@@ -1407,6 +1627,9 @@ void EnsureHandlers() {
   }
   f->add_capability("match.v1");
   f->add_capability("match.backup.v1");
+  f->add_capability("match.resume.v1");
+  f->add_capability("maps.workshop.v1");
+  PublishAdminsRev();
   g_lastPublishedAvail.clear();
   if (g_asg.active) {
     PublishState(g_stream.State());
@@ -1529,6 +1752,34 @@ void Tick(double now) {
     g_backupScanAt = -1;
     RunBackupScan();
   }
+  if (g_resumeActive && !g_loading && !g_handOverPending) {
+    // The resumed map is map N whatever map tracking derived from the map list.
+    const auto ms = MatchStateGet();
+    if (ms.map_number != g_resume.map_number && CtxIsOurs(WebhookGetMatchContext())) {
+      MatchLogState ls = MatchLogSnapshot();
+      ls.mapNumber = g_resume.map_number;
+      MatchLogRestore(ls);
+      MatchStateSetMap(g_resume.map_number, ms.current_map);
+    }
+    if (g_resume.round < 1) {
+      // Restart of the map from warmup: nothing to restore; done once the map left warmup.
+      if (GetMode() != ReadyUpMode::MatchWarmup) g_resumeActive = false;
+    } else if (!g_resumeRestored && IsLiveMode() && g_resumeRestoreAt < 0) {
+      g_resumeRestoreAt = now + 1.0;  // the go-live round started: restore the backup into it
+    } else if (g_resumeRestoreAt >= 0 && now >= g_resumeRestoreAt) {
+      g_resumeRestoreAt = -1;
+      g_resumeRestored = true;
+      RunResumeRestore();
+    }
+  }
+  if (g_resumeUnpauseAt >= 0 && now >= g_resumeUnpauseAt) {
+    g_resumeUnpauseAt = -1;
+    if (PauseStateGet().paused && EnqueueServerCommand("mp_unpause_match")) {
+      PauseStateOnUnpaused();
+      g_unpauseBy = "resume";
+      g_phaseReason = "resume";
+    }
+  }
 
   std::vector<signals::Signal> sigs = signals::Take();
   if (sigs.empty() && now - g_lastPoll < kPollIntervalS) return;
@@ -1538,6 +1789,11 @@ void Tick(double now) {
   for (auto& s : sigs) {
     if (s.type == "server_reset") {
       g_serverReset = true;
+      continue;
+    }
+    // Resume: the go-live round before the backup is restored is not reported.
+    if (g_resumeActive && g_restoring &&
+        (s.type == "round_start" || s.type == "round_end" || s.type == "backup" || s.type == "halftime")) {
       continue;
     }
     if (s.type == "backup") {
@@ -1553,6 +1809,10 @@ void Tick(double now) {
       }
     } else if (s.type == "match_restored") {
       g_restoring = false;
+      if (g_resumeActive) {
+        g_resumeActive = false;
+        g_resumeSnapshotPending = true;
+      }
     } else if (s.type == "knife_result") {
       const KnifeHudInfo k = KnifeHudSnapshot();
       s.data["reason"] = k.reasonShort == "more alive"  ? "alive"
@@ -1566,6 +1826,10 @@ void Tick(double now) {
   Derive(g_stream.State(), st, &evs);
   EmitAll(st, evs);
   PublishState(g_stream.State());
+  if (g_resumeSnapshotPending) {
+    g_resumeSnapshotPending = false;
+    SendSnapshot("restored", true);  // §11.3: the platform's state after the resume
+  }
 
   const std::string phase = Str(st, "phase");
   const bool running = phase != "series_end" && phase != "loading";
@@ -1609,6 +1873,10 @@ Json SnapshotJson() {
     for (const auto& s : g_sentBackups) sent.Push(s);
   }
   j["sent_backups"] = std::move(sent);
+  j["resume_active"] = g_resumeActive;
+  j["resume_restored"] = g_resumeRestored;
+  j["restoring"] = g_restoring;
+  if (g_resumeActive) j["resume"] = fs::ResumeToJson(g_resume);
   return j;
 }
 
@@ -1632,6 +1900,10 @@ void RestoreJson(const Json& j) {
     std::lock_guard<std::mutex> lk(g_backupMu);
     for (const auto& v : s->Items()) g_sentBackups.insert(v.AsString());
   }
+  g_resumeActive = Bool(j, "resume_active");
+  g_resumeRestored = Bool(j, "resume_restored");
+  g_restoring = Bool(j, "restoring");
+  if (const Json* r = j.Find("resume")) g_resume = fs::ResumeFromJson(*r);
   g_fleetInstance = 0;  // this image registers its own handlers
   signals::SetEnabled(true);
   ScrimSetAutoEnabled(false);

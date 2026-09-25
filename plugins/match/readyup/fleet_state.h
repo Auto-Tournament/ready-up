@@ -109,6 +109,55 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
 // config is then unchanged). *passwordChanged when a set_password op ran.
 bool ApplyUpdateOps(Json* config, const Json& ops, std::string* err, bool* passwordChanged);
 
+// ---------------------------------------------------------------------------- failover resume
+
+// match.assign `resume` (FLEET.md §11.3), checked and reduced to what the server needs:
+//
+//   resume {
+//     from_epoch?: int,                 // the failed assignment's epoch (< epoch; logged)
+//     map_number: int,                  // the map to continue (1..num_maps)
+//     round?: int,                      // the round to replay (1-based); 0 / absent without a
+//                                       //   backup = restart that map from warmup
+//     backup?: InlineBackup,            // the chosen round backup (single part), or
+//     backup_ref?: {file?, sha256?},    // a backup file the server already has (restart in place);
+//                                       //   neither: the server's own file for map_number / round
+//     series_score?: {team1, team2},    // maps won before map_number (else state.series.score)
+//     maps?: {"<n>": {score, winner}},  // results of the maps before (else state.series.maps)
+//     sides?: team1_ct | team2_ct,      // starting sides of the resumed map (else state / config)
+//     score?: {team1, team2},           // map score at the start of `round` (else backup.score)
+//     map_stats?: MapStats,             // the platform's stats of the map (state.snapshot map_stats)
+//     state?: MatchState                // the platform's state at that round
+//   }
+struct ResumeMapResult {
+  int map_number = 0;
+  int team1 = 0, team2 = 0;
+  std::string winner;  // team1 | team2 | none
+};
+struct ResumePlan {
+  bool present = false;
+  long long from_epoch = 0;
+  int map_number = 1;
+  int round = 0;                 // 0 = no backup: the map restarts from warmup
+  bool inline_backup = false;    // backup given inline (raw holds the file)
+  std::string file;              // inline / backup_ref file name ("" = find by map / round)
+  std::string raw;               // inline: the decoded file (not kept across reloads)
+  std::string sha256;            // inline: verified; backup_ref: expected ("" = any)
+  int series_team1 = 0, series_team2 = 0;
+  std::vector<ResumeMapResult> maps_done;
+  std::string sides;             // "" = keep the config's
+  int score_team1 = -1, score_team2 = -1;  // -1 = unknown
+  std::string team1_side;        // "ct" | "t" | "" at the start of `round`
+  Json map_stats;                // null = none
+  bool pause_after_restore = true;
+};
+// False + *code ("invalid_config" | "checksum" | "unsupported") + *err (one line) when `resume`
+// cannot be used with `config` (the match.assign config, already valid) and `epoch`.
+bool ParseResume(const Json& resume, const Json& config, long long epoch, ResumePlan* out, std::string* code,
+                 std::string* err);
+// Plugin reload: everything but `raw`.
+Json ResumeToJson(const ResumePlan& p);
+ResumePlan ResumeFromJson(const Json& j);
+
 // D16 hand-over: players allowed to stay when a match is assigned (roster incl. subs and
 // coaches, spectators, match admins).
 bool InAssignedMatch(const Json& config, uint64_t steamid64);
@@ -130,7 +179,8 @@ std::string SanitizeSay(const std::string& text);
 bool ValidateExec(const std::string& command, std::string* err);
 // sv_password value: printable ASCII without quotes, `;` or spaces, at most 64 bytes ("" = none).
 bool ValidPassword(const std::string& password);
-// Map names / workshop ids safe to put on a command line.
+// Map entries (a name, or a workshop id as "123", "ws:123", "workshop/123[/name]"; map_names.h)
+// and workshop ids safe to put on a command line.
 bool SafeMapName(const std::string& name);
 bool SafeWorkshopId(const std::string& id);
 // CS2 round backup files: "<prefix>round07.txt" -> 7; -1 when the name has no round number.

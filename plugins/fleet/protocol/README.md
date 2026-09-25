@@ -55,6 +55,14 @@ Differences from the FLEET.md text, decided while implementing:
 - The inline round backup event is `event.backup` (FLEET.md §8.1); `InlineBackup.round` is the round
   the backup starts (CS2's `…roundNN.txt` holds NN rounds played, so `round` = NN + 1).
 - `series_end` from `cmd end_match` carries `forced: true` and `reason`.
+- `match.assign.resume` (failover, §11.3) is `match.defs.json#/$defs/resume`: `map_number`,
+  `round`, `backup` (InlineBackup, single part) or `backup_ref {file?, sha256?}` (a file the server
+  has) or neither (the server's own file), `series_score`, `maps` (earlier results), `sides`,
+  `score`, `map_stats`, `state`. Extra answers: `checksum`, `no_backup`, `unsupported` (multi-part).
+  `rounds_voided.reason` adds `resume`, `match_restored.data` adds `resume` and `from_epoch`,
+  `state.snapshot.reason` adds `restored`.
+- `mapName` also accepts `ws:<id>`; a name of digits / `ws:<id>` / `workshop/<id>[/name]` (or a
+  `workshop_id`) is a Steam Workshop map (`host_workshop_map`).
 
 ## D13 (no Postgres): proposed here — the platform must adopt them
 
@@ -71,6 +79,10 @@ has to build: [`docs/fleet-step3-platform-notes.md`](../../../docs/fleet-step3-p
 | `messages/skins.stattrak.json` | server → platform | reliable (critical) | |
 
 Examples: `examples/v1/{admins.set,skins.loadout,skins.invalidate,skins.stattrak}.json`.
+
+`hello` (a copied step-1 schema) gets one proposed optional member, `admins_rev`: the rev of the
+admins.set list the server has cached (absent = none). `state.snapshot.admins_rev` carries the
+same value (0 = none). The platform sends `admins.set` after `welcome` only when its rev differs.
 
 ## Tests
 

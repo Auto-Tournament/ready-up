@@ -52,6 +52,14 @@
         "file": {
           "type": "string",
           "maxLength": 128
+        },
+        "resume": {
+          "type": "boolean",
+          "description": "true: the restore of a match.assign resume (failover / move)"
+        },
+        "from_epoch": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     }
