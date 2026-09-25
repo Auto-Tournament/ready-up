@@ -67,7 +67,7 @@ always may. An admin's `.help` points at `.ru help`.
 | `.ru practice on\|off\|status` | admin | practice plugin: practice mode (`status`: everyone) |
 | `.ru admins list` | everyone | the admins |
 | `.ru admins add\|remove <steamid64\|name_fragment>` | admin (standalone) | edit `admins.json` |
-| `.ru hud test <1-7>` | admin | a HUD test panel, to you only |
+| `.ru hud test <1-11>` | admin | a HUD test panel, to you only |
 | `.ru whitelist on\|off\|add\|remove\|list\|clear` | admin | whitelist plugin: only listed players may stay (not during a match) |
 | `.ru plugin list\|load\|unload\|reload <name>` | admin | plugins (core); load / unload last until a restart |
 | `.ru plugin enable\|disable <name>` | admin | load / unload a plugin and keep it that way after a restart (`csgo/readyup/plugins/plugins.json`) |

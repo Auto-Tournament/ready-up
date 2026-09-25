@@ -33,7 +33,7 @@ const std::vector<RuMainCommand>& MatchRuCommands() {
       {"hud",
        "center-screen HUD",
        {
-           {"test", "<1-7>", "show a HUD test panel to you (10 s)", true},
+           {"test", "<1-11>", "show a HUD test panel to you (10 s)", true},
        }},
   };
   return k;
