@@ -97,6 +97,12 @@ struct State {
   bool warmupEndedSent = false;
   bool goingLiveSent = false;
 
+  // External mode (SetModeExternal): the owning plugin mode's name.
+  std::string externalName;
+  // An external mode was on since the last match load: it may have changed game_type /
+  // game_mode (the deathmatch plugin does), so the next match load puts competitive back.
+  bool externalTouchedGameMode = false;
+
   // Practice mode rules.
   bool practiceRulesApplied = false;
   bool practiceResetPending = false;
@@ -155,6 +161,7 @@ static const char* ModeToString(ReadyUpMode m) {
     case ReadyUpMode::MatchLive: return "match_live";
     case ReadyUpMode::Postgame: return "postgame";
     case ReadyUpMode::ScrimWarmup: return "scrim_warmup";
+    case ReadyUpMode::External: return "external";
     default: return "unknown";
   }
 }
@@ -1094,6 +1101,7 @@ void SetModeIdle() {
     st.practiceResetPending = true;
   }
   st.mode = ReadyUpMode::Idle;
+  st.externalName.clear();
   st.idleCfgExecuted = false;
   st.lastUi.clear();
   st.warmupRulesApplied = false;
@@ -1107,10 +1115,41 @@ void SetModeIdle() {
   ResetKnifeStateForMapLocked(st, /*mapNumber=*/0);
 }
 
+bool SetModeExternal(const std::string& name) {
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  if (st.mode != ReadyUpMode::Idle && st.mode != ReadyUpMode::ScrimWarmup && st.mode != ReadyUpMode::External) {
+    return false;
+  }
+  st.mode = ReadyUpMode::External;
+  st.externalName = name;
+  st.externalTouchedGameMode = true;
+  st.idleCfgExecuted = false;
+  st.ready.clear();
+  st.lastUi.clear();
+  st.warmupRulesApplied = false;
+  st.startTriggered = false;
+  st.lifecycleMapNumber = 0;
+  st.warmupEndedSent = false;
+  st.goingLiveSent = false;
+  st.mapResultEmittedForMapNumber = 0;
+  st.seriesWinsTeam1 = 0;
+  st.seriesWinsTeam2 = 0;
+  ResetKnifeStateForMapLocked(st, /*mapNumber=*/0);
+  return true;
+}
+
+std::string ExternalModeName() {
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  return st.mode == ReadyUpMode::External ? st.externalName : std::string();
+}
+
 void SetModePractice() {
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
   st.mode = ReadyUpMode::Practice;
+  st.externalName.clear();
   st.idleCfgExecuted = false;
   st.lastUi.clear();
   st.warmupRulesApplied = false;
@@ -1190,7 +1229,17 @@ void OnMatchLoaded() {
   PauseStateResetUsage();
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
+  if (st.externalTouchedGameMode) {
+    // An external mode (deathmatch) may have switched CS2's game mode. game_type / game_mode
+    // take effect on the next map load, which the match load issues right after this: a match is
+    // classic competitive.
+    (void)EnqueueServerCommand("game_type 0");
+    (void)EnqueueServerCommand("game_mode 1");
+    st.externalTouchedGameMode = false;
+    Print("modes: an external mode was on; game_type 0 / game_mode 1 (competitive) for the match\n");
+  }
   st.mode = ReadyUpMode::MatchWarmup;
+  st.externalName.clear();
   st.idleCfgExecuted = false;
   st.ready.clear();
   st.lastUi.clear();
@@ -1349,6 +1398,7 @@ bool EndMatchResetServer() {
   // Put server back into a neutral state regardless of match context.
   const bool ok = ResetServerRulesAndRestartLocked(st);
   st.mode = ReadyUpMode::Idle;
+  st.externalName.clear();  // externalTouchedGameMode stays for the next match load
   st.idleCfgExecuted = false;
   st.ready.clear();
   st.lastUi.clear();
@@ -2087,7 +2137,7 @@ void Tick() {
       ResetKnifeStateForMapLocked(st, /*mapNumber=*/ms.map_number <= 0 ? 1 : ms.map_number);
       // Baseline: CS2's own warmup stays off (Ready Up emulates it). If CS2
       // starts it anyway, OnNativeWarmupStarted ends it.
-      if (st.mode != ReadyUpMode::Practice) {
+      if (st.mode != ReadyUpMode::Practice && st.mode != ReadyUpMode::External) {
         (void)EnqueueServerCommand("mp_warmup_pausetimer 0");
         (void)EnqueueServerCommand("mp_warmuptime 0");
       }
@@ -2159,6 +2209,8 @@ status::Json ModesSnapshotJson() {
   std::lock_guard<std::mutex> lk(st.mu);
   status::Json j = status::Json::Object();
   j["mode"] = static_cast<int>(st.mode);
+  j["external_name"] = st.externalName;
+  j["external_touched_game_mode"] = st.externalTouchedGameMode;
   j["warmup_enabled"] = st.warmupEnabled;
   j["warmup_html"] = st.warmupHtml;
   j["warmup_html_custom"] = st.warmupHtmlCustom;
@@ -2231,6 +2283,8 @@ void ModesRestoreJson(const status::Json& j) {
   int mode = static_cast<int>(st.mode);
   i(&j, "mode", mode);
   st.mode = static_cast<ReadyUpMode>(mode);
+  s(&j, "external_name", st.externalName);
+  b(&j, "external_touched_game_mode", st.externalTouchedGameMode);
   b(&j, "warmup_enabled", st.warmupEnabled);
   s(&j, "warmup_html", st.warmupHtml);
   b(&j, "warmup_html_custom", st.warmupHtmlCustom);

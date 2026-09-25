@@ -99,7 +99,7 @@ class CompatReportTest(unittest.TestCase):
         self.assertEqual(doc["overall"], "warn")
         self.assertIsNotNone(doc["run"]["finished_at"])
         ids = [c["id"] for c in doc["components"]]
-        self.assertEqual(ids, ["core", "skins", "match", "practice", "essentials", "midas", "whitelist", "fleet"])
+        self.assertEqual(ids, ["core", "skins", "match", "practice", "essentials", "midas", "whitelist", "deathmatch", "fleet"])
         core, skins = self.comp(doc, "core"), self.comp(doc, "skins")
         self.assertEqual((core["name"], core["status"]), ("Core", "pass"))
         self.assertEqual(self.check(core, "signature"), {"kind": "signature", "status": "pass", "passed": 2,
@@ -202,7 +202,7 @@ class CompatReportTest(unittest.TestCase):
             assert_contract(self, doc)
             self.assertEqual((doc["run"]["state"], doc["overall"]), (state, overall))
             self.assertEqual(doc["cs2"], {"buildid": "25537371", "patch": ""})
-            self.assertEqual(len(doc["components"]), 8)
+            self.assertEqual(len(doc["components"]), 9)
             self.assertTrue(all(c["status"] == comp_status and c["checks"] == [] for c in doc["components"]))
             if state == "no_verdict":
                 self.assertRegex(doc["run"]["finished_at"], ISO)

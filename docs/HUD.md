@@ -20,7 +20,9 @@ CS2 has a single center panel per client, so the core decides who owns it (plugi
 `center_html_to_slot_prio` / `center_html_all_prio`). Each send carries a priority:
 `RU_HTML_PRIO_ALERT` 90 (the workshop download bar), `RU_HTML_PRIO_NOTICE` 70 (the welcome card,
 `.ru hud test`, `.ru hud anim`), `RU_HTML_PRIO_HUD` 50 (the ready HUD; the old calls),
-`RU_HTML_PRIO_INFO` 10. While a plugin's panel is up (its `seconds` have not run out), another
+`RU_HTML_PRIO_INFO` 10. The deathmatch leaderboard ([DEATHMATCH.md](DEATHMATCH.md)) is sent at
+`RU_HTML_PRIO_HUD` every `hud_interval_ms` (default 1000; 0 = every tick), its winner card at
+`RU_HTML_PRIO_NOTICE`. While a plugin's panel is up (its `seconds` have not run out), another
 plugin's lower send is refused (-1); it goes through once that panel expires, so a HUD that
 re-sends comes back by itself. Within the match plugin the welcome card holds the ready HUD back
 itself (by SteamID or slot).

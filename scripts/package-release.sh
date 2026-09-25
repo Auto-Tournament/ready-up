@@ -6,8 +6,8 @@
 #   scripts/package-release.sh <build-dir> <version> <out-dir>
 #
 # <build-dir> holds libserver.so, plugins/match.so, plugins/fleet.so, plugins/skins.so,
-# plugins/hello.so, plugins/midas.so, plugins/whitelist.so, plugins/practice.so, plugins/essentials.so
-# and (optionally) readyup_sigcheck / readyup_hookcheck.
+# plugins/hello.so, plugins/midas.so, plugins/whitelist.so, plugins/practice.so, plugins/essentials.so,
+# plugins/deathmatch.so and (optionally) readyup_sigcheck / readyup_hookcheck.
 #
 # Component zips (the installer mixes these):
 #   ready-up-core-<v>-linuxsteamrt64.zip    the core (libserver.so, engine-surface.json,
@@ -25,9 +25,10 @@
 #   ready-up-whitelist-<v>-linuxsteamrt64.zip plugins/whitelist.so (only listed players; off by default)
 #   ready-up-practice-<v>-linuxsteamrt64.zip  plugins/practice.so + prac.cfg / practice.cfg templates
 #   ready-up-essentials-plugin-<v>-...zip   plugins/essentials.so (admins, map commands); "essentials" alone is the bundle
+#   ready-up-deathmatch-<v>-linuxsteamrt64.zip plugins/deathmatch.so + deathmatch.cfg template (off until .ru dm ffa|tdm)
 # Bundles (for manual download):
 #   ready-up-essentials-<v>-...zip          core + essentials + match + fleet + practice. The default. NO skins.
-#   ready-up-full-<v>-...zip                core + essentials + match + fleet + practice + skins + hello + midas + whitelist + readyup_sigcheck/hookcheck
+#   ready-up-full-<v>-...zip                core + essentials + match + fleet + practice + skins + hello + midas + whitelist + deathmatch + readyup_sigcheck/hookcheck
 # Plus SHA256SUMS over every zip.
 #
 # Each component ships readyup/manifests/<component>.json ({component, version, files}),
@@ -48,7 +49,7 @@ trap 'rm -rf "$WORK"' EXIT
 EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 SUFFIX="$VERSION-linuxsteamrt64.zip"
 
-for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so plugins/practice.so plugins/essentials.so; do
+for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so plugins/practice.so plugins/essentials.so plugins/deathmatch.so; do
   [[ -f "$BUILD/$f" ]] || { echo "package-release: missing $BUILD/$f" >&2; exit 1; }
 done
 
@@ -100,7 +101,7 @@ stage_component core "Ready Up core: libserver.so, engine surface, plugin host, 
 # The match flow (plugins/match) and the ReadyUp/*.cfg files it execs (warmup, knife, live, ...).
 match_files=("$BUILD/plugins/match.so:plugins/match.so:755")
 for f in "$ROOT_DIR"/cfg/ReadyUp/*.cfg; do
-  case "$(basename "$f")" in fleet.cfg | midas.cfg | prac.cfg | practice.cfg) continue ;; esac  # the fleet / midas components' own
+  case "$(basename "$f")" in fleet.cfg | midas.cfg | prac.cfg | practice.cfg | deathmatch.cfg) continue ;; esac  # the fleet / midas / practice / deathmatch components' own
   match_files+=("$f:cfg-templates/ReadyUp/$(basename "$f")")
 done
 stage_component match "Ready-up, scrims, knife round, pauses, practice, match configs, webhooks, demos" "${match_files[@]}"
@@ -133,7 +134,7 @@ stage_component midas "Fun: weapons picked up by chosen players turn gold (off b
   "$ROOT_DIR/cfg/ReadyUp/midas.cfg:cfg-templates/ReadyUp/midas.cfg"
 
 # Server basics apart from the match flow: admins (admins.json) and map change / reload / restart.
-stage_component essentials "Server basics: admins (admins.json), map change / reload / restart" \
+stage_component essentials "Server basics: admins (admins.json), map change / reload / restart, default maps per mode" \
   "$BUILD/plugins/essentials.so:plugins/essentials.so:755"
 
 # Practice mode + tools (.prac, .savepos, .rethrow, .bot, ...): its own plugin, so a server can
@@ -145,6 +146,11 @@ stage_component practice "Practice mode and tools (.prac, .savepos/.loadpos, .sp
 
 stage_component whitelist "Only listed players may stay on the server (off until ru whitelist on)" \
   "$BUILD/plugins/whitelist.so:plugins/whitelist.so:755"
+
+# Deathmatch (FFA / TDM on CS2's deathmatch game mode): off until an admin switches it on.
+stage_component deathmatch "Deathmatch: free for all / team deathmatch with kill + time limits and a leaderboard (off until .ru dm ffa|tdm)" \
+  "$BUILD/plugins/deathmatch.so:plugins/deathmatch.so:755" \
+  "$ROOT_DIR/cfg/ReadyUp/deathmatch.cfg:cfg-templates/ReadyUp/deathmatch.cfg"
 
 extras=()
 for t in readyup_sigcheck readyup_hookcheck; do
@@ -177,11 +183,12 @@ make_zip "ready-up-skins-$SUFFIX" skins
 make_zip "ready-up-hello-$SUFFIX" hello
 make_zip "ready-up-midas-$SUFFIX" midas
 make_zip "ready-up-whitelist-$SUFFIX" whitelist
+make_zip "ready-up-deathmatch-$SUFFIX" deathmatch
 make_zip "ready-up-practice-$SUFFIX" practice
 make_zip "ready-up-essentials-plugin-$SUFFIX" essentials
 make_zip "ready-up-fleet-$SUFFIX" fleet
 make_zip "ready-up-essentials-$SUFFIX" core essentials match fleet practice
-full=(core essentials match fleet practice skins hello midas whitelist)
+full=(core essentials match fleet practice skins hello midas whitelist deathmatch)
 [[ -d "$WORK/c/tools" ]] && full+=(tools)
 make_zip "ready-up-full-$SUFFIX" "${full[@]}"
 

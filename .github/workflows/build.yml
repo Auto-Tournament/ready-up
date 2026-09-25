@@ -3,7 +3,7 @@ name: Build
 # Release build of libserver.so + plugins in Valve's Steam Runtime 3 "sniper" SDK (glibc 2.31,
 # what CS2 targets), verified against the CURRENT public CS2 build (sigcheck + hook-site check,
 # base gamedata + every fragment). Every run uploads the install zips as workflow artifacts:
-# ready-up-{core,match,fleet,practice,essentials-plugin,skins,hello,midas,whitelist}-<version>-linuxsteamrt64.zip
+# ready-up-{core,match,fleet,practice,essentials-plugin,skins,hello,midas,whitelist,deathmatch}-<version>-linuxsteamrt64.zip
 # (components), ready-up-{essentials,full}-<version>-linuxsteamrt64.zip (bundles) + SHA256SUMS.
 # The installer job then tests install.sh against those zips. Tags v* additionally publish a
 # GitHub release with the same files.
@@ -203,6 +203,14 @@ jobs:
         with:
           name: ready-up-whitelist-${{ steps.version.outputs.version }}
           path: dist/ready-up-whitelist-*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ready-up-deathmatch
+        uses: actions/upload-artifact@v4
+        with:
+          name: ready-up-deathmatch-${{ steps.version.outputs.version }}
+          path: dist/ready-up-deathmatch-*.zip
           if-no-files-found: error
           retention-days: 30
 

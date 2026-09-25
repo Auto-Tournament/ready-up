@@ -89,6 +89,17 @@ typedef struct ru_match_v1 {
    * and, while stats are recording (info->live = 1) and fn is not NULL, calls fn once per human
    * player with their totals on this map (bots are not reported). Returns 1 on success. */
   int (*map_stats)(ru_match_map_info* info, ru_match_player_stats_fn fn, void* user);
+  /* v1.5 (deathmatch plugin, plugins/deathmatch). Game thread. Another plugin runs the server in a
+   * mode of its own: name = [a-z0-9_]{1,32} (e.g. "deathmatch") puts the match flow in ru_mode
+   * "external" (status summary mode "external", phase = name): no scrim warmup, ready HUD, idle
+   * cfg, practice rules or round-termination suppression, and CS2's own warmup is left alone.
+   * Refused (0) while a match is loaded or practice is on. name NULL or "" = back to idle (scrim
+   * warmup comes back by itself when enabled). The plugin execs its cvars, sets game_type /
+   * game_mode and loads maps itself, and must watch mode(): `.ru mode idle` or a match load end
+   * the external mode without asking it. A match load after an external mode first sets game_type
+   * 0 / game_mode 1 (competitive) before its map change. Returns 1 when the mode is what was
+   * asked. */
+  int (*set_external_mode)(const char* name);
   /* v1.x: members are appended here. */
 } ru_match_v1;
 

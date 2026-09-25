@@ -14,6 +14,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <mutex>
+#include <cctype>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -116,6 +117,7 @@ static const char* ModeLabel(ReadyUpMode m) {
     case ReadyUpMode::MatchLive: return "Match live";
     case ReadyUpMode::Postgame: return "Postgame";
     case ReadyUpMode::ScrimWarmup: return "Scrim warmup";
+    case ReadyUpMode::External: return "Plugin mode";
   }
   return "Unknown";
 }
@@ -142,7 +144,14 @@ static std::string BuildHtml(const std::string& name, int team, ReadyUpMode mode
   h += "'>";
   h += teamName;
   h += "</font><font class='fontSize-m' color='#8A8F98'> &#183; ";
-  h += ModeLabel(mode);
+  if (mode == ReadyUpMode::External && !ExternalModeName().empty()) {
+    // The owning plugin's mode ("deathmatch" -> "Deathmatch"); [a-z0-9_], nothing to escape.
+    std::string label = ExternalModeName();
+    label[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(label[0])));
+    h += label;
+  } else {
+    h += ModeLabel(mode);
+  }
   h += "</font><br>";
   h += "<font class='fontSize-sm' color='#A3E635'>";
   h += hint;

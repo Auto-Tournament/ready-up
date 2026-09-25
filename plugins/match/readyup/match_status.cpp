@@ -72,12 +72,15 @@ PhaseInfo ComputePhase(ReadyUpMode m, bool haveCtx, bool scrim, bool paused, boo
     case ReadyUpMode::Idle: p.mode = "idle"; p.phase = "idle"; break;
     case ReadyUpMode::Practice: p.mode = "practice"; p.phase = "practice"; break;
     case ReadyUpMode::ScrimWarmup: p.mode = "scrim"; p.phase = "warmup"; break;
+    // Another plugin runs the server; the summary's phase is that plugin mode's name.
+    case ReadyUpMode::External: p.mode = "external"; p.phase = "external"; break;
     case ReadyUpMode::MatchWarmup: p.phase = "warmup"; break;
     case ReadyUpMode::MatchKnife: p.phase = GetKnifePhase() == KnifePhase::Picking ? "side_pick" : "knife"; break;
     case ReadyUpMode::MatchLive: p.phase = paused ? "paused" : "live"; break;
     case ReadyUpMode::Postgame: p.phase = seriesOver ? "series_end" : "map_end"; break;
   }
-  if (m != ReadyUpMode::Idle && m != ReadyUpMode::Practice && m != ReadyUpMode::ScrimWarmup) {
+  if (m != ReadyUpMode::Idle && m != ReadyUpMode::Practice && m != ReadyUpMode::ScrimWarmup &&
+      m != ReadyUpMode::External) {
     p.mode = (!haveCtx || scrim) ? "scrim" : "match";
   }
   // Knife side pick can outlive the match_knife mode briefly.
@@ -197,7 +200,7 @@ void Collect(Json* sOut, Json* stOut, bool* safeOut) {
   // update_safe (docs/FLEET.md §17.2): false from loading to series_end of a real match and while
   // a demo upload is pending; scrims, practice and idle are safe.
   const bool matchActive = ctx && !scrim && mode != ReadyUpMode::Idle && mode != ReadyUpMode::Practice &&
-                           mode != ReadyUpMode::ScrimWarmup;
+                           mode != ReadyUpMode::ScrimWarmup && mode != ReadyUpMode::External;
   bool safe = !matchActive || (mode == ReadyUpMode::Postgame && g_seriesOver && !MatchEndPending());
   if (uploadsPending > 0) safe = false;
 
@@ -206,6 +209,11 @@ void Collect(Json* sOut, Json* stOut, bool* safeOut) {
   s["mode"] = ph.mode;
   s["ru_mode"] = GetModeString();
   s["phase"] = ph.phase;
+  if (mode == ReadyUpMode::External) {
+    // readyup.match.v1 set_external_mode: the plugin mode's name ("deathmatch").
+    const std::string ext = ExternalModeName();
+    if (!ext.empty()) s["phase"] = ext;
+  }
   s["map"] = ms.current_map;
   s["map_number"] = ms.map_number;
   s["num_maps"] = ctx ? ctx->num_maps : 0;

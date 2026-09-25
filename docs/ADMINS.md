@@ -64,9 +64,11 @@ always may. An admin's `.help` points at `.ru help`.
 | `.ru map change <name\|workshop id\|link> [force]` | admin | `changelevel <name>`, or `host_workshop_map <id>` for `3084291314`, `ws:<id>`, `workshop/<id>[/name]` or a pasted Workshop link (`…/filedetails/?id=3084291314`); refused during a knife round or a live map unless `force` (essentials plugin) |
 | `.ru map reload [force]` | admin | loads the current map again (a workshop map by its id) (essentials plugin) |
 | `.ru map restart [force]` | admin | restarts the game (`mp_restartgame 1`); a loaded match stays loaded (essentials plugin) |
+| `.ru map defaults` / `.ru map default <mode> [<map>\|clear]` | everyone / admin to set | the default map per mode (`ffa`, `tdm`, `practice`, `warmup`, `retakes`, ...), `plugins/essentials/default_maps.json` (essentials plugin) |
 | `.ru mode show` | everyone | the current mode |
 | `.ru mode idle` / `practice` / `scrim` | admin | plain CS2 / practice mode (toggles, `.prac`; needs the practice plugin) / auto scrim warmup back on |
 | `.ru practice on\|off\|status` | admin | practice plugin: practice mode (`status`: everyone) |
+| `.ru dm ffa\|tdm [map]` / `.ru dm off` | admin | deathmatch plugin: free for all / team deathmatch (CS2's deathmatch game mode; loads the map given, else the mode's default map) / back to competitive; `.ru dm status\|top\|hud`: everyone ([DEATHMATCH.md](DEATHMATCH.md)) |
 | `.ru admins list` | everyone | the admins (essentials plugin) |
 | `.ru admins add\|remove <steamid64\|name_fragment>` | admin (standalone) | edit `admins.json` |
 | `.ru hud test <1-11>` | admin | a HUD test panel, to you only |

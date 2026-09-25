@@ -273,8 +273,14 @@ int MapStatsIface(ru_match_map_info* info, ru_match_player_stats_fn fn, void* us
   });
   return rc;
 }
+// v1.5: another plugin's mode (deathmatch) takes the server; NULL / "" hands it back (idle).
+int SetExternalModeIface(const char* name) {
+  int rc = 0;
+  Guard("set_external_mode", [&] { rc = MatchSetExternal(name ? name : "") ? 1 : 0; });
+  return rc;
+}
 const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus, &InventoryLockedIface, &RulesetIface,
-                                  &SetPracticeIface, &ModeIface, &MapStatsIface};
+                                  &SetPracticeIface, &ModeIface, &MapStatsIface, &SetExternalModeIface};
 
 std::atomic<int> g_hudShowing{0}, g_hudFeature{0};
 std::mutex g_brandMu;

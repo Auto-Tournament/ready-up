@@ -12,8 +12,8 @@
 # Usage: install.sh [BUNDLE|COMPONENT ...] [options]
 #
 #   essentials   core + essentials + match + fleet + practice (default for a fresh install; no skins)
-#   full         core + essentials + match + fleet + practice + skins + hello + midas + whitelist
-#   core | match | fleet | practice | skins | hello | midas | whitelist   single components
+#   full         core + essentials + match + fleet + practice + skins + hello + midas + whitelist + deathmatch
+#   core | match | fleet | practice | skins | hello | midas | whitelist | deathmatch   single components
 #                (the essentials plugin comes with the bundles; --remove essentials drops it) (core is always included).
 #                fleet links the server to the Auto Tournament platform; it stays idle until
 #                cfg/ReadyUp/fleet.cfg (or readyup.cfg [fleet]) sets a url
@@ -44,14 +44,15 @@ set -euo pipefail
 REPO="${READYUP_REPO:-Auto-Tournament/ready-up}"
 API="${READYUP_API:-https://api.github.com}"
 GAME_PATH="csgo/readyup"
-COMPONENTS=(core match fleet skins hello midas whitelist practice essentials)
-declare -A LABEL=([core]="Core" [match]="Match" [fleet]="Fleet" [skins]="Skins" [hello]="Hello" [midas]="Midas" [whitelist]="Whitelist" [practice]="Practice" [essentials]="Essentials")
+COMPONENTS=(core match fleet skins hello midas whitelist practice essentials deathmatch)
+declare -A LABEL=([core]="Core" [match]="Match" [fleet]="Fleet" [skins]="Skins" [hello]="Hello" [midas]="Midas" [whitelist]="Whitelist" [practice]="Practice" [essentials]="Essentials" [deathmatch]="Deathmatch")
 declare -A NOTE=([core]="required" [match]="ready-up, knife, pauses, webhooks"
   [fleet]="link to the Auto Tournament platform (idle until configured)" [skins]="may get servers banned"
   [hello]="example plugin" [midas]="fun: gold weapons (off until enabled)"
   [whitelist]="only listed players may join (off until turned on)"
   [practice]="practice mode + tools (.prac, .savepos, .rethrow, .bot)"
-  [essentials]="admins + map commands (needed for admins without a match config)")
+  [essentials]="admins + map commands (needed for admins without a match config)"
+  [deathmatch]="FFA / team deathmatch with a leaderboard (off until .ru dm ffa|tdm)")
 
 DIR="."
 VERSION=""
@@ -100,8 +101,8 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     essentials) WANT+=(core essentials match fleet practice); BUNDLE_FLEET=1; shift ;;
-    full) WANT+=(core essentials match fleet practice skins hello midas whitelist); WANT_FULL=1; BUNDLE_FLEET=1; shift ;;
-    core | match | fleet | skins | hello | midas | whitelist | practice) WANT+=("$1"); shift ;;
+    full) WANT+=(core essentials match fleet practice skins hello midas whitelist deathmatch); WANT_FULL=1; BUNDLE_FLEET=1; shift ;;
+    core | match | fleet | skins | hello | midas | whitelist | practice | deathmatch) WANT+=("$1"); shift ;;
     *) die "unknown argument: $1 (see --help)" ;;
   esac
 done
@@ -111,7 +112,7 @@ case "$ACCEPT_LICENSE" in
   *) die "--accept-license must be noncommercial or commercial (got: $ACCEPT_LICENSE)" ;;
 esac
 for c in "${REMOVE[@]}"; do
-  case "$c" in match | fleet | skins | hello | midas | whitelist | practice | essentials) ;; core) die "core can't be removed on its own; use --uninstall" ;; *) die "unknown component: $c" ;; esac
+  case "$c" in match | fleet | skins | hello | midas | whitelist | practice | essentials | deathmatch) ;; core) die "core can't be removed on its own; use --uninstall" ;; *) die "unknown component: $c" ;; esac
 done
 
 # ---- requirements ---------------------------------------------------------------------------
@@ -260,7 +261,7 @@ if [[ $UNINSTALL -eq 1 ]]; then
   else
     warn "patch_gameinfo.py is missing; remove the \"Game $GAME_PATH\" line from gameinfo.gi by hand"
   fi
-  for c in essentials practice whitelist midas hello skins fleet match core; do
+  for c in deathmatch essentials practice whitelist midas hello skins fleet match core; do
     [[ -n "${INSTALLED[$c]:-}" || -f "$RU/manifests/$c.json" ]] || continue
     remove_component "$c"
     ok "removed $c"
@@ -463,7 +464,7 @@ for a in rel.get("assets", []):
     elif name.startswith("ready-up-essentials-plugin-") and name.endswith(".zip"):
         print("asset\tessentials\t%s" % url)  # the plugin; ready-up-essentials-<v> is the bundle
     else:
-        m = re.match(r"^ready-up-(core|match|fleet|skins|hello|midas|whitelist|practice)-.*\.zip$", name)
+        m = re.match(r"^ready-up-(core|match|fleet|skins|hello|midas|whitelist|practice|deathmatch)-.*\.zip$", name)
         if m:
             print("asset\t%s\t%s" % (m.group(1), url))
 PY
@@ -525,7 +526,7 @@ print_rows() {  # <cursor index or -1>
     c="${COMPONENTS[$i]}"
     [[ "${SEL[$c]}" == 1 ]] && mark="[x]" || mark="[ ]"
     [[ "$i" == "$1" ]] && ptr=">" || ptr=" "
-    printf '\e[2K%s %s %-9s %-28s %s\n' "$ptr" "$mark" "${LABEL[$c]}" "$(row_versions "$c")" "${D}${NOTE[$c]}${N}" >&3
+    printf '\e[2K%s %s %-10s %-28s %s\n' "$ptr" "$mark" "${LABEL[$c]}" "$(row_versions "$c")" "${D}${NOTE[$c]}${N}" >&3
   done
 }
 
@@ -563,7 +564,7 @@ plain_select() {
   local i c line cur=()
   for i in "${!COMPONENTS[@]}"; do
     c="${COMPONENTS[$i]}"
-    printf '  %d) %-9s %-28s %s\n' "$((i + 1))" "${LABEL[$c]}" "$(row_versions "$c")" "${NOTE[$c]}" >&3
+    printf '  %d) %-10s %-28s %s\n' "$((i + 1))" "${LABEL[$c]}" "$(row_versions "$c")" "${NOTE[$c]}" >&3
     [[ "${SEL[$c]}" == 1 ]] && cur+=("$((i + 1))")
   done
   local def
@@ -698,7 +699,7 @@ for c in "${!INSTALLED[@]}"; do BEFORE[$c]="${INSTALLED[$c]}"; done
 
 # Core first (the patcher and the plugin host come with it).
 ordered=()
-for c in core essentials match fleet practice skins hello midas whitelist; do
+for c in core essentials match fleet practice skins hello midas whitelist deathmatch; do
   for t in "${TO_INSTALL[@]}"; do [[ "$t" == "$c" ]] && ordered+=("$c"); done
 done
 for c in "${ordered[@]}"; do
