@@ -69,8 +69,11 @@ bool TryDispatchConsole(const std::string& line);
 // every plugin in the plugins dir; then pending load/unload/reload requests run, then
 // queued tasks / commands / events are delivered; per-tick callbacks only when simulating.
 void Frame(bool simulating);
+// Tests: run the first-frame scan of the plugins dir again (disabled plugins are skipped).
+void LoadAllFromDirForTest();
 
-// `ru plugin list|load|unload|reload <name>` (console) and `.ru plugin ...` (chat admin).
+// `ru plugin list|load|unload|reload|enable|disable <name>` (console) and `.ru plugin ...` (chat
+// admin). enable / disable are remembered in readyup/plugins/plugins.json (plugin_state.h).
 // `args` excludes the leading "ru plugin". Output lines go to the console log and, when
 // `replyToChat` is set, to chat. load/unload/reload run immediately when called on the
 // game thread outside any plugin callback, otherwise at the start of the next GameFrame.

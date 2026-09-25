@@ -102,7 +102,7 @@ Config, admins and the data files are covered in [docs/INSTALL.md](docs/INSTALL.
 
 ## Plugins
 
-Everything lives in this repo. The core is always installed; plugins are separate `.so` files you add or leave out, and they hot reload without restarting the server (`ru plugin reload <name>`).
+Everything lives in this repo. The core is always installed; plugins are separate `.so` files you add or leave out, and they hot reload without restarting the server (`ru plugin reload <name>`). `ru plugin list` shows them; `ru plugin disable <name>` / `enable <name>` turns one off or on and keeps it that way after a restart.
 
 <details>
 <summary><b>Core</b> (<code>core/</code>): loader, engine layer, plugin host</summary>
