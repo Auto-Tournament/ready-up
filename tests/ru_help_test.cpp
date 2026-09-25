@@ -28,7 +28,8 @@ int main() {
   CHECK(Has(lines[1], ".ru help <command>"));
   CHECK(RuMainHelpLines({})[0] == "Ready Up commands: .ru plugin | .ru reload | .ru selftest | .ru version");
 
-  CHECK(CoreRuSubHelpLines("plugin").size() == 3 && Has(CoreRuSubHelpLines("plugin")[2], "reload <name>"));
+  CHECK(CoreRuSubHelpLines("plugin").size() == 4 && Has(CoreRuSubHelpLines("plugin")[2], "reload <name>"));
+  CHECK(Has(CoreRuSubHelpLines("plugin")[3], "enable|disable <name>"));
   CHECK(!CoreRuSubHelpLines("reload").empty() && !CoreRuSubHelpLines("selftest").empty());
   CHECK(CoreRuSubHelpLines("match").empty());  // a plugin's: forwarded as `.ru match help`
 

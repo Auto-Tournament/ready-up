@@ -255,6 +255,34 @@ int main(int argc, char** argv) {
   rp::DispatchGameEvent("player_death", &death);
   Check(!Logged("player_death"), "no delivery into the unloaded image");
 
+  std::puts("-- enable / disable are remembered (plugins.json) and the boot scan skips disabled");
+  g_log.clear();
+  rp::HandlePluginCommand({"disable", "hello"}, false);
+  rp::Frame(false);
+  Check(Logged("disabled hello (stays off after a restart"), "disable reported");
+  Check(Logged("unloaded hello") || !rp::TryDispatchChat(76561198000000001ull, "alice", ".hello"), "disable unloads it");
+  {
+    std::string st;
+    if (FILE* f = std::fopen((std::string(dir) + "/plugins.json").c_str(), "r")) {
+      char buf[512];
+      size_t n = std::fread(buf, 1, sizeof buf, f);
+      st.assign(buf, n);
+      std::fclose(f);
+    }
+    Check(st.find("\"hello\"") != std::string::npos, "plugins.json lists hello");
+  }
+  rp::HandlePluginCommand({"list"}, false);
+  Check(Logged("disabled (plugins.json): hello"), "list shows the disabled plugin");
+  g_log.clear();
+  rp::LoadAllFromDirForTest();
+  Check(Logged("hello is disabled (plugins.json)") && !Logged("plugin: loaded hello"), "boot scan skips a disabled plugin");
+  rp::HandlePluginCommand({"enable", "hello"}, false);
+  rp::Frame(false);
+  Check(Logged("enabled hello") && Logged("plugin: loaded hello"), "enable loads it again");
+  rp::HandlePluginCommand({"unload", "hello"}, false);
+  rp::Frame(false);
+  unlink((std::string(dir) + "/plugins.json").c_str());
+
   std::puts("-- load errors");
   rp::HandlePluginCommand({"load", "nope"}, false);
   rp::Frame(false);

@@ -64,7 +64,8 @@ always may. An admin's `.help` points at `.ru help`.
 | `.ru admins list` | everyone | the admins |
 | `.ru admins add\|remove <steamid64\|name_fragment>` | admin (standalone) | edit `admins.json` |
 | `.ru hud test <1-7>` | admin | a HUD test panel, to you only |
-| `.ru plugin list\|load\|unload\|reload <name>` | admin | plugins (core) |
+| `.ru plugin list\|load\|unload\|reload <name>` | admin | plugins (core); load / unload last until a restart |
+| `.ru plugin enable\|disable <name>` | admin | load / unload a plugin and keep it that way after a restart (`csgo/readyup/plugins/plugins.json`) |
 | `.ru reload` | admin | reloads `readyup.cfg` (core) |
 | `.ru selftest` / `.ru version` | admin / everyone | core |
 
