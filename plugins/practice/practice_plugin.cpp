@@ -84,12 +84,21 @@ bool MatchOwnsMode() {
   const ru_match_v1* m = Match();
   return m && RU_API_HAS(m, set_practice) && m->set_practice;
 }
+// The match plugin's mode. Asked every tick (IsActive), so: the cheap `mode` member when the
+// match plugin has it; otherwise get_status (builds the whole status JSON) at most twice a second.
 std::string RuMode() {
   const ru_match_v1* m = Match();
-  if (!m || !m->get_status) return {};
+  if (!m) return {};
+  if (RU_API_HAS(m, mode) && m->mode) return m->mode() ? m->mode() : "";
+  static std::string cached;
+  static double at = -1e9;
+  const double now = Now();
+  if (now - at < 0.5) return cached;
+  at = now;
   ru_match_status st{};
   st.struct_size = sizeof(st);
-  return m->get_status(&st) == 1 && st.ru_mode ? st.ru_mode : "";
+  cached = m->get_status && m->get_status(&st) == 1 && st.ru_mode ? st.ru_mode : "";
+  return cached;
 }
 std::string Ruleset() {
   const ru_match_v1* m = Match();

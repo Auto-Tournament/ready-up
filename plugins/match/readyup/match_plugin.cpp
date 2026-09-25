@@ -229,8 +229,9 @@ int SetPracticeIface(int on) {
   Guard("set_practice", [&] { rc = MatchSetPractice(on != 0) ? 1 : 0; });
   return rc;
 }
+const char* ModeIface() { return GetModeString(); }
 const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus, &InventoryLockedIface, &RulesetIface,
-                                  &SetPracticeIface};
+                                  &SetPracticeIface, &ModeIface};
 
 std::atomic<int> g_hudShowing{0}, g_hudFeature{0};
 std::mutex g_brandMu;
