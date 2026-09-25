@@ -30,7 +30,7 @@ struct ReadyUpCfg {
   int hud_resend_ms = 0;
   int hud_duration_s = 1;
   // Seconds the KNIFE ROUND panel stays up after the knife round begins.
-  int hud_knife_hold_s = 30;
+  int hud_knife_hold_s = 10;
   // Header of the welcome card + ready HUD: optional logo image URL + brand text.
   std::string hud_brand = "Auto Tournament";
   std::string hud_logo_url;
