@@ -58,7 +58,6 @@ struct TeamLoadout {
 struct Loadout {
   std::unordered_map<int, TeamLoadout> by_team;  // 2=T, 3=CT, 0=both/default
   std::optional<WeaponAgentEntry> agents;
-  bool is_admin = false;  // admins get a default knife (resolved on the worker via ru_api is_admin)
 };
 
 // Reads <config_dir>/readyup_db.json and starts the worker. false: no DB (skins stay idle).

@@ -12,6 +12,9 @@ enum class ReadyUpMode {
   MatchWarmup,
   MatchKnife,
   MatchLive,
+  // Map decided: between the final round end and the next map's changelevel (series
+  // continues) or the unload after the series-end kick delay (series over). Matches
+  // and scrims. See match_end.h.
   Postgame,
   // No match loaded, humans on CT/T: CS2 warmup (paused timer) + ready-up.
   // When every human on CT/T is ready (and both sides are populated), the
@@ -137,7 +140,9 @@ bool SetReady(uint64_t steamid64, bool ready);
 void ClearReady(uint64_t steamid64);
 void ClearReadyStates();
 
-// Warmup UI settings (pushed via RCON).
+// `ru_warmup_enable`: the match ready-up gate, not just the banner. Off: a loaded match
+// gets no warmup rules, no ready panel/banner and no knife round, and goes match_live on
+// the next Round_Start. Scrims (no match config) are not affected. Default on.
 void SetWarmupEnabled(bool enabled);
 bool WarmupEnabled();
 void SetWarmupHtmlMessage(std::string html);

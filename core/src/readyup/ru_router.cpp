@@ -588,6 +588,7 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
       return;
     }
     (void)DevBotsReadyEnabled();  // logs if the flag flipped
+    (void)DevBotsScrimEnabled();
     sendAdmin("cfg reloaded.");
     return;
   }

@@ -167,7 +167,6 @@ bool LoadCfgFromDisk(ReadyUpCfg* out, std::string* err, bool allowMissing) {
     else if (key == "hud_brand") out->hud_brand = val;
     else if (key == "hud_logo_url") out->hud_logo_url = val;
     else if (key == "chat_debug") out->chat_debug = ParseBool(val, out->chat_debug);
-    else if (key == "log_receiver_port") out->log_receiver_port = ParseInt(val, out->log_receiver_port);
     else if (key == "chat_prefix") out->chat_prefix = ExpandChatColorTokens(val);
     else if (key == "admin_prefix") out->admin_prefix = ExpandChatColorTokens(val);
     else if (key == "captain_prefix_team1") out->captain_prefix_team1 = ExpandChatColorTokens(val);
@@ -175,6 +174,7 @@ bool LoadCfgFromDisk(ReadyUpCfg* out, std::string* err, bool allowMissing) {
     else if (key == "consume_ru_chat") out->consume_ru_chat = ParseBool(val, out->consume_ru_chat);
     else if (key == "consume_ready_chat") out->consume_ready_chat = ParseBool(val, out->consume_ready_chat);
     else if (key == "dev_bots_ready") out->dev_bots_ready = ParseBool(val, out->dev_bots_ready);
+    else if (key == "dev_bots_scrim") out->dev_bots_scrim = ParseBool(val, out->dev_bots_scrim);
     else if (key == "scrim_knife") out->scrim_knife = ParseBool(val, out->scrim_knife);
     else if (key == "knife_pick_seconds") out->knife_pick_seconds = ParseInt(val, out->knife_pick_seconds);
     else if (key == "status_http_enabled") out->status_http_enabled = ParseBool(val, out->status_http_enabled);
@@ -242,14 +242,6 @@ bool ChatDebugEnabled() {
   return !(v[0] == '0' || v[0] == 'n' || v[0] == 'N' || v[0] == 'f' || v[0] == 'F');
 }
 
-int LogReceiverPort() {
-  const char* v = std::getenv("READYUP_LOG_RECEIVER_PORT");
-  if (!v || !*v) return Cfg().log_receiver_port;
-  const long long x = std::strtoll(v, nullptr, 10);
-  if (x <= 0 || x > 65535) return Cfg().log_receiver_port;
-  return static_cast<int>(x);
-}
-
 std::string ChatPrefix() {
   auto c = Cfg();
   if (c.chat_prefix.empty()) c.chat_prefix = DefaultCfg().chat_prefix;
@@ -295,6 +287,44 @@ bool DevBotsReadyEnabled() {
   if (prev != cur) {
     if (on) PrintLine("WARNING: dev_bots_ready is ON — bots count as ready (debug only; do not use for real matches).");
     else if (prev == 1) PrintLine("dev_bots_ready is OFF.");
+  }
+  return on;
+}
+
+namespace {
+std::atomic<int> g_devBotsScrimOverride{-1};
+}  // namespace
+
+void SetDevBotsScrimOverride(int v) {
+  g_devBotsScrimOverride.store(v < 0 ? -1 : (v ? 1 : 0));
+  (void)DevBotsScrimEnabled();  // logs the flip
+}
+
+int DevBotsScrimOverride() {
+  return g_devBotsScrimOverride.load();
+}
+
+bool DevBotsScrimEnabled() {
+  bool on = false;
+  const int ov = g_devBotsScrimOverride.load();
+  if (ov >= 0) {
+    on = ov == 1;
+  } else {
+    const char* v = std::getenv("READYUP_DEV_BOTS_SCRIM");
+    if (!v || !*v) on = Cfg().dev_bots_scrim;
+    else on = !(v[0] == '0' || v[0] == 'n' || v[0] == 'N' || v[0] == 'f' || v[0] == 'F');
+  }
+
+  static std::atomic<int> s_last{-1};
+  const int cur = on ? 1 : 0;
+  const int prev = s_last.exchange(cur);
+  if (prev != cur) {
+    if (on) {
+      PrintLine("WARNING: dev_bots_scrim is ON — a scrim starts and runs with only bots on CT and T "
+                "(testing only; never on a real server).");
+    } else if (prev == 1) {
+      PrintLine("dev_bots_scrim is OFF.");
+    }
   }
   return on;
 }

@@ -310,8 +310,7 @@ How it talks to the core, all through `ru_api` v1.1:
 - prefetch: raw `player_spawn`, `item_equip`, `item_pickup` (the core no longer listens to the
   last two); StatTrak: raw `player_death`;
 - DB: its own libpq connection (`libs/readyup/pg_client`) configured from
-  `config_dir()/readyup_db.json` (`libs/readyup/db_config`), on one worker thread that unload joins;
-- admin default knife: `is_admin` on that worker thread.
+  `config_dir()/readyup_db.json` (`libs/readyup/db_config`), on one worker thread that unload joins.
 
 **Gamedata fragment.** The engine entries only skins uses (the econ/model functions and the
 `CEntityInstance::NetworkStateChanged` slot) moved from `engine-surface.json` to

@@ -188,8 +188,6 @@ void RefreshJob(uint64_t sid) {
     SKINS_DEBUG("db: ensure schema failed: %s", err.c_str());
   } else {
     MergeInto(l, sid);
-    // Admins get a default knife. is_admin may block (DB / MAT); fine on this thread.
-    l.is_admin = g_api->is_admin(g_api->self, sid) == 1;
   }
   std::lock_guard<std::mutex> lk(g_mu);
   CacheEntry& e = g_cache[sid];
@@ -337,9 +335,8 @@ std::optional<std::string> FindKnifeClassname(uint64_t steamid64, int weapon_tea
   auto it = g_cache.find(steamid64);
   if (it == g_cache.end() || it->second.loaded_at.time_since_epoch().count() == 0) return std::nullopt;
   const auto tl = FindTeamLocked(it->second.loadout, weapon_team);
+  // No knife row: stock knife (no default, not even for admins).
   if (tl && tl->knife_classname && !tl->knife_classname->empty()) return *tl->knife_classname;
-  // Tournament default: admins get a butterfly (only when the DB has no knife for them).
-  if (it->second.loadout.is_admin) return std::string("weapon_knife_butterfly");
   return std::nullopt;
 }
 

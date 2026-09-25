@@ -24,10 +24,6 @@ struct ReadyUpCfg {
   std::string hud_logo_url;
   bool chat_debug = false;
 
-  // UDP port Ready Up listens on for server log lines (used to observe chat `ru ...` commands).
-  // Must match `logaddress_add 127.0.0.1:<port>` in cfg.
-  int log_receiver_port = 35050;
-
   // Prefixes (token-based; expanded to CS2 chat control bytes at load).
   // Note: Ready Up will add a single space after these prefixes in output.
   std::string chat_prefix;
@@ -46,6 +42,11 @@ struct ReadyUpCfg {
   // and are always READY, so one human can test ready -> live with bots.
   // Bots are never added to the match context (no webhooks/DB/persistence).
   bool dev_bots_ready = false;
+
+  // DEBUG ONLY. When true, a scrim can start and run with no humans at all: bots on both
+  // CT and T enter scrim warmup, count as everyone ready, and the empty-scrim timeout is
+  // skipped. Bots count toward the scrim roster as with dev_bots_ready. For the live test.
+  bool dev_bots_scrim = false;
 
   // Scrims (no match config): play a knife round after everyone readied up;
   // the winning side picks .stay/.switch. Off: straight to live.
@@ -66,7 +67,6 @@ ReadyUpCfg Cfg();
 bool DebugEnabled();
 bool BannerEnabled();
 bool ChatDebugEnabled();
-int LogReceiverPort();
 
 // Prefix accessors (may include CS2 chat color control bytes).
 std::string ChatPrefix();
@@ -80,6 +80,14 @@ bool ConsumeReadyChat();
 // readyup.cfg `dev_bots_ready` (env override: READYUP_DEV_BOTS_READY).
 // Logs a loud line whenever the effective value flips to ON.
 bool DevBotsReadyEnabled();
+
+// readyup.cfg `dev_bots_scrim` (env override: READYUP_DEV_BOTS_SCRIM; console override:
+// `ru_dev_bots_scrim 0|1|cfg`, which wins until `cfg` or a restart).
+// Logs a loud line whenever the effective value flips.
+bool DevBotsScrimEnabled();
+// -1 = no override (cfg/env), 0 = off, 1 = on.
+void SetDevBotsScrimOverride(int v);
+int DevBotsScrimOverride();
 
 // Reloads `readyup.cfg` from disk (best-effort).
 // Returns true if the file was successfully read+parsed, false otherwise.

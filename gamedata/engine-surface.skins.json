@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "game_version": "1.41.8.3",
-    "steam_buildid": 25492732,
+    "game_version": "1.41.8.4",
+    "steam_buildid": 25515854,
     "binary": "game/csgo/bin/linuxsteamrt64/libserver.so",
     "notes": "Owned by readyup-skins. The core merges every engine-surface.<name>.json next to the shim into engine-surface.json at load; readyup_sigcheck/readyup_hookcheck take it as an extra argument. Ships only in the skins packages. Entries may reference rtti classes from the base file."
   },

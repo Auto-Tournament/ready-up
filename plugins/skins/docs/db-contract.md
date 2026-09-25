@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS readyup_weapon_knives (
 Unknown values are ignored and the player keeps the default knife. The knife's **paint** is a
 `readyup_weapon_skins` row with `weapon_defindex` = the number in brackets.
 
-If a Ready Up admin has no knife row, they get `weapon_knife_butterfly` by default.
+No knife row means the stock knife. There is no default knife, for admins or anyone else.
 
 ## `readyup_weapon_gloves`: glove model
 

@@ -13,6 +13,7 @@
 #include "readyup/disabled.h"
 #include "readyup/features.h"
 #include "readyup/game_events.h"
+#include "readyup/game_timers.h"
 #include "readyup/knife_tracker.h"
 #include "readyup/logging.h"
 #include "readyup/match_state.h"
@@ -33,6 +34,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace readyup {
 namespace {
@@ -207,9 +209,36 @@ static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx);
 // Ready Up's (emulated) warmup set and knife.cfg does not touch, so the round
 // can actually end and nobody keeps a gun. mp_logdetail 3 adds `attacked`
 // log lines (with the victim's remaining health) for the time-out tiebreak.
+// CS2 runs an `exec`ed cfg's lines after the commands already queued behind the exec,
+// so a cvar enqueued right after `exec ReadyUp/live.cfg` is overwritten by the cfg.
+// Commands that must win over a cfg go out this much later (well before the
+// mp_restartgame 1 that follows every cfg exec here).
+constexpr double kAfterCfgSeconds = 0.25;
+
+static void EnqueueAfterCfg(std::vector<std::string> cmds) {
+  if (cmds.empty()) return;
+  ScheduleOnGameThread(kAfterCfgSeconds, [cmds = std::move(cmds)]() {
+    for (const auto& c : cmds) (void)EnqueueServerCommand(c.c_str());
+  });
+}
+
+static bool AnyHumanOnCtOrT() {
+  for (const auto& h : ListHumans()) {
+    if (h.team == 2 || h.team == 3) return true;
+  }
+  return false;
+}
+
 static void ApplyKnifeRulesLocked(State& st) {
   bool any = false;
   if (EnqueueServerCommand("exec ReadyUp/knife.cfg")) any = true;
+  // Dev flags only (dev_bots_ready / dev_bots_scrim) with nobody human on CT/T: bots do
+  // not knife each other, so the round would run knife.cfg's full 1:55 to a time-out.
+  // Cut it to 30s. live.cfg (and match cvars) set the real round time before going live.
+  if ((DevBotsReadyEnabled() || DevBotsScrimEnabled()) && !AnyHumanOnCtOrT()) {
+    EnqueueAfterCfg({"mp_roundtime 0.5", "mp_roundtime_defuse 0.5", "mp_roundtime_hostage 0.5"});
+    PrintLine("knife: dev flag on and no humans on CT/T - knife round time 0.5 min (bots do not knife).");
+  }
   const char* cmds[] = {
       "mp_warmup_pausetimer 0",
       "mp_ignore_round_win_conditions 0",
@@ -746,11 +775,14 @@ static bool IsSafeConvarValue(const std::string& s) {
   return true;
 }
 
+// Match config cvars win over live.cfg / knife.cfg: they go out after the cfg ran
+// (EnqueueAfterCfg), whichever order the callers queue them in.
 static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx) {
   if (ctx.cvars.empty()) return;
   if (DebugEnabled()) {
     Debug("modes: applying %zu match cvars\n", ctx.cvars.size());
   }
+  std::vector<std::string> cmds;
   for (const auto& kv : ctx.cvars) {
     const std::string& key = kv.first;
     const std::string& val = kv.second;
@@ -762,8 +794,9 @@ static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx) {
     if (DebugEnabled()) {
       Debug("modes: cvar: %s\n", cmd.c_str());
     }
-    (void)EnqueueServerCommand(cmd.c_str());
+    cmds.push_back(cmd);
   }
+  EnqueueAfterCfg(std::move(cmds));
 }
 
 static void StopDemoLocked(State& st) {

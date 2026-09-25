@@ -25,6 +25,13 @@ event (`loc_token` = HTML). Tested in game on CS2 1.41.8.3 with `.ru hudtest 1-7
 
 Logos must be hosted as a PNG already scaled to the display size.
 
+## When the ready panel is shown
+
+The ready list shows in scrim warmup and in match warmup. `ru_warmup_enable 0` does not just hide
+it: it turns off ready-up for loaded matches (no panel, no knife round, live on the next round
+start). To hide the panel but keep ready-up, set `ready_hud=0` in `readyup.cfg` (chat reminders
+come back).
+
 ## Knife panel and chat
 
 - After the knife round starts, the KNIFE ROUND panel stays up for `hud_knife_hold_s` seconds (default 30), also while the round is running.
