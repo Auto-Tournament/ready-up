@@ -4,6 +4,7 @@
 #include "readyup/practice_tools.h"
 
 #include "readyup/engine.h"
+#include "readyup/esports.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
 #include "readyup/match_events.h"
@@ -290,6 +291,10 @@ bool TeleportRemembering(int slot, uint64_t id, const Vec3& to) {
 
 void RunPractice(int slot, uint64_t steamid64, const std::vector<std::string>& args) {
   const std::string cmd = Lower(args[0]);
+  if (!PlayerExtrasAllowed(CurrentEffectiveRules())) {
+    Print("practice: %s ignored (valve ruleset)\n", cmd.c_str());
+    return;
+  }
   if (!InPractice()) {
     Reply(slot, steamid64, cmd + " only works in practice mode (.prac).");
     return;

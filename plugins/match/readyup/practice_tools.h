@@ -29,6 +29,8 @@
 //
 // Test hook: `ru as <slot> <chat line>` (server console / RCON only) runs a practice command,
 // `.gg` or `.stop` as the player (or bot) in that slot, so bot-only live tests can drive them.
+// Under the valve ruleset the tools above do nothing (ruleset.h PlayerExtrasAllowed); the bot
+// commands keep working as before this change.
 // Log lines: `practice: ...`.
 
 #include "readyup/plugin_api.h"

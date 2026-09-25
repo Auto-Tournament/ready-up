@@ -4,6 +4,7 @@
 #include "readyup/config.h"
 #include "readyup/damage_ledger.h"
 #include "readyup/engine.h"
+#include "readyup/esports.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
 #include "readyup/match_events.h"
@@ -92,6 +93,7 @@ void OnGameEvent(void*, const char* name, const ru_game_event* ev) {
     g_ledger.OnDeath(a->ev_get_player_slot(a->self, ev, "userid"));
   } else if (std::strcmp(name, "round_end") == 0) {
     if (!Cfg().damage_report || GetMode() != ReadyUpMode::MatchLive) return;
+    if (!PlayerExtrasAllowed(CurrentEffectiveRules())) return;  // valve ruleset: no report
     BuildReports();
   }
 }

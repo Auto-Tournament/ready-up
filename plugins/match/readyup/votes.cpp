@@ -4,6 +4,7 @@
 #include "readyup/config.h"
 #include "readyup/damage_report.h"
 #include "readyup/engine.h"
+#include "readyup/esports.h"
 #include "readyup/fleet_bridge.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
@@ -142,6 +143,8 @@ void VotesTick(double now) {
 
 bool VotesGg(uint64_t voter, WebhookTeam team, const std::string& name) {
   SyncMatch();
+  // Valve ruleset: no surrender vote (`.gg` only emits player_gg, as with gg off).
+  if (!PlayerExtrasAllowed(CurrentEffectiveRules())) return false;
   const auto ctx = WebhookGetMatchContext();
   const MatchRules rules = EffectiveRules();
   if (!ctx || !rules.gg_enabled) return false;
@@ -187,6 +190,10 @@ bool VotesGg(uint64_t voter, WebhookTeam team, const std::string& name) {
 
 void VotesStop(uint64_t /*voter*/, WebhookTeam team, const std::string& name) {
   SyncMatch();
+  if (!PlayerExtrasAllowed(CurrentEffectiveRules())) {
+    Print("vote: stop: ignored (valve ruleset)\n");
+    return;
+  }
   const auto ctx = WebhookGetMatchContext();
   const MatchRules rules = EffectiveRules();
   const int ti = TeamIdx(team);

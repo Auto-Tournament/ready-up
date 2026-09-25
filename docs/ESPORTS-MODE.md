@@ -283,6 +283,11 @@ ctest `match_ruleset`), `plugins/match/readyup/esports.{h,cpp}` (engine side), t
 `cfg/ReadyUp/esports_live.cfg` (+ `esports_override.cfg`), the skins gate in
 `plugins/skins/skins_plugin.cpp`, live test `scripts/livetest/run.sh --ruleset valve`.
 
+Player extras outside the rulebook are off under `valve` (`PlayerExtrasAllowed`, `ruleset.h`), and
+no override turns them back on: the practice tools (`.savepos`, `.loadpos`, `.spawn`, `.rethrow`,
+...), the end-of-round damage report, the `.gg` surrender vote (`.gg` only emits `player_gg`) and
+the `.stop` round-restore vote.
+
 ### Switch and precedence
 
 - `readyup.cfg` top-level `ruleset=default|valve` (anything else: logged, `default`). Plugins can

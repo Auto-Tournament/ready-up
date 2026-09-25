@@ -12,6 +12,9 @@
 //          (fleet_bridge::RestoreRoundFromLocalBackup, autopaused). stop_command_no_damage: not
 //          once a player damaged an opponent this round.
 //
+// Under the valve ruleset both are off (ruleset.h PlayerExtrasAllowed): `.gg` only emits
+// player_gg, `.stop` is ignored.
+//
 // Log lines: `vote: ...`.
 
 #include "readyup/plugin_api.h"

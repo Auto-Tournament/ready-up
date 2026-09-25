@@ -543,4 +543,6 @@ bool CoachesAdmitted(const EffectiveRuleSet& e) { return e.Bool("lan", false) ||
 
 bool InventoryLocked(const EffectiveRuleSet& e) { return e.Str("cosmetics") == "inventory"; }
 
+bool PlayerExtrasAllowed(const EffectiveRuleSet& e) { return e.ruleset != Ruleset::Valve; }
+
 }  // namespace readyup

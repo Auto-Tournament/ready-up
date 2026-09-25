@@ -9,7 +9,7 @@
 // from player_hurt (damage capped at the victim's remaining health) and player_death. Knife
 // rounds and warmup are not reported. Bots get no chat; with readyup.cfg debug=1 every line is
 // also logged (`[dbg] damage-report: <name>: <line>`), plus one `damage-report: round ...`
-// summary line per round. The bookkeeping is damage_ledger.h.
+// summary line per round. Never under the valve ruleset (ruleset.h PlayerExtrasAllowed). The bookkeeping is damage_ledger.h.
 
 #include "readyup/plugin_api.h"
 
