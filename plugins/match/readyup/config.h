@@ -46,6 +46,9 @@ struct ReadyUpCfg {
   bool scrim_knife = true;
   // Scrim knife side-pick window in seconds (match configs use knifeDecisionSeconds).
   int knife_pick_seconds = 60;
+  // Idle map refresh (idle_refresh.h): reload the map after this many hours on it with no match
+  // loaded and nobody connected. 0 = off.
+  int idle_map_refresh_hours = 12;
   // Pause / ready / forfeit rules (match_rules.h): the values for scrims, and the fallback for
   // match configs that leave a rule out. Keys: max_tech_pauses_per_team, tech_pause_max_seconds,
   // both_teams_unpause_required, allow_force_ready, min_players_to_ready, forfeit_after_seconds.

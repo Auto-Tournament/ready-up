@@ -169,9 +169,20 @@ The installer only creates this file if it's missing; it never overwrites your e
 The core reads `debug`, `banner`, `chat_prefix`, `chat_debug`, `consume_ru_chat` and the
 `status_http_*` keys. The match plugin (`match.so`) reads its keys (`welcome`, `ready_hud`,
 `hud_*`, `admin_prefix`, `captain_prefix_*`, `consume_ready_chat`, `dev_bots_*`, `scrim_knife`,
-`knife_pick_seconds`) from the same place, or from a `[match]` section of this file, or from
+`knife_pick_seconds`, `idle_map_refresh_hours`) from the same place, or from a `[match]` section of this file, or from
 `game/csgo/cfg/ReadyUp/match.cfg` (later ones win). It re-reads them by itself when one of those
 files changes.
+
+### Idle map refresh
+
+After a day or more of uptime on one map, player animations run in slow motion while the tick
+rate stays fine (most likely float precision in the engine clock). A map load fixes it, so:
+
+- Loading a match always changes map, also when the server is already on the match's first map.
+- `idle_map_refresh_hours=12` (default; `0` = off): when no match is loaded, nobody is connected
+  and the server has been on the same map for that many hours, Ready Up loads the same map again
+  (a workshop map by its id). It logs `idle-refresh: ...` and tries again at most every 10 minutes
+  if the map does not change.
 
 ### Prefix keys
 

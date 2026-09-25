@@ -17,6 +17,7 @@ set(MATCH_SOURCES
   readyup/fleet_state.cpp
   readyup/game_timers.cpp
   readyup/host.cpp
+  readyup/idle_refresh.cpp
   readyup/knife_tracker.cpp
   readyup/local_store.cpp
   readyup/ru_commands.cpp
@@ -128,3 +129,9 @@ target_include_directories(match_ru_commands_test PRIVATE ${CMAKE_CURRENT_SOURCE
 target_compile_options(match_ru_commands_test PRIVATE -Wall -Wextra)
 target_link_libraries(match_ru_commands_test PRIVATE pthread)
 add_test(NAME match_ru_commands COMMAND match_ru_commands_test)
+
+# Idle map refresh decision (readyup/idle_refresh.h; ctest `match_idle_refresh`).
+add_executable(match_idle_refresh_test tests/idle_refresh_test.cpp)
+target_include_directories(match_idle_refresh_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(match_idle_refresh_test PRIVATE -Wall -Wextra)
+add_test(NAME match_idle_refresh COMMAND match_idle_refresh_test)

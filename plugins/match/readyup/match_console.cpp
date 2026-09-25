@@ -544,10 +544,11 @@ void ApplyLoadedMatch(const WebhookMatchContext& ctx, const std::string& configJ
     readyup::persisted_match_state::PersistBackupPrefix(prefix);
   }
 
-  // Change to the first map (map 1, or the map a failover resumes) unless the server is on it.
+  // Change to the first map (map 1, or the map a failover resumes), also when the server is
+  // already on it: a fresh map load resets the engine clock (after a day or more on one map
+  // player animations run in slow motion, idle_refresh.h).
   const size_t idx = static_cast<size_t>(firstMapNumber - 1);
-  // The new match is on map N from here: a match loaded on the map the server is on gets no map
-  // change, so the map number of a previous match must not carry over.
+  // The new match is on map N from here: the map number of a previous match must not carry over.
   {
     MatchLogState ls = MatchLogSnapshot();
     ls.mapNumber = firstMapNumber;
@@ -555,9 +556,7 @@ void ApplyLoadedMatch(const WebhookMatchContext& ctx, const std::string& configJ
     MatchStateSetMap(firstMapNumber, MatchStateGet().current_map);
   }
   if (idx < ctx.maplist.size()) {
-    const std::string& entry = ctx.maplist[idx];
-    const auto ms = MatchStateGet();
-    if (!mapnames::EntryMatchesLoaded(entry, ms.current_map)) (void)LoadMapEntry(entry);
+    (void)LoadMapEntry(ctx.maplist[idx]);
   }
 }
 

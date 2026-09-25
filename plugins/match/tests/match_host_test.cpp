@@ -401,11 +401,13 @@ int main(int argc, char** argv) {
   const int port = ServeOnce(body, &http);
   Check(port > 0, "test http server up");
   ClearLog();
+  ClearCmds();
   Check(rp::TryDispatchRu(true, 0, "Console", "ru match load http://127.0.0.1:" + std::to_string(port) + "/m.json"),
         "`ru match load` dispatched");
   rp::Frame(true);
   http.join();
   Check(Logged("match context set: matchid=4242 slug=hosttest"), "match loaded");
+  Check(Sent("changelevel de_test"), "match load changes map also onto the map the server is on");
   Check(FramesUntil([] { return Has(Summary(), "\"ru_mode\":\"match_warmup\""); }, 2000), "mode match_warmup");
   Check(FramesUntil([] { return g_suppressed.load() == 1; }, 2000), "warmup suppresses round termination");
   rp::TryDispatchChat(76561198000000002ull, "bob", ".ready", 3);
