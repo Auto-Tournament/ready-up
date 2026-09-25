@@ -22,6 +22,10 @@ struct ReadyUpCfg {
   int status_http_port = 0;  // 0 = game port + 7
   std::string status_http_token;  // empty = generated, kept in csgo/readyup/status.json
   bool status_http_metrics = false;
+  // `ru perf` / slow-frame log lines (perf_stats.h): a frame whose plugin callbacks took longer
+  // than perf_warn_ms, or that came perf_gap_warn_ms after the previous one, is logged.
+  int perf_warn_ms = 8;
+  int perf_gap_warn_ms = 250;
 };
 
 ReadyUpCfg Cfg();

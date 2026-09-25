@@ -71,7 +71,15 @@ static void Hook_GameFrame(void* thisptr, bool simulating, bool bFirstTick, bool
   // Plugins last: pending load/unload/reload (a safe point: no plugin code is on the
   // stack), then queued commands/events, then per-tick callbacks. The match flow (ready-up,
   // knife, HUD, timers) is plugins/match and runs here too.
-  if (plugins) readyup::plugins::Frame(/*simulating=*/true);
+  if (plugins) {
+    static int s_cfgFrames = 0;
+    if (s_cfgFrames-- <= 0) {  // about every 5 s at 64 tick (Cfg() copies the whole config)
+      s_cfgFrames = 320;
+      const readyup::ReadyUpCfg c = readyup::Cfg();
+      readyup::plugins::SetPerfThresholds(c.perf_warn_ms, c.perf_gap_warn_ms);
+    }
+    readyup::plugins::Frame(/*simulating=*/true);
+  }
   // READYUP_SELFTEST_AND_QUIT: runs the selftest once the first map is up, then quits.
   readyup::SelftestFrameTick();
   // Local status endpoint: rebuild the snapshot (at most every 250 ms) and hand it to the

@@ -6,6 +6,7 @@
 #include "readyup/config.h"
 #include "readyup/game_events.h"
 #include "readyup/logging.h"
+#include "readyup/perf_stats.h"
 #include "readyup/path.h"
 #include "readyup/plugin_state.h"
 #include "readyup/ru_router.h"
@@ -20,6 +21,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cctype>
 #include <cerrno>
 #include <cstdlib>
@@ -163,6 +165,15 @@ bool OnGameThread() {
   return g_haveGameThread.load(std::memory_order_acquire) && std::this_thread::get_id() == g_gameThread;
 }
 
+// Plugin time per game frame (`ru perf`, perf_stats.h). Game thread only.
+PerfStats g_perf;
+bool g_perfStarted = false;
+double g_perfWarnMs = 8, g_perfGapWarnMs = 250;  // SetPerfThresholds (readyup.cfg)
+
+double PerfNowS() {
+  return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
 std::string Lower(std::string s) {
   for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   return s;
@@ -229,7 +240,20 @@ void InvokePlugin(Instance* inst, const char* what, F&& f) {
   char saved[sizeof(g_crashName)];
   std::memcpy(saved, g_crashName, sizeof(saved));
   std::strncpy(g_crashName, inst->name.c_str(), sizeof(g_crashName) - 1);
+  // Only the outermost call is timed (a plugin calling into the core that calls another plugin
+  // is part of the first plugin's time), and only on the game thread (the server frame).
+  const bool timed = g_depth == 0 && OnGameThread();
+  const auto t0 = timed ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
   ++g_depth;
+  struct Timer {
+    bool on;
+    std::chrono::steady_clock::time_point t0;
+    const std::string& plugin;
+    const char* what;
+    ~Timer() {
+      if (on) g_perf.Add(plugin, what, std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - t0).count());
+    }
+  } timer{timed, t0, inst->name, what};
   try {
     f();
   } catch (const std::exception& e) {
@@ -956,7 +980,8 @@ void DeliverCommand(const QueuedCmd& c) {
   ctx.argc = static_cast<int>(parts.size());
   ctx.argv = argv.data();
   auto fn = reinterpret_cast<ru_command_fn>(reg.fn);
-  InvokePlugin(inst, reg.name.c_str(), [&] { fn(reg.user, &ctx); });
+  const std::string what = "cmd:" + reg.name;
+  InvokePlugin(inst, what.c_str(), [&] { fn(reg.user, &ctx); });
 }
 
 void DeliverEvent(const LifecycleEvent& e) {
@@ -1231,10 +1256,36 @@ void Frame(bool simulating) {
     RunTicks(RegKind::Tick, true);
   }
   RunTicks(RegKind::Frame, simulating);
+
+  // 4. Frame time: log a frame whose plugin time or gap is over the thresholds (SetPerfThresholds).
+  if (simulating) {
+    const double now = PerfNowS();
+    if (!g_perfStarted) {
+      g_perfStarted = true;
+      g_perf.Reset(now);
+    }
+    const std::string line = g_perf.EndFrame(now, g_perfWarnMs, g_perfGapWarnMs);
+    if (!line.empty()) Print("%s\n", line.c_str());
+  }
+}
+
+void SetPerfThresholds(int warnMs, int gapWarnMs) {
+  g_perfWarnMs = warnMs > 0 ? warnMs : 8;
+  g_perfGapWarnMs = gapWarnMs;
 }
 
 void HandlePluginCommand(const std::vector<std::string>& args, bool replyToChat, int slot) {
   const std::string verb = args.empty() ? "list" : Lower(args[0]);
+  if (verb == "perf") {
+    // `ru plugin perf [reset]` (`ru perf`): where the server frame goes, since the last reset.
+    if (args.size() > 1 && Lower(args[1]) == "reset") {
+      g_perf.Reset(PerfNowS());
+      Reply("perf: counters reset", replyToChat, slot);
+      return;
+    }
+    for (const auto& l : g_perf.Report(PerfNowS(), replyToChat ? 6 : 16)) Reply(l, replyToChat, slot);
+    return;
+  }
   if (verb == "list") {
     std::vector<std::string> lines;
     {
@@ -1303,7 +1354,8 @@ void DispatchGameEvent(const char* name, void* ev) {
     Instance* inst = nullptr;
     if (!LookupReg(id, &reg, &inst)) continue;
     auto fn = reinterpret_cast<ru_game_event_fn>(reg.fn);
-    InvokePlugin(inst, n.c_str(), [&] { fn(reg.user, n.c_str(), static_cast<const ru_game_event*>(ev)); });
+    const std::string what = "event:" + n;
+    InvokePlugin(inst, what.c_str(), [&] { fn(reg.user, n.c_str(), static_cast<const ru_game_event*>(ev)); });
   }
 }
 

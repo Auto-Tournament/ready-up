@@ -35,6 +35,13 @@ admin_prefix=<DarkRed>[Admin]<Default>
 # status_http_token=          (empty = generated once and kept in status.json)
 # status_http_metrics=0
 
+# Server frame time (`ru perf` / `.ru plugin perf`: time each plugin takes per frame). A frame whose
+# plugin callbacks took longer than perf_warn_ms, or that came perf_gap_warn_ms after the previous
+# frame (the engine itself, a map load, hibernation), is logged with its top callbacks, at most
+# once every 10 s.
+# perf_warn_ms=8
+# perf_gap_warn_ms=250
+
 # Match rules (readyup-match). Scrims use these; a match config's own values win for matches.
 # max_tech_pauses_per_team=3     technical pauses (.tech/.pause) per team per map, 0 = unlimited
 # tech_pause_max_seconds=300     auto-unpause after this long, 0 = never
