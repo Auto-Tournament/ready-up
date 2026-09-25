@@ -150,6 +150,7 @@ Full docs are at **[docs.autotournament.gg](https://docs.autotournament.gg)**. I
 
 - [Install and how loading works](docs/INSTALL.md)
 - [Admins](docs/ADMINS.md)
+- [Esports mode (Valve ruleset) spec](docs/ESPORTS-MODE.md)
 - [Development and debugging](docs/DEVELOPMENT.md)
 - [Testing with Auto Tournament](docs/TESTING_WITH_MAT.md)
 
