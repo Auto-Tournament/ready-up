@@ -230,9 +230,137 @@
               "type": "number"
             }
           }
+        },
+        "ruleset": {
+          "enum": [
+            "default",
+            "valve"
+          ],
+          "description": "docs/ESPORTS-MODE.md. valve: go-live execs ReadyUp/esports_live.cfg (Premier defaults + Valve's exceptions), knife sides refused, skins plugin inert, counted technical pauses. Absent: the server's readyup.cfg ruleset="
+        },
+        "overrides": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "freezetime": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 120,
+              "description": "mp_freezetime (valve 20, default 18)"
+            },
+            "tac_timeouts": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "mp_team_timeout_max: tactical timeouts per team (valve 3)"
+            },
+            "tac_timeout_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 300,
+              "description": "mp_team_timeout_time (valve 31, default 30)"
+            },
+            "tech_pauses_per_team": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20,
+              "description": "technical pauses per team per map, 0 = unlimited (valve 1)"
+            },
+            "tech_pause_seconds": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3600,
+              "description": "technical pause auto-unpause, 0 = never (valve 120)"
+            },
+            "allow_knife": {
+              "type": "boolean",
+              "description": "map sides \"knife\" allowed (valve false: sides come from the veto)"
+            },
+            "overtime": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "mp_overtime_enable (valve true)"
+                },
+                "maxrounds": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 30,
+                  "description": "mp_overtime_maxrounds (valve 6)"
+                },
+                "startmoney": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535,
+                  "description": "mp_overtime_startmoney (valve 10000, the engine default)"
+                },
+                "limit": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "description": "mp_overtime_limit, 0 = unlimited (valve 0)"
+                }
+              }
+            },
+            "zeus": {
+              "type": "integer",
+              "minimum": -1,
+              "maximum": 10,
+              "description": "mp_weapons_allow_zeus (valve 5, default 1)"
+            },
+            "spectators_max": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 64,
+              "description": "mp_spectators_max (valve 10, default 20)"
+            },
+            "halftime_pausematch": {
+              "type": "boolean",
+              "description": "mp_halftime_pausematch: pause after halftime, both teams .unpause (valve true)"
+            },
+            "tv_delay": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 960,
+              "description": "tv_delay (valve 105, Premier's)"
+            },
+            "tv_broadcast_url": {
+              "type": "string",
+              "maxLength": 256,
+              "pattern": "^(https?://[!#-:<-\\[\\]-~]+)?$",
+              "description": "CSTV broadcast relay; set -> tv_broadcast_url + tv_broadcast 1"
+            },
+            "camera_man_steamid": {
+              "type": "string",
+              "pattern": "^([0-9]{17})?$",
+              "description": "tv_allow_camera_man_steamid"
+            },
+            "lan": {
+              "type": "boolean",
+              "description": "LAN event: coaches admitted (valve false)"
+            },
+            "coaches_online": {
+              "type": "boolean",
+              "description": "coaches admitted as spectators online (valve false, default true)"
+            },
+            "default_models": {
+              "type": "boolean",
+              "description": "reset player models to the default agents on spawn (entity SetModel; no inventory / econ change). Off by default"
+            },
+            "cosmetics": {
+              "enum": [
+                "inventory",
+                "plugin"
+              ],
+              "description": "inventory: players' own items only, skins plugin inert (valve); plugin: skins plugin applies (default)"
+            }
+          },
+          "description": "Named rule overrides on top of the ruleset preset (one key per rule). Unknown keys, wrong types and out-of-range values are refused (cmd.result invalid_config). Reported in MatchState.effective_rules"
         }
       },
-      "description": "Typed match rules (FLEET.md §7.1). Enforced by Ready Up today: max_rounds, overtime, tiebreak, knife.side_pick_seconds, clinch_series, whitelist (always on), ready.min_per_team (reported). The rest is carried in MatchState.rules for later steps."
+      "description": "Typed match rules (FLEET.md §7.1). Enforced by Ready Up today: max_rounds, overtime, tiebreak, knife.side_pick_seconds, clinch_series, whitelist (always on), ready.min_per_team (reported). The rest is carried in MatchState.rules for later steps. ruleset + overrides: docs/ESPORTS-MODE.md (enforced)."
     },
     "assignPlayer": {
       "type": "object",
@@ -1172,7 +1300,8 @@
                 "tactical",
                 "technical",
                 "admin",
-                "offline"
+                "offline",
+                "halftime"
               ]
             },
             "by": {
@@ -1256,6 +1385,58 @@
         },
         "rules": {
           "$ref": "#/$defs/rules"
+        },
+        "ruleset": {
+          "enum": [
+            "default",
+            "valve"
+          ],
+          "description": "Effective ruleset (match config, else the server's readyup.cfg)"
+        },
+        "effective_rules": {
+          "type": "object",
+          "required": [
+            "ruleset",
+            "rules",
+            "differs"
+          ],
+          "properties": {
+            "ruleset": {
+              "enum": [
+                "default",
+                "valve"
+              ]
+            },
+            "rules": {
+              "type": "object",
+              "description": "Every managed rule's effective value (the overrides keys; rules the server leaves alone are absent)"
+            },
+            "differs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Keys whose effective value differs from the preset (\"overtime.limit\" for nested ones): \"differs from Valve\""
+            },
+            "preset": {
+              "type": "object",
+              "description": "The preset value of each differing key (same shape as rules)"
+            },
+            "source": {
+              "type": "object",
+              "additionalProperties": {
+                "enum": [
+                  "preset",
+                  "override",
+                  "match",
+                  "cvars",
+                  "cfg"
+                ]
+              },
+              "description": "Where each differing value came from: override, match (a per-match rule key), cvars (match config cvars), cfg (readyup.cfg)"
+            }
+          },
+          "description": "Ruleset preset + overrides as the server enforces them (docs/ESPORTS-MODE.md)"
         }
       },
       "description": "FLEET.md §9.1. Never contains null (a merge patch null means `remove`). Unknown members are allowed (the local /status adds a few)."

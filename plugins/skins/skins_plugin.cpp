@@ -15,11 +15,17 @@
 
 #include "apply_internal.h"
 
+#include "readyup/match_iface.h"
+#include "readyup/selftest_iface.h"
+
+#include <atomic>
+#include <cctype>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <mutex>
 #include <string>
 
 #ifndef SKINS_VERSION
@@ -45,11 +51,69 @@ bool DebugOn() { return g_api && g_api->debug_enabled(g_api->self) != 0; }
 int SchemaOffset(const char* cls, const char* field) { return g_api->schema_offset(g_api->self, cls, field); }
 
 namespace {
+std::atomic<bool> g_inert{false};
+std::mutex g_inertMu;
+std::string g_inertReason;
+double g_lastInertCheck = -1e9;
+
+// Game thread, once a second: the match plugin knows the loaded match's ruleset (and overrides);
+// without it, readyup.cfg `ruleset=` (config_get falls back to the core key).
+void RefreshInert(double now) {
+  if (now - g_lastInertCheck < 1.0) return;
+  g_lastInertCheck = now;
+  bool locked = false;
+  std::string ruleset = "default";
+  const auto* m = static_cast<const ru_match_v1*>(g_api->get_interface(g_api->self, RU_MATCH_IFACE_NAME, 1));
+  if (m && RU_API_HAS(m, inventory_locked) && m->inventory_locked) {
+    locked = m->inventory_locked() != 0;
+    if (RU_API_HAS(m, ruleset) && m->ruleset && m->ruleset()) ruleset = m->ruleset();
+  } else {
+    char buf[32] = {};
+    if (g_api->config_get(g_api->self, "ruleset", buf, sizeof(buf)) > 0) {
+      ruleset = buf;
+      for (auto& c : ruleset) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+      locked = ruleset == "valve";
+    }
+  }
+  const std::string reason =
+      !locked ? std::string() : ruleset == "valve" ? "inert (valve ruleset)" : "inert (cosmetics: inventory)";
+  std::string prev;
+  {
+    std::lock_guard<std::mutex> lk(g_inertMu);
+    prev = g_inertReason;
+    g_inertReason = reason;
+  }
+  g_inert.store(locked);
+  if (reason != prev) {
+    if (locked) {
+      Log(RU_LOG_WARN, "%s: players' inventories are not modified (Valve rulebook); nothing is applied or restored",
+          reason.c_str());
+    } else {
+      Log(RU_LOG_INFO, "active again (ruleset %s)", ruleset.c_str());
+    }
+  }
+}
+
+void RunSelftest(ru_selftest_add_fn add, void* ctx) {
+  std::lock_guard<std::mutex> lk(g_inertMu);
+  add(ctx, "INFO", "skins", g_inertReason.empty() ? "active (ruleset default)" : g_inertReason.c_str());
+}
+const ru_selftest_iface_v1 g_selftestIface = {sizeof(ru_selftest_iface_v1), &RunSelftest};
+}  // namespace
+
+bool Inert() { return g_inert.load(); }
+std::string InertReason() {
+  std::lock_guard<std::mutex> lk(g_inertMu);
+  return g_inertReason;
+}
+
+namespace {
 
 bool g_haveStore = false;
 
 void OnTick(void*, const ru_tick_info* t) {
   try {
+    RefreshInert(t->now);
     FleetTick(t->now);
     GameFrameTick();
   } catch (const std::exception& e) {
@@ -68,10 +132,12 @@ uint64_t SteamOfEventPlayer(const ru_game_event* ev, const char* key) {
 // Spawn / pickup / equip: prefetch the loadout so it is cached by the time GameFrameTick sees the
 // new pawn or weapon (item_equip's "item" is a classname string, not an entity).
 void OnPrefetchEvent(void*, const char*, const ru_game_event* ev) {
+  if (Inert()) return;
   if (const uint64_t sid = SteamOfEventPlayer(ev, "userid")) MaybeRefreshAsync(sid);
 }
 
 void OnDeathEvent(void*, const char*, const ru_game_event* ev) {
+  if (Inert()) return;  // no StatTrak counting either
   try {
     OnPlayerDeath(ev);
   } catch (...) {
@@ -79,7 +145,8 @@ void OnDeathEvent(void*, const char*, const ru_game_event* ev) {
 }
 
 void OnStatus(void*, const ru_command_ctx*) {
-  Log(RU_LOG_INFO, "status: version " SKINS_VERSION "; loadouts: %s; apply: %s; entity system: %s", LoadoutStatus().c_str(),
+  Log(RU_LOG_INFO, "status: version " SKINS_VERSION "; %sloadouts: %s; apply: %s; entity system: %s",
+      Inert() ? ("skins " + InertReason() + "; ").c_str() : "", LoadoutStatus().c_str(),
       ApplyStatus().c_str(),
       g_api->entity_system_status(g_api->self) == RU_ENTSYS_OK       ? "ok"
       : g_api->entity_system_status(g_api->self) == RU_ENTSYS_FAILED ? "FAILED"
@@ -163,6 +230,11 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     api->register_console_command(api->self, "skins_status", OnStatus, nullptr);
     api->register_console_command(api->self, "skins_refresh", OnRefresh, nullptr);
     api->register_console_command(api->self, "skins_debug_as", OnDebugAs, nullptr);
+    if (RU_API_HAS(api, provide_interface)) {
+      api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "skins", RU_SELFTEST_IFACE_VERSION,
+                             const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
+    }
+    g_lastInertCheck = -1e9;
     Log(RU_LOG_INFO, "loaded " SKINS_VERSION " (%s)", LoadoutStatus().c_str());
     return 0;
   } catch (const std::exception& e) {

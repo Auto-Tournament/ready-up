@@ -10,7 +10,8 @@
 #
 # Component zips (the installer mixes these):
 #   ready-up-core-<v>-linuxsteamrt64.zip    the core (libserver.so, engine-surface.json,
-#                                            readyup.cfg.example, tools, docs)
+#                                            readyup.cfg.example, tools, docs, LICENSE,
+#                                            THIRD_PARTY_NOTICES.txt)
 #   ready-up-match-<v>-linuxsteamrt64.zip   plugins/match.so (ready-up, scrims, knife, pauses,
 #                                            practice, match configs, webhooks, demos) + the
 #                                            cfg/ReadyUp/*.cfg templates it execs
@@ -78,6 +79,7 @@ core_files=(
   "$ROOT_DIR/docs/INSTALL.md:INSTALL.md"
 )
 [[ -f "$ROOT_DIR/LICENSE" ]] && core_files+=("$ROOT_DIR/LICENSE:LICENSE")
+[[ -f "$ROOT_DIR/THIRD_PARTY_NOTICES.txt" ]] && core_files+=("$ROOT_DIR/THIRD_PARTY_NOTICES.txt:THIRD_PARTY_NOTICES.txt")
 printf '%s\n' "$VERSION" >"$WORK/VERSION"
 {
   echo "version=$VERSION"

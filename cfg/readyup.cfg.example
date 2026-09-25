@@ -44,6 +44,14 @@ admin_prefix=<DarkRed>[Admin]<Default>
 # forfeit_after_seconds=240      a team with nobody connected on a live map forfeits, 0 = off
 # Tactical timeouts (.tac) are CS2's: mp_team_timeout_max / mp_team_timeout_time (ReadyUp/live.cfg).
 
+# Ruleset for loaded matches (docs/ESPORTS-MODE.md): default (ReadyUp/live.cfg, MatchZy-style) |
+# valve (Valve's CS Major rules: ReadyUp/esports_live.cfg, no knife rounds, skins plugin inert).
+# A match config's "ruleset" (and its "overrides") wins. Scrims use this one.
+ruleset=default
+# Models the default_models override resets players to (off unless a match config turns it on):
+# default_model_ct=agents/models/ctm_sas/ctm_sas.vmdl
+# default_model_t=agents/models/tm_phoenix/tm_phoenix.vmdl
+
 # Plugin settings. Everything after the first [section] line belongs to a plugin and is read
 # with ru_api config_get (the plugin's own csgo/cfg/ReadyUp/<plugin>.cfg wins over this).
 # Core keys must stay above the first section.

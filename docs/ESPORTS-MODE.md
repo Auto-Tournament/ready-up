@@ -1,6 +1,7 @@
 # Esports mode (`ruleset: "valve"`) — spec
 
-Status: **spec only, nothing implemented.** This maps Valve's published CS2 tournament rules onto
+Status: **implemented**, see [As built](#as-built) at the end for what was built and where it differs
+from this spec. This maps Valve's published CS2 tournament rules onto
 Ready Up and says what an opt-in "esports" mode would have to do.
 
 ## Sources
@@ -274,3 +275,132 @@ the exceptions above run after it, so Valve's values win.
 5. Optional `cosmetics: "default_agents"` + `esports_default_agents.cfg`. (M, behind a flag)
 6. Livetest: `scripts/livetest --ruleset valve` asserts every exception cvar with `cvarlist`
    after go-live, so a Valve rulebook or CS2 update that renames a cvar fails CI.
+
+## As built
+
+Code: `plugins/match/readyup/ruleset.{h,cpp}` (pure: presets, overrides, resolution, reports;
+ctest `match_ruleset`), `plugins/match/readyup/esports.{h,cpp}` (engine side), the go-live cfg
+`cfg/ReadyUp/esports_live.cfg` (+ `esports_override.cfg`), the skins gate in
+`plugins/skins/skins_plugin.cpp`, live test `scripts/livetest/run.sh --ruleset valve`.
+
+### Switch and precedence
+
+- `readyup.cfg` top-level `ruleset=default|valve` (anything else: logged, `default`). Plugins can
+  read it with `config_get("ruleset")` (the core falls back to the top-level key).
+- Match config `"ruleset": "valve"` wins (fleet: `match.assign` `config.rules.ruleset`, mapped onto
+  the MAT config). Scrims follow `readyup.cfg` but keep their knife round.
+- **Preset + overrides.** The match config (fleet: `config.rules.overrides`) may carry
+  `"overrides": {...}` with one named key per rule. Resolution, later wins: preset, then the
+  per-match pause keys (`max_tech_pauses_per_team`, `tech_pause_max_seconds`; under `default`
+  these and `readyup.cfg` are the preset, as before), then match `cvars` that set a rule's cvar,
+  then the overrides. Unknown keys, wrong types and out-of-range values refuse the load:
+  `match-load[N]: error: match config not loaded: unknown override "freeztime" (known: ...)` on
+  the console, `cmd.result rejected invalid_config` over the fleet link (also for `match.update`
+  `set_rules`).
+
+| Override key | Type / range | default preset | valve preset | Applied as |
+|---|---|---|---|---|
+| `freezetime` | int 0..120 | 18 | 20 | `mp_freezetime` |
+| `tac_timeouts` | int 0..10 | 3 | 3 | `mp_team_timeout_max` (`.tac`, CS2 timeouts) |
+| `tac_timeout_seconds` | int 1..300 | 30 | 31 | `mp_team_timeout_time` |
+| `tech_pauses_per_team` | int 0..20 (0 = unlimited) | readyup.cfg, else 3 | 1 | Ready Up's counted `.tech` |
+| `tech_pause_seconds` | int 0..3600 (0 = never) | readyup.cfg, else 300 | 120 | auto-unpause |
+| `allow_knife` | bool | true | false | `map_sides: "knife"` refused at load when false |
+| `overtime.enabled` / `.maxrounds` / `.startmoney` / `.limit` | bool / 2..30 / 0..65535 / 0..100 | true / 6 / 10000 / (server) | true / 6 / 10000 / 0 | `mp_overtime_*` |
+| `zeus` | int -1..10 | 1 | 5 | `mp_weapons_allow_zeus` |
+| `spectators_max` | int 0..64 | 20 | 10 | `mp_spectators_max` |
+| `halftime_pausematch` | bool | false | true | `mp_halftime_pausematch` + Ready Up's `halftime` pause |
+| `tv_delay` | int 0..960 | (server) | 105 | `tv_delay` |
+| `tv_broadcast_url` | `http(s)://...` or "" | "" | "" | `tv_broadcast_url "<url>"` + `tv_broadcast 1` |
+| `camera_man_steamid` | SteamID64 string or "" | "" | "" | `tv_allow_camera_man_steamid` |
+| `lan` | bool | false | false | coaches admitted |
+| `coaches_online` | bool | true | false | coaches admitted online |
+| `default_models` | bool | false | false | player model reset on spawn |
+| `cosmetics` | `inventory` or `plugin` | plugin | inventory | `inventory`: skins plugin inert |
+
+The overtime start money preset is the engine default: `help mp_overtime_startmoney` on 1.41.8
+reports 10000 (the spec's 12500 was a guess).
+
+### Go-live
+
+`ruleset=valve` execs `ReadyUp/esports_live.cfg` wherever the default flow execs `ReadyUp/live.cfg`
+(straight to live, after the knife pick, scrim go-live). It runs even with `ru_cfg_exec_enable 0`
+(the ruleset is its cfg; that switch only turns off `live.cfg`). The cfg is the spec's file with one
+addition: section 4 resets to engine defaults the cvars Ready Up's warmup / knife / practice cfgs
+change and the Premier cfgs do not set (`mp_ignore_round_win_conditions`, `mp_give_player_c4`,
+`mp_overtime_startmoney`, `mp_c4timer`, `mp_round_restart_delay`, ...), so nothing leaks from the
+emulated warmup into the match. Order on the server (checked with a nested-exec probe: an
+`exec`'d file's lines run after the commands already queued, nested `exec`s run in place):
+`exec esports_live.cfg` (Premier cfgs, Valve's exceptions, `esports_override.cfg`), then 0.25 s
+later (`EnqueueAfterCfg`, the live.cfg ordering fix) team names, match `cvars` and the override
+commands, then `mp_restartgame`. `ReadyUp/live.cfg` now also sets `sv_matchpause_auto_5v5 0` and
+`mp_halftime_pausematch 0`, so a default match after a valve match does not inherit the two engine
+pauses the default flow does not expect.
+
+### Enforced
+
+- Knife: `map_sides` entries `"knife"` refuse the load (console and fleet) unless `allow_knife`.
+- Overtime: under `valve`, `maxOvertimes` / `damageTiebreak` (fleet `overtime.max_overtimes`,
+  `tiebreak`) are ignored with a note at load; the context follows `overtime.enabled` /
+  `.maxrounds`.
+- Coaches: MAT `"coaches": [steamid64]` (fleet `role: coach`) are whitelisted as spectators only
+  when `lan` or `coaches_online` is on; otherwise they are dropped from the whitelist (note at
+  load).
+- Pauses: `.tac` is CS2's own timeout (PR #23); technical pauses are counted and auto-unpause per
+  `tech_pauses_per_team` / `tech_pause_seconds`. With `halftime_pausematch` the round start after
+  the regulation halftime is marked as a `halftime` pause (`pause.type: "halftime"`): both teams
+  `.unpause`, or an admin. `ru unpause` now also sends `mp_unpause_match` when Ready Up did not
+  start the pause (an engine pause: `sv_matchpause_auto_5v5`, a vote).
+- Skins: when the effective rules lock inventories (`valve`, or `cosmetics: "inventory"`) the
+  skins plugin applies, restores and counts nothing (no paints, knives, gloves, agents, StatTrak).
+  It asks the match plugin (`readyup.match.v1` `inventory_locked` / `ruleset`, appended members)
+  once a second, else `readyup.cfg`. `skins_status` says `skins inert (valve ruleset)`, `ru
+  selftest` has `INFO skins: inert (valve ruleset)`, and it logs a WARN line when it turns inert.
+- Default models (organiser option, off by default): on `player_spawn` of a loaded match the pawn
+  gets `default_model_ct` / `default_model_t` (`readyup.cfg` `[match]`, defaults
+  `agents/models/ctm_sas/ctm_sas.vmdl` / `agents/models/tm_phoenix/tm_phoenix.vmdl`, both in
+  `pak01`) through `entity_set_model` (CBaseModelEntity::SetModel from
+  `engine-surface.skins.json`) on the spawn frame and 1, 8 and 32 frames later. Only the model
+  changes: no inventory or econ field is written.
+
+### Reported
+
+- `MatchState.ruleset` and `MatchState.effective_rules` `{ruleset, rules, differs, preset,
+  source}` (local `/status` and the fleet `state.snapshot` / patches); `/status` summary `ruleset`.
+- `ru rules`: every rule, `*` on the ones that differ, then `rules: differs from valve:
+  freezetime 20->5 (override); ...`. `ru state` includes the same lines; the `state:` log line
+  carries `ruleset=valve`.
+- At match load: `esports: ruleset=valve (match config) go-live cfg=ReadyUp/esports_live.cfg
+  differs=freezetime,...` plus the notes above.
+- `ru selftest`: `INFO ruleset: ruleset=valve cfg=ReadyUp/esports_live.cfg skins=inert differs=...`.
+
+### Deviations and not built
+
+- Emulated warmup stays (spec conflict 2): Ready Up's warmup runs before go-live; Valve's
+  `mp_warmuptime 60` / `mp_warmup_pausetimer 1` are set by the cfg for the live state only.
+- Seven rulebook cvars do not exist on CS2 1.41.8 (the server answers "Unknown command"):
+  `sv_maxusrcmdprocessticks`, `sv_max_dropped_packets_to_process`, `sv_damage_print_enable`,
+  `sv_occlude_players`, `sv_force_transmit_players`, `sv_force_transmit_ents`, `sv_holiday_mode`.
+  `esports_live.cfg` keeps them; the live test expects exactly these to be missing. On this build
+  `mp_logmoney` is a bool (Valve's `2` reads back as `true`).
+- `tv_broadcast` is `0` unless the match has a `tv_broadcast_url` (Valve: `1`; a broadcast needs a
+  relay URL, a Major-only TO item).
+- Not built: refusing go-live when GOTV was off at map load, recognising the engine's
+  `sv_matchpause_auto_5v5` pause as `pause.type: "auto_5v5"` (admins resume it with `ru unpause`),
+  mid-match substitution limits, the `game_type` / `game_mode` check, blocking `tv_delay` lowering
+  while live. `esports_default_agents.cfg` became the two `readyup.cfg` keys above.
+
+### Tests
+
+- ctest `match_ruleset`: presets, override validation (unknown / nested / type / range), preset,
+  overrides, cvars and per-match keys together, `differs`, the commands after the cfg, the
+  MatchState JSON (no null), the `ru rules` text, knife refusal, parser integration (coaches,
+  overtime, `readyup.cfg` ruleset). `match_fleet_state`: `rules.ruleset` / `rules.overrides`
+  through `match.assign` and `set_rules`.
+- `scripts/livetest/run.sh --ruleset valve` (bots, readyup-test): a knife config is refused; a
+  valve match with the overrides `freezetime 5`, `spectators_max 8`, `default_models`,
+  `overtime.startmoney 12500` loads and names its differences; it goes straight to live (no
+  knife); every Valve exception cvar (read from `esports_live.cfg` section 2), the Premier values
+  (`mp_team_timeout_time 31`, zeus 5, `mp_respawn_immunitytime -1`, technical timeout 1 x 120 s,
+  `tv_delay 105`, ...) and the overrides are queried from the console after go-live; then `ru
+  rules`, `skins_status` (inert), default models on CT and T, and `ru selftest` PASS.

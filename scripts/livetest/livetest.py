@@ -27,6 +27,12 @@ the match config), then the team names, a technical pause that unpauses by itsel
 per-team technical pause limit, a tactical timeout, and the team-left forfeit: CT bots
 kicked -> countdown -> one bot back (cancelled) -> kicked again -> forfeit -> postgame -> idle.
 
+Esports flow (--ruleset valve, docs/ESPORTS-MODE.md): a match config with map_sides knife is
+refused; a match with "ruleset": "valve" + overrides loads (the esports: line names what differs),
+goes live without a knife round (esports_live.cfg), bots come back, then every Valve exception cvar
+(read from cfg/ReadyUp/esports_live.cfg), the Premier values and the overrides are queried from the
+console; `ru rules`, `skins_status` (inert), default_models (CT + T) and `ru selftest` are checked.
+
 Exit codes: 0 PASS, 1 FAIL, 2 server busy / unavailable, or restarted by someone
 else mid-test (no verdict).
 """
@@ -46,6 +52,8 @@ import threading
 import time
 from dataclasses import dataclass, field
 from typing import Callable, Optional
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 STATE_RE = re.compile(r"\[ReadyUp\] state: (.*?) reason=(\S+)")
@@ -75,7 +83,72 @@ QUOTA_MODE_RE = re.compile(r'"?bot_quota_mode"?\s*=\s*"?(\w+)')
 PAUSE_RE = re.compile(r"\[ReadyUp\] pause: (.*)")
 FORFEIT_RE = re.compile(r"\[ReadyUp\] forfeit: (.*)")
 
+ESPORTS_RE = re.compile(r"\[ReadyUp\] esports: ruleset=(\S+) \((.*?)\) go-live cfg=(\S+) differs=(\S+)")
+DEFAULT_MODEL_RE = re.compile(r"\[ReadyUp\] esports: default_models: slot (-?\d+) \((CT|T)\) -> (\S+)")
+DEFAULT_MODEL_FAIL_RE = re.compile(r"\[ReadyUp\] esports: default_models: entity_set_model failed")
+RULES_DIFF_RE = re.compile(r"\[ReadyUp\] rules: (differs from \S+:.*|no differences from \S+)")
+SKINS_STATUS_RE = re.compile(r"status: version \S+; (skins inert \([^)]*\); )?loadouts")
+UNKNOWN_CMD_RE = re.compile(r"Unknown command '([a-z0-9_]+)'!")
+CVAR_RE = re.compile(r'^\s*"?([a-z][a-z0-9_]+)"?\s*=\s*"?([^"\s]*)')
+
 MATCH_SLUG = "livetest"
+
+# --ruleset valve: overrides under test (on top of Valve's preset) and what differs because of them.
+VALVE_OVERRIDES = {"freezetime": 5, "spectators_max": 8, "default_models": True, "overtime": {"startmoney": 12500}}
+VALVE_DIFFERS = "freezetime,overtime.startmoney,spectators_max,default_models"
+# Premier values esports_live.cfg does not list itself (they come from gamemode_competitive[_tmm].cfg)
+# plus the overrides; the Valve exception list is read from cfg/ReadyUp/esports_live.cfg.
+VALVE_EXTRA_CVARS = {
+    "mp_freezetime": "5",             # override (Premier 20)
+    "mp_spectators_max": "8",         # override (Valve 10)
+    "mp_overtime_startmoney": "12500",  # override (engine default 10000)
+    "mp_team_timeout_time": "31",
+    "mp_team_timeout_max": "3",
+    "mp_team_timeout_ot_add_once": "1",
+    "mp_weapons_allow_zeus": "5",
+    "mp_respawn_immunitytime": "-1",
+    "mp_technical_timeout_per_team": "1",
+    "mp_technical_timeout_duration_s": "120",
+    "tv_delay": "105",
+    "mp_overtime_enable": "1",
+}
+
+# Rulebook cvars CS2 1.41.8 does not have ("Unknown command" when esports_live.cfg sets them and when
+# queried). The cfg keeps them (Valve's list); the test fails if any other cvar goes missing.
+VALVE_ABSENT = {"sv_maxusrcmdprocessticks", "sv_max_dropped_packets_to_process", "sv_damage_print_enable",
+                "sv_occlude_players", "sv_force_transmit_players", "sv_force_transmit_ents", "sv_holiday_mode"}
+
+
+def valve_exception_cvars() -> dict:
+    """Section 2 of cfg/ReadyUp/esports_live.cfg (Valve's exception list): cvar -> value."""
+    out: dict = {}
+    section = 0
+    with open(os.path.join(REPO_ROOT, "cfg", "ReadyUp", "esports_live.cfg")) as fh:
+        for raw in fh:
+            line = raw.strip()
+            if line.startswith("// 2)"):
+                section = 2
+            elif line.startswith("// 3)"):
+                break
+            if section != 2 or not line or line.startswith("//"):
+                continue
+            parts = line.split("//", 1)[0].split()
+            if len(parts) == 2 and parts[0] != "log":
+                out[parts[0]] = parts[1]
+    return out
+
+
+def cvar_equal(got: str, want: str) -> bool:
+    norm = {"true": "1", "false": "0"}
+    g, w = norm.get(got.lower(), got), norm.get(want.lower(), want)
+    if g == w:
+        return True
+    if got.lower() == "true" and w not in ("0", ""):
+        return True  # a bool cvar on this build (mp_logmoney 2 reads back as true)
+    try:
+        return float(g) == float(w)
+    except ValueError:
+        return False
 
 
 def log(msg: str) -> None:
@@ -249,6 +322,21 @@ def match_doc(map_name: str, max_rounds: int, forfeit: bool = False) -> dict:
     return doc
 
 
+def valve_doc(map_name: str, max_rounds: int, knife: bool = False) -> dict:
+    """ruleset valve: sides from the "veto" (team1_ct), overrides on top of Valve's preset, and only
+    match cvars that no Valve rule covers (short rounds for bots)."""
+    doc = match_doc(map_name, max_rounds)
+    cfg = doc["config"]
+    cfg.pop("overtimeMode", None)
+    cfg.update({"ruleset": "valve", "overrides": VALVE_OVERRIDES, "map_sides": ["knife" if knife else "team1_ct"]})
+    cfg["cvars"] = {"mp_maxrounds": max_rounds, "mp_roundtime": 1, "mp_roundtime_defuse": 1, "mp_roundtime_hostage": 1,
+                    "mp_round_restart_delay": 2, "mp_c4timer": 20, "mp_halftime_duration": 3,
+                    "mp_win_panel_display_time": 1}
+    if knife:
+        doc["id"] = cfg["matchid"] = cfg["matchid"] + 1
+    return doc
+
+
 # --------------------------------------------------------------------------- facts + steps
 
 
@@ -283,6 +371,13 @@ class Facts:
     forfeits: list = field(default_factory=list)  # (seq, text) `forfeit:` lines
     bot_quota_mode: Optional[str] = None
     bots_gone: set = field(default_factory=set)  # bot names that disconnected
+    esports: list = field(default_factory=list)  # (seq, ruleset, source, cfg, differs) at match load
+    default_models: list = field(default_factory=list)  # (seq, slot, side, model)
+    default_model_fail: Optional[str] = None
+    rules_diff: list = field(default_factory=list)  # (seq, text) `ru rules` difference line
+    skins_status: list = field(default_factory=list)  # (seq, "skins inert (...); " or "")
+    cvars: dict = field(default_factory=dict)  # name -> (seq, value) from console cvar queries
+    unknown_cmds: dict = field(default_factory=dict)  # name -> seq of "Unknown command 'name'!"
 
     def last_state(self) -> Optional[dict]:
         return self.states[-1][1] if self.states else None
@@ -311,6 +406,25 @@ class Facts:
         if (m := FORFEIT_RE.search(line)):
             self.forfeits.append((s, m.group(1).strip()))
             return
+        if (m := ESPORTS_RE.search(line)):
+            self.esports.append((s, m.group(1), m.group(2), m.group(3), m.group(4)))
+            return
+        if (m := DEFAULT_MODEL_RE.search(line)):
+            self.default_models.append((s, m.group(1), m.group(2), m.group(3)))
+            return
+        if DEFAULT_MODEL_FAIL_RE.search(line):
+            self.default_model_fail = line.strip()
+            return
+        if (m := RULES_DIFF_RE.search(line)):
+            self.rules_diff.append((s, m.group(1)))
+            return
+        if (m := SKINS_STATUS_RE.search(line)):
+            self.skins_status.append((s, m.group(1) or ""))
+            return
+        if (m := UNKNOWN_CMD_RE.search(line)):
+            self.unknown_cmds[m.group(1)] = s
+        if "[ReadyUp]" not in line and (m := CVAR_RE.match(line)):
+            self.cvars[m.group(1)] = (s, m.group(2))
         if "[ReadyUp]" not in line and (m := TEAMNAME_RE.search(line)):
             self.teamnames[m.group(1)] = (s, m.group(2).strip())
         if (m := KNIFE_SHORT_RE.search(line)):
@@ -672,6 +786,9 @@ class Runner:
         if a.scrim:
             return self.scrim_steps(f, a, mark, since, state_where, bots_ok, act_selftest, chk_selftest,
                                     act_reset, chk_reset, knife_steps)
+        if a.ruleset == "valve":
+            return self.valve_steps(f, a, mark, since, bots_ok, act_selftest, chk_selftest, act_reset, chk_reset,
+                                    chk_warmup, act_bots)
 
         # mp_teamname_1 = the team starting on CT (team1 unless the knife pick switched).
         def act_teamnames():
@@ -801,6 +918,180 @@ class Runner:
             Step("idle: match cleared (idle, match=none)", 90, chk_idle_after_postgame),
         ]
 
+    def valve_steps(self, f, a, mark, since, bots_ok, act_selftest, chk_selftest, act_reset, chk_reset,
+                    chk_warmup, act_bots) -> list[Step]:
+        """--ruleset valve (docs/ESPORTS-MODE.md): knife refused, go-live execs esports_live.cfg, every
+        Valve exception cvar + the overrides after go-live, `ru rules`, skins inert, default models."""
+        t0: dict = {}
+
+        def serve(doc):
+            if self.http:
+                self.http.shutdown()
+            self.http, port = serve_match_json(a.http_bind, doc)
+            url = f"http://{a.http_host}:{port}/match.json"
+            log(f"serving match {doc['config']['matchid']} on {url} (ruleset valve)")
+            self.srv.send(f"ru match load {url}")
+
+        def map_name():
+            cur = f.last_state() or {}
+            name = a.map or cur.get("map") or "de_dust2"
+            return "de_dust2" if name == "?" else name
+
+        def act_knife():
+            mark["knife_load"] = f.seq
+            f.load_error = None
+            serve(valve_doc(map_name(), a.max_rounds, knife=True))
+
+        def chk_knife(_f):
+            if f.loaded and f.loaded[0] > since("knife_load"):
+                return "a knife match loaded under ruleset valve"
+            if not f.load_error:
+                return False
+            if "knife" in f.load_error and "allow_knife" in f.load_error:
+                return True
+            return f"unexpected load error: {f.load_error}"
+
+        def act_load():
+            mark["load"] = f.seq
+            f.load_error = None
+            serve(valve_doc(map_name(), a.max_rounds))
+
+        def chk_load(_f):
+            if f.load_error:
+                return f"match load error: {f.load_error}"
+            if not f.loaded or f.loaded[0] <= since("load"):
+                return False
+            if f.loaded[2] != MATCH_SLUG:
+                return f"loaded unexpected slug {f.loaded[2]}"
+            es = [e for e in f.esports if e[0] > since("load")]
+            if not es:
+                return False
+            _, rs, src, cfg, differs = es[-1]
+            self.match_loaded = True
+            f.our_matchid = f.loaded[1]
+            if (rs, src, cfg, differs) != ("valve", "match config", "ReadyUp/esports_live.cfg", VALVE_DIFFERS):
+                return f"esports line: ruleset={rs} ({src}) cfg={cfg} differs={differs}; want valve / {VALVE_DIFFERS}"
+            return True
+
+        def chk_live(_f):
+            if f.knife_start > since("load"):
+                return "a knife round started under ruleset valve"
+            return f.live_seq > since("load")
+
+        def act_bots_again():
+            # esports_live.cfg: bot_quota 0 + bot_kick (Premier's base cfg fills bots).
+            mark["bots2"] = f.seq
+            time.sleep(2.0)
+            self.srv.send(f"bot_quota {a.bots_per_side * 2}")
+            time.sleep(8.0)
+            self.srv.send("ru state")  # a fresh state: line even when the bot count did not change
+
+        def chk_bots_again(_f):
+            return any(bots_ok(fl) for _, fl, _ in f.states_since(since("bots2")))
+
+        want = dict(valve_exception_cvars())
+        want.update(VALVE_EXTRA_CVARS)
+        want["mp_maxrounds"] = str(a.max_rounds)  # match cvars run after the cfg
+        names = sorted(want)
+
+        def act_cvars():
+            mark["cvars"] = f.seq
+            # Short batches: the console input line is cut at ~255 bytes.
+            for i in range(0, len(names), 6):
+                self.srv.send("; ".join(names[i:i + 6]))
+
+        def cvar_report():
+            got = {k: v for k, (sq, v) in f.cvars.items() if sq > since("cvars") and k in want}
+            unknown = sorted(k for k, sq in f.unknown_cmds.items() if sq > since("cvars") and k in want)
+            missing = [k for k in names if k not in got and k not in unknown]
+            bad = [f"{k}={got[k]} (want {want[k]})" for k in names if k in got and not cvar_equal(got[k], want[k])]
+            # Rulebook cvars this CS2 build does not have are expected (VALVE_ABSENT); any other
+            # "Unknown command" means CS2 or the rulebook renamed one.
+            bad += [f"{k} unknown to this CS2 build" for k in unknown if k not in VALVE_ABSENT]
+            return got, missing, bad, unknown
+
+        def chk_cvars(_f):
+            got, missing, bad, _ = cvar_report()
+            if missing:
+                return False
+            return True if not bad else "cvars differ: " + ", ".join(bad)
+
+        def cvars_detail(_f):
+            got, missing, bad, unknown = cvar_report()
+            s = f"{len(got)}/{len(names)} cvars as expected" if not bad else f"{len(got)}/{len(names)} cvars replied"
+            if unknown:
+                s += "; not on this CS2 build: " + ", ".join(unknown)
+            if missing:
+                s += "; no reply: " + ", ".join(missing[:8])
+            return s + (f"; {len(bad)} wrong" if bad else "")
+
+        def act_rules():
+            mark["rules"] = f.seq
+            self.srv.send("ru rules")
+
+        def chk_rules(_f):
+            lines = [t for (sq, t) in f.rules_diff if sq > since("rules")]
+            if not lines:
+                return False
+            t = lines[-1]
+            for frag in ("freezetime 20->5 (override)", "spectators_max 10->8 (override)",
+                         "overtime.startmoney 10000->12500 (override)", "default_models false->true (override)"):
+                if frag not in t:
+                    return f"`ru rules` misses {frag!r}: {t}"
+            return True
+
+        def act_skins():
+            mark["skins"] = f.seq
+            t0["skins"] = time.time()
+            self.srv.send("skins_status")
+
+        def chk_skins(_f):
+            st = [x for (sq, x) in f.skins_status if sq > since("skins")]
+            if st:
+                return True if "valve" in st[-1] else f"skins_status does not say inert: {st[-1]!r}"
+            if time.time() - t0.get("skins", time.time()) > 8:
+                return "SKIP: no skins_status reply (skins plugin not loaded on this server)"
+            return False
+
+        def chk_models(_f):
+            if f.default_model_fail:
+                return f.default_model_fail
+            dm = [d for d in f.default_models if d[0] > since("load")]
+            sides = {d[2] for d in dm}
+            if {"CT", "T"} <= sides:
+                bad = [d for d in dm if not d[3].startswith("agents/models/")]
+                return True if not bad else f"unexpected model {bad[0][3]}"
+            return False
+
+        def act_selftest2():
+            f.selftest = None
+            f.selftest_after = f.seq
+            self.srv.send("ru selftest")
+
+        return [
+            Step("selftest", 45, chk_selftest, act_selftest,
+                 lambda f_: f_.selftest[2].split("] ", 1)[-1] if f_.selftest else ""),
+            Step("reset (idle, no match)", 30, chk_reset, act_reset),
+            Step("valve: map_sides knife refused (no allow_knife)", 30, chk_knife, act_knife,
+                 lambda f_: (f_.load_error or "")[:160]),
+            Step("valve: match load (ruleset + overrides)", 30, chk_load, act_load,
+                 lambda f_: " ".join(str(x) for x in (f_.esports[-1][1:] if f_.esports else ()))),
+            # Empty roster: everyone is ready at once, so the match may go live before the bots join.
+            Step("warmup (match_warmup)", 20, chk_warmup, act_bots),
+            Step("valve: straight to match_live (no knife round)", 90, chk_live),
+            Step("valve: bots back (esports_live.cfg kicks them)", 60, chk_bots_again, act_bots_again),
+            Step(f"valve: {len(names)} cvars after go-live (Valve exceptions, Premier, overrides)", 30, chk_cvars,
+                 act_cvars, cvars_detail),
+            Step("valve: `ru rules` differs from valve", 15, chk_rules, act_rules,
+                 lambda f_: (f_.rules_diff[-1][1] if f_.rules_diff else "")[:200]),
+            Step("valve: skins plugin inert", 15, chk_skins, act_skins,
+                 lambda f_: (f_.skins_status[-1][1] if f_.skins_status else "").strip()),
+            Step("valve: default_models (CT + T reset to default agents)", 120, chk_models, None,
+                 lambda f_: ", ".join(sorted({f"{d[2]}={d[3]}" for d in f_.default_models}))[:200]),
+            Step("selftest (valve match loaded)", 45, chk_selftest, act_selftest2,
+                 lambda f_: f_.selftest[2].split("] ", 1)[-1] if f_.selftest else ""),
+        ]
+
     def scrim_steps(self, f, a, mark, since, state_where, bots_ok, act_selftest, chk_selftest,
                     act_reset, chk_reset, knife_steps) -> list[Step]:
         """Bots-only scrim: dev_bots_scrim on, bots on both sides, no humans, no match config."""
@@ -883,6 +1174,12 @@ class Runner:
                 if self.flag_set:
                     # Before `ru scrim`: with the flag on, the restored bots would start a scrim.
                     self.srv.send("ru_dev_bots_scrim cfg")
+                if self.a.ruleset == "valve":
+                    # Engine pauses the valve ruleset turns on (auto 5v5, halftime) must not outlive
+                    # the test; ReadyUp/live.cfg resets them for the next default match too.
+                    self.srv.send("mp_unpause_match")
+                    self.srv.send("sv_matchpause_auto_5v5 0")
+                    self.srv.send("mp_halftime_pausematch 0")
                 if self.a.forfeit:
                     self.srv.send("bot_join_team any")
                     self.srv.send("mp_autoteambalance 1")
@@ -977,6 +1274,9 @@ def parse_args(argv=None):
                    help="bots-only scrim (dev_bots_scrim): warmup -> countdown -> knife -> pick -> live")
     p.add_argument("--forfeit", action="store_true", default=env("LIVETEST_MODE", "match") == "forfeit",
                    help="match mode + pauses (technical limit / auto-unpause, tactical) + team-left forfeit")
+    p.add_argument("--ruleset", choices=["default", "valve"], default=env("LIVETEST_RULESET", "default"),
+                   help="valve: esports ruleset (docs/ESPORTS-MODE.md): knife refused, every Valve exception cvar "
+                        "and the overrides checked after go-live, `ru rules`, skins inert, default_models")
     p.add_argument("--max-rounds", type=int, default=int(env("LIVETEST_MAX_ROUNDS", "4")))
     p.add_argument("--bots-per-side", type=int, default=int(env("LIVETEST_BOTS_PER_SIDE", "2")))
     p.add_argument("--side", choices=["auto", "stay", "switch"], default=env("LIVETEST_SIDE", "auto"),
@@ -994,6 +1294,8 @@ def parse_args(argv=None):
     a = p.parse_args(argv)
     if a.max_rounds < 2 or a.max_rounds % 2:
         p.error("--max-rounds must be even and >= 2")
+    if a.ruleset == "valve" and (a.scrim or a.forfeit):
+        p.error("--ruleset valve runs its own flow; not with --scrim or --forfeit")
     if a.forfeit and a.scrim:
         p.error("--forfeit and --scrim cannot be combined")
     return a

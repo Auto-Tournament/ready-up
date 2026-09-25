@@ -119,14 +119,23 @@ has_skins() {  # <bundle>
   done
 }
 
-echo "core:";       no_skins core;       check_manifests "$WORK/core" core; core_without_match
+has_notices() {  # <bundle> -- every zip carrying the core component ships the license +
+                 # BSD-3-Clause/GPLv2 third-party notices required by the vendored
+                 # third_party/distorm and third_party/funchook.
+  local dir="$WORK/$1"
+  for f in readyup/LICENSE readyup/THIRD_PARTY_NOTICES.txt; do
+    if [[ -f "$dir/$f" ]]; then ok "$1 has $f"; else bad "$1 lacks $f"; fi
+  done
+}
+
+echo "core:";       no_skins core;       check_manifests "$WORK/core" core; core_without_match; has_notices core
 echo "match:";      no_skins match;      check_manifests "$WORK/match" match; has_match match
 echo "fleet:";      no_skins fleet;      check_manifests "$WORK/fleet" fleet; has_fleet fleet
 if [[ -e "$WORK/fleet/readyup/plugins/match.so" ]]; then bad "fleet contains match.so"; else ok "fleet: no match.so"; fi
-echo "essentials:"; no_skins essentials; check_manifests "$WORK/essentials" core match fleet; has_match essentials; has_fleet essentials
+echo "essentials:"; no_skins essentials; check_manifests "$WORK/essentials" core match fleet; has_match essentials; has_fleet essentials; has_notices essentials
 echo "hello:";      no_skins hello;      check_manifests "$WORK/hello" hello
 echo "skins:";      has_skins skins;     check_manifests "$WORK/skins" skins
-echo "full:";       has_skins full; has_match full; has_fleet full
+echo "full:";       has_skins full; has_match full; has_fleet full; has_notices full
 full_components=(core match fleet skins hello)
 [[ -f "$WORK/full/readyup/manifests/tools.json" ]] && full_components+=(tools)
 check_manifests "$WORK/full" "${full_components[@]}"

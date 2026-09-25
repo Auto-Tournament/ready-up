@@ -4,6 +4,7 @@
 #include "readyup/engine.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
+#include "readyup/ruleset.h"
 
 #include <sys/stat.h>
 
@@ -145,6 +146,13 @@ void Apply(ReadyUpCfg* out, const std::string& key, const std::string& val) {
   else if (key == "stop_command_no_damage") out->rules.stop_command_no_damage = ParseBool(val, false) ? 1 : 0;
   else if (key == "stop_vote_seconds") out->rules.stop_vote_seconds = RuleInt(val);
   else if (key == "damage_report") out->damage_report = ParseBool(val, out->damage_report);
+  else if (key == "ruleset") out->ruleset = Lower(val);
+  else if (key == "default_model_ct" || key == "default_model_t") {
+    // A model path ("agents/models/.../x.vmdl"); anything else keeps the built-in default.
+    const bool ok = val.size() > 5 && val.compare(val.size() - 5, 5, ".vmdl") == 0 &&
+                    val.find_first_of("\"; \t") == std::string::npos;
+    if (ok) (key == "default_model_ct" ? out->default_model_ct : out->default_model_t) = val;
+  }
 }
 
 // `sections`: which parts of the file count ("" = top level, "match" = [match]).
@@ -199,6 +207,12 @@ bool LoadLocked(CfgState& st, std::string* err) {
   const bool coreOk = !core.empty() && ReadFile(core, {"", "match"}, &c);
   const std::string m = MatchCfgPath();
   if (!m.empty()) (void)ReadFile(m, {"", "match"}, &c);
+  Ruleset rs = Ruleset::Default;
+  if (!ParseRuleset(c.ruleset, &rs)) {
+    Print("config: ruleset=\"%s\" is not default|valve; using default\n", c.ruleset.c_str());
+    c.ruleset = "default";
+  }
+  SetServerRuleset(rs);
   st.cfg = std::move(c);
   st.loaded = true;
   st.sig = Signature();

@@ -474,6 +474,10 @@ void Overlay(Json* st, const Json& live) {
     }
   }
   if (const Json* r = live.Find("round")) s["round"] = *r;
+  // Ruleset + effective rules (ruleset.h): what the server enforces, "differs from Valve".
+  for (const char* k : {"ruleset", "effective_rules"}) {
+    if (const Json* v = live.Find(k)) s[k] = *v;
+  }
 }
 
 Json BuildState() {

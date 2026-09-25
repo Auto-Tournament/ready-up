@@ -19,6 +19,8 @@
 #   --restart       kill + relaunch the tmux session, wait for the server to
 #                   come up (or die) and print the Ready Up log lines
 #   --timeout SEC   how long --restart waits, default 180
+#   --cfg FILE      copy cfg/ReadyUp/FILE to csgo/cfg/ReadyUp/FILE (repeatable; the old copy is kept
+#                   as FILE.prev). Only the cfgs: no build, no binary, no restart.
 #   --plugin NAME   hot-reload one plugin instead of deploying the core: build only
 #                   target readyup_plugin_NAME, copy build-docker/plugins/NAME.so to
 #                   csgo/readyup/plugins/NAME.so, then type `ru plugin reload NAME`
@@ -40,6 +42,7 @@ BUILD=1
 RESTART=0
 TIMEOUT=180
 PLUGIN=""
+CFG_FILES=()
 
 die() { echo "dev-deploy: $*" >&2; exit 1; }
 
@@ -52,7 +55,8 @@ while [[ $# -gt 0 ]]; do
     --restart)  RESTART=1; shift ;;
     --timeout)  TIMEOUT="${2:?}"; shift 2 ;;
     --plugin)   PLUGIN="${2:?}"; shift 2 ;;
-    -h|--help)  sed -n '2,30p' "$0"; exit 0 ;;
+    --cfg)      CFG_FILES+=("${2:?}"); shift 2 ;;
+    -h|--help)  sed -n '2,32p' "$0"; exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
 done
@@ -71,6 +75,19 @@ esac
 SSH=(ssh -o BatchMode=yes "$SSH_DEST")
 "${SSH[@]}" true 2>/dev/null \
   || die "cannot ssh to $SSH_DEST with BatchMode (add this user's key to its authorized_keys)"
+
+if [[ ${#CFG_FILES[@]} -gt 0 ]]; then
+  for f in "${CFG_FILES[@]}"; do
+    [[ "$f" =~ ^[A-Za-z0-9_.-]+\.cfg$ ]] || die "invalid cfg name: $f"
+    [[ -f "$ROOT_DIR/cfg/ReadyUp/$f" ]] || die "no cfg/ReadyUp/$f"
+    dest="$TARGET/game/csgo/cfg/ReadyUp/$f"
+    q="$(printf '%q' "$dest")"
+    echo "Deploying cfg/ReadyUp/$f -> $SSH_DEST:$dest"
+    "${SSH[@]}" "set -e; if [[ -f $q ]]; then cp -p $q $q.prev; fi; cat > $q.tmp && mv -f $q.tmp $q" \
+      <"$ROOT_DIR/cfg/ReadyUp/$f"
+  done
+  exit 0
+fi
 
 if [[ $BUILD -eq 1 ]]; then
   if [[ -n "$PLUGIN" ]]; then
