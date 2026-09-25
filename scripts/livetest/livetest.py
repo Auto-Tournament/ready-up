@@ -7,12 +7,12 @@ state transitions from the console log. See scripts/livetest/README.md.
 Match flow (default, all driven from the server console, no human needed):
   preflight   tmux session up, nobody (human) connected
   selftest    `ru selftest` must print `selftest: PASS`
-  reset       `ru idle`, kick bots
+  reset       `ru mode idle`, kick bots
   load        `ru match load http://127.0.0.1:<port>/match.json` (served by this
               script): empty roster, map_sides=[knife], maxRounds=4, no OT
   bots        bot_quota 4 -> 2 CT + 2 T bots in the `state:` line
   knife       match_knife (starting -> running), knife winner, pick
-  pick        bots-only winner -> sides stay after 3s (or `ru side ...`)
+  pick        bots-only winner -> sides stay after 3s (or `ru match side ...`)
   live        mode=match_live
   rounds      round ends 1..2, halftime side swap, rounds 3.., `Game Over`
   postgame    mode=postgame (match still loaded) after the final round
@@ -31,7 +31,7 @@ Esports flow (--ruleset valve, docs/ESPORTS-MODE.md): a match config with map_si
 refused; a match with "ruleset": "valve" + overrides loads (the esports: line names what differs),
 goes live without a knife round (esports_live.cfg), bots come back, then every Valve exception cvar
 (read from cfg/ReadyUp/esports_live.cfg), the Premier values and the overrides are queried from the
-console; `ru rules`, `skins_status` (inert), default_models (CT + T) and `ru selftest` are checked.
+console; `ru match rules`, `skins_status` (inert), default_models (CT + T) and `ru selftest` are checked.
 
 Exit codes: 0 PASS, 1 FAIL, 2 server busy / unavailable, or restarted by someone
 else mid-test (no verdict).
@@ -374,7 +374,7 @@ class Facts:
     esports: list = field(default_factory=list)  # (seq, ruleset, source, cfg, differs) at match load
     default_models: list = field(default_factory=list)  # (seq, slot, side, model)
     default_model_fail: Optional[str] = None
-    rules_diff: list = field(default_factory=list)  # (seq, text) `ru rules` difference line
+    rules_diff: list = field(default_factory=list)  # (seq, text) `ru match rules` difference line
     skins_status: list = field(default_factory=list)  # (seq, "skins inert (...); " or "")
     cvars: dict = field(default_factory=dict)  # name -> (seq, value) from console cvar queries
     unknown_cmds: dict = field(default_factory=dict)  # name -> seq of "Unknown command 'name'!"
@@ -611,9 +611,9 @@ class Runner:
             mark["reset"] = f.seq
             self.touched = True
             self.srv.send("bot_quota")  # echo current value so it can be restored
-            self.srv.send("ru idle")
+            self.srv.send("ru mode idle")
             self.srv.send("bot_kick")
-            self.srv.send("ru state")
+            self.srv.send("ru match state")
 
         def chk_reset(_f):
             return state_where(lambda fl: fl.get("mode") == "idle" and fl.get("match") == "none", "reset") is not None
@@ -677,7 +677,7 @@ class Runner:
 
         def act_pick():
             if a.side != "auto":
-                self.srv.send(f"ru side {a.side}")
+                self.srv.send(f"ru match side {a.side}")
 
         def chk_pick(_f):
             if not f.knife_pick:
@@ -896,15 +896,15 @@ class Runner:
                     self.srv.send(f'bot_kick "{n}"')
             return _act
         return [
-            Step("tech pause (ru tech team1) -> auto-unpause after 8s", 150,
+            Step("tech pause (ru match tech team1) -> auto-unpause after 8s", 150,
                  chk_pause("tech1", "technical by team1", "ended (technical pause time is up)"),
-                 send_marked("tech1", "ru tech team1"), pause_detail("tech1")),
+                 send_marked("tech1", "ru match tech team1"), pause_detail("tech1")),
             Step("tech pause limit (2nd for team1 refused)", 20,
                  chk_pause("tech2", "", refuse="technical refused for team1"),
-                 send_marked("tech2", "ru tech team1"), pause_detail("tech2")),
-            Step("tactical timeout (ru tac team2) -> ends at freeze end", 150,
+                 send_marked("tech2", "ru match tech team1"), pause_detail("tech2")),
+            Step("tactical timeout (ru match tac team2) -> ends at freeze end", 150,
                  chk_pause("tac", "tactical timeout by team2", "ended (tactical timeout over)"),
-                 send_marked("tac", "ru tac team2"), pause_detail("tac")),
+                 send_marked("tac", "ru match tac team2"), pause_detail("tac")),
             Step("forfeit countdown (CT bots kicked)", 30, chk_ff("ff1", "team1 has nobody connected"),
                  act_kick("ff1"), ff_detail("ff1")),
             Step("forfeit cancelled (a CT bot back)", 30, chk_ff("ff2", "team1 is back", bad="forfeits map"),
@@ -921,7 +921,7 @@ class Runner:
     def valve_steps(self, f, a, mark, since, bots_ok, act_selftest, chk_selftest, act_reset, chk_reset,
                     chk_warmup, act_bots) -> list[Step]:
         """--ruleset valve (docs/ESPORTS-MODE.md): knife refused, go-live execs esports_live.cfg, every
-        Valve exception cvar + the overrides after go-live, `ru rules`, skins inert, default models."""
+        Valve exception cvar + the overrides after go-live, `ru match rules`, skins inert, default models."""
         t0: dict = {}
 
         def serve(doc):
@@ -984,7 +984,7 @@ class Runner:
             time.sleep(2.0)
             self.srv.send(f"bot_quota {a.bots_per_side * 2}")
             time.sleep(8.0)
-            self.srv.send("ru state")  # a fresh state: line even when the bot count did not change
+            self.srv.send("ru match state")  # a fresh state: line even when the bot count did not change
 
         def chk_bots_again(_f):
             return any(bots_ok(fl) for _, fl, _ in f.states_since(since("bots2")))
@@ -1027,7 +1027,7 @@ class Runner:
 
         def act_rules():
             mark["rules"] = f.seq
-            self.srv.send("ru rules")
+            self.srv.send("ru match rules")
 
         def chk_rules(_f):
             lines = [t for (sq, t) in f.rules_diff if sq > since("rules")]
@@ -1037,7 +1037,7 @@ class Runner:
             for frag in ("freezetime 20->5 (override)", "spectators_max 10->8 (override)",
                          "overtime.startmoney 10000->12500 (override)", "default_models false->true (override)"):
                 if frag not in t:
-                    return f"`ru rules` misses {frag!r}: {t}"
+                    return f"`ru match rules` misses {frag!r}: {t}"
             return True
 
         def act_skins():
@@ -1082,7 +1082,7 @@ class Runner:
             Step("valve: bots back (esports_live.cfg kicks them)", 60, chk_bots_again, act_bots_again),
             Step(f"valve: {len(names)} cvars after go-live (Valve exceptions, Premier, overrides)", 30, chk_cvars,
                  act_cvars, cvars_detail),
-            Step("valve: `ru rules` differs from valve", 15, chk_rules, act_rules,
+            Step("valve: `ru match rules` differs from valve", 15, chk_rules, act_rules,
                  lambda f_: (f_.rules_diff[-1][1] if f_.rules_diff else "")[:200]),
             Step("valve: skins plugin inert", 15, chk_skins, act_skins,
                  lambda f_: (f_.skins_status[-1][1] if f_.skins_status else "").strip()),
@@ -1108,7 +1108,7 @@ class Runner:
         def act_scrim():
             mark["load"] = f.seq
             f.armed = True
-            self.srv.send("ru scrim")  # `ru idle` (reset) turned auto scrim warmup off
+            self.srv.send("ru mode scrim")  # `ru mode idle` (reset) turned auto scrim warmup off
             time.sleep(0.3)
             self.srv.send(f"bot_quota {a.bots_per_side * 2}")
 
@@ -1170,9 +1170,9 @@ class Runner:
                 self.srv.send("host_timescale 1")
                 self.srv.send("sv_cheats 0")
             if self.touched:
-                self.srv.send("ru idle")    # clears the match context + persisted match
+                self.srv.send("ru mode idle")    # clears the match context + persisted match
                 if self.flag_set:
-                    # Before `ru scrim`: with the flag on, the restored bots would start a scrim.
+                    # Before `ru mode scrim`: with the flag on, the restored bots would start a scrim.
                     self.srv.send("ru_dev_bots_scrim cfg")
                 if self.a.ruleset == "valve":
                     # Engine pauses the valve ruleset turns on (auto 5v5, halftime) must not outlive
@@ -1185,7 +1185,7 @@ class Runner:
                     self.srv.send("mp_autoteambalance 1")
                     if self.quota_mode_set:
                         self.srv.send(f"bot_quota_mode {self.f.bot_quota_mode or 'competitive'}")
-                self.srv.send("ru scrim")   # re-enable auto scrim warmup (ru idle turns it off)
+                self.srv.send("ru mode scrim")   # re-enable auto scrim warmup (ru mode idle turns it off)
                 quota = self.f.bot_quota if self.f.bot_quota is not None else self.a.restore_bot_quota
                 self.srv.send(f"bot_quota {quota}")
                 self.pump(2.0)
@@ -1276,11 +1276,11 @@ def parse_args(argv=None):
                    help="match mode + pauses (technical limit / auto-unpause, tactical) + team-left forfeit")
     p.add_argument("--ruleset", choices=["default", "valve"], default=env("LIVETEST_RULESET", "default"),
                    help="valve: esports ruleset (docs/ESPORTS-MODE.md): knife refused, every Valve exception cvar "
-                        "and the overrides checked after go-live, `ru rules`, skins inert, default_models")
+                        "and the overrides checked after go-live, `ru match rules`, skins inert, default_models")
     p.add_argument("--max-rounds", type=int, default=int(env("LIVETEST_MAX_ROUNDS", "4")))
     p.add_argument("--bots-per-side", type=int, default=int(env("LIVETEST_BOTS_PER_SIDE", "2")))
     p.add_argument("--side", choices=["auto", "stay", "switch"], default=env("LIVETEST_SIDE", "auto"),
-                   help="knife pick: auto = bots-only timeout (stay); stay/switch = `ru side ...` from console")
+                   help="knife pick: auto = bots-only timeout (stay); stay/switch = `ru match side ...` from console")
     p.add_argument("--timescale", type=float, default=float(env("LIVETEST_TIMESCALE", "1")),
                    help="host_timescale during match_live only (needs sv_cheats 1; reverted after)")
     p.add_argument("--round-timeout", type=float, default=float(env("LIVETEST_ROUND_TIMEOUT", "200")))

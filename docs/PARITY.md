@@ -83,19 +83,19 @@ P: `services/matchLoadingService.ts`, `allocation.ts`, `routes/rcon.ts`.
 | `ru_loadmatch <file>` | AT: `MatchManagement.cs:58` | none | missing | Read from `csgo/`. | none | S |
 | `ru_addplayer <steam64> <team1\|team2\|spec> "<name>"`; the platform looks for "successfully" | AT: `Teams.cs:72-112` | none (the roster is fixed at load) | missing | Change the roster at runtime and update the whitelist/team enforcement. Reply "…successfully…" or AT's error strings. | none | S |
 | `ru_removeplayer <steam64>` | AT docs | none | missing | | none | S |
-| `css_endmatch` (end and reset; used for allocation) | AT: `ConsoleCommands.cs:568` | `ru end` | partial | Alias, plus `get5_endmatch`/`css_forceend`. Like AT, it must also clear the queued match (reply `cleared_queued_match=…`) and reset to idle, so status becomes allocatable (AT: `ConsoleCommands.cs:568-580`). | none | S |
-| `css_restart` (restart / reallocate / reset) | AT: `ConsoleCommands.cs:594` | `ru restart` (back to warmup, match kept) | partial | In AT, `css_restart`/`css_rr` do the **same as `css_endmatch`**: `ClearQueuedMatch` + `ResetMatch()` unloads the match (AT: `ConsoleCommands.cs:593-606`). Ready Up's `ru restart` keeps the match and returns to warmup, so `css_restart` must **not** alias it. Alias it to the end/reset path instead. | none | S |
-| `css_start` | AT: `ConsoleCommands.cs:641` | `ru start` | partial | Alias. | none | S |
+| `css_endmatch` (end and reset; used for allocation) | AT: `ConsoleCommands.cs:568` | `ru match end` | partial | Alias, plus `get5_endmatch`/`css_forceend`. Like AT, it must also clear the queued match (reply `cleared_queued_match=…`) and reset to idle, so status becomes allocatable (AT: `ConsoleCommands.cs:568-580`). | none | S |
+| `css_restart` (restart / reallocate / reset) | AT: `ConsoleCommands.cs:594` | `ru match restart` (back to warmup, match kept) | partial | In AT, `css_restart`/`css_rr` do the **same as `css_endmatch`**: `ClearQueuedMatch` + `ResetMatch()` unloads the match (AT: `ConsoleCommands.cs:593-606`). Ready Up's `ru match restart` keeps the match (`ru map restart` is `mp_restartgame 1`) and returns to warmup, so `css_restart` must **not** alias it. Alias it to the end/reset path instead. | none | S |
+| `css_start` | AT: `ConsoleCommands.cs:641` | `ru match start` | partial | Alias. | none | S |
 | `css_map <m>` | AT: `ConsoleCommands.cs:617` | none | missing | Pre-live `changelevel`/`host_workshop_map`. | none | S |
-| `css_pause` / `css_unpause` / `css_forcepause` / `css_forceunpause` | AT: `ConsoleCommands.cs:264-278` | `ru pause` / `ru unpause` (admin) | partial | Aliases. | none | S |
-| `css_restore <n>` | AT: `BackupManagement.cs:116` | `ru recover [n]` only **emits `recover_requested`**. Nothing is restored except the boot recovery. | missing | See §7. | none | M |
+| `css_pause` / `css_unpause` / `css_forcepause` / `css_forceunpause` | AT: `ConsoleCommands.cs:264-278` | `ru match pause` / `ru match unpause` (admin) | partial | Aliases. | none | S |
+| `css_restore <n>` | AT: `BackupManagement.cs:116` | `ru match recover [n]` only **emits `recover_requested`**. Nothing is restored except the boot recovery. | missing | See §7. | none | M |
 | `css_switch` (swap teams) | AT: `ConsoleCommands.cs:184` | none | missing | `mp_swapteams` and keep the team1/team2 side mapping in sync. | none | S |
-| `css_prac` / `css_exitprac` | AT: `PracticeMode.cs:775` | `ru practice` / `ru idle` | partial | Aliases. | none | S |
+| `css_prac` / `css_exitprac` | AT: `PracticeMode.cs:775` | `ru mode practice` / `ru mode idle` | partial | Aliases. | none | S |
 | `css_asay <msg>` | AT: `AutoTournamentCS2.cs:777` | none (`say` works) | missing | Chat with the admin prefix. | none | S |
 | `reload_admins` / `css_reload_admins` | AT | `ru_admins_url` + `ru admins` (admins.json/MAT) | partial | Alias to a MAT admins refresh (RU: `mat_admins::RefreshNow`). | none | S |
 | `css_skipveto` | not registered in AT | none | not needed | The platform runs the veto in the browser (`skip_veto: true`). Accept it as a no-op. | none | S |
 | catalog: `css_roundknife`, `css_playout`, `css_whitelist`, `css_settings`, `css_readyrequired <n>`, `css_team1/2 <name>` | AT: `ConsoleCommands.cs` | none | missing | Toggles over the §2 settings. `team1/2` sets the names (plus `mp_teamname_1/2`). | none | S |
-| Plain engine commands (`mp_restartgame 1`, `mp_warmup_end`, `mp_roundtime_defuse`, `say`) | – | pass through to the engine | done | Note: `mp_warmup_end` during Ready Up's own warmup can confuse the gating. Map "end warmup" to `ru start`. | none | S |
+| Plain engine commands (`mp_restartgame 1`, `mp_warmup_end`, `mp_roundtime_defuse`, `say`) | – | pass through to the engine | done | Note: `mp_warmup_end` during Ready Up's own warmup can confuse the gating. Map "end warmup" to `ru match start`. | none | S |
 
 ## 4. Status convars read over RCON
 
@@ -153,7 +153,7 @@ The contract is `AT: Events.cs` plus `MatchData.cs`. The platform normalizer rea
 | Item | AT ref | Ready Up | Status | Needed | Effort |
 |---|---|---|---|---|---|
 | Push `POST ru_report_endpoint` with `x-auto-tournament-token: <ru_report_token>`, body `{serverId, matchSlug, report:{match{matchId,slug,phase,map{name,number,total,round},score}, teams{team1/2{name,side,players[]}}, spectators, connections, server{moduleVersion,tournamentStatus}}}`, on connect/disconnect, warmup start, after knife, round start/end, 3 tries | AT: `MatchReportCommand.cs` | none | missing | Build it from the state Ready Up already has (ready set, pause state, roster, slot registry). | M |
-| Pull: `ru_match_report` / `css_match_report` → JSON after the first `{` | AT: `MatchReportCommand.cs:144-145` | `ru state` (text) | missing | Same builder. Print the JSON on one line. | S |
+| Pull: `ru_match_report` / `css_match_report` → JSON after the first `{` | AT: `MatchReportCommand.cs:144-145` | `ru match state` (text) | missing | Same builder. Print the JSON on one line. | S |
 
 ## 7. Player-facing and admin features
 
@@ -162,16 +162,16 @@ The contract is `AT: Events.cs` plus `MatchData.cs`. The platform normalizer rea
 | `.ready/.r`, `.unready/.ur/.notready` | `ReadySystem.cs` | done (RU: `ru_router.cpp`) | done | `!`-prefixed and `css_ready` console forms, if wanted | none | S | P2 |
 | Ready HUD / reminders | – | per-player center HTML (RU: `ready_hud.cpp`) | done (better) | – | – | – | – |
 | `.forceready` | `ReadyLogic.cs` | readies the caller's whole team in warmup once `min_players_to_ready` of it is connected (0 = full roster); the ready gate uses the same threshold. Rule `allow_force_ready` (RU: `match_features.cpp`) | done | – | none | S | P1 |
-| `.start/.forcestart`, `.restart/.rr`, `.endmatch/.forceend` | `ConsoleCommands.cs` | `.ru start/restart/end` | partial | Chat aliases | none | S | P2 |
+| `.start/.forcestart`, `.restart/.rr`, `.endmatch/.forceend` | `ConsoleCommands.cs` | `.ru match start/restart/end` | partial | Chat aliases | none | S | P2 |
 | `.pause/.p` tactical vs `.tech` technical; limits `ru_max_pauses_per_team`, `ru_pause_duration`, `ru_both_teams_unpause_required` (match cvars) | `Pausing.cs`, `ConfigConvars.cs:128-130` | `.pause`/`.p`/`.tech` = technical (`mp_pause_match`), `max_tech_pauses_per_team` per team per map, `tech_pause_max_seconds` auto-unpause with a HUD countdown, `both_teams_unpause_required` (else the pausing team alone); `.tac` = tactical (RU: `match_features.h`, `match_rules.h`) | done | – | none | M | P1 |
 | `.tac` tactical timeout | `ConsoleCommands.cs:399` | `timeout_ct_start` / `timeout_terrorist_start` for the caller's side; the engine enforces `mp_team_timeout_max/_time` (fleet `rules.pause.tactical_*` map onto them); shown as a tactical pause until `round_freeze_end` (RU: `match_features.cpp`) | done | – | none (built-in commands) | S | P1 |
-| `.forcepause/.fp`, `.forceunpause/.fup` | `ConsoleCommands.cs:278` | chat aliases of `.ru fp/fup`; an admin pause only ends with `.fup` | done | – | none | S | P2 |
+| `.forcepause/.fp`, `.forceunpause/.fup` | `ConsoleCommands.cs:278` | chat aliases of `.ru match pause` / `.ru match unpause`; an admin pause only ends with `.fup` | done | – | none | S | P2 |
 | Knife round + `.stay/.switch/.swap/.ct/.t` | `MatchLogic.cs` | done (log-driven knife tracker, RU: `knife_tracker.cpp`, `modes.cpp` `ApplyKnifeSideChoiceLocked`) | done | Read `ru_side_selection_enabled` / `ru_side_selection_time` from `cvars{}` (today: `knifeDecisionSeconds`, default 60 s, sides stay on timeout). `.roundknife` toggle. | none | S | P1 |
 | `.gg` vote to give up (`ru_gg_enabled`, `_threshold`, `_min_score_diff`) | `ConfigConvars.cs:138` | `.gg` only emits `player_gg` | partial | Team vote → end the map/series with the other team winning (forfeit through `map_result`/`series_end`) | none | S | P2 |
 | Forfeit when a team leaves (`ru_ffw_enabled`, `ru_ffw_time`) | `ConfigConvars.cs:143` | `forfeit_after_seconds` (default 240, 0 = off): a team with nobody connected on a live map gets a chat + HUD countdown, cancelled on reconnect; then it forfeits the map and the series through `map_result` / `series_end` (plus `match_forfeit` / fleet `event.forfeit`, reason `team_absent`). `.ff` still only emits `match_forfeit` (RU: `match_features.cpp`, `modes.cpp` `ForfeitCurrentMap`) | done | – | none | S | P1 |
 | Auto-ready (`ru_autoready_enabled`) | `ConfigConvars.cs:85` | none | missing | Mark players ready on join | none | S | P2 |
 | `.stop` round-restore vote (`ru_stop_command_available`, `_no_damage`) | `BackupManagement.cs:39` | none | missing | Both teams vote → restore the start of the current round | none | S (after restore) | P2 |
-| **Round restore** `css_restore <n>` / `.restore <n>`, `ru_loadbackup <file>`, `ru_loadbackup_url <url>`, `ru_listbackups <matchId>`, `ru_remote_backup_url` + header | `BackupManagement.cs:116, 564-642` | CS2 built-in round backups are on (`mp_backup_round_file readyup_backup_<id>_map<N>_`); a restore happens **only** on boot recovery (RU: `match_recovery.cpp`); `ru recover` only emits an event | partial | Restore by round number: pick the file for round N by prefix, `mp_backup_restore_load_file`, keep the pause, fix Ready Up's round/score/stat state, emit `backup_loaded`. The URL variant downloads to `csgo/` first. Remote backup upload is P2. Prefer the built-in `.txt` backups over AT's custom JSON. | none (built-in cvars) | M | P1 |
+| **Round restore** `css_restore <n>` / `.restore <n>`, `ru_loadbackup <file>`, `ru_loadbackup_url <url>`, `ru_listbackups <matchId>`, `ru_remote_backup_url` + header | `BackupManagement.cs:116, 564-642` | CS2 built-in round backups are on (`mp_backup_round_file readyup_backup_<id>_map<N>_`); a restore happens **only** on boot recovery (RU: `match_recovery.cpp`); `ru match recover` only emits an event | partial | Restore by round number: pick the file for round N by prefix, `mp_backup_restore_load_file`, keep the pause, fix Ready Up's round/score/stat state, emit `backup_loaded`. The URL variant downloads to `csgo/` first. Remote backup upload is P2. Prefer the built-in `.txt` backups over AT's custom JSON. | none (built-in cvars) | M | P1 |
 | Crash/restart recovery | AT relies on backups + DB | done for the config, round backup and live gate (RU: `match_recovery.cpp`) | partial | Persist the series score (finding 6) and the stats accumulators | none | S | P1 |
 | Whitelist (roster + spectators + admins), kick non-roster | `MatchLogic.cs` | done (RU: `modes.cpp` `EnforceWhitelistLocked`) | done | `.whitelist` toggle | none | S | P2 |
 | Team enforcement (force `jointeam` by roster/side) | `Teams.cs` | done (RU: `modes.cpp` `MaybeForceRosterTeamsLocked`) | done | – | ClientCommand hook (exists) | – | – |
@@ -229,7 +229,7 @@ Rule: `at_<x>` → `ru_<x>`. `css_*` and `get5_*` names stay as they are. "exist
 | `at_remote_log_url` | `ru_remote_log_url` | `ru_webhook_url` (appends `/slug`) |
 | `at_remote_log_header_key` / `_value` | `ru_remote_log_header_key` / `_value` | `ru_match_token` (Bearer) |
 | `at_report_endpoint` / `at_report_token` / `at_report_server_id` | `ru_report_endpoint` / `ru_report_token` / `ru_report_server_id` | – |
-| `at_match_report` | `ru_match_report` | `ru state` (text) |
+| `at_match_report` | `ru_match_report` | `ru match state` (text) |
 | `at_tournament_status` / `_match` / `_next_match` / `_updated` | `ru_tournament_status` / `_match` / `_next_match` / `_updated` | heartbeat `status` |
 | `at_demo_upload_url` / `_header_key` / `_header_value` | `ru_demo_upload_url` / `_header_key` / `_header_value` | – |
 | `at_demo_recording_enabled`, `at_demo_path`, `at_demo_name_format` | `ru_demo_recording_enabled`, `ru_demo_path`, `ru_demo_name_format` | always records |

@@ -19,6 +19,7 @@ set(MATCH_SOURCES
   readyup/host.cpp
   readyup/knife_tracker.cpp
   readyup/local_store.cpp
+  readyup/ru_commands.cpp
   readyup/map_names.cpp
   readyup/mat_admins.cpp
   readyup/match_config_parser.cpp
@@ -118,3 +119,12 @@ target_include_directories(match_ruleset_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR
   ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(match_ruleset_test PRIVATE -Wall -Wextra)
 add_test(NAME match_ruleset COMMAND match_ruleset_test)
+
+# `ru` main commands + subcommands of the match plugin (readyup/ru_commands.h): the help, the
+# lookup, `.ru map change` / `.ru match load` parsing, `ru map reload`'s entry for workshop maps
+# (ctest `match_ru_commands`).
+add_executable(match_ru_commands_test tests/ru_commands_test.cpp readyup/ru_commands.cpp readyup/map_names.cpp)
+target_include_directories(match_ru_commands_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(match_ru_commands_test PRIVATE -Wall -Wextra)
+target_link_libraries(match_ru_commands_test PRIVATE pthread)
+add_test(NAME match_ru_commands COMMAND match_ru_commands_test)
