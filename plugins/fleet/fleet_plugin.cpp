@@ -6,7 +6,7 @@
 //
 // Config: the [fleet] section of readyup.cfg (or csgo/cfg/ReadyUp/fleet.cfg):
 //   url=https://tournament.example.com   platform base URL; unset = standalone (the plugin idles)
-//   enroll_code=RUE-XXXX-XXXX-XXXX       one-time code from the UI (Add server)
+//   enroll_code=RUE-XXXX-XXXX-XXXX-XXXX  one-time code from the UI (Add server)
 //   enroll_key=rfk_...                   fleet enrollment key (csm / containers), reusable
 //   insecure_dev=0                       1 allows http:// / ws:// to loopback and RFC 1918 hosts
 //   ca_file=                             extra CA bundle (private CA)

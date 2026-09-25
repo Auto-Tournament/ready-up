@@ -131,7 +131,7 @@ Everything is game-thread only except where noted.
 | Schema / entities | `schema_offset`, `entity_system_status`, `entity_by_index`, `entity_from_handle`, `entity_handle_of`, `entity_classname`, `entity_mark_changed`, `econ_attr_set_by_name`, `entity_change_subclass`, `entity_set_model`, `entity_set_bodygroup_by_name` | backed by `schema.*` and `entity.*`; each returns 0/NULL when its engine function did not resolve |
 | Match control | `set_round_termination_suppressed`, `set_chat_name_prefix` | see below for `terminate_round` |
 | Admins | `is_admin` (**any thread**, may block), `set_admin_provider` | the core's `IsReadyUpAdmin` asks the provider first, so core checks follow it too. Providers run on the caller's thread under a shared lock that unload takes exclusively |
-| Config | `config_get`, `debug_enabled` (any thread), `config_dir` (any thread) | `config_get` reads `csgo/cfg/ReadyUp/<plugin>.cfg`, then the `[<plugin>]` section of `readyup.cfg`. The core's own parser now ignores everything after the first `[section]` line |
+| Config | `config_get`, `debug_enabled` (any thread), `config_dir` (any thread) | `config_get` reads `csgo/cfg/ReadyUp/<plugin>.cfg` (top-level keys or a `[<plugin>]` section), then the `[<plugin>]` section of `readyup.cfg`. The core's own parser now ignores everything after the first `[section]` line |
 | Plugin-to-plugin | `provide_interface`, `get_interface` | one provider per name, removed on unload; look it up again in each callback |
 | Reload state | `stash_put`, `stash_get` | byte blobs keyed by (plugin, key), kept in core memory across unload/load, max 1 MiB each |
 

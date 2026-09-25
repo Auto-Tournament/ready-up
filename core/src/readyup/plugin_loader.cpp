@@ -450,7 +450,11 @@ int ApiConfigGet(ru_plugin* self, const char* key, char* buf, uint32_t len) {
   std::string v;
   bool found = false;
   const std::string csgo = GetCsgoDirFromModuleDir();
-  if (!csgo.empty()) found = CfgLookup(csgo + "/cfg/ReadyUp/" + name + ".cfg", "", k, &v);
+  if (!csgo.empty()) {
+    // Top-level keys, or the same keys under a [<plugin>] header (as in readyup.cfg).
+    const std::string file = csgo + "/cfg/ReadyUp/" + name + ".cfg";
+    found = CfgLookup(file, "", k, &v) || CfgLookup(file, Lower(name), k, &v);
+  }
   if (!found) {
     const std::string dir = GetThisModuleDir();
     if (!dir.empty()) found = CfgLookup(dir + "/readyup.cfg", name, k, &v);
