@@ -24,4 +24,4 @@ jobs:
           path-to-signatures: 'signatures/cla.json'
           path-to-document: 'https://github.com/Auto-Tournament/auto-tournament/blob/main/CLA.md'
           branch: 'cla-signatures'
-          allowlist: 'sivert-io,grytchat,dependabot[bot],github-actions[bot],copilot-swe-agent[bot],claude*'
+          allowlist: 'sivert-io,grytchat,dependabot[bot],github-actions[bot],copilot-swe-agent[bot],claude*,Claude*,Claude Opus 5.5,Claude Sonnet 5,Claude Haiku'
