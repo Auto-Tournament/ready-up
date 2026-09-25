@@ -82,6 +82,7 @@ static void TestValvePreset() {
   CHECK(!e.Bool("default_models", true));
   CHECK(!CoachesAdmitted(e));
   CHECK(InventoryLocked(e));
+  CHECK(!PlayerExtrasAllowed(e));  // no practice tools, damage report or .gg / .stop votes
   CHECK(e.match_rules.tech_pauses_per_team == 1 && e.match_rules.tech_pause_max_seconds == 120);
   // Pause rules outside the table keep the usual chain (built-in defaults here).
   CHECK(e.match_rules.both_teams_unpause == 1 && e.match_rules.forfeit_after_seconds == 240);
@@ -106,6 +107,7 @@ static void TestDefaultPreset() {
   CHECK(e.Int("freezetime", -1) == 18 && e.Int("zeus", -1) == 1 && e.Bool("allow_knife", false));
   CHECK(!e.values.at("tv_delay").Set() && !e.values.at("overtime.limit").Set());
   CHECK(!InventoryLocked(e) && CoachesAdmitted(e));
+  CHECK(PlayerExtrasAllowed(e));
   CHECK(RuleCommands(e).empty());
 }
 
@@ -118,6 +120,7 @@ static void TestOverridesOnTop() {
   CHECK(e.Int("overtime.startmoney", -1) == 12500);
   CHECK(e.Int("overtime.limit", -1) == 2);
   CHECK(e.Bool("default_models", false));
+  CHECK(!PlayerExtrasAllowed(e));  // overrides never turn the extras back on
   CHECK(e.match_rules.tech_pauses_per_team == 2);
   const auto d = e.Differs();
   // tac_timeouts 3 is overridden but equal to Valve's: not a difference. Table order.

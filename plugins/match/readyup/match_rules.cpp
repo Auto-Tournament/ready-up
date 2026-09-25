@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 namespace readyup {
 
@@ -13,6 +14,12 @@ MatchRules BuiltinDefaultRules() {
   r.allow_force_ready = 1;
   r.min_players_to_ready = 0;
   r.forfeit_after_seconds = 240;
+  r.gg_enabled = 0;
+  r.gg_threshold_pct = 80;
+  r.gg_min_score_diff = 8;
+  r.stop_command_available = 0;
+  r.stop_command_no_damage = 0;
+  r.stop_vote_seconds = 30;
   return r;
 }
 
@@ -28,7 +35,25 @@ MatchRules ResolveRules(const MatchRules& match, const MatchRules& base) {
   r.min_players_to_ready = pick(match.min_players_to_ready, base.min_players_to_ready, d.min_players_to_ready);
   r.forfeit_after_seconds =
       pick(match.forfeit_after_seconds, base.forfeit_after_seconds, d.forfeit_after_seconds);
+  r.gg_enabled = pick(match.gg_enabled, base.gg_enabled, d.gg_enabled) ? 1 : 0;
+  r.gg_threshold_pct = std::clamp(pick(match.gg_threshold_pct, base.gg_threshold_pct, d.gg_threshold_pct), 1, 100);
+  r.gg_min_score_diff = pick(match.gg_min_score_diff, base.gg_min_score_diff, d.gg_min_score_diff);
+  r.stop_command_available =
+      pick(match.stop_command_available, base.stop_command_available, d.stop_command_available) ? 1 : 0;
+  r.stop_command_no_damage =
+      pick(match.stop_command_no_damage, base.stop_command_no_damage, d.stop_command_no_damage) ? 1 : 0;
+  r.stop_vote_seconds = std::clamp(pick(match.stop_vote_seconds, base.stop_vote_seconds, d.stop_vote_seconds), 5, 300);
   return r;
+}
+
+int GgThresholdPctFromText(const std::string& text) {
+  if (text.empty()) return -1;
+  char* end = nullptr;
+  const double v = std::strtod(text.c_str(), &end);
+  if (end == text.c_str() || !std::isfinite(v) || v <= 0) return -1;
+  const double pct = v <= 1.0 ? v * 100.0 : v;
+  if (pct > 100.0) return -1;
+  return std::max(1, static_cast<int>(std::lround(pct)));
 }
 
 bool TechPauseAllowed(int used, int limit) { return limit <= 0 || used < limit; }

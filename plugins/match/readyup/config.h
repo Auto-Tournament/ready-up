@@ -46,6 +46,8 @@ struct ReadyUpCfg {
   bool scrim_knife = true;
   // Scrim knife side-pick window in seconds (match configs use knifeDecisionSeconds).
   int knife_pick_seconds = 60;
+  // Damage report in chat to each player after every live round (damage_report.h).
+  bool damage_report = true;
   // Idle map refresh (idle_refresh.h): reload the map after this many hours on it with no match
   // loaded and nobody connected. 0 = off.
   int idle_map_refresh_hours = 12;

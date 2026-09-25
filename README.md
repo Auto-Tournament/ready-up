@@ -32,7 +32,7 @@ CI checks the file against every new CS2 build, so we see what broke before a se
 - Ready-up flow for scrims and pickups: `.r` / `.ur`, a countdown, then the match goes live on its own
 - Match configs loaded from the Auto Tournament platform, with a roster whitelist and team locks
 - Pauses (`.pause` / `.unpause`) and captain forfeit
-- Practice mode: `.prac`, `.bot`, `.cbot`, `.nobots`
+- Practice mode (its own plugin): `.prac`, `.savepos`/`.loadpos`, `.spawn N`, `.rethrow`, `.bot`, `.noflash`, `.god`; a dedicated practice server with `always=1`
 - Admins, settings, crash recovery and skins loadouts in small JSON files, no database (`ru admins add|remove|list`); in fleet mode admins and loadouts come from the platform
 - Per-player center-screen HTML, such as the welcome screen
 - Webhooks and a heartbeat for the platform
@@ -62,6 +62,7 @@ In a terminal it then shows the components with the installed and latest version
   [ ] Hello  new 0.2.0     example plugin
   [ ] Midas  new 0.2.0     fun: gold weapons (off until enabled)
   [ ] Whitelist new 0.2.0  only listed players may join (off until turned on)
+  [x] Practice new 0.2.0   practice mode + tools (.prac, .savepos, .rethrow, .bot)
 ```
 
 It downloads the ticked components from the latest release (checking `SHA256SUMS`), puts them in `game/csgo/readyup/`, and adds `Game csgo/readyup` to `gameinfo.gi` and `gameinfo_branchspecific.gi` (right after Metamod's line if you have Metamod; a backup is saved as `gameinfo.gi.readyup-backup-<time>`). Your `readyup.cfg`, `cfg/ReadyUp/*.cfg` and the plugins' JSON data are never overwritten: when a shipped default changes, it lands next to yours as `*.default`. Then restart the server and run `ru selftest` in its console.
@@ -74,7 +75,7 @@ Unattended installs have to state the license choice once with
 `--accept-license=noncommercial` or `--accept-license=commercial`, or they stop with an error:
 
 ```bash
-curl -fsSL .../install.sh | bash -s -- essentials --accept-license=noncommercial   # core + match + fleet (the default)
+curl -fsSL .../install.sh | bash -s -- essentials --accept-license=noncommercial   # core + match + fleet + practice (the default)
 curl -fsSL .../install.sh | bash -s -- full --accept-license=noncommercial         # + skins + hello + midas
 bash install.sh --yes                                    # update whatever is installed
 bash install.sh --remove skins                           # or --remove fleet, --remove hello
@@ -88,7 +89,7 @@ CS2 updates rewrite `gameinfo.gi`: run the installer again after each one (it on
 
 ### Manual install
 
-1. Download a zip from [Releases](https://github.com/Auto-Tournament/ready-up/releases/latest): `ready-up-essentials-<version>-linuxsteamrt64.zip` (core + match + fleet) or `ready-up-full-...` (+ skins + hello + midas).
+1. Download a zip from [Releases](https://github.com/Auto-Tournament/ready-up/releases/latest): `ready-up-essentials-<version>-linuxsteamrt64.zip` (core + match + fleet + practice) or `ready-up-full-...` (+ skins + hello + midas).
 2. Extract it into `game/csgo`. You should end up with `game/csgo/readyup/bin/linuxsteamrt64/libserver.so`.
 3. Add Ready Up to `gameinfo.gi` (and `gameinfo_branchspecific.gi` if you have it):
 
@@ -116,11 +117,20 @@ Loads into CS2, owns every engine touchpoint (`gamedata/engine-surface.json`), a
 </details>
 
 <details>
-<summary><b>Match</b> (<code>plugins/match</code>): ready-up, knife, pauses, practice</summary>
+<summary><b>Match</b> (<code>plugins/match</code>): ready-up, knife, pauses</summary>
 
 <br />
 
-The match flow: scrim ready-up with a center-screen panel, knife round and side pick, pauses, practice mode, admins, match configs, webhooks for the Auto Tournament platform, GOTV demos and per-map stats. Ships as `plugins/match.so` in both bundles. `ru plugin reload match` swaps in a new build without dropping a loaded match: ready states, scores and the knife round carry over.
+The match flow: scrim ready-up with a center-screen panel, knife round and side pick, pauses, admins, match configs, webhooks for the Auto Tournament platform, GOTV demos and per-map stats. Ships as `plugins/match.so` in both bundles. `ru plugin reload match` swaps in a new build without dropping a loaded match: ready states, scores and the knife round carry over.
+
+</details>
+
+<details>
+<summary><b>Practice</b> (<code>plugins/practice</code>): practice mode and tools</summary>
+
+<br />
+
+`.prac` (admin) switches practice on or off: `cfg/ReadyUp/prac.cfg` (cheats, a full grenade set, infinite ammo) and everyone respawns with it. Tools: `.savepos`/`.loadpos [name]`, `.back`, `.spawn N` / `.ctspawn N` / `.tspawn N`, `.rethrow`, `.clear`, `.noflash`, `.god`, `.bot`/`.cbot`/`.boost`, `.nobots`. Runs with the match plugin (which then shows practice as its mode and refuses it while a match is loaded) or without it: `always=1` in `cfg/ReadyUp/practice.cfg` makes a dedicated practice server. Never active under the valve ruleset. In both bundles.
 
 </details>
 
@@ -169,7 +179,7 @@ A minimal plugin that registers `.hello` in chat. Start here to write your own.
 
 </details>
 
-Downloads: `ready-up-core`, `ready-up-match`, `ready-up-fleet`, `ready-up-skins`, `ready-up-hello`, `ready-up-midas`, `ready-up-whitelist`, and two bundles: **Essentials** (core + match + fleet) and **Full** (core + match + fleet + skins + hello + midas + whitelist + the gamedata checkers). The installer mixes the single components. `fleet` is the link to the Auto Tournament platform; it stays idle until you set a `url` in `cfg/ReadyUp/fleet.cfg` (shipped fully commented out), so it is safe on standalone servers.
+Downloads: `ready-up-core`, `ready-up-match`, `ready-up-fleet`, `ready-up-skins`, `ready-up-hello`, `ready-up-midas`, `ready-up-whitelist`, `ready-up-practice`, and two bundles: **Essentials** (core + match + fleet + practice) and **Full** (core + match + fleet + practice + skins + hello + midas + whitelist + the gamedata checkers). The installer mixes the single components. `fleet` is the link to the Auto Tournament platform; it stays idle until you set a `url` in `cfg/ReadyUp/fleet.cfg` (shipped fully commented out), so it is safe on standalone servers.
 
 ## FAQ
 

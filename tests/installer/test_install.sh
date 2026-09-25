@@ -80,7 +80,10 @@ for mm in 0 1; do
   check "cfg/ReadyUp templates seeded" test -f "$CS/cfg/ReadyUp/live.cfg"
   check "fleet.so installed" test -x "$CS/readyup/plugins/fleet.so"
   check "fleet.cfg seeded, all comments (fleet stays idle)" idle_cfg "$CS/cfg/ReadyUp/fleet.cfg"
-  check "installed.json lists core fleet match" test "$(installed "$S")" = "core fleet match"
+  check "practice.so installed (essentials)" test -x "$CS/readyup/plugins/practice.so"
+  check "prac.cfg seeded by the practice component" test -f "$CS/cfg/ReadyUp/prac.cfg"
+  check "practice.cfg seeded, all comments (always off)" idle_cfg "$CS/cfg/ReadyUp/practice.cfg"
+  check "installed.json lists core fleet match practice" test "$(installed "$S")" = "core fleet match practice"
   for gi in gameinfo.gi gameinfo_branchspecific.gi; do
     check "$gi: exactly one readyup line" test "$(count_ru "$CS/$gi")" = 1
     check "$gi: readyup before Game csgo" test "$(line_of "$CS/$gi" csgo/readyup)" -lt "$(line_of "$CS/$gi" csgo)"
@@ -122,7 +125,7 @@ run --dir "$S" --remove skins >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove s
 check "skins.so removed" test ! -e "$CS/readyup/plugins/skins.so"
 check "skins gamedata removed" test ! -e "$CS/readyup/bin/linuxsteamrt64/engine-surface.skins.json"
 check "core still installed" test -f "$CS/readyup/bin/linuxsteamrt64/libserver.so"
-check "installed.json back to core fleet match" test "$(installed "$S")" = "core fleet match"
+check "installed.json back to core fleet match practice" test "$(installed "$S")" = "core fleet match practice"
 
 echo "== add midas from the full zip (off by default), then remove it"
 run --dir "$S" --zip "$FULL" midas >"$T/out" 2>&1 || { cat "$T/out"; fail "midas install exited non-zero"; }
@@ -144,11 +147,11 @@ run --dir "$S" --remove fleet >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove f
 check "fleet.so removed" test ! -e "$CS/readyup/plugins/fleet.so"
 check "fleet credentials kept" test -f "$CS/readyup/plugins/fleet/credentials.json"
 check "user fleet.cfg kept" grep -q "t.example.com" "$CS/cfg/ReadyUp/fleet.cfg"
-check "installed.json is core match" test "$(installed "$S")" = "core match"
+check "installed.json is core match practice" test "$(installed "$S")" = "core match practice"
 run --dir "$S" --zip "$(ls "$DIST"/ready-up-fleet-*.zip)" fleet >"$T/out" 2>&1 || { cat "$T/out"; fail "fleet install exited non-zero"; }
 check "fleet.so back" test -x "$CS/readyup/plugins/fleet.so"
 check "user fleet.cfg not overwritten" grep -q "t.example.com" "$CS/cfg/ReadyUp/fleet.cfg"
-check "installed.json is core fleet match again" test "$(installed "$S")" = "core fleet match"
+check "installed.json is core fleet match practice again" test "$(installed "$S")" = "core fleet match practice"
 
 if command -v script >/dev/null 2>&1; then
   echo "== numbered picker (TERM=dumb) through a pty"

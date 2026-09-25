@@ -93,6 +93,12 @@ Json ContextToJson(const WebhookMatchContext& c) {
   rules["allow_force_ready"] = c.rules.allow_force_ready;
   rules["min_players_to_ready"] = c.rules.min_players_to_ready;
   rules["forfeit_after_seconds"] = c.rules.forfeit_after_seconds;
+  rules["gg_enabled"] = c.rules.gg_enabled;
+  rules["gg_threshold_pct"] = c.rules.gg_threshold_pct;
+  rules["gg_min_score_diff"] = c.rules.gg_min_score_diff;
+  rules["stop_command_available"] = c.rules.stop_command_available;
+  rules["stop_command_no_damage"] = c.rules.stop_command_no_damage;
+  rules["stop_vote_seconds"] = c.rules.stop_vote_seconds;
   j["rules"] = std::move(rules);
   j["ruleset"] = c.ruleset;
   j["overrides"] = c.overrides_json;
@@ -140,6 +146,12 @@ WebhookMatchContext ContextFromJson(const Json& j) {
     c.rules.allow_force_ready = Int(r, "allow_force_ready", -1);
     c.rules.min_players_to_ready = Int(r, "min_players_to_ready", -1);
     c.rules.forfeit_after_seconds = Int(r, "forfeit_after_seconds", -1);
+    c.rules.gg_enabled = Int(r, "gg_enabled", -1);
+    c.rules.gg_threshold_pct = Int(r, "gg_threshold_pct", -1);
+    c.rules.gg_min_score_diff = Int(r, "gg_min_score_diff", -1);
+    c.rules.stop_command_available = Int(r, "stop_command_available", -1);
+    c.rules.stop_command_no_damage = Int(r, "stop_command_no_damage", -1);
+    c.rules.stop_vote_seconds = Int(r, "stop_vote_seconds", -1);
   }
   c.ruleset = Str(&j, "ruleset");
   c.overrides_json = Str(&j, "overrides");

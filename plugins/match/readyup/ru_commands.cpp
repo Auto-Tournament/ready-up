@@ -34,7 +34,7 @@ const std::vector<RuMainCommand>& MatchRuCommands() {
        {
            {"show", "", "the current mode", false},
            {"idle", "", "plain CS2; no auto scrim warmup until `mode scrim` or a map change", true},
-           {"practice", "", "practice mode (toggles off again)", true},
+           {"practice", "", "practice mode on / off (practice plugin; also .prac)", true},
            {"scrim", "", "auto scrim warmup back on", true},
        }},
       {"admins",

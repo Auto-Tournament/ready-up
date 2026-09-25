@@ -358,6 +358,9 @@ add_test(NAME plugin_host_reload
   COMMAND readyup_plugin_host_test
     $<TARGET_FILE:readyup_plugin_hello> $<TARGET_FILE:readyup_plugin_hello_reload_test>)
 
+# readyup-practice (plugins/practice): practice mode + tools, plus its unit test.
+add_subdirectory(plugins/practice)
+
 # readyup-midas (plugins/midas): fun plugin, plus its unit test (after enable_testing()).
 add_subdirectory(plugins/midas)
 

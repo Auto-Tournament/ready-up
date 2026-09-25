@@ -244,6 +244,17 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
   ruleBool("allow_force_ready", &ctx.rules.allow_force_ready);
   ruleInt("min_players_to_ready", &ctx.rules.min_players_to_ready);
   ruleInt("forfeit_after_seconds", &ctx.rules.forfeit_after_seconds);
+  ruleBool("gg_enabled", &ctx.rules.gg_enabled);
+  if (const Value* g = cfg->get("gg_threshold")) {
+    const int pct = g->type == Value::Type::Number   ? GgThresholdPctFromText(std::to_string(g->num))
+                    : g->type == Value::Type::String ? GgThresholdPctFromText(g->str)
+                                                     : -1;
+    if (pct > 0) ctx.rules.gg_threshold_pct = pct;
+  }
+  ruleInt("gg_min_score_diff", &ctx.rules.gg_min_score_diff);
+  ruleBool("stop_command_available", &ctx.rules.stop_command_available);
+  ruleBool("stop_command_no_damage", &ctx.rules.stop_command_no_damage);
+  ruleInt("stop_vote_seconds", &ctx.rules.stop_vote_seconds);
 
   // Fallbacks if maxRounds wasn't provided explicitly.
   if (ctx.maxRounds <= 0) ctx.maxRounds = 24;

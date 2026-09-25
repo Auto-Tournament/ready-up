@@ -13,6 +13,7 @@
 
 #include "readyup/admin_check.h"
 #include "readyup/config.h"
+#include "readyup/damage_report.h"
 #include "readyup/demo_recorder.h"
 #include "readyup/engine.h"
 #include "readyup/esports.h"
@@ -36,6 +37,7 @@
 #include "readyup/ready_hud.h"
 #include "readyup/reload_state.h"
 #include "readyup/scrim_flow.h"
+#include "readyup/votes.h"
 #include "readyup/webhook.h"
 #include "readyup/welcome.h"
 #include "readyup/workers.h"
@@ -160,6 +162,8 @@ void OnTick(void*, const ru_tick_info* t) {
       Tick();
       ScrimTick();  // scrim flow + `state:` log; outside Tick() (which holds the modes mutex)
       MatchFeaturesTick();  // tactical timeout end, technical auto-unpause, forfeit timer
+      DamageReportTick();       // damage reports built at round_end (damage_report.h)
+      VotesTick(t->now);        // .gg / .stop vote timeouts (votes.h)
     }
     // Fleet link (no-op without fleet.so): platform handlers, MatchState patches, events.
     fleet_bridge::Tick(t->now);
@@ -220,7 +224,13 @@ const char* RulesetIface() {
   Guard("ruleset", [&] { r = RulesetName(CurrentEffectiveRules().ruleset); });
   return r;
 }
-const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus, &InventoryLockedIface, &RulesetIface};
+int SetPracticeIface(int on) {
+  int rc = 0;
+  Guard("set_practice", [&] { rc = MatchSetPractice(on != 0) ? 1 : 0; });
+  return rc;
+}
+const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus, &InventoryLockedIface, &RulesetIface,
+                                  &SetPracticeIface};
 
 std::atomic<int> g_hudShowing{0}, g_hudFeature{0};
 std::mutex g_brandMu;
@@ -273,7 +283,7 @@ extern "C" {
 READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
   static const ru_plugin_info info = {
       sizeof(ru_plugin_info),
-      READYUP_PLUGIN_API_VERSION,  // needs 1.2 (log_untagged, ru subcommands, on_frame, ...)
+      (1u << 16) | 2u,  // requires 1.2 (log_untagged, ru subcommands, on_frame, ...); 1.3 members via RU_API_HAS
       "match",
       MATCH_VERSION,
       "Ready Up",
@@ -318,6 +328,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     api->subscribe(api->self, RU_EVENT_ANY, &OnEvent, nullptr);
     api->subscribe_log_line(api->self, &OnLogLine, nullptr);
     MatchEventsInstall(api);
+    DamageReportInstall(api);   // end-of-round damage report
+    VotesInstall(api);          // .gg / .stop
     EsportsInstall(api);  // default_models (player_spawn), halftime pause
     api->set_admin_provider(api->self, &AdminProvider, nullptr);
     api->provide_interface(api->self, RU_MATCH_IFACE_NAME, RU_MATCH_IFACE_VERSION, const_cast<ru_match_v1*>(&g_matchIface));

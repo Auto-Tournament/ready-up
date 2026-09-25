@@ -22,9 +22,10 @@
 #   ready-up-hello-<v>-linuxsteamrt64.zip   plugins/hello.so (example plugin)
 #   ready-up-midas-<v>-linuxsteamrt64.zip   plugins/midas.so + cfg template (fun: gold weapons, off by default)
 #   ready-up-whitelist-<v>-linuxsteamrt64.zip plugins/whitelist.so (only listed players; off by default)
+#   ready-up-practice-<v>-linuxsteamrt64.zip  plugins/practice.so + prac.cfg / practice.cfg templates
 # Bundles (for manual download):
-#   ready-up-essentials-<v>-...zip          core + match + fleet. The default. NO skins.
-#   ready-up-full-<v>-...zip                core + match + fleet + skins + hello + midas + whitelist + readyup_sigcheck/hookcheck
+#   ready-up-essentials-<v>-...zip          core + match + fleet + practice. The default. NO skins.
+#   ready-up-full-<v>-...zip                core + match + fleet + practice + skins + hello + midas + whitelist + readyup_sigcheck/hookcheck
 # Plus SHA256SUMS over every zip.
 #
 # Each component ships readyup/manifests/<component>.json ({component, version, files}),
@@ -45,7 +46,7 @@ trap 'rm -rf "$WORK"' EXIT
 EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 SUFFIX="$VERSION-linuxsteamrt64.zip"
 
-for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so; do
+for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so plugins/practice.so; do
   [[ -f "$BUILD/$f" ]] || { echo "package-release: missing $BUILD/$f" >&2; exit 1; }
 done
 
@@ -97,7 +98,7 @@ stage_component core "Ready Up core: libserver.so, engine surface, plugin host, 
 # The match flow (plugins/match) and the ReadyUp/*.cfg files it execs (warmup, knife, live, ...).
 match_files=("$BUILD/plugins/match.so:plugins/match.so:755")
 for f in "$ROOT_DIR"/cfg/ReadyUp/*.cfg; do
-  case "$(basename "$f")" in fleet.cfg | midas.cfg) continue ;; esac  # the fleet / midas components' own
+  case "$(basename "$f")" in fleet.cfg | midas.cfg | prac.cfg | practice.cfg) continue ;; esac  # the fleet / midas components' own
   match_files+=("$f:cfg-templates/ReadyUp/$(basename "$f")")
 done
 stage_component match "Ready-up, scrims, knife round, pauses, practice, match configs, webhooks, demos" "${match_files[@]}"
@@ -128,6 +129,13 @@ stage_component hello "Example plugin (.hello, hello_status); for plugin develop
 stage_component midas "Fun: weapons picked up by chosen players turn gold (off by default, never under the valve ruleset)" \
   "$BUILD/plugins/midas.so:plugins/midas.so:755" \
   "$ROOT_DIR/cfg/ReadyUp/midas.cfg:cfg-templates/ReadyUp/midas.cfg"
+
+# Practice mode + tools (.prac, .savepos, .rethrow, .bot, ...): its own plugin, so a server can
+# run it without the match flow. Ships prac.cfg (the cvars it execs) and its settings template.
+stage_component practice "Practice mode and tools (.prac, .savepos/.loadpos, .spawn, .rethrow, .bot)" \
+  "$BUILD/plugins/practice.so:plugins/practice.so:755" \
+  "$ROOT_DIR/cfg/ReadyUp/prac.cfg:cfg-templates/ReadyUp/prac.cfg" \
+  "$ROOT_DIR/cfg/ReadyUp/practice.cfg:cfg-templates/ReadyUp/practice.cfg"
 
 stage_component whitelist "Only listed players may stay on the server (off until ru whitelist on)" \
   "$BUILD/plugins/whitelist.so:plugins/whitelist.so:755"
@@ -163,9 +171,10 @@ make_zip "ready-up-skins-$SUFFIX" skins
 make_zip "ready-up-hello-$SUFFIX" hello
 make_zip "ready-up-midas-$SUFFIX" midas
 make_zip "ready-up-whitelist-$SUFFIX" whitelist
+make_zip "ready-up-practice-$SUFFIX" practice
 make_zip "ready-up-fleet-$SUFFIX" fleet
-make_zip "ready-up-essentials-$SUFFIX" core match fleet
-full=(core match fleet skins hello midas whitelist)
+make_zip "ready-up-essentials-$SUFFIX" core match fleet practice
+full=(core match fleet practice skins hello midas whitelist)
 [[ -d "$WORK/c/tools" ]] && full+=(tools)
 make_zip "ready-up-full-$SUFFIX" "${full[@]}"
 
