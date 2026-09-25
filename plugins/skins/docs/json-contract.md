@@ -131,7 +131,8 @@ increments (every 10 s) and shows the count from `skins.loadout` plus local kill
 - `skins_refresh [steamid64]` (server console) refreshes now.
 - In fleet mode a `skins.loadout` applies at once.
 - A change applies to the **next** weapon the player gets (buy, round start, pickup of their own
-  drop) and to gloves and agent on the **next spawn**. Weapons already in hand keep their current
+  drop) and to gloves and agent on the **next spawn** (a respawn, a round start or
+  `mp_restartgame`; a player who stays alive keeps them until then). Weapons already in hand keep their current
   look.
 
 ## Dev seed
