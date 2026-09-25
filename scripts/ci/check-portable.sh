@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fail unless a release libserver.so is portable across CS2 hosts:
-#   - DT_NEEDED only glibc components (no libstdc++, libgcc_s, libssl, libpq, libcurl, ...)
+#   - DT_NEEDED only glibc components (no libstdc++, libgcc_s, libssl, libcurl, ...)
 #   - no versioned symbol newer than GLIBC_2.31 (Steam Runtime 3 "sniper")
 #   - exports the engine entry points (core/src/exports.map) and nothing from static deps
 #
@@ -43,7 +43,7 @@ for sym in $(sed -n 's/^[[:space:]]*\([A-Za-z_][A-Za-z0-9_]*\);$/\1/p' "$EXPORTS
   fi
 done
 
-# Exported (defined, global) dynamic symbols. Anything from OpenSSL/libpq/libcurl/libstdc++
+# Exported (defined, global) dynamic symbols. Anything from OpenSSL/libcurl/libstdc++
 # showing up here would interpose on the engine's own copies.
 leaks="$(nm -D --defined-only "$so" | awk '{print $3}' | grep -E '^(SSL_|OPENSSL_|EVP_|CRYPTO_|PQ|pq|curl_|_ZNSt|_ZSt|__cxa_|__gxx_)' || true)"
 if [[ -n "$leaks" ]]; then

@@ -22,7 +22,7 @@ All engine calls happen in `weapon_paints::GameFrameTick()`, called from the Gam
 created this frame (a buy, the round-start give, a pickup) gets its skin before any client sees it.
 
 - Every tick: controllers 1..64 → `m_hPlayerPawn` → pawn → `m_pWeaponServices->m_hMyWeapons`.
-  Each weapon handle is decorated once. The owner's loadout comes from the async Postgres cache.
+  Each weapon handle is decorated once. The owner's loadout comes from the async loadout cache (loadouts.json or the platform).
 - Spawn (pawn `m_lifeState` goes to alive, or a new pawn handle): agent model and gloves, applied
   on that frame and again on the next frame.
 - Anything decorated after its first snapshot (loadout still loading, plugin loaded mid-round,

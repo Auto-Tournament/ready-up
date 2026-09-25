@@ -72,7 +72,7 @@ inline bool IsDisabled() { return false; }
 
 // ---- paths / versions ----------------------------------------------------------------------------
 
-// The core's directory (csgo/readyup/bin/linuxsteamrt64: readyup.cfg, readyup_db.json). Any thread.
+// The core's directory (csgo/readyup/bin/linuxsteamrt64: readyup.cfg). Any thread.
 std::string GetThisModuleDir();
 // csgo/. Any thread.
 std::string GetCsgoDirFromModuleDir();

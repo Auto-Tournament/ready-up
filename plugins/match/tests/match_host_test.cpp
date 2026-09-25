@@ -300,7 +300,7 @@ int main(int argc, char** argv) {
     bool db = false, hud = false;
     for (const auto& c : rp::RunPluginSelftests()) {
       if (c.plugin != "match") continue;
-      db |= c.name == "database";
+      db |= c.name == "store";
       hud |= c.name == "ready HUD";
     }
     Check(db && hud, "selftest lines from readyup.selftest.match");

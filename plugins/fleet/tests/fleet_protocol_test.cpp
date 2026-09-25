@@ -69,7 +69,8 @@ int main() {
   }
   for (const char* t : {"match.assign", "match.update", "match.unassign", "cmd", "cmd.result", "state.snapshot",
                         "state.patch", "state.request", "server.availability", "event.round_end", "event.map_result",
-                        "event.backup", "event.phase", "event.pause", "event.demo", "event.series_end"}) {
+                        "event.backup", "event.phase", "event.pause", "event.demo", "event.series_end", "admins.set",
+                        "skins.loadout", "skins.invalidate", "skins.stattrak"}) {
     CHECK(set.Has(kBase + "messages/" + t + ".json"));
   }
 

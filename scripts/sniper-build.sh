@@ -3,7 +3,7 @@
 #
 #   scripts/sniper-build.sh            # -> build-sniper/libserver.so
 #
-# The result links OpenSSL, libpq, libcurl, libstdc++ and libgcc statically and only
+# The result links OpenSSL, libcurl, libstdc++ and libgcc statically and only
 # needs glibc >= 2.31 on the host, so it runs on any CS2 dedicated server.
 # Static deps are cached in $DEPS_CACHE (default ~/.cache/readyup-sniper-deps).
 # For fast dev iteration against the local host, scripts/docker-build.sh is still fine.

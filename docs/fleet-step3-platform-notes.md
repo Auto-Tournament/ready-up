@@ -152,8 +152,7 @@ Match commands (`pause`, `unpause`, `force_ready`, `start`, `restore_round`, `re
 ## 8. Not in Ready Up's step 3 (later steps)
 
 `resume` blocks / failover (step 5; `match.assign` with `resume` is rejected `unsupported`),
-chunked demo upload (step 4; `event.demo` already flows), `server.config`, `admins.set`,
-`skins.*`, `server.drain`, `hello.state` epoch check → `match.unassign {superseded}` (the server
+chunked demo upload (step 4; `event.demo` already flows), `server.config`, `server.drain`, `hello.state` epoch check → `match.unassign {superseded}` (the server
 side is ready: `hello` carries the MatchState with `epoch`), refusing `ru match load` in fleet
 mode.
 
@@ -164,3 +163,34 @@ contract (`fleet_mock_platform.py`). Pointing a real platform at a test server
 (`ru fleet enroll <url> <code>`) and replaying the same sequence — assign, fencing checks,
 `match.update` CAS, pause / unpause, backups + restore, offline auto-pause, `end_match`, unassign —
 is the acceptance test for this task.
+
+## 10. Admins and skins over the link (D13: Ready Up has no Postgres)
+
+Ready Up dropped Postgres (FLEET.md D13, PR "drop Postgres"). Standalone servers keep admins and
+skins loadouts in JSON files; in fleet mode they come from the platform. Proposed schemas (same
+status as the step 3 ones, [README](../plugins/fleet/protocol/README.md) "D13"):
+`messages/admins.set.json`, `messages/skins.loadout.json`, `messages/skins.invalidate.json`,
+`messages/skins.stattrak.json`, examples in `examples/v1/`.
+
+- **`admins.set {rev, admins: [{steamid64, name}]}`** (reliable, D5): the whole fleet-wide list.
+  Send it after **every `welcome`** (the server cannot tell you its cached rev yet:
+  `state.snapshot.admins_rev` is still `0`) and whenever the list changes; bump `rev` on every
+  change. The server ignores a lower `rev`, caches the list in `fleet-admins.json` (so an offline
+  boot still has admins) and, in fleet mode, uses only this list plus the per-match `admins` of
+  the assignment. `ru admins add|remove` answer "Admins are managed on the platform"; `ru admins
+  list` shows the platform's list and rev.
+- **`skins.loadout {steamid64, rev, items}`** (reliable, D6): only when the deployment has skins
+  on **and** the server's `hello.capabilities` has `skins.v1`. Send it when you see
+  `event.player_connect` for a player with a loadout, and again when the player edits it (`rev`
+  per player, bumped on change). `items.paints[].stattrak` present = StatTrak on, value = count.
+  Knives are a defindex (`507` = Karambit, table in `plugins/skins/docs/json-contract.md`).
+  The server applies it from the next weapon / spawn; it keeps it in memory only.
+- **`skins.invalidate {steamid64}`**: the player removed their loadout (stock items).
+- **`skins.stattrak {increments: [{steamid64, defindex, kills}]}`** (server → platform, reliable,
+  critical, at most one per 10 s): add `kills` to the stored count of that paint and send the
+  new count in the next `skins.loadout` (no need to push one per kill).
+- Store: `admins (steamid64 PK, name, updated_at)` + a `rev` counter; `skins_loadouts (steamid64,
+  team, defindex, paint, wear, seed, nametag, stattrak_enabled, stattrak_count)` + knife / gloves /
+  agents, i.e. the old `readyup_weapon_*` tables. Existing Ready Up installs export theirs with
+  `scripts/migrate-postgres-to-json.py`; the resulting `loadouts.json` / `admins.json` are a
+  ready import format for the platform.

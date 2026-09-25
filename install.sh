@@ -22,7 +22,8 @@
 #   --remove NAME    remove an installed component (repeatable; not core)
 #   -y, --yes        no questions: update what is installed (or install essentials)
 #   --uninstall      remove Ready Up: the gameinfo.gi line and its files. Config is kept
-#   --purge          with --uninstall: also delete readyup.cfg, readyup_db.json, cfg/ReadyUp
+#   --purge          with --uninstall: also delete readyup.cfg, the plugins' JSON data
+#                    (admins, match state, skins loadouts) and cfg/ReadyUp
 #   -h, --help       this text
 #
 # What it touches: game/csgo/readyup/, game/csgo/cfg/ReadyUp/ (only files that are missing;
@@ -214,7 +215,7 @@ patch_all_gameinfo() {  # [--remove]
 }
 
 # ---- uninstall ------------------------------------------------------------------------------------
-PROTECTED_RE='^readyup/bin/linuxsteamrt64/(readyup\.cfg|readyup_db\.json)$'
+PROTECTED_RE='^readyup/bin/linuxsteamrt64/readyup\.cfg$'
 
 remove_component() {  # <component>
   local c="$1" m="$RU/manifests/$1.json" f
@@ -248,7 +249,7 @@ if [[ $UNINSTALL -eq 1 ]]; then
     ok "deleted $RU and $CSGO/cfg/ReadyUp"
   else
     find "$RU" -depth -type d -empty -delete 2>/dev/null || true
-    [[ -d "$RU" ]] && say "  kept your config in $RU (readyup.cfg, readyup_db.json) and $CSGO/cfg/ReadyUp; --purge deletes it"
+    [[ -d "$RU" ]] && say "  kept your config and data in $RU (readyup.cfg, plugins/*/*.json) and $CSGO/cfg/ReadyUp; --purge deletes it"
   fi
   say ""
   say "Restart the server to finish. CS2 then loads its own libserver.so again."
@@ -577,7 +578,12 @@ done
 
 write_state
 patch_all_gameinfo
-[[ -f "$BIN/readyup_db.json" ]] || say "  ${D}no readyup_db.json yet: admins, persistence and skins need one (see INSTALL.md)${N}"
+if [[ -f "$BIN/readyup_db.json" && ! -f "$RU/plugins/match/admins.json" ]]; then
+  warn "readyup_db.json found: Ready Up no longer uses Postgres. Copy admins, settings and skins into JSON once:"
+  say "    python3 $RU/tools/migrate-postgres-to-json.py --csgo $CSGO   (INSTALL.md, \"Upgrading from Postgres\")"
+elif [[ ! -f "$RU/plugins/match/admins.json" ]]; then
+  say "  ${D}no admins yet: run ${N}ru admins add <steamid64>${D} in the server console (ADMINS.md)${N}"
+fi
 
 if [[ -n "$RELEASE_NOTES" ]]; then
   say ""

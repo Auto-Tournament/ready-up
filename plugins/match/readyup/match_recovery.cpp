@@ -80,7 +80,7 @@ static void RecoverWorker() {
 
 }  // namespace
 
-void TryRecoverFromDbAsync() {
+void TryRecoverAsync() {
   workers::Spawn("match-recovery", [] {
     // Give other init a moment to run first (RCON init, schema ensure, etc).
     if (!workers::SleepFor(std::chrono::milliseconds(500))) return;

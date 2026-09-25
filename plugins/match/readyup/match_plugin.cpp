@@ -2,8 +2,8 @@
 //
 // Everything here used to be compiled into the core (docs/ARCHITECTURE.md, migration step 4):
 // ready-up, scrims, the knife round, pauses, practice, match configs (`ru match load`),
-// webhooks + heartbeat, Postgres-persisted settings / match state and boot recovery, MAT /
-// database admins, per-map stats, the map-end / series-end flow, GOTV demos, the welcome card
+// webhooks + heartbeat, JSON-persisted settings / match state and boot recovery (local_store.h),
+// MAT / local / platform admins, per-map stats, the map-end / series-end flow, GOTV demos, the welcome card
 // and the ready HUD, and the match part of the local status endpoint (readyup.match.v1).
 // It talks to the engine only through ru_api (host.cpp); `ru plugin reload match` keeps the
 // match going (reload_state.h lists what survives).
@@ -13,12 +13,12 @@
 
 #include "readyup/admin_check.h"
 #include "readyup/config.h"
-#include "readyup/db_config.h"
 #include "readyup/demo_recorder.h"
 #include "readyup/engine.h"
 #include "readyup/fleet_bridge.h"
 #include "readyup/game_timers.h"
 #include "readyup/host.h"
+#include "readyup/local_store.h"
 #include "readyup/logging.h"
 #include "readyup/match_console.h"
 #include "readyup/match_events.h"
@@ -30,7 +30,6 @@
 #include "readyup/persisted_settings.h"
 #include "readyup/player_registry.h"
 #include "readyup/players.h"
-#include "readyup/postgres.h"
 #include "readyup/ready_hud.h"
 #include "readyup/reload_state.h"
 #include "readyup/scrim_flow.h"
@@ -205,33 +204,6 @@ int GetStatus(ru_match_status* out) {
 }
 const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus};
 
-// Database ping for `ru selftest` (never on the game thread; the selftest only reads the result).
-struct DbProbe {
-  std::mutex mu;
-  int state = 0;  // 0 never / running, 2 done
-  bool ok = false;
-  std::string err;
-};
-DbProbe g_db;
-std::atomic<bool> g_dbPinging{false};
-
-void KickDbPing() {
-  if (!pg::Available() || !DbCfg() || g_dbPinging.exchange(true)) return;
-  if (!workers::Spawn("db-ping", [] {
-        std::string err;
-        const bool ok = pg::Ping(&err);
-        {
-          std::lock_guard<std::mutex> lk(g_db.mu);
-          g_db.state = 2;
-          g_db.ok = ok;
-          g_db.err = err;
-        }
-        g_dbPinging.store(false);
-      })) {
-    g_dbPinging.store(false);
-  }
-}
-
 std::atomic<int> g_hudShowing{0}, g_hudFeature{0};
 std::mutex g_brandMu;
 std::string g_brandLine;
@@ -239,20 +211,7 @@ std::string g_brandLine;
 void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   // Any thread, must not block: report what the game thread / workers cached.
   add(ctx, "INFO", "match", ("readyup-match " MATCH_VERSION ", mode=" + std::string(GetModeString())).c_str());
-  if (!pg::Available()) {
-    add(ctx, "SKIP", "database", "built without Postgres");
-  } else if (!DbCfg()) {
-    add(ctx, "SKIP", "database", "not configured (readyup_db.json missing)");
-  } else {
-    std::lock_guard<std::mutex> lk(g_db.mu);
-    const std::string where = DbCfg()->conninfo_sanitized;
-    if (g_db.state == 2) {
-      add(ctx, g_db.ok ? "OK" : "FAIL", "database",
-          (g_db.ok ? "SELECT 1 ok (" + where + ")" : "ping failed: " + g_db.err + " (" + where + ")").c_str());
-    } else {
-      add(ctx, "PEND", "database", ("ping in progress (" + where + "); run selftest again").c_str());
-    }
-  }
+  add(ctx, "OK", "store", local_store::Summary().c_str());
   add(ctx, "INFO", "ready HUD",
       (std::string("showing=") + (g_hudShowing.load() ? "yes" : "no") + " (feature " +
        (g_hudFeature.load() ? "on" : "off") + ")")
@@ -279,7 +238,6 @@ void SelftestRefresh(double now) {
     std::lock_guard<std::mutex> lk(g_brandMu);
     g_brandLine = buf;
   }
-  KickDbPing();
 }
 
 void OnSlowTick(void*, const ru_tick_info* t) {
@@ -315,6 +273,10 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     g_api = api;
     host::Attach(api);
     workers::Start();
+    {
+      const char* dir = RU_API_HAS(api, data_dir) ? api->data_dir(api->self) : nullptr;
+      local_store::Init(dir && *dir ? std::string(dir) : GetThisModuleDir() + "/../../plugins/match");
+    }
     (void)ReloadCfg(nullptr);
 
     // Commands: player chat, `ru <sub>` / `.ru <sub>`, console settings, `tv_delay` observer.
@@ -349,10 +311,10 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
 
     if (!ReloadStateRestore()) {
       // Fresh start (server boot, or no previous image): current map, then the settings and the
-      // match persisted in Postgres (a rebooted server resumes without the platform re-sending them).
+      // match persisted in state.json (a rebooted server resumes without the platform re-sending them).
       MatchLogSeedMap(api->current_map(api->self));
-      persisted_settings::RestoreFromDbAsync();
-      match_recovery::TryRecoverFromDbAsync();
+      persisted_settings::Restore();
+      match_recovery::TryRecoverAsync();
     }
     AdminCacheRefreshNow();
     (void)DevBotsReadyEnabled();  // loud warning if a debug-only flag is on
@@ -375,7 +337,7 @@ READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
   try {
     // Without the match flow nothing may keep rounds from ending.
     if (g_api) g_api->set_round_termination_suppressed(g_api->self, 0);
-    workers::Shutdown();  // webhook sender, DB writer, admin refresh, demo uploads, ...
+    workers::Shutdown();  // webhook sender, store writer (saves what is pending), admin refresh, demo uploads, ...
     ReloadStateSave();
     fleet_bridge::Uninstall();  // fleet.so cannot see this plugin unload (fleet_iface.h)
     ru_logf(g_api, RU_LOG_INFO, "unloading (mode=%s)", GetModeString());

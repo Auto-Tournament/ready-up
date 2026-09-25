@@ -6,7 +6,7 @@
 #   scripts/ci/build-release.sh [build-dir]      (default: build-sniper)
 #
 # Env:
-#   DEPS_PREFIX  where static OpenSSL/libpq/libcurl live / get built (default /opt/readyup-deps)
+#   DEPS_PREFIX  where static OpenSSL/libcurl live / get built (default /opt/readyup-deps)
 #   BUILD_TYPE   CMake build type (default Release)
 #   CC / CXX     compilers (default gcc-14 / g++-14 from the SDK: sniper's default GCC 10
 #                libstdc++ rejects std::unordered_map with an incomplete value type, which

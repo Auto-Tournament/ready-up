@@ -33,7 +33,7 @@ CI checks the file against every new CS2 build, so we see what broke before a se
 - Match configs loaded from the Auto Tournament platform, with a roster whitelist and team locks
 - Pauses (`.pause` / `.unpause`) and captain forfeit
 - Practice mode: `.prac`, `.bot`, `.cbot`, `.nobots`
-- Admins stored in Postgres
+- Admins, settings, crash recovery and skins loadouts in small JSON files, no database (`ru admins add|remove|list`); in fleet mode admins and loadouts come from the platform
 - Per-player center-screen HTML, such as the welcome screen
 - Webhooks and a heartbeat for the platform
 - Knife round (in progress)
@@ -57,7 +57,7 @@ In a terminal it shows the components with the installed and latest version. Mov
   [ ] Hello  new 0.2.0     example plugin
 ```
 
-It downloads the ticked components from the latest release (checking `SHA256SUMS`), puts them in `game/csgo/readyup/`, and adds `Game csgo/readyup` to `gameinfo.gi` and `gameinfo_branchspecific.gi` (right after Metamod's line if you have Metamod; a backup is saved as `gameinfo.gi.readyup-backup-<time>`). Your `readyup.cfg`, `readyup_db.json` and `cfg/ReadyUp/*.cfg` are never overwritten: when a shipped default changes, it lands next to yours as `*.default`. Then restart the server and run `ru selftest` in its console.
+It downloads the ticked components from the latest release (checking `SHA256SUMS`), puts them in `game/csgo/readyup/`, and adds `Game csgo/readyup` to `gameinfo.gi` and `gameinfo_branchspecific.gi` (right after Metamod's line if you have Metamod; a backup is saved as `gameinfo.gi.readyup-backup-<time>`). Your `readyup.cfg`, `cfg/ReadyUp/*.cfg` and the plugins' JSON data are never overwritten: when a shipped default changes, it lands next to yours as `*.default`. Then restart the server and run `ru selftest` in its console.
 
 **Update or change components:** run the same command again. Unticking an installed component removes it.
 
@@ -72,7 +72,7 @@ bash install.sh --uninstall [--purge]                    # --purge also deletes 
 bash install.sh --zip ready-up-essentials-<v>-linuxsteamrt64.zip essentials   # offline / CI artifact
 ```
 
-Other options: `--dir /path/to/cs2`, `--version vX.Y.Z`. It needs bash, python3, curl or wget, and unzip (python3 is used if unzip is missing). It never uses sudo, never stops or starts the server, and never touches a database.
+Other options: `--dir /path/to/cs2`, `--version vX.Y.Z`. It needs bash, python3, curl or wget, and unzip (python3 is used if unzip is missing). It never uses sudo, never stops or starts the server, and never touches your data files.
 
 CS2 updates rewrite `gameinfo.gi`: run the installer again after each one (it only re-adds the line).
 
@@ -90,7 +90,7 @@ CS2 updates rewrite `gameinfo.gi`: run the installer again after each one (it on
 
 The patcher adds `Game csgo/readyup` to `SearchPaths`. It has to be listed **before** `Game csgo`, or CS2 loads its own `libserver.so` and Ready Up never runs. With Metamod, Metamod's `Game csgo/addons/metamod` line stays above Ready Up's.
 
-Config, admins and the database are covered in [docs/INSTALL.md](docs/INSTALL.md) and [docs/ADMINS.md](docs/ADMINS.md).
+Config, admins and the data files are covered in [docs/INSTALL.md](docs/INSTALL.md) and [docs/ADMINS.md](docs/ADMINS.md).
 
 ## Plugins
 
@@ -119,7 +119,7 @@ The match flow: scrim ready-up with a center-screen panel, knife round and side 
 
 <br />
 
-Weapon paints, knives, gloves and agents from a Postgres table. Skin changers can get a server banned, so this plugin is only in the Full bundle and you add it on purpose. Ships as `plugins/skins.so` plus its gamedata `engine-surface.skins.json`; the core runs without either.
+Weapon paints, knives, gloves and agents from `loadouts.json` ([contract](plugins/skins/docs/json-contract.md)), or from the platform in fleet mode. Skin changers can get a server banned, so this plugin is only in the Full bundle and you add it on purpose. Ships as `plugins/skins.so` plus its gamedata `engine-surface.skins.json`; the core runs without either.
 
 </details>
 
@@ -139,7 +139,7 @@ Downloads: `ready-up-core`, `ready-up-match`, `ready-up-skins`, `ready-up-hello`
 Full docs are at **[docs.autotournament.gg](https://docs.autotournament.gg)**. In this repo:
 
 - [Install and how loading works](docs/INSTALL.md)
-- [Admins and database](docs/ADMINS.md)
+- [Admins](docs/ADMINS.md)
 - [Development and debugging](docs/DEVELOPMENT.md)
 - [Testing with Auto Tournament](docs/TESTING_WITH_MAT.md)
 

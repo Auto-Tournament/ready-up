@@ -3,7 +3,9 @@
 ## Supported setup
 
 Ready Up runs on Linux dedicated servers (`linuxsteamrt64`). Release builds need nothing on
-the host beyond glibc 2.31+ (OpenSSL, libpq and libcurl are linked in).
+the host beyond glibc 2.31+ (OpenSSL and libcurl are linked in). There is no database: admins,
+persisted settings, match recovery state and skins loadouts are small JSON files in
+`game/csgo/readyup/plugins/<plugin>/` (see [Data files](#data-files)).
 
 Metamod can run alongside Ready Up. In `gameinfo.gi`, Metamod's `Game csgo/addons/metamod`
 line stays first, Ready Up's `Game csgo/readyup` goes directly below it, and both stay above
@@ -54,17 +56,54 @@ Every zip's root is the contents of `game/csgo`:
 CS2 updates rewrite `gameinfo.gi`, so run the patcher (or the installer) again after each one.
 
 The zips only contain files Ready Up owns, so extracting a newer one over an install keeps
-your `readyup.cfg`, `readyup_db.json` and `cfg/` edits:
+your `readyup.cfg`, `cfg/` edits and the plugins' JSON data:
 
 - `readyup/bin/linuxsteamrt64/libserver.so` (the core)
 - `readyup/bin/linuxsteamrt64/engine-surface.json` (signatures + identity anchors, also embedded in the core)
 - `readyup/bin/linuxsteamrt64/readyup.cfg.example`
-- `readyup/tools/patch_gameinfo.py`, `readyup/tools/install.sh`
+- `readyup/tools/patch_gameinfo.py`, `readyup/tools/install.sh`,
+  `readyup/tools/migrate-postgres-to-json.py`
 - `readyup/cfg-templates/ReadyUp/*.cfg` (mode cfgs, only used when cfg exec is enabled)
 - `readyup/VERSION`, `README.md`, `INSTALL.md`, `LICENSE`, `BUILD_INFO` (commit + the CS2 build it was verified against)
 - skins only: `readyup/plugins/skins.so`, `readyup/bin/linuxsteamrt64/engine-surface.skins.json`, `readyup/SKINS-WARNING.txt`
 - hello only: `readyup/plugins/hello.so`
 - `readyup/manifests/<component>.json`
+
+## Data files
+
+Ready Up keeps its state in small JSON files, one directory per plugin. Every file has a
+`"version"`, is replaced atomically (temp file + rename) and is never shipped in a zip, so
+updates keep it. A file that is broken or from a newer version is moved to
+`<name>.corrupt-<time>`, logged, and the plugin starts fresh.
+
+| File (under `game/csgo/readyup/plugins/`) | What | Written by |
+|---|---|---|
+| `match/state.json` | persisted settings (`ru_webhook_url`, `ru_heartbeat_url`, `ru_match_token`, `ru_admins_url`, ...) and the crash-recovery match state | the match plugin |
+| `match/admins.json` | standalone admins ([ADMINS.md](ADMINS.md)) | `ru admins add/remove`, or by hand |
+| `match/fleet-admins.json` | fleet mode: cached platform admin list | the match plugin |
+| `skins/loadouts.json` | standalone skins loadouts ([json-contract.md](../plugins/skins/docs/json-contract.md)) | you / a web tool / `scripts/seed-dev-skins.py` |
+| `skins/stattrak.json` | standalone StatTrak counters | the skins plugin |
+
+Back up the directory to keep admins and loadouts; delete `match/state.json` to forget persisted
+settings and a half-finished match.
+
+## Upgrading from Postgres
+
+Versions before this one kept admins, settings and skins in Postgres (`readyup_db.json`). Ready Up
+no longer reads either. Copy the data into the JSON files once, before or right after updating:
+
+```bash
+# reads readyup_db.json next to the core:
+python3 game/csgo/readyup/tools/migrate-postgres-to-json.py --csgo game/csgo
+# Postgres in a docker container (psql runs inside it):
+python3 game/csgo/readyup/tools/migrate-postgres-to-json.py --csgo game/csgo --docker readyup-postgres
+# preview only:
+python3 game/csgo/readyup/tools/migrate-postgres-to-json.py --csgo game/csgo --dry-run
+```
+
+It only reads the database and merges into existing JSON files (existing entries win;
+`--prefer-db` flips that). Restart the server (or `ru plugin reload match` / `ru plugin reload
+skins`) afterwards. Then `readyup_db.json` and the Postgres container can go whenever you like.
 
 ## Dev deploys
 

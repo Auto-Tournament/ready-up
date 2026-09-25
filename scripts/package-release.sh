@@ -23,8 +23,8 @@
 #
 # Each component ships readyup/manifests/<component>.json ({component, version, files}),
 # which is how install.sh knows what to update or remove. Nothing in any zip overwrites
-# admin-owned files: readyup.cfg, readyup_db.json and cfg/ReadyUp/*.cfg are never shipped
-# as such (readyup.cfg.example and readyup/cfg-templates/ are).
+# admin-owned files: readyup.cfg, cfg/ReadyUp/*.cfg and the plugins' JSON data (admins,
+# state, loadouts) are never shipped as such (readyup.cfg.example and readyup/cfg-templates/ are).
 set -euo pipefail
 
 BUILD="${1:?usage: $0 <build-dir> <version> <out-dir>}"
@@ -69,6 +69,7 @@ core_files=(
   "$ROOT_DIR/gamedata/engine-surface.json:bin/linuxsteamrt64/engine-surface.json"
   "$ROOT_DIR/cfg/readyup.cfg.example:bin/linuxsteamrt64/readyup.cfg.example"
   "$ROOT_DIR/scripts/patch_gameinfo.py:tools/patch_gameinfo.py:755"
+  "$ROOT_DIR/scripts/migrate-postgres-to-json.py:tools/migrate-postgres-to-json.py:755"
   "$ROOT_DIR/install.sh:tools/install.sh:755"
   "$ROOT_DIR/README.md:README.md"
   "$ROOT_DIR/docs/INSTALL.md:INSTALL.md"

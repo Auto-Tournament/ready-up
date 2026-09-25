@@ -58,7 +58,7 @@ jobs:
       - name: Unit tests (patch_gameinfo.py)
         run: python3 -m unittest discover -s tests -v
 
-      - name: Cache static deps (OpenSSL, libpq, libcurl)
+      - name: Cache static deps (OpenSSL, libcurl)
         uses: actions/cache@v4
         with:
           path: .ci/deps
