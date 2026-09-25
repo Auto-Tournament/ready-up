@@ -12,8 +12,8 @@
 # Usage: install.sh [BUNDLE|COMPONENT ...] [options]
 #
 #   essentials   core + match + fleet (default for a fresh install; no skins)
-#   full         core + match + fleet + skins + hello
-#   core | match | fleet | skins | hello   single components (core is always included).
+#   full         core + match + fleet + skins + hello + midas + whitelist
+#   core | match | fleet | skins | hello | midas | whitelist   single components (core is always included).
 #                fleet links the server to the Auto Tournament platform; it stays idle until
 #                cfg/ReadyUp/fleet.cfg (or readyup.cfg [fleet]) sets a url
 #
@@ -43,11 +43,12 @@ set -euo pipefail
 REPO="${READYUP_REPO:-Auto-Tournament/ready-up}"
 API="${READYUP_API:-https://api.github.com}"
 GAME_PATH="csgo/readyup"
-COMPONENTS=(core match fleet skins hello)
-declare -A LABEL=([core]="Core" [match]="Match" [fleet]="Fleet" [skins]="Skins" [hello]="Hello")
+COMPONENTS=(core match fleet skins hello midas whitelist)
+declare -A LABEL=([core]="Core" [match]="Match" [fleet]="Fleet" [skins]="Skins" [hello]="Hello" [midas]="Midas" [whitelist]="Whitelist")
 declare -A NOTE=([core]="required" [match]="ready-up, knife, pauses, webhooks"
   [fleet]="link to the Auto Tournament platform (idle until configured)" [skins]="may get servers banned"
-  [hello]="example plugin")
+  [hello]="example plugin" [midas]="fun: gold weapons (off until enabled)"
+  [whitelist]="only listed players may join (off until turned on)")
 
 DIR="."
 VERSION=""
@@ -96,8 +97,8 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     essentials) WANT+=(core match fleet); BUNDLE_FLEET=1; shift ;;
-    full) WANT+=(core match fleet skins hello); WANT_FULL=1; BUNDLE_FLEET=1; shift ;;
-    core | match | fleet | skins | hello) WANT+=("$1"); shift ;;
+    full) WANT+=(core match fleet skins hello midas whitelist); WANT_FULL=1; BUNDLE_FLEET=1; shift ;;
+    core | match | fleet | skins | hello | midas | whitelist) WANT+=("$1"); shift ;;
     *) die "unknown argument: $1 (see --help)" ;;
   esac
 done
@@ -107,7 +108,7 @@ case "$ACCEPT_LICENSE" in
   *) die "--accept-license must be noncommercial or commercial (got: $ACCEPT_LICENSE)" ;;
 esac
 for c in "${REMOVE[@]}"; do
-  case "$c" in match | fleet | skins | hello) ;; core) die "core can't be removed on its own; use --uninstall" ;; *) die "unknown component: $c" ;; esac
+  case "$c" in match | fleet | skins | hello | midas | whitelist) ;; core) die "core can't be removed on its own; use --uninstall" ;; *) die "unknown component: $c" ;; esac
 done
 
 # ---- requirements ---------------------------------------------------------------------------
@@ -256,7 +257,7 @@ if [[ $UNINSTALL -eq 1 ]]; then
   else
     warn "patch_gameinfo.py is missing; remove the \"Game $GAME_PATH\" line from gameinfo.gi by hand"
   fi
-  for c in hello skins fleet match core; do
+  for c in whitelist midas hello skins fleet match core; do
     [[ -n "${INSTALLED[$c]:-}" || -f "$RU/manifests/$c.json" ]] || continue
     remove_component "$c"
     ok "removed $c"
@@ -456,7 +457,7 @@ for a in rel.get("assets", []):
     name, url = a.get("name", ""), a.get("browser_download_url", "")
     if name == "SHA256SUMS":
         print("sums\t%s\t%s" % (name, url))
-    elif re.match(r"^ready-up-(core|match|fleet|skins|hello)-.*\.zip$", name):
+    elif re.match(r"^ready-up-(core|match|fleet|skins|hello|midas|whitelist)-.*\.zip$", name):
         print("asset\t%s\t%s" % (name, url))
 PY
   )
@@ -512,7 +513,7 @@ print_rows() {  # <cursor index or -1>
     c="${COMPONENTS[$i]}"
     [[ "${SEL[$c]}" == 1 ]] && mark="[x]" || mark="[ ]"
     [[ "$i" == "$1" ]] && ptr=">" || ptr=" "
-    printf '\e[2K%s %s %-6s %-28s %s\n' "$ptr" "$mark" "${LABEL[$c]}" "$(row_versions "$c")" "${D}${NOTE[$c]}${N}" >&3
+    printf '\e[2K%s %s %-9s %-28s %s\n' "$ptr" "$mark" "${LABEL[$c]}" "$(row_versions "$c")" "${D}${NOTE[$c]}${N}" >&3
   done
 }
 
@@ -550,7 +551,7 @@ plain_select() {
   local i c line cur=()
   for i in "${!COMPONENTS[@]}"; do
     c="${COMPONENTS[$i]}"
-    printf '  %d) %-6s %-28s %s\n' "$((i + 1))" "${LABEL[$c]}" "$(row_versions "$c")" "${NOTE[$c]}" >&3
+    printf '  %d) %-9s %-28s %s\n' "$((i + 1))" "${LABEL[$c]}" "$(row_versions "$c")" "${NOTE[$c]}" >&3
     [[ "${SEL[$c]}" == 1 ]] && cur+=("$((i + 1))")
   done
   local def
@@ -685,7 +686,7 @@ for c in "${!INSTALLED[@]}"; do BEFORE[$c]="${INSTALLED[$c]}"; done
 
 # Core first (the patcher and the plugin host come with it).
 ordered=()
-for c in core match fleet skins hello; do
+for c in core match fleet skins hello midas whitelist; do
   for t in "${TO_INSTALL[@]}"; do [[ "$t" == "$c" ]] && ordered+=("$c"); done
 done
 for c in "${ordered[@]}"; do

@@ -89,7 +89,8 @@ endif()
 
 # match.so inside the real plugin host with a fake engine API: commands, readyup.match.v1,
 # `ru plugin reload match` keeping the scrim / the loaded match, unload (ctest `match_host`).
-add_executable(match_host_test tests/match_host_test.cpp ${CMAKE_SOURCE_DIR}/core/src/readyup/plugin_loader.cpp)
+add_executable(match_host_test tests/match_host_test.cpp ${CMAKE_SOURCE_DIR}/core/src/readyup/plugin_loader.cpp
+  ${CMAKE_SOURCE_DIR}/core/src/readyup/plugin_state.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp)
 target_include_directories(match_host_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs
   ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(match_host_test PRIVATE -Wall -Wextra)

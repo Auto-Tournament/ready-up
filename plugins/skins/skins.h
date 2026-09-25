@@ -96,6 +96,9 @@ bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late);
 // player_spawn (game thread): gloves + agent again for that slot on its next alive tick, also
 // when the pawn stayed alive (mp_restartgame, round start).
 void RequestSpawnCosmetics(int slot);
+// `.skins reload`: about a second from now, gloves + agent again and the held weapons repainted
+// with the (re-read) loadout. Game thread.
+void RequestReapply(int slot);
 
 // ---- StatTrak (stattrak.cpp) -------------------------------------------------------------
 void OnPlayerDeath(const ru_game_event* ev);

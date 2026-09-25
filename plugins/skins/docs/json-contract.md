@@ -129,6 +129,10 @@ increments (every 10 s) and shows the count from `skins.loadout` plus local kill
   player connects, about once a second while they play, and on game events. It re-reads
   `loadouts.json` only when the file changed. Nothing blocks the game thread.
 - `skins_refresh [steamid64]` (server console) refreshes now.
+- `.skins reload` (chat, also `.ru skins reload`): a player re-reads their own loadout; about a
+  second later their gloves, agent and the weapons they hold are re-applied. Only while nothing
+  is live (idle, practice, scrim or match warmup); refused during knife rounds, live maps and
+  postgame. Once per 10 s per player.
 - In fleet mode a `skins.loadout` applies at once.
 - A change applies to the **next** weapon the player gets (buy, round start, pickup of their own
   drop) and to gloves and agent on the **next spawn** (a respawn, a round start or

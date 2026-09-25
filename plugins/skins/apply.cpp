@@ -296,6 +296,9 @@ PlayerState g_players[65];
 // next alive tick. mp_restartgame and round starts respawn living players on the same pawn, so
 // the dead -> alive / new pawn check alone misses them.
 bool g_spawnRequested[65] = {};
+// `.skins reload` (RequestReapply): at this tick (0 = none) the slot's cosmetics run again and
+// the weapons it holds are repainted. A second after the request, so the re-read loadout is in.
+long long g_reapplyAt[65] = {};
 // Dev only (skins_debug_as, debug=1): a bot slot decorated with a real player's loadout, so the
 // whole apply path can be exercised without a human client.
 uint64_t g_debugAs[65] = {};
@@ -338,6 +341,12 @@ void ProcessPlayer(int slot, void* controller) {
   }
   const int team = Rd<uint8_t>(pawn, o.ent_teamNum);
   const bool alive = Rd<uint8_t>(pawn, o.ent_lifeState) == 0;
+  bool repaintHeld = false;
+  if (g_reapplyAt[slot] != 0 && g_tick >= g_reapplyAt[slot] && alive) {
+    g_reapplyAt[slot] = 0;
+    g_spawnRequested[slot] = true;
+    repaintHeld = true;
+  }
   if (team != 2 && team != 3) {
     ps.wasAlive = false;
     return;
@@ -373,6 +382,7 @@ void ProcessPlayer(int slot, void* controller) {
 
   for (int i = 0; i < count; ++i) {
     const uint32_t h = handles[i];
+    if (repaintHeld) g_weapons[h] = WeaponState{};
     WeaponState& st = g_weapons[h];
     if (st.firstSeen == 0) st.firstSeen = g_tick;
     st.lastSeen = g_tick;
@@ -427,6 +437,7 @@ void GameFrameTick() {
     g_activeSince = g_tick;
     g_weapons.clear();
     for (auto& p : g_players) p = PlayerState{};
+    for (auto& r : g_reapplyAt) r = 0;
   }
 
   for (int slot = 0; slot < 64; ++slot) {
@@ -445,6 +456,10 @@ void GameFrameTick() {
 
 void RequestSpawnCosmetics(int slot) {
   if (slot >= 0 && slot < 65) g_spawnRequested[slot] = true;
+}
+
+void RequestReapply(int slot) {
+  if (slot >= 0 && slot < 65) g_reapplyAt[slot] = g_tick + 64;
 }
 
 bool SetDebugAs(int slot, uint64_t steamid64) {
