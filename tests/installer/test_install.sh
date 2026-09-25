@@ -7,7 +7,8 @@
 # Covers: fresh essentials install (with and without a Metamod line), rerun = no-op, user
 # config kept (+ *.default when a template changes), fleet in essentials (idle template), removing
 # and re-adding fleet (its data dir kept), adding skins from the full zip, removing
-# it, the numbered-prompt and arrow-key pickers through a pty (`script`), uninstall, --purge.
+# it, the numbered-prompt and arrow-key pickers through a pty (`script`), uninstall, --purge,
+# the license choice (--accept-license, saved choice, the prompt through a pty).
 set -euo pipefail
 
 DIST="$(cd "${1:?usage: $0 <dist-dir>}" && pwd)"
@@ -41,15 +42,35 @@ line_of() { grep -nE "^[[:space:]]*Game[[:space:]]+$2[[:space:]]*$" "$1" | cut -
 count_ru() { grep -cE '^[[:space:]]*Game[[:space:]]+csgo/readyup[[:space:]]*$' "$1" || true; }
 installed() { python3 -c 'import json,sys; print(" ".join(sorted(json.load(open(sys.argv[1]))["components"])))' "$1/game/csgo/readyup/installed.json"; }
 run() { bash "$INSTALL" "$@" </dev/null; }
+lic() { python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["use"], d["how"], d["accepted_at"][-1])' "$1/game/csgo/readyup/license-acceptance.json"; }
 # The file exists and has no active `key = value` line (only comments / blank lines).
 idle_cfg() { [[ -f "$1" ]] && ! grep -Ev '^[[:space:]]*(//|#|$)' "$1" | grep -q .; }
+
+echo "== license: unattended install without a choice is refused, nothing installed"
+S="$T/server-nolic"
+make_server "$S" 0
+if run --dir "$S" --zip "$ESS" essentials >"$T/out" 2>&1; then
+  fail "unattended install without --accept-license succeeded"
+else
+  check "clear error names --accept-license" grep -q "accept-license=noncommercial" "$T/out"
+  check "nothing installed without a license choice" test ! -e "$S/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
+fi
+if run --dir "$S" --zip "$ESS" --accept-license=free essentials >"$T/out" 2>&1; then
+  fail "--accept-license=free accepted"
+else
+  check "bad --accept-license value refused" grep -q "must be noncommercial or commercial" "$T/out"
+fi
+echo "== license: --accept-license=commercial is recorded"
+run --dir "$S" --zip "$ESS" --accept-license=commercial essentials >"$T/out" 2>&1 || { cat "$T/out"; fail "commercial install exited non-zero"; }
+check "license-acceptance.json: commercial, flag, UTC time" test "$(lic "$S")" = "commercial flag Z"
 
 for mm in 0 1; do
   S="$T/server-mm$mm"
   make_server "$S" "$mm"
   CS="$S/game/csgo"
   echo "== fresh essentials install (metamod=$mm)"
-  run --dir "$S" --zip "$ESS" essentials >"$T/out" 2>&1 || { cat "$T/out"; fail "install exited non-zero"; continue; }
+  run --dir "$S" --zip "$ESS" --accept-license=noncommercial essentials >"$T/out" 2>&1 || { cat "$T/out"; fail "install exited non-zero"; continue; }
+  check "license-acceptance.json: noncommercial, flag, UTC time" test "$(lic "$S")" = "noncommercial flag Z"
   check "core libserver.so installed" test -x "$CS/readyup/bin/linuxsteamrt64/libserver.so"
   check "match.so installed" test -x "$CS/readyup/plugins/match.so"
   check "engine-surface.json installed" test -f "$CS/readyup/bin/linuxsteamrt64/engine-surface.json"
@@ -81,6 +102,7 @@ for mm in 0 1; do
   check "edited readyup.cfg kept" grep -q "^debug=1" "$CS/readyup/bin/linuxsteamrt64/readyup.cfg"
   check "no .default when the template did not change" test ! -e "$CS/cfg/ReadyUp/live.cfg.default"
   check "rerun reports up to date" grep -q "already up to date" "$T/out"
+  check "rerun uses the saved license choice" grep -q "license: noncommercial use (accepted earlier" "$T/out"
 
   echo "== changed template -> .default next to the user's copy"
   echo "// older template" >>"$CS/readyup/cfg-templates/ReadyUp/live.cfg"
@@ -126,6 +148,20 @@ if command -v script >/dev/null 2>&1; then
   check "arrow picker removed skins" test ! -e "$CS/readyup/plugins/skins.so"
   check "arrow picker kept core" test -f "$CS/readyup/bin/linuxsteamrt64/libserver.so"
 
+  echo "== license prompt through a pty: commercial stops, noncommercial needs \"yes\""
+  S2="$T/server-prompt"
+  make_server "$S2" 0
+  printf '2\n' | script -qec "TERM=dumb bash '$INSTALL' --dir '$S2' --zip '$ESS'" /dev/null >"$T/out" 2>&1 || true
+  check "commercial answer names the contact" grep -q "sivert@autotournament.gg" "$T/out"
+  check "commercial answer installs nothing" test ! -e "$S2/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
+  check "commercial answer saves nothing" test ! -e "$S2/game/csgo/readyup/license-acceptance.json"
+  printf '1\nno\n' | script -qec "TERM=dumb bash '$INSTALL' --dir '$S2' --zip '$ESS'" /dev/null >"$T/out" 2>&1 || true
+  check "noncommercial without yes installs nothing" test ! -e "$S2/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
+  check "the summary links the license" grep -q "polyformproject.org/licenses/noncommercial" "$T/out"
+  printf '1\nyes\n\ny\n' | script -qec "TERM=dumb bash '$INSTALL' --dir '$S2' --zip '$ESS'" /dev/null >"$T/out" 2>&1 || true
+  check "noncommercial + yes installs" test -f "$S2/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
+  check "license-acceptance.json: noncommercial, prompt" test "$(lic "$S2")" = "noncommercial prompt Z"
+
   echo "== answering n changes nothing"
   printf '\ny\n' >/dev/null
   printf '\nn\n' | script -qec "TERM=dumb bash '$INSTALL' --dir '$S' --zip '$FULL'" /dev/null >"$T/out" 2>&1 || true
@@ -157,7 +193,7 @@ PY
   done
   S="$T/server-release"
   make_server "$S" 0
-  READYUP_API="http://127.0.0.1:$PORT" READYUP_REPO=test/ready-up run --dir "$S" essentials >"$T/out" 2>&1 ||
+  READYUP_API="http://127.0.0.1:$PORT" READYUP_REPO=test/ready-up run --dir "$S" --accept-license=noncommercial essentials >"$T/out" 2>&1 ||
     { cat "$T/out"; fail "release-mode install exited non-zero"; }
   check "release mode installed core" test -f "$S/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
   check "release mode printed the release notes" grep -q "Test release notes line 1" "$T/out"
