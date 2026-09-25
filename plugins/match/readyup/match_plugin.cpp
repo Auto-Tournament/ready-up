@@ -173,6 +173,7 @@ void OnTick(void*, const ru_tick_info* t) {
     fleet_bridge::Tick(t->now);
     if (FeatureEnabled(Feature::WelcomeHtml)) WelcomeTick();
     if (FeatureEnabled(Feature::ReadyHud)) ReadyHudTick();  // skips players whose welcome card is up
+    if (FeatureEnabled(Feature::ReadyHud)) ReadyHudAnimTick();  // `.ru hud anim`, every frame
     PrefixTick(t->now);
   });
 }

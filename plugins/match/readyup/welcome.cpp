@@ -3,6 +3,7 @@
 #include "readyup/engine.h"
 #include "readyup/config.h"
 #include "readyup/logging.h"
+#include "readyup/plugin_api.h"
 #include "readyup/modes.h"
 #include "readyup/ready_hud.h"
 #include "readyup/players.h"
@@ -316,7 +317,7 @@ void WelcomeTick() {
 
   static std::atomic<bool> s_warnedUnavailable{false};
   for (const auto& snd : sends) {
-    const bool ok = PrintCenterHtmlToClientOnly(snd.slot, snd.html, kEventDurationSeconds);
+    const bool ok = PrintCenterHtmlToClientOnly(snd.slot, snd.html, kEventDurationSeconds, RU_HTML_PRIO_NOTICE);
     std::lock_guard<std::mutex> lk(g_mu);
     auto it = g_slots.find(snd.slot);
     if (it == g_slots.end()) continue;
@@ -330,13 +331,17 @@ void WelcomeTick() {
   }
 }
 
-bool WelcomeActiveForSteam(uint64_t steamid64) {
-  if (steamid64 == 0) return false;
+bool WelcomeActiveFor(int slot, uint64_t steamid64) {
+  if (steamid64 == 0 && slot < 0) return false;
   const auto now = Clock::now();
   std::lock_guard<std::mutex> lk(g_mu);
   for (const auto& kv : g_slots) {
     const SlotState& s = kv.second;
-    if (s.steamid64 != steamid64) continue;
+    // By SteamID, or by slot: a card queued from an event that carried no SteamID yet has 0 there,
+    // and must still hold the HUD back.
+    const bool same = (steamid64 != 0 && s.steamid64 == steamid64) ||
+                      (slot >= 0 && kv.first == slot && (s.steamid64 == 0 || steamid64 == 0 || s.steamid64 == steamid64));
+    if (!same) continue;
     // Queued-but-not-yet-sent counts (don't let the banner race in first); a screen
     // that never made it out (center HTML unavailable) does not block the banner.
     if (!s.active && s.sent == 0) continue;
@@ -346,5 +351,7 @@ bool WelcomeActiveForSteam(uint64_t steamid64) {
   }
   return false;
 }
+
+bool WelcomeActiveForSteam(uint64_t steamid64) { return WelcomeActiveFor(-1, steamid64); }
 
 }  // namespace readyup

@@ -303,7 +303,13 @@ void PollDownload(double now) {
     ru_logf(g_api, RU_LOG_INFO, "workshop %llu: %.1f / %.1f MB", static_cast<unsigned long long>(g_dl.id),
             done / 1048576.0, total / 1048576.0);
   }
-  g_api->center_html_all(g_api->self, DownloadPanelHtml(g_dl.name, done, total).c_str(), 1);
+  // Over the ready HUD and the welcome card while it downloads (API 1.6: one panel per player).
+  const std::string html = DownloadPanelHtml(g_dl.name, done, total);
+  if (RU_API_HAS(g_api, center_html_all_prio) && g_api->center_html_all_prio) {
+    g_api->center_html_all_prio(g_api->self, html.c_str(), 1, RU_HTML_PRIO_ALERT);
+  } else {
+    g_api->center_html_all(g_api->self, html.c_str(), 1);
+  }
 }
 
 void OnTick(void*, const ru_tick_info* t) {
