@@ -3,6 +3,7 @@
 #include "readyup/match_features.h"
 
 #include "readyup/engine.h"
+#include "readyup/esports.h"
 #include "readyup/config.h"
 #include "readyup/match_events.h"
 #include "readyup/logging.h"
@@ -174,6 +175,10 @@ static std::string BuildStateFieldsLocked(FlowState& f) {
   if (f.countdownActive) {
     const auto left = std::chrono::duration_cast<std::chrono::seconds>(f.countdownDeadline - Clock::now()).count();
     s += " countdown=" + std::to_string(std::max<long long>(0, left + 1));
+  }
+  if (ctx) {
+    const EffectiveRuleSet er = CurrentEffectiveRules();
+    if (er.ruleset != Ruleset::Default) s += std::string(" ruleset=") + RulesetName(er.ruleset);
   }
   if (mode == ReadyUpMode::MatchWarmup && GoLiveTriggered()) s += " golive=pending";
   if (const char* kp = KnifePhaseString()) {
@@ -585,6 +590,7 @@ std::vector<std::string> BuildStateReport() {
                   " min_ready=" + std::to_string(r.min_players_to_ready) +
                   " forfeit_s=" + std::to_string(r.forfeit_after_seconds));
   }
+  for (const auto& l : EsportsRulesReport()) out.push_back(l);
 
   // Players: one entry per connected human (CT/T first, then spectators).
   std::vector<std::string> entries;

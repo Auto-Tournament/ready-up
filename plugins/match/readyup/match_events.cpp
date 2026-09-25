@@ -4,6 +4,7 @@
 
 #include "readyup/backup_files.h"
 #include "readyup/engine.h"
+#include "readyup/esports.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
 #include "readyup/match_signals.h"
@@ -496,6 +497,7 @@ void OnRoundStartLocked(const PendingRound& ev) {
       const int swapCountForThisRound = g_swapCount + 1;
       const bool team1IsCtNow = Team1IsCtWithSwapCount(mapNumber, swapCountForThisRound);
       WebhookEmitHalftimeStarted(mapNumber, team1Score, team2Score);
+      if (sum == regHalf) EsportsOnHalftime();  // mp_halftime_pausematch (ruleset)
       WebhookEmitSideSwap(mapNumber, team1IsCtNow ? "CT" : "T", team1IsCtNow ? "T" : "CT");
       g_swapCount = swapCountForThisRound;
     }

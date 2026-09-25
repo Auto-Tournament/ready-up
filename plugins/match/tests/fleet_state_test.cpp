@@ -269,6 +269,53 @@ static void TestAssign() {
   CHECK(bad("config.team2", J(R"({"name":"","players":[]})")));
 }
 
+// Rulesets through match.assign: rules.ruleset / rules.overrides validated (cmd.result
+// invalid_config), knife sides refused under valve, the MAT config carries them, coaches listed.
+static void TestRulesetAssign() {
+  const Json p = J(kAssign);
+  std::string err;
+  auto with = [&](const std::string& rulesPatch, const char* maps) {
+    Json q = p;
+    Json& c = q["config"];
+    c["rules"] = status::MergePatchApply(*c.Find("rules"), J(rulesPatch));
+    if (maps) c["maps"] = J(maps);
+    return q;
+  };
+  const char* veto = R"([{"name":"de_mirage","sides":"team1_ct"},{"name":"de_inferno","sides":"team2_ct"},
+                         {"name":"de_nuke","sides":"team1_ct"}])";
+  // kAssign map 1 is a knife map: refused under valve, with the reason.
+  CHECK(!fs::ValidateAssign(with(R"({"ruleset":"valve"})", nullptr), &err));
+  CHECK(err.find("map 1") != std::string::npos && err.find("allow_knife") != std::string::npos);
+  CHECK(fs::ValidateAssign(with(R"({"ruleset":"valve","overrides":{"allow_knife":true}})", nullptr), &err));
+  // Bad ruleset / unknown or bad override keys: refused, the key named.
+  CHECK(!fs::ValidateAssign(with(R"({"ruleset":"esl"})", veto), &err) && err.find("rules.ruleset") != std::string::npos);
+  CHECK(!fs::ValidateAssign(with(R"({"ruleset":"valve","overrides":{"freeztime":3}})", veto), &err));
+  CHECK(err.find("rules.overrides: unknown override \"freeztime\"") != std::string::npos);
+  CHECK(!fs::ValidateAssign(with(R"({"overrides":{"overtime":{"limit":-1}}})", veto), &err));
+  CHECK(err.find("overtime.limit") != std::string::npos);
+
+  const Json q = with(R"({"ruleset":"valve","overrides":{"freezetime":3,"overtime":{"startmoney":12500}}})", veto);
+  CHECK(fs::ValidateAssign(q, &err));
+  const Json mat = fs::AssignToMatConfig("ko-r1-m3", *q.Find("config"), nullptr);
+  CHECK_STR(mat.Find("config")->Find("ruleset")->AsString(), "valve");
+  CHECK(mat.Find("config")->Find("coaches")->Items().size() == 1);
+  auto ctx = ParseWebhookMatchContextFromJson(mat.Dump(), &err);
+  CHECK(ctx.has_value());
+  if (ctx) {
+    CHECK_STR(ctx->ruleset, "valve");
+    CHECK_STR(ctx->overrides_json, R"({"freezetime":3,"overtime":{"startmoney":12500}})");
+    CHECK(ctx->coaches.count(76561198000000003ull) == 1);
+    CHECK(ctx->spectators.count(76561198000000003ull) == 0);  // online valve match: no coach
+    CHECK(ctx->maxOvertimes == -1 && !ctx->damageTiebreakEnabled);
+  }
+  // match.update set_rules is validated the same way.
+  Json cfg = *q.Find("config");
+  bool pw = false;
+  CHECK(!fs::ApplyUpdateOps(&cfg, J(R"([{"op":"set_rules","rules":{"overrides":{"bogus":1}}}])"), &err, &pw));
+  CHECK(err.find("bogus") != std::string::npos);
+  CHECK(fs::ApplyUpdateOps(&cfg, J(R"([{"op":"set_rules","rules":{"overrides":{"lan":true}}}])"), &err, &pw));
+}
+
 static void TestUpdateOps() {
   Json cfg = *J(kAssign).Find("config");
   std::string err;
@@ -677,6 +724,7 @@ int main() {
   TestFence();
   TestAssign();
   TestUpdateOps();
+  TestRulesetAssign();
   TestCodecs();
   TestValidators();
   TestRewind();

@@ -45,6 +45,13 @@ typedef struct ru_match_v1 {
   uint32_t struct_size; /* sizeof(ru_match_v1) of the provider */
   /* Game thread. Fills *out (up to out->struct_size bytes). Returns 1 on success. */
   int (*get_status)(ru_match_status* out);
+  /* v1.1 (rulesets, docs/ESPORTS-MODE.md). Game thread. 1 = players' inventories must not be
+   * modified right now (ruleset "valve", or the cosmetics override "inventory"): the skins plugin
+   * stays inert. 0 = allowed. */
+  int (*inventory_locked)(void);
+  /* Effective ruleset of the loaded match (readyup.cfg's when none is loaded): "default" or
+   * "valve". Static string. */
+  const char* (*ruleset)(void);
   /* v1.x: members are appended here. */
 } ru_match_v1;
 

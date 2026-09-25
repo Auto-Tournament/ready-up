@@ -402,7 +402,7 @@ void PruneWeapons() {
 }  // namespace
 
 void GameFrameTick() {
-  if (DisabledByEnv()) return;
+  if (DisabledByEnv() || Inert()) return;  // Inert: ruleset valve (skins.h)
   ++g_tick;
 
   if (g_api->entity_system_status(g_api->self) != RU_ENTSYS_OK) return;

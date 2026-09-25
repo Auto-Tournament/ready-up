@@ -7,6 +7,7 @@
 #include "readyup/ready_hud.h"
 
 #include "readyup/engine.h"
+#include "readyup/esports.h"
 #include "readyup/welcome.h"
 #include "readyup/config.h"
 #include "readyup/match_events.h"
@@ -478,7 +479,7 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
   st.warmupRulesApplied = true;   // don't re-apply warmup rules
   st.matchLoadedChatSent = true;  // no "type .r" prompt
   bool any = false;
-  if (EnqueueServerCommand("exec ReadyUp/live.cfg")) any = true;
+  if (EnqueueServerCommand(LiveCfgExecCommand().c_str())) any = true;
   ApplyMatchCvarsLocked(ctx);
   if (EnqueueServerCommand("mp_warmup_pausetimer 0")) any = true;
   if (EnqueueServerCommand("mp_warmup_end")) any = true;
@@ -805,6 +806,7 @@ static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx) {
   std::vector<std::string> cmds;
   AppendTeamNameCmds(&cmds);
   if (ctx.cvars.empty()) {
+    AppendRuleCommands(&cmds);  // ruleset overrides win over the cfg (esports.h)
     EnqueueAfterCfg(std::move(cmds));
     return;
   }
@@ -824,6 +826,7 @@ static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx) {
     }
     cmds.push_back(cmd);
   }
+  AppendRuleCommands(&cmds);
   EnqueueAfterCfg(std::move(cmds));
 }
 
@@ -879,7 +882,7 @@ static void ApplyLiveRulesAndRestartLocked(State& st, const WebhookMatchContext&
   bool any = false;
   ApplyMatchCvarsLocked(ctx);
   if (st.cfgExecEnabled) {
-    if (EnqueueServerCommand("exec ReadyUp/live.cfg")) any = true;
+    if (EnqueueServerCommand(LiveCfgExecCommand().c_str())) any = true;
   } else {
     const char* cmds[] = {
         // End CS2 built-in warmup if it came back (e.g. after a map change).
@@ -1135,7 +1138,7 @@ bool ScrimGoLive(int restartSeconds) {
   ApplyMatchCvarsLocked(*ctxOpt);
   bool any = false;
   // Always use the live baseline cfg for scrims (it ends with mp_warmup_end).
-  if (EnqueueServerCommand("exec ReadyUp/live.cfg")) any = true;
+  if (EnqueueServerCommand(LiveCfgExecCommand().c_str())) any = true;
   if (EnqueueServerCommand("mp_warmup_pausetimer 0")) any = true;
   if (EnqueueServerCommand("mp_warmup_end")) any = true;
   const std::string restart = "mp_restartgame " + std::to_string(restartSeconds);

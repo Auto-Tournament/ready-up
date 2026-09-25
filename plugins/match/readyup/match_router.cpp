@@ -8,6 +8,7 @@
 #include "readyup/admins.h"
 #include "readyup/config.h"
 #include "readyup/engine.h"
+#include "readyup/esports.h"
 #include "readyup/logging.h"
 #include "readyup/match_console.h"
 #include "readyup/match_features.h"
@@ -79,7 +80,7 @@ const std::vector<std::string>& MatchRuSubcommands() {
   static const std::vector<std::string> k = {
       "admins", "hudtest", "prac", "practice", "idle", "scrim", "state", "status", "mode", "match", "start",
       "pause",  "fp",      "forcepause", "unpause", "up", "fup", "forceunpause", "restart", "end", "recover", "side",
-      "tech",   "tac"};
+      "tech",   "tac", "rules"};
   return k;
 }
 
@@ -454,6 +455,15 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     return;
   }
 
+  if (cmd == "rules") {
+    // Effective rules: ruleset preset + overrides, and what differs (esports.h).
+    for (const auto& l : EsportsRulesReport()) {
+      Print("%s\n", l.c_str());
+      if (steamid64 != 0) SendToChat(("Ready Up " + l).c_str());
+    }
+    return;
+  }
+
   if (cmd == "mode") {
     Reply(steamid64, std::string("mode: ") + GetModeString());
     return;
@@ -518,7 +528,13 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       return;
     }
     if (!PauseStateGet().paused) {
-      Reply(steamid64, "Ready Up: match is not paused.");
+      // An engine pause Ready Up did not start (sv_matchpause_auto_5v5 under the valve ruleset, a
+      // vote): resume it anyway.
+      if (!EnqueueServerCommand("mp_unpause_match")) {
+        Reply(steamid64, "Ready Up: unpause unavailable yet.");
+        return;
+      }
+      sendAdmin("not paused by Ready Up; sent mp_unpause_match (engine pause).");
       return;
     }
     if (!EnqueueServerCommand("mp_unpause_match")) {

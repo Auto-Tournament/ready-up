@@ -6,6 +6,7 @@
 
 #include "readyup/config.h"
 #include "readyup/engine.h"
+#include "readyup/esports.h"
 #include "readyup/http_client.h"
 #include "readyup/logging.h"
 #include "readyup/map_names.h"
@@ -516,6 +517,7 @@ void ApplyLoadedMatch(const WebhookMatchContext& ctx, const std::string& configJ
   }
   WebhookSetMatchContext(ctx);
   OnMatchLoaded();
+  EsportsOnMatchLoaded(ctx);
   WebhookEmitSeriesStart();
 
   // Persist match config so a rebooted server can restore without MAT re-init.
@@ -596,9 +598,9 @@ bool LoadMatchFromUrlImpl(const std::string& url) {
     std::string parseErr;
     auto ctx = ParseMatchContextFromJson(r.body, &parseErr);
     if (!ctx) {
-      if (DebugEnabled()) {
-        Print("match-load[%llu]: json parse: %s\n", reqId, parseErr.empty() ? "failed" : parseErr.c_str());
-      }
+      // Not a match config, or refused (a bad ruleset / override, a knife side under valve).
+      Print("match-load[%llu]: error: match config not loaded: %s\n", reqId,
+            parseErr.empty() ? "json parse failed" : parseErr.c_str());
     } else {
       ApplyLoadedMatch(*ctx, r.body);
 

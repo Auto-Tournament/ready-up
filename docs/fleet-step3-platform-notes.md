@@ -236,3 +236,36 @@ round backups continue under the usual name; the restored file is
 Checked live by `scripts/livetest/fleet_livetest.py` (end of the run, or `--resume-only
 --resume-backup FILE` with a backup saved by an earlier `--save-backup FILE`): map 2 of 3 from a
 round backup of map 1, series 1-0, map 1's result, knife-decided sides.
+
+## 12. Rulesets: esports mode (`rules.ruleset`, `rules.overrides`)
+
+Ready Up can run a match under Valve's CS Major rulebook ([ESPORTS-MODE.md](ESPORTS-MODE.md)).
+Proposed schema: `match.defs.json` `rules.ruleset`, `rules.overrides`, `matchState.ruleset`,
+`matchState.effective_rules`.
+
+- **`rules.ruleset`**: `"default"` (Ready Up's cfgs) or `"valve"`. Left out, the server's
+  `readyup.cfg` `ruleset=` applies. Under `valve` the server execs `ReadyUp/esports_live.cfg` at
+  go-live (Premier defaults + Valve's exception list), refuses maps whose `sides` is `knife`
+  (send the veto result: `team1_ct` / `team2_ct`), keeps the skins plugin inert (players' own
+  inventories only), counts technical pauses (1 per team, 120 s), pauses at halftime (both
+  teams `.unpause`) and ignores `rules.overtime.max_overtimes` / `rules.tiebreak` (overtime is the
+  engine's, unlimited MR3 unless `overrides.overtime.limit`).
+- **`rules.overrides`**: the organiser's changes on top of the preset, one named key per rule:
+  `freezetime`, `tac_timeouts`, `tac_timeout_seconds`, `tech_pauses_per_team`,
+  `tech_pause_seconds`, `allow_knife`, `overtime {enabled, maxrounds, startmoney, limit}`, `zeus`,
+  `spectators_max`, `halftime_pausematch`, `tv_delay`, `tv_broadcast_url`, `camera_man_steamid`,
+  `lan`, `coaches_online`, `default_models`, `cosmetics` (`inventory` | `plugin`). Types and
+  ranges are in the schema. An unknown key, a wrong type or a value out of range is refused:
+  `cmd.result rejected invalid_config` with the key in the message (`rules.overrides: unknown
+  override "freeztime" (known: ...)`). The same check runs on `match.update` `set_rules`.
+- Coaches (`role: coach`) are admitted as spectators unless the effective rules say online +
+  `coaches_online: false` (Valve: no staff online). `lan: true` admits them.
+- **What to show**: `MatchState.ruleset` and `MatchState.effective_rules` =
+  `{ruleset, rules: {...effective values...}, differs: ["freezetime", "overtime.startmoney"],
+  preset: {freezetime: 20, overtime: {startmoney: 10000}}, source: {freezetime: "override", ...}}`.
+  `differs` lists every key whose value is not the preset's, whatever set it: an override, a
+  per-match pause key (`source: "match"`) or a raw `cvars` entry that touches a rule's cvar
+  (`source: "cvars"`). Show it as "differs from Valve" next to the match; it is in every
+  `state.snapshot` and `/status`. `ru rules` prints the same on the server.
+- Prefer overrides over raw `cvars` for anything the table covers: overrides are validated and
+  reported, and they go out after the cfg **and** after the match `cvars`.

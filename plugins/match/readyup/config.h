@@ -50,6 +50,12 @@ struct ReadyUpCfg {
   // match configs that leave a rule out. Keys: max_tech_pauses_per_team, tech_pause_max_seconds,
   // both_teams_unpause_required, allow_force_ready, min_players_to_ready, forfeit_after_seconds.
   MatchRules rules;
+  // Ruleset for loaded matches (ruleset.h, docs/ESPORTS-MODE.md): "default" | "valve". A match
+  // config's "ruleset" wins. Anything else is logged and read as "default".
+  std::string ruleset = "default";
+  // Models the `default_models` rule resets players to (per team, the map-independent defaults).
+  std::string default_model_ct = "agents/models/ctm_sas/ctm_sas.vmdl";
+  std::string default_model_t = "agents/models/tm_phoenix/tm_phoenix.vmdl";
 };
 
 ReadyUpCfg Cfg();

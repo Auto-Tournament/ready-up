@@ -109,6 +109,16 @@ struct WebhookMatchContext {
 
   // Pause / ready / forfeit rules from the match config (-1 = unset; match_rules.h).
   MatchRules rules;
+
+  // Ruleset (ruleset.h): "" = the match config has none (readyup.cfg `ruleset=` applies),
+  // "default" | "valve". overrides_json: the validated "overrides" object ("" = none).
+  std::string ruleset;
+  std::string overrides_json;
+  // Coaches (MAT "coaches": [steamid64]; fleet role "coach"). Whitelisted as spectators unless the
+  // ruleset keeps them out (valve online: lan false, coaches_online false).
+  std::unordered_set<uint64_t> coaches;
+  // What the parser changed for the ruleset (logged at load).
+  std::vector<std::string> ruleset_notes;
 };
 
 // Configure base events URL (e.g. https://mat.example.com/api/events).

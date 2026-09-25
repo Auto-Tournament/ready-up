@@ -94,6 +94,11 @@ Json ContextToJson(const WebhookMatchContext& c) {
   rules["min_players_to_ready"] = c.rules.min_players_to_ready;
   rules["forfeit_after_seconds"] = c.rules.forfeit_after_seconds;
   j["rules"] = std::move(rules);
+  j["ruleset"] = c.ruleset;
+  j["overrides"] = c.overrides_json;
+  Json coaches = Json::Array();
+  for (uint64_t s : c.coaches) coaches.Push(U64(s));
+  j["coaches"] = std::move(coaches);
   return j;
 }
 
@@ -136,6 +141,9 @@ WebhookMatchContext ContextFromJson(const Json& j) {
     c.rules.min_players_to_ready = Int(r, "min_players_to_ready", -1);
     c.rules.forfeit_after_seconds = Int(r, "forfeit_after_seconds", -1);
   }
+  c.ruleset = Str(&j, "ruleset");
+  c.overrides_json = Str(&j, "overrides");
+  if (const Json* v = j.Find("coaches")) for (const auto& s : v->Items()) c.coaches.insert(ToU64(&s));
   return c;
 }
 

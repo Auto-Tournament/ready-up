@@ -15,6 +15,7 @@
 #include "readyup/config.h"
 #include "readyup/demo_recorder.h"
 #include "readyup/engine.h"
+#include "readyup/esports.h"
 #include "readyup/fleet_bridge.h"
 #include "readyup/game_timers.h"
 #include "readyup/host.h"
@@ -204,7 +205,17 @@ int GetStatus(ru_match_status* out) {
   Guard("status", [&] { rc = MatchStatusGet(out); });
   return rc;
 }
-const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus};
+int InventoryLockedIface() {
+  int rc = 0;
+  Guard("inventory_locked", [&] { rc = InventoryLockedNow() ? 1 : 0; });
+  return rc;
+}
+const char* RulesetIface() {
+  const char* r = "default";
+  Guard("ruleset", [&] { r = RulesetName(CurrentEffectiveRules().ruleset); });
+  return r;
+}
+const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus, &InventoryLockedIface, &RulesetIface};
 
 std::atomic<int> g_hudShowing{0}, g_hudFeature{0};
 std::mutex g_brandMu;
@@ -214,6 +225,7 @@ void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   // Any thread, must not block: report what the game thread / workers cached.
   add(ctx, "INFO", "match", ("readyup-match " MATCH_VERSION ", mode=" + std::string(GetModeString())).c_str());
   add(ctx, "OK", "store", local_store::Summary().c_str());
+  add(ctx, "INFO", "ruleset", EsportsSelftestLine().c_str());
   add(ctx, "INFO", "ready HUD",
       (std::string("showing=") + (g_hudShowing.load() ? "yes" : "no") + " (feature " +
        (g_hudFeature.load() ? "on" : "off") + ")")
@@ -301,6 +313,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     api->subscribe(api->self, RU_EVENT_ANY, &OnEvent, nullptr);
     api->subscribe_log_line(api->self, &OnLogLine, nullptr);
     MatchEventsInstall(api);
+    EsportsInstall(api);  // default_models (player_spawn), halftime pause
     api->set_admin_provider(api->self, &AdminProvider, nullptr);
     api->provide_interface(api->self, RU_MATCH_IFACE_NAME, RU_MATCH_IFACE_VERSION, const_cast<ru_match_v1*>(&g_matchIface));
     api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "match", RU_SELFTEST_IFACE_VERSION,
