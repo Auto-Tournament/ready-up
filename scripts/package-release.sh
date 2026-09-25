@@ -5,8 +5,8 @@
 #
 #   scripts/package-release.sh <build-dir> <version> <out-dir>
 #
-# <build-dir> holds libserver.so, plugins/match.so, plugins/skins.so, plugins/hello.so and
-# (optionally) readyup_sigcheck / readyup_hookcheck.
+# <build-dir> holds libserver.so, plugins/match.so, plugins/fleet.so, plugins/skins.so,
+# plugins/hello.so and (optionally) readyup_sigcheck / readyup_hookcheck.
 #
 # Component zips (the installer mixes these):
 #   ready-up-core-<v>-linuxsteamrt64.zip    the core (libserver.so, engine-surface.json,
@@ -14,11 +14,14 @@
 #   ready-up-match-<v>-linuxsteamrt64.zip   plugins/match.so (ready-up, scrims, knife, pauses,
 #                                            practice, match configs, webhooks, demos) + the
 #                                            cfg/ReadyUp/*.cfg templates it execs
+#   ready-up-fleet-<v>-linuxsteamrt64.zip   plugins/fleet.so (link to the Auto Tournament platform)
+#                                            + a commented cfg/ReadyUp/fleet.cfg template. Idle
+#                                            until a url is configured, so bundles carry it.
 #   ready-up-skins-<v>-linuxsteamrt64.zip   plugins/skins.so + engine-surface.skins.json
 #   ready-up-hello-<v>-linuxsteamrt64.zip   plugins/hello.so (example plugin)
 # Bundles (for manual download):
-#   ready-up-essentials-<v>-...zip          core + match. The default. NO skins.
-#   ready-up-full-<v>-...zip                core + match + skins + hello + readyup_sigcheck/hookcheck
+#   ready-up-essentials-<v>-...zip          core + match + fleet. The default. NO skins.
+#   ready-up-full-<v>-...zip                core + match + fleet + skins + hello + readyup_sigcheck/hookcheck
 # Plus SHA256SUMS over every zip.
 #
 # Each component ships readyup/manifests/<component>.json ({component, version, files}),
@@ -39,7 +42,7 @@ trap 'rm -rf "$WORK"' EXIT
 EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 SUFFIX="$VERSION-linuxsteamrt64.zip"
 
-for f in libserver.so plugins/match.so plugins/skins.so plugins/hello.so; do
+for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so; do
   [[ -f "$BUILD/$f" ]] || { echo "package-release: missing $BUILD/$f" >&2; exit 1; }
 done
 
@@ -90,9 +93,16 @@ stage_component core "Ready Up core: libserver.so, engine surface, plugin host, 
 # The match flow (plugins/match) and the ReadyUp/*.cfg files it execs (warmup, knife, live, ...).
 match_files=("$BUILD/plugins/match.so:plugins/match.so:755")
 for f in "$ROOT_DIR"/cfg/ReadyUp/*.cfg; do
+  [[ "$(basename "$f")" == fleet.cfg ]] && continue  # the fleet component's
   match_files+=("$f:cfg-templates/ReadyUp/$(basename "$f")")
 done
 stage_component match "Ready-up, scrims, knife round, pauses, practice, match configs, webhooks, demos" "${match_files[@]}"
+
+# The platform link. fleet.so stays idle without a url, and the template is all comments. The
+# protocol schemas (plugins/fleet/protocol) are for tests only; the plugin does not read them.
+stage_component fleet "Link to the Auto Tournament platform (idle until configured)" \
+  "$BUILD/plugins/fleet.so:plugins/fleet.so:755" \
+  "$ROOT_DIR/cfg/ReadyUp/fleet.cfg:cfg-templates/ReadyUp/fleet.cfg"
 
 cat >"$WORK/SKINS-WARNING.txt" <<'EOF'
 Ready Up skins (weapon paints, knives, gloves, agents)
@@ -139,8 +149,9 @@ make_zip "ready-up-core-$SUFFIX" core
 make_zip "ready-up-match-$SUFFIX" match
 make_zip "ready-up-skins-$SUFFIX" skins
 make_zip "ready-up-hello-$SUFFIX" hello
-make_zip "ready-up-essentials-$SUFFIX" core match
-full=(core match skins hello)
+make_zip "ready-up-fleet-$SUFFIX" fleet
+make_zip "ready-up-essentials-$SUFFIX" core match fleet
+full=(core match fleet skins hello)
 [[ -d "$WORK/c/tools" ]] && full+=(tools)
 make_zip "ready-up-full-$SUFFIX" "${full[@]}"
 

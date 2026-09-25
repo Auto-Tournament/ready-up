@@ -11,9 +11,11 @@
 #
 # Usage: install.sh [BUNDLE|COMPONENT ...] [options]
 #
-#   essentials   core + match (default for a fresh install; no skins)
-#   full         core + match + skins + hello
-#   core | match | skins | hello   single components (core is always included)
+#   essentials   core + match + fleet (default for a fresh install; no skins)
+#   full         core + match + fleet + skins + hello
+#   core | match | fleet | skins | hello   single components (core is always included).
+#                fleet links the server to the Auto Tournament platform; it stays idle until
+#                cfg/ReadyUp/fleet.cfg (or readyup.cfg [fleet]) sets a url
 #
 #   --dir PATH       CS2 server root (contains game/csgo) or a game/csgo directory (default: .)
 #   --version vX.Y.Z install that release instead of the latest
@@ -36,9 +38,10 @@ set -euo pipefail
 REPO="${READYUP_REPO:-Auto-Tournament/ready-up}"
 API="${READYUP_API:-https://api.github.com}"
 GAME_PATH="csgo/readyup"
-COMPONENTS=(core match skins hello)
-declare -A LABEL=([core]="Core" [match]="Match" [skins]="Skins" [hello]="Hello")
-declare -A NOTE=([core]="required" [match]="ready-up, knife, pauses, webhooks" [skins]="may get servers banned"
+COMPONENTS=(core match fleet skins hello)
+declare -A LABEL=([core]="Core" [match]="Match" [fleet]="Fleet" [skins]="Skins" [hello]="Hello")
+declare -A NOTE=([core]="required" [match]="ready-up, knife, pauses, webhooks"
+  [fleet]="link to the Auto Tournament platform (idle until configured)" [skins]="may get servers banned"
   [hello]="example plugin")
 
 DIR="."
@@ -46,6 +49,7 @@ VERSION=""
 ZIPS=()
 WANT=()
 WANT_FULL=0
+BUNDLE_FLEET=0  # fleet came from a bundle name / the fresh-install default, not asked for by name
 REMOVE=()
 YES=0
 UNINSTALL=0
@@ -80,15 +84,15 @@ while [[ $# -gt 0 ]]; do
       if [[ -f "$0" ]]; then usage; else say "See https://github.com/$REPO#install"; fi
       exit 0
       ;;
-    essentials) WANT+=(core match); shift ;;
-    full) WANT+=(core match skins hello); WANT_FULL=1; shift ;;
-    core | match | skins | hello) WANT+=("$1"); shift ;;
+    essentials) WANT+=(core match fleet); BUNDLE_FLEET=1; shift ;;
+    full) WANT+=(core match fleet skins hello); WANT_FULL=1; BUNDLE_FLEET=1; shift ;;
+    core | match | fleet | skins | hello) WANT+=("$1"); shift ;;
     *) die "unknown argument: $1 (see --help)" ;;
   esac
 done
 [[ $PURGE -eq 0 || $UNINSTALL -eq 1 ]] || die "--purge only goes with --uninstall"
 for c in "${REMOVE[@]}"; do
-  case "$c" in match | skins | hello) ;; core) die "core can't be removed on its own; use --uninstall" ;; *) die "unknown component: $c" ;; esac
+  case "$c" in match | fleet | skins | hello) ;; core) die "core can't be removed on its own; use --uninstall" ;; *) die "unknown component: $c" ;; esac
 done
 
 # ---- requirements ---------------------------------------------------------------------------
@@ -237,7 +241,7 @@ if [[ $UNINSTALL -eq 1 ]]; then
   else
     warn "patch_gameinfo.py is missing; remove the \"Game $GAME_PATH\" line from gameinfo.gi by hand"
   fi
-  for c in hello skins match core; do
+  for c in hello skins fleet match core; do
     [[ -n "${INSTALLED[$c]:-}" || -f "$RU/manifests/$c.json" ]] || continue
     remove_component "$c"
     ok "removed $c"
@@ -331,7 +335,7 @@ for a in rel.get("assets", []):
     name, url = a.get("name", ""), a.get("browser_download_url", "")
     if name == "SHA256SUMS":
         print("sums\t%s\t%s" % (name, url))
-    elif re.match(r"^ready-up-(core|match|skins|hello)-.*\.zip$", name):
+    elif re.match(r"^ready-up-(core|match|fleet|skins|hello)-.*\.zip$", name):
         print("asset\t%s\t%s" % (name, url))
 PY
   )
@@ -359,7 +363,7 @@ declare -A SEL=()
 for c in "${COMPONENTS[@]}"; do
   [[ -n "${INSTALLED[$c]:-}" ]] && SEL[$c]=1 || SEL[$c]=0
 done
-if [[ ${#INSTALLED[@]} -eq 0 ]]; then SEL[core]=1 SEL[match]=1; fi
+if [[ ${#INSTALLED[@]} -eq 0 ]]; then SEL[core]=1 SEL[match]=1 SEL[fleet]=1 BUNDLE_FLEET=1; fi
 SEL[core]=1
 
 TTY_OK=0
@@ -481,6 +485,17 @@ else
   say "${B}Ready Up${N} ${D}installer · $CSGO${N}"
 fi
 
+# Releases before fleet shipped have no fleet zip: a bundle then installs without it. A single
+# component zip (--zip ready-up-fleet-*.zip fleet) has no core: the installed one is kept.
+keep=()
+for c in "${TO_INSTALL[@]}"; do
+  if [[ -z "${AVAIL[$c]:-}" ]]; then
+    [[ "$c" == fleet && $BUNDLE_FLEET -eq 1 ]] && continue
+    [[ "$c" == core && -n "${INSTALLED[core]:-}" ]] && continue
+  fi
+  keep+=("$c")
+done
+TO_INSTALL=(${keep[@]+"${keep[@]}"})
 for c in "${TO_INSTALL[@]}"; do
   [[ -n "${AVAIL[$c]:-}" ]] || die "$c is not in ${RELEASE_TAG:-the given zip(s)}; nothing was changed"
 done
@@ -549,7 +564,7 @@ for c in "${!INSTALLED[@]}"; do BEFORE[$c]="${INSTALLED[$c]}"; done
 
 # Core first (the patcher and the plugin host come with it).
 ordered=()
-for c in core match skins hello; do
+for c in core match fleet skins hello; do
   for t in "${TO_INSTALL[@]}"; do [[ "$t" == "$c" ]] && ordered+=("$c"); done
 done
 for c in "${ordered[@]}"; do

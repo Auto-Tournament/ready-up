@@ -309,6 +309,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     // Players already connected (plugin loaded mid-map / reloaded).
     for (const auto& h : ListHumans()) ObservePlayer(h.steamid64, h.name);
 
+    persisted_settings::CaptureDefaults();  // built-in defaults, before anything changes them
     if (!ReloadStateRestore()) {
       // Fresh start (server boot, or no previous image): current map, then the settings and the
       // match persisted in state.json (a rebooted server resumes without the platform re-sending them).

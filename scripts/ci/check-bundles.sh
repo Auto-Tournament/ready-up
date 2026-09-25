@@ -6,6 +6,8 @@
 #   - core / match / essentials contain NO skins code or gamedata: no skins.so, no
 #     engine-surface.skins.json, no skins warning, and libserver.so has no skins SQL/symbols
 #   - skins / full do contain skins.so + engine-surface.skins.json
+#   - fleet / essentials / full contain plugins/fleet.so + an all-comments fleet.cfg template
+#     (the link stays idle until configured); the fleet zip has no match.so
 #   - match / essentials / full contain plugins/match.so (+ the cfg/ReadyUp templates); the core
 #     zip does not, and its libserver.so has no match flow in it (it must run without match.so)
 #
@@ -95,6 +97,20 @@ core_without_match() {
   fi
 }
 
+has_fleet() {  # <bundle>
+  local dir="$WORK/$1"
+  for f in readyup/plugins/fleet.so readyup/cfg-templates/ReadyUp/fleet.cfg; do
+    if [[ -f "$dir/$f" ]]; then ok "$1 has $f"; else bad "$1 lacks $f"; fi
+  done
+  # The template must leave the link idle: no active (uncommented) key = value line.
+  local tpl="$dir/readyup/cfg-templates/ReadyUp/fleet.cfg"
+  if [[ -f "$tpl" ]] && grep -Ev '^[[:space:]]*(//|#|$)' "$tpl" | grep -q .; then
+    bad "$1: fleet.cfg template has active settings (fleet must stay idle by default)"
+  else
+    ok "$1: fleet.cfg template is all comments"
+  fi
+}
+
 has_skins() {  # <bundle>
   local dir
   dir="$(extract "$1")"
@@ -105,11 +121,13 @@ has_skins() {  # <bundle>
 
 echo "core:";       no_skins core;       check_manifests "$WORK/core" core; core_without_match
 echo "match:";      no_skins match;      check_manifests "$WORK/match" match; has_match match
-echo "essentials:"; no_skins essentials; check_manifests "$WORK/essentials" core match; has_match essentials
+echo "fleet:";      no_skins fleet;      check_manifests "$WORK/fleet" fleet; has_fleet fleet
+if [[ -e "$WORK/fleet/readyup/plugins/match.so" ]]; then bad "fleet contains match.so"; else ok "fleet: no match.so"; fi
+echo "essentials:"; no_skins essentials; check_manifests "$WORK/essentials" core match fleet; has_match essentials; has_fleet essentials
 echo "hello:";      no_skins hello;      check_manifests "$WORK/hello" hello
 echo "skins:";      has_skins skins;     check_manifests "$WORK/skins" skins
-echo "full:";       has_skins full; has_match full
-full_components=(core match skins hello)
+echo "full:";       has_skins full; has_match full; has_fleet full
+full_components=(core match fleet skins hello)
 [[ -f "$WORK/full/readyup/manifests/tools.json" ]] && full_components+=(tools)
 check_manifests "$WORK/full" "${full_components[@]}"
 

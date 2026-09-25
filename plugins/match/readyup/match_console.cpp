@@ -633,7 +633,8 @@ const std::vector<std::string>& MatchConsoleCommands() {
   return k;
 }
 
-bool MatchConsoleCommand(const std::string& line) {
+namespace {
+bool RunConsoleCommand(const std::string& line) {
   if (HandleMatchTokenCommand(line)) return true;
   if (HandleWebhookUrlCommand(line)) return true;
   if (HandleHeartbeatUrlCommand(line)) return true;
@@ -652,6 +653,15 @@ bool MatchConsoleCommand(const std::string& line) {
   if (HandleWarmupInfiniteAmmoCommand(line)) return true;
   // Demo recording/upload, series-end kick delays, ru_match_stats, tv_delay (match_end.h).
   return MatchFlowHandleConsoleLine(Trim(line));
+}
+}  // namespace
+
+bool MatchConsoleCommand(const std::string& line) {
+  // ru_warmup_* / ru_cfg_exec_enable / ru_demo_* / kick delays: saved in state.json (and
+  // `<setting> default`), see persisted_settings.h.
+  bool consumed = false;
+  if (persisted_settings::ConsoleSetting(Trim(line), &RunConsoleCommand, &consumed)) return consumed;
+  return RunConsoleCommand(line);
 }
 
 bool LoadMatchFromUrl(const std::string& url) { return LoadMatchFromUrlImpl(url); }

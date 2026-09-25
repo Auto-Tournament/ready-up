@@ -53,6 +53,7 @@ In a terminal it shows the components with the installed and latest version. Mov
 ```
 > [x] Core   new 0.2.0     required
   [x] Match  new 0.2.0     ready-up, knife, pauses, webhooks
+  [x] Fleet  new 0.2.0     link to the Auto Tournament platform (idle until configured)
   [ ] Skins  new 0.2.0     may get servers banned
   [ ] Hello  new 0.2.0     example plugin
 ```
@@ -64,10 +65,10 @@ It downloads the ticked components from the latest release (checking `SHA256SUMS
 **Scripts and panels (no questions):**
 
 ```bash
-curl -fsSL .../install.sh | bash -s -- essentials        # core + match (the default)
+curl -fsSL .../install.sh | bash -s -- essentials        # core + match + fleet (the default)
 curl -fsSL .../install.sh | bash -s -- full              # + skins + hello
 bash install.sh --yes                                    # update whatever is installed
-bash install.sh --remove skins
+bash install.sh --remove skins                           # or --remove fleet, --remove hello
 bash install.sh --uninstall [--purge]                    # --purge also deletes your config
 bash install.sh --zip ready-up-essentials-<v>-linuxsteamrt64.zip essentials   # offline / CI artifact
 ```
@@ -78,7 +79,7 @@ CS2 updates rewrite `gameinfo.gi`: run the installer again after each one (it on
 
 ### Manual install
 
-1. Download a zip from [Releases](https://github.com/Auto-Tournament/ready-up/releases/latest): `ready-up-essentials-<version>-linuxsteamrt64.zip` (core + match) or `ready-up-full-...` (+ skins + hello).
+1. Download a zip from [Releases](https://github.com/Auto-Tournament/ready-up/releases/latest): `ready-up-essentials-<version>-linuxsteamrt64.zip` (core + match + fleet) or `ready-up-full-...` (+ skins + hello).
 2. Extract it into `game/csgo`. You should end up with `game/csgo/readyup/bin/linuxsteamrt64/libserver.so`.
 3. Add Ready Up to `gameinfo.gi` (and `gameinfo_branchspecific.gi` if you have it):
 
@@ -115,6 +116,15 @@ The match flow: scrim ready-up with a center-screen panel, knife round and side 
 </details>
 
 <details>
+<summary><b>Fleet</b> (<code>plugins/fleet</code>): link to the Auto Tournament platform</summary>
+
+<br />
+
+One outbound WebSocket to the platform: enrollment, match assignment and commands, state stream, offline spool ([FLEET.md](docs/FLEET.md)). Ships as `plugins/fleet.so` in both bundles plus a fully commented `cfg/ReadyUp/fleet.cfg`. Without a `url` it loads, logs one line and stays idle, so standalone servers are unaffected.
+
+</details>
+
+<details>
 <summary><b>Skins</b> (<code>plugins/skins</code>): optional, not in the default bundle</summary>
 
 <br />
@@ -132,7 +142,7 @@ A minimal plugin that registers `.hello` in chat. Start here to write your own.
 
 </details>
 
-Downloads: `ready-up-core`, `ready-up-match`, `ready-up-skins`, `ready-up-hello`, and two bundles: **Essentials** (core + match) and **Full** (core + match + skins + hello + the gamedata checkers). The installer mixes the single components.
+Downloads: `ready-up-core`, `ready-up-match`, `ready-up-fleet`, `ready-up-skins`, `ready-up-hello`, and two bundles: **Essentials** (core + match + fleet) and **Full** (core + match + fleet + skins + hello + the gamedata checkers). The installer mixes the single components. `fleet` is the link to the Auto Tournament platform; it stays idle until you set a `url` in `cfg/ReadyUp/fleet.cfg` (shipped fully commented out), so it is safe on standalone servers.
 
 ## Documentation
 
