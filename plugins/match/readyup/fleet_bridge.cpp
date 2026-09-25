@@ -2,6 +2,7 @@
 #include "readyup/fleet_bridge.h"
 
 #include "readyup/fleet_iface.h"
+#include "readyup/practice_iface.h"
 #include "readyup/whitelist_iface.h"
 
 #include "readyup/admin_check.h"
@@ -1477,6 +1478,18 @@ Result CmdWhitelistSet(const Json& args) {
   return Ok();
 }
 
+// `practice.set` {on}: practice mode through readyup.practice.v1 (plugins/practice).
+Result CmdPracticeSet(const Json& args) {
+  const Json* on = args.Find("on");
+  if (!on || on->type() != Json::Type::Bool) return Rejected("bad_args", "on (boolean) is required");
+  const auto* p = g_api ? static_cast<const ru_practice_v1*>(g_api->get_interface(g_api->self, RU_PRACTICE_IFACE_NAME, 1))
+                        : nullptr;
+  if (!p || !p->set_active) return Rejected("unsupported", "the practice plugin (practice.so) is not loaded");
+  const char* why = "";
+  if (p->set_active(on->AsBool() ? 1 : 0, &why) != 1) return Rejected("bad_phase", why ? why : "refused");
+  return Ok();
+}
+
 void OnCmd(const ru_fleet_msg* m) {
   const Json p = ParsePayload(m);
   const std::string ref = m->id ? m->id : "";
@@ -1555,6 +1568,8 @@ void OnCmd(const ru_fleet_msg* m) {
     r = CmdPluginsSet(args);
   } else if (name == "whitelist.set") {
     r = CmdWhitelistSet(args);
+  } else if (name == "practice.set") {
+    r = CmdPracticeSet(args);
   } else if (name == "snapshot_now") {
     r = SendSnapshot("request", true) ? Ok() : Failed("offline", "not connected");
   } else if (name == "exec") {

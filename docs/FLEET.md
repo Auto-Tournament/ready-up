@@ -663,6 +663,7 @@ Every command gets exactly one `cmd.result`.
 | `kick` | `{ steamid64, message? }` | |
 | `say` | `{ text, as_admin?: boolean }` | max 190 bytes, control chars stripped |
 | `plugins.set` | `{ enable?: string[], disable?: string[] }` | the core's `ru plugin enable\|disable <name>` for each: loaded / unloaded and remembered across restarts (`csgo/readyup/plugins/plugins.json`). Plugin names `[a-z0-9_-]`, at most 16 per list; `match` and `fleet` cannot be disabled over the link. For server profiles ("practice server": practice + skins + whitelist; "official": no practice / skins / midas) |
+| `practice.set` | `{ on: boolean }` | practice mode on / off through the practice plugin (prac.cfg + respawn, or back to idle); `rejected unsupported` without practice.so, `rejected bad_phase` while a match is loaded |
 | `whitelist.set` | `{ enabled: boolean, steamids?: string[] }` | replaces the whitelist plugin's list and on/off (saved in `plugins/whitelist/whitelist.json`); `rejected unsupported` without whitelist.so. At most 1000 SteamID64 strings |
 | `snapshot_now` | `{}` | reliable `state.request` |
 | `exec` | `{ command: string }` | **root admins only** (D10). The platform checks the web user's role and writes an audit row (user, server, match, command, time) before sending; the server rejects it unless `issued_by.root`, logs it as `fleet: exec by <user>: <command>`, runs it through `EnqueueServerCommand`, and returns captured console output (max 8 KB) in `cmd.result.output`. Single line, max 512 bytes, no `ru fleet …` (cannot change its own credentials). |
