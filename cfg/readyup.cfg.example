@@ -44,6 +44,9 @@ admin_prefix=<DarkRed>[Admin]<Default>
 # forfeit_after_seconds=240      a team with nobody connected on a live map forfeits, 0 = off
 # Tactical timeouts (.tac) are CS2's: mp_team_timeout_max / mp_team_timeout_time (ReadyUp/live.cfg).
 
+# Scrim / match warmup: money topped up to $16000 after every purchase, like CS2's own warmup.
+# warmup_money=1
+
 # Idle map refresh: after this many hours on one map with no match loaded and nobody connected,
 # load the same map again (0 = off). Long uptime on one map makes player animations run in slow
 # motion; a map load fixes it. Loading a match always changes map, also onto the current one.

@@ -144,15 +144,14 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
 
   // Help and "unknown command" go to the sender only when the slot is known.
   auto replyPrivate = [&](const std::string& msg) {
-    if (slot >= 0) (void)ClientPrintChat(slot, (" " + msg).c_str());
-    else SendToChat(msg.c_str());
+    if (!SendToSlotChat(slot, msg.c_str())) SendToChat(msg.c_str());
   };
 
   auto requireAdmin = [&]() -> bool {
     // Allow server console; otherwise require admin.
     if (steamid64 == 0) return true;
     if (!readyup::IsReadyUpAdmin(steamid64)) {
-      SendToChat("Ready Up: not authorized");
+      replyPrivate("not authorized");
       return false;
     }
     return true;
@@ -161,12 +160,12 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
   if (cmd == "plugin" || cmd == "plugins") {
     if (!requireAdmin()) return;
     const std::vector<std::string> args(parts.begin() + 2, parts.end());
-    plugins::HandlePluginCommand(args, /*replyToChat=*/steamid64 != 0);
+    plugins::HandlePluginCommand(args, /*replyToChat=*/steamid64 != 0, slot);
     return;
   }
 
   if (cmd == "version") {
-    SendToChat((std::string("Ready Up ") + BuildVersion()).c_str());
+    replyPrivate(std::string("Ready Up ") + BuildVersion());
     return;
   }
 
@@ -185,9 +184,7 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
       replyPrivate(RuUnknownCommandReply(main));
       return;
     }
-    std::vector<std::string> mains;
-    for (const auto& s : plugins::PluginRuSubcommands()) mains.push_back(s.substr(0, s.find(' ')));
-    for (const auto& l : RuMainHelpLines(mains)) replyPrivate(l);
+    for (const auto& l : RuMainHelpLines(plugins::PluginRuSubcommands())) replyPrivate(l);
     return;
   }
 

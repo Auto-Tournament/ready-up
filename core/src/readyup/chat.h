@@ -15,5 +15,9 @@ void SendToChat(const char* msg);
 // Payload may include CS-style color codes (best-effort).
 void SendRawToChat(const char* payload);
 
+// The same line (with the chat prefix) to one player only; false if the slot or the engine
+// function is unavailable (callers then fall back to SendToChat).
+bool SendToSlotChat(int slot, const char* msg);
+
 }  // namespace readyup
 

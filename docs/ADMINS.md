@@ -38,9 +38,12 @@ platform's list and its rev. `add` and `remove` answer "Admins are managed on th
 ## Commands
 
 `ru` commands are main commands with subcommands: `.ru <command> <subcommand> [args]` in chat,
-`ru <command> <subcommand> [args]` on the server console / RCON. `.ru help` lists the main
-commands, `.ru help <command>` (or just `.ru <command>`) lists its subcommands. An unknown command
-answers "unknown command, type .ru help". Help goes to the sender only.
+`ru <command> <subcommand> [args]` on the server console / RCON, or `ru ...` in a player's own
+game console (like Metamod's `meta` / CounterStrikeSharp's `css_` commands: same admin checks,
+nothing shows in chat). `.ru help` lists the main commands, one chat line each; `.ru help
+<command>` (or just `.ru <command>`) lists its subcommands. An unknown command answers "unknown
+command, type .ru help". Help, state and errors go to the sender only; actions that concern
+everyone (a pause, a map change) are announced to all.
 
 Admin-only commands answer "not authorized" to anyone else and do nothing; the server console
 always may. An admin's `.help` points at `.ru help`.

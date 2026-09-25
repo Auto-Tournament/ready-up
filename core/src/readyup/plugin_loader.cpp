@@ -96,6 +96,7 @@ struct PendingOp {
   std::string verb;
   std::string name;
   bool replyToChat = false;
+  int slot = -1;  // chat sender: the reply goes to that player only
 };
 
 constexpr size_t kMaxQueued = 1024;
@@ -237,9 +238,9 @@ void InvokePlugin(Instance* inst, const char* what, F&& f) {
   std::memcpy(g_crashName, saved, sizeof(saved));
 }
 
-void Reply(const std::string& line, bool toChat) {
+void Reply(const std::string& line, bool toChat, int slot = -1) {
   Print("plugin: %s\n", line.c_str());
-  if (toChat) SendToChat(("plugin: " + line).c_str());
+  if (toChat && !SendToSlotChat(slot, ("plugin: " + line).c_str())) SendToChat(("plugin: " + line).c_str());
 }
 
 // ---- API implementation ----------------------------------------------------------
@@ -880,7 +881,7 @@ void RunOp(const PendingOp& op) {
     if (disable) disabled.insert(op.name);
     else disabled.erase(op.name);
     if (!SaveDisabled(path, disabled)) {
-      Reply(op.verb + " " + op.name + " failed: cannot write " + path, op.replyToChat);
+      Reply(op.verb + " " + op.name + " failed: cannot write " + path, op.replyToChat, op.slot);
       return;
     }
     bool loaded = false;
@@ -889,20 +890,20 @@ void RunOp(const PendingOp& op) {
       loaded = g_loaded.count(op.name) != 0;
     }
     if (disable) {
-      if (loaded && !UnloadNow(op.name, &err)) Reply("disabled " + op.name + ", but unload failed: " + err, op.replyToChat);
-      else Reply("disabled " + op.name + " (stays off after a restart; ru plugin enable " + op.name + ")", op.replyToChat);
+      if (loaded && !UnloadNow(op.name, &err)) Reply("disabled " + op.name + ", but unload failed: " + err, op.replyToChat, op.slot);
+      else Reply("disabled " + op.name + " (stays off after a restart; ru plugin enable " + op.name + ")", op.replyToChat, op.slot);
     } else {
-      if (!loaded && !LoadNow(op.name, &err)) Reply("enabled " + op.name + ", but load failed: " + err, op.replyToChat);
-      else Reply("enabled " + op.name, op.replyToChat);
+      if (!loaded && !LoadNow(op.name, &err)) Reply("enabled " + op.name + ", but load failed: " + err, op.replyToChat, op.slot);
+      else Reply("enabled " + op.name, op.replyToChat, op.slot);
     }
     return;
   }
   if (op.verb == "load") {
-    if (LoadNow(op.name, &err)) Reply("loaded " + op.name, op.replyToChat);
-    else Reply("load " + op.name + " failed: " + err, op.replyToChat);
+    if (LoadNow(op.name, &err)) Reply("loaded " + op.name, op.replyToChat, op.slot);
+    else Reply("load " + op.name + " failed: " + err, op.replyToChat, op.slot);
   } else if (op.verb == "unload") {
-    if (UnloadNow(op.name, &err)) Reply("unloaded " + op.name, op.replyToChat);
-    else Reply("unload " + op.name + " failed: " + err, op.replyToChat);
+    if (UnloadNow(op.name, &err)) Reply("unloaded " + op.name, op.replyToChat, op.slot);
+    else Reply("unload " + op.name + " failed: " + err, op.replyToChat, op.slot);
   } else if (op.verb == "reload") {
     bool wasLoaded = false;
     {
@@ -910,11 +911,11 @@ void RunOp(const PendingOp& op) {
       wasLoaded = g_loaded.count(op.name) != 0;
     }
     if (wasLoaded && !UnloadNow(op.name, &err)) {
-      Reply("reload " + op.name + " failed during unload: " + err, op.replyToChat);
+      Reply("reload " + op.name + " failed during unload: " + err, op.replyToChat, op.slot);
       return;
     }
-    if (LoadNow(op.name, &err)) Reply("reloaded " + op.name, op.replyToChat);
-    else Reply("reload " + op.name + " failed: " + err + " (plugin is now unloaded)", op.replyToChat);
+    if (LoadNow(op.name, &err)) Reply("reloaded " + op.name, op.replyToChat, op.slot);
+    else Reply("reload " + op.name + " failed: " + err + " (plugin is now unloaded)", op.replyToChat, op.slot);
   }
 }
 
@@ -1228,7 +1229,7 @@ void Frame(bool simulating) {
   RunTicks(RegKind::Frame, simulating);
 }
 
-void HandlePluginCommand(const std::vector<std::string>& args, bool replyToChat) {
+void HandlePluginCommand(const std::vector<std::string>& args, bool replyToChat, int slot) {
   const std::string verb = args.empty() ? "list" : Lower(args[0]);
   if (verb == "list") {
     std::vector<std::string> lines;
@@ -1254,22 +1255,22 @@ void HandlePluginCommand(const std::vector<std::string>& args, bool replyToChat)
     std::snprintf(head, sizeof(head), "%zu loaded, core api %u.%u, dir %s%s", lines.size(),
                   READYUP_PLUGIN_API_VERSION_MAJOR, READYUP_PLUGIN_API_VERSION_MINOR, PluginsDir().c_str(),
                   g_haveGameThread.load() ? "" : " (plugins load on the first server frame)");
-    Reply(head, replyToChat);
-    for (const auto& l : lines) Reply("  " + l, replyToChat);
+    Reply(head, replyToChat, slot);
+    for (const auto& l : lines) Reply("  " + l, replyToChat, slot);
     const std::set<std::string> disabled = LoadDisabled(PluginStatePath(PluginsDir()));
     if (!disabled.empty()) {
       std::string d;
       for (const auto& n : disabled) d += (d.empty() ? "" : " ") + n;
-      Reply("  disabled (plugins.json): " + d, replyToChat);
+      Reply("  disabled (plugins.json): " + d, replyToChat, slot);
     }
     return;
   }
   if (verb != "load" && verb != "unload" && verb != "reload" && verb != "enable" && verb != "disable") {
-    Reply("usage: ru plugin list | load|unload|reload <name> | enable|disable <name>", replyToChat);
+    Reply("usage: ru plugin list | load|unload|reload <name> | enable|disable <name>", replyToChat, slot);
     return;
   }
   if (args.size() < 2 || !ValidPluginName(Lower(args[1]))) {
-    Reply("usage: ru plugin " + verb + " <name>   (file csgo/readyup/plugins/<name>.so)", replyToChat);
+    Reply("usage: ru plugin " + verb + " <name>   (file csgo/readyup/plugins/<name>.so)", replyToChat, slot);
     return;
   }
   // Always deferred to the top of the next GameFrame: this may be running inside the
@@ -1277,7 +1278,7 @@ void HandlePluginCommand(const std::vector<std::string>& args, bool replyToChat)
   // which is a safe point to run plugin load/unload code.
   {
     std::lock_guard<std::mutex> lk(g_mu);
-    g_ops.push_back(PendingOp{verb, Lower(args[1]), replyToChat});
+    g_ops.push_back(PendingOp{verb, Lower(args[1]), replyToChat, slot});
   }
   Debug("plugin: %s %s queued for the next server frame\n", verb.c_str(), args[1].c_str());
 }

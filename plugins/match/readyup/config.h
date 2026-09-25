@@ -44,6 +44,9 @@ struct ReadyUpCfg {
   bool dev_bots_scrim = false;
   // Scrims: knife round after everyone readied up.
   bool scrim_knife = true;
+  // Scrim / match warmup: money topped up to mp_maxmoney after every purchase (warmup_money.h),
+  // like CS2's own warmup. 0 = off (players keep what they did not spend).
+  bool warmup_money = true;
   // Scrim knife side-pick window in seconds (match configs use knifeDecisionSeconds).
   int knife_pick_seconds = 60;
   // Damage report in chat to each player after every live round (damage_report.h).

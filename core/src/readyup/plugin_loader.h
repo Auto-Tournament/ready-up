@@ -77,7 +77,7 @@ void LoadAllFromDirForTest();
 // `args` excludes the leading "ru plugin". Output lines go to the console log and, when
 // `replyToChat` is set, to chat. load/unload/reload run immediately when called on the
 // game thread outside any plugin callback, otherwise at the start of the next GameFrame.
-void HandlePluginCommand(const std::vector<std::string>& args, bool replyToChat);
+void HandlePluginCommand(const std::vector<std::string>& args, bool replyToChat, int slot = -1);
 
 // Name of the plugin whose code is running right now on the game thread ("" if none).
 // Read by the crash handler; never null.

@@ -21,6 +21,7 @@
 #include "readyup/game_timers.h"
 #include "readyup/host.h"
 #include "readyup/idle_refresh.h"
+#include "readyup/warmup_money.h"
 #include "readyup/local_store.h"
 #include "readyup/logging.h"
 #include "readyup/match_console.h"
@@ -164,6 +165,7 @@ void OnTick(void*, const ru_tick_info* t) {
       MatchFeaturesTick();  // tactical timeout end, technical auto-unpause, forfeit timer
       DamageReportTick();       // damage reports built at round_end (damage_report.h)
       VotesTick(t->now);        // .gg / .stop vote timeouts (votes.h)
+      WarmupMoneyTick(t->now);  // warmup money top-up (warmup_money.h)
     }
     // Fleet link (no-op without fleet.so): platform handlers, MatchState patches, events.
     fleet_bridge::Tick(t->now);
@@ -229,8 +231,9 @@ int SetPracticeIface(int on) {
   Guard("set_practice", [&] { rc = MatchSetPractice(on != 0) ? 1 : 0; });
   return rc;
 }
+const char* ModeIface() { return GetModeString(); }
 const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus, &InventoryLockedIface, &RulesetIface,
-                                  &SetPracticeIface};
+                                  &SetPracticeIface, &ModeIface};
 
 std::atomic<int> g_hudShowing{0}, g_hudFeature{0};
 std::mutex g_brandMu;
@@ -287,7 +290,7 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
       "match",
       MATCH_VERSION,
       "Ready Up",
-      "match flow: ready-up, scrims, knife, pauses, practice, match configs, webhooks, demos, stats",
+      "match flow: ready-up, scrims, knife, pauses, votes, match configs, webhooks, demos, stats",
   };
   return &info;
 }
@@ -330,6 +333,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     MatchEventsInstall(api);
     DamageReportInstall(api);   // end-of-round damage report
     VotesInstall(api);          // .gg / .stop
+    WarmupMoneyInstall(api);    // warmup money top-up
     EsportsInstall(api);  // default_models (player_spawn), halftime pause
     api->set_admin_provider(api->self, &AdminProvider, nullptr);
     api->provide_interface(api->self, RU_MATCH_IFACE_NAME, RU_MATCH_IFACE_VERSION, const_cast<ru_match_v1*>(&g_matchIface));
