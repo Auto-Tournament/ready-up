@@ -10,6 +10,10 @@
 //     always=0              1 = dedicated practice server: practice is switched on at load and on
 //                           every map, whenever nothing blocks it
 //
+// Feedback (practice mode, everyone sees it; feedback=0 turns it off): "X flashed 2.4 s by Y" and
+// "Y hit X: -27 hp, -8 armor (head, ak47), 73 hp left" per hit; HE and molotov / incendiary fire
+// summed per throw ("HE by Y: 98 total (A -57, B -41)").
+//
 // Tools (only in practice mode, never under the valve ruleset, docs/ESPORTS-MODE.md):
 //   .rethrow / .rt        sv_rethrow_last_grenade: the last grenade thrown on the SERVER (CS2 has
 //                         no per-player variant; with several players it rethrows whoever threw last)
@@ -32,6 +36,7 @@
 // in ru_mode, no scrim warmup) and refuses while a match is loaded; without it this plugin keeps
 // the flag itself. It publishes readyup.practice.v1 (the match plugin hands `.ru mode practice`
 // to it). Log lines: `practice: ...`.
+#include "practice_feedback.h"
 #include "practice_rules.h"
 
 #include "readyup/match_iface.h"
@@ -294,6 +299,7 @@ struct PendingBot {
   double deadline = 0;
 };
 std::vector<PendingBot> g_pendingBots;
+GrenadeDamage g_grenadeDamage;  // HE / fire damage summed per throw (feedback)
 
 // Humans by SteamID64, bots by a pseudo id from their slot (never a real SteamID).
 uint64_t PlayerId(int slot, uint64_t steamid64) { return steamid64 ? steamid64 : 0xB0B0000000000000ull | static_cast<uint32_t>(slot); }
@@ -325,6 +331,7 @@ void ClearState(bool restorePawns) {
   g_noflash.clear();
   g_god.clear();
   g_pendingBots.clear();
+  g_grenadeDamage.Clear();
   g_buddhaOff = false;
   g_touched = false;
 }
@@ -646,6 +653,53 @@ void OnRu(void*, const ru_command_ctx* c) {
   reply("unknown command. Type .ru help practice for the list.");
 }
 
+// ---- feedback: flashes and damage in chat (practice_feedback.h) -------------------------------------
+
+// feedback=0 in cfg/ReadyUp/practice.cfg turns the lines off.
+// Read at most once every 5 s (player_hurt can fire many times a tick with fire); never under the
+// valve ruleset.
+bool FeedbackOn() {
+  static bool on = true;
+  static double at = -1e9;
+  const double now = Now();
+  if (now - at >= 5.0) {
+    at = now;
+    char b[16] = {};
+    on = g_api->config_get(g_api->self, "feedback", b, sizeof(b)) <= 0 || ParseBool(b, true);
+  }
+  return on && ToolsAllowed(true, Ruleset());
+}
+
+std::string NameOfSlot(int slot) {
+  ru_player p{};
+  p.struct_size = sizeof(p);
+  return slot >= 0 && PlayerBySlot(slot, &p) ? std::string(p.name) : std::string();
+}
+
+void FeedbackHurt(const ru_game_event* ev) {
+  const ru_api* a = A();
+  const int victim = a->ev_get_player_slot(a->self, ev, "userid");
+  const int attacker = a->ev_get_player_slot(a->self, ev, "attacker");
+  const int dmg = a->ev_get_int(a->self, ev, "dmg_health", 0);
+  if (victim < 0 || dmg <= 0) return;
+  const std::string weapon = a->ev_get_string(a->self, ev, "weapon", "");
+  const std::string vn = NameOfSlot(victim), an = NameOfSlot(attacker);
+  if (IsSummedWeapon(weapon)) {
+    g_grenadeDamage.Add(Now(), an, weapon, vn, dmg);
+    return;
+  }
+  ChatAll(FormatHit(an, vn, dmg, a->ev_get_int(a->self, ev, "dmg_armor", 0), a->ev_get_int(a->self, ev, "hitgroup", 0),
+                    weapon, a->ev_get_int(a->self, ev, "health", 0)));
+}
+
+void FeedbackBlind(const ru_game_event* ev) {
+  const ru_api* a = A();
+  const int victim = a->ev_get_player_slot(a->self, ev, "userid");
+  const double secs = a->ev_get_float(a->self, ev, "blind_duration", 0.0);
+  if (victim < 0 || secs < 0.1) return;
+  ChatAll(FormatBlind(NameOfSlot(victim), NameOfSlot(a->ev_get_player_slot(a->self, ev, "attacker")), secs));
+}
+
 // ---- engine callbacks ---------------------------------------------------------------------------
 
 void OnGameEvent(void*, const char* evName, const ru_game_event* ev) {
@@ -659,7 +713,10 @@ void OnGameEvent(void*, const char* evName, const ru_game_event* ev) {
     ru_player p{};
     p.struct_size = sizeof(p);
     g_lastThrow[PlayerId(slot, PlayerBySlot(slot, &p) ? p.steamid64 : 0)] = s;
+  } else if (std::strcmp(evName, "player_hurt") == 0) {
+    if (FeedbackOn()) FeedbackHurt(ev);
   } else if (std::strcmp(evName, "player_blind") == 0) {
+    if (FeedbackOn()) FeedbackBlind(ev);
     const int slot = a->ev_get_player_slot(a->self, ev, "userid");
     if (slot < 0 || !g_noflash.count(slot)) return;
     void* pawn = a->ev_get_player_pawn(a->self, ev, "userid");
@@ -708,6 +765,7 @@ void OnTick(void*, const ru_tick_info* t) {
     }
     return;
   }
+  for (const auto& l : g_grenadeDamage.Flush(t->now, 1.0)) ChatAll(l);
   if (g_pendingBots.empty()) return;
   const auto bots = BotUserids();
   for (auto it = g_pendingBots.begin(); it != g_pendingBots.end();) {
@@ -790,7 +848,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     if (!api->register_chat_command(api->self, c, &OnToolChat, nullptr)) ru_logf(api, RU_LOG_WARN, "could not register %s", c);
   }
   api->register_ru_subcommand(api->self, "practice", &OnRu, nullptr);
-  for (const char* e : {"grenade_thrown", "player_blind", "player_spawn"}) {
+  for (const char* e : {"grenade_thrown", "player_blind", "player_spawn", "player_hurt"}) {
     if (!api->subscribe_game_event(api->self, e, &OnGameEvent, nullptr)) ru_logf(api, RU_LOG_WARN, "could not subscribe to %s", e);
   }
   api->subscribe(api->self, RU_EVENT_MAP_START, &OnMapStart, nullptr);
