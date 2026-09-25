@@ -1,6 +1,7 @@
 #include "readyup/ru_help_text.h"
 
 #include <algorithm>
+#include <map>
 
 namespace readyup {
 
@@ -10,17 +11,26 @@ const std::vector<std::string>& CoreRuMainCommands() {
 }
 
 std::vector<std::string> RuMainHelpLines(const std::vector<std::string>& pluginMains) {
-  std::vector<std::string> all = pluginMains;
-  for (const auto& c : CoreRuMainCommands()) {
-    if (c != "help") all.push_back(c);
+  static const std::map<std::string, std::string> kCore = {
+      {"plugin", "plugins: list, load, reload, enable, disable"},
+      {"reload", "reload readyup.cfg"},
+      {"selftest", "engine / plugin check, PASS or FAIL"},
+      {"version", "the Ready Up build"},
+  };
+  std::map<std::string, std::string> all;  // name -> description, sorted
+  for (const auto& kv : kCore) all[kv.first] = kv.second;
+  for (const auto& e : pluginMains) {
+    const size_t sp = e.find(' ');
+    const std::string name = e.substr(0, sp);
+    if (name.empty() || all.count(name)) continue;
+    std::string owner = sp == std::string::npos ? std::string() : e.substr(sp + 1);
+    if (owner.size() >= 2 && owner.front() == '(' && owner.back() == ')') owner = owner.substr(1, owner.size() - 2);
+    all[name] = owner.empty() ? std::string("plugin") : owner + " plugin";
   }
-  std::sort(all.begin(), all.end());
-  all.erase(std::unique(all.begin(), all.end()), all.end());
-  std::string line = "Ready Up commands:";
-  for (const auto& c : all) line += " .ru " + c + " |";
-  line.pop_back();
-  while (!line.empty() && line.back() == ' ') line.pop_back();
-  return {line, "Type .ru help <command> for its subcommands (e.g. .ru help match). Players: .help"};
+  std::vector<std::string> out = {"Ready Up commands (.ru help <command> for its subcommands):"};
+  for (const auto& kv : all) out.push_back(".ru " + kv.first + ": " + kv.second);
+  out.push_back("Players: .help");
+  return out;
 }
 
 std::vector<std::string> CoreRuSubHelpLines(const std::string& main) {

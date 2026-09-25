@@ -185,6 +185,12 @@ void SendToChat(const char* msg) {
   SendToChatImpl(msg);
 }
 
+bool SendToSlotChat(int slot, const char* msg) {
+  if (slot < 0 || !msg || !*msg) return false;
+  const std::string p = SanitizeForSay(ChatPrefix() + " " + Trim(StripNewlines(msg)));
+  return !p.empty() && ClientPrintChat(slot, p.c_str());
+}
+
 void SendRawToChat(const char* payload) {
   SendSayPayload(payload ? payload : "");
 }

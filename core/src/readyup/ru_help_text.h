@@ -12,8 +12,10 @@ namespace readyup {
 // The core's main commands for chat (`.ru <main>`), in display order.
 const std::vector<std::string>& CoreRuMainCommands();
 
-// `.ru help`: one line with every main command (core + plugin `pluginMains`, sorted, no
-// duplicates), then how to get the subcommands.
+// `.ru help`: a header, then one line per main command (sorted, no duplicates): the core's with
+// what they do, the plugins' with the plugin that owns them. `pluginMains` entries are
+// "name (plugin)" as plugins::PluginRuSubcommands() lists them (or a bare name). Chat has no
+// newlines, so each line is sent as its own message.
 std::vector<std::string> RuMainHelpLines(const std::vector<std::string>& pluginMains);
 
 // `.ru help <main>` for a core main command. Empty for anything else.

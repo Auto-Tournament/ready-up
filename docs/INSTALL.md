@@ -176,7 +176,7 @@ The installer only creates this file if it's missing; it never overwrites your e
 The core reads `debug`, `banner`, `chat_prefix`, `chat_debug`, `consume_ru_chat` and the
 `status_http_*` keys. The match plugin (`match.so`) reads its keys (`welcome`, `ready_hud`,
 `hud_*`, `admin_prefix`, `captain_prefix_*`, `consume_ready_chat`, `dev_bots_*`, `scrim_knife`,
-`knife_pick_seconds`, `idle_map_refresh_hours`) from the same place, or from a `[match]` section of this file, or from
+`knife_pick_seconds`, `idle_map_refresh_hours`, `warmup_money`) from the same place, or from a `[match]` section of this file, or from
 `game/csgo/cfg/ReadyUp/match.cfg` (later ones win). It re-reads them by itself when one of those
 files changes.
 
