@@ -71,10 +71,13 @@ target_include_directories(readyup_plugin_fleet PRIVATE ${FLEET_CURL_INC})
 target_compile_definitions(readyup_plugin_fleet PRIVATE FLEET_VERSION="${READYUP_SEMVER}" ${FLEET_CURL_DEFS})
 target_compile_options(readyup_plugin_fleet PRIVATE -Wpedantic)
 
-add_executable(fleet_integration_test tests/fleet_integration_test.cpp fleet_client.cpp)
+add_executable(fleet_integration_test tests/fleet_integration_test.cpp tests/schema_check.cpp fleet_client.cpp)
 target_link_libraries(fleet_integration_test PRIVATE readyup_fleet_mock ${FLEET_CURL_LIBS})
 target_include_directories(fleet_integration_test PRIVATE ${FLEET_CURL_INC})
-target_compile_definitions(fleet_integration_test PRIVATE ${FLEET_CURL_DEFS})
+# The platform's protocol schemas (copied from the platform repo, FLEET.md D18): every frame the
+# integration test sees fleet.so send is validated against them.
+target_compile_definitions(fleet_integration_test PRIVATE ${FLEET_CURL_DEFS}
+  FLEET_PROTOCOL_DIR="${CMAKE_CURRENT_SOURCE_DIR}/protocol/v1")
 target_compile_options(fleet_integration_test PRIVATE -Wall -Wextra)
 add_test(NAME fleet_integration COMMAND fleet_integration_test)
 set_tests_properties(fleet_integration PROPERTIES TIMEOUT 240)

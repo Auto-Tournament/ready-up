@@ -657,7 +657,7 @@ std::string Client::BuildHello() {
   if (!json::Parse(h.stateJson, &state)) state = json::Value::Null();
   p.Set("state", std::move(state));
   p.Set("availability", json::Value::Str(h.availability));
-  p.Set("selftest", json::Value::Null());
+  // hello.selftest is optional (object only); left out until the core exposes its result.
   return json::Dump(p);
 }
 
@@ -1118,6 +1118,7 @@ void Client::HandleInbound(Session& s, const std::string& text) {
     json::Value err = json::Value::Object();
     err.Set("code", json::Value::Str("unknown_type"));
     err.Set("message", json::Value::Str("no handler for " + e.type + " on this server"));
+    err.Set("type", json::Value::Str(e.type));
     rx_.MarkDone(e.seq, now);
     sendEph("error", err, e.id);
     return;

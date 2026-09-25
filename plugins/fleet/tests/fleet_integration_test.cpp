@@ -5,6 +5,7 @@
 //   build/fleet_integration_test
 #include "fleet_client.h"
 #include "mock_platform.h"
+#include "schema_check.h"
 #include "test_util.h"
 
 #include <sys/stat.h>
@@ -69,7 +70,72 @@ std::string StreamOf(const mock::Received& hello) {
   return hello.payload()->Get("stream")->Get("id")->AsStr();
 }
 
+// Every frame fleet.so sent (and the last enrollment body) must validate against the platform's
+// schemas in plugins/fleet/protocol/v1 (FLEET.md D18).
+const schema::Set& Schemas() {
+  static schema::Set set = [] {
+    schema::Set s;
+    std::string err;
+    if (!s.LoadDir(FLEET_PROTOCOL_DIR, &err)) std::printf("  cannot load schemas: %s\n", err.c_str());
+    return s;
+  }();
+  return set;
+}
+const char* kBase = "https://auto-tournament.dev/fleet/v1/";
+
+void CheckSchemas(mock::Platform& p) {
+  const auto& set = Schemas();
+  CHECK(set.size() >= 10);
+  int frames = 0, payloads = 0;
+  for (const auto& m : p.Messages()) {
+    std::vector<std::string> errs;
+    const bool envOk = set.Validate(m.env, std::string(kBase) + "envelope.json", &errs);
+    const std::string id = std::string(kBase) + "messages/" + m.type() + ".json";
+    bool payloadOk = true;
+    if (set.Has(id) && m.payload()) {
+      payloadOk = set.Validate(*m.payload(), id, &errs);
+      ++payloads;
+    }
+    ++frames;
+    if (!envOk || !payloadOk) {
+      std::printf("  schema: %s frame invalid:\n", m.type().c_str());
+      for (const auto& e : errs) std::printf("    %s\n", e.c_str());
+    }
+    CHECK(envOk && payloadOk);
+  }
+  if (p.enrollments() > 0) {
+    fleet::json::Value body;
+    CHECK(fleet::json::Parse(p.lastEnrollBody(), &body));
+    std::vector<std::string> errs;
+    const bool ok = set.Validate(body, std::string(kBase) + "http/enroll.request.json", &errs);
+    for (const auto& e : errs) std::printf("  schema: enroll body: %s\n", e.c_str());
+    CHECK(ok);
+  }
+  std::printf("  schema: %d frames checked (%d payloads)\n", frames, payloads);
+}
+
+const char* kKey = "rfk_k1k1k1k1k1k1_c2VjcmV0c2VjcmV0c2VjcmV0c2VjcmV0c2VjcmV0c2V";
+
 }  // namespace
+
+// The validator itself: it must reject what the schemas forbid.
+TEST(TestSchemaValidator) {
+  const auto& set = Schemas();
+  fleet::json::Value v;
+  std::vector<std::string> errs;
+  CHECK(fleet::json::Parse(R"({"v":1,"type":"hello","id":"01J8ZQ4T8W6N3X0F2R5K7M9P1C","ts":1,"payload":{}})", &v));
+  CHECK(set.Validate(v, std::string(kBase) + "envelope.json", &errs));
+  CHECK(fleet::json::Parse(R"({"v":2,"type":"Hello","id":"x","ts":1,"payload":{},"extra":1})", &v));
+  errs.clear();
+  CHECK(!set.Validate(v, std::string(kBase) + "envelope.json", &errs));
+  CHECK(errs.size() >= 4);  // v const, type pattern, id ulid, additionalProperties
+  CHECK(fleet::json::Parse(R"({"server_id":"s","install_id":"short","tenant_id":"default"})", &v));
+  errs.clear();
+  CHECK(!set.Validate(v, std::string(kBase) + "messages/hello.json", &errs));  // missing fields, short install_id
+  CHECK(fleet::json::Parse(R"({"install_id":"abcdefgh","host":{"hostname":"h","game_port":27015}})", &v));
+  errs.clear();
+  CHECK(!set.Validate(v, std::string(kBase) + "http/enroll.request.json", &errs));  // neither code nor key
+}
 
 // Enroll with a one-time code, then hello/welcome/ping/pong, reliable both ways.
 TEST(TestEnrollConnectPingAck) {
@@ -113,7 +179,7 @@ TEST(TestEnrollConnectPingAck) {
   CHECK_EQ(hp->Get("availability")->AsStr(), std::string("available"));
   CHECK(IsUlid(hello.env.Get("id")->AsStr()));
   CHECK(hello.env.Get("seq") == nullptr);  // hello is ephemeral
-  CHECK_EQ(c.Status().sessionId, std::string("sess_1"));
+  CHECK(IsUlid(c.Status().sessionId));
   // ping with health every heartbeat interval (300 ms here)
   CHECK(p.WaitFor([&] { return p.MessagesOfType("ping").size() >= 2; }, 3000));
   const auto ping = p.MessagesOfType("ping").at(0);
@@ -153,6 +219,7 @@ TEST(TestEnrollConnectPingAck) {
   if (it != in.end()) c.MarkProcessed(it->env.seq);
   CHECK(p.WaitFor([&] { return p.lastAckFromServer() >= 2; }, 2500));  // standalone ack within ~1 s
   CHECK_EQ(c.Status().rxSeq, int64_t(2));
+  CheckSchemas(p);
   c.Stop();
   p.Stop();
 }
@@ -164,7 +231,7 @@ TEST(TestReconnectResumeReset) {
   CHECK(p.Start());
   const std::string dir = TempDir();
   ClientConfig cfg = BaseConfig(p, dir);
-  cfg.enrollKey = "rfk_k1_secret";
+  cfg.enrollKey = kKey;
   Client c(cfg);
   c.SetHelloInfo(Hello());
   std::string err;
@@ -215,6 +282,7 @@ TEST(TestReconnectResumeReset) {
   CHECK(p.SendToServer("state.request", "{}", false));
   CHECK(p.WaitFor([&] { return p.MessagesOfType("state.snapshot").size() >= 3; }, 2000));
   CHECK_EQ(p.MessagesOfType("state.snapshot").back().payload()->Get("reason")->AsStr(), std::string("request"));
+  CheckSchemas(p);
   c.Stop();
   p.Stop();
 }
@@ -254,6 +322,7 @@ TEST(TestResumeAfterRestart) {
   CHECK(p.WaitFor([&] { return p.MessagesOfType("event.series_end").size() == 2; }, 3000));
   CHECK_EQ(p.MessagesOfType("event.map_result").back().seq(), int64_t(1));
   CHECK(p.WaitFor([&] { return c2.Status().spoolMsgs == 0; }, 2000));
+  CheckSchemas(p);
   c2.Stop();
   p.Stop();
 }
@@ -385,12 +454,51 @@ TEST(TestRejections) {
   }
 }
 
+// auth.rotate: the new token is written (0600) and used on the next connect; auth.rotated is
+// sent reliably with ref = the rotate message.
+TEST(TestTokenRotation) {
+  mock::Platform p;
+  CHECK(p.Start());
+  const std::string dir = TempDir();
+  ClientConfig cfg = BaseConfig(p, dir);
+  cfg.enrollKey = kKey;
+  Client c(cfg);
+  c.SetHelloInfo(Hello());
+  std::string err;
+  CHECK(c.Start(&err));
+  CHECK(WaitState(c, LinkState::Online, 5000));
+  const std::string oldToken = p.token;
+  const std::string newToken = "rus_n2n2n2n2n2n2_bmV3LXNlY3JldC1uZXctc2VjcmV0LW5ldy1zZWNyZXQ";
+  CHECK(p.SendToServer("auth.rotate", "{\"token\":\"" + newToken + "\",\"old_valid_until\":" +
+                                          std::to_string(NowMs() + 86400000) + "}", true));
+  CHECK(p.WaitFor([&] { return !p.MessagesOfType("auth.rotated").empty(); }, 3000));
+  const auto rotated = p.MessagesOfType("auth.rotated").at(0);
+  CHECK(rotated.seq() >= 1);
+  CHECK(rotated.env.Get("ref") && rotated.env.Get("ref")->IsStr());
+  CHECK(p.WaitFor([&] { return p.lastAckFromServer() >= 1; }, 3000));
+  Credentials cr;
+  CHECK(LoadCredentials(dir + "/credentials.json", &cr, &err));
+  CHECK(cr.token == newToken);
+  // The platform now only accepts the new token.
+  p.token = newToken;
+  p.CloseCurrent(1001, "");
+  CHECK(p.WaitFor([&] { return p.connections() >= 2; }, 3000));
+  CHECK(WaitState(c, LinkState::Online, 3000));
+  CHECK(p.lastAuthHeader() == "Bearer " + newToken);
+  CHECK(oldToken != newToken);
+  CheckSchemas(p);
+  c.Stop();
+  p.Stop();
+}
+
 int main() {
+  RUN(TestSchemaValidator);
   RUN(TestEnrollConnectPingAck);
   RUN(TestReconnectResumeReset);
   RUN(TestResumeAfterRestart);
   RUN(TestOfflineSpoolThenConnect);
   RUN(TestHeartbeatTimeout);
   RUN(TestRejections);
+  RUN(TestTokenRotation);
   return ftest::Finish("fleet_integration_test");
 }

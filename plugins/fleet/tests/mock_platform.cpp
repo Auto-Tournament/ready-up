@@ -214,7 +214,7 @@ void Platform::Serve(int fd) {
     if (code == "RUE-BAD0-BAD0-BAD0") {
       WriteAll(fd, Response(403, "Forbidden", "{\"error\":\"invalid or used code\"}"));
     } else {
-      const std::string resp = "{\"server_id\":\"" + serverId + "\",\"token\":\"" + token +
+      const std::string resp = "{\"success\":true,\"tenant_id\":\"default\",\"reenrolled\":false,\"server_id\":\"" + serverId + "\",\"token\":\"" + token +
                                "\",\"ws_url\":\"ws://127.0.0.1:" + std::to_string(port_) + "/api/fleet/ws\"}";
       WriteAll(fd, Response(201, "Created", resp));
     }
@@ -358,14 +358,14 @@ void Platform::ServeWs(int fd, int conn) {
         if (!known) rxByStream_[stream] = 0;
         rx = rxByStream_[stream];
       }
-      const std::string welcome = "{\"session_id\":\"sess_" + std::to_string(conn) +
+      const std::string welcome = "{\"session_id\":\"" + fleet::NewUlid(fleet::NowMs()) +
                                   "\",\"protocol\":1,\"heartbeat\":{\"interval_ms\":" +
                                   std::to_string(heartbeatIntervalMs.load()) +
                                   ",\"timeout_ms\":" + std::to_string(heartbeatTimeoutMs.load()) +
                                   "},\"resume\":{\"result\":\"" + (known ? "resumed" : "reset") +
                                   "\",\"platform_last_rx_seq\":" + std::to_string(rx) +
                                   "},\"server_config_rev\":0,\"admins_rev\":0,\"assignment\":null}";
-      SendEnvelope(fd, "welcome", welcome, 0, "");
+      SendEnvelope(fd, "welcome", welcome, 0, env.Get("id") ? env.Get("id")->AsStr() : "");
       continue;
     }
     if (type == "ping") {

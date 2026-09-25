@@ -37,7 +37,7 @@ class Platform {
   std::string BaseUrl() const { return "http://127.0.0.1:" + std::to_string(port_); }
 
   // ---- knobs (set before or during a test) ----
-  std::string token = "rus_TESTTOKENID0_c2VjcmV0LXNlY3JldC1zZWNyZXQ";
+  std::string token = "rus_t0k3nt0k3nt0_c2VjcmV0LXNlY3JldC1zZWNyZXQtc2VjcmV0LXNlY3J";
   std::string serverId = "srv_test_1";
   std::atomic<bool> autoAck{true};        // ack every reliable message right away
   std::atomic<bool> silent{false};        // stop answering anything (heartbeat timeout test)
