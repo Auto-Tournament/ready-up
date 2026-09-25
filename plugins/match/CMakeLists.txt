@@ -19,6 +19,7 @@ set(MATCH_SOURCES
   readyup/host.cpp
   readyup/knife_tracker.cpp
   readyup/local_store.cpp
+  readyup/idle_refresh.cpp
   readyup/map_names.cpp
   readyup/mat_admins.cpp
   readyup/match_config_parser.cpp
@@ -118,3 +119,9 @@ target_include_directories(match_ruleset_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR
   ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(match_ruleset_test PRIVATE -Wall -Wextra)
 add_test(NAME match_ruleset COMMAND match_ruleset_test)
+
+# Idle map refresh decision (readyup/idle_refresh.h; ctest `match_idle_refresh`).
+add_executable(match_idle_refresh_test tests/idle_refresh_test.cpp)
+target_include_directories(match_idle_refresh_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(match_idle_refresh_test PRIVATE -Wall -Wextra)
+add_test(NAME match_idle_refresh COMMAND match_idle_refresh_test)

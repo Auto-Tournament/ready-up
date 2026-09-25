@@ -36,6 +36,8 @@ void Uninstall();
 void Tick(double now);
 // Core events (player connect / disconnect / team) and server log lines (exec output capture).
 void OnCoreEvent(const ru_event* e);
+// RU_EVENT_MAP_START: a match load's map change is done (CheckLoaded).
+void OnMapStart();
 void OnLogLine(const char* line);
 
 // True while a platform assignment is active.
