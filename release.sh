@@ -4,8 +4,8 @@
 #   ./release.sh [major|minor|patch|X.Y.Z]      (no argument: release the current VERSION)
 #
 # The tag push triggers .github/workflows/build.yml, which builds libserver.so in the
-# Steam Runtime sniper SDK, verifies it against the current CS2 build, packages
-# readyup-X.Y.Z-linuxsteamrt64.zip (extract into game/csgo) and publishes the GitHub
+# Steam Runtime sniper SDK, verifies it against the current CS2 build, packages the component
+# zips and the essentials / full bundles (scripts/package-release.sh) and publishes the GitHub
 # release (+ Discord announcement if the DISCORD_WEBHOOK_URL secret is set).
 # Nothing is built or uploaded from this machine.
 #

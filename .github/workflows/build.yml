@@ -3,7 +3,8 @@ name: Build
 # Release build of libserver.so + plugins in Valve's Steam Runtime 3 "sniper" SDK (glibc 2.31,
 # what CS2 targets), verified against the CURRENT public CS2 build (sigcheck + hook-site check,
 # base gamedata + every fragment). Every run uploads the install zips as workflow artifacts:
-# ready-up-{core,match,fleet,skins,hello,essentials,full}-<version>-linuxsteamrt64.zip + SHA256SUMS.
+# ready-up-{core,match,fleet,practice,essentials-plugin,skins,hello,midas,whitelist}-<version>-linuxsteamrt64.zip
+# (components), ready-up-{essentials,full}-<version>-linuxsteamrt64.zip (bundles) + SHA256SUMS.
 # The installer job then tests install.sh against those zips. Tags v* additionally publish a
 # GitHub release with the same files.
 
@@ -101,11 +102,11 @@ jobs:
           mkdir -p dist-info
           cp "$CS2_DIR/cs2-build.env" .ci/report.md dist-info/
 
-      - name: Check bundles (essentials has match + fleet and no skins; core has neither)
+      - name: Check bundles (essentials has match + fleet + practice + essentials and no skins; core has neither)
         run: scripts/ci/check-bundles.sh dist "${{ steps.version.outputs.version }}"
 
       # One artifact with everything (what the installer job and the release use), plus one
-      # per bundle so a single zip can be downloaded from the run page. Artifacts only: no
+      # per zip so a single zip can be downloaded from the run page. Artifacts only: no
       # release is created here.
       - name: Upload artifact (all zips)
         uses: actions/upload-artifact@v4
@@ -162,6 +163,46 @@ jobs:
         with:
           name: ready-up-skins-${{ steps.version.outputs.version }}
           path: dist/ready-up-skins-*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ready-up-practice
+        uses: actions/upload-artifact@v4
+        with:
+          name: ready-up-practice-${{ steps.version.outputs.version }}
+          path: dist/ready-up-practice-*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ready-up-essentials-plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: ready-up-essentials-plugin-${{ steps.version.outputs.version }}
+          path: dist/ready-up-essentials-plugin-*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ready-up-hello
+        uses: actions/upload-artifact@v4
+        with:
+          name: ready-up-hello-${{ steps.version.outputs.version }}
+          path: dist/ready-up-hello-*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ready-up-midas
+        uses: actions/upload-artifact@v4
+        with:
+          name: ready-up-midas-${{ steps.version.outputs.version }}
+          path: dist/ready-up-midas-*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload ready-up-whitelist
+        uses: actions/upload-artifact@v4
+        with:
+          name: ready-up-whitelist-${{ steps.version.outputs.version }}
+          path: dist/ready-up-whitelist-*.zip
           if-no-files-found: error
           retention-days: 30
 
