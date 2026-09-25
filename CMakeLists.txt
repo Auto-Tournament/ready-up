@@ -40,6 +40,8 @@ add_library(server_shim SHARED
   core/src/readyup/logging.cpp
   libs/readyup/minijson.cpp
   core/src/readyup/path.cpp
+  core/src/readyup/load_order.cpp
+  core/src/readyup/load_order_check.cpp
   core/src/readyup/real_server.cpp
   core/src/readyup/round_termination_hook.cpp
   core/src/readyup/ru_help.cpp
@@ -118,9 +120,13 @@ target_compile_definitions(server_shim PRIVATE
 )
 
 # Produce the artifact name the engine expects.
+# No DT_SONAME: Valve's library is "libserver.so" by soname, and a bare dlopen("libserver.so")
+# (CounterStrikeSharp does one per module) must resolve to Valve's, not to this shim, which is
+# loaded first under Metamod.
 set_target_properties(server_shim PROPERTIES
   OUTPUT_NAME "libserver"
   PREFIX ""
+  NO_SONAME ON
 )
 
 target_compile_options(server_shim PRIVATE
@@ -315,7 +321,15 @@ add_executable(readyup_json_store_test tests/json_store_test.cpp libs/readyup/js
 target_include_directories(readyup_json_store_test PRIVATE ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(readyup_json_store_test PRIVATE -Wall -Wextra)
 
+# Running next to Metamod (docs/COMPATIBILITY.md): module-path canonicalization, Valve vs
+# Metamod server library, gameinfo.gi order check, one shim per process.
+add_executable(readyup_load_order_test tests/load_order_test.cpp core/src/readyup/load_order.cpp core/src/readyup/path.cpp)
+target_include_directories(readyup_load_order_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
+target_compile_options(readyup_load_order_test PRIVATE -Wall -Wextra)
+target_link_libraries(readyup_load_order_test PRIVATE dl)
+
 enable_testing()
+add_test(NAME load_order COMMAND readyup_load_order_test)
 add_test(NAME match_flow COMMAND readyup_match_flow_test)
 add_test(NAME status_http COMMAND readyup_status_http_test)
 add_test(NAME json_store COMMAND readyup_json_store_test)

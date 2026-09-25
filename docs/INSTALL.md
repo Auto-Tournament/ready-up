@@ -9,7 +9,10 @@ persisted settings, match recovery state and skins loadouts are small JSON files
 
 Metamod can run alongside Ready Up. In `gameinfo.gi`, Metamod's `Game csgo/addons/metamod`
 line stays first, Ready Up's `Game csgo/readyup` goes directly below it, and both stay above
-`Game csgo`. (Ready Up above Metamod makes Ready Up load Metamod, which recursed at startup.)
+`Game csgo`. With Ready Up above Metamod, Metamod never loads (and neither does anything it
+loads, such as CounterStrikeSharp); Ready Up logs a `load-order: WARNING` line at startup.
+We recommend running Ready Up on its own, and never next to another match plugin: see
+[COMPATIBILITY.md](COMPATIBILITY.md) for what was tested and what breaks.
 
 ## Install with the installer
 
