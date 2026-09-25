@@ -98,7 +98,8 @@ Any player (roster, spectator, scrim, any mode) can type `.admin [message]` in c
   `RU_HTML_PRIO_ALERT` ([HUD.md](HUD.md)).
 - The server console logs `admin-call: <name> (<steamid64>, <team>): <message> [<call_id>]`.
 - The platform gets an `admin_called` event: through the webhook pipeline (same events URL,
-  `Authorization: Bearer` token and retry queue as `match_paused` & co), and on the fleet link as
+  token and retry queue as `match_paused` & co; the token goes in both `Authorization: Bearer`
+  and `X-Auto-Tournament-Token`), and on the fleet link as
   `event.admin_called` (while the server has a platform assignment; `data` = the same fields
   without `event` / `matchid` / `map_number`, schema
   `plugins/fleet/protocol/v1/messages/event.admin_called.json`).
@@ -112,7 +113,8 @@ The webhook body (POSTed to `<events url>/<match slug | matchid>`; with no match
 {
   "event": "admin_called",
   "matchid": 4242,
-  "map_number": 1,
+  "map_number": 0,
+  "server_id": "srv-eu-1",
   "call_id": "3f2b8c1e-9a4d-4e6f-8b21-7c5d0e9f1a2b",
   "player": { "steamid64": "76561198000000001", "name": "alice", "team": "team1", "side": "ct" },
   "message": "smoke bugged on B site",
@@ -120,8 +122,10 @@ The webhook body (POSTed to `<events url>/<match slug | matchid>`; with no match
 }
 ```
 
-- `matchid`: the loaded match's id; `null` in a scrim or with no match loaded.
-- `map_number`: the current map of the series (1 without a match).
+- `matchid`: the loaded match's id (a number); `-1` in a scrim or with no match loaded.
+- `map_number`: the current map of the series, **0-based** (0 = the first map; 0 without a match).
+  The other webhook events count maps from 1.
+- `server_id`: the fleet server id, only when the server is enrolled in fleet mode.
 - `call_id`: unique per call (a version-4 UUID).
 - `player.steamid64`: a string. `player.team`: `"team1"` / `"team2"` (the match roster),
   `"spectator"` (on the spectator team) or `null` (scrim player, not on the roster).

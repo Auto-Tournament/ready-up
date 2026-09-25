@@ -437,7 +437,7 @@ If you run Auto Tournament, you typically don’t set these manually. MAT can pu
 - `series_start` (after `ru match load` parses match context)
 - `match_paused` / `unpause_requested` / `match_unpaused`
 - `match_forfeit` (captain-only)
-- `admin_called` (`.admin [message]`, any player; also in scrims with `matchid: null`, see docs/ADMINS.md)
+- `admin_called` (`.admin [message]`, any player; also in scrims with `matchid: -1`, see docs/ADMINS.md)
 - Best-effort from server console logs:
   - `player_connect`
   - `player_disconnect`

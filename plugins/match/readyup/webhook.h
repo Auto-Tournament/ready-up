@@ -184,7 +184,7 @@ void WebhookEmitKnifeRoundEnded(int map_number, const char* winner);
 // - picked_by: player name or "server"
 // - team: "team1"|"team2"
 void WebhookEmitSidePicked(int map_number, const char* map_name, const char* side, const char* picked_by, const char* team);
-// `.admin [message]` (admin_call.h): `admin_called`, also without a match (matchid null). Body:
+// `.admin [message]` (admin_call.h): `admin_called`, also without a match (matchid -1). Body:
 // admin_call_logic.h AdminCalledWebhookJson.
 void WebhookEmitAdminCalled(const AdminCallEvent& e);
 // Thread-safe match context mutation: replaces map_sides[map_number-1] with "team1_ct" or "team2_ct".

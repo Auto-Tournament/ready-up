@@ -291,6 +291,9 @@ HttpResponse HttpPostJson(std::string url, std::optional<std::string> bearerToke
   if (bearerToken && !bearerToken->empty()) {
     args.emplace_back("-H");
     args.emplace_back("Authorization: Bearer " + *bearerToken);
+    // The Auto Tournament platform authenticates events with this header (same token).
+    args.emplace_back("-H");
+    args.emplace_back("X-Auto-Tournament-Token: " + *bearerToken);
   }
 
   // Use --data-binary to avoid curl mangling.
@@ -408,6 +411,9 @@ HttpResponse HttpPostJson(std::string url, std::optional<std::string> bearerToke
   if (bearerToken && !bearerToken->empty()) {
     const std::string h = "Authorization: Bearer " + *bearerToken;
     headers = curl_slist_append(headers, h.c_str());
+    // The Auto Tournament platform authenticates events with this header (same token).
+    const std::string at = "X-Auto-Tournament-Token: " + *bearerToken;
+    headers = curl_slist_append(headers, at.c_str());
   }
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 

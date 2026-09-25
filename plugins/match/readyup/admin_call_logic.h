@@ -47,9 +47,9 @@ struct AdminCallPlayer {
 };
 
 struct AdminCallEvent {
-  bool hasMatch = false;  // false (scrim / no match loaded): matchid is null
-  uint64_t matchid = 0;
-  int map_number = 1;
+  long long matchid = -1;  // the loaded match's id; -1 in a scrim / with no match loaded
+  int map_number = 0;      // 0-based (the first map of the series is 0)
+  std::string server_id;   // the fleet server id when known; "" = left out of the webhook body
   std::string call_id;
   AdminCallPlayer player;
   std::string message;    // CleanAdminCallMessage
@@ -58,7 +58,8 @@ struct AdminCallEvent {
 
 // {call_id, player{steamid64, name, team, side}, message, called_at}: the fleet event's `data`.
 status::Json AdminCallData(const AdminCallEvent& e);
-// The webhook body: {"event":"admin_called","matchid":<n>|null,"map_number":<n>, ...AdminCallData}.
+// The webhook body: {"event":"admin_called","matchid":<n, -1 = none>,"map_number":<0-based>,
+// ["server_id":"..."], ...AdminCallData}.
 std::string AdminCalledWebhookJson(const AdminCallEvent& e);
 
 // "Team A, CT" / "CT" / "spectator" / "" for chat and the admin card.

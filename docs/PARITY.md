@@ -146,7 +146,7 @@ The contract is `AT: Events.cs` plus `MatchData.cs`. The platform normalizer rea
 | `map_picked` / `map_vetoed` | platform-side veto | none | not needed | Veto runs in the browser. | – |
 | `player_stats_update` | the platform consumes it; AT does not send it | none | not needed | – | – |
 | Ready Up extras: `player_gg`, `match_forfeit`, `recover_requested` | not in AT | sent | extra | The platform ignores them. Either map them to AT behaviour (§7 `.gg`) or keep them as extras. | – |
-| Ready Up extra: `admin_called` | not in AT | `.admin [message]`: `matchid` (null in scrims), `map_number`, `call_id`, `player{steamid64,name,team,side}`, `message`, `called_at` (RU: `admin_call.cpp`, docs/ADMINS.md) | extra | The platform notifies admins and resolves the call. | – |
+| Ready Up extra: `admin_called` | not in AT | `.admin [message]`: `matchid` (-1 in scrims / no match), `map_number` (0-based), `server_id?`, `call_id`, `player{steamid64,name,team,side}`, `message`, `called_at` (RU: `admin_call.cpp`, docs/ADMINS.md) | extra | The platform notifies admins and resolves the call. | – |
 | Retry queue: AT persists it in the DB, retries every `ru_event_retry_interval` (30 s), gives up after 20 tries | AT: `PublishEvents.cs` | memory queue, exponential backoff 30 s→32 min, 20 tries, **lost on restart** (RU: `webhook.cpp` `SenderThread`) | partial | Persist it (a file is enough). Add `ru_get_pending_events`. | S |
 | Heartbeat | AT: `MatHeartbeat.cs` (`x-auto-tournament-token`) | `ru_heartbeat_url` → `/api/servers/:id/heartbeat` every 5 s | not needed | **The platform has no heartbeat route**: it treats any event as liveness (P: `events/routes.ts:325`). Keep it as an extra, or drop it. | – |
 

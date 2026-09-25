@@ -120,9 +120,9 @@ static void TestIdsAndTime() {
 
 static void TestPayload() {
   AdminCallEvent e;
-  e.hasMatch = true;
   e.matchid = 4242;
-  e.map_number = 2;
+  e.map_number = 1;  // 0-based: the second map
+  e.server_id = "srv-eu-1";
   e.call_id = "f0f1f2f3-f4f5-46f7-b8f9-fafbfcfdfeff";
   e.player.steamid64 = 76561198000000001ULL;
   e.player.name = "ali \"ce\"";
@@ -132,23 +132,26 @@ static void TestPayload() {
   e.called_at = "2026-09-25T11:20:12.345Z";
   const std::string j = AdminCalledWebhookJson(e);
   CHECK(j ==
-        "{\"event\":\"admin_called\",\"matchid\":4242,\"map_number\":2,"
+        "{\"event\":\"admin_called\",\"matchid\":4242,\"map_number\":1,\"server_id\":\"srv-eu-1\","
         "\"call_id\":\"f0f1f2f3-f4f5-46f7-b8f9-fafbfcfdfeff\","
         "\"player\":{\"steamid64\":\"76561198000000001\",\"name\":\"ali \\\"ce\\\"\",\"team\":\"team1\",\"side\":\"ct\"},"
         "\"message\":\"smoke bug on B\",\"called_at\":\"2026-09-25T11:20:12.345Z\"}");
 
-  // Scrim / no match: matchid null; unknown team / side null; empty message allowed.
+  // Scrim / no match: matchid -1; no server id: left out; unknown team / side null; empty message.
   AdminCallEvent s = e;
-  s.hasMatch = false;
+  s.matchid = -1;
+  s.map_number = 0;
+  s.server_id.clear();
   s.player.team = "";
   s.player.side = "";
   s.message = "";
   const std::string js = AdminCalledWebhookJson(s);
-  CHECK(Has(js, "\"matchid\":null,") && Has(js, "\"team\":null,\"side\":null") && Has(js, "\"message\":\"\""));
+  CHECK(Has(js, "{\"event\":\"admin_called\",\"matchid\":-1,\"map_number\":0,\"call_id\":"));
+  CHECK(!Has(js, "server_id") && Has(js, "\"team\":null,\"side\":null") && Has(js, "\"message\":\"\""));
 
   // The fleet data: the same fields without event / matchid / map_number.
   const std::string d = AdminCallData(e).Dump();
-  CHECK(d.rfind("{\"call_id\":", 0) == 0 && !Has(d, "\"event\"") && !Has(d, "matchid"));
+  CHECK(d.rfind("{\"call_id\":", 0) == 0 && !Has(d, "\"event\"") && !Has(d, "matchid") && !Has(d, "server_id"));
 
   CHECK(AdminCallTeamLabel("Team A", "ct", false) == "Team A, CT");
   CHECK(AdminCallTeamLabel("", "t", false) == "T");

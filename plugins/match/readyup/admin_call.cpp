@@ -5,6 +5,7 @@
 #include "readyup/card_html.h"
 #include "readyup/config.h"
 #include "readyup/engine.h"
+#include "readyup/fleet_bridge.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
 #include "readyup/match_signals.h"
@@ -107,9 +108,9 @@ void AdminCallCommand(uint64_t steamid64, const std::string& playerName, const s
   const bool match = ctx && ctx->slug != "scrim";  // a scrim's context is not a platform match
 
   AdminCallEvent e;
-  e.hasMatch = match;
-  e.matchid = match ? ctx->matchid : 0;
-  e.map_number = std::max(1, MatchStateGet().map_number);
+  e.matchid = match ? static_cast<long long>(ctx->matchid) : -1;
+  e.map_number = std::max(1, MatchStateGet().map_number) - 1;  // 0-based in admin_called
+  e.server_id = fleet_bridge::FleetServerId();
   e.call_id = NewCallId();
   e.player.steamid64 = steamid64;
   e.player.name = CleanAdminCallMessage(playerName.empty() ? me.name : playerName, 64);

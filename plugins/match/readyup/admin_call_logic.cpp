@@ -102,8 +102,9 @@ status::Json AdminCallData(const AdminCallEvent& e) {
 std::string AdminCalledWebhookJson(const AdminCallEvent& e) {
   status::Json j = status::Json::Object();
   j["event"] = "admin_called";
-  j["matchid"] = e.hasMatch ? status::Json(static_cast<unsigned long long>(e.matchid)) : status::Json();
+  j["matchid"] = e.matchid;
   j["map_number"] = e.map_number;
+  if (!e.server_id.empty()) j["server_id"] = e.server_id;
   const status::Json d = AdminCallData(e);
   for (const auto& kv : d.Members()) j[kv.first] = kv.second;
   return j.Dump();
