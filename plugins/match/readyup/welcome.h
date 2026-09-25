@@ -39,6 +39,9 @@ void WelcomeObserveLogLine(const std::string& line);
 // Thread-safe: the player in `slot` spawned (player_spawn). A queued card starts
 // shortly after the first spawn following the team join.
 void WelcomeObservePlayerSpawn(int slot);
+// Thread-safe: a round (re)started (round_start). A card waiting or showing starts again ~1.5 s
+// later (the restart that entering warmup does wipes the panel).
+void WelcomeObserveRoundStart();
 
 // GameFrame thread only: sends/refreshes pending welcome screens.
 void WelcomeTick();
