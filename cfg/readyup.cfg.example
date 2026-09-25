@@ -10,6 +10,7 @@ chat_debug=0
 banner=1
 # Per-player "Ready Up is live" center screen on first T/CT join each map.
 welcome=1
+# welcome_show_seconds=8        how long the welcome card stays up (then the ready HUD)
 # welcome_round_delay_ms=5000   the welcome card waits this long after a round (re)start (CS2's "Match started" covers the panel)
 # Go-live card: "LIVE · GO GO GO", the teams and the commands, in the center for everyone this many
 # seconds once a map goes live (starts welcome_round_delay_ms after the go-live restart). 0 = off.

@@ -23,6 +23,8 @@ struct ReadyUpCfg {
   // The welcome card waits this long after a round (re)start: CS2's own "Match started"
   // announcement covers the center panel for a few seconds after the warmup restart.
   int welcome_round_delay_ms = 5000;
+  // How long the welcome card stays up once shown, then the ready HUD takes over.
+  int welcome_show_seconds = 8;
   // Go-live card (golive_card.h): seconds everyone sees "LIVE · GO GO GO" + the commands once a
   // map goes live (starts welcome_round_delay_ms after the go-live round start). 0 = off.
   int golive_card_seconds = 10;
@@ -35,7 +37,7 @@ struct ReadyUpCfg {
   int hud_resend_ms = 0;
   int hud_duration_s = 1;
   // Seconds the KNIFE ROUND panel stays up after the knife round begins.
-  int hud_knife_hold_s = 30;
+  int hud_knife_hold_s = 10;
   // Header of the welcome card + ready HUD: optional logo image URL + brand text.
   std::string hud_brand = "Auto Tournament";
   std::string hud_logo_url;

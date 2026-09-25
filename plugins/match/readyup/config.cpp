@@ -116,6 +116,7 @@ ReadyUpCfg DefaultCfg() {
 
 void Apply(ReadyUpCfg* out, const std::string& key, const std::string& val) {
   if (key == "welcome") out->welcome = ParseBool(val, out->welcome);
+  else if (key == "welcome_show_seconds") out->welcome_show_seconds = std::clamp(std::atoi(val.c_str()), 2, 60);
   else if (key == "welcome_round_delay_ms") out->welcome_round_delay_ms = std::clamp(std::atoi(val.c_str()), 0, 30000);
   else if (key == "golive_card_seconds") out->golive_card_seconds = std::clamp(std::atoi(val.c_str()), 0, 30);
   else if (key == "admin_call_cooldown_s") out->admin_call_cooldown_s = std::clamp(std::atoi(val.c_str()), 0, 3600);

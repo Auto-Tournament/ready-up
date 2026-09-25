@@ -60,7 +60,7 @@ come back).
 
 ## Knife panel and chat
 
-- After the knife round starts, the KNIFE ROUND panel stays up for `hud_knife_hold_s` seconds (default 30), also while the round is running.
+- After the knife round starts, the KNIFE ROUND panel stays up for `hud_knife_hold_s` seconds (default 10), also while the round is running.
 - While the panel reaches players, flow updates (ready, countdown, knife start, knife winner, side pick) are shown only in the panel, not in chat. Replies that explain a refused command, admin actions and the LIVE line still go to chat. With `ready_hud=0`, or if a panel send fails, the chat messages come back.
 
 ## Live panel (pauses, forfeit)
