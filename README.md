@@ -185,7 +185,7 @@ See the [contributing guide](.github/CONTRIBUTING.md). Questions and bug reports
 
 Ready Up is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). Copyright (c) 2026 Sivert Gullberg Hansen. Ready Up is not MIT.
 
-You can use, change and share it for anything noncommercial. Commercial use, like paid events or selling it or a service built on it, needs a separate license — see [pricing](https://autotournament.gg/pricing) or ask on [Discord](https://discord.gg/n7gHYau7aW).
+You can use, change and share it for anything noncommercial. Commercial use, meaning anyone who earns money from it (a profit-making event, a business, a paid operator, or selling it or a service built on it), needs a separate license — see [pricing](https://autotournament.gg/pricing) or email [sivert@autotournament.gg](mailto:sivert@autotournament.gg).
 
 Looking for an MIT plugin instead? [MatchZy Enhanced](https://github.com/Auto-Tournament/cs2-plugin) (now named Auto Tournament CS2) is MIT licensed and free for any use, including paid work. Ready Up is a different plugin, not a fork of it.
 
