@@ -1,0 +1,53 @@
+#pragma once
+// The match side of the fleet link (docs/FLEET.md §7-§10, §12.3, §13; build-order step 3).
+//
+// fleet.so (plugins/fleet) owns the WebSocket, the spool and the offline timer and publishes
+// readyup.fleet.v1 (core/include/readyup/fleet_iface.h). This file looks it up on every tick
+// (it can be absent, standalone or reloaded: then everything here is a no-op) and:
+//
+//   - handles platform messages on the game thread: match.assign (config from the message,
+//     per-match sv_password, D16 scrim hand-over: chat notice, kick non-roster players after 5 s,
+//     then load), match.update (compare-and-set on config_rev), match.unassign (epoch fenced),
+//     cmd (pause, unpause, force_ready, start, restore_round, restart_map, end_match, change_map,
+//     swap_teams, kick, say, snapshot_now, exec) with exactly one cmd.result each, and
+//     local.offline_timeout (D12 auto-pause) / local.connection (snapshot on connect);
+//   - keeps the canonical MatchState (§9.1): platform-owned fields from the assign config,
+//     server-owned fields from the match flow (match_status.h), live_rev + epoch; every change
+//     goes out as state.patch or inside an event.* ({match_id, map_number, round, rev, patch,
+//     data}) with rev = previous rev + 1 (fleet_state.h LiveStream);
+//   - turns match facts (match_signals.h, MatchFlowEvent, DemoEvent, RoundSummary / MapStats)
+//     into events, forwards CS2 round backup files inline (event.backup, base64, split in parts
+//     above 384 KB) and restores a backup (cmd restore_round).
+//
+// Nothing is reported for scrims or `ru match load` matches: only a platform assignment turns
+// the link on. Game thread only unless noted.
+#include "readyup/plugin_api.h"
+#include "readyup/status_snapshot.h"
+
+#include <string>
+
+namespace readyup::fleet_bridge {
+
+// readyup_plugin_load: match-flow / demo listeners.
+void Install(const ru_api* api);
+// readyup_plugin_unload: unregisters the fleet handlers (fleet.so may stay loaded).
+void Uninstall();
+// on_tick.
+void Tick(double now);
+// Core events (player connect / disconnect / team) and server log lines (exec output capture).
+void OnCoreEvent(const ru_event* e);
+void OnLogLine(const char* line);
+
+// True while a platform assignment is active.
+bool Assigned();
+// The fleet MatchState (what state.snapshot / hello carry) while assigned; false otherwise.
+bool CurrentState(status::Json* out);
+// False while a demo of the assignment still uploads or the series is not over (FLEET.md §17).
+bool UpdateSafe();
+
+// Plugin reload (reload_state.cpp): assignment, config, fence, live_rev, pause counters, sent
+// backups.
+status::Json SnapshotJson();
+void RestoreJson(const status::Json& j);
+
+}  // namespace readyup::fleet_bridge

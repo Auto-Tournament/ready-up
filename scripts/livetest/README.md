@@ -85,6 +85,22 @@ Options (also as env vars, see `--help`): `--scrim` (`LIVETEST_MODE=scrim`),
 live, because Ready Up's restart checks use wall-clock time), `--round-timeout`,
 `--map`, and `RU_SSH` / `RU_TARGET` / `RU_SESSION` (same as `scripts/dev-deploy.sh`).
 
+## Fleet (platform link) test
+
+`scripts/livetest/fleet_livetest.py` is the step-3 fleet test (docs/FLEET.md): a mock platform
+(`fleet_mock_platform.py`, Python `websockets` + `jsonschema` in a `python:3.12-slim` container on
+127.0.0.1:18095-18097) enrolls fleet.so, assigns a bot match, checks every frame against
+`plugins/fleet/protocol/v1`, and drives fencing, `match.update`, pause / unpause, `exec`, round
+backups + `restore_round`, the offline auto-pause (75 s outage, `offline_pause_minutes=1`),
+`end_match` and `match.unassign`. It checks that `live_rev` goes up by one per message and that the
+patches rebuild the snapshots. Options: `--play-out` (natural map end: `map_result` with MapStats,
+`series_end`), `--from-scrim` (assign while a bots-only scrim runs: D16 hand-over), `--no-offline`,
+`--out DIR` (frames.json, console.log, mock.log), `--save-examples DIR`.
+
+It writes `csgo/cfg/ReadyUp/fleet.cfg` for the run and afterwards moves it and fleet.so's data dir
+(`csgo/readyup/plugins/fleet/`) to `~/readyup-test/.fleet-livetest/<time>/` and reloads fleet.so,
+so the server is standalone again.
+
 ## CI
 
 `.github/workflows/livetest.yml` runs this on a self-hosted runner labelled

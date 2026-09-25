@@ -1,0 +1,142 @@
+#pragma once
+// Engine-free pieces of the fleet match link (docs/FLEET.md §7, §9, §12.3), unit-tested by
+// tests/fleet_state_test.cpp. fleet_bridge.cpp wires them to the match flow and fleet.so.
+//
+//  - LiveStream: the server-owned live_rev counter and the last MatchState sent. Every message
+//    that changes the stream (a state.patch or an event.*) bumps live_rev by exactly one and
+//    carries the RFC 7386 merge patch from the previous state, so the platform applies a patch
+//    when rev == stored_rev + 1 and asks for a snapshot on a gap (§8.1).
+//  - Fence: epoch fencing (§9.3 rule 4, §11.4) and config_rev compare-and-set (§9.3 rule 2).
+//  - Assign/update: match.assign config -> the MAT match config Ready Up already loads
+//    (match_config_parser.h), match.update ops on the stored config.
+//  - Codecs and small validators: sha256, base64, `say` / `exec` / password / map checks, the
+//    round number in a CS2 backup file name.
+#include "readyup/status_snapshot.h"
+
+#include <cstdint>
+#include <map>
+#include <string>
+#include <vector>
+
+namespace readyup::fleetstate {
+
+using status::Json;
+
+// ---------------------------------------------------------------------------- state stream
+
+// Copy of `v` without null object members (recursively). MatchState never carries nulls on the
+// wire: in a merge patch null means "remove", so an absent member and null are the same thing.
+Json StripNulls(const Json& v);
+
+class LiveStream {
+ public:
+  // New baseline (match.assign, plugin reload): the next Advance() diffs against `state`.
+  void Reset(const Json& state, long long rev);
+  // `next` is the current MatchState (its live_rev member is ignored and overwritten). When it
+  // differs from the last state, or `force` is set (an event without a state change), bumps
+  // live_rev, stores next (with live_rev) and returns the merge patch (which always includes
+  // live_rev). Returns false when nothing changed and !force.
+  bool Advance(const Json& next, bool force, Json* patch, long long* rev);
+  long long Rev() const { return rev_; }
+  const Json& State() const { return state_; }
+  bool HasState() const { return !state_.IsNull(); }
+
+ private:
+  Json state_;
+  long long rev_ = 0;
+};
+
+// ---------------------------------------------------------------------------- fencing
+
+struct Assignment {
+  bool active = false;
+  std::string match_id;
+  long long epoch = 0;
+  long long config_rev = 0;
+};
+
+enum class Verdict {
+  Ok,           // go ahead
+  Duplicate,    // match.assign replayed: same match and epoch already active (ack ok, do nothing)
+  StaleEpoch,   // lower epoch than the one active or retired for this match
+  Busy,         // another match (or a local non-fleet match) is active
+  NotAssigned,  // match-scoped message for a match this server does not have
+};
+const char* VerdictCode(Verdict v);  // error code for cmd.result ("stale_epoch", "busy", ...)
+
+class Fence {
+ public:
+  // match.assign. `localMatchActive`: a real match not from the platform is loaded
+  // (`ru match load`); scrims do not count (they are ended by the hand-over, D16).
+  Verdict CheckAssign(const Assignment& cur, const std::string& matchId, long long epoch, bool localMatchActive) const;
+  // match.update / match.unassign / cmd with a match_id: exact match_id and epoch.
+  Verdict CheckScoped(const Assignment& cur, const std::string& matchId, long long epoch) const;
+  // Remember the highest epoch seen for a match (on assign and unassign) so a late message with a
+  // lower epoch is refused even after the assignment ended. Keeps the last 64 matches.
+  void Retire(const std::string& matchId, long long epoch);
+  long long Retired(const std::string& matchId) const;
+  Json ToJson() const;
+  void FromJson(const Json& j);
+
+ private:
+  std::map<std::string, long long> retired_;
+  std::vector<std::string> order_;
+};
+
+// §9.3 rule 2: an update applies only on top of the config_rev the server has.
+inline bool ConfigCas(long long baseConfigRev, long long currentConfigRev) {
+  return baseConfigRev == currentConfigRev;
+}
+
+// ---------------------------------------------------------------------------- assign / update
+
+// Checks a match.assign payload (§7.1). False + *err (one line) when it cannot be loaded.
+bool ValidateAssign(const Json& payload, std::string* err);
+
+// Numeric id for Ready Up's match context (demo names, stats, backups use a number): the
+// match_id itself when it is all digits (1..15 of them), else a 52-bit FNV-1a hash, never 0.
+unsigned long long NumericMatchId(const std::string& matchId);
+
+// The MAT MatchConfig document Ready Up's parser (match_config_parser.h) and the recovery
+// store take, built from match.assign.config: matchid, num_maps, maplist, map_sides, team1/2
+// {name, tag, players{steamid64: name}, captain_steamid64}, spectators, admins, maxRounds,
+// overtimeMode / overtimeSegments / maxOvertimes, damageTiebreak*, knifeDecisionSeconds,
+// clinch_series and cvars (engine cvars only: mp_*, sv_*, tv_*, bot_*; never sv_password, which
+// the link sets itself, or ru_*; dropped names go to *dropped). slug = match_id.
+Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vector<std::string>* dropped);
+
+// Applies match.update ops (§7.3) to the stored assign config. False + *err on a bad op (the
+// config is then unchanged). *passwordChanged when a set_password op ran.
+bool ApplyUpdateOps(Json* config, const Json& ops, std::string* err, bool* passwordChanged);
+
+// D16 hand-over: players allowed to stay when a match is assigned (roster incl. subs and
+// coaches, spectators, match admins).
+bool InAssignedMatch(const Json& config, uint64_t steamid64);
+// "team1" | "team2" | "spectator" | "" for a SteamID64 in the assign config.
+std::string TeamOf(const Json& config, uint64_t steamid64);
+
+// ---------------------------------------------------------------------------- codecs
+
+std::string Sha256Hex(const std::string& data);
+std::string Base64Encode(const std::string& data);
+bool Base64Decode(const std::string& text, std::string* out);
+
+// ---------------------------------------------------------------------------- validators
+
+// `cmd say`: control characters removed, at most 190 bytes (cut on a UTF-8 boundary).
+std::string SanitizeSay(const std::string& text);
+// `cmd exec` (§7.4, D10): one line, 1..512 bytes, no `;`-chained `ru fleet` / `fleet`
+// (credentials) and no quotes that could smuggle a second command past the check.
+bool ValidateExec(const std::string& command, std::string* err);
+// sv_password value: printable ASCII without quotes, `;` or spaces, at most 64 bytes ("" = none).
+bool ValidPassword(const std::string& password);
+// Map names / workshop ids safe to put on a command line.
+bool SafeMapName(const std::string& name);
+bool SafeWorkshopId(const std::string& id);
+// CS2 round backup files: "<prefix>round07.txt" -> 7; -1 when the name has no round number.
+int BackupRoundFromName(const std::string& fileName);
+// A backup file name from the platform that is safe to write into csgo/ (no directories,
+// ends in .txt, [A-Za-z0-9_.-] only).
+bool SafeBackupFileName(const std::string& name);
+
+}  // namespace readyup::fleetstate

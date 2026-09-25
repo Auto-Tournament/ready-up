@@ -1,8 +1,10 @@
 # Fleet protocol: Ready Up ↔ Auto Tournament
 
 **Status: design, reviewed by Sivert (2026-09). Implemented on the Ready Up side so far: the local
-status endpoint (§17) and build-order step 1, the `fleet.so` link (enroll, credentials, WebSocket,
-seq/ack, spool, resume, offline timer); see [Implementation status](#implementation-status-ready-up).**
+status endpoint (§17), build-order step 1, the `fleet.so` link (enroll, credentials, WebSocket,
+seq/ack, spool, resume, offline timer), and the Ready Up half of step 3 (match assignment, commands,
+MatchState stream, events, inline round backups and restore; the platform half is
+[a task](fleet-step3-platform-notes.md)); see [Implementation status](#implementation-status-ready-up).**
 
 This document designs how Ready Up servers talk to the Auto Tournament platform ("the
 platform", `Auto-Tournament/auto-tournament`). It replaces the per-server RCON + webhook
@@ -88,6 +90,54 @@ Build: needs libcurl with WebSockets. Release builds link the static curl 8.22 f
 `scripts/ci/build-static-deps.sh` (`--enable-websockets`, checked); the dev Docker image builds the
 same curl into `/opt/curl-ws`. A plain `./build.sh` without such a libcurl skips fleet.so (warning)
 and still builds the unit tests.
+
+**Step 3 (§19.4 item 3, §19.3 items 2-3 and the round-backup part of 5): match state and control
+in `plugins/match`.** The platform side is not built yet: the step-3 schemas are **proposed** in
+`plugins/fleet/protocol/v1` (see its README) and
+[`fleet-step3-platform-notes.md`](fleet-step3-platform-notes.md) is the platform's task list.
+
+| Piece | Where |
+|---|---|
+| Handlers (assign / update / unassign / cmd, offline auto-pause, snapshot on connect), MatchState (config fields + match-flow fields), events, round backups, restore | `plugins/match/readyup/fleet_bridge.*` |
+| Engine-free: merge patch + `live_rev` stream, epoch fence, `config_rev` CAS, assign config → MAT config, update ops, sha256 / base64, validators | `plugins/match/readyup/fleet_state.*` |
+| Match facts from anywhere in the flow (any thread / lock: queue only) | `plugins/match/readyup/match_signals.*` |
+| `readyup.fleet.v1` additions: `send_reply` (envelope `ref`), `send_snapshot(reason, extra)` | `core/include/readyup/fleet_iface.h`, `plugins/fleet` |
+
+Choices made where this document leaves room:
+
+- `state.patch` (new type) carries MatchState changes that are no event. It and every `event.*`
+  bump `live_rev` by exactly 1 (the first message after the `assign` snapshot has rev 1), so the
+  platform applies anything with `rev == stored + 1`.
+- `match.assign` carries `config_rev` (default 1). `state.snapshot` is also sent with reason
+  `assign` after the ack, on every reconnect (`hello`, with `map_stats`), every 60 s (`periodic`)
+  and after a `match.update` conflict (`request`).
+- The canonical state: platform-owned fields come from the assign config, server-owned ones from
+  the match flow (the `/status` MatchState), map scores from the stats model. `/status` shows the
+  same object while a platform match is assigned. It keeps the final scores after the match is
+  unloaded (series end / `end_match`) until the unassign.
+- Scrims and `ru match load` matches are never reported; a local match makes `match.assign`
+  answer `busy`. A finished match that was not unassigned yet does not block the next assign.
+- Rules enforced from `rules`: `max_rounds`, `overtime`, `tiebreak`, `knife.side_pick_seconds`,
+  `clinch_series` (through the MAT config the match flow already loads). Coaches are whitelisted
+  spectators. The pause limits / forfeit / gg-vote rules are carried in `MatchState.rules` only.
+- Round backups: CS2 writes `readyup_backup_<matchid>_map<N>__roundNN.txt` to `csgo/readyup/`
+  (NN = rounds played; `InlineBackup.round` = NN + 1, the round it starts). The bridge forwards a
+  file 1.5 s after each round start, again when its content changes (a replayed round after a
+  restore), in 384 KiB parts. `cmd restore_round` loads a local file or an inline one (sha256 and
+  size checked, written next to CS2's own backups), rewinds the stats model
+  (`stats::RewindTo`), the round counters and scores, ignores the draw round end the reload
+  causes, pauses and emits `rounds_voided` + `match_restored`.
+- `exec` output is the console log lines seen in the 0.5 s after the command (best effort).
+- Fixed on the way: with engine events live, the round counter now restarts on `Match_Start`
+  (it used to continue from the previous match on the same map).
+
+Tests: `match_fleet_state` (merge patch / rev, fencing, CAS, assign → MAT config through the real
+parser, update ops, sha256 / base64, validators, stats rewind), `fleet_protocol` (schemas vs the
+example frames), `fleet_integration` (its frames now validate against the step-3 schemas too) and
+`scripts/livetest/fleet_livetest.py`: a Python mock platform in Docker assigns a bot match to the
+test server and checks acks, fencing, CAS, events, backups + restore, the offline auto-pause and
+the `live_rev` stream against the schemas (`--play-out` for the natural map end, `--from-scrim`
+for the D16 hand-over).
 
 ## 0. Decisions
 

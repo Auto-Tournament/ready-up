@@ -409,6 +409,25 @@ int IfPublishState(const char* stateJson, const char* availability) {
   return 1;
 }
 
+int IfSendReply(const char* type, const char* payload, int64_t epoch, uint32_t flags, const char* ref) {
+  auto c = Client();
+  if (!c || !type) return 0;
+  std::string err;
+  if (!c->Send(type, payload ? payload : "{}", epoch, (flags & RU_FLEET_RELIABLE) != 0, &err, ref ? ref : "")) {
+    Log(RU_LOG_WARN, "fleet: send_reply(%s) refused: %s", type, err.c_str());
+    return 0;
+  }
+  return 1;
+}
+
+int IfSendSnapshot(const char* reason, const char* extra) {
+  auto c = Client();
+  if (!c) return 0;
+  const std::string r = reason && *reason ? reason : "request";
+  if (r != "hello" && r != "request" && r != "reset" && r != "periodic" && r != "assign") return 0;
+  return c->SendSnapshot(r, extra ? extra : "") ? 1 : 0;
+}
+
 int IfAddCapability(const char* cap) {
   if (!cap || !*cap || std::strlen(cap) > 64) return 0;
   if (std::find(g_caps.begin(), g_caps.end(), cap) == g_caps.end()) g_caps.push_back(cap);
@@ -419,7 +438,8 @@ int IfAddCapability(const char* cap) {
 
 const ru_fleet_v1 g_iface = {
     sizeof(ru_fleet_v1), &IfGetStatus,       &IfInstanceId,        &IfConnectionState, &IfSendEvent,
-    &IfRegisterHandler,  &IfUnregisterHandler, &IfPublishState,    &IfAddCapability,
+    &IfRegisterHandler,  &IfUnregisterHandler, &IfPublishState,    &IfAddCapability,  &IfSendReply,
+    &IfSendSnapshot,
 };
 
 // ---- selftest (any thread; see selftest_iface.h) -------------------------------------------
@@ -713,9 +733,12 @@ void OnTick(void*, const ru_tick_info* t) {
     if (left == 0 && g_offlineFiredFor != st.offlineSinceMs) {
       g_offlineFiredFor = st.offlineSinceMs;
       const int64_t offS = (fleet::NowMs() - st.offlineSinceMs) / 1000;
-      Log(RU_LOG_WARN, "fleet: offline for %lld s (offline_pause_minutes=%d): offline timer fired (auto-pause is not "
-                       "implemented yet; handlers of local.offline_timeout were notified)",
-          static_cast<long long>(offS), g_set.offlinePauseMinutes);
+      Log(RU_LOG_WARN, "fleet: offline for %lld s (offline_pause_minutes=%d): offline timer fired (%zu handler(s) of "
+                       "local.offline_timeout notified; match.so auto-pauses a live assigned match)",
+          static_cast<long long>(offS), g_set.offlinePauseMinutes,
+          static_cast<size_t>(std::count_if(g_handlers.begin(), g_handlers.end(), [](const Handler& h) {
+            return h.type == "local.offline_timeout" || h.type == "*";
+          })));
       char payload[96];
       std::snprintf(payload, sizeof(payload), "{\"offline_s\":%lld,\"threshold_s\":%d}", static_cast<long long>(offS),
                     g_set.offlinePauseMinutes * 60);

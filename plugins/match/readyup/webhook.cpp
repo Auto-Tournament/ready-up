@@ -4,6 +4,7 @@
 #include "readyup/config.h"
 #include "readyup/http_client.h"
 #include "readyup/logging.h"
+#include "readyup/match_signals.h"
 #include "readyup/match_state.h"
 #include "readyup/engine.h"
 #include "readyup/workers.h"
@@ -573,6 +574,14 @@ void WebhookEmitGoingLive(int map_number) {
 }
 
 void WebhookEmitHalftimeStarted(int map_number, int team1_score, int team2_score) {
+  if (signals::Enabled()) {
+    status::Json d = status::Json::Object();
+    status::Json sc = status::Json::Object();
+    sc["team1"] = team1_score;
+    sc["team2"] = team2_score;
+    d["score"] = std::move(sc);
+    signals::Emit("halftime", std::move(d), -1, map_number);
+  }
   WebhookStartSenderThread();
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
@@ -591,6 +600,16 @@ void WebhookEmitHalftimeStarted(int map_number, int team1_score, int team2_score
 }
 
 void WebhookEmitOvertimeStarted(int map_number, int overtime_number) {
+  if (signals::Enabled()) {
+    const auto ms = MatchStateGet();
+    status::Json d = status::Json::Object();
+    status::Json sc = status::Json::Object();
+    sc["team1"] = ms.team1_score;
+    sc["team2"] = ms.team2_score;
+    d["score"] = std::move(sc);
+    d["overtime_number"] = overtime_number;
+    signals::Emit("overtime", std::move(d), -1, map_number);
+  }
   WebhookStartSenderThread();
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
@@ -645,6 +664,11 @@ void WebhookEmitKnifeRoundStarted(int map_number) {
 }
 
 void WebhookEmitKnifeRoundEnded(int map_number, const char* winner) {
+  if (signals::Enabled()) {
+    status::Json d = status::Json::Object();
+    d["winner"] = winner ? winner : "team1";  // `reason` is added by fleet_bridge (knife HUD info)
+    signals::Emit("knife_result", std::move(d), -1, map_number);
+  }
   WebhookStartSenderThread();
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
@@ -788,6 +812,15 @@ void WebhookEmitPlayerReady(const WebhookPlayer& p,
 }
 
 void WebhookEmitRoundStarted(int map_number, int round_number, int team1_score, int team2_score) {
+  if (signals::Enabled()) {
+    status::Json d = status::Json::Object();
+    d["round"] = round_number;
+    status::Json sc = status::Json::Object();
+    sc["team1"] = team1_score;
+    sc["team2"] = team2_score;
+    d["score"] = std::move(sc);
+    signals::Emit("round_start", std::move(d), round_number, map_number);
+  }
   WebhookStartSenderThread();
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);

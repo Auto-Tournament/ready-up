@@ -3,6 +3,7 @@
 
 #include "readyup/config.h"
 #include "readyup/demo_recorder.h"
+#include "readyup/fleet_bridge.h"
 #include "readyup/host.h"
 #include "readyup/knife_tracker.h"
 #include "readyup/logging.h"
@@ -152,6 +153,9 @@ Json Build(const std::vector<std::string>& pendingEvents, size_t firstEvent) {
   pause["paused"] = ps.paused;
   pause["team1"] = ps.team1_ready_to_unpause;
   pause["team2"] = ps.team2_ready_to_unpause;
+  pause["type"] = ps.type;
+  pause["by"] = ps.by;
+  pause["team"] = static_cast<int>(ps.team);
   pause["start"] = pauseStart;
   j["pause"] = std::move(pause);
 
@@ -216,6 +220,7 @@ Json Build(const std::vector<std::string>& pendingEvents, size_t firstEvent) {
   j["demo"] = demo::SnapshotJson();
   j["match_end"] = MatchEndSnapshotJson();
   j["status"] = MatchStatusSnapshotJson();
+  j["fleet"] = fleet_bridge::SnapshotJson();
   return j;
 }
 
@@ -286,6 +291,9 @@ bool ReloadStateRestore() {
   ps.paused = Bool(pause, "paused");
   ps.team1_ready_to_unpause = Bool(pause, "team1");
   ps.team2_ready_to_unpause = Bool(pause, "team2");
+  ps.type = Str(pause, "type");
+  ps.by = Str(pause, "by");
+  ps.team = static_cast<WebhookTeam>(Int(pause, "team"));
   const Json* ptart = pause ? pause->Find("start") : nullptr;
   PauseStateRestore(ps, ptart ? ptart->AsInt() : 0);
 
@@ -338,6 +346,7 @@ bool ReloadStateRestore() {
   if (const Json* d = j.Find("demo")) demo::RestoreJson(*d);
   if (const Json* me = j.Find("match_end")) MatchEndRestoreJson(*me);
   if (const Json* st = j.Find("status")) MatchStatusRestoreJson(*st);
+  if (const Json* fl = j.Find("fleet")) fleet_bridge::RestoreJson(*fl);
 
   const auto ctx = WebhookGetMatchContext();
   Print("match: restored the previous image's state (mode=%s match=%s round=%d score=%d-%d)\n", GetModeString(),

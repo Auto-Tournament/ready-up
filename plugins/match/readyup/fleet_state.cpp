@@ -1,0 +1,706 @@
+#include "readyup/fleet_state.h"
+
+#include <algorithm>
+#include <cctype>
+#include <cstdint>
+#include <cstring>
+
+namespace readyup::fleetstate {
+
+// ---------------------------------------------------------------------------- state stream
+
+Json StripNulls(const Json& v) {
+  if (v.type() == Json::Type::Object) {
+    Json out = Json::Object();
+    for (const auto& kv : v.Members()) {
+      if (kv.second.IsNull()) continue;
+      out[kv.first] = StripNulls(kv.second);
+    }
+    return out;
+  }
+  if (v.type() == Json::Type::Array) {
+    Json out = Json::Array();
+    for (const auto& it : v.Items()) out.Push(StripNulls(it));
+    return out;
+  }
+  return v;
+}
+
+void LiveStream::Reset(const Json& state, long long rev) {
+  rev_ = rev;
+  if (state.IsNull()) {
+    state_ = Json();
+    return;
+  }
+  state_ = StripNulls(state);
+  state_["live_rev"] = rev_;
+}
+
+bool LiveStream::Advance(const Json& next, bool force, Json* patch, long long* rev) {
+  Json n = StripNulls(next);
+  if (n.IsObject()) n["live_rev"] = rev_;  // compare without a live_rev change
+  Json diff;
+  const bool changed = MergeDiff(state_, n, &diff);
+  if (!changed && !force) return false;
+  ++rev_;
+  if (n.IsObject()) n["live_rev"] = rev_;
+  Json p;
+  if (!MergeDiff(state_, n, &p)) p = Json::Object();
+  if (!p.IsObject()) {
+    // Whole-state replacement (null -> object or object -> null): send it as is; a platform
+    // applying RFC 7386 to an object target with a non-object patch replaces the target.
+    p = n;
+  }
+  state_ = std::move(n);
+  if (patch) *patch = std::move(p);
+  if (rev) *rev = rev_;
+  return true;
+}
+
+// ---------------------------------------------------------------------------- fencing
+
+const char* VerdictCode(Verdict v) {
+  switch (v) {
+    case Verdict::Ok: return "ok";
+    case Verdict::Duplicate: return "duplicate";
+    case Verdict::StaleEpoch: return "stale_epoch";
+    case Verdict::Busy: return "busy";
+    case Verdict::NotAssigned: return "not_assigned";
+  }
+  return "rejected";
+}
+
+Verdict Fence::CheckAssign(const Assignment& cur, const std::string& matchId, long long epoch,
+                           bool localMatchActive) const {
+  if (epoch < 1 || matchId.empty()) return Verdict::StaleEpoch;
+  if (epoch < Retired(matchId)) return Verdict::StaleEpoch;
+  if (cur.active) {
+    if (cur.match_id == matchId) {
+      if (epoch == cur.epoch) return Verdict::Duplicate;
+      if (epoch < cur.epoch) return Verdict::StaleEpoch;
+      return Verdict::Ok;  // re-assignment of the same match with a newer epoch (restore / move back)
+    }
+    return Verdict::Busy;
+  }
+  if (epoch == Retired(matchId)) return Verdict::StaleEpoch;  // that assignment already ended here
+  if (localMatchActive) return Verdict::Busy;
+  return Verdict::Ok;
+}
+
+Verdict Fence::CheckScoped(const Assignment& cur, const std::string& matchId, long long epoch) const {
+  if (!cur.active || cur.match_id != matchId) {
+    if (!matchId.empty() && epoch > 0 && epoch <= Retired(matchId)) return Verdict::StaleEpoch;
+    return Verdict::NotAssigned;
+  }
+  if (epoch < cur.epoch) return Verdict::StaleEpoch;
+  if (epoch > cur.epoch) return Verdict::NotAssigned;  // an assignment this server never got
+  return Verdict::Ok;
+}
+
+void Fence::Retire(const std::string& matchId, long long epoch) {
+  if (matchId.empty()) return;
+  auto it = retired_.find(matchId);
+  if (it != retired_.end()) {
+    it->second = std::max(it->second, epoch);
+    return;
+  }
+  retired_[matchId] = epoch;
+  order_.push_back(matchId);
+  while (order_.size() > 64) {
+    retired_.erase(order_.front());
+    order_.erase(order_.begin());
+  }
+}
+
+long long Fence::Retired(const std::string& matchId) const {
+  const auto it = retired_.find(matchId);
+  return it == retired_.end() ? 0 : it->second;
+}
+
+Json Fence::ToJson() const {
+  Json a = Json::Array();
+  for (const auto& id : order_) {
+    Json e = Json::Object();
+    e["match_id"] = id;
+    e["epoch"] = retired_.at(id);
+    a.Push(std::move(e));
+  }
+  return a;
+}
+
+void Fence::FromJson(const Json& j) {
+  retired_.clear();
+  order_.clear();
+  for (const auto& e : j.Items()) {
+    const Json* id = e.Find("match_id");
+    const Json* ep = e.Find("epoch");
+    if (id && ep) Retire(id->AsString(), ep->AsInt());
+  }
+}
+
+// ---------------------------------------------------------------------------- assign / update
+
+namespace {
+
+bool IsDigits(const std::string& s, size_t maxLen) {
+  if (s.empty() || s.size() > maxLen) return false;
+  for (unsigned char c : s) {
+    if (!std::isdigit(c)) return false;
+  }
+  return true;
+}
+
+const Json* Obj(const Json& o, const char* key) {
+  const Json* v = o.Find(key);
+  return v && v->type() == Json::Type::Object ? v : nullptr;
+}
+const Json* Arr(const Json& o, const char* key) {
+  const Json* v = o.Find(key);
+  return v && v->type() == Json::Type::Array ? v : nullptr;
+}
+std::string Str(const Json& o, const char* key, const std::string& def = {}) {
+  const Json* v = o.Find(key);
+  return v && v->type() == Json::Type::String ? v->AsString() : def;
+}
+bool IsInt(const Json* v) { return v && v->type() == Json::Type::Int; }
+long long Int(const Json& o, const char* key, long long def) {
+  const Json* v = o.Find(key);
+  if (!v) return def;
+  if (v->type() == Json::Type::Int || v->type() == Json::Type::Double) return v->AsInt();
+  return def;
+}
+bool Bool(const Json& o, const char* key, bool def) {
+  const Json* v = o.Find(key);
+  return v && v->type() == Json::Type::Bool ? v->AsBool() : def;
+}
+
+bool ValidSteam(const Json& v) { return v.type() == Json::Type::String && IsDigits(v.AsString(), 20); }
+
+bool ValidTeam(const Json* t, const char* which, std::string* err) {
+  auto fail = [&](const std::string& why) {
+    if (err) *err = std::string(which) + ": " + why;
+    return false;
+  };
+  if (!t) return fail("missing");
+  const std::string name = Str(*t, "name");
+  if (name.empty() || name.size() > 64) return fail("name must be 1..64 bytes");
+  const Json* players = Arr(*t, "players");
+  if (!players) return fail("players must be an array");
+  if (players->Items().size() > 32) return fail("more than 32 players");
+  for (const auto& p : players->Items()) {
+    const Json* sid = p.Find("steamid64");
+    if (!sid || !ValidSteam(*sid)) return fail("player without a valid steamid64");
+    const std::string role = Str(p, "role", "player");
+    if (role != "player" && role != "sub" && role != "coach") return fail("bad role " + role);
+  }
+  if (const Json* cap = t->Find("captain"); cap && !ValidSteam(*cap)) return fail("bad captain");
+  return true;
+}
+
+// Removes a SteamID64 from every roster list of an assign config. True if it was there.
+bool RemoveEverywhere(Json* config, const std::string& sid) {
+  bool found = false;
+  for (const char* team : {"team1", "team2"}) {
+    Json* t = const_cast<Json*>(Obj(*config, team));
+    if (!t) continue;
+    const Json* players = Arr(*t, "players");
+    if (!players) continue;
+    Json kept = Json::Array();
+    for (const auto& p : players->Items()) {
+      const Json* s = p.Find("steamid64");
+      if (s && s->AsString() == sid) {
+        found = true;
+        continue;
+      }
+      kept.Push(p);
+    }
+    (*t)["players"] = std::move(kept);
+  }
+  if (const Json* specs = Arr(*config, "spectators")) {
+    Json kept = Json::Array();
+    for (const auto& s : specs->Items()) {
+      if (s.AsString() == sid) {
+        found = true;
+        continue;
+      }
+      kept.Push(s);
+    }
+    (*config)["spectators"] = std::move(kept);
+  }
+  return found;
+}
+
+}  // namespace
+
+bool ValidateAssign(const Json& payload, std::string* err) {
+  auto fail = [&](const std::string& why) {
+    if (err) *err = why;
+    return false;
+  };
+  const std::string mid = Str(payload, "match_id");
+  if (mid.empty() || mid.size() > 64) return fail("match_id must be 1..64 bytes");
+  for (unsigned char c : mid) {
+    if (!(std::isalnum(c) || c == '_' || c == '-' || c == '.' || c == ':')) return fail("match_id has a bad character");
+  }
+  if (!IsInt(payload.Find("epoch")) || payload.Find("epoch")->AsInt() < 1) return fail("epoch must be an integer >= 1");
+  const Json* cfg = Obj(payload, "config");
+  if (!cfg) return fail("config must be an object");
+  const long long numMaps = Int(*cfg, "num_maps", 0);
+  if (numMaps < 1 || numMaps > 9) return fail("num_maps must be 1..9");
+  const Json* maps = Arr(*cfg, "maps");
+  if (!maps || maps->Items().empty() || maps->Items().size() > 9) return fail("maps must list 1..9 maps");
+  if (static_cast<long long>(maps->Items().size()) < numMaps) return fail("fewer maps than num_maps");
+  for (const auto& m : maps->Items()) {
+    const std::string name = Str(m, "name");
+    const std::string ws = Str(m, "workshop_id");
+    if (!SafeMapName(name)) return fail("bad map name \"" + name + "\"");
+    if (!ws.empty() && !SafeWorkshopId(ws)) return fail("bad workshop_id");
+    const std::string sides = Str(m, "sides", "knife");
+    if (sides != "team1_ct" && sides != "team2_ct" && sides != "knife") return fail("bad sides \"" + sides + "\"");
+  }
+  if (!ValidTeam(Obj(*cfg, "team1"), "team1", err)) return false;
+  if (!ValidTeam(Obj(*cfg, "team2"), "team2", err)) return false;
+  for (const char* list : {"spectators", "admins"}) {
+    if (const Json* a = cfg->Find(list)) {
+      if (a->type() != Json::Type::Array) return fail(std::string(list) + " must be an array");
+      for (const auto& s : a->Items()) {
+        if (!ValidSteam(s)) return fail(std::string(list) + ": bad steamid64");
+      }
+    }
+  }
+  const Json* pw = cfg->Find("password");
+  if (!pw || pw->type() != Json::Type::String) return fail("password must be a string");
+  if (!ValidPassword(pw->AsString())) return fail("password has characters that cannot go into sv_password");
+  if (const Json* r = cfg->Find("rules"); r && r->type() != Json::Type::Object) return fail("rules must be an object");
+  if (const Json* c = cfg->Find("cvars"); c && c->type() != Json::Type::Object) return fail("cvars must be an object");
+  return true;
+}
+
+unsigned long long NumericMatchId(const std::string& matchId) {
+  if (IsDigits(matchId, 15)) {
+    const unsigned long long v = std::strtoull(matchId.c_str(), nullptr, 10);
+    if (v != 0) return v;
+  }
+  uint64_t h = 1469598103934665603ull;
+  for (unsigned char c : matchId) {
+    h ^= c;
+    h *= 1099511628211ull;
+  }
+  h &= (1ull << 52) - 1;  // exact in a double (the MAT parser reads numbers as doubles)
+  return h ? h : 1;
+}
+
+Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vector<std::string>* dropped) {
+  Json cfg = Json::Object();
+  cfg["matchid"] = static_cast<long long>(NumericMatchId(matchId));
+  cfg["num_maps"] = Int(config, "num_maps", 1);
+  Json maplist = Json::Array();
+  Json sides = Json::Array();
+  if (const Json* maps = Arr(config, "maps")) {
+    for (const auto& m : maps->Items()) {
+      maplist.Push(Str(m, "name"));
+      sides.Push(Str(m, "sides", "knife"));
+    }
+  }
+  cfg["maplist"] = std::move(maplist);
+  cfg["map_sides"] = std::move(sides);
+
+  Json spectators = Json::Object();
+  Json specPlayers = Json::Object();
+  auto team = [&](const char* key) {
+    Json t = Json::Object();
+    const Json* src = Obj(config, key);
+    if (!src) return t;
+    t["name"] = Str(*src, "name");
+    if (!Str(*src, "tag").empty()) t["tag"] = Str(*src, "tag");
+    Json players = Json::Object();
+    if (const Json* ps = Arr(*src, "players")) {
+      for (const auto& p : ps->Items()) {
+        const std::string sid = Str(p, "steamid64");
+        // Coaches may join and watch but are not ready-gated players: whitelisted as spectators.
+        if (Str(p, "role", "player") == "coach") specPlayers[sid] = Str(p, "name");
+        else players[sid] = Str(p, "name");
+      }
+    }
+    t["players"] = std::move(players);
+    if (!Str(*src, "captain").empty()) t["captain_steamid64"] = Str(*src, "captain");
+    return t;
+  };
+  cfg["team1"] = team("team1");
+  cfg["team2"] = team("team2");
+  if (const Json* specs = Arr(config, "spectators")) {
+    for (const auto& s : specs->Items()) {
+      if (!specPlayers.Find(s.AsString())) specPlayers[s.AsString()] = "";
+    }
+  }
+  spectators["players"] = std::move(specPlayers);
+  cfg["spectators"] = std::move(spectators);
+  Json admins = Json::Array();
+  if (const Json* a = Arr(config, "admins")) {
+    for (const auto& s : a->Items()) admins.Push(s.AsString());
+  }
+  cfg["admins"] = std::move(admins);
+
+  // rules (§7.1) -> the MAT metadata fields.
+  const Json empty = Json::Object();
+  const Json* rules = Obj(config, "rules");
+  const Json& r = rules ? *rules : empty;
+  const long long maxRounds = Int(r, "max_rounds", 24);
+  cfg["maxRounds"] = maxRounds;
+  const Json* ot = Obj(r, "overtime");
+  const bool otOn = ot ? Bool(*ot, "enabled", true) : true;
+  const long long otHalf = ot ? Int(*ot, "rounds_per_half", 3) : 3;
+  cfg["overtimeMode"] = otOn ? "enabled" : "disabled";
+  cfg["overtimeSegments"] = otHalf;
+  if (ot && Int(*ot, "max_overtimes", -1) >= 0) cfg["maxOvertimes"] = Int(*ot, "max_overtimes", -1);
+  if (const Json* tb = Obj(r, "tiebreak")) {
+    cfg["damageTiebreak"] = Bool(*tb, "damage", false);
+    cfg["damageTiebreakSuddenDeath"] = Bool(*tb, "sudden_death_on_tie", true);
+  }
+  if (const Json* k = Obj(r, "knife")) cfg["knifeDecisionSeconds"] = Int(*k, "side_pick_seconds", 60);
+  cfg["clinch_series"] = Bool(r, "clinch_series", true);
+
+  Json cvars = Json::Object();
+  cvars["mp_maxrounds"] = std::to_string(maxRounds);
+  cvars["mp_overtime_enable"] = otOn ? "1" : "0";
+  cvars["mp_overtime_maxrounds"] = std::to_string(otHalf * 2);
+  if (const Json* c = Obj(config, "cvars")) {
+    for (const auto& kv : c->Members()) {
+      const std::string& k = kv.first;
+      const bool engine = k.rfind("mp_", 0) == 0 || k.rfind("sv_", 0) == 0 || k.rfind("tv_", 0) == 0 ||
+                          k.rfind("bot_", 0) == 0;
+      bool safeName = !k.empty() && k.size() <= 64;
+      for (unsigned char ch : k) {
+        if (!(std::islower(ch) || std::isdigit(ch) || ch == '_')) safeName = false;
+      }
+      std::string v;
+      if (kv.second.type() == Json::Type::String) v = kv.second.AsString();
+      else if (kv.second.type() == Json::Type::Int) v = std::to_string(kv.second.AsInt());
+      else if (kv.second.type() == Json::Type::Double) v = kv.second.Dump();
+      else if (kv.second.type() == Json::Type::Bool) v = kv.second.AsBool() ? "1" : "0";
+      bool safeValue = v.size() <= 128;
+      for (unsigned char ch : v) {
+        if (ch < 0x20 || ch == ';' || ch == '"') safeValue = false;
+      }
+      if (!engine || !safeName || !safeValue || k == "sv_password" || k == "rcon_password" || k == "sv_cheats") {
+        if (dropped) dropped->push_back(k);
+        continue;
+      }
+      cvars[k] = v;
+    }
+  }
+  cfg["cvars"] = std::move(cvars);
+
+  Json wrapper = Json::Object();
+  wrapper["slug"] = matchId;
+  wrapper["config"] = std::move(cfg);
+  return wrapper;
+}
+
+bool ApplyUpdateOps(Json* config, const Json& ops, std::string* err, bool* passwordChanged) {
+  auto fail = [&](const std::string& why) {
+    if (err) *err = why;
+    return false;
+  };
+  if (!config || !config->IsObject()) return fail("no config");
+  if (ops.type() != Json::Type::Array || ops.Items().empty()) return fail("ops must be a non-empty array");
+  Json c = *config;
+  bool pw = false;
+  for (const auto& op : ops.Items()) {
+    const std::string kind = Str(op, "op");
+    if (kind == "add_player") {
+      const Json* sid = op.Find("steamid64");
+      if (!sid || !ValidSteam(*sid)) return fail("add_player: bad steamid64");
+      const std::string team = Str(op, "team");
+      const std::string role = Str(op, "role", "player");
+      if (role != "player" && role != "sub" && role != "coach") return fail("add_player: bad role");
+      RemoveEverywhere(&c, sid->AsString());
+      if (team == "spectator") {
+        Json specs = c.Find("spectators") ? *c.Find("spectators") : Json::Array();
+        specs.Push(sid->AsString());
+        c["spectators"] = std::move(specs);
+      } else if (team == "team1" || team == "team2") {
+        Json& t = c[team];
+        Json players = t.Find("players") ? *t.Find("players") : Json::Array();
+        Json p = Json::Object();
+        p["steamid64"] = sid->AsString();
+        p["name"] = Str(op, "name");
+        p["role"] = role;
+        players.Push(std::move(p));
+        t["players"] = std::move(players);
+      } else {
+        return fail("add_player: team must be team1, team2 or spectator");
+      }
+    } else if (kind == "remove_player") {
+      const Json* sid = op.Find("steamid64");
+      if (!sid || !ValidSteam(*sid)) return fail("remove_player: bad steamid64");
+      if (!RemoveEverywhere(&c, sid->AsString())) return fail("remove_player: " + sid->AsString() + " is not in the match");
+    } else if (kind == "rename_team") {
+      const std::string team = Str(op, "team");
+      const std::string name = Str(op, "name");
+      if (team != "team1" && team != "team2") return fail("rename_team: team must be team1 or team2");
+      if (name.empty() || name.size() > 64) return fail("rename_team: name must be 1..64 bytes");
+      c[team]["name"] = name;
+    } else if (kind == "set_password") {
+      const Json* p = op.Find("password");
+      if (!p || p->type() != Json::Type::String || !ValidPassword(p->AsString())) return fail("set_password: bad password");
+      c["password"] = p->AsString();
+      pw = true;
+    } else if (kind == "set_rules") {
+      const Json* r = Obj(op, "rules");
+      if (!r) return fail("set_rules: rules must be an object");
+      const Json* cur = c.Find("rules");
+      c["rules"] = MergePatchApply(cur ? *cur : Json::Object(), *r);
+    } else {
+      return fail("unknown op \"" + kind + "\"");
+    }
+  }
+  *config = std::move(c);
+  if (passwordChanged) *passwordChanged = pw;
+  return true;
+}
+
+bool InAssignedMatch(const Json& config, uint64_t steamid64) {
+  if (!steamid64) return false;
+  if (!TeamOf(config, steamid64).empty()) return true;
+  if (const Json* a = Arr(config, "admins")) {
+    const std::string sid = std::to_string(steamid64);
+    for (const auto& s : a->Items()) {
+      if (s.AsString() == sid) return true;
+    }
+  }
+  return false;
+}
+
+std::string TeamOf(const Json& config, uint64_t steamid64) {
+  const std::string sid = std::to_string(steamid64);
+  for (const char* team : {"team1", "team2"}) {
+    const Json* t = Obj(config, team);
+    const Json* ps = t ? Arr(*t, "players") : nullptr;
+    if (!ps) continue;
+    for (const auto& p : ps->Items()) {
+      if (Str(p, "steamid64") == sid) return Str(p, "role", "player") == "coach" ? "spectator" : team;
+    }
+  }
+  if (const Json* s = Arr(config, "spectators")) {
+    for (const auto& e : s->Items()) {
+      if (e.AsString() == sid) return "spectator";
+    }
+  }
+  return {};
+}
+
+// ---------------------------------------------------------------------------- codecs
+
+namespace {
+
+constexpr uint32_t kK[64] = {
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2};
+
+inline uint32_t Rotr(uint32_t x, int n) { return (x >> n) | (x << (32 - n)); }
+
+}  // namespace
+
+std::string Sha256Hex(const std::string& data) {
+  uint32_t h[8] = {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
+  std::string msg = data;
+  const uint64_t bits = static_cast<uint64_t>(data.size()) * 8;
+  msg.push_back(static_cast<char>(0x80));
+  while (msg.size() % 64 != 56) msg.push_back('\0');
+  for (int i = 7; i >= 0; --i) msg.push_back(static_cast<char>((bits >> (i * 8)) & 0xff));
+  for (size_t off = 0; off < msg.size(); off += 64) {
+    uint32_t w[64];
+    for (int i = 0; i < 16; ++i) {
+      const auto* p = reinterpret_cast<const unsigned char*>(msg.data() + off + static_cast<size_t>(i) * 4);
+      w[i] = (uint32_t{p[0]} << 24) | (uint32_t{p[1]} << 16) | (uint32_t{p[2]} << 8) | uint32_t{p[3]};
+    }
+    for (int i = 16; i < 64; ++i) {
+      const uint32_t s0 = Rotr(w[i - 15], 7) ^ Rotr(w[i - 15], 18) ^ (w[i - 15] >> 3);
+      const uint32_t s1 = Rotr(w[i - 2], 17) ^ Rotr(w[i - 2], 19) ^ (w[i - 2] >> 10);
+      w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+    }
+    uint32_t a = h[0], b = h[1], c = h[2], d = h[3], e = h[4], f = h[5], g = h[6], hh = h[7];
+    for (int i = 0; i < 64; ++i) {
+      const uint32_t S1 = Rotr(e, 6) ^ Rotr(e, 11) ^ Rotr(e, 25);
+      const uint32_t ch = (e & f) ^ (~e & g);
+      const uint32_t t1 = hh + S1 + ch + kK[i] + w[i];
+      const uint32_t S0 = Rotr(a, 2) ^ Rotr(a, 13) ^ Rotr(a, 22);
+      const uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
+      const uint32_t t2 = S0 + maj;
+      hh = g;
+      g = f;
+      f = e;
+      e = d + t1;
+      d = c;
+      c = b;
+      b = a;
+      a = t1 + t2;
+    }
+    h[0] += a;
+    h[1] += b;
+    h[2] += c;
+    h[3] += d;
+    h[4] += e;
+    h[5] += f;
+    h[6] += g;
+    h[7] += hh;
+  }
+  static const char* kHex = "0123456789abcdef";
+  std::string out;
+  out.reserve(64);
+  for (uint32_t v : h) {
+    for (int i = 28; i >= 0; i -= 4) out.push_back(kHex[(v >> i) & 0xf]);
+  }
+  return out;
+}
+
+namespace {
+const char kB64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+}
+
+std::string Base64Encode(const std::string& data) {
+  std::string out;
+  out.reserve((data.size() + 2) / 3 * 4);
+  size_t i = 0;
+  const auto* d = reinterpret_cast<const unsigned char*>(data.data());
+  for (; i + 2 < data.size(); i += 3) {
+    const uint32_t v = (uint32_t{d[i]} << 16) | (uint32_t{d[i + 1]} << 8) | d[i + 2];
+    out.push_back(kB64[(v >> 18) & 63]);
+    out.push_back(kB64[(v >> 12) & 63]);
+    out.push_back(kB64[(v >> 6) & 63]);
+    out.push_back(kB64[v & 63]);
+  }
+  if (i < data.size()) {
+    uint32_t v = uint32_t{d[i]} << 16;
+    if (i + 1 < data.size()) v |= uint32_t{d[i + 1]} << 8;
+    out.push_back(kB64[(v >> 18) & 63]);
+    out.push_back(kB64[(v >> 12) & 63]);
+    out.push_back(i + 1 < data.size() ? kB64[(v >> 6) & 63] : '=');
+    out.push_back('=');
+  }
+  return out;
+}
+
+bool Base64Decode(const std::string& text, std::string* out) {
+  if (!out) return false;
+  out->clear();
+  int val = 0, bits = -8;
+  size_t pad = 0;
+  for (unsigned char c : text) {
+    if (c == '\n' || c == '\r') continue;
+    if (c == '=') {
+      ++pad;
+      continue;
+    }
+    if (pad) return false;  // data after padding
+    const char* p = std::strchr(kB64, c);
+    if (!p || c == '\0') return false;
+    val = (val << 6) | static_cast<int>(p - kB64);
+    bits += 6;
+    if (bits >= 0) {
+      out->push_back(static_cast<char>((val >> bits) & 0xff));
+      bits -= 8;
+    }
+    val &= 0xffff;
+  }
+  return pad <= 2;
+}
+
+// ---------------------------------------------------------------------------- validators
+
+std::string SanitizeSay(const std::string& text) {
+  std::string s;
+  for (unsigned char c : text) {
+    if (c < 0x20 || c == 0x7f) continue;
+    s.push_back(static_cast<char>(c));
+  }
+  if (s.size() > 190) {
+    size_t cut = 190;
+    while (cut > 0 && (static_cast<unsigned char>(s[cut]) & 0xC0) == 0x80) --cut;  // UTF-8 boundary
+    s.resize(cut);
+  }
+  return s;
+}
+
+bool ValidateExec(const std::string& command, std::string* err) {
+  auto fail = [&](const std::string& why) {
+    if (err) *err = why;
+    return false;
+  };
+  if (command.empty()) return fail("empty command");
+  if (command.size() > 512) return fail("longer than 512 bytes");
+  for (unsigned char c : command) {
+    if (c == '\n' || c == '\r' || c == '\0') return fail("more than one line");
+  }
+  // Every `;`-separated part (the console splits there, quotes or not, for this check).
+  size_t start = 0;
+  while (start <= command.size()) {
+    size_t end = command.find(';', start);
+    if (end == std::string::npos) end = command.size();
+    std::string part = command.substr(start, end - start);
+    std::string l;
+    for (unsigned char c : part) l.push_back(static_cast<char>(std::tolower(c)));
+    const size_t b = l.find_first_not_of(" \t\"");
+    l = b == std::string::npos ? std::string() : l.substr(b);
+    auto startsWord = [&](const char* w) {
+      const size_t n = std::strlen(w);
+      return l.compare(0, n, w) == 0 && (l.size() == n || l[n] == ' ' || l[n] == '\t' || l[n] == '"');
+    };
+    if (startsWord("fleet") || (startsWord("ru") && l.find("fleet") != std::string::npos) ||
+        l.rfind("ru_fleet", 0) == 0) {
+      return fail("the fleet link's own commands are not allowed over exec");
+    }
+    start = end + 1;
+  }
+  return true;
+}
+
+bool ValidPassword(const std::string& password) {
+  if (password.size() > 64) return false;
+  for (unsigned char c : password) {
+    if (c <= 0x20 || c >= 0x7f || c == '"' || c == ';' || c == '\\' || c == '\'') return false;
+  }
+  return true;
+}
+
+bool SafeMapName(const std::string& name) {
+  if (name.empty() || name.size() > 128) return false;
+  for (unsigned char c : name) {
+    if (!(std::isalnum(c) || c == '_' || c == '/' || c == '.' || c == '-')) return false;
+  }
+  return name.find("..") == std::string::npos;
+}
+
+bool SafeWorkshopId(const std::string& id) { return IsDigits(id, 20); }
+
+int BackupRoundFromName(const std::string& fileName) {
+  const size_t p = fileName.rfind("round");
+  if (p == std::string::npos) return -1;
+  size_t i = p + 5;
+  if (i >= fileName.size() || !std::isdigit(static_cast<unsigned char>(fileName[i]))) return -1;
+  int n = 0;
+  while (i < fileName.size() && std::isdigit(static_cast<unsigned char>(fileName[i])) && n < 100000) {
+    n = n * 10 + (fileName[i] - '0');
+    ++i;
+  }
+  return n;
+}
+
+bool SafeBackupFileName(const std::string& name) {
+  if (name.size() < 5 || name.size() > 128) return false;
+  if (name.compare(name.size() - 4, 4, ".txt") != 0) return false;
+  if (name[0] == '.') return false;
+  for (unsigned char c : name) {
+    if (!(std::isalnum(c) || c == '_' || c == '-' || c == '.')) return false;
+  }
+  return true;
+}
+
+}  // namespace readyup::fleetstate

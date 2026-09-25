@@ -116,7 +116,8 @@ bool IsEphemeralType(std::string_view t) {
 
 bool IsCriticalType(std::string_view t) {
   return t == "event.round_end" || t == "event.backup" || t == "event.map_result" || t == "event.series_end" ||
-         t == "event.demo" || t == "cmd.result" || t == "skins.stattrak" || t == "auth.rotated";
+         t == "event.demo" || t == "cmd.result" || t == "skins.stattrak" || t == "auth.rotated" ||
+         t == "event.rounds_voided" || t == "event.match_restored" || t == "event.forfeit";
 }
 
 bool IsValidType(std::string_view t) {

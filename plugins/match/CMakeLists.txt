@@ -14,6 +14,8 @@ set(MATCH_SOURCES
   readyup/db_writer.cpp
   readyup/demo_naming.cpp
   readyup/demo_recorder.cpp
+  readyup/fleet_bridge.cpp
+  readyup/fleet_state.cpp
   readyup/game_timers.cpp
   readyup/host.cpp
   readyup/knife_tracker.cpp
@@ -27,6 +29,7 @@ set(MATCH_SOURCES
   readyup/match_plugin.cpp
   readyup/match_recovery.cpp
   readyup/match_router.cpp
+  readyup/match_signals.cpp
   readyup/match_state.cpp
   readyup/match_stats.cpp
   readyup/match_status.cpp
@@ -95,3 +98,14 @@ target_compile_options(match_host_test PRIVATE -Wall -Wextra)
 target_link_libraries(match_host_test PRIVATE dl pthread)
 add_test(NAME match_host COMMAND match_host_test $<TARGET_FILE:readyup_plugin_match>)
 set_tests_properties(match_host PROPERTIES TIMEOUT 120)
+
+# The engine-free half of the fleet match link (readyup/fleet_state.h: merge patch + live_rev,
+# epoch fence, config_rev CAS, match.assign -> MAT config through the real parser, update ops,
+# sha256 / base64, validators) and the stats rewind of round restores (ctest `match_fleet_state`).
+add_executable(match_fleet_state_test tests/fleet_state_test.cpp readyup/fleet_state.cpp readyup/match_stats.cpp
+  readyup/match_config_parser.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/steamid.cpp)
+target_include_directories(match_fleet_state_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs
+  ${CMAKE_SOURCE_DIR}/core/include)
+target_compile_options(match_fleet_state_test PRIVATE -Wall -Wextra)
+add_test(NAME match_fleet_state COMMAND match_fleet_state_test)

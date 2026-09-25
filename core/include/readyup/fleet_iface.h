@@ -126,6 +126,19 @@ typedef struct ru_fleet_v1 {
   int (*publish_state)(const char* state_json, const char* availability);
   /* Game thread. Adds a capability (FLEET.md §14.2, e.g. "match.v1") to the next hello. */
   int (*add_capability)(const char* capability);
+  /* ---- appended (fleet step 3: match state and control) ---- */
+  /*
+   * Any thread. send_event plus the envelope `ref` (the id of the message this answers, e.g. the
+   * cmd a cmd.result acks; NULL or "" = none).
+   */
+  int (*send_reply)(const char* type, const char* payload_json, int64_t epoch, uint32_t flags, const char* ref);
+  /*
+   * Any thread. Sends state.snapshot {reason, state, availability, config_rev, admins_rev} built
+   * from the last publish_state, plus the members of `extra_json` (an object, e.g. {"map_stats":..};
+   * NULL = none). Ephemeral: 1 = queued, 0 = not online (nothing is spooled) or standalone.
+   * The envelope epoch and config_rev are taken from the published state.
+   */
+  int (*send_snapshot)(const char* reason, const char* extra_json);
   /* v1.x: members are appended here. */
 } ru_fleet_v1;
 

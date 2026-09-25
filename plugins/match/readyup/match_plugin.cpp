@@ -16,6 +16,7 @@
 #include "readyup/db_config.h"
 #include "readyup/demo_recorder.h"
 #include "readyup/engine.h"
+#include "readyup/fleet_bridge.h"
 #include "readyup/game_timers.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
@@ -156,6 +157,8 @@ void OnTick(void*, const ru_tick_info* t) {
       Tick();
       ScrimTick();  // scrim flow + `state:` log; outside Tick() (which holds the modes mutex)
     }
+    // Fleet link (no-op without fleet.so): platform handlers, MatchState patches, events.
+    fleet_bridge::Tick(t->now);
     if (FeatureEnabled(Feature::WelcomeHtml)) WelcomeTick();
     if (FeatureEnabled(Feature::ReadyHud)) ReadyHudTick();  // skips players whose welcome card is up
     PrefixTick(t->now);
@@ -174,11 +177,15 @@ void OnEvent(void*, const ru_event* e) {
       }
     }
     if (e->steamid64 && e->name && *e->name) ObservePlayer(e->steamid64, e->name);
+    fleet_bridge::OnCoreEvent(e);
   });
 }
 
 void OnLogLine(void*, const char* line) {
-  Guard("log line", [&] { MatchObserveLogLine(line ? line : ""); });
+  Guard("log line", [&] {
+    MatchObserveLogLine(line ? line : "");
+    fleet_bridge::OnLogLine(line);
+  });
 }
 
 int AdminProvider(void*, uint64_t steamid64) {
@@ -335,6 +342,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "match", RU_SELFTEST_IFACE_VERSION,
                            const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
     MatchStatusInstall();
+    fleet_bridge::Install(api);
 
     // Players already connected (plugin loaded mid-map / reloaded).
     for (const auto& h : ListHumans()) ObservePlayer(h.steamid64, h.name);
@@ -369,6 +377,7 @@ READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
     if (g_api) g_api->set_round_termination_suppressed(g_api->self, 0);
     workers::Shutdown();  // webhook sender, DB writer, admin refresh, demo uploads, ...
     ReloadStateSave();
+    fleet_bridge::Uninstall();  // fleet.so cannot see this plugin unload (fleet_iface.h)
     ru_logf(g_api, RU_LOG_INFO, "unloading (mode=%s)", GetModeString());
   } catch (...) {
   }

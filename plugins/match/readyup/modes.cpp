@@ -9,6 +9,7 @@
 #include "readyup/welcome.h"
 #include "readyup/config.h"
 #include "readyup/match_events.h"
+#include "readyup/match_signals.h"
 #include "readyup/game_timers.h"
 #include "readyup/knife_tracker.h"
 #include "readyup/logging.h"
@@ -450,6 +451,14 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
   const char* sideStr = (*winnerWantsCt) ? "ct" : "t";
   const std::string by = !pickerName.empty() ? pickerName : (pickerSteamid64 ? std::to_string(pickerSteamid64) : "server");
   WebhookEmitSidePicked(mapNumber, mapName.c_str(), sideStr, by.c_str(), teamStr);
+  if (signals::Enabled()) {
+    status::Json d = status::Json::Object();
+    d["team"] = teamStr;
+    d["side"] = sideStr;
+    d["picked_by"] = pickerSteamid64 ? std::to_string(pickerSteamid64)
+                                     : (pickerName == "timeout" ? std::string("timeout") : std::string("console"));
+    signals::Emit("side_picked", std::move(d), -1, mapNumber);
+  }
 
   // Straight to live (everyone readied up before the knife round): live.cfg is
   // the baseline (it undoes knife.cfg), then match cvars, then a clean restart.

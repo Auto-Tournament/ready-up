@@ -490,6 +490,69 @@ static bool HandleWarmupInfiniteAmmoCommand(const std::string& line) {
   return true;
 }
 
+}  // namespace
+
+void ApplyLoadedMatch(const WebhookMatchContext& ctx, const std::string& configJson, const std::string& map1Command) {
+  WebhookStartSenderThread();
+  if (auto prev = WebhookGetMatchContext()) {
+    if (prev->matchid != 0 && prev->matchid != ctx.matchid) {
+      // Best-effort close out previous series when a new match is loaded.
+      WebhookEmitSeriesEnd(/*team1_series_score=*/0, /*team2_series_score=*/0, /*winner=*/"none", /*time_until_restore=*/0);
+    }
+  }
+  WebhookSetMatchContext(ctx);
+  OnMatchLoaded();
+  WebhookEmitSeriesStart();
+
+  // Persist match config so a rebooted server can restore without MAT re-init.
+  readyup::persisted_match_state::PersistActiveMatchJson(configJson);
+
+  // Human matches generally should not start with CS2 auto-spawned bots.
+  // Some server configs/gamemode cfgs will create fill bots when empty.
+  // Kick any existing bots and set bot_quota=0 as a best-effort mitigation.
+  // (These commands are safe no-ops if bots are disabled.)
+  (void)EnqueueServerCommand("bot_kick");
+  (void)EnqueueServerCommand("bot_quota 0");
+
+  // Enable CS2 round backups for recovery.
+  // Prefix includes matchid and map number to avoid collisions.
+  {
+    const int mapNumber = 1;
+    const std::string prefix =
+        "readyup_backup_" + std::to_string(static_cast<unsigned long long>(ctx.matchid)) +
+        "_map" + std::to_string(mapNumber) + "_";
+    (void)EnqueueServerCommand("mp_backup_round_auto 1");
+    (void)EnqueueServerCommand("mp_backup_restore_load_autopause 1");
+    const std::string cmd = "mp_backup_round_file " + prefix;
+    (void)EnqueueServerCommand(cmd.c_str());
+    readyup::persisted_match_state::PersistBackupPrefix(prefix);
+  }
+
+  // Force-load map 1 when maplist is provided.
+  auto isSafeMapName = [](const std::string& s) -> bool {
+    if (s.empty()) return false;
+    for (unsigned char c : s) {
+      // Allow workshop-like paths and common map chars, but keep injection-safe (no spaces/quotes/;).
+      if (c == ';' || c == '\n' || c == '\r' || c == '"' || c == '\\' || std::isspace(c) != 0) return false;
+      if (!(std::isalnum(c) != 0 || c == '_' || c == '/' || c == '.' || c == '-')) return false;
+    }
+    return true;
+  };
+
+  if (!map1Command.empty()) {
+    (void)EnqueueServerCommand(map1Command.c_str());
+  } else if (!ctx.maplist.empty()) {
+    const std::string& map1 = ctx.maplist[0];
+    const auto ms = MatchStateGet();
+    if (isSafeMapName(map1) && ms.current_map != map1) {
+      const std::string cmd = "changelevel " + map1;
+      (void)EnqueueServerCommand(cmd.c_str());
+    }
+  }
+}
+
+namespace {
+
 bool LoadMatchFromUrlImpl(const std::string& url) {
   if (url.empty()) return false;
   const auto token = readyup::GetMatchTokenCopy();
@@ -529,60 +592,7 @@ bool LoadMatchFromUrlImpl(const std::string& url) {
         Print("match-load[%llu]: json parse: %s\n", reqId, parseErr.empty() ? "failed" : parseErr.c_str());
       }
     } else {
-      WebhookStartSenderThread();
-      if (auto prev = WebhookGetMatchContext()) {
-        if (prev->matchid != 0 && prev->matchid != ctx->matchid) {
-          // Best-effort close out previous series when a new match is loaded.
-          WebhookEmitSeriesEnd(/*team1_series_score=*/0, /*team2_series_score=*/0, /*winner=*/"none", /*time_until_restore=*/0);
-        }
-      }
-      WebhookSetMatchContext(*ctx);
-      OnMatchLoaded();
-      WebhookEmitSeriesStart();
-
-      // Persist match config so a rebooted server can restore without MAT re-init.
-      readyup::persisted_match_state::PersistActiveMatchJson(r.body);
-
-      // Human matches generally should not start with CS2 auto-spawned bots.
-      // Some server configs/gamemode cfgs will create fill bots when empty.
-      // Kick any existing bots and set bot_quota=0 as a best-effort mitigation.
-      // (These commands are safe no-ops if bots are disabled.)
-      (void)EnqueueServerCommand("bot_kick");
-      (void)EnqueueServerCommand("bot_quota 0");
-
-      // Enable CS2 round backups for recovery.
-      // Prefix includes matchid and map number to avoid collisions.
-      {
-        const int mapNumber = 1;
-        const std::string prefix =
-            "readyup_backup_" + std::to_string(static_cast<unsigned long long>(ctx->matchid)) +
-            "_map" + std::to_string(mapNumber) + "_";
-        (void)EnqueueServerCommand("mp_backup_round_auto 1");
-        (void)EnqueueServerCommand("mp_backup_restore_load_autopause 1");
-        const std::string cmd = "mp_backup_round_file " + prefix;
-        (void)EnqueueServerCommand(cmd.c_str());
-        readyup::persisted_match_state::PersistBackupPrefix(prefix);
-      }
-
-      // Force-load map 1 when maplist is provided.
-      auto isSafeMapName = [](const std::string& s) -> bool {
-        if (s.empty()) return false;
-        for (unsigned char c : s) {
-          // Allow workshop-like paths and common map chars, but keep injection-safe (no spaces/quotes/;).
-          if (c == ';' || c == '\n' || c == '\r' || c == '"' || c == '\\' || std::isspace(c) != 0) return false;
-          if (!(std::isalnum(c) != 0 || c == '_' || c == '/' || c == '.' || c == '-')) return false;
-        }
-        return true;
-      };
-
-      if (!ctx->maplist.empty()) {
-        const std::string& map1 = ctx->maplist[0];
-        const auto ms = MatchStateGet();
-        if (isSafeMapName(map1) && ms.current_map != map1) {
-          const std::string cmd = "changelevel " + map1;
-          (void)EnqueueServerCommand(cmd.c_str());
-        }
-      }
+      ApplyLoadedMatch(*ctx, r.body);
 
       // Print a concise parsed summary (the raw JSON is already printed above).
       Print("match-load[%llu]: parsed: teams=\"%s\" vs \"%s\" roster=%zu map1=%s maxRounds=%d ot=%s seg=%d maxOT=%d dmgTiebreak=%s suddenDeath=%s\n",

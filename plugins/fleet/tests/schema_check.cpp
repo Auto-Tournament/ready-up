@@ -204,18 +204,34 @@ bool Set::Check(const Value& v, const Value& s, const std::string& base, const s
       }
     }
     if (const Value* m = s.Get("maxProperties"); m && v.o.size() > static_cast<size_t>(m->AsInt())) fail("too many properties");
+    if (const Value* pn = s.Get("propertyNames")) {
+      for (const auto& kv : v.o) Check(Value::Str(kv.first), *pn, base, path + "{" + kv.first + "}", errs, depth + 1);
+    }
   }
   if (v.IsArr()) {
     if (const Value* items = s.Get("items")) {
       for (size_t i = 0; i < v.a.size(); ++i) Check(v.a[i], *items, base, path + "[" + std::to_string(i) + "]", errs, depth + 1);
     }
     if (const Value* m = s.Get("maxItems"); m && v.a.size() > static_cast<size_t>(m->AsInt())) fail("too many items");
+    if (const Value* m = s.Get("minItems"); m && v.a.size() < static_cast<size_t>(m->AsInt())) fail("too few items");
     if (const Value* u = s.Get("uniqueItems"); u && u->AsBool()) {
       std::set<std::string> seen;
       for (const auto& x : v.a) {
         if (!seen.insert(fleet::json::Dump(x)).second) fail("duplicate items");
       }
     }
+  }
+  if (const Value* any = s.Get("anyOf")) {
+    bool ok = false;
+    for (const auto& sub : any->a) {
+      std::vector<std::string> tmp;
+      Check(v, sub, base, path, &tmp, depth + 1);
+      ok = ok || tmp.empty();
+    }
+    if (!ok) fail("anyOf matched no branch");
+  }
+  if (const Value* all = s.Get("allOf")) {
+    for (const auto& sub : all->a) Check(v, sub, base, path, errs, depth + 1);
   }
   if (const Value* one = s.Get("oneOf")) {
     int matches = 0;

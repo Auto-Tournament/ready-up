@@ -10,6 +10,7 @@
 #include "readyup/engine.h"
 #include "readyup/logging.h"
 #include "readyup/match_console.h"
+#include "readyup/match_signals.h"
 #include "readyup/match_state.h"
 #include "readyup/modes.h"
 #include "readyup/pause_state.h"
@@ -269,7 +270,8 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
       SendToChat("Ready Up: pause unavailable yet.");
       return;
     }
-    PauseStateOnPaused();
+    PauseStateOnPaused(first == ".tech" ? "technical" : "tactical", std::to_string(steamid64),
+                       ctx->roster_team[steamid64]);
     const auto ms = MatchStateGet();
     WebhookEmitMatchPaused(ms.map_number, WebhookPlayer{steamid64, playerName, ctx->roster_team[steamid64]},
                            /*is_tactical=*/false, /*is_admin=*/false, /*pause_time=*/0);
@@ -330,6 +332,13 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     WebhookEnqueueEvent(std::string("{") + "\"event\":\"player_gg\"," + "\"matchid\":" + std::to_string(ctx->matchid) +
                         "," + "\"player\":{" + "\"steamid\":\"" + std::to_string(steamid64) + "\"," + "\"name\":\"" +
                         playerName + "\"," + "\"team\":\"" + teamStr(ctx->roster_team[steamid64]) + "\"" + "}" + "}");
+    if (signals::Enabled()) {
+      status::Json d = status::Json::Object();
+      d["team"] = teamStr(ctx->roster_team[steamid64]);
+      d["reason"] = "gg";
+      d["steamid64"] = std::to_string(steamid64);
+      signals::Emit("gg", std::move(d));
+    }
     SendToChat("Ready Up: gg noted.");
     return;
   }
@@ -353,6 +362,13 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
                         "\"team\":\"" + ts + "\"," + "\"forfeit_by\":{" + "\"steamid\":\"" +
                         std::to_string(steamid64) + "\"," + "\"name\":\"" + playerName + "\"," + "\"team\":\"" + ts +
                         "\"" + "}" + "}");
+    if (signals::Enabled()) {
+      status::Json d = status::Json::Object();
+      d["team"] = ts;
+      d["reason"] = "captain_forfeit";
+      d["steamid64"] = std::to_string(steamid64);
+      signals::Emit("forfeit", std::move(d));
+    }
     SendToChat("Ready Up: forfeit sent.");
     return;
   }
@@ -504,7 +520,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       Reply(steamid64, "Ready Up: pause unavailable yet.");
       return;
     }
-    PauseStateOnPaused();
+    PauseStateOnPaused("admin", steamid64 == 0 ? std::string("Console") : std::to_string(steamid64));
     const auto ms = MatchStateGet();
     WebhookTeam team = WebhookTeam::Unknown;
     if (steamid64 != 0) {
