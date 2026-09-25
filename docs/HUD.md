@@ -14,6 +14,24 @@ event (`loc_token` = HTML). Tested in game on CS2 1.41.8.3 with `.ru hud test 1-
 - An `<img>` in a panel that is resent every frame flashes, because the image is
   reloaded on each send. Only use images in one-off sends.
 
+## One panel per player
+
+CS2 has a single center panel per client, so the core decides who owns it (plugin API 1.6,
+`center_html_to_slot_prio` / `center_html_all_prio`). Each send carries a priority:
+`RU_HTML_PRIO_ALERT` 90 (the workshop download bar), `RU_HTML_PRIO_NOTICE` 70 (the welcome card,
+`.ru hud test`, `.ru hud anim`), `RU_HTML_PRIO_HUD` 50 (the ready HUD; the old calls),
+`RU_HTML_PRIO_INFO` 10. While a plugin's panel is up (its `seconds` have not run out), another
+plugin's lower send is refused (-1); it goes through once that panel expires, so a HUD that
+re-sends comes back by itself. Within the match plugin the welcome card holds the ready HUD back
+itself (by SteamID or slot).
+
+## Measuring the redraw rate
+
+`.ru hud anim [hz] [seconds]` (admin, to you only) redraws an ease-out progress bar with a frame
+counter `hz` times a second (1-64, default 64) for `seconds` (1-30, default 10). Record the screen
+and count the distinct frame numbers in one second: that is how fast the client really redraws
+the panel, and the ceiling for animations.
+
 ## What renders
 
 | Works | Does not work |

@@ -46,5 +46,7 @@ void WelcomeTick();
 // Thread-safe: true while a welcome screen is being shown to this player (used to
 // keep the warmup banner from overwriting it).
 bool WelcomeActiveForSteam(uint64_t steamid64);
+// The same, matching the player's slot too (a card queued before the SteamID was known).
+bool WelcomeActiveFor(int slot, uint64_t steamid64);
 
 }  // namespace readyup

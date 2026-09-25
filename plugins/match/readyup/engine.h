@@ -29,8 +29,12 @@ bool ClientPrintAvailable();
 
 // ---- center HTML (ru_api center_html_to_slot) --------------------------------------------------
 
-// Per-client center HTML panel. Game thread only.
-bool PrintCenterHtmlToClientOnly(int slot, const std::string& html, int durationSeconds);
+// Per-client center HTML panel. Game thread only. `priority`: RU_HTML_PRIO_* (plugin_api.h, 1.6):
+// the core refuses a lower panel while another plugin's higher one is up (50 = the HUD level).
+bool PrintCenterHtmlToClientOnly(int slot, const std::string& html, int durationSeconds, int priority = 50);
+// The same with the core's answer: 1 sent, -1 refused (another plugin's higher panel is up; try
+// again later), 0 failed.
+int SendCenterHtml(int slot, const std::string& html, int durationSeconds, int priority = 50);
 
 // ---- server commands (ru_api server_command) ---------------------------------------------------
 

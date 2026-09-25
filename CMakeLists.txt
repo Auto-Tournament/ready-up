@@ -48,6 +48,7 @@ add_library(server_shim SHARED
   core/src/readyup/ru_help_text.cpp
   core/src/readyup/ru_router.cpp
   core/src/readyup/perf_stats.cpp
+  core/src/readyup/center_panel_owner.cpp
   core/src/readyup/steam_ugc.cpp
   core/src/readyup/server_game_clients_hook.cpp
   core/src/readyup/schema.cpp
@@ -343,6 +344,10 @@ add_executable(readyup_perf_stats_test tests/perf_stats_test.cpp core/src/readyu
 target_include_directories(readyup_perf_stats_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
 target_compile_options(readyup_perf_stats_test PRIVATE -Wall -Wextra)
 add_test(NAME perf_stats COMMAND readyup_perf_stats_test)
+# One center panel per player (core/src/readyup/center_panel_owner.h).
+add_executable(readyup_center_panel_owner_test tests/center_panel_owner_test.cpp core/src/readyup/center_panel_owner.cpp)
+target_include_directories(readyup_center_panel_owner_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
+target_compile_options(readyup_center_panel_owner_test PRIVATE -Wall -Wextra)
 
 # `.skins reload` rules (plugins/skins/skins_reload.h).
 add_executable(skins_reload_test plugins/skins/tests/skins_reload_test.cpp)
@@ -355,6 +360,7 @@ target_include_directories(readyup_plugin_state_test PRIVATE ${CMAKE_SOURCE_DIR}
 target_compile_options(readyup_plugin_state_test PRIVATE -Wall -Wextra)
 
 enable_testing()
+add_test(NAME center_panel_owner COMMAND readyup_center_panel_owner_test)
 add_test(NAME skins_reload COMMAND skins_reload_test)
 add_test(NAME plugin_state COMMAND readyup_plugin_state_test)
 add_test(NAME ru_help COMMAND readyup_ru_help_test)
