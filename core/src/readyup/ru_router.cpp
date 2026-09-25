@@ -163,7 +163,7 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
   }
 
   if (cmd == "help") {
-    SendToChat("Ready Up: admins: .ru plugin list|reload <name> | .ru reload | .ru selftest | .ru version");
+    SendToChat("Ready Up: admins: .ru plugin list|reload <name> | .ru reload (cfg) | .ru selftest | .ru version");
     std::string subs;
     for (const auto& s : plugins::PluginRuSubcommands()) subs += (subs.empty() ? "" : " ") + s.substr(0, s.find(' '));
     if (!subs.empty()) SendToChat(("Ready Up: plugins: .ru " + subs).c_str());

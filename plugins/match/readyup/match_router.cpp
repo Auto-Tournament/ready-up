@@ -5,11 +5,13 @@
 #include "readyup/match_router.h"
 
 #include "readyup/admin_check.h"
+#include "readyup/admin_commands.h"
 #include "readyup/admins.h"
 #include "readyup/config.h"
 #include "readyup/engine.h"
 #include "readyup/esports.h"
 #include "readyup/logging.h"
+#include "readyup/map_names.h"
 #include "readyup/match_console.h"
 #include "readyup/match_features.h"
 #include "readyup/match_signals.h"
@@ -80,7 +82,7 @@ const std::vector<std::string>& MatchRuSubcommands() {
   static const std::vector<std::string> k = {
       "admins", "hudtest", "prac", "practice", "idle", "scrim", "state", "status", "mode", "match", "start",
       "pause",  "fp",      "forcepause", "unpause", "up", "fup", "forceunpause", "restart", "end", "recover", "side",
-      "tech",   "tac", "rules"};
+      "tech",   "tac", "rules", "map", "reloadmap", "load"};
   return k;
 }
 
@@ -100,6 +102,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
                      ? "Ready Up: scrim: when everyone on CT/T is READY: 5s countdown, knife round, winners .stay/.switch, live."
                      : "Ready Up: scrim: when everyone on CT/T is READY, a 5s countdown starts and the scrim goes live.");
     }
+    if (IsReadyUpAdmin(steamid64)) SendToChat(("Ready Up admin: " + AdminCommandsChatLine()).c_str());
     return;
   }
 
@@ -550,13 +553,58 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   }
 
   if (cmd == "restart") {
+    // Restart the game (admin_commands.h). The loaded match's warmup restart is `match restart`.
     if (!requireAdmin()) return;
-    if (!WebhookGetMatchContext()) {
-      Reply(steamid64, "Ready Up: no match loaded.");
+    if (!EnqueueServerCommand("mp_restartgame 1")) {
+      Reply(steamid64, "Ready Up: restart unavailable yet.");
       return;
     }
-    (void)RestartMatch();
-    sendAdmin("match restarted (back to warmup).");
+    Print("admin: %s: mp_restartgame 1\n", steamid64 == 0 ? "Console" : playerName.c_str());
+    sendAdmin("game restarting.");
+    return;
+  }
+
+  if (cmd == "map") {
+    if (!requireAdmin()) return;
+    std::string entry, err;
+    if (!ParseMapCommand(std::vector<std::string>(parts.begin() + 2, parts.end()), &entry, &err)) {
+      Reply(steamid64, "Ready Up: " + err);
+      return;
+    }
+    if (!LoadMapEntry(entry)) {
+      Reply(steamid64, "Ready Up: map change unavailable yet.");
+      return;
+    }
+    Print("admin: %s: map %s\n", steamid64 == 0 ? "Console" : playerName.c_str(), entry.c_str());
+    sendAdmin("changing map to " + mapnames::DisplayName(entry) + ".");
+    return;
+  }
+
+  if (cmd == "reloadmap") {
+    if (!requireAdmin()) return;
+    const std::string entry = mapnames::ReloadEntry(MatchStateGet().current_map);
+    if (entry.empty()) {
+      Reply(steamid64, "Ready Up: current map not known yet.");
+      return;
+    }
+    if (!LoadMapEntry(entry)) {
+      Reply(steamid64, "Ready Up: map change unavailable yet.");
+      return;
+    }
+    Print("admin: %s: reloadmap %s\n", steamid64 == 0 ? "Console" : playerName.c_str(), entry.c_str());
+    sendAdmin("reloading " + mapnames::DisplayName(entry) + ".");
+    return;
+  }
+
+  if (cmd == "load") {
+    if (!requireAdmin()) return;
+    std::string url, err;
+    if (!ParseLoadCommand(std::vector<std::string>(parts.begin() + 2, parts.end()), &url, &err)) {
+      Reply(steamid64, "Ready Up: " + err);
+      return;
+    }
+    sendAdmin("loading the match config (see the server console).");
+    (void)LoadMatchFromUrl(url);
     return;
   }
 
@@ -628,11 +676,25 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   }
 
   if (cmd == "match") {
-    if (steamid64 != 0) {
-      SendToChat("Ready Up: ru match load runs from the server console / RCON.");
+    // `match restart`: the loaded match back to its warmup; `match load <url>` = `load`.
+    const std::string sub = parts.size() > 2 ? Lower(parts[2]) : std::string();
+    if (sub == "restart") {
+      if (!requireAdmin()) return;
+      if (!WebhookGetMatchContext()) {
+        Reply(steamid64, "Ready Up: no match loaded.");
+        return;
+      }
+      (void)RestartMatch();
+      sendAdmin("match restarted (back to warmup).");
       return;
     }
-    MatchRuConsole(text);
+    if (sub == "load") {
+      std::string rest = ".ru load";
+      for (size_t i = 3; i < parts.size(); ++i) rest += " " + parts[i];
+      MatchRuCommand(steamid64, playerName, rest);
+      return;
+    }
+    Reply(steamid64, "usage: ru match load <url> | ru match restart");
     return;
   }
 
@@ -656,28 +718,13 @@ void MatchRuConsole(const std::string& line) {
     return;
   }
 
-  if (sub == "match") {
-    if (parts.size() >= 3 && Lower(parts[2]) == "load") {
-      if (parts.size() < 4) {
-        PrintLine("Usage: ru match load <url>");
-        return;
-      }
-      (void)LoadMatchFromUrl(parts[3]);
-      return;
-    }
-    PrintLine("Usage: ru match load <url>");
-    return;
-  }
-
-  if (sub == "start" || sub == "restart" || sub == "end" || sub == "recover") {
+  if (sub == "start" || sub == "end" || sub == "recover") {
     if (!WebhookGetMatchContext()) {
       Print("%s: no match loaded\n", sub.c_str());
       return;
     }
     if (sub == "start") {
       (void)ForceStartMatch();
-    } else if (sub == "restart") {
-      (void)RestartMatch();
     } else if (sub == "end") {
       WebhookEmitSeriesEnd(0, 0, "none", 0);
       WebhookClearMatchContext();
@@ -711,7 +758,8 @@ void MatchRuConsole(const std::string& line) {
     return;
   }
 
-  // idle / practice / prac / scrim / state / status / admins / pause / unpause / hudtest ...:
+  // idle / practice / prac / scrim / state / status / admins / pause / unpause / hudtest / map /
+  // reloadmap / restart / load / match ...:
   // the chat handler with the console as sender (as `ru idle` always did).
   std::string rest = ".ru";
   for (size_t i = 1; i < parts.size(); ++i) rest += " " + parts[i];

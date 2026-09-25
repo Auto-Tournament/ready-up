@@ -43,6 +43,22 @@ platform's list and its rev. `add` and `remove` answer "Admins are managed on th
   - `.ru admins add <steamid64|name_fragment>`
   - `.ru admins remove <steamid64|name_fragment>`
 
+## In-game server controls
+
+Admin-only in chat (`.ru <command>`); the server console / RCON (`ru <command>`) always may. A
+non-admin gets "not authorized" and nothing runs. An admin's `.help` lists them too.
+
+| Command | Does |
+|---|---|
+| `.ru map <name\|workshop id>` | `changelevel <name>`, or `host_workshop_map <id>` for a workshop id (`3084291314`, `ws:<id>`, `workshop/<id>[/name]`) |
+| `.ru reloadmap` | loads the current map again (a workshop map by its id) |
+| `.ru restart` | restarts the game (`mp_restartgame 1`); a loaded match stays loaded |
+| `.ru load <url>` | loads a match config (same as `ru match load <url>`); the URL is visible in chat |
+| `.ru end` | ends the loaded match (`series_end` winner none) and resets the server |
+| `.ru match restart` | the loaded match back to its warmup; everyone readies again (this was `ru restart` before) |
+| `.ru start` | force-starts the loaded match |
+| `.ru reload` | reloads `readyup.cfg` (core) |
+
 Notes:
 - If no admins exist yet, the **first admin must be added from the server console** (or in
   `admins.json`).

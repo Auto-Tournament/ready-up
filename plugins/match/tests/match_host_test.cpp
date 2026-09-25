@@ -225,6 +225,24 @@ static std::string Summary() {
   return std::string(st.summary_json) + (st.state_json ? std::string(" STATE ") + st.state_json : std::string());
 }
 static bool Has(const std::string& hay, const std::string& needle) { return hay.find(needle) != std::string::npos; }
+static bool Sent(const std::string& cmd) {
+  std::lock_guard<std::mutex> lk(g_logMu);
+  for (const auto& c : g_cmds) {
+    if (c == cmd) return true;
+  }
+  return false;
+}
+static bool Chatted(const std::string& needle) {
+  std::lock_guard<std::mutex> lk(g_logMu);
+  for (const auto& c : g_chat) {
+    if (c.find(needle) != std::string::npos) return true;
+  }
+  return false;
+}
+static void ClearCmds() {
+  std::lock_guard<std::mutex> lk(g_logMu);
+  g_cmds.clear();
+}
 
 // One-shot HTTP server for `ru match load`.
 static int ServeOnce(const std::string& body, std::thread* th) {
@@ -331,6 +349,37 @@ int main(int argc, char** argv) {
   rp::Frame(true);
   Check(Logged("warmup roundtime minutes: 7"), "ru_warmup_* survives the reload");
   Check(Logged("no_demo=9"), "series-end kick delay survives the reload");
+
+  std::puts("-- admin commands: map, reloadmap, restart, load (admin-only; the console always)");
+  ClearLog();
+  ClearCmds();
+  for (const char* c : {".ru map de_other", ".ru reloadmap", ".ru restart", ".ru load http://127.0.0.1:1/x"}) {
+    rp::TryDispatchRu(false, 76561198000000001ull, "alice", c, 2);
+  }
+  rp::Frame(true);
+  Check(Chatted("not authorized") && !Sent("changelevel de_other") && !Sent("changelevel de_test") &&
+            !Sent("mp_restartgame 1") && !Logged("match-load["),
+        "non-admin: map / reloadmap / restart / load refused");
+  Check(rp::TryDispatchRu(true, 0, "Console", "ru map 3084291314"), "`ru map` is a match subcommand");
+  rp::TryDispatchRu(true, 0, "Console", "ru map de_x;quit");
+  rp::TryDispatchRu(true, 0, "Console", "ru reloadmap");
+  rp::TryDispatchRu(true, 0, "Console", "ru restart");
+  rp::Frame(true);
+  Check(Sent("host_workshop_map 3084291314"), "console: ru map <workshop id> -> host_workshop_map");
+  Check(Logged("not a map name or workshop id") && !Sent("changelevel de_x;quit"), "console: bad map name refused");
+  Check(Sent("changelevel de_test"), "console: ru reloadmap -> changelevel to the current map");
+  Check(Sent("mp_restartgame 1"), "console: ru restart -> mp_restartgame 1");
+  rp::TryDispatchRu(true, 0, "Console", "ru admins add 76561198000000001");
+  rp::Frame(true);
+  ClearLog();
+  ClearCmds();
+  rp::TryDispatchRu(false, 76561198000000001ull, "alice", ".ru map de_other", 2);
+  rp::TryDispatchChat(76561198000000001ull, "alice", ".help", 2);
+  rp::Frame(true);
+  Check(Sent("changelevel de_other"), "admin: .ru map de_other -> changelevel");
+  Check(Chatted("Ready Up admin: .ru map"), "admin: .help lists the admin commands");
+  rp::TryDispatchRu(true, 0, "Console", "ru admins remove 76561198000000001");
+  rp::Frame(true);
 
   std::puts("-- ru match load, then reload with the match loaded");
   g_players.push_back({3, 3, 76561198000000002ull, 2, false, "bob"});

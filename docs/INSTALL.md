@@ -357,8 +357,10 @@ Ready Up maintains its own lightweight mode state machine and can display a **no
   - `ru mode practice`
 - **Admin match controls (server console / RCON)**:
   - `ru start` (force start live rules regardless of ready)
-  - `ru restart` (restart and return to match warmup)
+  - `ru match restart` (restart and return to match warmup)
   - `ru end` (force end: emits `series_end` with winner=none, clears match context, resets server)
+  - these and the server controls in [ADMINS.md](ADMINS.md#in-game-server-controls) also work
+    in chat as `.ru <command>` for admins
 - **Match ready-up gate (server console / RCON)**:
   - `ru_warmup_enable 0|1` (default `1`). Despite the name this is more than the banner:
     - `1`: a loaded match waits in `match_warmup` until every roster player is ready, then
