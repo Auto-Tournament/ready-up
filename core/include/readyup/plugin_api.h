@@ -379,8 +379,8 @@ typedef struct ru_api {
   /* -- config -- */
 
   /*
-   * Plugin config value: `key = value` from cfg/ReadyUp/<plugin>.cfg (csgo/cfg), then the
-   * `[<plugin>]` section of readyup.cfg. Returns the value length (truncated to len-1 in
+   * Plugin config value: `key = value` from cfg/ReadyUp/<plugin>.cfg (csgo/cfg; top-level keys
+   * or a `[<plugin>]` section), then the `[<plugin>]` section of readyup.cfg. Returns the value length (truncated to len-1 in
    * buf), or -1 if the key is not set.
    */
   int (*config_get)(ru_plugin* self, const char* key, char* buf, uint32_t len);

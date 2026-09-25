@@ -355,6 +355,15 @@ void AddPluginsAndHud(Report& r) {
                               loaded.empty() ? "" : ": ", loaded.c_str());
     r.Check(p.started ? "OK" : "PEND", "plugin host", p.started ? d : d + " (plugins load on the first server frame)");
     for (const auto& f : p.failures) r.Check("FAIL", "plugin load", f);
+    // Lines plugins add through "readyup.selftest.<name>" (core/include/readyup/selftest_iface.h).
+    for (const auto& c : plugins::RunPluginSelftests()) {
+      static const char* const kKnown[] = {"OK", "FAIL", "PEND", "SKIP", "INFO", "WARN"};
+      const char* st = "INFO";
+      for (const char* k : kKnown) {
+        if (c.status == k) st = k;
+      }
+      r.Check(st, c.plugin + ": " + c.name, c.detail);
+    }
   }
 
   r.Section("hud");

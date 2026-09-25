@@ -1,0 +1,206 @@
+// The fleet link's network side (docs/FLEET.md §4, §6): enrollment over HTTPS and one
+// outbound WebSocket on libcurl (curl_ws_*), on its own thread. Knows nothing about ru_api, so
+// tests/fleet_integration_test.cpp drives it directly against a mock platform.
+//
+// Threads: every public member is thread-safe. The network thread never calls back into
+// the game; inbound messages are queued and `wake` is called (the plugin turns that into
+// post_to_game_thread), and the game thread reports back with MarkProcessed().
+#pragma once
+
+#include "fleet_proto.h"
+#include "fleet_spool.h"
+#include "fleet_store.h"
+
+#include <atomic>
+#include <condition_variable>
+#include <cstdint>
+#include <deque>
+#include <functional>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <set>
+#include <string>
+#include <thread>
+#include <vector>
+
+namespace fleet {
+
+enum class LinkState { Standalone, Unenrolled, Enrolling, Connecting, Online, Offline, Rejected };
+const char* LinkStateName(LinkState s);
+
+struct ClientConfig {
+  std::string url;         // platform base URL, e.g. https://tournament.example.com
+  std::string enrollCode;  // one-time code (RUE-...)
+  std::string enrollKey;   // fleet enrollment key (rfk_...), reusable
+  bool insecureDev = false;  // allow ws:// / http:// to loopback and RFC 1918 hosts
+  std::string caFile;        // extra CA bundle (private CA)
+  std::string pinSha256;     // SPKI pin, base64 sha256 (CURLOPT_PINNEDPUBLICKEY "sha256//...")
+  std::string dataDir;       // credentials.json, install_id, spool/
+  Spool::Limits spool;
+  BackoffPolicy backoff;
+  int64_t connectTimeoutMs = 10000;
+  int64_t helloTimeoutMs = 10000;
+  int64_t httpTimeoutMs = 20000;
+  size_t outboxMax = 20000;  // messages queued by the game thread, not yet on the net thread
+  std::string userAgent = "ReadyUp-fleet";
+  uint64_t rngSeed = 0;      // tests: deterministic jitter
+  // Log sink, called from the network thread (level: 0 info, 1 warn, 2 error, 3 debug).
+  // Messages are already redacted.
+  std::function<void(int, const std::string&)> log;
+};
+
+// What goes into hello / state.snapshot / ping health. Set by the plugin, any thread.
+struct HelloInfo {
+  std::string coreVersion;
+  std::string pluginApi = "1.1";
+  std::vector<std::pair<std::string, std::string>> plugins;  // name -> version
+  int64_t cs2Build = 0;
+  std::string cs2Patch;
+  std::string hostname;
+  int gamePort = 0;
+  int tvPort = 0;
+  std::vector<std::string> capabilities;
+  std::string bootId;
+  std::string stateJson = "null";  // MatchState or null
+  std::string availability = "available";
+  // ping health
+  int players = 0;
+  double tickMsP99 = 0.0;
+  int64_t startedMs = 0;
+};
+
+struct Inbound {
+  Envelope env;
+  std::string payloadJson;
+  bool reliable = false;
+  bool local = false;  // synthesized by the client (local.*)
+};
+
+struct ClientStatus {
+  LinkState state = LinkState::Standalone;
+  int64_t sinceMs = 0;
+  int64_t offlineSinceMs = 0;     // 0 when online / never configured
+  int64_t lastOnlineMs = 0;
+  uint32_t sessions = 0;          // sessions established (welcome received)
+  uint32_t connectAttempts = 0;   // WebSocket connection attempts
+  uint32_t spoolMsgs = 0;
+  uint64_t spoolBytes = 0;
+  uint64_t spoolDropped = 0;
+  int64_t txSeq = 0, ackedSeq = 0, rxSeq = 0;
+  std::string streamId;
+  std::string serverId;
+  std::string installId;
+  std::string sessionId;
+  std::string resume;             // "resumed" | "reset" from the last welcome
+  std::string lastError;          // redacted
+  std::string url;                // platform base URL (no credentials in it)
+  bool enrolled = false;
+  int64_t nextAttemptMs = 0;      // unix ms of the next connect/enroll attempt (0 = none)
+  int64_t heartbeatMs = 0, rttMs = -1;
+  uint64_t framesIn = 0, framesOut = 0;
+};
+
+class Client {
+ public:
+  explicit Client(ClientConfig cfg);
+  ~Client();
+  Client(const Client&) = delete;
+  Client& operator=(const Client&) = delete;
+
+  // Loads install_id, credentials and the spool, starts the network thread.
+  bool Start(std::string* err);
+  // Closes the socket (1000) and joins the thread. Idempotent.
+  void Stop();
+
+  // Drop the current connection (if any) and connect again now, without backoff.
+  void RequestReconnect();
+  // Enroll now with a code (RUE-...) or key (rfk_...); `url` empty keeps the configured one.
+  void RequestEnroll(const std::string& url, const std::string& secret);
+
+  // Queue an outbound message. Reliable ones get a seq and are spooled by the network thread.
+  bool Send(const std::string& type, const std::string& payloadJson, int64_t epoch, bool reliable, std::string* err);
+
+  void SetHelloInfo(HelloInfo info);
+  void UpdateHealth(int players, double tickMsP99);
+  void SetState(const std::string& stateJson, const std::string& availability);
+  // Types some handler wants. Reliable messages of other types are answered with
+  // error{unknown_type} and acked (§5).
+  void SetHandledTypes(std::set<std::string> types, bool wildcard);
+  // Called (from the network thread) whenever TakeInbound() has something.
+  void SetWake(std::function<void()> wake);
+
+  std::deque<Inbound> TakeInbound();
+  // The game thread finished handling reliable message `seq`.
+  void MarkProcessed(int64_t seq);
+
+  ClientStatus Status() const;
+  const std::string& installId() const { return installId_; }
+
+ public:
+  struct Session;  // one WebSocket connection; defined in fleet_client.cpp
+
+ private:
+  struct Out {
+    std::string type, payload, ref;
+    int64_t epoch = 0;
+    bool reliable = false;
+  };
+  enum class SessionEnd { Stopped, Reconnect, Closed, NetError, HelloFailed };
+  struct SessionResult {
+    SessionEnd end = SessionEnd::NetError;
+    CloseAction action;
+    int64_t durationMs = 0;
+    bool established = false;
+  };
+
+  void Run();
+  bool DoEnroll(const std::string& secret, const std::string& url, CloseAction* action, bool* fatal);
+  SessionResult RunSession();
+  void HandleInbound(Session& s, const std::string& text);
+  void WaitFor(int64_t ms);  // interruptible sleep (stop / reconnect / enroll)
+  void Wake();
+  void DrainWakePipe();
+  void SetLinkState(LinkState s, const std::string& err = {});
+  // Moves queued messages into the spool (reliable) or `ephemeral` (NULL = drop them).
+  void DrainOutbox(std::vector<Out>* ephemeral);
+  void PushLocal(const std::string& type, const std::string& payloadJson);
+  void PublishSpoolStatus();
+  std::string BuildHello();
+  std::string BuildSnapshot(const char* reason);
+  std::string WsUrl() const;
+  void Log(int level, const std::string& msg) const;
+
+  ClientConfig cfg_;
+  std::string installId_;
+  std::string credsPath_;
+
+  // Guarded by mu_.
+  mutable std::mutex mu_;
+  ClientStatus status_;
+  Credentials creds_;
+  HelloInfo hello_;
+  std::deque<Out> outbox_;
+  std::deque<Inbound> inbox_;
+  std::vector<int64_t> processed_;  // seqs the game thread finished
+  std::set<std::string> handled_;
+  bool handledAll_ = false;
+  std::function<void()> wake_;
+  std::string pendingEnrollSecret_, pendingEnrollUrl_;
+  bool enrollRequested_ = false;
+
+  std::atomic<bool> stop_{false};
+  std::atomic<bool> reconnect_{false};
+  int wakeFd_[2] = {-1, -1};
+  std::thread thread_;
+
+  // Network thread only.
+  Spool spool_;
+  RxTracker rx_;
+  Backoff backoff_;
+  bool haveCreds_ = false;
+  bool codeFailed_ = false;  // the configured one-time code was refused; wait for `ru fleet enroll`
+  bool curlInit_ = false;
+};
+
+}  // namespace fleet

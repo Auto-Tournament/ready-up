@@ -817,6 +817,14 @@ static bool HandleRuCommandLine(const std::string& line) {
     return true;
   }
 
+  // `ru <cmd> ...` reaches a console command a plugin registered, so plugins can offer
+  // `ru fleet status` next to the core's own `ru ...` commands (runs on the next GameFrame).
+  {
+    std::string rest;
+    for (size_t i = 1; i < parts.size(); ++i) rest += (i > 1 ? " " : "") + parts[i];
+    if (plugins::TryDispatchConsole(rest)) return true;
+  }
+
   PrintLine("Unknown Ready Up command. Try: ru help");
   return true;
 }

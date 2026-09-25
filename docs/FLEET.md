@@ -1,6 +1,8 @@
 # Fleet protocol: Ready Up ↔ Auto Tournament
 
-**Status: design, reviewed by Sivert (2026-09). Nothing here is implemented.**
+**Status: design, reviewed by Sivert (2026-09). Implemented on the Ready Up side so far: the local
+status endpoint (§17) and build-order step 1, the `fleet.so` link (enroll, credentials, WebSocket,
+seq/ack, spool, resume, offline timer); see [Implementation status](#implementation-status-ready-up).**
 
 This document designs how Ready Up servers talk to the Auto Tournament platform ("the
 platform", `Auto-Tournament/auto-tournament`). It replaces the per-server RCON + webhook
@@ -20,6 +22,72 @@ The fleet link subscribes to those listeners (`AddMatchFlowListener`, `demo::Add
 the `ToJson` serializers define the payload field names. The existing `ru_demo_*` and
 `ru_series_end_kick_delay_*` console settings are set by the fleet link from `server.config`
 in fleet mode, instead of by hand.
+
+## Implementation status (Ready Up)
+
+**Step 1 (§19.4 item 1, §19.3 item 1): `plugins/fleet` -> `csgo/readyup/plugins/fleet.so`.**
+
+| Piece | Where |
+|---|---|
+| Envelope, ULID, backoff, close codes, seq/ack tracking, redaction, URL rules | `plugins/fleet/fleet_proto.*` |
+| JSON (key order kept, exact int64, UTF-8 `\u` escapes) | `plugins/fleet/fleet_json.*` |
+| Disk spool (outbound stream, §6.4/§6.5) | `plugins/fleet/fleet_spool.*` |
+| `install_id`, `credentials.json` (0600, temp + rename) | `plugins/fleet/fleet_store.*` |
+| Enrollment (HTTPS) + WebSocket session on libcurl `curl_ws_*`, network thread | `plugins/fleet/fleet_client.*` |
+| ru_api glue, commands, `readyup.fleet.v1`, selftest, offline timer | `plugins/fleet/fleet_plugin.cpp` |
+| Interface for other plugins | `core/include/readyup/fleet_iface.h` (the core's `/status` reads `get_status`; members after it are for plugins) |
+| Plugin lines in `ru selftest` | `core/include/readyup/selftest_iface.h` (`readyup.selftest.<plugin>`) |
+
+Config is the `[fleet]` section of `readyup.cfg` (or `csgo/cfg/ReadyUp/fleet.cfg`), read with
+`config_get`: `url`, `enroll_code`, `enroll_key`, `insecure_dev`, `ca_file`, `pin_sha256`,
+`offline_pause_minutes` (default 3, 0 = off), `spool_max_msgs`, `spool_max_mb`, `enabled`.
+The `fleet_`-prefixed names used in this document (`fleet_url`, ...) are accepted too. No `url`
+and no `credentials.json` = standalone: the plugin loads, logs one line and stays idle.
+
+Files live in the plugin data dir `csgo/readyup/plugins/fleet/` (not `csgo/readyup/fleet/` as
+§4.1 says): `install_id`, `credentials.json`, `spool/{meta.json,stream.log}`. Installers and
+updaters must keep that directory.
+
+Commands: `ru fleet status | enroll [url] <code|key> | reconnect` (console/RCON; plain `fleet ...`
+works too) and `.fleet status | reconnect` / `.ru fleet ...` for admins in chat (enrolling from
+chat is refused: the code would be in chat logs). The core routes an unknown `ru <cmd>` to a
+plugin console command `<cmd>` and an unknown `.ru <cmd>` to a plugin chat command `.<cmd>`.
+
+Choices made where this document leaves room:
+
+- `state.snapshot` is sent ephemerally (only while online): after a `reset` resume, on
+  `state.request`. A spooled snapshot would be stale by the time it is replayed.
+- `hello.selftest` is left out (it is optional) until the core exposes its selftest result to plugins.
+- `hello.versions.plugins` lists only `fleet` for now (match is still compiled into the core).
+- Unknown reliable types get `error {code: "unknown_type"}` (ephemeral, `ref` = the message id)
+  and are acked. Out-of-order reliable messages are dropped unacked (the platform replays them).
+- A spool gap (dropped messages, torn log) starts a new stream id at the next connect, which the
+  platform sees as an unknown stream -> `reset` -> snapshot. No extra hello field is needed.
+- `auth.rotate` is handled inside fleet.so (new token written, `auth.rotated` spooled).
+- Rejected credentials (4401/4403, HTTP 401/403): with `enroll_key` the server enrolls again
+  (same `install_id`); with a one-time code it waits for `ru fleet enroll`. A refused code is not
+  retried.
+- Local pseudo-messages for other plugins: `local.connection` and `local.offline_timeout` (the
+  D12 hook; the auto-pause itself comes with the match plugin).
+
+Protocol: aligned with the platform's step-1 implementation (Auto-Tournament/auto-tournament
+PR #386, schemas copied into `plugins/fleet/protocol/v1/`). Checked end to end against that
+platform running in Docker: enroll with a one-time code, hello/welcome, pings with health,
+`auth.rotate` -> `auth.rotated` and reconnect with the new token, resume after a platform
+restart, and 4403 after a revoke.
+
+Tests (`ctest`): `fleet_unit` (JSON, envelope, ULID, backoff, close codes, redaction, URLs,
+seq/ack, spool, credentials), `fleet_integration` (the real client against
+`plugins/fleet/tests/mock_platform.cpp`: enroll, hello/welcome, ping/pong, acks both ways,
+reconnect, resume with replay, reset + snapshot, restart, heartbeat timeout, rejections, token
+rotation; every frame is validated against the platform schemas),
+`fleet_host` (fleet.so in the real plugin loader: standalone idle, enroll + connect, selftest,
+commands, unload). `build/plugins/fleet/fleet_mock_platform --port N` runs the mock by hand.
+
+Build: needs libcurl with WebSockets. Release builds link the static curl 8.22 from
+`scripts/ci/build-static-deps.sh` (`--enable-websockets`, checked); the dev Docker image builds the
+same curl into `/opt/curl-ws`. A plain `./build.sh` without such a libcurl skips fleet.so (warning)
+and still builds the unit tests.
 
 ## 0. Decisions
 
@@ -160,7 +228,8 @@ Two ways in. Both end with the same per-server token.
 **A. One-time code (UI).**
 
 1. Admin clicks **Add server**. The platform creates a server record (`pending`) and shows a
-   code (`RUE-7F3K-9QX2-LM4D`, 80 bits, single use, 15 min TTL, stored hashed).
+   code (`RUE-7F3K-9QX2-LM4D-P8TW`, four groups of four base32 characters, single use, 15 min
+   TTL, stored hashed; case- and dash-insensitive, `O`->`0`, `I`/`L`->`1`).
 2. The operator sets `fleet_url` and `fleet_enroll_code` in `cfg/ReadyUp/fleet.cfg`, or runs
    `ru fleet enroll <url> <code>` in the console.
 
@@ -256,7 +325,7 @@ Every WebSocket message is one UTF-8 JSON text frame (max 1 MiB).
   "required": ["v", "type", "id", "ts", "payload"],
   "properties": {
     "v":       { "const": 1 },
-    "type":    { "type": "string", "pattern": "^[a-z]+(\\.[a-z_]+)+$" },
+    "type":    { "type": "string", "pattern": "^[a-z]+(\\.[a-z_]+)*$", "description": "single-word types (hello, ping, ack, error) have no dot" },
     "id":      { "type": "string", "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$", "description": "ULID, unique per message" },
     "seq":     { "type": "integer", "minimum": 1, "description": "present on reliable messages only" },
     "ack":     { "type": "integer", "minimum": 0, "description": "highest contiguous peer seq received" },
@@ -281,9 +350,9 @@ Every WebSocket message is one UTF-8 JSON text frame (max 1 MiB).
 Payloads below use compact TypeScript notation; `?` = optional, `u64s` = SteamID64 as a decimal
 string (JSON numbers lose precision above 2^53). The normative JSON Schemas live in the platform
 repo (D18) at `api/src/integrations/cs2/fleet/protocol/v1/` (server channel) and
-`…/protocol/host/v1/` (host channel). Ready Up CI copies them into `protocol/fleet/v1/` and
-validates the JSON its serializers produce in tests against them; csm's CI does the same for the
-host schemas.
+`…/protocol/host/v1/` (host channel). Ready Up keeps a copy in `plugins/fleet/protocol/v1/`
+(see its README for the source commit) and its tests validate every frame and enrollment body
+`fleet.so` produces against them; csm's CI does the same for the host schemas.
 
 ## 6. Connection lifecycle
 
@@ -302,9 +371,9 @@ hello {
   host: { hostname: string, game_port: number, tv_port?: number, public_addr?: string, status_port?: number }
   boot_id: string                        // ULID per process start
   stream: { id: string, last_tx_seq: number, last_rx_seq: number }   // §6.4
-  state: MatchState | null               // §9; null when idle
+  state?: MatchState | null              // §9; null or absent when idle
   availability: "available" | "busy" | "draining" | "error"
-  selftest: { pass: boolean, passed: number, total: number, failures: string[] }
+  selftest?: { pass: boolean, passed: number, total: number, failures: string[] }   // optional
 }
 
 // platform → server, ephemeral
@@ -355,8 +424,8 @@ Each side keeps an **outbound stream** of reliable messages, kept until acked.
 `hello.stream` carries the server's stream id, highest sent seq and the highest platform seq it
 received; `welcome.resume` carries the platform's. Both replay what the other side has not
 acked. If the platform does not know the stream, or the spool dropped messages (§6.5), the
-result is `reset`: the server sends a `state.snapshot` after the replay and the platform
-reconciles (§9.4). Platform messages with `expires_at` in the past are acked with
+result is `reset`: the platform takes the server's next `seq` as the new base (it need not be
+1), the server sends a `state.snapshot` after the replay and the platform reconciles (§9.4). Platform messages with `expires_at` in the past are acked with
 `cmd.result {status:"expired"}` and not executed.
 
 ```mermaid
@@ -1299,14 +1368,14 @@ holds the socket) can replace it without touching callers.
 | # | Piece | Notes | Size |
 |---|---|---|---|
 | 1 | **Fleet WS gateway** | `ws` on the existing HTTP server at `/api/fleet/ws`; auth on upgrade; schema validation (ajv); seq/ack; outbound stream in DB; ping; close codes; `FleetBus` | L |
-| 2 | **Server registry + enrollment** | tables `fleet_servers` (id, tenant_id, install_id, name, availability, versions, caps, host, last_seen), `fleet_tokens`, `fleet_enrollment_codes`, `fleet_enrollment_keys`; enroll endpoint; 90-day rotation job; UI: add server, keys, revoke, rotate, drain | M |
-| 3 | **Match state store** | `match_live_state` (match_id, epoch, server_id, live_rev, config_rev, state json); `fleet_events` unique on (stream_id, seq); merge-patch apply; drift check | M |
+| 2 | **Server registry + enrollment** | tables `cs2_fleet_servers` (id, tenant_id, install_id, name, availability, versions, caps, host, last_seen), `cs2_fleet_tokens`, `cs2_fleet_enrollment_codes`, `cs2_fleet_enrollment_keys` (the CS2 module owns its tables, prefix `cs2_`); enroll endpoint; 90-day rotation job; UI: add server, keys, revoke, rotate, drain | M |
+| 3 | **Match state store** | `match_live_state` (match_id, epoch, server_id, live_rev, config_rev, state json); `cs2_fleet_events` unique on (stream_id, seq); merge-patch apply; drift check | M |
 | 4 | **Fleet driver + normalizer** | `match.assign` from the stored match config (`matchConfig.ts` → `config`/`rules`), per-match password, connect string visible to roster/admins only | M |
 | 5 | **Uploads + artifact store** | chunked upload endpoints (§12.2), `ArtifactStore` with the filesystem backend, `match_round_backups`, demo page reading from the store, retention job | M |
 | 6 | **Failover proposals** | unreachable timers, csm health + A2S fallback, restart-in-place or spare-server suggestion, backup picker UI, epoch bump, resume block; also used by "move match" and restore | M |
 | 7 | **Admins, skins, exec** | fleet-wide admin list + `admins.set`; skins opt-in setting, loadout store + web picker, `skins.loadout`, StatTrak; root-only `exec` with audit log | M |
 | 8 | **Turnover** | `utils/serverTurnover.ts` fed from `event.demo` + `series_end` | S |
-| 9 | **Host gateway** | `/api/fleet/host` on the same transport code; `fleet_hosts` table (id, tenant_id, machine_id, name, inventory, last_seen) + host tokens; host/server join on `install_id`; UI: hosts, per-server process state, start/stop/restart/create, update game/Ready Up, live log tail; `force` + audit for disruptive actions during matches | M–L |
+| 9 | **Host gateway** | `/api/fleet/host` on the same transport code; `cs2_fleet_hosts` table (id, tenant_id, machine_id, name, inventory, last_seen) + host tokens; host/server join on `install_id`; UI: hosts, per-server process state, start/stop/restart/create, update game/Ready Up, live log tail; `force` + audit for disruptive actions during matches | M–L |
 
 ### 19.3 Ready Up work list
 

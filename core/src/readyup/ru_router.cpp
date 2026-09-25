@@ -824,6 +824,14 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
     return;
   }
 
+  // `.ru <cmd> ...` reaches a chat command a plugin owns (`.ru fleet status` -> `.fleet status`);
+  // the plugin does its own admin check.
+  if (steamid64 != 0 && !IsCoreChatCommand("." + cmd)) {
+    std::string rest = "." + cmd;
+    for (size_t i = 2; i < parts.size(); ++i) rest += " " + parts[i];
+    if (plugins::TryDispatchChat(steamid64, playerName, rest)) return;
+  }
+
   // Unknown `ru` command; ignore to avoid chat spam.
   Debug("ru: unknown subcommand \"%s\" ignored\n", cmd.c_str());
 }

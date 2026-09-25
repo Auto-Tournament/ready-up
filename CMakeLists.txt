@@ -420,3 +420,7 @@ add_test(NAME status_http COMMAND readyup_status_http_test)
 add_test(NAME plugin_host_reload
   COMMAND readyup_plugin_host_test
     $<TARGET_FILE:readyup_plugin_hello> $<TARGET_FILE:readyup_plugin_hello_reload_test>)
+
+# readyup-fleet (plugins/fleet): the Auto Tournament platform link, plus its unit and
+# integration tests (after enable_testing() so ctest sees them).
+add_subdirectory(plugins/fleet)

@@ -15,7 +15,8 @@
 #            no-autoload-config (never reads the host's openssl.cnf, which may be
 #            written for a different OpenSSL), openssldir=/etc/ssl.
 #   libpq    --with-openssl, no GSSAPI / LDAP / readline / ICU / zlib.
-#   libcurl  HTTP(S) only with OpenSSL; no zlib/brotli/zstd/nghttp2/idn/psl/ldap/ssh.
+#   libcurl  HTTP(S) and WebSockets (ws/wss, used by plugins/fleet) with OpenSSL; no
+#            zlib/brotli/zstd/nghttp2/idn/psl/ldap/ssh.
 #            CA bundle is probed at runtime by http_client.cpp (READYUP_CURL_CA_PROBE)
 #            because the default path differs between distros.
 set -euo pipefail
@@ -120,7 +121,12 @@ fetch "$CURL_URL" "$CURL_SHA"
     --without-libgsasl --disable-ldap --disable-ldaps --disable-rtsp --disable-dict \
     --disable-telnet --disable-tftp --disable-pop3 --disable-imap --disable-smtp \
     --disable-gopher --disable-mqtt --disable-smb --disable-manual --disable-docs \
-    --enable-threaded-resolver >/dev/null
+    --enable-websockets --enable-threaded-resolver >/dev/null
+  # fleet.so needs curl_ws_*: fail here, not at runtime with CURLE_NOT_BUILT_IN.
+  if grep -q "^#define CURL_DISABLE_WEBSOCKETS 1" lib/curl_config.h; then
+    echo "libcurl was configured without WebSocket support" >&2
+    exit 1
+  fi
   make -C lib -j"$JOBS" >/dev/null
   make -C lib install >/dev/null
   make -C include install >/dev/null
