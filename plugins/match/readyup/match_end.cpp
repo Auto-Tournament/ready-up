@@ -209,6 +209,7 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
   std::string seriesWinner = "none";
   if (in.team1SeriesScore > in.team2SeriesScore) seriesWinner = "team1";
   else if (in.team2SeriesScore > in.team1SeriesScore) seriesWinner = "team2";
+  if (!in.seriesWinner.empty()) seriesWinner = in.seriesWinner;
   const std::string winnerName = seriesWinner == "team1" ? base.team1Name : seriesWinner == "team2" ? base.team2Name : "";
   const int resetIn = base.scrim ? std::max(1, plan.restartDelay - 1) : plan.kickDelay;
 
@@ -221,7 +222,9 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
   // Existing webhook (shape unchanged); time_until_restore now carries the real delay.
   WebhookEmitSeriesEnd(in.team1SeriesScore, in.team2SeriesScore, seriesWinner.c_str(), resetIn);
 
-  if (!winnerName.empty()) {
+  if (!winnerName.empty() && !in.seriesWinner.empty()) {
+    SendToChat(("Ready Up: " + winnerName + " won the series by forfeit.").c_str());
+  } else if (!winnerName.empty()) {
     SendToChat(("Ready Up: " + winnerName + " won the series " +
                 std::to_string(std::max(in.team1SeriesScore, in.team2SeriesScore)) + "-" +
                 std::to_string(std::min(in.team1SeriesScore, in.team2SeriesScore)) + ".")

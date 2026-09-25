@@ -22,6 +22,11 @@ Scrim flow (--scrim): selftest, reset, `ru_dev_bots_scrim 1` (core dev flag), bo
 only -> scrim_warmup -> countdown -> scrim created -> knife -> pick -> match_live.
 The flag goes back to `cfg` in cleanup.
 
+Forfeit flow (--forfeit): the match flow up to match_live (with pause / forfeit rules in
+the match config), then the team names, a technical pause that unpauses by itself, the
+per-team technical pause limit, a tactical timeout, and the team-left forfeit: CT bots
+kicked -> countdown -> one bot back (cancelled) -> kicked again -> forfeit -> postgame -> idle.
+
 Exit codes: 0 PASS, 1 FAIL, 2 server busy / unavailable, or restarted by someone
 else mid-test (no verdict).
 """
@@ -64,6 +69,11 @@ PLAYER_RE = r'"(?P<name>.*?)<(?P<uid>\d+)><(?P<sid>[^>]*)><[^>]*>"'
 ENTERED_RE = re.compile(PLAYER_RE + r" entered the game")
 LEFT_RE = re.compile(PLAYER_RE + r" disconnected")
 BOOT_MARKERS = ("Loaded real libserver.so", "player server started")
+TEAMNAME_RE = re.compile(r'"?mp_teamname_([12])"?\s*(?:=|is)\s*"?([^"\r\n]*)')
+BOT_JOIN_RE = re.compile(r'"([^"<]+)<\d+><BOT>(?:<[^>]*>)?" switched from team <[^>]*> to <(CT|TERRORIST)>')
+QUOTA_MODE_RE = re.compile(r'"?bot_quota_mode"?\s*=\s*"?(\w+)')
+PAUSE_RE = re.compile(r"\[ReadyUp\] pause: (.*)")
+FORFEIT_RE = re.compile(r"\[ReadyUp\] forfeit: (.*)")
 
 MATCH_SLUG = "livetest"
 
@@ -195,9 +205,9 @@ def serve_match_json(bind: str, doc: dict) -> tuple[http.server.HTTPServer, int]
     return srv, srv.server_address[1]
 
 
-def match_doc(map_name: str, max_rounds: int) -> dict:
+def match_doc(map_name: str, max_rounds: int, forfeit: bool = False) -> dict:
     matchid = int(time.time() * 1000)
-    return {
+    doc = {
         "id": matchid,
         "slug": MATCH_SLUG,
         "config": {
@@ -227,6 +237,16 @@ def match_doc(map_name: str, max_rounds: int) -> dict:
             },
         },
     }
+    if forfeit:
+        cfg = doc["config"]
+        # Rules under test (match_rules.h): 1 technical pause per team, 8 s auto-unpause,
+        # both teams unpause, 20 s forfeit; 1 tactical timeout of 5 s. Long map (the forfeit
+        # ends it) and no auto team balance (it would move a T bot to the empty CT side).
+        cfg.update({"max_tech_pauses_per_team": 1, "tech_pause_max_seconds": 8,
+                    "both_teams_unpause_required": True, "forfeit_after_seconds": 20, "maxRounds": 30})
+        cfg["cvars"].update({"mp_maxrounds": 30, "mp_team_timeout_max": 1, "mp_team_timeout_time": 5,
+                             "mp_autoteambalance": 0, "mp_limitteams": 0})
+    return doc
 
 
 # --------------------------------------------------------------------------- facts + steps
@@ -257,6 +277,12 @@ class Facts:
     armed: bool = False  # scrim mode: a scrim may go live (there is no match-load line)
     dev_scrim: Optional[tuple] = None  # (seq, "0"|"1") reply to ru_dev_bots_scrim
     knife_short: Optional[str] = None  # dev-flag knife round time (min)
+    our_matchid: Optional[str] = None  # set once our match loaded
+    teamnames: dict = field(default_factory=dict)  # "1"/"2" -> (seq, value)
+    pauses: list = field(default_factory=list)  # (seq, text) `pause:` lines
+    forfeits: list = field(default_factory=list)  # (seq, text) `forfeit:` lines
+    bot_quota_mode: Optional[str] = None
+    bots_gone: set = field(default_factory=set)  # bot names that disconnected
 
     def last_state(self) -> Optional[dict]:
         return self.states[-1][1] if self.states else None
@@ -279,6 +305,14 @@ class Facts:
         if (m := DEV_SCRIM_RE.search(line)):
             self.dev_scrim = (s, m.group(1))
             return
+        if (m := PAUSE_RE.search(line)):
+            self.pauses.append((s, m.group(1).strip()))
+            return
+        if (m := FORFEIT_RE.search(line)):
+            self.forfeits.append((s, m.group(1).strip()))
+            return
+        if "[ReadyUp]" not in line and (m := TEAMNAME_RE.search(line)):
+            self.teamnames[m.group(1)] = (s, m.group(2).strip())
         if (m := KNIFE_SHORT_RE.search(line)):
             self.knife_short = m.group(1)
             return
@@ -286,6 +320,9 @@ class Facts:
             self.selftest = (m.group(1), m.group(2).strip(), line.strip())
             return
         if (m := LOADED_RE.search(line)):
+            if self.our_matchid and self.our_matchid != m.group(1):
+                # Someone else (a concurrent test on the shared server) replaced our match.
+                self.restarted = self.restarted or f"another match was loaded mid-test: {line.strip()}"
             self.loaded = (s, m.group(1), m.group(2))
             return
         if (m := LOAD_ERR_RE.search(line)):
@@ -311,6 +348,15 @@ class Facts:
             self.bot_quota = int(m.group(1))
         if (m := BOT_SWITCH_RE.search(line)):
             self.bot_switches.append((s, m.group(1), m.group(2), m.group(3)))
+        if (m := BOT_JOIN_RE.search(line)):
+            hist = self.bot_sides.setdefault(m.group(1), [])
+            if not hist or hist[-1][1] != m.group(2):
+                hist.append((s, m.group(2)))
+            self.bots_gone.discard(m.group(1))
+        if (m := QUOTA_MODE_RE.search(line)) and "[ReadyUp]" not in line and self.bot_quota_mode is None:
+            self.bot_quota_mode = m.group(1)
+        if (m := LEFT_RE.search(line)) and m.group("sid") == "BOT":
+            self.bots_gone.add(m.group("name"))
         for name, side in BOT_SIDE_RE.findall(line):
             hist = self.bot_sides.setdefault(name, [])
             if not hist or hist[-1][1] != side:
@@ -376,6 +422,7 @@ class Runner:
         self.touched = False
         self.timescale_set = False
         self.flag_set = False
+        self.quota_mode_set = False
 
     # ---- plumbing
     def pump(self, wait: float = 0.5) -> None:
@@ -461,7 +508,7 @@ class Runner:
             map_name = a.map or cur.get("map") or "de_dust2"
             if map_name == "?":
                 map_name = "de_dust2"
-            doc = match_doc(map_name, a.max_rounds)
+            doc = match_doc(map_name, a.max_rounds, forfeit=a.forfeit)
             self.http, port = serve_match_json(a.http_bind, doc)
             url = f"http://{a.http_host}:{port}/match.json"
             log(f"serving match {doc['config']['matchid']} on {url} (map {map_name})")
@@ -475,6 +522,7 @@ class Runner:
             if f.loaded[2] != MATCH_SLUG:
                 return f"loaded unexpected slug {f.loaded[2]}"
             self.match_loaded = True
+            f.our_matchid = f.loaded[1]
             return True
 
         def act_bots():
@@ -582,6 +630,17 @@ class Runner:
                     return "went to idle without postgame"
             return False
 
+        def chk_postgame_any(_f):
+            for s, fl, _ in f.states_since(f.live_seq):
+                if fl.get("mode") == "postgame":
+                    if fl.get("match") in (None, "none"):
+                        return "postgame without a match loaded"
+                    mark["postgame"] = s
+                    return True
+                if fl.get("mode") == "idle":
+                    return "went to idle without postgame"
+            return False
+
         def chk_idle_after_postgame(_f):
             for _, fl, _ in f.states_since(since("postgame")):
                 if fl.get("mode") == "idle" and fl.get("match") == "none":
@@ -612,6 +671,26 @@ class Runner:
             return self.scrim_steps(f, a, mark, since, state_where, bots_ok, act_selftest, chk_selftest,
                                     act_reset, chk_reset, knife_steps)
 
+        # mp_teamname_1 = the team starting on CT (team1 unless the knife pick switched).
+        def act_teamnames():
+            mark["names"] = f.seq
+            time.sleep(1.0)
+            self.srv.send("mp_teamname_1")
+            self.srv.send("mp_teamname_2")
+
+        def chk_teamnames(_f):
+            got = {k: v for k, (sq, v) in f.teamnames.items() if sq > since("names")}
+            if "1" not in got or "2" not in got:
+                return False
+            switched = f.knife_pick is not None and f.knife_pick[3] == "mp_swapteams"
+            want = ("LiveTestB", "LiveTestA") if switched else ("LiveTestA", "LiveTestB")
+            if (got["1"], got["2"]) != want:
+                return f"mp_teamname_1/2 = {got['1']!r}/{got['2']!r}, expected {want[0]!r}/{want[1]!r}"
+            return True
+
+        teamname_step = Step("team names (mp_teamname_1/2)", 20, chk_teamnames, act_teamnames,
+                             lambda f_: " / ".join(f"{k}={v[1]}" for k, v in sorted(f_.teamnames.items())))
+
         steps = [
             Step("selftest", 45, chk_selftest, act_selftest,
                  lambda f_: f_.selftest[2].split("] ", 1)[-1] if f_.selftest else ""),
@@ -622,7 +701,9 @@ class Runner:
             Step(f"bots (>= {a.bots_per_side} per side, no humans)", 60, chk_bots, None,
                  lambda f_: next((f"ct={fl.get('ct')} t={fl.get('t')}" for _, fl, _ in reversed(f_.states)), "")),
             Step("countdown", 1, chk_countdown),
-        ] + knife_steps
+        ] + knife_steps + [teamname_step]
+        if a.forfeit:
+            return steps + self.forfeit_steps(f, mark, since, chk_postgame_any, chk_idle_after_postgame)
         steps.append(Step("round 1 ends", a.round_timeout, chk_round(1), act_timescale, rounds_detail))
         for n in range(2, half + 1):
             steps.append(Step(f"round {n} ends", a.round_timeout, chk_round(n), None, rounds_detail))
@@ -635,6 +716,88 @@ class Runner:
         steps.append(Step("postgame (mode=postgame, match loaded)", 30, chk_postgame))
         steps.append(Step("idle: match cleared (idle, match=none)", 90, chk_idle_after_postgame))
         return steps
+
+    def forfeit_steps(self, f, mark, since, chk_postgame_any, chk_idle_after_postgame) -> list[Step]:
+        """Pauses (technical limit + auto-unpause, tactical timeout) and the team-left forfeit."""
+        a = self.a
+
+        def line_after(lines, key, pred):
+            return next((t for (sq, t) in lines if sq > since(key) and pred(t)), None)
+
+        def send_marked(key, *cmds):
+            def _act():
+                mark[key] = f.seq
+                for c in cmds:
+                    self.srv.send(c)
+            return _act
+
+        def chk_pause(key, want_start, want_end=None, refuse=None):
+            def _c(_f):
+                if refuse and line_after(f.pauses, key, lambda t: t.startswith(refuse)):
+                    return True
+                if refuse:
+                    if line_after(f.pauses, key, lambda t: t.startswith("technical by")):
+                        return "a technical pause over the limit was accepted"
+                    return False
+                if not line_after(f.pauses, key, lambda t: t.startswith(want_start)):
+                    return False
+                return want_end is None or line_after(f.pauses, key, lambda t: t.startswith(want_end)) is not None
+            return _c
+
+        def pause_detail(key):
+            return lambda f_: " | ".join(t for (sq, t) in f_.pauses if sq > since(key))[:200]
+
+        def forfeit_line(key, prefix):
+            return line_after(f.forfeits, key, lambda t: prefix in t)
+
+        def chk_ff(key, prefix, bad=None):
+            def _c(_f):
+                if bad and forfeit_line(key, bad):
+                    return f"unexpected: {forfeit_line(key, bad)}"
+                return forfeit_line(key, prefix) is not None
+            return _c
+
+        def ff_detail(key):
+            return lambda f_: " | ".join(t for (sq, t) in f_.forfeits if sq > since(key))[:200]
+
+        def ct_bots():
+            return sorted(n for n, hist in f.bot_sides.items() if hist and hist[-1][1] == "CT" and n not in f.bots_gone)
+
+        def act_kick(key):
+            def _act():
+                mark[key] = f.seq
+                self.quota_mode_set = True
+                self.srv.send("bot_quota_mode")  # echo, restored in cleanup
+                self.srv.send("mp_autoteambalance 0")
+                self.srv.send("bot_quota_mode normal")
+                self.srv.send("bot_join_team T")
+                names = ct_bots()
+                log(f"CT bots: {names}")
+                for n in names:
+                    self.srv.send(f'bot_kick "{n}"')
+            return _act
+        return [
+            Step("tech pause (ru tech team1) -> auto-unpause after 8s", 150,
+                 chk_pause("tech1", "technical by team1", "ended (technical pause time is up)"),
+                 send_marked("tech1", "ru tech team1"), pause_detail("tech1")),
+            Step("tech pause limit (2nd for team1 refused)", 20,
+                 chk_pause("tech2", "", refuse="technical refused for team1"),
+                 send_marked("tech2", "ru tech team1"), pause_detail("tech2")),
+            Step("tactical timeout (ru tac team2) -> ends at freeze end", 150,
+                 chk_pause("tac", "tactical timeout by team2", "ended (tactical timeout over)"),
+                 send_marked("tac", "ru tac team2"), pause_detail("tac")),
+            Step("forfeit countdown (CT bots kicked)", 30, chk_ff("ff1", "team1 has nobody connected"),
+                 act_kick("ff1"), ff_detail("ff1")),
+            Step("forfeit cancelled (a CT bot back)", 30, chk_ff("ff2", "team1 is back", bad="forfeits map"),
+                 send_marked("ff2", "bot_add_ct"), ff_detail("ff2")),
+            Step("the CT bot is seen", 20, lambda _f: bool(ct_bots()), None, lambda _f: ", ".join(ct_bots())),
+            Step("forfeit countdown again (kicked)", 30, chk_ff("ff3", "team1 has nobody connected"),
+                 act_kick("ff3"), ff_detail("ff3")),
+            Step("forfeit: team1 forfeits after 20s", 60, chk_ff("ff3", "team1 (team_absent) forfeits map"), None,
+                 ff_detail("ff3")),
+            Step("postgame (forfeit map result)", 30, chk_postgame_any),
+            Step("idle: match cleared (idle, match=none)", 90, chk_idle_after_postgame),
+        ]
 
     def scrim_steps(self, f, a, mark, since, state_where, bots_ok, act_selftest, chk_selftest,
                     act_reset, chk_reset, knife_steps) -> list[Step]:
@@ -718,6 +881,11 @@ class Runner:
                 if self.flag_set:
                     # Before `ru scrim`: with the flag on, the restored bots would start a scrim.
                     self.srv.send("ru_dev_bots_scrim cfg")
+                if self.a.forfeit:
+                    self.srv.send("bot_join_team any")
+                    self.srv.send("mp_autoteambalance 1")
+                    if self.quota_mode_set:
+                        self.srv.send(f"bot_quota_mode {self.f.bot_quota_mode or 'competitive'}")
                 self.srv.send("ru scrim")   # re-enable auto scrim warmup (ru idle turns it off)
                 quota = self.f.bot_quota if self.f.bot_quota is not None else self.a.restore_bot_quota
                 self.srv.send(f"bot_quota {quota}")
@@ -805,6 +973,8 @@ def parse_args(argv=None):
     p.add_argument("--map", default=env("LIVETEST_MAP", ""), help="default: the current map")
     p.add_argument("--scrim", action="store_true", default=env("LIVETEST_MODE", "match") == "scrim",
                    help="bots-only scrim (dev_bots_scrim): warmup -> countdown -> knife -> pick -> live")
+    p.add_argument("--forfeit", action="store_true", default=env("LIVETEST_MODE", "match") == "forfeit",
+                   help="match mode + pauses (technical limit / auto-unpause, tactical) + team-left forfeit")
     p.add_argument("--max-rounds", type=int, default=int(env("LIVETEST_MAX_ROUNDS", "4")))
     p.add_argument("--bots-per-side", type=int, default=int(env("LIVETEST_BOTS_PER_SIDE", "2")))
     p.add_argument("--side", choices=["auto", "stay", "switch"], default=env("LIVETEST_SIDE", "auto"),
@@ -822,6 +992,8 @@ def parse_args(argv=None):
     a = p.parse_args(argv)
     if a.max_rounds < 2 or a.max_rounds % 2:
         p.error("--max-rounds must be even and >= 2")
+    if a.forfeit and a.scrim:
+        p.error("--forfeit and --scrim cannot be combined")
     return a
 
 

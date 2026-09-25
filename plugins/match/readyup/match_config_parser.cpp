@@ -160,6 +160,20 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
     ctx.knifeDecisionSeconds = std::max(5, std::min(300, ctx.knifeDecisionSeconds));
   }
 
+  // Pause / ready / forfeit rules (match_rules.h). Unset keys stay -1.
+  auto ruleInt = [&](const char* key, int* out) {
+    if (auto n = parseNonNegativeInt(cfg->get(key))) *out = *n;
+  };
+  auto ruleBool = [&](const char* key, int* out) {
+    if (auto b = parseBool(cfg->get(key))) *out = *b ? 1 : 0;
+  };
+  ruleInt("max_tech_pauses_per_team", &ctx.rules.tech_pauses_per_team);
+  ruleInt("tech_pause_max_seconds", &ctx.rules.tech_pause_max_seconds);
+  ruleBool("both_teams_unpause_required", &ctx.rules.both_teams_unpause);
+  ruleBool("allow_force_ready", &ctx.rules.allow_force_ready);
+  ruleInt("min_players_to_ready", &ctx.rules.min_players_to_ready);
+  ruleInt("forfeit_after_seconds", &ctx.rules.forfeit_after_seconds);
+
   // Fallbacks if maxRounds wasn't provided explicitly.
   if (ctx.maxRounds <= 0) ctx.maxRounds = 24;
   if (!maxRoundsExplicit) {
@@ -217,6 +231,9 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
     const Value* team = cfg->get(key);
     if (!IsObject(team)) return;
     if (auto n = AsString(team->get("name"))) nameOut = *n;
+    if (auto f = AsString(team->get("flag"))) {
+      (teamTag == WebhookTeam::Team1 ? ctx.team1_flag : ctx.team2_flag) = *f;
+    }
     if (auto cap = AsString(team->get("captain_steamid64"))) {
       const uint64_t sid = ParseSteamId64Loose(*cap);
       if (sid != 0) {

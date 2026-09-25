@@ -151,7 +151,7 @@ static const char* kAssign = R"({
     "maps": [{"number":1,"name":"de_mirage","sides":"knife"},
              {"number":2,"name":"de_inferno","sides":"team1_ct"},
              {"number":3,"name":"de_nuke","workshop_id":"3070284539","sides":"team2_ct"}],
-    "team1": {"id":"t-a","name":"Alpha","tag":"ALP","captain":"76561198000000001",
+    "team1": {"id":"t-a","name":"Alpha","tag":"ALP","flag":"NO","captain":"76561198000000001",
               "players":[{"steamid64":"76561198000000001","name":"a1"},
                          {"steamid64":"76561198000000002","name":"a2","role":"sub"},
                          {"steamid64":"76561198000000003","name":"coachA","role":"coach"}]},
@@ -161,7 +161,10 @@ static const char* kAssign = R"({
     "password": "s3cret-pw",
     "rules": {"max_rounds": 24, "overtime": {"enabled": true, "rounds_per_half": 3, "max_overtimes": 2},
               "tiebreak": {"damage": true, "sudden_death_on_tie": false},
-              "ready": {"min_per_team": 0, "allow_force_ready": true, "autoready": false},
+              "ready": {"min_per_team": 4, "allow_force_ready": false, "autoready": false},
+              "pause": {"tactical_per_team": 2, "tactical_seconds": 45, "technical_per_team": 5,
+                        "technical_seconds": 120, "unpause": "caller_team"},
+              "forfeit": {"team_absent_seconds": 0},
               "knife": {"side_pick_seconds": 45}, "clinch_series": false, "whitelist": true},
     "cvars": {"mp_freezetime": 12, "sv_cheats": 1, "ru_hack": "1", "tv_delay": "90", "sv_password": "x",
               "mp_bad;cmd": "1", "mp_quote": "a\"b"}
@@ -206,6 +209,25 @@ static void TestAssign() {
   CHECK(ctx->cvars["mp_maxrounds"] == "24");
   CHECK(ctx->cvars["mp_overtime_maxrounds"] == "6");
   CHECK(ctx->cvars.count("sv_cheats") == 0 && ctx->cvars.count("ru_hack") == 0 && ctx->cvars.count("sv_password") == 0);
+  // Pause / ready / forfeit rules and team flags (match_rules.h); tactical timeouts are engine cvars.
+  CHECK_STR(ctx->team1_flag, "NO");
+  CHECK(ctx->team2_flag.empty());
+  CHECK(ctx->rules.tech_pauses_per_team == 5);
+  CHECK(ctx->rules.tech_pause_max_seconds == 120);
+  CHECK(ctx->rules.both_teams_unpause == 0);
+  CHECK(ctx->rules.allow_force_ready == 0);
+  CHECK(ctx->rules.min_players_to_ready == 4);
+  CHECK(ctx->rules.forfeit_after_seconds == 0);
+  CHECK(ctx->cvars["mp_team_timeout_max"] == "2");
+  CHECK(ctx->cvars["mp_team_timeout_time"] == "45");
+  {
+    // Rules left out stay unset (-1) so the server's readyup.cfg / defaults apply.
+    Json bare = *p.Find("config");
+    bare["rules"] = J(R"({"max_rounds": 24})");
+    auto c2 = ParseWebhookMatchContextFromJson(fs::AssignToMatConfig("x", bare, nullptr).Dump(), &err);
+    CHECK(c2 && c2->rules.tech_pauses_per_team == -1 && c2->rules.forfeit_after_seconds == -1 &&
+          c2->rules.both_teams_unpause == -1 && c2->cvars.count("mp_team_timeout_max") == 0);
+  }
 
   CHECK(fs::NumericMatchId("12345") == 12345);
   CHECK(fs::NumericMatchId("abc") != 0 && fs::NumericMatchId("abc") < (1ull << 52));

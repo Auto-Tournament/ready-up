@@ -78,7 +78,6 @@ bool g_seriesOver = false;   // series_end seen for this assignment
 bool g_serverReset = false;  // the match flow unloaded the finished match (ServerReset)
 int g_latestBackupRound = -1;
 Json g_lastLive;  // the match flow's last view of the assigned match (kept once it is unloaded)
-int g_used[2][2] = {{0, 0}, {0, 0}};  // [team1/team2][tactical/technical]
 bool g_pauseSeen = false;
 std::string g_phaseReason;
 std::string g_unpauseBy;
@@ -361,8 +360,9 @@ Json ConfigState() {
   Json used = Json::Object();
   for (int t = 0; t < 2; ++t) {
     Json u = Json::Object();
-    u["tactical"] = g_used[t][0];
-    u["technical"] = g_used[t][1];
+    const WebhookTeam wt = t == 0 ? WebhookTeam::Team1 : WebhookTeam::Team2;
+    u["tactical"] = PauseStateUsed(wt, "tactical");
+    u["technical"] = PauseStateUsed(wt, "technical");
     used[t == 0 ? "team1" : "team2"] = std::move(u);
   }
   pause["used"] = std::move(used);
@@ -478,17 +478,7 @@ Json BuildState() {
   // Pause kind (who / why) and the per-team counters.
   const PauseSnapshot ps = PauseStateGet();
   if (ps.paused && CtxIsOurs(ctx)) {
-    if (!g_pauseSeen) {
-      g_pauseSeen = true;
-      const int t = ps.team == WebhookTeam::Team1 ? 0 : ps.team == WebhookTeam::Team2 ? 1 : -1;
-      if (t >= 0 && ps.type == "tactical") ++g_used[t][0];
-      if (t >= 0 && ps.type == "technical") ++g_used[t][1];
-      Json& used = st["pause"]["used"];
-      for (int i = 0; i < 2; ++i) {
-        used[i == 0 ? "team1" : "team2"]["tactical"] = g_used[i][0];
-        used[i == 0 ? "team1" : "team2"]["technical"] = g_used[i][1];
-      }
-    }
+    g_pauseSeen = true;
     st["pause"]["type"] = ps.type.empty() ? std::string("admin") : ps.type;
     if (!ps.by.empty()) st["pause"]["by"] = ps.by;
   } else {
@@ -824,7 +814,6 @@ void ClearAssignment() {
   g_handOverPending = g_loading = g_restoring = g_seriesOver = g_serverReset = false;
   g_latestBackupRound = -1;
   g_lastLive = Json();
-  std::memset(g_used, 0, sizeof(g_used));
   g_pauseSeen = false;
   g_execs.clear();
   g_backupScanAt = -1;
@@ -898,7 +887,6 @@ void OnAssign(const ru_fleet_msg* m) {
     g_seriesOver = g_serverReset = false;
     g_latestBackupRound = -1;
     g_lastLive = Json();
-    std::memset(g_used, 0, sizeof(g_used));
     // D16: a scrim / pickup ends unreported; everyone not in the match is kicked after 5 s.
     const auto ctx = WebhookGetMatchContext();
     const ReadyUpMode mode = GetMode();
@@ -1615,11 +1603,6 @@ Json SnapshotJson() {
   j["server_reset"] = g_serverReset;
   j["latest_backup_round"] = g_latestBackupRound;
   j["last_live"] = g_lastLive;
-  Json used = Json::Array();
-  for (auto& t : g_used) {
-    for (int v : t) used.Push(v);
-  }
-  j["used"] = std::move(used);
   Json sent = Json::Array();
   {
     std::lock_guard<std::mutex> lk(g_backupMu);
@@ -1645,13 +1628,6 @@ void RestoreJson(const Json& j) {
   g_serverReset = Bool(j, "server_reset");
   g_latestBackupRound = static_cast<int>(Int(j, "latest_backup_round", -1));
   g_lastLive = j.Find("last_live") ? *j.Find("last_live") : Json();
-  if (const Json* u = j.Find("used")) {
-    size_t i = 0;
-    for (const auto& v : u->Items()) {
-      if (i < 4) g_used[i / 2][i % 2] = static_cast<int>(v.AsInt());
-      ++i;
-    }
-  }
   if (const Json* s = j.Find("sent_backups")) {
     std::lock_guard<std::mutex> lk(g_backupMu);
     for (const auto& v : s->Items()) g_sentBackups.insert(v.AsString());

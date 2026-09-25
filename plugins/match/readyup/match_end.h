@@ -103,6 +103,8 @@ struct MapEndInput {
   int team2SeriesScore = 0;
   bool seriesOver = false;
   std::string nextMap;       // when the series continues
+  // Series over: the winner when it is not the series score's (a forfeit); empty = by score.
+  std::string seriesWinner;
 };
 
 // Game thread, called with the modes mutex held: sends the MapResult event and only

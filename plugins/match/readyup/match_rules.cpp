@@ -1,0 +1,124 @@
+#include "readyup/match_rules.h"
+
+#include <algorithm>
+#include <cmath>
+
+namespace readyup {
+
+MatchRules BuiltinDefaultRules() {
+  MatchRules r;
+  r.tech_pauses_per_team = 3;
+  r.tech_pause_max_seconds = 300;
+  r.both_teams_unpause = 1;
+  r.allow_force_ready = 1;
+  r.min_players_to_ready = 0;
+  r.forfeit_after_seconds = 240;
+  return r;
+}
+
+MatchRules ResolveRules(const MatchRules& match, const MatchRules& base) {
+  const MatchRules d = BuiltinDefaultRules();
+  auto pick = [](int a, int b, int c) { return a >= 0 ? a : b >= 0 ? b : c; };
+  MatchRules r;
+  r.tech_pauses_per_team = pick(match.tech_pauses_per_team, base.tech_pauses_per_team, d.tech_pauses_per_team);
+  r.tech_pause_max_seconds =
+      pick(match.tech_pause_max_seconds, base.tech_pause_max_seconds, d.tech_pause_max_seconds);
+  r.both_teams_unpause = pick(match.both_teams_unpause, base.both_teams_unpause, d.both_teams_unpause) ? 1 : 0;
+  r.allow_force_ready = pick(match.allow_force_ready, base.allow_force_ready, d.allow_force_ready) ? 1 : 0;
+  r.min_players_to_ready = pick(match.min_players_to_ready, base.min_players_to_ready, d.min_players_to_ready);
+  r.forfeit_after_seconds =
+      pick(match.forfeit_after_seconds, base.forfeit_after_seconds, d.forfeit_after_seconds);
+  return r;
+}
+
+bool TechPauseAllowed(int used, int limit) { return limit <= 0 || used < limit; }
+
+int TechPausesLeft(int used, int limit) {
+  if (limit <= 0) return -1;
+  return std::max(0, limit - used);
+}
+
+int TechPauseSecondsLeft(int elapsedSeconds, int maxSeconds) {
+  if (maxSeconds <= 0) return -1;
+  return std::max(0, maxSeconds - std::max(0, elapsedSeconds));
+}
+
+bool UnpauseSatisfied(bool team1Confirmed, bool team2Confirmed, bool bothRequired, int pauserTeam) {
+  if (bothRequired) return team1Confirmed && team2Confirmed;
+  if (pauserTeam == 1) return team1Confirmed;
+  if (pauserTeam == 2) return team2Confirmed;
+  return team1Confirmed || team2Confirmed;
+}
+
+int ForceReadyRequired(int rosterSize, int minPlayers) {
+  if (rosterSize <= 0) return 0;
+  if (minPlayers <= 0) return rosterSize;
+  return std::min(minPlayers, rosterSize);
+}
+
+bool ForceReadyAllowed(int connected, int rosterSize, int minPlayers) {
+  if (rosterSize <= 0) return false;
+  return connected >= ForceReadyRequired(rosterSize, minPlayers);
+}
+
+std::string SanitizeTeamName(const std::string& in) {
+  std::string s;
+  s.reserve(in.size());
+  for (char c : in) {
+    const unsigned char u = static_cast<unsigned char>(c);
+    if (u < 0x20 || c == '"' || c == ';' || c == '\\' || u == 0x7F) continue;
+    s += c;
+  }
+  const auto b = s.find_first_not_of(' ');
+  if (b == std::string::npos) return {};
+  s = s.substr(b, s.find_last_not_of(' ') - b + 1);
+  if (s.size() > 32) {
+    size_t cut = 32;
+    while (cut > 0 && (static_cast<unsigned char>(s[cut]) & 0xC0) == 0x80) --cut;
+    s.resize(cut);
+  }
+  return s;
+}
+
+int ForfeitTimer::SecondsLeft(double now) const {
+  if (absent_ == 0) return 0;
+  return std::max(0, static_cast<int>(std::ceil(deadline_ - now - 1e-9)));
+}
+
+void ForfeitTimer::Reset() {
+  absent_ = 0;
+  deadline_ = 0;
+  fired_ = false;
+}
+
+ForfeitTimer::Result ForfeitTimer::Update(double now, bool active, int limitSeconds, bool team1Present,
+                                          bool team2Present) {
+  Result r;
+  int absent = 0;
+  if (active && limitSeconds > 0 && team1Present != team2Present) absent = team1Present ? 2 : 1;
+  if (absent == 0) {
+    if (absent_ != 0 && !fired_) r.action = Action::Cancelled;
+    if (absent_ != 0) r.absentTeam = absent_;
+    Reset();
+    return r;
+  }
+  if (fired_) {
+    r.absentTeam = absent_;
+    return r;  // stays fired until reset (the map ended)
+  }
+  if (absent_ != absent) {
+    absent_ = absent;
+    deadline_ = now + limitSeconds;
+    r.action = Action::Started;
+  }
+  r.absentTeam = absent_;
+  r.secondsLeft = SecondsLeft(now);
+  if (now >= deadline_) {
+    fired_ = true;
+    r.action = Action::Expired;
+    r.secondsLeft = 0;
+  }
+  return r;
+}
+
+}  // namespace readyup

@@ -84,6 +84,16 @@ Json ContextToJson(const WebhookMatchContext& c) {
   Json roster = Json::Object();
   for (const auto& kv : c.roster_team) roster[U64(kv.first)] = static_cast<int>(kv.second);
   j["roster"] = std::move(roster);
+  j["team1_flag"] = c.team1_flag;
+  j["team2_flag"] = c.team2_flag;
+  Json rules = Json::Object();
+  rules["tech_pauses_per_team"] = c.rules.tech_pauses_per_team;
+  rules["tech_pause_max_seconds"] = c.rules.tech_pause_max_seconds;
+  rules["both_teams_unpause"] = c.rules.both_teams_unpause;
+  rules["allow_force_ready"] = c.rules.allow_force_ready;
+  rules["min_players_to_ready"] = c.rules.min_players_to_ready;
+  rules["forfeit_after_seconds"] = c.rules.forfeit_after_seconds;
+  j["rules"] = std::move(rules);
   return j;
 }
 
@@ -115,6 +125,16 @@ WebhookMatchContext ContextFromJson(const Json& j) {
     for (const auto& kv : v->Members()) {
       c.roster_team[std::strtoull(kv.first.c_str(), nullptr, 10)] = static_cast<WebhookTeam>(kv.second.AsInt());
     }
+  }
+  c.team1_flag = Str(&j, "team1_flag");
+  c.team2_flag = Str(&j, "team2_flag");
+  if (const Json* r = j.Find("rules")) {
+    c.rules.tech_pauses_per_team = Int(r, "tech_pauses_per_team", -1);
+    c.rules.tech_pause_max_seconds = Int(r, "tech_pause_max_seconds", -1);
+    c.rules.both_teams_unpause = Int(r, "both_teams_unpause", -1);
+    c.rules.allow_force_ready = Int(r, "allow_force_ready", -1);
+    c.rules.min_players_to_ready = Int(r, "min_players_to_ready", -1);
+    c.rules.forfeit_after_seconds = Int(r, "forfeit_after_seconds", -1);
   }
   return c;
 }
@@ -157,6 +177,11 @@ Json Build(const std::vector<std::string>& pendingEvents, size_t firstEvent) {
   pause["by"] = ps.by;
   pause["team"] = static_cast<int>(ps.team);
   pause["start"] = pauseStart;
+  int used[4] = {0, 0, 0, 0};
+  PauseStateUsageSave(used);
+  Json usedJ = Json::Array();
+  for (int u : used) usedJ.Push(u);
+  pause["used"] = std::move(usedJ);
   j["pause"] = std::move(pause);
 
   const auto ms = MatchStateGet();
@@ -296,6 +321,14 @@ bool ReloadStateRestore() {
   ps.team = static_cast<WebhookTeam>(Int(pause, "team"));
   const Json* ptart = pause ? pause->Find("start") : nullptr;
   PauseStateRestore(ps, ptart ? ptart->AsInt() : 0);
+  if (const Json* u = pause ? pause->Find("used") : nullptr) {
+    int used[4] = {0, 0, 0, 0};
+    size_t i = 0;
+    for (const auto& v : u->Items()) {
+      if (i < 4) used[i++] = static_cast<int>(v.AsInt());
+    }
+    PauseStateUsageRestore(used);
+  }
 
   const Json* mst = j.Find("match_state");
   MatchStateSetMap(Int(mst, "map_number", 1), Str(mst, "map"));

@@ -70,6 +70,12 @@ int ParseInt(const std::string& v, int defaultValue) {
   return static_cast<int>(x);
 }
 
+// -1 (unset) for an empty or non-numeric value, else 0..100000.
+int RuleInt(const std::string& v) {
+  if (v.empty() || !std::isdigit(static_cast<unsigned char>(v[0]))) return -1;
+  return static_cast<int>(std::min(100000LL, std::strtoll(v.c_str(), nullptr, 10)));
+}
+
 std::string ExpandChatColorTokens(std::string s) {
   struct Tok {
     const char* token;
@@ -125,6 +131,13 @@ void Apply(ReadyUpCfg* out, const std::string& key, const std::string& val) {
   else if (key == "dev_bots_scrim") out->dev_bots_scrim = ParseBool(val, out->dev_bots_scrim);
   else if (key == "scrim_knife") out->scrim_knife = ParseBool(val, out->scrim_knife);
   else if (key == "knife_pick_seconds") out->knife_pick_seconds = ParseInt(val, out->knife_pick_seconds);
+  // Rules: 0 is a real value (unlimited / off), so no ParseInt here.
+  else if (key == "max_tech_pauses_per_team") out->rules.tech_pauses_per_team = RuleInt(val);
+  else if (key == "tech_pause_max_seconds") out->rules.tech_pause_max_seconds = RuleInt(val);
+  else if (key == "both_teams_unpause_required") out->rules.both_teams_unpause = ParseBool(val, true) ? 1 : 0;
+  else if (key == "allow_force_ready") out->rules.allow_force_ready = ParseBool(val, true) ? 1 : 0;
+  else if (key == "min_players_to_ready") out->rules.min_players_to_ready = RuleInt(val);
+  else if (key == "forfeit_after_seconds") out->rules.forfeit_after_seconds = RuleInt(val);
 }
 
 // `sections`: which parts of the file count ("" = top level, "match" = [match]).

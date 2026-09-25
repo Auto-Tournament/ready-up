@@ -8,6 +8,7 @@ console log. Nobody has to join.
 scripts/livetest/run.sh                    # on the cs2 box, as sivert: match mode
 scripts/livetest/run.sh --scrim            # bots-only scrim: warmup -> countdown -> knife -> pick -> live
 scripts/livetest/run.sh --side switch      # pick sides from the console instead of the timeout
+scripts/livetest/run.sh --forfeit          # match + pauses + team-left forfeit (see below)
 scripts/livetest/run.sh --out /tmp/lt      # keep console-capture.log + result.json
 ```
 
@@ -66,6 +67,24 @@ cleanup, before `ru scrim`, so the restored bots do not start a scrim afterwards
 It stops once the scrim is live (a scrim is MR12, too long for a test) and cleans up
 with `ru idle`. Scrims enter `postgame` at map end like matches do (for
 `restart_delay - 1` seconds, no kick); match mode checks that path.
+
+### Forfeit mode (`--forfeit`)
+
+The match flow up to `match_live` with rules in the match config (`max_tech_pauses_per_team 1`,
+`tech_pause_max_seconds 8`, `forfeit_after_seconds 20`, `mp_team_timeout_max 1`,
+`mp_team_timeout_time 5`, 30 rounds, no auto team balance), then:
+
+| Step | Driven by | Checked by |
+|---|---|---|
+| team names | `mp_teamname_1`, `mp_teamname_2` | `LiveTestA` / `LiveTestB` (swapped after a knife `switch`); also in match mode |
+| tech pause | `ru tech team1` | `pause: technical by team1`, then `pause: ended (technical pause time is up)` |
+| tech limit | `ru tech team1` again | `pause: technical refused for team1 (1/1 used)` |
+| tactical timeout | `ru tac team2` (`timeout_terrorist_start`) | `pause: tactical timeout by team2`, then `pause: ended (tactical timeout over)` |
+| forfeit countdown | `bot_quota_mode normal`, `bot_join_team T`, `bot_kick "<name>"` per CT bot | `forfeit: team1 has nobody connected` |
+| cancel | `bot_add_ct` | `forfeit: team1 is back` |
+| forfeit | the CT bots kicked again, 20 s | `forfeit: team1 (team_absent) forfeits map 1`, then postgame and idle |
+
+Cleanup also restores `bot_join_team any`, `mp_autoteambalance 1` and the old `bot_quota_mode`.
 
 ### Knife round time
 

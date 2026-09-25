@@ -1,5 +1,7 @@
 #include "readyup/scrim_flow.h"
 
+#include "readyup/match_features.h"
+
 #include "readyup/engine.h"
 #include "readyup/config.h"
 #include "readyup/match_events.h"
@@ -574,6 +576,15 @@ std::vector<std::string> BuildStateReport() {
                 (f.countdownActive ? " (countdown running)" : "") +
                 ((mode == ReadyUpMode::MatchWarmup && GoLiveTriggered()) ? " (go-live pending Round_Start)" : "") +
                 (KnifePhaseString() ? std::string(" knife=") + KnifePhaseString() : std::string()));
+  {
+    const MatchRules r = EffectiveRules();
+    out.push_back("rules: tech_pauses=" + std::to_string(r.tech_pauses_per_team) +
+                  " tech_max_s=" + std::to_string(r.tech_pause_max_seconds) +
+                  " unpause=" + (r.both_teams_unpause ? "both" : "pauser") +
+                  " force_ready=" + std::to_string(r.allow_force_ready) +
+                  " min_ready=" + std::to_string(r.min_players_to_ready) +
+                  " forfeit_s=" + std::to_string(r.forfeit_after_seconds));
+  }
 
   // Players: one entry per connected human (CT/T first, then spectators).
   std::vector<std::string> entries;

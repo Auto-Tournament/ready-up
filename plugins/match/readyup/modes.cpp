@@ -9,11 +9,14 @@
 #include "readyup/welcome.h"
 #include "readyup/config.h"
 #include "readyup/match_events.h"
+#include "readyup/match_features.h"
 #include "readyup/match_signals.h"
 #include "readyup/game_timers.h"
 #include "readyup/knife_tracker.h"
 #include "readyup/logging.h"
+#include "readyup/match_rules.h"
 #include "readyup/match_state.h"
+#include "readyup/pause_state.h"
 #include "readyup/admin_check.h"
 #include "readyup/mat_admins.h"
 #include "readyup/persisted_match_state.h"
@@ -198,6 +201,8 @@ static std::string KnifeWinnerNameLocked(const State& st, const WebhookMatchCont
 static void ApplyWarmupRulesLocked(State& st);
 static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContext& ctx);
 static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx);
+static void FinishMapLocked(State& st, const WebhookMatchContext& ctx, int map_number, const std::string& map,
+                            int team1_score, int team2_score, const char* winner, bool forfeit);
 
 // Knife-round rules. knife.cfg is the baseline; the overrides undo what
 // Ready Up's (emulated) warmup set and knife.cfg does not touch, so the round
@@ -615,12 +620,22 @@ static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContex
     if (s.steamid64 != 0) connected.insert(s.steamid64);
   }
 
+  // Every connected roster player is ready, and each team has min_players_to_ready of them
+  // (0 = the full roster, i.e. everyone connected; match_rules.h).
+  const int minPlayers = EffectiveRules().min_players_to_ready;
+  int roster[2] = {0, 0}, ready[2] = {0, 0};
   for (const auto& kv : ctx.roster_team) {
     const uint64_t sid = kv.first;
     if (sid == 0) continue;
-    if (connected.find(sid) == connected.end()) return false;
+    const int t = kv.second == WebhookTeam::Team2 ? 1 : 0;
+    ++roster[t];
+    if (connected.find(sid) == connected.end()) continue;
     auto it = st.ready.find(sid);
     if (it == st.ready.end() || !it->second) return false;
+    ++ready[t];
+  }
+  for (int t = 0; t < 2; ++t) {
+    if (ready[t] < ForceReadyRequired(roster[t], minPlayers)) return false;
   }
   return true;
 }
@@ -761,12 +776,40 @@ static bool IsSafeConvarValue(const std::string& s) {
 
 // Match config cvars win over live.cfg / knife.cfg: they go out after the cfg ran
 // (EnqueueAfterCfg), whichever order the callers queue them in.
+// mp_teamname_1 is the team that starts the map on CT (the engine keeps the names with the teams
+// at halftime); after a knife `.switch` (mp_swapteams) the map side, and so the names, change.
+// Scrims keep CS2's default names. Queued with the match cvars (after the cfg).
+static void AppendTeamNameCmds(std::vector<std::string>* cmds) {
+  const auto ctx = WebhookGetMatchContext();  // fresh: the knife pick just updated map_sides
+  std::string n1, n2, f1, f2;
+  if (ctx && ctx->slug != "scrim") {
+    const int mapNum = std::max(1, MatchStateGet().map_number);
+    const bool team1Ct = !(static_cast<size_t>(mapNum) <= ctx->map_sides.size() &&
+                           ctx->map_sides[static_cast<size_t>(mapNum - 1)] == "team2_ct");
+    n1 = SanitizeTeamName(team1Ct ? ctx->team1_name : ctx->team2_name);
+    n2 = SanitizeTeamName(team1Ct ? ctx->team2_name : ctx->team1_name);
+    f1 = SanitizeTeamName(team1Ct ? ctx->team1_flag : ctx->team2_flag);
+    f2 = SanitizeTeamName(team1Ct ? ctx->team2_flag : ctx->team1_flag);
+    if (f1.size() > 3) f1.clear();
+    if (f2.size() > 3) f2.clear();
+  }
+  cmds->push_back("mp_teamname_1 \"" + n1 + "\"");
+  cmds->push_back("mp_teamname_2 \"" + n2 + "\"");
+  cmds->push_back("mp_teamflag_1 \"" + f1 + "\"");
+  cmds->push_back("mp_teamflag_2 \"" + f2 + "\"");
+  Debug("modes: team names ct-start=\"%s\" t-start=\"%s\"\n", n1.c_str(), n2.c_str());
+}
+
 static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx) {
-  if (ctx.cvars.empty()) return;
+  std::vector<std::string> cmds;
+  AppendTeamNameCmds(&cmds);
+  if (ctx.cvars.empty()) {
+    EnqueueAfterCfg(std::move(cmds));
+    return;
+  }
   if (DebugEnabled()) {
     Debug("modes: applying %zu match cvars\n", ctx.cvars.size());
   }
-  std::vector<std::string> cmds;
   for (const auto& kv : ctx.cvars) {
     const std::string& key = kv.first;
     const std::string& val = kv.second;
@@ -870,6 +913,10 @@ static bool ResetServerRulesAndRestartLocked(State& st) {
       "mp_buytime 20",
       "sv_infinite_ammo 0",
       "sv_cheats 0",
+      "mp_teamname_1 \"\"",
+      "mp_teamname_2 \"\"",
+      "mp_teamflag_1 \"\"",
+      "mp_teamflag_2 \"\"",
       "mp_restartgame 1",
   };
 
@@ -1109,6 +1156,7 @@ bool GoLiveTriggered() {
 void OnMatchLoaded() {
   MatchEndCancelPending();
   ClearMapStats();
+  PauseStateResetUsage();
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
   st.mode = ReadyUpMode::MatchWarmup;
@@ -1417,6 +1465,15 @@ void OnMatchRoundEnded(int map_number, int team1_score, int team2_score, const s
     }
   }
 
+  FinishMapLocked(st, *ctxOpt, map_number, map, team1_score, team2_score, winner, /*forfeit=*/false);
+}
+
+namespace {
+// The map is decided: map_result, series score, postgame, MatchEndOnMapComplete. forfeit: the
+// series ends here with `winner` as the series winner.
+static void FinishMapLocked(State& st, const WebhookMatchContext& ctx, int map_number, const std::string& map,
+                            int team1_score, int team2_score, const char* winner, bool forfeit) {
+  const WebhookMatchContext* ctxOpt = &ctx;
   WebhookEmitMapResult(map_number,
                        map.empty() ? "" : map.c_str(),
                        std::max(0, team1_score),
@@ -1432,7 +1489,7 @@ void OnMatchRoundEnded(int map_number, int team1_score, int team2_score, const s
       ctxOpt->num_maps > 0 ? ctxOpt->num_maps : static_cast<int>(ctxOpt->maplist.size());
   const int remaining = RemainingMaps(totalMaps, static_cast<int>(ctxOpt->maplist.size()), map_number);
   bool seriesOver =
-      IsSeriesOver(totalMaps, remaining, st.seriesWinsTeam1, st.seriesWinsTeam2, ctxOpt->clinch_series);
+      forfeit || IsSeriesOver(totalMaps, remaining, st.seriesWinsTeam1, st.seriesWinsTeam2, ctxOpt->clinch_series);
 
   // map_number is 1-based; the next map is maplist[map_number].
   std::string nextMap;
@@ -1461,7 +1518,44 @@ void OnMatchRoundEnded(int map_number, int team1_score, int team2_score, const s
   in.team2SeriesScore = st.seriesWinsTeam2;
   in.seriesOver = seriesOver;
   in.nextMap = nextMap;
+  if (forfeit) in.seriesWinner = winner;
   (void)MatchEndOnMapComplete(in);
+}
+}  // namespace
+
+bool ForfeitCurrentMap(WebhookTeam loser, const char* reason) {
+  auto ctxOpt = WebhookGetMatchContext();
+  if (!ctxOpt || (loser != WebhookTeam::Team1 && loser != WebhookTeam::Team2)) return false;
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  if (st.mode != ReadyUpMode::MatchLive) return false;
+  const auto ms = MatchStateGet();
+  const int mapNumber = ms.map_number <= 0 ? 1 : ms.map_number;
+  if (st.mapResultEmittedForMapNumber == mapNumber) return false;
+  const char* loserStr = loser == WebhookTeam::Team1 ? "team1" : "team2";
+  const char* winner = loser == WebhookTeam::Team1 ? "team2" : "team1";
+  const std::string why = reason ? reason : "";
+  if (PauseStateGet().paused) {
+    (void)EnqueueServerCommand("mp_unpause_match");
+    PauseStateOnUnpaused();
+  }
+  std::string map = ms.current_map;
+  if (map.empty() && static_cast<size_t>(mapNumber) <= ctxOpt->maplist.size()) {
+    map = ctxOpt->maplist[static_cast<size_t>(mapNumber - 1)];
+  }
+  Print("forfeit: %s (%s) forfeits map %d (%s) at %d-%d -> %s wins\n", loserStr, why.c_str(), mapNumber,
+        map.c_str(), ms.team1_score, ms.team2_score, winner);
+  WebhookEnqueueEvent(std::string("{\"event\":\"match_forfeit\",\"matchid\":") + std::to_string(ctxOpt->matchid) +
+                      ",\"map_number\":" + std::to_string(mapNumber) + ",\"team\":\"" + loserStr +
+                      "\",\"reason\":\"" + why + "\"}");
+  if (signals::Enabled()) {
+    status::Json d = status::Json::Object();
+    d["team"] = loserStr;
+    d["reason"] = why;
+    signals::Emit("forfeit", std::move(d));
+  }
+  FinishMapLocked(st, *ctxOpt, mapNumber, map, ms.team1_score, ms.team2_score, winner, /*forfeit=*/true);
+  return true;
 }
 
 // Unloads the match and returns to idle (series over; match_end.cpp calls this after the
@@ -1492,6 +1586,7 @@ void ModesBeginNextMapWarmup() {
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
   if (st.mode != ReadyUpMode::Postgame) return;
+  PauseStateResetUsage();
   st.mode = ReadyUpMode::MatchWarmup;
   st.idleCfgExecuted = false;
   st.ready.clear();

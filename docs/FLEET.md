@@ -118,8 +118,11 @@ Choices made where this document leaves room:
 - Scrims and `ru match load` matches are never reported; a local match makes `match.assign`
   answer `busy`. A finished match that was not unassigned yet does not block the next assign.
 - Rules enforced from `rules`: `max_rounds`, `overtime`, `tiebreak`, `knife.side_pick_seconds`,
-  `clinch_series` (through the MAT config the match flow already loads). Coaches are whitelisted
-  spectators. The pause limits / forfeit / gg-vote rules are carried in `MatchState.rules` only.
+  `clinch_series`, `pause.technical_per_team` / `technical_seconds` / `unpause`,
+  `pause.tactical_per_team` / `tactical_seconds` (as `mp_team_timeout_max` / `_time`),
+  `ready.allow_force_ready` / `min_per_team` and `forfeit.team_absent_seconds` (through the MAT
+  config the match flow already loads; `plugins/match/readyup/match_rules.h`). Coaches are
+  whitelisted spectators. The gg-vote rules are carried in `MatchState.rules` only.
 - Round backups: CS2 writes `readyup_backup_<matchid>_map<N>__roundNN.txt` to `csgo/readyup/`
   (NN = rounds played; `InlineBackup.round` = NN + 1, the round it starts). The bridge forwards a
   file 1.5 s after each round start, again when its content changes (a replayed round after a
@@ -563,6 +566,7 @@ rules {
   ready: { min_per_team: 0 /* 0 = full roster */, allow_force_ready: true, autoready: false },
   knife: { side_pick_seconds: 60 },
   pause: { tactical_per_team: 4, tactical_seconds: 30, technical_per_team: 10,
+           technical_seconds?: 300 /* auto-unpause; 0 = none */,
            unpause: "both_teams" | "caller_team", pause_after_restore: true },
   whitelist: true, playout: false, clinch_series: true,
   forfeit: { team_absent_seconds: 240, gg_vote: { enabled: false, threshold: 0.8, min_score_diff: 8 } },

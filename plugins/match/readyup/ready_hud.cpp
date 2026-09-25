@@ -3,6 +3,7 @@
 #include "readyup/engine.h"
 #include "readyup/config.h"
 #include "readyup/logging.h"
+#include "readyup/match_features.h"
 #include "readyup/match_state.h"
 #include "readyup/modes.h"
 #include "readyup/player_registry.h"
@@ -293,6 +294,39 @@ static std::string KnifeHtml(const KnifeHudInfo& k, int viewerSide) {
   return h;
 }
 
+// Live map: pause state + countdowns, and the team-left forfeit countdown. No images (resent
+// every frame, docs/HUD.md). Empty when there is nothing to show.
+static std::string LiveHtml(const LiveHudInfo& l) {
+  std::string h;
+  if (l.paused) {
+    if (l.type == "tactical") {
+      h += Font(kGold, "<b>TACTICAL TIMEOUT</b>");
+      if (!l.byTeam.empty()) h += "<br>" + Esc(l.byTeam, 24);
+    } else if (l.type == "technical") {
+      h += Font(kNo, "<b>TECHNICAL PAUSE</b>");
+      if (!l.byTeam.empty()) h += " " + Font(kGrey, "by " + Esc(l.byTeam, 24));
+      if (l.pendingFreeze) {
+        h += "<br>" + Font(kGrey, "pausing at freeze time");
+      } else if (l.secondsLeft >= 0) {
+        h += "<br>auto-unpause in <b>" + std::to_string(l.secondsLeft / 60) + ":" +
+             (l.secondsLeft % 60 < 10 ? "0" : "") + std::to_string(l.secondsLeft % 60) + "</b>";
+      }
+      auto mark = [&](bool ok, const std::string& n) { return Font(ok ? kOk : kDim, (ok ? "&#10004; " : "&#10006; ") + Esc(n, 16)); };
+      h += "<br>" + Font(kGrey, l.bothRequired ? "both teams: " : "pausing team: ") + "<b>.unpause</b><br>" +
+           mark(l.team1Confirmed, l.team1) + " &#183; " + mark(l.team2Confirmed, l.team2);
+    } else {
+      h += Font(kNo, "<b>PAUSED BY ADMIN</b>") + "<br>" + Font(kGrey, "an admin unpauses (.fup)");
+    }
+  }
+  if (l.forfeit) {
+    if (!h.empty()) h += "<br>";
+    h += Font(kNo, "<b>" + Esc(l.forfeitTeam, 24) + " LEFT</b>") + "<br>forfeit in <b>" +
+         std::to_string(l.forfeitSecondsLeft / 60) + ":" + (l.forfeitSecondsLeft % 60 < 10 ? "0" : "") +
+         std::to_string(l.forfeitSecondsLeft % 60) + "</b> unless a player reconnects";
+  }
+  return h;
+}
+
 // `.ru hudtest <n>` variants. Each one fits well under ~1 KB.
 static std::string TestHtml(int n) {
   const std::string title = Font(kGrey, "hudtest " + std::to_string(n)) + "<br>";
@@ -416,9 +450,10 @@ void ReadyHudTick() {
   const ReadyUpMode mode = GetMode();
   const auto ctx = WebhookGetMatchContext();
 
-  enum class What { None, Ready, Knife };
+  enum class What { None, Ready, Knife, Live };
   What what = What::None;
   KnifeHudInfo knife;
+  std::string liveHtml;
   if (!enabled) {
     what = What::None;
   } else if (mode == ReadyUpMode::ScrimWarmup) {
@@ -442,6 +477,9 @@ void ReadyHudTick() {
       what = What::Knife;
       if (holding) knife.phase = KnifePhase::Starting;  // same "knives only" text while held
     }
+  } else if (mode == ReadyUpMode::MatchLive) {
+    liveHtml = LiveHtml(MatchFeaturesHud());
+    if (!liveHtml.empty()) what = What::Live;
   }
   if (what == What::None && tests.empty()) {
     g_sent.clear();
@@ -474,7 +512,9 @@ void ReadyHudTick() {
       if (what == What::None) continue;
       // The welcome screen owns the panel while it is up (~5s after joining).
       if (WelcomeActiveForSteam(h.steamid64)) continue;
-      html = (what == What::Ready) ? ReadyHtml(board, h.steamid64, footer) : KnifeHtml(knife, h.team);
+      html = (what == What::Ready)   ? ReadyHtml(board, h.steamid64, footer)
+             : (what == What::Live) ? liveHtml
+                                    : KnifeHtml(knife, h.team);
     }
     if (html.empty()) continue;
 

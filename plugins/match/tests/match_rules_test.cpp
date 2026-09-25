@@ -1,0 +1,164 @@
+// Offline tests for readyup/match_rules.h: rule resolution, technical pause limits, the unpause
+// rule, the auto-unpause countdown, the .forceready threshold, team name sanitizing and the
+// team-left forfeit timer. ctest `match_rules`.
+#include "readyup/match_rules.h"
+
+#include <cstdio>
+#include <string>
+
+using namespace readyup;
+
+static int g_failures = 0;
+static int g_checks = 0;
+
+#define CHECK(cond)                                                                 \
+  do {                                                                              \
+    ++g_checks;                                                                     \
+    if (!(cond)) {                                                                  \
+      std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, #cond); \
+      ++g_failures;                                                                 \
+    }                                                                               \
+  } while (0)
+
+static void TestResolve() {
+  const MatchRules d = BuiltinDefaultRules();
+  CHECK(d.tech_pauses_per_team == 3 && d.tech_pause_max_seconds == 300 && d.both_teams_unpause == 1);
+  CHECK(d.allow_force_ready == 1 && d.min_players_to_ready == 0 && d.forfeit_after_seconds == 240);
+
+  // Nothing set anywhere: defaults.
+  MatchRules r = ResolveRules(MatchRules{}, MatchRules{});
+  CHECK(r.tech_pauses_per_team == 3 && r.forfeit_after_seconds == 240);
+
+  // readyup.cfg (base) over defaults, the match over both; 0 is a value, not "unset".
+  MatchRules cfg;
+  cfg.tech_pauses_per_team = 5;
+  cfg.forfeit_after_seconds = 0;
+  cfg.both_teams_unpause = 0;
+  MatchRules match;
+  match.tech_pauses_per_team = 1;
+  match.tech_pause_max_seconds = 0;
+  r = ResolveRules(match, cfg);
+  CHECK(r.tech_pauses_per_team == 1);
+  CHECK(r.tech_pause_max_seconds == 0);
+  CHECK(r.forfeit_after_seconds == 0);
+  CHECK(r.both_teams_unpause == 0);
+  CHECK(r.allow_force_ready == 1);
+  // Booleans normalize to 0/1.
+  match.allow_force_ready = 7;
+  CHECK(ResolveRules(match, cfg).allow_force_ready == 1);
+}
+
+static void TestPauses() {
+  // Limit 2: the third technical pause is refused.
+  CHECK(TechPauseAllowed(0, 2));
+  CHECK(TechPauseAllowed(1, 2));
+  CHECK(!TechPauseAllowed(2, 2));
+  CHECK(TechPausesLeft(1, 2) == 1);
+  CHECK(TechPausesLeft(2, 2) == 0);
+  CHECK(TechPausesLeft(5, 2) == 0);
+  // 0 = unlimited.
+  CHECK(TechPauseAllowed(100, 0));
+  CHECK(TechPausesLeft(100, 0) == -1);
+
+  // Auto-unpause countdown.
+  CHECK(TechPauseSecondsLeft(0, 300) == 300);
+  CHECK(TechPauseSecondsLeft(299, 300) == 1);
+  CHECK(TechPauseSecondsLeft(300, 300) == 0);
+  CHECK(TechPauseSecondsLeft(1000, 300) == 0);
+  CHECK(TechPauseSecondsLeft(-5, 300) == 300);
+  CHECK(TechPauseSecondsLeft(50, 0) == -1);  // no limit
+
+  // Unpause: both teams, or the pausing team alone.
+  CHECK(!UnpauseSatisfied(true, false, true, 1));
+  CHECK(UnpauseSatisfied(true, true, true, 1));
+  CHECK(UnpauseSatisfied(true, false, false, 1));
+  CHECK(!UnpauseSatisfied(false, true, false, 1));  // the other team cannot end team1's pause
+  CHECK(UnpauseSatisfied(false, true, false, 2));
+  CHECK(UnpauseSatisfied(false, true, false, 0));  // no pausing team: either one
+  CHECK(!UnpauseSatisfied(false, false, false, 0));
+}
+
+static void TestForceReady() {
+  // min 0 = the full roster.
+  CHECK(ForceReadyRequired(5, 0) == 5);
+  CHECK(!ForceReadyAllowed(4, 5, 0));
+  CHECK(ForceReadyAllowed(5, 5, 0));
+  // min 4 of 5.
+  CHECK(ForceReadyRequired(5, 4) == 4);
+  CHECK(ForceReadyAllowed(4, 5, 4));
+  CHECK(!ForceReadyAllowed(3, 5, 4));
+  // min above the roster: the roster.
+  CHECK(ForceReadyRequired(2, 5) == 2);
+  CHECK(ForceReadyAllowed(2, 2, 5));
+  // Empty roster never qualifies.
+  CHECK(!ForceReadyAllowed(0, 0, 0));
+}
+
+static void TestTeamNames() {
+  CHECK(SanitizeTeamName("Team Alpha") == "Team Alpha");
+  CHECK(SanitizeTeamName("  Bad\";quit\n ") == "Badquit");
+  CHECK(SanitizeTeamName("") == "");
+  CHECK(SanitizeTeamName("   ") == "");
+  const std::string longName(40, 'x');
+  CHECK(SanitizeTeamName(longName).size() == 32);
+  // Cut on a UTF-8 boundary: 31 ASCII bytes + a 2-byte character must not be split.
+  const std::string utf = std::string(31, 'a') + "\xC3\xA6" + "b";
+  CHECK(SanitizeTeamName(utf) == std::string(31, 'a'));
+}
+
+static void TestForfeit() {
+  using A = ForfeitTimer::Action;
+  ForfeitTimer t;
+  // Both present: nothing.
+  auto r = t.Update(0, true, 240, true, true);
+  CHECK(r.action == A::None && !t.Running());
+  // Team2 leaves at t=10.
+  r = t.Update(10, true, 240, true, false);
+  CHECK(r.action == A::Started && r.absentTeam == 2 && r.secondsLeft == 240);
+  CHECK(t.Running());
+  r = t.Update(100.2, true, 240, true, false);
+  CHECK(r.action == A::None && r.secondsLeft == 150);
+  // Someone reconnects: cancelled.
+  r = t.Update(120, true, 240, true, true);
+  CHECK(r.action == A::Cancelled && r.absentTeam == 2 && !t.Running());
+  // Leaves again: a fresh countdown.
+  r = t.Update(130, true, 240, true, false);
+  CHECK(r.action == A::Started && r.secondsLeft == 240);
+  r = t.Update(369.9, true, 240, true, false);
+  CHECK(r.action == A::None && r.secondsLeft == 1);
+  r = t.Update(370, true, 240, true, false);
+  CHECK(r.action == A::Expired && r.absentTeam == 2);
+  // Fires once.
+  r = t.Update(371, true, 240, true, false);
+  CHECK(r.action == A::None && !t.Running());
+  // The map ended (not live): reset without a "cancelled".
+  r = t.Update(372, false, 240, true, false);
+  CHECK(r.action == A::None);
+  CHECK(!t.Running() && t.AbsentTeam() == 0);
+
+  // Everyone gone (empty server) and rule off: no countdown.
+  ForfeitTimer u;
+  CHECK(u.Update(0, true, 240, false, false).action == A::None);
+  CHECK(u.Update(0, true, 0, true, false).action == A::None);
+  CHECK(u.Update(0, false, 240, true, false).action == A::None);
+  // Team1 leaves, then the whole server empties: cancelled; team1 still gone later restarts.
+  CHECK(u.Update(1, true, 60, false, true).action == A::Started);
+  CHECK(u.Update(2, true, 60, false, false).action == A::Cancelled);
+  r = u.Update(3, true, 60, false, true);
+  CHECK(r.action == A::Started && r.absentTeam == 1);
+  // The other team leaving instead restarts the countdown for it.
+  r = u.Update(4, true, 60, true, false);
+  CHECK(r.action == A::Started && r.absentTeam == 2 && r.secondsLeft == 60);
+  // Leaving the live map while counting cancels it.
+  CHECK(u.Update(5, false, 60, true, false).action == A::Cancelled);
+}
+
+int main() {
+  TestResolve();
+  TestPauses();
+  TestForceReady();
+  TestTeamNames();
+  TestForfeit();
+  std::printf("match_rules: %d checks, %d failures\n", g_checks, g_failures);
+  return g_failures == 0 ? 0 : 1;
+}

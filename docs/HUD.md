@@ -36,3 +36,15 @@ come back).
 
 - After the knife round starts, the KNIFE ROUND panel stays up for `hud_knife_hold_s` seconds (default 30), also while the round is running.
 - While the panel reaches players, flow updates (ready, countdown, knife start, knife winner, side pick) are shown only in the panel, not in chat. Replies that explain a refused command, admin actions and the LIVE line still go to chat. With `ready_hud=0`, or if a panel send fails, the chat messages come back.
+
+## Live panel (pauses, forfeit)
+
+While a map is live the panel is only shown when there is something to wait for
+(`plugins/match/readyup/match_features.h`), with the same every-frame resend and no images:
+
+- TACTICAL TIMEOUT (`.tac`) with the team, until the timeout ends (`round_freeze_end`).
+- TECHNICAL PAUSE with the team, "pausing at freeze time" until it takes effect, then the
+  auto-unpause countdown (`tech_pause_max_seconds`) and who has typed `.unpause`.
+- PAUSED BY ADMIN (only `.fup` ends it).
+- `<team> LEFT` with the forfeit countdown (`forfeit_after_seconds`) while a team has nobody
+  connected. Chat also announces the start, 120/60/30/10 s, a cancel and the forfeit.

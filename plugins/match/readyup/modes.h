@@ -1,6 +1,7 @@
 #pragma once
 
 #include "readyup/status_snapshot.h"
+#include "readyup/webhook.h"
 
 #include <cstdint>
 #include <string>
@@ -67,6 +68,12 @@ void OnMatchRoundEnded(int map_number, int team1_score, int team2_score, const s
 // - ModesFinishSeriesResetToIdle: unload the match (context, persisted state, stats) and go idle.
 void ModesBeginNextMapWarmup();
 void ModesFinishSeriesResetToIdle();
+
+// Forfeit (match_features.cpp: a whole team left for forfeit_after_seconds): `loser` forfeits the
+// live map and the series; map_result + series_end go out through the normal map-end flow with the
+// other team as winner, plus `match_forfeit` (webhook) / `forfeit` (fleet) with `reason`.
+// False unless a map is live. Game thread.
+bool ForfeitCurrentMap(WebhookTeam loser, const char* reason);
 
 // Knife decider (match config `map_sides: "knife"`, or scrims with
 // readyup.cfg `scrim_knife=1`). Log-driven; engine events are an optional
