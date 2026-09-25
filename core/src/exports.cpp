@@ -150,6 +150,7 @@ __attribute__((constructor)) static void readyup_ctor() {
     readyup::Print("loaded from: %s\n", p.c_str());
   }
   readyup::PrintLine("libserver.so loaded.");
+  readyup::LogLicenseNotice();
 
   // One Ready Up per process. A second copy (two csgo/readyup-style lines, or a copy chained
   // behind another) would install every hook twice; it stays inert and only forwards the

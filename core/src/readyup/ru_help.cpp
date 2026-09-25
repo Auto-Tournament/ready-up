@@ -24,7 +24,8 @@ void PrintRuHelp() {
       "Repo:   github.com/Auto-Tournament/ready-up\n"
       "\n"
       "Core console / RCON commands:\n"
-      "  - ru                     (prints this help)\n"
+      "  - ru / ru help            (prints this help)\n"
+      "  - ru help <command>       (the subcommands of a main command, e.g. ru help match)\n"
       "  - ru version\n"
       "  - ru reload               (reload readyup.cfg; plugins re-read their own settings)\n"
       "  - ru selftest             (engine surface, hooks, schema, events, plugins, features; PASS/FAIL)\n"
@@ -36,11 +37,12 @@ void PrintRuHelp() {
       "Core chat commands (admins): .ru plugin ... | .ru reload | .ru selftest | .ru version | .ru help\n"
       "\n"
       "The match flow (ready-up, scrims, knife, pauses, practice, `ru match load`, webhooks, demos)\n"
-      "is the match plugin (plugins/match, match.so); its commands are listed below when it is loaded.\n",
+      "is the match plugin (plugins/match, match.so); its main commands are listed below when it is\n"
+      "loaded (`ru help <command>` for their subcommands).\n",
       BuildVersion());
   const auto subs = plugins::PluginRuSubcommands();
   if (!subs.empty()) {
-    PrintRaw("\nPlugin commands (ru <sub> / .ru <sub>):\n");
+    PrintRaw("\nPlugin main commands (ru <command> <sub> / .ru <command> <sub>):\n");
     for (const auto& s : subs) PrintRaw("  - ru %s\n", s.c_str());
   }
   const auto cmds = plugins::PluginCommandSummary();

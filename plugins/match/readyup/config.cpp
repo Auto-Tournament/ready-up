@@ -132,6 +132,10 @@ void Apply(ReadyUpCfg* out, const std::string& key, const std::string& val) {
   else if (key == "dev_bots_scrim") out->dev_bots_scrim = ParseBool(val, out->dev_bots_scrim);
   else if (key == "scrim_knife") out->scrim_knife = ParseBool(val, out->scrim_knife);
   else if (key == "knife_pick_seconds") out->knife_pick_seconds = ParseInt(val, out->knife_pick_seconds);
+  else if (key == "idle_map_refresh_hours") {
+    const int h = RuleInt(val);  // 0 = off; anything unreadable keeps the default
+    if (h >= 0) out->idle_map_refresh_hours = std::min(h, 720);
+  }
   // Rules: 0 is a real value (unlimited / off), so no ParseInt here.
   else if (key == "max_tech_pauses_per_team") out->rules.tech_pauses_per_team = RuleInt(val);
   else if (key == "tech_pause_max_seconds") out->rules.tech_pause_max_seconds = RuleInt(val);

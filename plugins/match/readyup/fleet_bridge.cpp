@@ -74,6 +74,8 @@ double g_handOverAt = 0;
 bool g_loading = false;
 double g_loadStarted = 0;
 std::string g_loadFromMap;
+unsigned g_mapStarts = 0;      // RU_EVENT_MAP_START seen (OnMapStart)
+unsigned g_loadMapStarts = 0;  // g_mapStarts when the load began
 bool g_restoring = false;
 bool g_seriesOver = false;   // series_end seen for this assignment
 bool g_serverReset = false;  // the match flow unloaded the finished match (ServerReset)
@@ -952,6 +954,7 @@ void BeginLoad() {
   SetPassword(Str(g_config, "password"));
   const char* cm = g_api ? g_api->current_map(g_api->self) : nullptr;
   g_loadFromMap = cm ? cm : "";
+  g_loadMapStarts = g_mapStarts;
   ScrimSetAutoEnabled(false);
   // Map 1, or the map a failover resumes (workshop maps load with host_workshop_map).
   const int first = g_resumeActive ? g_resume.map_number : 1;
@@ -979,15 +982,10 @@ void CheckLoaded() {
   if (!g_loading) return;
   const char* cm = g_api ? g_api->current_map(g_api->self) : nullptr;
   const std::string cur = cm ? cm : "";
-  const int target = g_resumeActive ? g_resume.map_number : 1;
-  std::string entry;
-  if (const Json* maps = g_config.Find("maps"); maps && static_cast<int>(maps->Items().size()) >= target) {
-    const Json& m = maps->Items()[static_cast<size_t>(target - 1)];
-    entry = mapnames::MakeEntry(Str(m, "name"), Str(m, "workshop_id"));
-  }
-  const bool changed = !cur.empty() && cur != g_loadFromMap;
-  const bool onTarget = !cur.empty() && mapnames::EntryMatchesLoaded(entry, cur);
-  if (changed || onTarget || g_now - g_loadStarted > kLoadTimeoutS) {
+  // The load always changes map (ApplyLoadedMatch), also onto the map the server is on: done once
+  // a map started after it (or the map name changed, after a plugin reload lost the count).
+  const bool changed = (!cur.empty() && cur != g_loadFromMap) || g_mapStarts != g_loadMapStarts;
+  if (changed || g_now - g_loadStarted > kLoadTimeoutS) {
     // The engine's map start runs before the match flow's warmup; give it a tick to settle.
     if (g_now - g_loadStarted > 1.0) g_loading = false;
   }
@@ -1683,6 +1681,8 @@ void Uninstall() {
   signals::SetEnabled(false);
   g_api = nullptr;
 }
+
+void OnMapStart() { ++g_mapStarts; }
 
 void OnCoreEvent(const ru_event* e) {
   if (!g_asg.active || !e || !e->steamid64 || IsDevBotId(e->steamid64)) return;

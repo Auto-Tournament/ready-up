@@ -39,7 +39,7 @@ bool HudReplacesChat();
 // fontClass: e.g. "fontSize-l" (empty = none).
 std::string HudBrandHtml(int imgHeight, const char* fontClass);
 
-// `.ru hudtest <n>` (admin): shows test HTML variant n to this player only for
+// `.ru hud test <n>` (admin): shows test HTML variant n to this player only for
 // ~10 seconds (over the HUD and the welcome card). Thread-safe; the send happens
 // on the GameFrame thread. Returns a short description of the variant, or an
 // empty string if n is unknown.

@@ -22,9 +22,16 @@ From the server root (the folder with `game/`), as the server's user:
 curl -fsSL https://raw.githubusercontent.com/Auto-Tournament/ready-up/master/install.sh | bash
 ```
 
+It asks once whether you use Ready Up noncommercially (accept the PolyForm Noncommercial
+license by typing `yes`) or commercially (needs a paid license; see the
+[README](../README.md#commercial-use)), and saves the answer and a UTC timestamp in
+`game/csgo/readyup/license-acceptance.json`. Unattended runs pass
+`--accept-license=noncommercial|commercial` instead; without it (and no saved choice) they stop
+before changing anything. Removing components and uninstalling never ask.
+
 See the [README](../README.md#install) for the checklist, the non-interactive forms
 (`essentials`, `full`, `--yes`, `--remove`, `--uninstall [--purge]`, `--zip`, `--version`,
-`--dir`) and what it touches. It records what is installed in
+`--dir`, `--accept-license`) and what it touches. It records what is installed in
 `game/csgo/readyup/installed.json` (component -> version) and each component's file list in
 `game/csgo/readyup/manifests/<component>.json`, which is how updates remove files a newer
 version no longer ships and how unticking a component removes it.
@@ -169,9 +176,20 @@ The installer only creates this file if it's missing; it never overwrites your e
 The core reads `debug`, `banner`, `chat_prefix`, `chat_debug`, `consume_ru_chat` and the
 `status_http_*` keys. The match plugin (`match.so`) reads its keys (`welcome`, `ready_hud`,
 `hud_*`, `admin_prefix`, `captain_prefix_*`, `consume_ready_chat`, `dev_bots_*`, `scrim_knife`,
-`knife_pick_seconds`) from the same place, or from a `[match]` section of this file, or from
+`knife_pick_seconds`, `idle_map_refresh_hours`) from the same place, or from a `[match]` section of this file, or from
 `game/csgo/cfg/ReadyUp/match.cfg` (later ones win). It re-reads them by itself when one of those
 files changes.
+
+### Idle map refresh
+
+After a day or more of uptime on one map, player animations run in slow motion while the tick
+rate stays fine (most likely float precision in the engine clock). A map load fixes it, so:
+
+- Loading a match always changes map, also when the server is already on the match's first map.
+- `idle_map_refresh_hours=12` (default; `0` = off): when no match is loaded, nobody is connected
+  and the server has been on the same map for that many hours, Ready Up loads the same map again
+  (a workshop map by its id). It logs `idle-refresh: ...` and tries again at most every 10 minutes
+  if the map does not change.
 
 ### Prefix keys
 
@@ -201,7 +219,7 @@ chat_prefix="<Green>[PUG #1]<Default>"
 - `hud_brand=Auto Tournament` (default) and `hud_logo_url=` (default empty = no image):
   the header of the welcome card and the ready HUD is `<img src='hud_logo_url'>` (when
   set) followed by `hud_brand`. Admins can check what the CS2 client renders (font
-  classes, PNG/SVG images, unicode) with `.ru hudtest 1..7`; the variant is shown only to
+  classes, PNG/SVG images, unicode) with `.ru hud test 1..7`; the variant is shown only to
   the admin who typed it, for ~10 seconds.
 - It needs `LegacyGameEventListener` from `gamedata/engine-surface.json` (resolved and
   anchor-verified at load) and the RTTI-verified game event manager. If either is missing,
@@ -236,7 +254,7 @@ chat_prefix="<Green>[PUG #1]<Default>"
   (time ran out, draw) is decided by players alive, then HP left (from `attacked`
   log lines), then a coin flip.
 - Any player of the winning team types `.stay` / `.switch` (or `.ct` / `.t`);
-  admins can use `.ru side ...`. Window: match `knifeDecisionSeconds` (default 60),
+  admins can use `.ru match side ...`. Window: match `knifeDecisionSeconds` (default 60),
   scrims `knife_pick_seconds` (default 60). No pick = stay. Winning side with no
   humans (bots only) = stay after 3s.
 - Then `mp_swapteams` (if switching), `exec ReadyUp/live.cfg`, `mp_restartgame 1`,
@@ -352,13 +370,15 @@ Ready Up maintains its own lightweight mode state machine and can display a **no
   - `.gg`
   - `.ff` / `.forfeit` (captain-only; captains come from match config)
 - **Mode control (server console / RCON)**:
-  - `ru mode` (prints current mode)
+  - `ru mode show` (prints current mode)
   - `ru mode idle`
   - `ru mode practice`
 - **Admin match controls (server console / RCON)**:
-  - `ru start` (force start live rules regardless of ready)
-  - `ru restart` (restart and return to match warmup)
-  - `ru end` (force end: emits `series_end` with winner=none, clears match context, resets server)
+  - `ru match start` (force start live rules regardless of ready)
+  - `ru match restart` (restart and return to match warmup)
+  - `ru match end` (force end: emits `series_end` with winner=none, clears match context, resets server)
+  - the full list (`.ru map change|reload|restart`, ...) is in [ADMINS.md](ADMINS.md#commands);
+    every one also works in chat as `.ru ...` for admins
 - **Match ready-up gate (server console / RCON)**:
   - `ru_warmup_enable 0|1` (default `1`). Despite the name this is more than the banner:
     - `1`: a loaded match waits in `match_warmup` until every roster player is ready, then

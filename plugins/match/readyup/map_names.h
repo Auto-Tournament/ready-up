@@ -54,6 +54,10 @@ void NoteWorkshopLoad(const std::string& workshopId);
 // loaded name) to its base name.
 void NoteMapLoaded(const std::string& loaded);
 std::string BoundName(const std::string& workshopId);  // "" when unknown
+// The entry that loads the map the engine reports as `loaded` again (`ru map reload`): the workshop
+// id inside the name, else the id bound to its base name ("workshop/<id>/<name>"), else the base
+// name. "" if nothing loadable is left.
+std::string ReloadEntry(const std::string& loaded);
 void ResetBindings();                                  // tests
 
 }  // namespace readyup::mapnames

@@ -48,7 +48,11 @@ Ready Up runs on Linux dedicated servers (`linuxsteamrt64`). From your server ro
 curl -fsSL https://raw.githubusercontent.com/Auto-Tournament/ready-up/master/install.sh | bash
 ```
 
-In a terminal it shows the components with the installed and latest version. Move with ↑/↓, toggle with space, confirm with enter:
+It first asks how you will use Ready Up: personal / noncommercial (you type `yes` to accept the
+[license](#license)) or commercial (you need a paid license first, see [Commercial use](#commercial-use)).
+The choice is saved in `game/csgo/readyup/license-acceptance.json`, so updates don't ask again.
+
+In a terminal it then shows the components with the installed and latest version. Move with ↑/↓, toggle with space, confirm with enter:
 
 ```
 > [x] Core   new 0.2.0     required
@@ -64,9 +68,12 @@ It downloads the ticked components from the latest release (checking `SHA256SUMS
 
 **Scripts and panels (no questions):**
 
+Unattended installs have to state the license choice once with
+`--accept-license=noncommercial` or `--accept-license=commercial`, or they stop with an error:
+
 ```bash
-curl -fsSL .../install.sh | bash -s -- essentials        # core + match + fleet (the default)
-curl -fsSL .../install.sh | bash -s -- full              # + skins + hello
+curl -fsSL .../install.sh | bash -s -- essentials --accept-license=noncommercial   # core + match + fleet (the default)
+curl -fsSL .../install.sh | bash -s -- full --accept-license=noncommercial         # + skins + hello
 bash install.sh --yes                                    # update whatever is installed
 bash install.sh --remove skins                           # or --remove fleet, --remove hello
 bash install.sh --uninstall [--purge]                    # --purge also deletes your config
@@ -186,6 +193,15 @@ See the [contributing guide](.github/CONTRIBUTING.md). Questions and bug reports
 Ready Up is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). Copyright (c) 2026 Sivert Gullberg Hansen. Ready Up is not MIT.
 
 You can use, change and share it for anything noncommercial. Commercial use, meaning anyone who earns money from it (a profit-making event, a business, a paid operator, or selling it or a service built on it), needs a separate license — see [pricing](https://autotournament.gg/pricing) or email [sivert@autotournament.gg](mailto:sivert@autotournament.gg).
+
+### Commercial use
+
+The free license covers noncommercial use only. If you or your organization earn money from
+Ready Up (a business, a profit-making event or tournament, a paid server operator, or selling
+Ready Up or a service built on it), you need a paid commercial license before you install it.
+See [pricing](https://autotournament.gg/pricing) or email
+[sivert@autotournament.gg](mailto:sivert@autotournament.gg). Then install with
+`--accept-license=commercial`. The server prints a one-line license notice at every start.
 
 Looking for an MIT plugin instead? [MatchZy Enhanced](https://github.com/Auto-Tournament/cs2-plugin) (now named Auto Tournament CS2) is MIT licensed and free for any use, including paid work. Ready Up is a different plugin, not a fork of it.
 

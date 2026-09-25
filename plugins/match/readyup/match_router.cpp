@@ -1,6 +1,7 @@
 // readyup-match chat and `ru` commands (see match_router.h). Moved from the core's
-// ru_router.cpp (player commands + match `.ru` subcommands) and command_buffer_hook.cpp
-// (`ru mode|match|side|start|restart|end|recover|...` on the console). The core already
+// ru_router.cpp (player commands + match `.ru` commands) and command_buffer_hook.cpp. `ru`
+// commands are main commands with subcommands (ru_commands.h), the same in chat and on the
+// console. The core already
 // deduped the chat line and checked that chat commands are available on this build.
 #include "readyup/match_router.h"
 
@@ -10,6 +11,7 @@
 #include "readyup/engine.h"
 #include "readyup/esports.h"
 #include "readyup/logging.h"
+#include "readyup/map_names.h"
 #include "readyup/match_console.h"
 #include "readyup/match_events.h"
 #include "readyup/match_features.h"
@@ -19,6 +21,7 @@
 #include "readyup/pause_state.h"
 #include "readyup/persisted_match_state.h"
 #include "readyup/practice_tools.h"
+#include "readyup/ru_commands.h"
 #include "readyup/players.h"
 #include "readyup/ready_hud.h"
 #include "readyup/scrim_flow.h"
@@ -80,10 +83,12 @@ const std::vector<std::string>& MatchPlayerChatCommands() {
 }
 
 const std::vector<std::string>& MatchRuSubcommands() {
-  static const std::vector<std::string> k = {
-      "admins", "hudtest", "prac", "practice", "idle", "scrim", "state", "status", "mode", "match", "start",
-      "pause",  "fp",      "forcepause", "unpause", "up", "fup", "forceunpause", "restart", "end", "recover", "side",
-      "tech",   "tac", "rules"};
+  // Main commands only (ru_commands.h); their subcommands are parsed here.
+  static const std::vector<std::string> k = [] {
+    std::vector<std::string> v;
+    for (const auto& m : MatchRuCommands()) v.push_back(m.name);
+    return v;
+  }();
   return k;
 }
 
@@ -107,21 +112,22 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
                      ? "Ready Up: scrim: when everyone on CT/T is READY: 5s countdown, knife round, winners .stay/.switch, live."
                      : "Ready Up: scrim: when everyone on CT/T is READY, a 5s countdown starts and the scrim goes live.");
     }
+    if (IsReadyUpAdmin(steamid64)) SendToChat("Ready Up admin: .ru help (commands) | .ru help <command> (its subcommands)");
     return;
   }
 
   if (first == ".forcepause" || first == ".fp") {
-    MatchRuCommand(steamid64, playerName, ".ru fp");
+    MatchRuCommand(steamid64, playerName, ".ru match pause", -1);
     return;
   }
   if (first == ".forceunpause" || first == ".fup") {
-    MatchRuCommand(steamid64, playerName, ".ru fup");
+    MatchRuCommand(steamid64, playerName, ".ru match unpause", -1);
     return;
   }
 
   if (first == ".prac" || first == ".tactics") {
     // MatchZy-style alias of the admin command.
-    MatchRuCommand(steamid64, playerName, ".ru prac");
+    MatchRuCommand(steamid64, playerName, ".ru mode practice", -1);
     return;
   }
 
@@ -159,7 +165,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
       return;
     }
     if (curMode == ReadyUpMode::Idle && !ScrimAutoEnabled()) {
-      SendToChat("Ready Up: scrim warmup is off (admin: .ru scrim to enable).");
+      SendToChat("Ready Up: scrim warmup is off (admin: .ru mode scrim to enable).");
       return;
     }
     if (scrim.teamNum.find(steamid64) == scrim.teamNum.end()) {
@@ -316,18 +322,21 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     return;
   }
   if (first == ".stay" || first == ".switch" || first == ".swap" || first == ".ct" || first == ".t") {
-    // MatchZy-style knife side pick shortcuts, through `.ru side` (same permissions + events).
+    // MatchZy-style knife side pick shortcuts, through `.ru match side` (same permissions + events).
     const char* choice = first == ".stay" ? "stay" : (first == ".ct") ? "ct" : (first == ".t") ? "t" : "switch";
-    MatchRuCommand(steamid64, playerName, std::string(".ru side ") + choice);
+    MatchRuCommand(steamid64, playerName, std::string(".ru match side ") + choice, -1);
     return;
   }
 }
 
-void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std::string& text) {
+void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std::string& text, int slot) {
   const auto parts = SplitWS(text);
   if (parts.size() < 2) return;
-  const std::string cmd = Lower(parts[1]);
-  Debug("ru: match cmd=%s argc=%zu\n", cmd.c_str(), parts.size() > 2 ? parts.size() - 2 : 0u);
+  const std::string main = Lower(parts[1]);
+  const std::string sub = parts.size() > 2 ? Lower(parts[2]) : std::string();
+  const std::vector<std::string> args(parts.begin() + std::min<size_t>(parts.size(), 3), parts.end());
+  const std::string who = steamid64 == 0 ? std::string("Console") : playerName;
+  Debug("ru: match cmd=%s sub=%s argc=%zu\n", main.c_str(), sub.c_str(), args.size());
 
   auto requireAdmin = [&]() -> bool {
     if (steamid64 == 0) return true;  // server console
@@ -341,89 +350,155 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     if (steamid64 == 0) PrintLine(msg.c_str());
     else SendAdmin(msg);
   };
+  // Help and "unknown" go to the sender only when the slot is known.
+  auto replyPrivate = [&](const std::string& msg) {
+    if (steamid64 == 0) PrintLine(msg.c_str());
+    else if (slot >= 0) (void)ClientPrintChat(slot, (" " + msg).c_str());
+    else SendToChat(msg.c_str());
+  };
 
-  if (cmd == "hudtest") {
+  const RuMainCommand* mc = FindRuMain(main);
+  if (!mc) return;  // not ours (only registered names reach this)
+  if (sub.empty() || sub == "help") {
+    for (const auto& l : RuHelpLines(*mc)) replyPrivate(l);
+    if (main == "mode") replyPrivate(std::string("mode: ") + GetModeString());
+    return;
+  }
+  const RuSubcommand* sc = FindRuSub(*mc, sub);
+  if (!sc) {
+    replyPrivate(RuUnknownSubReply(main, sub));
+    return;
+  }
+  if (sc->admin && !requireAdmin()) return;
+
+  // ---- .ru map ------------------------------------------------------------------------------
+  if (main == "map") {
+    if (sub == "change") {
+      std::string entry, err;
+      if (!ParseMapChange(args, &entry, &err)) {
+        Reply(steamid64, "Ready Up: " + err);
+        return;
+      }
+      if (!LoadMapEntry(entry)) {
+        Reply(steamid64, "Ready Up: map change unavailable yet.");
+        return;
+      }
+      Print("admin: %s: map change %s\n", who.c_str(), entry.c_str());
+      sendAdmin("changing map to " + mapnames::DisplayName(entry) + ".");
+    } else if (sub == "reload") {
+      const std::string entry = mapnames::ReloadEntry(MatchStateGet().current_map);
+      if (entry.empty()) {
+        Reply(steamid64, "Ready Up: current map not known yet.");
+        return;
+      }
+      if (!LoadMapEntry(entry)) {
+        Reply(steamid64, "Ready Up: map change unavailable yet.");
+        return;
+      }
+      Print("admin: %s: map reload %s\n", who.c_str(), entry.c_str());
+      sendAdmin("reloading " + mapnames::DisplayName(entry) + ".");
+    } else if (sub == "restart") {
+      if (!EnqueueServerCommand("mp_restartgame 1")) {
+        Reply(steamid64, "Ready Up: restart unavailable yet.");
+        return;
+      }
+      Print("admin: %s: map restart (mp_restartgame 1)\n", who.c_str());
+      sendAdmin("game restarting.");
+    }
+    return;
+  }
+
+  // ---- .ru admins / .ru hud -----------------------------------------------------------------
+  if (main == "admins") {
+    std::vector<std::string> a{sub};
+    a.insert(a.end(), args.begin(), args.end());
+    HandleAdminsCommand(steamid64, playerName, a);
+    return;
+  }
+  if (main == "hud") {
     // Center-HTML test variant to the caller only (what the CS2 client renders).
-    if (!requireAdmin()) return;
     if (steamid64 == 0) {
-      PrintLine("ru hudtest: run it from in-game chat (.ru hudtest <1-7>); the panel is shown to the caller.");
+      PrintLine("ru hud test: run it from in-game chat (.ru hud test <1-7>); the panel is shown to the caller.");
       return;
     }
     if (!FeatureEnabled(Feature::ReadyHud)) {
-      sendAdmin("hudtest: the ready HUD (per-client center HTML) is off on this server; see `ru selftest`.");
+      sendAdmin("hud test: the ready HUD (per-client center HTML) is off on this server; see `ru selftest`.");
       return;
     }
-    const int n = (parts.size() > 2) ? std::atoi(parts[2].c_str()) : 0;
+    const int n = args.empty() ? 0 : std::atoi(args[0].c_str());
     const std::string desc = ReadyHudRequestTest(steamid64, n);
     if (desc.empty()) {
-      sendAdmin("usage: .ru hudtest <n> - 1 fonts, 2 images (svg+png), 3 unicode, 4 svg, 5 png, 6 wiki png, 7 configured header");
+      sendAdmin("usage: .ru hud test <n> - 1 fonts, 2 images (svg+png), 3 unicode, 4 svg, 5 png, 6 wiki png, 7 configured header");
       return;
     }
-    sendAdmin("hudtest " + std::to_string(n) + " for " + playerName + " (10s): " + desc);
+    sendAdmin("hud test " + std::to_string(n) + " for " + playerName + " (10s): " + desc);
     return;
   }
 
-  if (cmd == "admins") {
-    std::vector<std::string> args;
-    if (parts.size() > 2) args.assign(parts.begin() + 2, parts.end());
-    HandleAdminsCommand(steamid64, playerName, args);
-    return;
-  }
-
-  if (cmd == "prac" || cmd == "practice") {
-    if (!requireAdmin()) return;
-    if (GetMode() == ReadyUpMode::Practice) {
-      // Toggle off: back to idle (idle.cfg reverts the practice cvars right away).
+  // ---- .ru mode -----------------------------------------------------------------------------
+  if (main == "mode") {
+    if (sub == "show") {
+      Reply(steamid64, std::string("mode: ") + GetModeString());
+    } else if (sub == "practice") {
+      if (GetMode() == ReadyUpMode::Practice) {
+        // Toggle off: back to idle (idle.cfg reverts the practice cvars right away).
+        ClearReadyStates();
+        WebhookClearMatchContext();
+        persisted_match_state::ClearActiveMatch();
+        WebhookSetHeartbeatStatus("idle");
+        SetModeIdle();
+        (void)EnqueueServerCommand("exec ReadyUp/idle.cfg");
+        sendAdmin("practice mode disabled.");
+        return;
+      }
+      ClearReadyStates();
+      WebhookClearMatchContext();
+      persisted_match_state::ClearActiveMatch();
+      WebhookSetHeartbeatStatus("warmup");  // non-allocatable but online
+      SetModePractice();
+      (void)EnqueueServerCommand("exec ReadyUp/prac.cfg");  // MatchZy behaviour: right away
+      sendAdmin("practice mode enabled.");
+      return;
+    } else if (sub == "idle") {
+      const bool wasScrimWarmup = (GetMode() == ReadyUpMode::ScrimWarmup);
       ClearReadyStates();
       WebhookClearMatchContext();
       persisted_match_state::ClearActiveMatch();
       WebhookSetHeartbeatStatus("idle");
       SetModeIdle();
-      (void)EnqueueServerCommand("exec ReadyUp/idle.cfg");
-      sendAdmin("practice mode disabled.");
+      // Forced idle sticks: no auto scrim warmup until `.ru mode scrim` or a map change.
+      ScrimSetAutoEnabled(false);
+      if (wasScrimWarmup) {
+        // Leave the paused CS2 warmup so the server really is plain CS2 again.
+        const char* cmds[] = {"mp_warmup_pausetimer 0", "mp_warmup_end", "mp_buy_anywhere 0", "mp_buytime 20",
+                              "mp_respawn_on_death_ct 0", "mp_respawn_on_death_t 0"};
+        for (const char* c : cmds) (void)EnqueueServerCommand(c);
+      }
+      sendAdmin("mode set to idle (auto scrim warmup off until .ru mode scrim or a map change).");
+      return;
+    } else if (sub == "scrim") {
+      ScrimSetAutoEnabled(true);
+      if (WebhookGetMatchContext()) sendAdmin("scrim warmup re-enabled; a match is loaded, it applies once that match ends.");
+      else if (GetMode() == ReadyUpMode::Practice) sendAdmin("scrim warmup re-enabled; leave practice (.prac) to start it.");
+      else sendAdmin("scrim warmup enabled (starts as soon as a player is on CT/T).");
+      EmitStateLog("scrim_enable");
       return;
     }
-    ClearReadyStates();
-    WebhookClearMatchContext();
-    persisted_match_state::ClearActiveMatch();
-    WebhookSetHeartbeatStatus("warmup");  // non-allocatable but online
-    SetModePractice();
-    (void)EnqueueServerCommand("exec ReadyUp/prac.cfg");  // MatchZy behaviour: right away
-    sendAdmin("practice mode enabled.");
     return;
   }
 
-  if (cmd == "idle") {
-    if (!requireAdmin()) return;
-    const bool wasScrimWarmup = (GetMode() == ReadyUpMode::ScrimWarmup);
-    ClearReadyStates();
-    WebhookClearMatchContext();
-    persisted_match_state::ClearActiveMatch();
-    WebhookSetHeartbeatStatus("idle");
-    SetModeIdle();
-    // Forced idle sticks: no auto scrim warmup until `.ru scrim` or a map change.
-    ScrimSetAutoEnabled(false);
-    if (wasScrimWarmup) {
-      // Leave the paused CS2 warmup so the server really is plain CS2 again.
-      const char* cmds[] = {"mp_warmup_pausetimer 0", "mp_warmup_end", "mp_buy_anywhere 0", "mp_buytime 20",
-                            "mp_respawn_on_death_ct 0", "mp_respawn_on_death_t 0"};
-      for (const char* c : cmds) (void)EnqueueServerCommand(c);
+  // ---- .ru match ----------------------------------------------------------------------------
+  if (sub == "load") {
+    std::string url, err;
+    if (!ParseMatchLoad(args, &url, &err)) {
+      Reply(steamid64, "Ready Up: " + err);
+      return;
     }
-    sendAdmin("mode set to idle (auto scrim warmup off until .ru scrim or map change).");
+    if (steamid64 != 0) sendAdmin("loading the match config (see the server console).");
+    (void)LoadMatchFromUrl(url);
     return;
   }
-
-  if (cmd == "scrim") {
-    if (!requireAdmin()) return;
-    ScrimSetAutoEnabled(true);
-    if (WebhookGetMatchContext()) sendAdmin("scrim warmup re-enabled; a match is loaded, it applies once that match ends.");
-    else if (GetMode() == ReadyUpMode::Practice) sendAdmin("scrim warmup re-enabled; leave practice (.prac) to start it.");
-    else sendAdmin("scrim warmup enabled (starts as soon as a player is on CT/T).");
-    EmitStateLog("scrim_enable");
-    return;
-  }
-
-  if (cmd == "state" || cmd == "status") {
+  if (sub == "state") {
     for (const auto& l : BuildStateReport()) {
       Print("%s\n", l.c_str());
       if (steamid64 != 0) SendToChat(("Ready Up " + l).c_str());
@@ -431,8 +506,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     EmitStateLog("query");
     return;
   }
-
-  if (cmd == "rules") {
+  if (sub == "rules") {
     // Effective rules: ruleset preset + overrides, and what differs (esports.h).
     for (const auto& l : EsportsRulesReport()) {
       Print("%s\n", l.c_str());
@@ -440,131 +514,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     }
     return;
   }
-
-  if (cmd == "mode") {
-    Reply(steamid64, std::string("mode: ") + GetModeString());
-    return;
-  }
-
-  if (cmd == "start") {
-    if (!requireAdmin()) return;
-    if (!WebhookGetMatchContext()) {
-      Reply(steamid64, "Ready Up: no match loaded.");
-      return;
-    }
-    (void)ForceStartMatch();
-    sendAdmin("match force-started.");
-    return;
-  }
-
-  if (cmd == "pause" || cmd == "fp" || cmd == "forcepause") {
-    if (!requireAdmin()) return;
-    auto ctx = WebhookGetMatchContext();
-    if (!ctx) {
-      Reply(steamid64, "Ready Up: no match loaded.");
-      return;
-    }
-    if (PauseStateGet().paused) {
-      Reply(steamid64, "Ready Up: match is already paused.");
-      return;
-    }
-    if (!EnqueueServerCommand("mp_pause_match")) {
-      Reply(steamid64, "Ready Up: pause unavailable yet.");
-      return;
-    }
-    PauseStateOnPaused("admin", steamid64 == 0 ? std::string("Console") : std::to_string(steamid64));
-    const auto ms = MatchStateGet();
-    WebhookTeam team = WebhookTeam::Unknown;
-    if (steamid64 != 0) {
-      if (auto it = ctx->roster_team.find(steamid64); it != ctx->roster_team.end()) team = it->second;
-    }
-    WebhookEmitMatchPaused(ms.map_number, WebhookPlayer{steamid64, steamid64 == 0 ? "Console" : playerName, team},
-                           /*is_tactical=*/false, /*is_admin=*/true, /*pause_time=*/0);
-    sendAdmin("admin pause.");
-    return;
-  }
-
-  if (cmd == "tech" || cmd == "tac") {
-    // Admin / console on behalf of a team, with the team's limits: `ru tech team1`, `ru tac team2`.
-    if (!requireAdmin()) return;
-    const std::string t = parts.size() > 2 ? Lower(parts[2]) : std::string();
-    const WebhookTeam team = t == "team1" ? WebhookTeam::Team1 : t == "team2" ? WebhookTeam::Team2 : WebhookTeam::Unknown;
-    if (team == WebhookTeam::Unknown) {
-      Reply(steamid64, "usage: ru " + cmd + " team1|team2");
-      return;
-    }
-    if (cmd == "tech") MatchFeaturesTechPause(team, steamid64, steamid64 == 0 ? "Console" : playerName);
-    else MatchFeaturesTacticalTimeout(team, steamid64, steamid64 == 0 ? "Console" : playerName);
-    return;
-  }
-
-  if (cmd == "unpause" || cmd == "up" || cmd == "fup" || cmd == "forceunpause") {
-    if (!requireAdmin()) return;
-    if (!WebhookGetMatchContext()) {
-      Reply(steamid64, "Ready Up: no match loaded.");
-      return;
-    }
-    if (!PauseStateGet().paused) {
-      // An engine pause Ready Up did not start (sv_matchpause_auto_5v5 under the valve ruleset, a
-      // vote): resume it anyway.
-      if (!EnqueueServerCommand("mp_unpause_match")) {
-        Reply(steamid64, "Ready Up: unpause unavailable yet.");
-        return;
-      }
-      sendAdmin("not paused by Ready Up; sent mp_unpause_match (engine pause).");
-      return;
-    }
-    if (!EnqueueServerCommand("mp_unpause_match")) {
-      Reply(steamid64, "Ready Up: unpause unavailable yet.");
-      return;
-    }
-    const int dur = PauseStatePauseDurationSeconds();
-    PauseStateOnUnpaused();
-    const auto ms = MatchStateGet();
-    WebhookEmitMatchUnpaused(ms.map_number, dur);
-    sendAdmin("admin unpause.");
-    return;
-  }
-
-  if (cmd == "restart") {
-    if (!requireAdmin()) return;
-    if (!WebhookGetMatchContext()) {
-      Reply(steamid64, "Ready Up: no match loaded.");
-      return;
-    }
-    (void)RestartMatch();
-    sendAdmin("match restarted (back to warmup).");
-    return;
-  }
-
-  if (cmd == "end") {
-    if (!requireAdmin()) return;
-    if (!WebhookGetMatchContext()) {
-      Reply(steamid64, "Ready Up: no match loaded.");
-      return;
-    }
-    // Treat as a draw (winner=none) and clear the context so the allocator can reclaim the server.
-    WebhookEmitSeriesEnd(0, 0, "none", 0);
-    WebhookClearMatchContext();
-    (void)EndMatchResetServer();
-    sendAdmin("match ended (forced).");
-    return;
-  }
-
-  if (cmd == "recover") {
-    if (!requireAdmin()) return;
-    if (!WebhookGetMatchContext()) {
-      Reply(steamid64, "Ready Up: no match loaded.");
-      return;
-    }
-    int round = parts.size() >= 3 ? std::max(0, std::atoi(parts[2].c_str())) : 0;
-    const auto ms = MatchStateGet();
-    WebhookEmitRecoverRequested(ms.map_number, round);
-    sendAdmin(round > 0 ? "recovery requested (rewind)." : "recovery requested.");
-    return;
-  }
-
-  if (cmd == "side") {
+  if (sub == "side") {
     auto ctx = WebhookGetMatchContext();
     if (!ctx) {
       Reply(steamid64, "Ready Up: no match loaded.");
@@ -574,11 +524,11 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       Reply(steamid64, "Ready Up: no knife side pick pending.");
       return;
     }
-    if (parts.size() < 3) {
-      Reply(steamid64, "Ready Up: usage: .ru side stay|switch|ct|t");
+    if (args.empty()) {
+      Reply(steamid64, "Ready Up: usage: .ru match side stay|switch|ct|t");
       return;
     }
-    const std::string choice = parts[2];
+    const std::string choice = args[0];
     const bool admin = steamid64 == 0 || IsReadyUpAdmin(steamid64);
     if (!admin) {
       // Any player of the knife-winning team (MatchZy behaviour) may pick.
@@ -597,102 +547,84 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       }
     }
     if (!KnifeApplySideChoice(choice, steamid64, steamid64 == 0 ? std::string("Console") : playerName, admin)) {
-      Reply(steamid64, "Ready Up: invalid choice. Use: .ru side stay|switch|ct|t");
+      Reply(steamid64, "Ready Up: invalid choice. Use: .ru match side stay|switch|ct|t");
       return;
     }
     if (steamid64 == 0) PrintLine("side: ok");
     return;
   }
-
-  if (cmd == "match") {
-    if (steamid64 != 0) {
-      SendToChat("Ready Up: ru match load runs from the server console / RCON.");
+  if (sub == "tech" || sub == "tac") {
+    // Admin / console on behalf of a team, with the team's limits: `ru match tech team1`.
+    const std::string t = args.empty() ? std::string() : Lower(args[0]);
+    const WebhookTeam team = t == "team1" ? WebhookTeam::Team1 : t == "team2" ? WebhookTeam::Team2 : WebhookTeam::Unknown;
+    if (team == WebhookTeam::Unknown) {
+      Reply(steamid64, "usage: ru match " + sub + " team1|team2");
       return;
     }
-    MatchRuConsole(text);
+    if (sub == "tech") MatchFeaturesTechPause(team, steamid64, who);
+    else MatchFeaturesTacticalTimeout(team, steamid64, who);
     return;
   }
-
-  Debug("ru: unknown match subcommand \"%s\" ignored\n", cmd.c_str());
+  // start / restart / end / recover / pause / unpause need a loaded match.
+  if (!WebhookGetMatchContext()) {
+    Reply(steamid64, "Ready Up: no match loaded.");
+    return;
+  }
+  if (sub == "start") {
+    (void)ForceStartMatch();
+    sendAdmin("match force-started.");
+  } else if (sub == "restart") {
+    (void)RestartMatch();
+    sendAdmin("match restarted (back to warmup).");
+  } else if (sub == "end") {
+    // Treat as a draw (winner=none) and clear the context so the allocator can reclaim the server.
+    WebhookEmitSeriesEnd(0, 0, "none", 0);
+    WebhookClearMatchContext();
+    (void)EndMatchResetServer();
+    sendAdmin("match ended (forced).");
+  } else if (sub == "recover") {
+    const int round = args.empty() ? 0 : std::max(0, std::atoi(args[0].c_str()));
+    WebhookEmitRecoverRequested(MatchStateGet().map_number, round);
+    sendAdmin(round > 0 ? "recovery requested (rewind)." : "recovery requested.");
+  } else if (sub == "pause") {
+    if (PauseStateGet().paused) {
+      Reply(steamid64, "Ready Up: match is already paused.");
+      return;
+    }
+    if (!EnqueueServerCommand("mp_pause_match")) {
+      Reply(steamid64, "Ready Up: pause unavailable yet.");
+      return;
+    }
+    PauseStateOnPaused("admin", steamid64 == 0 ? std::string("Console") : std::to_string(steamid64));
+    const auto ctx = WebhookGetMatchContext();
+    WebhookTeam team = WebhookTeam::Unknown;
+    if (steamid64 != 0 && ctx) {
+      if (auto it = ctx->roster_team.find(steamid64); it != ctx->roster_team.end()) team = it->second;
+    }
+    WebhookEmitMatchPaused(MatchStateGet().map_number, WebhookPlayer{steamid64, who, team},
+                           /*is_tactical=*/false, /*is_admin=*/true, /*pause_time=*/0);
+    sendAdmin("admin pause.");
+  } else if (sub == "unpause") {
+    if (!EnqueueServerCommand("mp_unpause_match")) {
+      Reply(steamid64, "Ready Up: unpause unavailable yet.");
+      return;
+    }
+    if (!PauseStateGet().paused) {
+      // An engine pause Ready Up did not start (sv_matchpause_auto_5v5 under the valve ruleset, a
+      // vote): resumed anyway.
+      sendAdmin("not paused by Ready Up; sent mp_unpause_match (engine pause).");
+      return;
+    }
+    const int dur = PauseStatePauseDurationSeconds();
+    PauseStateOnUnpaused();
+    WebhookEmitMatchUnpaused(MatchStateGet().map_number, dur);
+    sendAdmin("admin unpause.");
+  }
 }
 
 void MatchRuConsole(const std::string& line) {
-  const auto parts = SplitWS(line);
-  if (parts.size() < 2) return;
-  const std::string sub = Lower(parts[1]);
-
-  if (sub == "mode") {
-    if (parts.size() == 2) {
-      Print("mode: %s\n", GetModeString());
-      return;
-    }
-    const std::string m = Lower(parts[2]);
-    if (m == "idle") return MatchRuCommand(0, "Console", ".ru idle");
-    if (m == "practice") return MatchRuCommand(0, "Console", ".ru practice");
-    PrintLine("Usage: ru mode [idle|practice]");
-    return;
-  }
-
-  if (sub == "match") {
-    if (parts.size() >= 3 && Lower(parts[2]) == "load") {
-      if (parts.size() < 4) {
-        PrintLine("Usage: ru match load <url>");
-        return;
-      }
-      (void)LoadMatchFromUrl(parts[3]);
-      return;
-    }
-    PrintLine("Usage: ru match load <url>");
-    return;
-  }
-
-  if (sub == "start" || sub == "restart" || sub == "end" || sub == "recover") {
-    if (!WebhookGetMatchContext()) {
-      Print("%s: no match loaded\n", sub.c_str());
-      return;
-    }
-    if (sub == "start") {
-      (void)ForceStartMatch();
-    } else if (sub == "restart") {
-      (void)RestartMatch();
-    } else if (sub == "end") {
-      WebhookEmitSeriesEnd(0, 0, "none", 0);
-      WebhookClearMatchContext();
-      (void)EndMatchResetServer();
-    } else {
-      const int round = parts.size() >= 3 ? std::max(0, std::atoi(parts[2].c_str())) : 0;
-      WebhookEmitRecoverRequested(MatchStateGet().map_number, round);
-    }
-    Print("%s: ok\n", sub.c_str());
-    return;
-  }
-
-  if (sub == "side") {
-    if (!WebhookGetMatchContext()) {
-      PrintLine("side: no match loaded");
-      return;
-    }
-    if (!KnifeIsAwaitingPick()) {
-      PrintLine("side: no knife side pick pending");
-      return;
-    }
-    if (parts.size() < 3) {
-      PrintLine("Usage: ru side <stay|switch|ct|t>");
-      return;
-    }
-    if (!KnifeApplySideChoice(parts[2], 0, "Console", /*isAdminOverride=*/true)) {
-      PrintLine("side: invalid choice (use: stay|switch|ct|t)");
-      return;
-    }
-    PrintLine("side: ok");
-    return;
-  }
-
-  // idle / practice / prac / scrim / state / status / admins / pause / unpause / hudtest ...:
-  // the chat handler with the console as sender (as `ru idle` always did).
-  std::string rest = ".ru";
-  for (size_t i = 1; i < parts.size(); ++i) rest += " " + parts[i];
-  MatchRuCommand(0, "Console", rest);
+  // The same handler with the console as sender (replies go to the console).
+  MatchRuCommand(0, "Console", line, -1);
 }
 
 }  // namespace readyup

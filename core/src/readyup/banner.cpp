@@ -31,5 +31,12 @@ void LogBanner() {
       READYUP_BUILD_VERSION);
 }
 
+const char* LicenseNotice() {
+  return "license: Ready Up is PolyForm Noncommercial 1.0.0: free for noncommercial use; commercial use needs a "
+         "paid license (https://autotournament.gg/pricing, sivert@autotournament.gg)";
+}
+
+void LogLicenseNotice() { PrintLine(LicenseNotice()); }
+
 }  // namespace readyup
 

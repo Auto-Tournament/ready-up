@@ -292,6 +292,10 @@ constexpr long long kCosmeticPassTicks[] = {0, 1, 8, 32};
 constexpr int kCosmeticPassCount = static_cast<int>(sizeof(kCosmeticPassTicks) / sizeof(kCosmeticPassTicks[0]));
 
 PlayerState g_players[65];
+// player_spawn seen for the slot (RequestSpawnCosmetics): run the cosmetics passes again on the
+// next alive tick. mp_restartgame and round starts respawn living players on the same pawn, so
+// the dead -> alive / new pawn check alone misses them.
+bool g_spawnRequested[65] = {};
 // Dev only (skins_debug_as, debug=1): a bot slot decorated with a real player's loadout, so the
 // whole apply path can be exercised without a human client.
 uint64_t g_debugAs[65] = {};
@@ -339,10 +343,11 @@ void ProcessPlayer(int slot, void* controller) {
     return;
   }
 
-  if (alive && (!ps.wasAlive || ps.pawnHandle != pawnHandle)) {
-    // Fresh spawn: apply now (same frame as the spawn) and on the follow-up passes.
+  if (alive && (!ps.wasAlive || ps.pawnHandle != pawnHandle || g_spawnRequested[slot])) {
+    // Fresh spawn (or a respawn on the same pawn): apply now and on the follow-up passes.
     ps.cosmeticsPass = 0;
     ps.spawnTick = g_tick;
+    g_spawnRequested[slot] = false;
   }
   ps.wasAlive = alive;
   ps.pawnHandle = pawnHandle;
@@ -436,6 +441,10 @@ void GameFrameTick() {
   }
 
   if ((g_tick & 1023) == 0) PruneWeapons();
+}
+
+void RequestSpawnCosmetics(int slot) {
+  if (slot >= 0 && slot < 65) g_spawnRequested[slot] = true;
 }
 
 bool SetDebugAs(int slot, uint64_t steamid64) {

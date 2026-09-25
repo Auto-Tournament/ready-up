@@ -4,6 +4,7 @@
 #include "readyup/logging.h"
 #include "readyup/plugin_loader.h"
 #include "readyup/ru_help.h"
+#include "readyup/ru_help_text.h"
 #include "readyup/ru_router.h"
 #include "readyup/selftest.h"
 #include "readyup/sigtest.h"
@@ -96,8 +97,18 @@ static bool HandleRuCommandLine(const std::string& line) {
 
   // `ru` / `ru help`. Every other `ru <sub>` (match load, idle, state, start, ...) belongs to a
   // plugin (register_ru_subcommand; readyup-match), or is unknown.
-  if (parts.size() == 1 || (parts.size() >= 2 && parts[1] == "help")) {
+  if (parts.size() == 1 || (parts.size() == 2 && parts[1] == "help")) {
     PrintRuHelp();
+    return true;
+  }
+  if (parts[1] == "help") {
+    // `ru help <main>`: the core's own, else the plugin's (forwarded as `ru <main> help`).
+    const auto lines = CoreRuSubHelpLines(parts[2]);
+    for (const auto& l : lines) PrintLine(l.c_str());
+    if (lines.empty() && (plugins::IsCoreRuSubcommand(parts[2]) ||
+                          !plugins::TryDispatchRu(/*console=*/true, 0, "Console", "ru " + parts[2] + " help"))) {
+      PrintLine(RuUnknownCommandReply(parts[2]).c_str());
+    }
     return true;
   }
 

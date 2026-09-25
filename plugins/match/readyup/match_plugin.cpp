@@ -20,6 +20,7 @@
 #include "readyup/fleet_bridge.h"
 #include "readyup/game_timers.h"
 #include "readyup/host.h"
+#include "readyup/idle_refresh.h"
 #include "readyup/local_store.h"
 #include "readyup/logging.h"
 #include "readyup/match_console.h"
@@ -84,7 +85,7 @@ void OnPlayerChat(void*, const ru_command_ctx* c) {
 void OnRuSub(void*, const ru_command_ctx* c) {
   Guard("ru command", [&] {
     if (c->is_console) MatchRuConsole(c->text);
-    else MatchRuCommand(c->steamid64, c->name, c->text);
+    else MatchRuCommand(c->steamid64, c->name, c->text, c->slot);
   });
 }
 
@@ -149,6 +150,7 @@ void OnFrame(void*, const ru_tick_info*) {
     host::FrameBegin();
     // Map-end / series-end timers and the demo stop also run while the server does not simulate.
     GameTimersFrameTick();
+    IdleRefreshFrame(host::NowSeconds());
     if (MaybeReloadCfg()) RegisterReadyCommands();
   });
 }
@@ -175,7 +177,10 @@ void OnTick(void*, const ru_tick_info* t) {
 
 void OnEvent(void*, const ru_event* e) {
   Guard("event", [&] {
-    if (e->type == RU_EVENT_PLAYER_DISCONNECT) {
+    if (e->type == RU_EVENT_MAP_START) {
+      IdleRefreshOnMapStart(host::NowSeconds());
+      fleet_bridge::OnMapStart();
+    } else if (e->type == RU_EVENT_PLAYER_DISCONNECT) {
       // Ready state must not survive a reconnect.
       if (e->steamid64) ClearReady(e->steamid64);
     } else if (e->type == RU_EVENT_PLAYER_TEAM && e->source == RU_SOURCE_ENGINE) {

@@ -1,7 +1,7 @@
 #pragma once
 
 // The engine side of rulesets (ruleset.h, docs/ESPORTS-MODE.md): which cfg go-live execs, the
-// rule commands after it, the default player models, the halftime pause, `ru rules`, and what
+// rule commands after it, the default player models, the halftime pause, `ru match rules`, and what
 // the skins plugin asks (readyup.match.v1 inventory_locked).
 
 #include "readyup/plugin_api.h"
@@ -36,7 +36,7 @@ void EsportsOnMatchLoaded(const WebhookMatchContext& ctx);
 // match when the second half starts; Ready Up marks that pause ("halftime": both teams .unpause).
 void EsportsOnHalftime();
 
-// `ru rules`.
+// `ru match rules`.
 std::vector<std::string> EsportsRulesReport();
 // `ru selftest` line (INFO): ruleset + differs.
 std::string EsportsSelftestLine();

@@ -14,7 +14,7 @@
 //              and out-of-range values are errors: the match is not loaded.
 //
 // The effective rules (preset + legacy per-match keys + match cvars + overrides) are reported in
-// MatchState `effective_rules`, `ru rules` and `ru state`, with the keys that differ from the
+// MatchState `effective_rules`, `ru match rules` and `ru match state`, with the keys that differ from the
 // preset, so the platform can show "differs from Valve".
 //
 // Pure logic, no engine calls (ctest `match_ruleset`); the engine side is esports.h.
@@ -116,7 +116,7 @@ const char* LiveCfgFor(Ruleset r);  // "ReadyUp/live.cfg" | "ReadyUp/esports_liv
 // MatchState `effective_rules`: {ruleset, rules: {...}, differs: [...], preset: {differing keys}}.
 // Never contains null (unmanaged values are left out).
 status::Json EffectiveRulesJson(const EffectiveRuleSet& e);
-// `ru rules` lines.
+// `ru match rules` lines.
 std::vector<std::string> EffectiveRulesText(const EffectiveRuleSet& e);
 
 // Match load checks. map_sides "knife" needs allow_knife (Valve has no knife round).

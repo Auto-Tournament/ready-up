@@ -107,7 +107,7 @@ match-management cvars; keep them, they do not change gameplay.
 |---|---|---|
 | **Players' inventory access "should not be modified or augmented"** (L290) | `plugins/skins` gives paints, knives, gloves, agents the player may not own | Skins plugin is **off** in esports mode: `skins` checks `ru_api config_get("ruleset")` (or a core `ru_api ruleset()` getter) at load and on `ru reload`; when `valve`, it applies nothing and restores nothing (players keep their real Steam inventory: their own skins, stickers, gloves, agents are allowed by Valve). Core logs a loud line if `skins.so` is loaded with `ruleset=valve`. |
 | **Default agents / no custom cosmetics** (**TO option**, not Valve) | none | Match config `cosmetics: "inventory"` (default, Valve-compatible) \| `"default_agents"`. `default_agents`: on spawn, `entity_set_model(pawn, <map default model for team>)` through the existing skins engine surface (`cosmetics.cpp` path, same frame + next frame). The default models come from a cfg table `cfg/ReadyUp/esports_default_agents.cfg` (per team, per map faction); there is no CS2 server cvar for "default agents" on the current build (verify with `cvarlist model` after each update). Only the model is reset. Gloves and weapon stickers/skins from a real inventory are econ items; clearing them means writing econ fields, which is the thing that gets GSLTs banned, so **not offered**. Ban risk: `SetModel` to a stock model grants no item and edits no econ data; it is lower risk than the skins plugin, but it still needs `engine-surface.skins.json` and is the same call skin changers use. Ship it off by default and document the trade-off. |
-| **Pause rules**: tactical timeouts via Premier cvars (`mp_team_timeout_max 3`, `_time 31`, OT `+1`), technical `mp_technical_timeout_per_team 1` × `120 s`, `sv_vote_issue_pause_match_spec_only 1` | `.pause`/`.p`/`.tech` all call `mp_pause_match`, unlimited, both teams unpause (`match_router.cpp:259-277`) | `.tac`/`.pause` → built-in `timeout_ct_start` / `timeout_terrorist_start` for the caller's side (the engine counts and ends it). `.tech` → `mp_pause_match`, counted by Ready Up against `mp_technical_timeout_per_team`, auto-unpause after `mp_technical_timeout_duration_s` unless an admin extends it. Further pauses: admin only (`ru pause`). `pause.type`/`is_tactical`/`pause_time` filled in events (closes PARITY.md P1 item). |
+| **Pause rules**: tactical timeouts via Premier cvars (`mp_team_timeout_max 3`, `_time 31`, OT `+1`), technical `mp_technical_timeout_per_team 1` × `120 s`, `sv_vote_issue_pause_match_spec_only 1` | `.pause`/`.p`/`.tech` all call `mp_pause_match`, unlimited, both teams unpause (`match_router.cpp:259-277`) | `.tac`/`.pause` → built-in `timeout_ct_start` / `timeout_terrorist_start` for the caller's side (the engine counts and ends it). `.tech` → `mp_pause_match`, counted by Ready Up against `mp_technical_timeout_per_team`, auto-unpause after `mp_technical_timeout_duration_s` unless an admin extends it. Further pauses: admin only (`ru match pause`). `pause.type`/`is_tactical`/`pause_time` filled in events (closes PARITY.md P1 item). |
 | **Halftime pause** `mp_halftime_pausematch 1` | not set; RU unpause flow does not expect it | Treat the halftime pause as `pause.type="halftime"`: unpause by both teams `.unpause` or admin, no count against either team. |
 | **Disconnects** `sv_matchpause_auto_5v5 1` | none | Engine pauses at freezetime when not 5v5. RU must recognise that pause (`pause.type="auto_5v5"`), show it on the HUD, and not require `.unpause` from the short team to be counted as a tactical. |
 | **Backups/restores** `sv_vote_issue_loadbackup_spec_only 1` + `_authoritative 1` | restore only on boot recovery; `.ru restore` planned | Restores admin-only (never a player vote), always followed by a pause (`mp_backup_restore_load_autopause 1` already set). |
@@ -354,7 +354,7 @@ pauses the default flow does not expect.
 - Pauses: `.tac` is CS2's own timeout (PR #23); technical pauses are counted and auto-unpause per
   `tech_pauses_per_team` / `tech_pause_seconds`. With `halftime_pausematch` the round start after
   the regulation halftime is marked as a `halftime` pause (`pause.type: "halftime"`): both teams
-  `.unpause`, or an admin. `ru unpause` now also sends `mp_unpause_match` when Ready Up did not
+  `.unpause`, or an admin. `ru match unpause` now also sends `mp_unpause_match` when Ready Up did not
   start the pause (an engine pause: `sv_matchpause_auto_5v5`, a vote).
 - Skins: when the effective rules lock inventories (`valve`, or `cosmetics: "inventory"`) the
   skins plugin applies, restores and counts nothing (no paints, knives, gloves, agents, StatTrak).
@@ -372,8 +372,8 @@ pauses the default flow does not expect.
 
 - `MatchState.ruleset` and `MatchState.effective_rules` `{ruleset, rules, differs, preset,
   source}` (local `/status` and the fleet `state.snapshot` / patches); `/status` summary `ruleset`.
-- `ru rules`: every rule, `*` on the ones that differ, then `rules: differs from valve:
-  freezetime 20->5 (override); ...`. `ru state` includes the same lines; the `state:` log line
+- `ru match rules`: every rule, `*` on the ones that differ, then `rules: differs from valve:
+  freezetime 20->5 (override); ...`. `ru match state` includes the same lines; the `state:` log line
   carries `ruleset=valve`.
 - At match load: `esports: ruleset=valve (match config) go-live cfg=ReadyUp/esports_live.cfg
   differs=freezetime,...` plus the notes above.
@@ -391,7 +391,7 @@ pauses the default flow does not expect.
 - `tv_broadcast` is `0` unless the match has a `tv_broadcast_url` (Valve: `1`; a broadcast needs a
   relay URL, a Major-only TO item).
 - Not built: refusing go-live when GOTV was off at map load, recognising the engine's
-  `sv_matchpause_auto_5v5` pause as `pause.type: "auto_5v5"` (admins resume it with `ru unpause`),
+  `sv_matchpause_auto_5v5` pause as `pause.type: "auto_5v5"` (admins resume it with `ru match unpause`),
   mid-match substitution limits, the `game_type` / `game_mode` check, blocking `tv_delay` lowering
   while live. `esports_default_agents.cfg` became the two `readyup.cfg` keys above.
 
@@ -399,7 +399,7 @@ pauses the default flow does not expect.
 
 - ctest `match_ruleset`: presets, override validation (unknown / nested / type / range), preset,
   overrides, cvars and per-match keys together, `differs`, the commands after the cfg, the
-  MatchState JSON (no null), the `ru rules` text, knife refusal, parser integration (coaches,
+  MatchState JSON (no null), the `ru match rules` text, knife refusal, parser integration (coaches,
   overtime, `readyup.cfg` ruleset). `match_fleet_state`: `rules.ruleset` / `rules.overrides`
   through `match.assign` and `set_rules`.
 - `scripts/livetest/run.sh --ruleset valve` (bots, readyup-test): a knife config is refused; a
