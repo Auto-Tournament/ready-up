@@ -105,6 +105,20 @@ Config, admins and the data files are covered in [docs/INSTALL.md](docs/INSTALL.
 
 ## Plugins
 
+Ready Up is a core plus plugins, like Metamod and its plugins. The core (`libserver.so`) is the
+only part that touches the engine; each feature is its own plugin (`csgo/readyup/plugins/<name>.so`)
+that talks to the core through the versioned C API in
+[`core/include/readyup/plugin_api.h`](core/include/readyup/plugin_api.h). Every plugin ships as its own
+zip and can be installed, hot reloaded, or turned off (`ru plugin disable <name>`) on its own; the
+bundles below are just zips with several of them. The in-house plugins use nothing but that public
+API, so they double as examples for your own.
+
+Plugins cooperate through named interfaces (`provide_interface` / `get_interface`): the match plugin
+publishes `readyup.match.v1` (mode, ruleset), the practice plugin `readyup.practice.v1`, the whitelist
+plugin `readyup.whitelist.v1`. The match plugin owns the match phase; the others read it and stand
+down while a match is loaded or live, and under the valve ruleset. None of them needs another to be
+loaded: each checks for the interface and works on its own (a practice-only server is core + practice).
+
 Everything lives in this repo. The core is always installed; plugins are separate `.so` files you add or leave out, and they hot reload without restarting the server (`ru plugin reload <name>`). `ru plugin list` shows them; `ru plugin disable <name>` / `enable <name>` turns one off or on and keeps it that way after a restart.
 
 <details>
