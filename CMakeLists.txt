@@ -347,6 +347,9 @@ add_test(NAME plugin_host_reload
 # readyup-midas (plugins/midas): fun plugin, plus its unit test (after enable_testing()).
 add_subdirectory(plugins/midas)
 
+# readyup-whitelist (plugins/whitelist), plus its unit test (after enable_testing()).
+add_subdirectory(plugins/whitelist)
+
 # readyup-match (plugins/match): the match flow, plus its host test (after enable_testing()).
 add_subdirectory(plugins/match)
 

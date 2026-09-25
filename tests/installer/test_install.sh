@@ -131,6 +131,12 @@ check "midas.cfg seeded, all comments (midas stays off)" idle_cfg "$CS/cfg/Ready
 run --dir "$S" --remove midas >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove midas exited non-zero"; }
 check "midas.so removed" test ! -e "$CS/readyup/plugins/midas.so"
 
+echo "== add whitelist from the full zip, then remove it"
+run --dir "$S" --zip "$FULL" whitelist >"$T/out" 2>&1 || { cat "$T/out"; fail "whitelist install exited non-zero"; }
+check "whitelist.so installed" test -x "$CS/readyup/plugins/whitelist.so"
+run --dir "$S" --remove whitelist >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove whitelist exited non-zero"; }
+check "whitelist.so removed" test ! -e "$CS/readyup/plugins/whitelist.so"
+
 echo "== remove fleet (its data dir and user fleet.cfg stay), add it back from the fleet zip"
 mkdir -p "$CS/readyup/plugins/fleet" && echo '{}' >"$CS/readyup/plugins/fleet/credentials.json"
 echo "url = https://t.example.com" >>"$CS/cfg/ReadyUp/fleet.cfg"

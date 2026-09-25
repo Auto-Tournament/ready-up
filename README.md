@@ -61,6 +61,7 @@ In a terminal it then shows the components with the installed and latest version
   [ ] Skins  new 0.2.0     may get servers banned
   [ ] Hello  new 0.2.0     example plugin
   [ ] Midas  new 0.2.0     fun: gold weapons (off until enabled)
+  [ ] Whitelist new 0.2.0  only listed players may join (off until turned on)
 ```
 
 It downloads the ticked components from the latest release (checking `SHA256SUMS`), puts them in `game/csgo/readyup/`, and adds `Game csgo/readyup` to `gameinfo.gi` and `gameinfo_branchspecific.gi` (right after Metamod's line if you have Metamod; a backup is saved as `gameinfo.gi.readyup-backup-<time>`). Your `readyup.cfg`, `cfg/ReadyUp/*.cfg` and the plugins' JSON data are never overwritten: when a shipped default changes, it lands next to yours as `*.default`. Then restart the server and run `ru selftest` in its console.
@@ -151,6 +152,15 @@ Weapons picked up by the players in `midas_steamids` turn gold (the weapon's ren
 </details>
 
 <details>
+<summary><b>Whitelist</b> (<code>plugins/whitelist</code>): only listed players, Full bundle</summary>
+
+<br />
+
+For practice and scrim servers: `ru whitelist on`, `ru whitelist add <steamid64>`, and anyone else who joins is kicked (admins and bots stay). Stands down while a match is loaded (the match roster decides then). The list is saved in `plugins/whitelist/whitelist.json`.
+
+</details>
+
+<details>
 <summary><b>Hello</b> (<code>plugins/hello</code>): example plugin</summary>
 
 <br />
@@ -159,7 +169,7 @@ A minimal plugin that registers `.hello` in chat. Start here to write your own.
 
 </details>
 
-Downloads: `ready-up-core`, `ready-up-match`, `ready-up-fleet`, `ready-up-skins`, `ready-up-hello`, `ready-up-midas`, and two bundles: **Essentials** (core + match + fleet) and **Full** (core + match + fleet + skins + hello + midas + the gamedata checkers). The installer mixes the single components. `fleet` is the link to the Auto Tournament platform; it stays idle until you set a `url` in `cfg/ReadyUp/fleet.cfg` (shipped fully commented out), so it is safe on standalone servers.
+Downloads: `ready-up-core`, `ready-up-match`, `ready-up-fleet`, `ready-up-skins`, `ready-up-hello`, `ready-up-midas`, `ready-up-whitelist`, and two bundles: **Essentials** (core + match + fleet) and **Full** (core + match + fleet + skins + hello + midas + whitelist + the gamedata checkers). The installer mixes the single components. `fleet` is the link to the Auto Tournament platform; it stays idle until you set a `url` in `cfg/ReadyUp/fleet.cfg` (shipped fully commented out), so it is safe on standalone servers.
 
 ## FAQ
 

@@ -64,6 +64,7 @@ always may. An admin's `.help` points at `.ru help`.
 | `.ru admins list` | everyone | the admins |
 | `.ru admins add\|remove <steamid64\|name_fragment>` | admin (standalone) | edit `admins.json` |
 | `.ru hud test <1-7>` | admin | a HUD test panel, to you only |
+| `.ru whitelist on\|off\|add\|remove\|list\|clear` | admin | whitelist plugin: only listed players may stay (not during a match) |
 | `.ru plugin list\|load\|unload\|reload <name>` | admin | plugins (core) |
 | `.ru reload` | admin | reloads `readyup.cfg` (core) |
 | `.ru selftest` / `.ru version` | admin / everyone | core |

@@ -135,12 +135,13 @@ if [[ -e "$WORK/fleet/readyup/plugins/match.so" ]]; then bad "fleet contains mat
 echo "essentials:"; no_skins essentials; check_manifests "$WORK/essentials" core match fleet; has_match essentials; has_fleet essentials; has_notices essentials
 echo "hello:";      no_skins hello;      check_manifests "$WORK/hello" hello
 echo "midas:";      no_skins midas;      check_manifests "$WORK/midas" midas
+echo "whitelist:";  no_skins whitelist;  check_manifests "$WORK/whitelist" whitelist
 for b in core essentials; do
   if [[ -e "$WORK/$b/readyup/plugins/midas.so" ]]; then bad "$b contains midas.so"; else ok "$b: no midas.so"; fi
 done
 echo "skins:";      has_skins skins;     check_manifests "$WORK/skins" skins
 echo "full:";       has_skins full; has_match full; has_fleet full; has_notices full
-full_components=(core match fleet skins hello midas)
+full_components=(core match fleet skins hello midas whitelist)
 [[ -f "$WORK/full/readyup/manifests/tools.json" ]] && full_components+=(tools)
 check_manifests "$WORK/full" "${full_components[@]}"
 
