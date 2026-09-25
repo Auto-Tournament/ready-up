@@ -60,6 +60,7 @@ add_library(server_shim SHARED
   libs/readyup/steamid.cpp
   core/src/readyup/entity.cpp
   core/src/readyup/plugin_loader.cpp
+  core/src/readyup/plugin_state.cpp
   core/src/readyup/plugin_engine_api.cpp
   core/src/readyup/engine_surface.cpp
   core/src/readyup/engine_surface_core.cpp
@@ -284,7 +285,8 @@ set_target_properties(readyup_plugin_hello_reload_test PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test")
 target_compile_definitions(readyup_plugin_hello_reload_test PRIVATE HELLO_VERSION="1.0.1-reloaded")
 
-add_executable(readyup_plugin_host_test tools/plugin_host_test.cpp core/src/readyup/plugin_loader.cpp)
+add_executable(readyup_plugin_host_test tools/plugin_host_test.cpp core/src/readyup/plugin_loader.cpp
+  core/src/readyup/plugin_state.cpp libs/readyup/minijson.cpp)
 target_include_directories(readyup_plugin_host_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(readyup_plugin_host_test PRIVATE -Wall -Wextra)
 target_link_libraries(readyup_plugin_host_test PRIVATE dl)
@@ -339,8 +341,14 @@ add_executable(skins_reload_test plugins/skins/tests/skins_reload_test.cpp)
 target_include_directories(skins_reload_test PRIVATE ${CMAKE_SOURCE_DIR}/plugins/skins)
 target_compile_options(skins_reload_test PRIVATE -Wall -Wextra)
 
+# Persistent plugin enable / disable (core/src/readyup/plugin_state.h).
+add_executable(readyup_plugin_state_test tests/plugin_state_test.cpp core/src/readyup/plugin_state.cpp libs/readyup/minijson.cpp)
+target_include_directories(readyup_plugin_state_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs)
+target_compile_options(readyup_plugin_state_test PRIVATE -Wall -Wextra)
+
 enable_testing()
 add_test(NAME skins_reload COMMAND skins_reload_test)
+add_test(NAME plugin_state COMMAND readyup_plugin_state_test)
 add_test(NAME ru_help COMMAND readyup_ru_help_test)
 add_test(NAME load_order COMMAND readyup_load_order_test)
 add_test(NAME match_flow COMMAND readyup_match_flow_test)
@@ -349,6 +357,9 @@ add_test(NAME json_store COMMAND readyup_json_store_test)
 add_test(NAME plugin_host_reload
   COMMAND readyup_plugin_host_test
     $<TARGET_FILE:readyup_plugin_hello> $<TARGET_FILE:readyup_plugin_hello_reload_test>)
+
+# readyup-midas (plugins/midas): fun plugin, plus its unit test (after enable_testing()).
+add_subdirectory(plugins/midas)
 
 # readyup-match (plugins/match): the match flow, plus its host test (after enable_testing()).
 add_subdirectory(plugins/match)

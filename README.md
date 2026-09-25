@@ -60,6 +60,7 @@ In a terminal it then shows the components with the installed and latest version
   [x] Fleet  new 0.2.0     link to the Auto Tournament platform (idle until configured)
   [ ] Skins  new 0.2.0     may get servers banned
   [ ] Hello  new 0.2.0     example plugin
+  [ ] Midas  new 0.2.0     fun: gold weapons (off until enabled)
 ```
 
 It downloads the ticked components from the latest release (checking `SHA256SUMS`), puts them in `game/csgo/readyup/`, and adds `Game csgo/readyup` to `gameinfo.gi` and `gameinfo_branchspecific.gi` (right after Metamod's line if you have Metamod; a backup is saved as `gameinfo.gi.readyup-backup-<time>`). Your `readyup.cfg`, `cfg/ReadyUp/*.cfg` and the plugins' JSON data are never overwritten: when a shipped default changes, it lands next to yours as `*.default`. Then restart the server and run `ru selftest` in its console.
@@ -73,7 +74,7 @@ Unattended installs have to state the license choice once with
 
 ```bash
 curl -fsSL .../install.sh | bash -s -- essentials --accept-license=noncommercial   # core + match + fleet (the default)
-curl -fsSL .../install.sh | bash -s -- full --accept-license=noncommercial         # + skins + hello
+curl -fsSL .../install.sh | bash -s -- full --accept-license=noncommercial         # + skins + hello + midas
 bash install.sh --yes                                    # update whatever is installed
 bash install.sh --remove skins                           # or --remove fleet, --remove hello
 bash install.sh --uninstall [--purge]                    # --purge also deletes your config
@@ -86,7 +87,7 @@ CS2 updates rewrite `gameinfo.gi`: run the installer again after each one (it on
 
 ### Manual install
 
-1. Download a zip from [Releases](https://github.com/Auto-Tournament/ready-up/releases/latest): `ready-up-essentials-<version>-linuxsteamrt64.zip` (core + match + fleet) or `ready-up-full-...` (+ skins + hello).
+1. Download a zip from [Releases](https://github.com/Auto-Tournament/ready-up/releases/latest): `ready-up-essentials-<version>-linuxsteamrt64.zip` (core + match + fleet) or `ready-up-full-...` (+ skins + hello + midas).
 2. Extract it into `game/csgo`. You should end up with `game/csgo/readyup/bin/linuxsteamrt64/libserver.so`.
 3. Add Ready Up to `gameinfo.gi` (and `gameinfo_branchspecific.gi` if you have it):
 
@@ -102,7 +103,7 @@ Config, admins and the data files are covered in [docs/INSTALL.md](docs/INSTALL.
 
 ## Plugins
 
-Everything lives in this repo. The core is always installed; plugins are separate `.so` files you add or leave out, and they hot reload without restarting the server (`ru plugin reload <name>`).
+Everything lives in this repo. The core is always installed; plugins are separate `.so` files you add or leave out, and they hot reload without restarting the server (`ru plugin reload <name>`). `ru plugin list` shows them; `ru plugin disable <name>` / `enable <name>` turns one off or on and keeps it that way after a restart.
 
 <details>
 <summary><b>Core</b> (<code>core/</code>): loader, engine layer, plugin host</summary>
@@ -141,6 +142,15 @@ Weapon paints, knives, gloves and agents from `loadouts.json` ([contract](plugin
 </details>
 
 <details>
+<summary><b>Midas</b> (<code>plugins/midas</code>): fun, Full bundle only</summary>
+
+<br />
+
+Weapons picked up by the players in `midas_steamids` turn gold (the weapon's render colour; a server can't send custom textures). Off by default (`cfg/ReadyUp/midas.cfg`, `enabled=1`) and never active under the valve ruleset. Hot reloads with `ru plugin reload midas`.
+
+</details>
+
+<details>
 <summary><b>Hello</b> (<code>plugins/hello</code>): example plugin</summary>
 
 <br />
@@ -149,7 +159,7 @@ A minimal plugin that registers `.hello` in chat. Start here to write your own.
 
 </details>
 
-Downloads: `ready-up-core`, `ready-up-match`, `ready-up-fleet`, `ready-up-skins`, `ready-up-hello`, and two bundles: **Essentials** (core + match + fleet) and **Full** (core + match + fleet + skins + hello + the gamedata checkers). The installer mixes the single components. `fleet` is the link to the Auto Tournament platform; it stays idle until you set a `url` in `cfg/ReadyUp/fleet.cfg` (shipped fully commented out), so it is safe on standalone servers.
+Downloads: `ready-up-core`, `ready-up-match`, `ready-up-fleet`, `ready-up-skins`, `ready-up-hello`, `ready-up-midas`, and two bundles: **Essentials** (core + match + fleet) and **Full** (core + match + fleet + skins + hello + midas + the gamedata checkers). The installer mixes the single components. `fleet` is the link to the Auto Tournament platform; it stays idle until you set a `url` in `cfg/ReadyUp/fleet.cfg` (shipped fully commented out), so it is safe on standalone servers.
 
 ## FAQ
 

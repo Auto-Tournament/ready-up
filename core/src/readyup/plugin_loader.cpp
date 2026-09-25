@@ -7,6 +7,7 @@
 #include "readyup/game_events.h"
 #include "readyup/logging.h"
 #include "readyup/path.h"
+#include "readyup/plugin_state.h"
 #include "readyup/ru_router.h"
 #include "readyup/version.h"
 
@@ -28,6 +29,7 @@
 #include <fstream>
 #include <map>
 #include <mutex>
+#include <set>
 #include <shared_mutex>
 #include <string>
 #include <thread>
@@ -853,7 +855,12 @@ void LoadAllFromDir() {
   closedir(d);
   std::sort(names.begin(), names.end());
   Print("plugin: %zu plugin file(s) in %s\n", names.size(), dir.c_str());
+  const std::set<std::string> disabled = LoadDisabled(PluginStatePath(dir));
   for (const auto& n : names) {
+    if (disabled.count(n)) {
+      Print("plugin: %s is disabled (plugins.json); `ru plugin enable %s` turns it on\n", n.c_str(), n.c_str());
+      continue;
+    }
     std::string err;
     if (!LoadNow(n, &err)) {
       Print("plugin: failed to load %s: %s\n", n.c_str(), err.c_str());
@@ -865,6 +872,31 @@ void LoadAllFromDir() {
 
 void RunOp(const PendingOp& op) {
   std::string err;
+  if (op.verb == "enable" || op.verb == "disable") {
+    // Saved first, so the choice holds even if the load / unload below fails.
+    const std::string path = PluginStatePath(PluginsDir());
+    std::set<std::string> disabled = LoadDisabled(path);
+    const bool disable = op.verb == "disable";
+    if (disable) disabled.insert(op.name);
+    else disabled.erase(op.name);
+    if (!SaveDisabled(path, disabled)) {
+      Reply(op.verb + " " + op.name + " failed: cannot write " + path, op.replyToChat);
+      return;
+    }
+    bool loaded = false;
+    {
+      std::lock_guard<std::mutex> lk(g_mu);
+      loaded = g_loaded.count(op.name) != 0;
+    }
+    if (disable) {
+      if (loaded && !UnloadNow(op.name, &err)) Reply("disabled " + op.name + ", but unload failed: " + err, op.replyToChat);
+      else Reply("disabled " + op.name + " (stays off after a restart; ru plugin enable " + op.name + ")", op.replyToChat);
+    } else {
+      if (!loaded && !LoadNow(op.name, &err)) Reply("enabled " + op.name + ", but load failed: " + err, op.replyToChat);
+      else Reply("enabled " + op.name, op.replyToChat);
+    }
+    return;
+  }
   if (op.verb == "load") {
     if (LoadNow(op.name, &err)) Reply("loaded " + op.name, op.replyToChat);
     else Reply("load " + op.name + " failed: " + err, op.replyToChat);
@@ -1137,6 +1169,8 @@ bool TryDispatchConsole(const std::string& line) {
   return QueueCommandLocked(RegKind::Console, Lower(parts[0]), std::move(c));
 }
 
+void LoadAllFromDirForTest() { LoadAllFromDir(); }
+
 void Frame(bool simulating) {
   if (!g_haveGameThread.load(std::memory_order_relaxed)) {
     g_gameThread = std::this_thread::get_id();
@@ -1222,10 +1256,16 @@ void HandlePluginCommand(const std::vector<std::string>& args, bool replyToChat)
                   g_haveGameThread.load() ? "" : " (plugins load on the first server frame)");
     Reply(head, replyToChat);
     for (const auto& l : lines) Reply("  " + l, replyToChat);
+    const std::set<std::string> disabled = LoadDisabled(PluginStatePath(PluginsDir()));
+    if (!disabled.empty()) {
+      std::string d;
+      for (const auto& n : disabled) d += (d.empty() ? "" : " ") + n;
+      Reply("  disabled (plugins.json): " + d, replyToChat);
+    }
     return;
   }
-  if (verb != "load" && verb != "unload" && verb != "reload") {
-    Reply("usage: ru plugin list | load <name> | unload <name> | reload <name>", replyToChat);
+  if (verb != "load" && verb != "unload" && verb != "reload" && verb != "enable" && verb != "disable") {
+    Reply("usage: ru plugin list | load|unload|reload <name> | enable|disable <name>", replyToChat);
     return;
   }
   if (args.size() < 2 || !ValidPluginName(Lower(args[1]))) {

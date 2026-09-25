@@ -6,7 +6,7 @@
 #   scripts/package-release.sh <build-dir> <version> <out-dir>
 #
 # <build-dir> holds libserver.so, plugins/match.so, plugins/fleet.so, plugins/skins.so,
-# plugins/hello.so and (optionally) readyup_sigcheck / readyup_hookcheck.
+# plugins/hello.so, plugins/midas.so and (optionally) readyup_sigcheck / readyup_hookcheck.
 #
 # Component zips (the installer mixes these):
 #   ready-up-core-<v>-linuxsteamrt64.zip    the core (libserver.so, engine-surface.json,
@@ -20,9 +20,10 @@
 #                                            until a url is configured, so bundles carry it.
 #   ready-up-skins-<v>-linuxsteamrt64.zip   plugins/skins.so + engine-surface.skins.json
 #   ready-up-hello-<v>-linuxsteamrt64.zip   plugins/hello.so (example plugin)
+#   ready-up-midas-<v>-linuxsteamrt64.zip   plugins/midas.so + cfg template (fun: gold weapons, off by default)
 # Bundles (for manual download):
 #   ready-up-essentials-<v>-...zip          core + match + fleet. The default. NO skins.
-#   ready-up-full-<v>-...zip                core + match + fleet + skins + hello + readyup_sigcheck/hookcheck
+#   ready-up-full-<v>-...zip                core + match + fleet + skins + hello + midas + readyup_sigcheck/hookcheck
 # Plus SHA256SUMS over every zip.
 #
 # Each component ships readyup/manifests/<component>.json ({component, version, files}),
@@ -43,7 +44,7 @@ trap 'rm -rf "$WORK"' EXIT
 EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 SUFFIX="$VERSION-linuxsteamrt64.zip"
 
-for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so; do
+for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so; do
   [[ -f "$BUILD/$f" ]] || { echo "package-release: missing $BUILD/$f" >&2; exit 1; }
 done
 
@@ -95,7 +96,7 @@ stage_component core "Ready Up core: libserver.so, engine surface, plugin host, 
 # The match flow (plugins/match) and the ReadyUp/*.cfg files it execs (warmup, knife, live, ...).
 match_files=("$BUILD/plugins/match.so:plugins/match.so:755")
 for f in "$ROOT_DIR"/cfg/ReadyUp/*.cfg; do
-  [[ "$(basename "$f")" == fleet.cfg ]] && continue  # the fleet component's
+  case "$(basename "$f")" in fleet.cfg | midas.cfg) continue ;; esac  # the fleet / midas components' own
   match_files+=("$f:cfg-templates/ReadyUp/$(basename "$f")")
 done
 stage_component match "Ready-up, scrims, knife round, pauses, practice, match configs, webhooks, demos" "${match_files[@]}"
@@ -121,6 +122,11 @@ stage_component skins "Weapon paints, knives, gloves, agents (servers running sk
 
 stage_component hello "Example plugin (.hello, hello_status); for plugin developers" \
   "$BUILD/plugins/hello.so:plugins/hello.so:755"
+
+# Fun plugin; the template keeps it off (enabled=0).
+stage_component midas "Fun: weapons picked up by chosen players turn gold (off by default, never under the valve ruleset)" \
+  "$BUILD/plugins/midas.so:plugins/midas.so:755" \
+  "$ROOT_DIR/cfg/ReadyUp/midas.cfg:cfg-templates/ReadyUp/midas.cfg"
 
 extras=()
 for t in readyup_sigcheck readyup_hookcheck; do
@@ -151,9 +157,10 @@ make_zip "ready-up-core-$SUFFIX" core
 make_zip "ready-up-match-$SUFFIX" match
 make_zip "ready-up-skins-$SUFFIX" skins
 make_zip "ready-up-hello-$SUFFIX" hello
+make_zip "ready-up-midas-$SUFFIX" midas
 make_zip "ready-up-fleet-$SUFFIX" fleet
 make_zip "ready-up-essentials-$SUFFIX" core match fleet
-full=(core match fleet skins hello)
+full=(core match fleet skins hello midas)
 [[ -d "$WORK/c/tools" ]] && full+=(tools)
 make_zip "ready-up-full-$SUFFIX" "${full[@]}"
 

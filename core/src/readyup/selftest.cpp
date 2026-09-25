@@ -93,6 +93,8 @@ constexpr FieldUse kSchemaFields[] = {
     {"CEconItemView", "m_szCustomName", false, "skins (name tags)"},
     {"CCSPlayerPawn", "m_EconGloves", true, "skins (gloves)"},
     {"CCSPlayerPawn", "m_nEconGlovesChanged", false, "skins (gloves)"},
+    // plugins/midas (gold tint on weapons).
+    {"CBaseModelEntity", "m_clrRender", false, "midas (gold tint)"},
     // plugins/match (match_events.cpp).
     {"CCSPlayerController", "m_iszPlayerName", false, "stats (bot names)"},
     {"CCSPlayerController", "m_iKills", false, "stats (else from events)"},
