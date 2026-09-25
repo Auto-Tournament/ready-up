@@ -212,9 +212,10 @@ std::vector<std::string> EsportsRulesReport() {
   const EffectiveRuleSet e = EffectiveRulesFor(ctx ? &*ctx : nullptr);
   auto lines = EffectiveRulesText(e);
   const std::string src = ctx ? (ctx->ruleset.empty() ? "readyup.cfg" : "match config") : "readyup.cfg (no match loaded)";
-  lines.insert(lines.begin() + 1, "rules: ruleset source: " + src + "; skins: " +
-                                      (InventoryLocked(e) ? "inert (inventory)" : "allowed") +
-                                      "; coaches: " + (CoachesAdmitted(e) ? "admitted" : "not admitted"));
+  // Two short lines: one chat message each.
+  lines.insert(lines.begin() + 1, "rules: ruleset source: " + src);
+  lines.insert(lines.begin() + 2, std::string("rules: skins ") + (InventoryLocked(e) ? "inert (inventory)" : "allowed") +
+                                      ", coaches " + (CoachesAdmitted(e) ? "admitted" : "not admitted"));
   return lines;
 }
 

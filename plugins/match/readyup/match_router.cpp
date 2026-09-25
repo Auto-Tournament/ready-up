@@ -72,12 +72,6 @@ void SendAdmin(const std::string& msg) {
   SendToChat((AdminPrefix() + " " + msg).c_str());
 }
 
-// Replies of `.ru ...` commands: chat for players, the console for the console.
-void Reply(uint64_t steamid64, const std::string& msg) {
-  if (steamid64 != 0) SendToChat(msg.c_str());
-  else PrintLine(msg.c_str());
-}
-
 }  // namespace
 
 bool MatchSetPractice(bool on) {
@@ -349,10 +343,17 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   const std::string who = steamid64 == 0 ? std::string("Console") : playerName;
   Debug("ru: match cmd=%s sub=%s argc=%zu\n", main.c_str(), sub.c_str(), args.size());
 
+  // Answers (help, state, errors) go to the sender only, one chat line each; announcements that
+  // concern everyone (a pause, a map change) go through sendAdmin.
+  auto replyPrivate = [&](std::string msg) {
+    if (msg.rfind("Ready Up: ", 0) == 0) msg.erase(0, 10);
+    if (steamid64 == 0) PrintLine(msg.c_str());
+    else if (slot < 0 || !ClientPrintChat(slot, (" \x04[ReadyUp]\x01 " + msg).c_str())) SendToChat(msg.c_str());
+  };
   auto requireAdmin = [&]() -> bool {
     if (steamid64 == 0) return true;  // server console
     if (!IsReadyUpAdmin(steamid64)) {
-      SendToChat("Ready Up: not authorized");
+      replyPrivate("not authorized");
       return false;
     }
     return true;
@@ -360,12 +361,6 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   auto sendAdmin = [&](const std::string& msg) {
     if (steamid64 == 0) PrintLine(msg.c_str());
     else SendAdmin(msg);
-  };
-  // Help and "unknown" go to the sender only when the slot is known.
-  auto replyPrivate = [&](const std::string& msg) {
-    if (steamid64 == 0) PrintLine(msg.c_str());
-    else if (slot >= 0) (void)ClientPrintChat(slot, (" " + msg).c_str());
-    else SendToChat(msg.c_str());
   };
 
   const RuMainCommand* mc = FindRuMain(main);
@@ -387,11 +382,11 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     if (sub == "change") {
       std::string entry, err;
       if (!ParseMapChange(args, &entry, &err)) {
-        Reply(steamid64, "Ready Up: " + err);
+        replyPrivate("Ready Up: " + err);
         return;
       }
       if (!LoadMapEntry(entry)) {
-        Reply(steamid64, "Ready Up: map change unavailable yet.");
+        replyPrivate("Ready Up: map change unavailable yet.");
         return;
       }
       Print("admin: %s: map change %s\n", who.c_str(), entry.c_str());
@@ -399,18 +394,18 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     } else if (sub == "reload") {
       const std::string entry = mapnames::ReloadEntry(MatchStateGet().current_map);
       if (entry.empty()) {
-        Reply(steamid64, "Ready Up: current map not known yet.");
+        replyPrivate("Ready Up: current map not known yet.");
         return;
       }
       if (!LoadMapEntry(entry)) {
-        Reply(steamid64, "Ready Up: map change unavailable yet.");
+        replyPrivate("Ready Up: map change unavailable yet.");
         return;
       }
       Print("admin: %s: map reload %s\n", who.c_str(), entry.c_str());
       sendAdmin("reloading " + mapnames::DisplayName(entry) + ".");
     } else if (sub == "restart") {
       if (!EnqueueServerCommand("mp_restartgame 1")) {
-        Reply(steamid64, "Ready Up: restart unavailable yet.");
+        replyPrivate("Ready Up: restart unavailable yet.");
         return;
       }
       Print("admin: %s: map restart (mp_restartgame 1)\n", who.c_str());
@@ -449,19 +444,19 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   // ---- .ru mode -----------------------------------------------------------------------------
   if (main == "mode") {
     if (sub == "show") {
-      Reply(steamid64, std::string("mode: ") + GetModeString());
+      replyPrivate(std::string("mode: ") + GetModeString());
     } else if (sub == "practice") {
       // Practice mode and its tools are the practice plugin's (plugins/practice): it asks back
       // through readyup.match.v1 set_practice (MatchSetPractice).
       const ru_practice_v1* p = Practice();
       if (!p) {
-        Reply(steamid64, "Ready Up: practice mode needs the practice plugin (practice.so), which is not loaded.");
+        replyPrivate("Ready Up: practice mode needs the practice plugin (practice.so), which is not loaded.");
         return;
       }
       const bool on = p->active() == 0;
       const char* why = "";
       if (p->set_active(on ? 1 : 0, &why) != 1) {
-        Reply(steamid64, std::string("Ready Up: practice mode refused: ") + (why ? why : "") + ".");
+        replyPrivate(std::string("Ready Up: practice mode refused: ") + (why ? why : "") + ".");
         return;
       }
       sendAdmin(on ? "practice mode enabled." : "practice mode disabled.");
@@ -503,7 +498,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   if (sub == "load") {
     std::string url, err;
     if (!ParseMatchLoad(args, &url, &err)) {
-      Reply(steamid64, "Ready Up: " + err);
+      replyPrivate("Ready Up: " + err);
       return;
     }
     if (steamid64 != 0) sendAdmin("loading the match config (see the server console).");
@@ -513,7 +508,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   if (sub == "state") {
     for (const auto& l : BuildStateReport()) {
       Print("%s\n", l.c_str());
-      if (steamid64 != 0) SendToChat(("Ready Up " + l).c_str());
+      if (steamid64 != 0) replyPrivate(l);
     }
     EmitStateLog("query");
     return;
@@ -522,22 +517,22 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     // Effective rules: ruleset preset + overrides, and what differs (esports.h).
     for (const auto& l : EsportsRulesReport()) {
       Print("%s\n", l.c_str());
-      if (steamid64 != 0) SendToChat(("Ready Up " + l).c_str());
+      if (steamid64 != 0) replyPrivate(l);
     }
     return;
   }
   if (sub == "side") {
     auto ctx = WebhookGetMatchContext();
     if (!ctx) {
-      Reply(steamid64, "Ready Up: no match loaded.");
+      replyPrivate("Ready Up: no match loaded.");
       return;
     }
     if (!KnifeIsAwaitingPick()) {
-      Reply(steamid64, "Ready Up: no knife side pick pending.");
+      replyPrivate("Ready Up: no knife side pick pending.");
       return;
     }
     if (args.empty()) {
-      Reply(steamid64, "Ready Up: usage: .ru match side stay|switch|ct|t");
+      replyPrivate("Ready Up: usage: .ru match side stay|switch|ct|t");
       return;
     }
     const std::string choice = args[0];
@@ -559,7 +554,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       }
     }
     if (!KnifeApplySideChoice(choice, steamid64, steamid64 == 0 ? std::string("Console") : playerName, admin)) {
-      Reply(steamid64, "Ready Up: invalid choice. Use: .ru match side stay|switch|ct|t");
+      replyPrivate("Ready Up: invalid choice. Use: .ru match side stay|switch|ct|t");
       return;
     }
     if (steamid64 == 0) PrintLine("side: ok");
@@ -570,7 +565,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     const std::string t = args.empty() ? std::string() : Lower(args[0]);
     const WebhookTeam team = t == "team1" ? WebhookTeam::Team1 : t == "team2" ? WebhookTeam::Team2 : WebhookTeam::Unknown;
     if (team == WebhookTeam::Unknown) {
-      Reply(steamid64, "usage: ru match " + sub + " team1|team2");
+      replyPrivate("usage: ru match " + sub + " team1|team2");
       return;
     }
     if (sub == "tech") MatchFeaturesTechPause(team, steamid64, who);
@@ -579,7 +574,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   }
   // start / restart / end / recover / pause / unpause need a loaded match.
   if (!WebhookGetMatchContext()) {
-    Reply(steamid64, "Ready Up: no match loaded.");
+    replyPrivate("Ready Up: no match loaded.");
     return;
   }
   if (sub == "start") {
@@ -600,11 +595,11 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     sendAdmin(round > 0 ? "recovery requested (rewind)." : "recovery requested.");
   } else if (sub == "pause") {
     if (PauseStateGet().paused) {
-      Reply(steamid64, "Ready Up: match is already paused.");
+      replyPrivate("Ready Up: match is already paused.");
       return;
     }
     if (!EnqueueServerCommand("mp_pause_match")) {
-      Reply(steamid64, "Ready Up: pause unavailable yet.");
+      replyPrivate("Ready Up: pause unavailable yet.");
       return;
     }
     PauseStateOnPaused("admin", steamid64 == 0 ? std::string("Console") : std::to_string(steamid64));
@@ -618,7 +613,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     sendAdmin("admin pause.");
   } else if (sub == "unpause") {
     if (!EnqueueServerCommand("mp_unpause_match")) {
-      Reply(steamid64, "Ready Up: unpause unavailable yet.");
+      replyPrivate("Ready Up: unpause unavailable yet.");
       return;
     }
     if (!PauseStateGet().paused) {

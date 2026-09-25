@@ -89,6 +89,17 @@ static void Hook_ClientCommand(void* thisptr, CPlayerSlot slot, const void* args
   Debug("client-command: slot=%d cmd=\"%s\" argc=%zu ident=%s steamid64=%llu\n", slotNum, cmd.c_str(), argv->size(),
         ident ? "yes" : "no", static_cast<unsigned long long>(ident ? ident->steamid64 : 0ull));
 
+  // `ru ...` typed in a player's own console (like Metamod's `meta` / CounterStrikeSharp's
+  // `css_...`): the same as `.ru ...` in chat (same admin checks, replies to that player), and
+  // nothing shows in chat.
+  if (cmd == "ru" && ident) {
+    std::string line = ".ru";
+    for (size_t i = 1; i < argv->size(); ++i) line += " " + (*argv)[i];
+    Debug("client-command: console `ru` from slot %d: \"%s\"\n", slotNum, line.c_str());
+    RouteChatCommand(ident->steamid64, ident->name, line, slotNum);
+    return;
+  }
+
   if (cmd != "say" && cmd != "say_team") return g_origClientCommand(thisptr, slot, args);
   if (!ident) return g_origClientCommand(thisptr, slot, args);
 

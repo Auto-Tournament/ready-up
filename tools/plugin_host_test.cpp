@@ -58,6 +58,7 @@ bool ClientPrintChat(int slot, const char* msg) {
   g_chat.push_back("[slot " + std::to_string(slot) + "] " + msg);
   return true;
 }
+bool SendToSlotChat(int slot, const char* msg) { return ClientPrintChat(slot, msg); }
 bool EnqueueServerCommand(const char*) { return true; }
 std::optional<int> GameEventsSlotForSteam(unsigned long long steamid64) {
   if (steamid64 == 76561198000000001ull) return 4;

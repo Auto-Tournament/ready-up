@@ -81,6 +81,7 @@ bool ClientPrintChat(int, const char* msg) {
   SendToChat(msg);
   return true;
 }
+bool SendToSlotChat(int slot, const char* msg) { return ClientPrintChat(slot, msg); }
 bool EnqueueServerCommand(const char* c) {
   std::lock_guard<std::mutex> lk(g_logMu);
   g_cmds.push_back(c);
