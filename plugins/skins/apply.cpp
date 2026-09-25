@@ -283,6 +283,9 @@ struct WeaponState {
   long long lastSeen = 0;
   bool done = false;
   bool legacyPending = false;  // legacy "body" bodygroup still to set (model not loaded yet)
+  // Painted by another plugin (readyup.skins.v1 paint_weapon): no loadout over it until handed back.
+  bool external = false;
+  bool externalLegacy = false;  // that paint used the legacy model (reset on hand back)
 };
 
 // Cosmetics (agent model, gloves, default_gloves bodygroup) are applied on these ticks after the
@@ -382,7 +385,7 @@ void ProcessPlayer(int slot, void* controller) {
 
   for (int i = 0; i < count; ++i) {
     const uint32_t h = handles[i];
-    if (repaintHeld) g_weapons[h] = WeaponState{};
+    if (repaintHeld && !g_weapons[h].external) g_weapons[h] = WeaponState{};
     WeaponState& st = g_weapons[h];
     if (st.firstSeen == 0) st.firstSeen = g_tick;
     st.lastSeen = g_tick;
@@ -452,6 +455,48 @@ void GameFrameTick() {
   }
 
   if ((g_tick & 1023) == 0) PruneWeapons();
+}
+
+bool PaintWeaponExternal(uint32_t handle, uint64_t steamid64, int paintKit, float wear, int seed) {
+  if (!ExternalPaintReady()) return false;
+  void* weapon = EntityFromHandle(handle);
+  if (!weapon) return false;
+  auto& o = Off();
+  void* item = EconItemViewOfWeapon(weapon);
+  if (Rd<uint16_t>(item, o.item_defIndex) == 0) return false;
+  WeaponState& st = g_weapons[handle];
+  WeaponSkinEntry skin;
+  if (paintKit > 0) {
+    skin.paint_id = paintKit;
+    skin.wear = std::min(1.0f, std::max(0.0f, wear));
+    skin.seed = std::max(0, seed);
+    WritePaint(weapon, item, steamid64, skin);
+    if (st.firstSeen == 0) st.firstSeen = g_tick;
+    st.lastSeen = g_tick;
+    st.done = true;
+    st.external = true;
+    st.externalLegacy = IsLegacyPaintKit(paintKit);
+    st.legacyPending = st.externalLegacy && !ApplyLegacyBody(weapon, steamid64);
+  } else {
+    // Hand back: stock paint now; processed again like a new weapon (the holder's loadout, if
+    // any, on the next tick, re-networked because firstSeen < that tick).
+    const bool wasLegacy = st.external && st.externalLegacy;
+    WritePaint(weapon, item, steamid64, skin);
+    if (wasLegacy) (void)SetBodygroupByName(weapon, "body", 0);
+    st = WeaponState{};
+    st.firstSeen = st.lastSeen = g_tick;
+  }
+  MarkEntityFullyChanged(weapon);
+  if (DebugOn()) {
+    Log(RU_LOG_DEBUG, "paint_weapon %s paint=%d owner=%llu", EntityDesignerName(weapon), paintKit,
+        static_cast<unsigned long long>(steamid64));
+  }
+  return true;
+}
+
+bool ExternalPaintReady() {
+  return g_api && !DisabledByEnv() && !Inert() && g_api->entity_system_status(g_api->self) == RU_ENTSYS_OK &&
+         ResolveOffsets();
 }
 
 void RequestSpawnCosmetics(int slot) {

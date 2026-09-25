@@ -42,6 +42,10 @@ bool SetModel(void* entity, const char* model);
 // CBaseEntity::SetAbsOrigin(this, &origin): moves the entity, the way setpos / ent_setpos do.
 // False if unresolved or the origin is not finite / off the map.
 bool SetAbsOrigin(void* entity, const float origin[3]);
+// UTIL_Remove(entity): the engine deletes it at the end of the frame. False (nothing done) if
+// unresolved, the entity system is not verified, the pointer does not round-trip through its
+// handle, or it is the world / a player controller (index 0..64).
+bool RemoveEntity(void* entity);
 // Model lookup + FindBodygroupByName + CBaseModelEntity::SetBodygroup(group, value).
 enum class BodygroupResult {
   kOk,

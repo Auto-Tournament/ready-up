@@ -136,7 +136,7 @@ Everything is game-thread only except where noted.
 | Players | `get_player`, `get_player_by_steamid`, `for_each_player` | from the core's human/bot registry; `ru_player` is caller-owned with an inline `name[128]` |
 | Raw engine events | `subscribe_game_event(name)`, `ev_get_int/float/uint64/string/player_slot/player_controller/player_pawn` | **synchronous** on the game thread inside the engine's dispatch, before the core takes its events lock. The core adds its listener for every subscribed name (re-checked when the set changes and every 2 s) |
 | Log lines | `subscribe_log_line` | queued copies; fed from `ObserveLifecycleLogLine`, which both the in-process listener and the file-tail fallback go through |
-| Schema / entities | `schema_offset`, `entity_system_status`, `entity_by_index`, `entity_from_handle`, `entity_handle_of`, `entity_classname`, `entity_mark_changed`, `econ_attr_set_by_name`, `entity_change_subclass`, `entity_set_model`, `entity_set_bodygroup_by_name` | backed by `schema.*` and `entity.*`; each returns 0/NULL when its engine function did not resolve |
+| Schema / entities | `schema_offset`, `entity_system_status`, `entity_by_index`, `entity_from_handle`, `entity_handle_of`, `entity_classname`, `entity_mark_changed`, `econ_attr_set_by_name`, `entity_change_subclass`, `entity_set_model`, `entity_set_bodygroup_by_name`; later `entity_set_abs_origin` (1.3) and `entity_remove` (1.5, UTIL_Remove) | backed by `schema.*` and `entity.*`; each returns 0/NULL when its engine function did not resolve |
 | Match control | `set_round_termination_suppressed`, `set_chat_name_prefix` | see below for `terminate_round` |
 | Admins | `is_admin` (**any thread**, may block), `set_admin_provider` | the core's `IsReadyUpAdmin` asks the provider first, so core checks follow it too. Providers run on the caller's thread under a shared lock that unload takes exclusively |
 | Config | `config_get`, `debug_enabled` (any thread), `config_dir` (any thread) | `config_get` reads `csgo/cfg/ReadyUp/<plugin>.cfg` (top-level keys or a `[<plugin>]` section), then the `[<plugin>]` section of `readyup.cfg`. The core's own parser now ignores everything after the first `[section]` line |
@@ -402,6 +402,9 @@ How it talks to the core, all through `ru_api` v1.1:
 - loadouts: `data_dir()/loadouts.json` (+ `stattrak.json`) on one worker thread that unload
   joins; in fleet mode `skins.loadout` / `skins.invalidate` over `readyup.fleet.v1` and
   `skins.stattrak` back (capability `skins.v1`).
+- to other plugins: `readyup.skins.v1` (`core/include/readyup/skins_iface.h`): `paint_weapon`
+  puts a paint kit on one weapon entity (the midas plugin's gold finish) and keeps the loadout off
+  it until handed back with paint kit 0; `active` is 0 while skins is inert.
 
 **Gamedata fragment.** The engine entries only skins uses (the econ/model functions and the
 `CEntityInstance::NetworkStateChanged` slot) moved from `engine-surface.json` to

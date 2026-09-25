@@ -34,6 +34,7 @@ const std::vector<RuMainCommand>& MatchRuCommands() {
        "center-screen HUD",
        {
            {"test", "<1-11>", "show a HUD test panel to you (10 s)", true},
+           {"anim", "[hz] [seconds]", "animation test: an eased bar redrawn hz times a second, with a frame counter (record it to count the fps)", true},
        }},
   };
   return k;

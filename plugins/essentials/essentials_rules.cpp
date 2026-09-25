@@ -40,6 +40,7 @@ std::vector<Admin> ParseAdmins(const std::string& json, bool* ok) {
     Admin e;
     const Json* id = a.IsObject() ? a.Find("steamid64") : &a;
     if (id && id->type() == Json::Type::String) e.steamid64 = ParseSteamId64(id->AsString());
+    if (id && id->type() == Json::Type::Int && id->AsInt() > 0) e.steamid64 = ParseSteamId64(std::to_string(id->AsInt()));
     if (a.IsObject()) {
       if (const Json* n = a.Find("name"); n && n->type() == Json::Type::String) e.name = n->AsString();
     }

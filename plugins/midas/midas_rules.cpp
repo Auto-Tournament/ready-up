@@ -1,6 +1,9 @@
 #include "midas_rules.h"
 
+#include <algorithm>
 #include <cctype>
+#include <cerrno>
+#include <cmath>
 #include <cstdlib>
 #include <vector>
 
@@ -82,6 +85,106 @@ bool Active(bool enabled, const std::string& ruleset) { return enabled && Lower(
 
 bool ShouldTint(bool active, const std::set<uint64_t>& midas, uint64_t owner) {
   return active && owner != 0 && midas.count(owner) != 0;
+}
+
+int ParseInt(const std::string& text, int def, int lo, int hi) {
+  const std::string t = Trim(text);
+  if (t.empty() || t.size() > 10) return def;
+  char* end = nullptr;
+  errno = 0;
+  const long v = std::strtol(t.c_str(), &end, 10);
+  if (errno != 0 || !end || *end != '\0' || v < lo || v > hi) return def;
+  return static_cast<int>(v);
+}
+
+float ParseFloat(const std::string& text, float def, float lo, float hi) {
+  const std::string t = Trim(text);
+  if (t.empty()) return def;
+  char* end = nullptr;
+  errno = 0;
+  const double v = std::strtod(t.c_str(), &end);
+  if (errno != 0 || !end || *end != '\0' || !std::isfinite(v) || v < lo || v > hi) return def;
+  return static_cast<float>(v);
+}
+
+bool ParseFinish(const std::string& text, Finish* out) {
+  const std::string t = Lower(Trim(text));
+  Finish f;
+  if (t == "auto" || t == "paint") f = Finish::kAuto;
+  else if (t == "tint") f = Finish::kTint;
+  else return false;
+  if (out) *out = f;
+  return true;
+}
+
+bool Paintable(const std::string& classname) {
+  const std::string c = Lower(classname);
+  if (c.compare(0, 7, "weapon_") != 0) return false;
+  if (c.compare(0, 12, "weapon_knife") == 0 || c == "weapon_bayonet") return false;
+  static const char* const kNoPaint[] = {"weapon_c4",        "weapon_hegrenade", "weapon_flashbang",
+                                         "weapon_smokegrenade", "weapon_molotov", "weapon_incgrenade",
+                                         "weapon_decoy",     "weapon_tagrenade", "weapon_healthshot",
+                                         "weapon_breachcharge", "weapon_shield", "weapon_snowball"};
+  for (const char* n : kNoPaint) {
+    if (c == n) return false;
+  }
+  return true;
+}
+
+bool ParseBestStat(const std::string& text, BestStat* out) {
+  const std::string t = Lower(Trim(text));
+  BestStat v;
+  if (t == "adr") v = BestStat::kAdr;
+  else if (t == "kills") v = BestStat::kKills;
+  else return false;
+  if (out) *out = v;
+  return true;
+}
+
+bool ParseBestWhen(const std::string& text, BestWhen* out) {
+  const std::string t = Lower(Trim(text));
+  BestWhen v;
+  if (t == "round") v = BestWhen::kRound;
+  else if (t == "half") v = BestWhen::kHalf;
+  else return false;
+  if (out) *out = v;
+  return true;
+}
+
+double Adr(const PlayerTotals& p) { return p.rounds > 0 ? static_cast<double>(p.damage) / p.rounds : 0.0; }
+
+bool BestPlayerAllowed(bool enabled, bool inMatches, bool live, bool scrim, const std::string& ruleset) {
+  return enabled && live && Active(true, ruleset) && (scrim || inMatches);
+}
+
+bool PickNow(BestWhen when, int roundsPlayed, int minRounds, int half, int lastPickHalf) {
+  if (when == BestWhen::kHalf) return half >= 2 && half != lastPickHalf;
+  return roundsPlayed >= std::max(1, minRounds);
+}
+
+uint64_t PickBest(const std::vector<PlayerTotals>& players, BestStat stat, uint64_t current) {
+  const PlayerTotals* best = nullptr;
+  // a better than b?
+  auto better = [&](const PlayerTotals& a, const PlayerTotals& b) {
+    const double aAdr = Adr(a), bAdr = Adr(b);
+    if (stat == BestStat::kAdr) {
+      if (aAdr != bAdr) return aAdr > bAdr;
+      if (a.kills != b.kills) return a.kills > b.kills;
+    } else {
+      if (a.kills != b.kills) return a.kills > b.kills;
+      if (aAdr != bAdr) return aAdr > bAdr;
+    }
+    if (a.deaths != b.deaths) return a.deaths < b.deaths;
+    if ((a.steamid64 == current) != (b.steamid64 == current)) return a.steamid64 == current;
+    return a.steamid64 < b.steamid64;
+  };
+  for (const auto& p : players) {
+    if (p.steamid64 == 0 || p.rounds <= 0) continue;
+    if (!best || better(p, *best)) best = &p;
+  }
+  if (!best) return 0;
+  const bool scored = stat == BestStat::kAdr ? best->damage > 0 : best->kills > 0;
+  return scored ? best->steamid64 : 0;
 }
 
 }  // namespace midas

@@ -47,6 +47,11 @@ admin_prefix=<DarkRed>[Admin]<Default>
 # Scrim / match warmup: money topped up to $16000 after every purchase, like CS2's own warmup.
 # warmup_money=1
 
+# Idle / scrim / match warmup: weapons with no owner for 2 seconds are removed (G-drops; nothing
+# drops on death in warmup anyway), the C4 too (no bomb in warmup). 0 = leave them to CS2's
+# weapon_auto_cleanup_time.
+# warmup_weapon_cleanup=1
+
 # Idle map refresh: after this many hours on one map with no match loaded and nobody connected,
 # load the same map again (0 = off). Long uptime on one map makes player animations run in slow
 # motion; a map load fixes it. Loading a match always changes map, also onto the current one.

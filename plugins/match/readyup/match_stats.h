@@ -134,6 +134,8 @@ class StatsAccumulator {
   void EndMap() { live_ = false; }
   void Clear();
   bool Live() const { return live_; }
+  // Rounds recorded on this map (closed by OnRoundEnd).
+  int RoundsRecorded() const { return static_cast<int>(rounds_.size()); }
 
   void SetTeam1IsCt(bool team1IsCt) { team1IsCt_ = team1IsCt; }
   bool Team1IsCt() const { return team1IsCt_; }

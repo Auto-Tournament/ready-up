@@ -132,6 +132,7 @@ void Apply(ReadyUpCfg* out, const std::string& key, const std::string& val) {
   else if (key == "dev_bots_scrim") out->dev_bots_scrim = ParseBool(val, out->dev_bots_scrim);
   else if (key == "scrim_knife") out->scrim_knife = ParseBool(val, out->scrim_knife);
   else if (key == "warmup_money") out->warmup_money = ParseBool(val, out->warmup_money);
+  else if (key == "warmup_weapon_cleanup") out->warmup_weapon_cleanup = ParseBool(val, out->warmup_weapon_cleanup);
   else if (key == "knife_pick_seconds") out->knife_pick_seconds = ParseInt(val, out->knife_pick_seconds);
   else if (key == "idle_map_refresh_hours") {
     const int h = RuleInt(val);  // 0 = off; anything unreadable keeps the default

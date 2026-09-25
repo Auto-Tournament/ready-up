@@ -201,10 +201,18 @@ bool ClientPrintAvailable() {
 
 // ---- engine.h: center HTML, commands, features -------------------------------------------------
 
-bool PrintCenterHtmlToClientOnly(int slot, const std::string& html, int durationSeconds) {
+int SendCenterHtml(int slot, const std::string& html, int durationSeconds, int priority) {
   const ru_api* a = host::Api();
-  if (!a || !host::OnGameThread() || slot < 0 || html.empty()) return false;
-  return a->center_html_to_slot(a->self, slot, html.c_str(), durationSeconds > 0 ? durationSeconds : 1) == 1;
+  if (!a || !host::OnGameThread() || slot < 0 || html.empty()) return 0;
+  const int seconds = durationSeconds > 0 ? durationSeconds : 1;
+  if (RU_API_HAS(a, center_html_to_slot_prio) && a->center_html_to_slot_prio) {
+    return a->center_html_to_slot_prio(a->self, slot, html.c_str(), seconds, priority);
+  }
+  return a->center_html_to_slot(a->self, slot, html.c_str(), seconds) == 1 ? 1 : 0;
+}
+
+bool PrintCenterHtmlToClientOnly(int slot, const std::string& html, int durationSeconds, int priority) {
+  return SendCenterHtml(slot, html, durationSeconds, priority) == 1;
 }
 
 bool EnqueueServerCommand(const char* text) {

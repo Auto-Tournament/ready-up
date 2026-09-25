@@ -77,7 +77,7 @@ Unattended installs have to state the license choice once with
 
 ```bash
 curl -fsSL .../install.sh | bash -s -- essentials --accept-license=noncommercial   # core + essentials + match + fleet + practice (the default)
-curl -fsSL .../install.sh | bash -s -- full --accept-license=noncommercial         # + skins + hello + midas
+curl -fsSL .../install.sh | bash -s -- full --accept-license=noncommercial         # + skins + hello + midas + whitelist
 bash install.sh --yes                                    # update whatever is installed
 bash install.sh --remove skins                           # or --remove fleet, --remove hello
 bash install.sh --uninstall [--purge]                    # --purge also deletes your config
@@ -90,7 +90,7 @@ CS2 updates rewrite `gameinfo.gi`: run the installer again after each one (it on
 
 ### Manual install
 
-1. Download a zip from [Releases](https://github.com/Auto-Tournament/ready-up/releases/latest): `ready-up-essentials-<version>-linuxsteamrt64.zip` (core + essentials + match + fleet + practice) or `ready-up-full-...` (+ skins + hello + midas).
+1. Download a zip from [Releases](https://github.com/Auto-Tournament/ready-up/releases/latest): `ready-up-essentials-<version>-linuxsteamrt64.zip` (core + essentials + match + fleet + practice) or `ready-up-full-...` (+ skins + hello + midas + whitelist).
 2. Extract it into `game/csgo`. You should end up with `game/csgo/readyup/bin/linuxsteamrt64/libserver.so`.
 3. Add Ready Up to `gameinfo.gi` (and `gameinfo_branchspecific.gi` if you have it):
 
@@ -115,8 +115,8 @@ bundles below are just zips with several of them. The in-house plugins use nothi
 API, so they double as examples for your own.
 
 Plugins cooperate through named interfaces (`provide_interface` / `get_interface`): the match plugin
-publishes `readyup.match.v1` (mode, ruleset), the practice plugin `readyup.practice.v1`, the whitelist
-plugin `readyup.whitelist.v1`. The match plugin owns the match phase; the others read it and stand
+publishes `readyup.match.v1` (mode, ruleset, map stats), the practice plugin `readyup.practice.v1`, the whitelist
+plugin `readyup.whitelist.v1`, the skins plugin `readyup.skins.v1` (paint one weapon; Midas uses it). The match plugin owns the match phase; the others read it and stand
 down while a match is loaded or live, and under the valve ruleset. None of them needs another to be
 loaded: each checks for the interface and works on its own (a practice-only server is core + practice).
 
@@ -181,7 +181,10 @@ Weapon paints, knives, gloves and agents from `loadouts.json` ([contract](plugin
 
 <br />
 
-Weapons picked up by the players in `midas_steamids` turn gold (the weapon's render colour; a server can't send custom textures). Off by default (`cfg/ReadyUp/midas.cfg`, `enabled=1`) and never active under the valve ruleset. Hot reloads with `ru plugin reload midas`.
+Weapons picked up by Midas players turn gold, and stay gold when someone else picks them up. Off by default (`cfg/ReadyUp/midas.cfg`, `enabled=1`) and never active under the valve ruleset. Hot reloads with `ru plugin reload midas`.
+
+- **Who**: the players in `midas_steamids`, and with `best_player=1` the best player of the map: top ADR or kills (`best_player_stat=adr|kills`) from the match plugin's stats, picked a few ticks after each round start once `best_player_min_rounds` (3) rounds are played, or at the start of every new half (`best_player_when=half`). Scrims only; real matches need `best_player_in_matches=1`. Ties go to the other stat, then fewer deaths, then the current Midas.
+- **Gold**: with the skins plugin loaded, a gold paint kit through its `readyup.skins.v1` interface (`paint_kit=1025`, "Gold Brick", a pattern finish that fits every gun; `paint_wear`, `paint_seed`; any paint kit id works). Knives, grenades and the C4, and every weapon without skins.so or with `finish=tint`, get the render colour `color=255,200,40` instead (a server can't send custom textures).
 
 </details>
 

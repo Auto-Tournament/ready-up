@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 4
+#define READYUP_PLUGIN_API_VERSION_MINOR 6
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -298,7 +298,8 @@ typedef struct ru_api {
   /* Engine slot of a connected player, or -1. */
   int (*slot_for_steamid)(ru_plugin* self, uint64_t steamid64);
 
-  /* Absolute directory for this plugin's data/config files (csgo/readyup/plugins/<name>/). */
+  /* Absolute directory for this plugin's data/config files (csgo/readyup/plugins/<name>/).
+   * The core creates it (if missing) before readyup_plugin_load. */
   const char* (*data_dir)(ru_plugin* self);
 
   /* ==== v1.1 ============================================================
@@ -522,7 +523,41 @@ typedef struct ru_api {
    */
   int (*workshop_download_progress)(ru_plugin* self, uint64_t workshop_id, uint64_t* downloaded, uint64_t* total);
 
-  /* v1.5+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.5 ============================================================
+   * Appended in 1.5. Require 1.5 in ru_plugin_info.api_version, or check RU_API_HAS().
+   */
+
+  /*
+   * Removes an entity with UTIL_Remove (engine surface: the same verified function the entity
+   * system global is read from); the engine deletes it at the end of the frame. Refuses the world
+   * and player controllers (index 0..64) and a pointer that does not round-trip through its
+   * handle. Game thread. 1 = queued for removal, 0 = refused or unavailable.
+   */
+  int (*entity_remove)(ru_plugin* self, void* entity);
+
+  /* ==== v1.6 ============================================================
+   * Appended in 1.6. Require 1.6 in ru_plugin_info.api_version, or check RU_API_HAS().
+   *
+   * One center panel per player. The game has a single center-HTML panel per client; the core
+   * keeps who owns each player's panel, at what priority, until the panel's `seconds` run out.
+   * A send from another plugin at a LOWER priority is refused (returns -1) while that panel is
+   * up, and goes through once it has expired, so a HUD that re-sends comes back by itself.
+   * center_html_to_slot / center_html_all send at RU_HTML_PRIO_HUD.
+   */
+#define RU_HTML_PRIO_INFO 10   /* idle / background information */
+#define RU_HTML_PRIO_HUD 50    /* status HUDs re-sent all the time (the ready HUD) */
+#define RU_HTML_PRIO_NOTICE 70 /* one-off cards for a few seconds (welcome, votes, test panels) */
+#define RU_HTML_PRIO_ALERT 90  /* must be seen now (map download, pause called) */
+
+  /* center_html_to_slot at `priority`. 1 = sent, -1 = refused (another plugin's higher panel is
+   * up: try again later, nothing is wrong), 0 = failed (center HTML unavailable, bad args). */
+  int (*center_html_to_slot_prio)(ru_plugin* self, int slot, const char* html, int seconds, int priority);
+  /* center_html_all at `priority`: returns how many players got it. */
+  int (*center_html_all_prio)(ru_plugin* self, const char* html, int seconds, int priority);
+  /* Give up this plugin's panel on `slot` (-1: every slot) so lower panels may draw at once. */
+  void (*center_html_release)(ru_plugin* self, int slot);
+
+  /* v1.7+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

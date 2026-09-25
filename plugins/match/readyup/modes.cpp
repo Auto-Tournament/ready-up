@@ -24,6 +24,7 @@
 #include "readyup/persisted_match_state.h"
 #include "readyup/players.h"
 #include "readyup/status_snapshot.h"
+#include "readyup/weapon_cleanup.h"
 #include "readyup/webhook.h"
 
 #include <atomic>
@@ -658,6 +659,8 @@ static void ApplyWarmupRulesLocked(State& st) {
     for (const char* c : off) {
       if (EnqueueServerCommand(c)) any = true;
     }
+    // No death drops even with an older warmup.cfg that lacks them (weapon_cleanup.h).
+    EnqueueAfterCfg(std::vector<std::string>(std::begin(kWarmupNoDropCmds), std::end(kWarmupNoDropCmds)));
     if (any) {
       st.warmupRulesApplied = true;
       DebugLine("modes: warmup cfg executed (CS2 warmup off)");
@@ -701,6 +704,10 @@ static void ApplyWarmupRulesLocked(State& st) {
   if (EnqueueServerCommand(startMoneyCmd.c_str())) any = true;
   if (EnqueueServerCommand(maxMoneyCmd.c_str())) any = true;
   if (EnqueueServerCommand(buyAny.c_str())) any = true;
+  // Warmup runs for hours: nothing drops on death (weapon_cleanup.h).
+  for (const char* c : kWarmupNoDropCmds) {
+    if (EnqueueServerCommand(c)) any = true;
+  }
   if (st.warmupInfiniteAmmo) {
     // Enable cheats so sv_infinite_ammo can apply.
     if (EnqueueServerCommand("sv_cheats 1")) any = true;
@@ -755,6 +762,14 @@ static void ApplyScrimWarmupRulesLocked(State& st) {
   };
   for (const char* c : cmds) {
     if (EnqueueServerCommand(c)) any = true;
+  }
+  // Warmup runs for hours: nothing drops on death (weapon_cleanup.h). After warmup.cfg, if it ran.
+  if (st.cfgExecEnabled) {
+    EnqueueAfterCfg(std::vector<std::string>(std::begin(kWarmupNoDropCmds), std::end(kWarmupNoDropCmds)));
+  } else {
+    for (const char* c : kWarmupNoDropCmds) {
+      if (EnqueueServerCommand(c)) any = true;
+    }
   }
   if (any) {
     st.warmupRulesApplied = true;
@@ -902,6 +917,10 @@ static void ApplyLiveRulesAndRestartLocked(State& st, const WebhookMatchContext&
         "sv_cheats 0",
     };
     for (const char* c : cmds) {
+      if (EnqueueServerCommand(c)) any = true;
+    }
+    // Weapons drop on death again (warmup turned it off; live.cfg does this in cfg mode).
+    for (const char* c : kLiveDropCmds) {
       if (EnqueueServerCommand(c)) any = true;
     }
   }

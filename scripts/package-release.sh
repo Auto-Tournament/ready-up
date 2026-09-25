@@ -6,7 +6,8 @@
 #   scripts/package-release.sh <build-dir> <version> <out-dir>
 #
 # <build-dir> holds libserver.so, plugins/match.so, plugins/fleet.so, plugins/skins.so,
-# plugins/hello.so, plugins/midas.so, plugins/whitelist.so and (optionally) readyup_sigcheck / readyup_hookcheck.
+# plugins/hello.so, plugins/midas.so, plugins/whitelist.so, plugins/practice.so, plugins/essentials.so
+# and (optionally) readyup_sigcheck / readyup_hookcheck.
 #
 # Component zips (the installer mixes these):
 #   ready-up-core-<v>-linuxsteamrt64.zip    the core (libserver.so, engine-surface.json,

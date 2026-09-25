@@ -7,6 +7,7 @@
 #include "readyup/steam_ugc.h"
 #include "readyup/admin_check.h"
 #include "readyup/center_html.h"
+#include "readyup/center_panel_owner.h"
 #include "readyup/features.h"
 #include "readyup/plugin_loader.h"
 #include "readyup/round_termination_hook.h"
@@ -30,18 +31,48 @@ using sdk::IGameEvent;
 
 // ---- output ------------------------------------------------------------------------
 
-int ApiCenterHtmlToSlot(ru_plugin* self, int slot, const char* html, int seconds) {
-  if (!CheckGameThread(self, "center_html_to_slot") || !html || !*html) return 0;
-  return PrintCenterHtmlToClientOnly(slot, html, seconds > 0 ? seconds : 1) ? 1 : 0;
+// Who owns each player's center panel (game thread only; center_panel_owner.h).
+CenterPanelOwners g_panels;
+
+double PanelNow() {
+  return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-int ApiCenterHtmlAll(ru_plugin* self, const char* html, int seconds) {
+uint64_t PanelOwnerId(ru_plugin* self) { return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(self)); }
+
+// 1 sent, -1 refused (a higher panel of another plugin is up), 0 failed.
+int SendPanel(ru_plugin* self, int slot, const char* html, int seconds, int priority) {
+  seconds = seconds > 0 ? seconds : 1;
+  if (slot < 0 || slot >= CenterPanelOwners::kSlots) return 0;
+  if (!g_panels.Claim(slot, PanelOwnerId(self), priority, seconds, PanelNow())) return -1;
+  return PrintCenterHtmlToClientOnly(slot, html, seconds) ? 1 : 0;
+}
+
+int ApiCenterHtmlToSlotPrio(ru_plugin* self, int slot, const char* html, int seconds, int priority) {
+  if (!CheckGameThread(self, "center_html_to_slot") || !html || !*html) return 0;
+  return SendPanel(self, slot, html, seconds, priority);
+}
+
+int ApiCenterHtmlAllPrio(ru_plugin* self, const char* html, int seconds, int priority) {
   if (!CheckGameThread(self, "center_html_all") || !html || !*html) return 0;
   int sent = 0;
   for (const auto& h : ListHumans()) {
-    if (h.slot >= 0 && PrintCenterHtmlToClientOnly(h.slot, html, seconds > 0 ? seconds : 1)) ++sent;
+    if (h.slot >= 0 && SendPanel(self, h.slot, html, seconds, priority) == 1) ++sent;
   }
   return sent;
+}
+
+int ApiCenterHtmlToSlot(ru_plugin* self, int slot, const char* html, int seconds) {
+  return ApiCenterHtmlToSlotPrio(self, slot, html, seconds, RU_HTML_PRIO_HUD) == 1 ? 1 : 0;
+}
+
+int ApiCenterHtmlAll(ru_plugin* self, const char* html, int seconds) {
+  return ApiCenterHtmlAllPrio(self, html, seconds, RU_HTML_PRIO_HUD);
+}
+
+void ApiCenterHtmlRelease(ru_plugin* self, int slot) {
+  if (!CheckGameThread(self, "center_html_release")) return;
+  g_panels.Release(slot, PanelOwnerId(self));
 }
 
 // ---- players -----------------------------------------------------------------------
@@ -235,6 +266,11 @@ int ApiIsAdmin(ru_plugin* self, uint64_t steamid64) {
   return IsReadyUpAdmin(steamid64) ? 1 : 0;  // asks the plugin admin provider first
 }
 
+int ApiEntityRemove(ru_plugin* self, void* ent) {
+  if (!CheckGameThread(self, "entity_remove") || !ent) return 0;
+  return entity::RemoveEntity(ent) ? 1 : 0;
+}
+
 int ApiWorkshopDownloadProgress(ru_plugin* self, uint64_t id, uint64_t* downloaded, uint64_t* total) {
   if (!self) return 0;
   return steam_ugc::DownloadProgress(id, downloaded, total) ? 1 : 0;
@@ -271,6 +307,10 @@ void detail::FillEngineApi(ru_api* a) {
   a->feature_state = &ApiFeatureState;
   a->entity_set_abs_origin = &ApiSetAbsOrigin;  // v1.3
   a->workshop_download_progress = &ApiWorkshopDownloadProgress;  // v1.4
+  a->entity_remove = &ApiEntityRemove;                            // v1.5
+  a->center_html_to_slot_prio = &ApiCenterHtmlToSlotPrio;         // v1.6
+  a->center_html_all_prio = &ApiCenterHtmlAllPrio;
+  a->center_html_release = &ApiCenterHtmlRelease;
 }
 
 }  // namespace readyup::plugins

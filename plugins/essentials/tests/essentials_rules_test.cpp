@@ -21,6 +21,10 @@ int main() {
   auto admins = ParseAdmins(R"({"version": 1, "admins": [{"steamid64": "76561198000000001", "name": "alice"},
       "76561198000000002", {"steamid64": "76561198000000001"}, {"steamid64": "nope"}]})", &ok);
   CHECK(ok && admins.size() == 2 && admins[0].name == "alice" && IsAdmin(admins, B));
+  {
+    const auto numeric = ParseAdmins(R"({"version": 1, "admins": [{"steamid64": 76561198000000009}]})", &ok);
+    CHECK(ok && numeric.size() == 1 && numeric[0].steamid64 == 76561198000000009ull);
+  }
   CHECK(ParseAdmins("", &ok).empty() && ok);
   CHECK(ParseAdmins("{bad", &ok).empty() && !ok);
   const auto back = ParseAdmins(AdminsJson(admins), &ok);

@@ -1,8 +1,11 @@
 #include "readyup/ready_hud.h"
 
+#include "readyup/plugin_api.h"
+
 #include "readyup/engine.h"
 #include "readyup/config.h"
 #include "readyup/logging.h"
+#include "readyup/match_events.h"
 #include "readyup/match_features.h"
 #include "readyup/match_state.h"
 #include "readyup/modes.h"
@@ -15,6 +18,8 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
+#include <cstdio>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -442,6 +447,99 @@ std::string HudBrandHtml(int imgHeight, const char* fontClass) {
   return h;
 }
 
+// ---- `.ru hud anim`: how fast does the client redraw the panel? --------------------------------
+
+namespace {
+
+struct Anim {
+  int hz = 64;
+  Clock::time_point start{}, until{}, next{};
+  int frame = 0;
+};
+std::mutex g_animMu;
+std::unordered_map<uint64_t, Anim> g_anims;
+
+std::string Blocks(int n) {
+  std::string o;
+  for (int i = 0; i < n; ++i) o += "\u2588";  // full block
+  return o;
+}
+
+// Ease-out cubic over a 2 s loop: fast at the start, settling at the end.
+double EaseOut(double p) { return 1.0 - (1.0 - p) * (1.0 - p) * (1.0 - p); }
+
+std::string AnimHtml(const Anim& a, Clock::time_point now) {
+  const double t = std::chrono::duration<double>(now - a.start).count();
+  const double loop = 2.0;
+  const double p = std::fmod(t, loop) / loop;
+  const double v = EaseOut(p);
+  constexpr int kSegments = 40;
+  const int filled = static_cast<int>(v * kSegments + 0.5);
+  std::string h = "<font class='fontSize-l' color='#FFFFFF'>anim " + std::to_string(a.hz) + " Hz &#183; frame " +
+                  std::to_string(a.frame) + "</font><br>";
+  if (filled > 0) h += "<font color='#4ADE80'>" + Blocks(filled) + "</font>";
+  if (filled < kSegments) h += "<font color='#3F3F46'>" + Blocks(kSegments - filled) + "</font>";
+  char stats[64];
+  std::snprintf(stats, sizeof stats, "%5.1f%% &#183; t=%.2f s", v * 100.0, t);
+  h += "<br><font class='fontSize-m' color='#A3E635'>" + std::string(stats) + "</font>";
+  return h;
+}
+
+}  // namespace
+
+std::string ReadyHudRequestAnim(uint64_t steamid64, int hz, int seconds) {
+  if (steamid64 == 0) return {};
+  hz = std::clamp(hz > 0 ? hz : 64, 1, 64);
+  seconds = std::clamp(seconds > 0 ? seconds : 10, 1, 30);
+  const auto now = Clock::now();
+  Anim a;
+  a.hz = hz;
+  a.start = now;
+  a.next = now;
+  a.until = now + std::chrono::seconds(seconds);
+  std::lock_guard<std::mutex> lk(g_animMu);
+  g_anims[steamid64] = a;
+  return std::to_string(hz) + " Hz for " + std::to_string(seconds) + " s";
+}
+
+bool ReadyHudAnimActive(uint64_t steamid64) {
+  std::lock_guard<std::mutex> lk(g_animMu);
+  return g_anims.count(steamid64) != 0;
+}
+
+void ReadyHudAnimTick() {
+  const auto now = Clock::now();
+  struct Send {
+    int slot;
+    std::string html;
+  };
+  std::vector<Send> sends;
+  {
+    std::lock_guard<std::mutex> lk(g_animMu);
+    if (g_anims.empty()) return;
+    for (auto it = g_anims.begin(); it != g_anims.end();) {
+      if (now >= it->second.until) {
+        it = g_anims.erase(it);
+        continue;
+      }
+      Anim& a = it->second;
+      if (now >= a.next) {
+        const int slot = GameEventsSlotForSteam(it->first).value_or(-1);
+        if (slot >= 0) {
+          ++a.frame;
+          sends.push_back(Send{slot, AnimHtml(a, now)});
+        }
+        // Next frame on the hz grid (no drift); skip missed frames rather than bursting.
+        const auto step = std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(1.0 / a.hz));
+        do a.next += step;
+        while (a.next <= now);
+      }
+      ++it;
+    }
+  }
+  for (const auto& s : sends) SendCenterHtml(s.slot, s.html, 1, RU_HTML_PRIO_NOTICE);
+}
+
 bool ReadyHudShowing() {
   return g_showing.load(std::memory_order_relaxed) && HudEnabled();
 }
@@ -545,7 +643,8 @@ void ReadyHudTick() {
     } else {
       if (what == What::None) continue;
       // The welcome screen owns the panel while it is up (~5s after joining).
-      if (WelcomeActiveForSteam(h.steamid64)) continue;
+      if (WelcomeActiveFor(slot, h.steamid64)) continue;
+      if (ReadyHudAnimActive(h.steamid64)) continue;  // `.ru hud anim` owns this player's panel
       html = (what == What::Ready)   ? ReadyHtml(board, h.steamid64, footer)
              : (what == What::Live) ? liveHtml
                                     : KnifeHtml(knife, h.team);
@@ -557,7 +656,11 @@ void ReadyHudTick() {
     auto& s = g_sent[slot];
     const bool changed = (s.html != html);
     if (s.html == html && (now - s.at) < std::chrono::milliseconds(Cfg().hud_resend_ms)) continue;
-    const bool ok = PrintCenterHtmlToClientOnly(slot, html, Cfg().hud_duration_s);
+    // HUD tests are one-off cards (over another plugin's HUD); the ready HUD is the HUD level.
+    const int sent = SendCenterHtml(slot, html, Cfg().hud_duration_s,
+                                    t != tests.end() ? RU_HTML_PRIO_NOTICE : RU_HTML_PRIO_HUD);
+    if (sent < 0) continue;  // another plugin's higher panel (download bar) is up: retry next tick
+    const bool ok = sent == 1;
     g_sendOk.store(ok, std::memory_order_relaxed);
     if (ok) {
       s.html = html;

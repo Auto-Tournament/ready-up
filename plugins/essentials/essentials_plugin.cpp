@@ -17,8 +17,8 @@
 // Admins: csgo/readyup/plugins/essentials/admins.json, re-read when it changes; on first load the
 // match plugin's old plugins/match/admins.json is copied over. This plugin is an admin provider
 // (a player is an admin when any provider says so: the match plugin adds the match config's
-// admins, the MAT list and, in fleet mode, the platform's list). In fleet mode (docs/FLEET.md D5)
-// admins.json is not used: the platform's list is the match plugin's.
+// admins, the MAT list and, in fleet mode, the platform's list). admins.json counts in fleet mode
+// too (docs/FLEET.md D5 adds the platform's list, it does not replace the local one).
 #include "essentials_rules.h"
 
 #include "readyup/fleet_iface.h"
@@ -129,10 +129,14 @@ std::string RuMode() {
   return m->get_status && m->get_status(&st) == 1 && st.ru_mode ? st.ru_mode : "";
 }
 
+// admins.json always counts. In fleet mode the platform's list (match plugin) adds more, so a
+// player not in the file is left to it (-1) instead of refused.
 int Provider(void*, uint64_t steamid64) {
-  if (FleetMode()) return -1;  // the platform's list (match plugin) decides
-  std::lock_guard<std::mutex> lk(g_mu);
-  return IsAdmin(g_admins, steamid64) ? 1 : 0;
+  {
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (IsAdmin(g_admins, steamid64)) return 1;
+  }
+  return FleetMode() ? -1 : 0;
 }
 
 bool SenderIsAdmin(const ru_command_ctx* c) { return c->is_console || g_api->is_admin(g_api->self, c->steamid64) == 1; }
@@ -156,13 +160,13 @@ std::vector<Player> ConnectedPlayers() {
 
 void OnAdmins(const ru_command_ctx* c, const std::string& sub, const std::vector<std::string>& args) {
   if (sub.empty() || sub == "list") {
-    if (FleetMode()) return Reply(c, "admins are managed on the platform (fleet mode)");
     std::vector<Admin> list;
     {
       std::lock_guard<std::mutex> lk(g_mu);
       list = g_admins;
     }
-    Reply(c, "admins (admins.json): " + std::to_string(list.size()));
+    Reply(c, "admins (admins.json): " + std::to_string(list.size()) +
+                 (FleetMode() ? " (plus the platform's list)" : ""));
     for (size_t i = 0; i < list.size() && i < 10; ++i) {
       Reply(c, "- " + (list[i].name.empty() ? std::string("?") : list[i].name) + " (" + std::to_string(list[i].steamid64) + ")");
     }
@@ -174,7 +178,6 @@ void OnAdmins(const ru_command_ctx* c, const std::string& sub, const std::vector
     return;
   }
   if (sub != "add" && sub != "remove") return Reply(c, "unknown command. Type .ru help admins for the list.");
-  if (FleetMode()) return Reply(c, "admins are managed on the platform (fleet mode)");
   if (!c->is_console) {
     bool empty;
     {
@@ -303,7 +306,13 @@ void PollDownload(double now) {
     ru_logf(g_api, RU_LOG_INFO, "workshop %llu: %.1f / %.1f MB", static_cast<unsigned long long>(g_dl.id),
             done / 1048576.0, total / 1048576.0);
   }
-  g_api->center_html_all(g_api->self, DownloadPanelHtml(g_dl.name, done, total).c_str(), 1);
+  // Over the ready HUD and the welcome card while it downloads (API 1.6: one panel per player).
+  const std::string html = DownloadPanelHtml(g_dl.name, done, total);
+  if (RU_API_HAS(g_api, center_html_all_prio) && g_api->center_html_all_prio) {
+    g_api->center_html_all_prio(g_api->self, html.c_str(), 1, RU_HTML_PRIO_ALERT);
+  } else {
+    g_api->center_html_all(g_api->self, html.c_str(), 1);
+  }
 }
 
 void OnTick(void*, const ru_tick_info* t) {
@@ -315,12 +324,11 @@ void OnTick(void*, const ru_tick_info* t) {
 
 void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   std::string d;
-  if (FleetMode()) {
-    d = "fleet mode: admins from the platform";
-  } else {
+  {
     std::lock_guard<std::mutex> lk(g_mu);
     d = std::to_string(g_admins.size()) + " admin(s) in " + g_path;
   }
+  if (FleetMode()) d += ", plus the platform's list (fleet mode)";
   add(ctx, "INFO", "essentials", d.c_str());
 }
 const ru_selftest_iface_v1 g_selftestIface = {sizeof(ru_selftest_iface_v1), &RunSelftest};

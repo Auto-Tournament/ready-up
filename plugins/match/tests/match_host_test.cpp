@@ -27,6 +27,8 @@
 #include <functional>
 #include <mutex>
 #include <optional>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -180,6 +182,7 @@ void FillEngineApi(ru_api* a) {
   a->entity_set_model = [](ru_plugin*, void*, const char*) { return 0; };
   a->entity_set_bodygroup_by_name = [](ru_plugin*, void*, const char*, int) { return static_cast<int>(RU_BODYGROUP_UNAVAILABLE); };
   a->entity_set_abs_origin = [](ru_plugin*, void*, const float*) { return 0; };
+  a->entity_remove = [](ru_plugin*, void*) { return 0; };
   a->workshop_download_progress = [](ru_plugin*, uint64_t id, uint64_t* done, uint64_t* total) {
     if (id != 3793104017ull) return 0;  // "installed": no download info
     *done = 50ull << 20;
@@ -306,6 +309,13 @@ int main(int argc, char** argv) {
     return 2;
   }
   setenv("READYUP_PLUGINS_DIR", pluginsDir.c_str(), 1);
+  if (withEssentials) {
+    // An older install: the admins list in the match plugin's folder, no essentials folder yet.
+    std::system(("rm -rf '" + pluginsDir + "/essentials' && mkdir -p '" + pluginsDir + "/match'").c_str());
+    FILE* old = std::fopen((pluginsDir + "/match/admins.json").c_str(), "w");
+    std::fputs(R"({"version": 1, "admins": [{"steamid64": "76561198000000077", "name": "owner"}]})", old);
+    std::fclose(old);
+  }
   {
     FILE* cfg = std::fopen((readyup::g_moduleDir + "/readyup.cfg").c_str(), "w");
     std::fputs("debug=0\nwelcome=0\nconsume_ready_chat=1\n[match]\nknife_pick_seconds=33\n", cfg);
@@ -319,6 +329,13 @@ int main(int argc, char** argv) {
   rp::PostEvent(map);  // the core's current map before the plugin loads
   rp::Frame(false);
   Check(Logged("plugin: loaded match"), "match.so loaded");
+  if (withEssentials) {
+    std::ifstream copied(pluginsDir + "/essentials/admins.json");
+    std::stringstream text;
+    text << copied.rdbuf();
+    Check(text.str().find("76561198000000077") != std::string::npos,
+          "essentials: the core made its folder, and the old match/admins.json was copied into it");
+  }
   uint32_t flags = 0;
   Check(rp::ChatCommandOwned(".r", &flags) && (flags & RU_CMD_HIDE), ".r owned, hidden (consume_ready_chat=1)");
   Check(rp::ChatCommandOwned(".pause", &flags) && flags == 0, ".pause owned, visible");
@@ -332,6 +349,18 @@ int main(int argc, char** argv) {
                     (Has(s0, "\"ru_mode\":\"idle\"") || Has(s0, "\"ru_mode\":\"scrim_warmup\""));
     Check(ok, "readyup.match.v1: status on the core's current map");
     if (!ok) std::printf("  summary: %s\n", s0.c_str());
+  }
+  {
+    // v1.4 map_stats: nothing recording before a map goes live; fn is not called.
+    const auto* m = static_cast<const ru_match_v1*>(rp::CoreGetInterface(RU_MATCH_IFACE_NAME, RU_MATCH_IFACE_VERSION));
+    ru_match_map_info info{};
+    info.struct_size = sizeof(info);
+    info.live = info.rounds = -1;
+    int calls = 0;
+    const bool has = RU_API_HAS(m, map_stats) && m->map_stats;
+    const int rc = has ? m->map_stats(&info, [](void* u, const ru_match_player_stats*) { ++*static_cast<int*>(u); }, &calls) : 0;
+    Check(rc == 1 && info.struct_size == sizeof(info) && info.live == 0 && info.rounds == 0 && info.half >= 1 && calls == 0,
+          "readyup.match.v1 map_stats: not live before going live");
   }
   {
     bool db = false, hud = false;

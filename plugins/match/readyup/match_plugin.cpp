@@ -22,12 +22,14 @@
 #include "readyup/host.h"
 #include "readyup/idle_refresh.h"
 #include "readyup/warmup_money.h"
+#include "readyup/weapon_cleanup.h"
 #include "readyup/local_store.h"
 #include "readyup/logging.h"
 #include "readyup/match_console.h"
 #include "readyup/match_events.h"
 #include "readyup/match_features.h"
 #include "readyup/match_log.h"
+#include "readyup/match_stats.h"
 #include "readyup/match_recovery.h"
 #include "readyup/match_router.h"
 #include "readyup/match_status.h"
@@ -43,6 +45,7 @@
 #include "readyup/welcome.h"
 #include "readyup/workers.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
@@ -166,11 +169,13 @@ void OnTick(void*, const ru_tick_info* t) {
       DamageReportTick();       // damage reports built at round_end (damage_report.h)
       VotesTick(t->now);        // .gg / .stop vote timeouts (votes.h)
       WarmupMoneyTick(t->now);  // warmup money top-up (warmup_money.h)
+      WeaponCleanupTick(t->now);  // dropped weapons in warmup (weapon_cleanup.h)
     }
     // Fleet link (no-op without fleet.so): platform handlers, MatchState patches, events.
     fleet_bridge::Tick(t->now);
     if (FeatureEnabled(Feature::WelcomeHtml)) WelcomeTick();
     if (FeatureEnabled(Feature::ReadyHud)) ReadyHudTick();  // skips players whose welcome card is up
+    if (FeatureEnabled(Feature::ReadyHud)) ReadyHudAnimTick();  // `.ru hud anim`, every frame
     PrefixTick(t->now);
   });
 }
@@ -233,8 +238,43 @@ int SetPracticeIface(int on) {
   return rc;
 }
 const char* ModeIface() { return GetModeString(); }
+// v1.4: per-player totals of the map being recorded (the midas plugin's best-player rule).
+int MapStatsIface(ru_match_map_info* info, ru_match_player_stats_fn fn, void* user) {
+  if (!info || info->struct_size < sizeof(uint32_t)) return 0;
+  int rc = 0;
+  Guard("map_stats", [&] {
+    const auto ctx = WebhookGetMatchContext();
+    ru_match_map_info out{};
+    out.struct_size = info->struct_size;
+    out.scrim = ctx && ctx->slug == "scrim" ? 1 : 0;
+    out.half = MatchEventsSnapshot().swapCount + 1;
+    stats::MapStats snap;
+    {
+      std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
+      out.live = stats::Current().Live() ? 1 : 0;
+      out.rounds = stats::Current().RoundsRecorded();
+      if (out.live && fn) snap = stats::Current().Snapshot();
+    }
+    std::memcpy(info, &out, std::min<size_t>(info->struct_size, sizeof(out)));
+    for (const auto& p : snap.players) {
+      if (p.bot || p.id == 0) continue;
+      ru_match_player_stats ps{};
+      ps.struct_size = sizeof(ps);
+      ps.steamid64 = p.id;
+      ps.side = p.last_side;
+      ps.kills = p.stats.kills;
+      ps.deaths = p.stats.deaths;
+      ps.assists = p.stats.assists;
+      ps.damage = p.stats.damage;
+      ps.rounds_played = p.stats.rounds_played;
+      fn(user, &ps);
+    }
+    rc = 1;
+  });
+  return rc;
+}
 const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus, &InventoryLockedIface, &RulesetIface,
-                                  &SetPracticeIface, &ModeIface};
+                                  &SetPracticeIface, &ModeIface, &MapStatsIface};
 
 std::atomic<int> g_hudShowing{0}, g_hudFeature{0};
 std::mutex g_brandMu;
@@ -245,6 +285,8 @@ void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   add(ctx, "INFO", "match", ("readyup-match " MATCH_VERSION ", mode=" + std::string(GetModeString())).c_str());
   add(ctx, "OK", "store", local_store::Summary().c_str());
   add(ctx, "INFO", "ruleset", EsportsSelftestLine().c_str());
+  add(ctx, "INFO", "weapon cleanup",
+      (Cfg().warmup_weapon_cleanup ? WeaponCleanupStatus() : std::string("off (warmup_weapon_cleanup=0)")).c_str());
   add(ctx, "INFO", "ready HUD",
       (std::string("showing=") + (g_hudShowing.load() ? "yes" : "no") + " (feature " +
        (g_hudFeature.load() ? "on" : "off") + ")")
@@ -335,6 +377,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     DamageReportInstall(api);   // end-of-round damage report
     VotesInstall(api);          // .gg / .stop
     WarmupMoneyInstall(api);    // warmup money top-up
+    WeaponCleanupInstall(api);  // dropped weapons in warmup
     EsportsInstall(api);  // default_models (player_spawn), halftime pause
     api->set_admin_provider(api->self, &AdminProvider, nullptr);
     api->provide_interface(api->self, RU_MATCH_IFACE_NAME, RU_MATCH_IFACE_VERSION, const_cast<ru_match_v1*>(&g_matchIface));
