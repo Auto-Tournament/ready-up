@@ -1,17 +1,15 @@
 # readyup-match -> build/plugins/match.so (csgo/readyup/plugins/match.so): the match flow
-# (ready-up, scrims, knife, pauses, practice, match configs, webhooks, Postgres, demos, stats).
+# (ready-up, scrims, knife, pauses, practice, match configs, webhooks, demos, stats).
 # Talks to the core only through ru_api (core/include/readyup); engine-free shared code comes
-# from libs/readyup. Needs libcurl (webhooks, `ru match load`, demo upload) and libpq
-# (persisted settings / match state, admins); without them those features are compiled out,
-# as they were in the core.
+# from libs/readyup. Needs libcurl (webhooks, `ru match load`, demo upload); without it those
+# fall back to the `curl` binary. Settings, match recovery state and admins are JSON files in the
+# plugin data dir (readyup/local_store.h, docs/FLEET.md D13).
 set(MATCH_SOURCES
   readyup/admin_check.cpp
   readyup/admins.cpp
   readyup/backup_files.cpp
   readyup/config.cpp
   readyup/cs2_version.cpp
-  readyup/db_config_file.cpp
-  readyup/db_writer.cpp
   readyup/demo_naming.cpp
   readyup/demo_recorder.cpp
   readyup/fleet_bridge.cpp
@@ -19,6 +17,7 @@ set(MATCH_SOURCES
   readyup/game_timers.cpp
   readyup/host.cpp
   readyup/knife_tracker.cpp
+  readyup/local_store.cpp
   readyup/mat_admins.cpp
   readyup/match_config_parser.cpp
   readyup/match_console.cpp
@@ -46,10 +45,9 @@ set(MATCH_SOURCES
   readyup/welcome.cpp
   readyup/workers.cpp
   # Shared engine-free code (libs/readyup).
-  ${CMAKE_SOURCE_DIR}/libs/readyup/db_config.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/http_client.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/json_store.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp
-  ${CMAKE_SOURCE_DIR}/libs/readyup/postgres.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/steamid.cpp)
 
@@ -58,18 +56,6 @@ readyup_add_plugin(match ${MATCH_SOURCES})
 target_include_directories(readyup_plugin_match BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
 target_compile_definitions(readyup_plugin_match PRIVATE MATCH_VERSION="${READYUP_SEMVER}")
 target_link_libraries(readyup_plugin_match PRIVATE pthread dl)
-
-# libpq (same linkage as readyup_libs_db: static in release / docker builds).
-if (READYUP_DEPS_PREFIX)
-  target_include_directories(readyup_plugin_match PRIVATE "${READYUP_DEPS_PREFIX}/include")
-elseif (PostgreSQL_FOUND)
-  target_include_directories(readyup_plugin_match PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-else()
-  target_compile_definitions(readyup_plugin_match PRIVATE READYUP_NO_POSTGRES=1)
-endif()
-if (READYUP_DEPS_PREFIX OR PostgreSQL_FOUND)
-  target_link_libraries(readyup_plugin_match PRIVATE readyup_libs_db)
-endif()
 
 # libcurl.
 if (READYUP_DEPS_PREFIX)

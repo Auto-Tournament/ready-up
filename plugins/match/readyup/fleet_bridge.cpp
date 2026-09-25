@@ -7,6 +7,7 @@
 #include "readyup/demo_recorder.h"
 #include "readyup/engine.h"
 #include "readyup/fleet_state.h"
+#include "readyup/local_store.h"
 #include "readyup/logging.h"
 #include "readyup/match_config_parser.h"
 #include "readyup/match_console.h"
@@ -1356,6 +1357,33 @@ void OnConnection(const ru_fleet_msg* m) {
   if (g_asg.active) SendSnapshot("hello", true);
 }
 
+// admins.set {rev, admins: [{steamid64, name}]}: the whole fleet-wide list (D5), replaces the
+// previous one; cached in fleet-admins.json (local_store.h) for offline boots.
+void OnAdminsSet(const ru_fleet_msg* m) {
+  const Json p = ParsePayload(m);
+  const long long rev = Int(p, "rev", -1);
+  const Json* arr = p.Find("admins");
+  if (rev < 0 || !arr || arr->type() != Json::Type::Array) {
+    Print("fleet: admins.set ignored (no rev / admins)\n");
+    return;
+  }
+  std::vector<local_store::Admin> admins;
+  for (const Json& a : arr->Items()) {
+    if (!a.IsObject()) continue;
+    const Json* sid = a.Find("steamid64");
+    uint64_t id = 0;
+    if (sid && sid->type() == Json::Type::String) id = std::strtoull(sid->AsString().c_str(), nullptr, 10);
+    else if (sid && sid->type() == Json::Type::Int && sid->AsInt() > 0) id = static_cast<uint64_t>(sid->AsInt());
+    if (id != 0) admins.push_back(local_store::Admin{id, Str(a, "name")});
+  }
+  const size_t n = admins.size();
+  if (local_store::SetFleetAdmins(rev, std::move(admins))) {
+    Print("fleet: admins.set rev %lld: %zu admin(s)\n", rev, n);
+  } else {
+    Print("fleet: admins.set rev %lld is older than the stored list; kept it\n", rev);
+  }
+}
+
 void OnMessage(void*, const ru_fleet_msg* m) {
   if (!m || !m->type) return;
   try {
@@ -1366,6 +1394,7 @@ void OnMessage(void*, const ru_fleet_msg* m) {
     else if (t == "cmd") OnCmd(m);
     else if (t == "local.offline_timeout") OnOfflineTimeout(m);
     else if (t == "local.connection") OnConnection(m);
+    else if (t == "admins.set") OnAdminsSet(m);
   } catch (const std::exception& e) {
     Print("fleet: handling %s threw: %s\n", m->type, e.what());
   }
@@ -1373,6 +1402,7 @@ void OnMessage(void*, const ru_fleet_msg* m) {
 
 void EnsureHandlers() {
   const ru_fleet_v1* f = Fleet();
+  local_store::SetFleetMode(FleetActive(f));
   if (!f) {
     g_fleetInstance = 0;
     g_handlerIds.clear();
@@ -1383,7 +1413,7 @@ void EnsureHandlers() {
   g_fleetInstance = inst;
   g_handlerIds.clear();  // a new fleet.so image has no registrations
   for (const char* type : {"match.assign", "match.update", "match.unassign", "cmd", "local.offline_timeout",
-                           "local.connection"}) {
+                           "local.connection", "admins.set"}) {
     const uint64_t id = f->register_handler(type, &OnMessage, nullptr);
     if (id) g_handlerIds.push_back(id);
   }

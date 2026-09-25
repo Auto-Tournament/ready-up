@@ -410,7 +410,7 @@ typedef struct ru_api {
   int (*config_get)(ru_plugin* self, const char* key, char* buf, uint32_t len);
   /* Any thread. readyup.cfg debug=1. */
   int (*debug_enabled)(ru_plugin* self);
-  /* Any thread. Absolute directory holding readyup.cfg and readyup_db.json (the core's dir). */
+  /* Any thread. Absolute directory holding readyup.cfg (the core's dir). */
   const char* (*config_dir)(ru_plugin* self);
 
   /* -- plugin-to-plugin -- */

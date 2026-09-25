@@ -56,6 +56,22 @@ Differences from the FLEET.md text, decided while implementing:
   the backup starts (CS2's `…roundNN.txt` holds NN rounds played, so `round` = NN + 1).
 - `series_end` from `cmd end_match` carries `forced: true` and `reason`.
 
+## D13 (no Postgres): proposed here — the platform must adopt them
+
+**Status: proposed — platform must adopt.** Ready Up dropped Postgres (FLEET.md D13); in fleet mode
+admins and skins loadouts come over the link. Same style as the step 3 schemas. What the platform
+has to build: [`docs/fleet-step3-platform-notes.md`](../../../docs/fleet-step3-platform-notes.md)
+§10.
+
+| File | Direction | Delivery | Answer |
+|---|---|---|---|
+| `messages/admins.set.json` | platform → server | reliable | ack only |
+| `messages/skins.loadout.json` | platform → server | reliable | ack only |
+| `messages/skins.invalidate.json` | platform → server | reliable | ack only |
+| `messages/skins.stattrak.json` | server → platform | reliable (critical) | |
+
+Examples: `examples/v1/{admins.set,skins.loadout,skins.invalidate,skins.stattrak}.json`.
+
 ## Tests
 
 - `fleet_protocol` (`tests/fleet_protocol_test.cpp`): every schema loads and every example frame in

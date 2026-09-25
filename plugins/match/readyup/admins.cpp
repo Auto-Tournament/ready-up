@@ -4,7 +4,7 @@
 #include "readyup/logging.h"
 #include "readyup/admin_check.h"
 #include "readyup/player_registry.h"
-#include "readyup/postgres.h"
+#include "readyup/local_store.h"
 
 #include <algorithm>
 #include <cctype>
@@ -37,11 +37,6 @@ static bool SenderAuthorized(uint64_t senderSteamid64, std::string* err) {
   return IsReadyUpAdmin(senderSteamid64);
 }
 
-static bool NoAdminsYet(std::string* err) {
-  auto list = pg::ListAdmins(err);
-  return list.empty();
-}
-
 static void Reply(uint64_t senderSteamid64, const std::string& msg) {
   // If the server console invoked the command, don't broadcast to in-game chat.
   if (senderSteamid64 != 0) {
@@ -59,37 +54,25 @@ void HandleAdminsCommand(uint64_t senderSteamid64, const std::string& senderName
         senderName.c_str(),
         args.size());
 
-  if (!pg::Available()) {
-    Reply(senderSteamid64, "Admins: Postgres support not compiled in (install libpq dev headers, rebuild).");
-    return;
-  }
-
-  std::string err;
-  if (!pg::EnsureSchema(&err)) {
-    Debug("admins: EnsureSchema failed err=\"%s\"\n", err.c_str());
-    Reply(senderSteamid64, std::string("Admins: DB error: ") + (err.empty() ? "unknown" : err));
-    return;
-  }
-
-  if (args.size() == 0) {
+  const bool fleet = local_store::FleetMode();
+  if (args.empty() || args[0] == "list") {
     DebugLine("admins: list");
-    auto admins = pg::ListAdmins(&err);
-    if (!err.empty()) {
-      Debug("admins: ListAdmins err=\"%s\"\n", err.c_str());
-      Reply(senderSteamid64, std::string("Admins: DB error: ") + err);
-      return;
-    }
+    int64_t rev = -1;
+    const auto admins = fleet ? local_store::FleetAdmins(&rev) : local_store::LocalAdmins();
+    const std::string source =
+        fleet ? (rev < 0 ? std::string("platform, none received yet") : "platform, rev " + std::to_string(rev))
+              : std::string("admins.json");
     if (admins.empty()) {
-      Reply(senderSteamid64, "Admins: (none)");
+      Reply(senderSteamid64, "Admins (" + source + "): (none)");
       return;
     }
 
     // Keep chat readable.
     const size_t maxLines = 8;
-    Reply(senderSteamid64, "Admins:");
+    Reply(senderSteamid64, "Admins (" + source + "):");
     for (size_t i = 0; i < admins.size() && i < maxLines; ++i) {
       const auto& a = admins[i];
-      Reply(senderSteamid64, " - " + a.display_name + " (" + std::to_string(a.steamid64) + ")");
+      Reply(senderSteamid64, " - " + (a.name.empty() ? std::string("?") : a.name) + " (" + std::to_string(a.steamid64) + ")");
     }
     if (admins.size() > maxLines) {
       Reply(senderSteamid64, "...and " + std::to_string(admins.size() - maxLines) + " more");
@@ -100,7 +83,11 @@ void HandleAdminsCommand(uint64_t senderSteamid64, const std::string& senderName
   const std::string sub = args[0];
   if (sub != "add" && sub != "remove") {
     Debug("admins: bad subcmd \"%s\"\n", sub.c_str());
-    Reply(senderSteamid64, "Usage: .ru admins [add|remove] <steamid64|name_fragment>");
+    Reply(senderSteamid64, "Usage: .ru admins [list|add|remove] <steamid64|name_fragment>");
+    return;
+  }
+  if (fleet) {
+    Reply(senderSteamid64, "Admins are managed on the platform (fleet mode); `ru admins list` shows them.");
     return;
   }
   if (args.size() < 2) {
@@ -111,17 +98,13 @@ void HandleAdminsCommand(uint64_t senderSteamid64, const std::string& senderName
   // Auth:
   // - Server console (steamid64=0) is always authorized and is the ONLY way to create the first admin.
   // - Players must already be admins to add/remove admins.
-  const bool empty = NoAdminsYet(&err);
-  if (!err.empty()) {
-    Debug("admins: NoAdminsYet err=\"%s\"\n", err.c_str());
-    Reply(senderSteamid64, std::string("Admins: DB error: ") + err);
-    return;
-  }
+  std::string err;
+  const bool empty = local_store::LocalAdmins().empty();
 
   if (senderSteamid64 != 0) {
     if (empty) {
       Reply(senderSteamid64,
-            "Admins: no admins configured yet. The first admin must be added from server console (or seeded in DB).");
+            "Admins: no admins configured yet. The first admin must be added from the server console (or in admins.json).");
       return;
     }
     err.clear();
@@ -171,38 +154,21 @@ void HandleAdminsCommand(uint64_t senderSteamid64, const std::string& senderName
     Debug("admins: add steamid64=%llu name=\"%s\"\n",
           static_cast<unsigned long long>(targetSteamid64),
           targetName.c_str());
-    err.clear();
-    if (pg::IsAdmin(targetSteamid64, &err)) {
+    if (!local_store::AddLocalAdmin(targetSteamid64, targetName)) {
       Reply(senderSteamid64, "Admins: already admin (" + std::to_string(targetSteamid64) + ")");
       return;
     }
-    if (!err.empty()) {
-      Reply(senderSteamid64, std::string("Admins: DB error: ") + err);
-      return;
-    }
-
-    err.clear();
-    if (!pg::AddAdmin(targetSteamid64, targetName, &err)) {
-      Debug("admins: AddAdmin failed err=\"%s\"\n", err.c_str());
-      Reply(senderSteamid64, err.empty() ? "Admins: failed to add admin" : ("Admins: DB error: " + err));
-      return;
-    }
-    AdminCacheRefreshNow();
     Reply(senderSteamid64, "Admins: added " + targetName + " (" + std::to_string(targetSteamid64) + ")");
     return;
   }
 
   // remove
   Debug("admins: remove steamid64=%llu\n", static_cast<unsigned long long>(targetSteamid64));
-  err.clear();
-  if (!pg::RemoveAdmin(targetSteamid64, &err)) {
-    Debug("admins: RemoveAdmin failed err=\"%s\"\n", err.c_str());
-    Reply(senderSteamid64, err.empty() ? "Admins: failed to remove admin" : ("Admins: DB error: " + err));
+  if (!local_store::RemoveLocalAdmin(targetSteamid64)) {
+    Reply(senderSteamid64, "Admins: not an admin (" + std::to_string(targetSteamid64) + ")");
     return;
   }
-  AdminCacheRefreshNow();
   Reply(senderSteamid64, "Admins: removed (" + std::to_string(targetSteamid64) + ")");
 }
 
 }  // namespace readyup
-

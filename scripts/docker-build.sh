@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build libserver.so inside a Debian 12 container with libpq + libcurl.
+# Build libserver.so + plugins inside a Debian 12 container (libcurl, OpenSSL).
 #
 #   scripts/docker-build.sh            # Release build -> build-docker/libserver.so
 #   BUILD_TYPE=Debug scripts/docker-build.sh
@@ -9,10 +9,6 @@
 #   BUILD_DIR    output dir relative to repo root (default build-docker)
 #   IMAGE        image tag (default readyup-build:bookworm)
 #   BUILD_TARGET build only this CMake target (e.g. readyup_plugin_hello); default all
-#
-# libpq is linked statically (libpq.a + pgcommon/pgport _shlib archives) because
-# the server host has no libpq.so.5 and we have no root there. Its remaining
-# deps (libssl, libcrypto, libgssapi_krb5, libldap) are present on the host.
 #
 # TODO(release): switch to registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest
 # for release artifacts; bookworm is only used for fast dev iteration.
@@ -43,7 +39,7 @@ docker run --rm \
   "$IMAGE" \
   bash -c "
     set -euo pipefail
-    cmake -S /src -B '/src/$BUILD_DIR' -DCMAKE_BUILD_TYPE='$BUILD_TYPE' -DREADYUP_STATIC_LIBPQ=ON
+    cmake -S /src -B '/src/$BUILD_DIR' -DCMAKE_BUILD_TYPE='$BUILD_TYPE'
     cmake --build '/src/$BUILD_DIR' -j\"\$(nproc)\" ${BUILD_TARGET:+--target '$BUILD_TARGET'}
   "
 

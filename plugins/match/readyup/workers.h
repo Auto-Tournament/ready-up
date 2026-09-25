@@ -4,12 +4,12 @@
 //
 // A plugin must join every thread it started before readyup_plugin_unload returns: after
 // that the core dlcloses the image and a thread still running its code crashes the server.
-// When the match flow lived in the core it used detached fire-and-forget threads (DB writes,
+// When the match flow lived in the core it used detached fire-and-forget threads (settings writes,
 // webhook sender, admin refresh, demo upload); they all go through here now:
 //
 //   - Spawn() starts a tracked thread (refused once shutdown began),
 //   - long-running loops sleep with SleepFor() and leave when it returns false,
-//   - blocking I/O is bounded (HTTP: 3 s connect / 8 s total; libpq: connect_timeout; the
+//   - blocking I/O is bounded (HTTP: 3 s connect / 8 s total; local file writes; the
 //     demo upload aborts through its progress callback when ShuttingDown()),
 //   - Shutdown() (unload) wakes every sleeper and joins every thread.
 

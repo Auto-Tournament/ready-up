@@ -207,10 +207,10 @@ No open questions remain ([§20](#20-open-questions)).
 | Map veto, side choice from veto | platform (browser) | platform (unchanged) |
 | Match config (teams, rosters, maps, rules) | fetched by URL per match; AT: bootstrap + RCON cvars | platform → `match.assign` over WS |
 | Server settings (chat prefix, demo, pause rules, kick delays…) | `readyup.cfg` / RCON `ru_*` per server | platform → `server.config` over WS, same for every server |
-| Admins | Ready Up Postgres + MAT admins URL | platform → `admins.set` (one fleet-wide list), cached on disk |
-| Skins loadouts | Ready Up Postgres tables (`skins-db-contract.md`) | platform → `skins.loadout` (opt-in, D6), cached per player |
-| StatTrak counters | server writes Postgres | server reports increments, platform stores |
-| Persisted match state (crash recovery) | Postgres key/value (`persisted_match_state.cpp`) | local JSON files on the server **and** the platform's state store |
+| Admins | `admins.json` (was Postgres, D13) + MAT admins URL | platform → `admins.set` (one fleet-wide list), cached on disk |
+| Skins loadouts | `loadouts.json` (`plugins/skins/docs/json-contract.md`; was Postgres, D13) | platform → `skins.loadout` (opt-in, D6), cached per player |
+| StatTrak counters | server writes `stattrak.json` | server reports increments, platform stores |
+| Persisted match state (crash recovery) | `state.json` (`local_store.h`; was a Postgres key/value) | local JSON files on the server **and** the platform's state store |
 | Player stats storage, aggregates, leaderboards | platform (from webhooks) | platform (from WS events, `match_stats.h` model) |
 | Demos | AT: HTTP POST to platform disk | chunked HTTPS upload to the platform API → platform filesystem |
 | Round backups | local disk only | local disk + inline over WS → platform |
@@ -523,7 +523,7 @@ Round backups are the largest critical messages (≈ 80 KB each base64); a full 
 | Match in warmup/knife | continues normally; admin chat commands work (cached admins). No auto-pause needed before live. |
 | Idle | runs the scrim/pickup flow as usual. Scrims are not reported to the platform. |
 | Series ends while offline | results spool; the demo stays on disk and uploads after reconnect. |
-| Server restarts while offline | local recovery from `csgo/readyup/state/*.json` (replaces the Postgres key/value), as `match_recovery.cpp` does today. |
+| Server restarts while offline | local recovery from `csgo/readyup/plugins/match/state.json` (replaced the Postgres key/value), as `match_recovery.cpp` does today. |
 | `ru match load` from console | refused in fleet mode unless `fleet_allow_local_matches 1`. |
 
 ## 7. Platform → server messages
@@ -659,7 +659,7 @@ state.request {}                         // ephemeral, reply state.snapshot
 ```
 
 - `admins.set` is the whole list and replaces the previous one; cached in
-  `csgo/readyup/fleet/cache/admins.json`. In fleet mode `.ru admins` lists it; `add`/`remove`
+  `csgo/readyup/plugins/match/fleet-admins.json`. In fleet mode `.ru admins` lists it; `add`/`remove`
   reply "Admins are managed on the platform" (D5).
 - Skins (D6): only when the deployment has skins enabled **and** the server advertises
   `skins.v1` (the skins plugin is loaded). The platform pushes `skins.loadout` when it sees
@@ -1105,9 +1105,9 @@ standalone plugin. Postgres is gone in both modes (D13):
 |---|---|
 | Scrims (pickup flow, knife) | unchanged (`scrim_flow.cpp`) |
 | Matches | `ru match load <file>` (local JSON in the `match.assign.config` format) or `<url>` (HTTPS GET) |
-| Admins | `cfg/ReadyUp/admins.json` (SteamID64 list); `.ru admins add/remove` edits it |
-| Skins | `csgo/readyup/plugins/skins/loadouts.json` (same shape as `skins.loadout`), or skins off |
-| Crash recovery | `csgo/readyup/state/*.json` (replaces `persisted_match_state`'s Postgres key/value) |
+| Admins | `csgo/readyup/plugins/match/admins.json`; `.ru admins add/remove` edits it (docs/ADMINS.md) |
+| Skins | `csgo/readyup/plugins/skins/loadouts.json` (the old tables as JSON, `plugins/skins/docs/json-contract.md`), or skins off |
+| Crash recovery | `csgo/readyup/plugins/match/state.json` (replaced `persisted_match_state`'s Postgres key/value) |
 | Demos | local disk; optional `ru_demo_upload_url` (the existing generic uploader in `demo_recorder.h`) |
 | Round backups | local disk |
 | Events | optional `ru_webhook_url` (existing sender, no platform contract) |
@@ -1437,7 +1437,7 @@ holds the socket) can replace it without touching callers.
 | 1 | `plugins/fleet`: enroll (code + key), credentials, WS client on libcurl, envelope, seq/ack, disk spool, backoff, resume, offline auto-pause timer, `readyup.fleet.v1` interface | L |
 | 2 | Match plugin: canonical `MatchState` + merge-patch emission; adapters from `MatchFlowEvent`, `DemoEvent`, `RoundSummary`/`MapStats` to events | M |
 | 3 | `match.assign`/`update`/`unassign`/`cmd` handlers on top of `modes.cpp`, including scrim hand-over and `sv_password` | M |
-| 4 | Local JSON persistence replacing Postgres (`persisted_match_state`, admins, skins); remove libpq | M |
+| 4 | **Done.** Local JSON persistence replacing Postgres (`persisted_match_state`, admins, skins); remove libpq | M |
 | 5 | Chunked resumable demo upload in `demo_recorder`; inline round-backup forwarding; restore from an inline backup | M |
 | 6 | Status endpoint: `/health`, `/status`, `/stream` (SSE), `/metrics`, `/selftest`, `status.json` | S–M |
 | 7 | csm (in its repo): host agent (enroll, WS, inventory, health, command handlers, log streaming), status discovery + live TUI table, `update_safe` gating, writing `fleet_url` + enrollment key for new servers | L |

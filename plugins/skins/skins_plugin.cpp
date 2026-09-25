@@ -1,12 +1,13 @@
-// readyup-skins: weapon paints, knives, gloves and agent models from the web-managed
-// readyup_weapon_* tables (docs/db-contract.md).
+// readyup-skins: weapon paints, knives, gloves and agent models. Standalone they come from
+// loadouts.json in the plugin data dir (docs/json-contract.md), in fleet mode from the platform
+// (skins.loadout, docs/FLEET.md D6). No database (D13).
 //
 // Ships separately from the core (csgo/readyup/plugins/skins.so plus the gamedata fragment
 // engine-surface.skins.json next to the core) because servers running skin changers risk GSLT
 // bans. Everything engine-facing goes through ru_api; the plugin has no signatures, offsets or
 // hooks of its own.
 //
-//   skins_status               (console)  DB / cache / apply counters
+//   skins_status               (console)  loadout source / cache / apply counters
 //   skins_refresh [steamid64]  (console)  refetch one player's (or everyone's) loadout
 //   skins_debug_as <slot> <steamid64>  (console, debug=1 only) decorate a bot with a player's
 //                              loadout, to test the apply path without a human client
@@ -45,10 +46,11 @@ int SchemaOffset(const char* cls, const char* field) { return g_api->schema_offs
 
 namespace {
 
-bool g_haveDb = false;
+bool g_haveStore = false;
 
-void OnTick(void*, const ru_tick_info*) {
+void OnTick(void*, const ru_tick_info* t) {
   try {
+    FleetTick(t->now);
     GameFrameTick();
   } catch (const std::exception& e) {
     Log(RU_LOG_ERROR, "tick threw: %s", e.what());
@@ -141,7 +143,7 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
       "skins",
       SKINS_VERSION,
       "Ready Up",
-      "weapon paints, knives, gloves and agents from the readyup_weapon_* tables",
+      "weapon paints, knives, gloves and agents (loadouts.json or the platform)",
   };
   return &info;
 }
@@ -151,8 +153,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   try {
     g_api = api;
     detail::ResetOffsets();
-    g_haveDb = LoadoutStart();
-    if (!g_haveDb) Log(RU_LOG_WARN, "loadouts unavailable (%s); skins stay idle", LoadoutStatus().c_str());
+    g_haveStore = LoadoutStart();
+    if (!g_haveStore) Log(RU_LOG_WARN, "loadouts unavailable (%s); skins stay idle", LoadoutStatus().c_str());
     api->on_tick(api->self, OnTick, nullptr);
     api->subscribe_game_event(api->self, "player_spawn", OnPrefetchEvent, nullptr);
     api->subscribe_game_event(api->self, "item_equip", OnPrefetchEvent, nullptr);
@@ -171,7 +173,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
 }
 
 READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
-  // Join the DB worker before the image is unmapped. Paints already applied stay on live
+  // Join the loadout worker before the image is unmapped. Paints already applied stay on live
   // entities (ordinary entity state; they reset on respawn / map change).
   try {
     LoadoutStop();

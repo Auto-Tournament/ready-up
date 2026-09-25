@@ -45,7 +45,7 @@ Manual install: extract a zip into \`game/csgo\`, then \`python3 readyup/tools/p
 
 ## Build
 
-Built in the Steam Runtime 3 "sniper" SDK. OpenSSL, libpq, libcurl, libstdc++ and libgcc are linked in, so the core and plugins only need glibc 2.31+ on the host.
+Built in the Steam Runtime 3 "sniper" SDK. OpenSSL, libcurl, libstdc++ and libgcc are linked in, so the core and plugins only need glibc 2.31+ on the host.
 EOF
 if [[ -n "$BUILDID" ]]; then
   echo

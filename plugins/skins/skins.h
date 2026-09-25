@@ -23,7 +23,7 @@ bool DebugOn();  // readyup.cfg debug=1 (any thread)
 // schema_offset("server" scope), -1 if unknown.
 int SchemaOffset(const char* cls, const char* field);
 
-// ---- DB rows (tables: see docs/db-contract.md) ------------------------------------------
+// ---- loadout rows (loadouts.json tables: docs/json-contract.md; fleet: skins.loadout) -----
 struct WeaponSkinEntry {
   int weapon_team = 0;  // 2=T, 3=CT, 0=both
   int weapon_defindex = 0;
@@ -48,8 +48,8 @@ struct WeaponAgentEntry {
 };
 
 // ---- loadout cache (loadout.cpp) ---------------------------------------------------------
-// All DB access runs on one worker thread owned by the plugin (started in load, joined in
-// unload); lookups never block the game thread.
+// File I/O runs on one worker thread owned by the plugin (started in load, joined in unload);
+// lookups never block the game thread.
 struct TeamLoadout {
   std::unordered_map<int, WeaponSkinEntry> skins_by_defindex;
   std::optional<std::string> knife_classname;
@@ -60,9 +60,11 @@ struct Loadout {
   std::optional<WeaponAgentEntry> agents;
 };
 
-// Reads <config_dir>/readyup_db.json and starts the worker. false: no DB (skins stay idle).
+// Starts the worker (loadouts.json / stattrak.json in the plugin data dir). false: no data dir.
 bool LoadoutStart();
 void LoadoutStop();
+// on_tick: fleet mode on/off, skins.loadout / skins.invalidate handlers, skins.stattrak flush.
+void FleetTick(double now);
 std::string LoadoutStatus();
 
 void MaybeRefreshAsync(uint64_t steamid64);
@@ -73,7 +75,8 @@ std::optional<std::string> FindKnifeClassname(uint64_t steamid64, int weapon_tea
 std::optional<int> FindGloveDefindex(uint64_t steamid64, int weapon_team);
 std::optional<WeaponAgentEntry> FindAgents(uint64_t steamid64);
 std::optional<int> KnifeClassnameToDefindex(const std::string& classname);
-// StatTrak +1 for the row that matched (team 0 rows included), then refetch.
+// StatTrak +1 for the row that matched (team 0 rows included): stattrak.json standalone,
+// skins.stattrak to the platform in fleet mode.
 void IncrementStatTrakAsync(uint64_t steamid64, int weapon_team, int weapon_defindex);
 
 // ---- apply (apply.cpp, cosmetics.cpp) ----------------------------------------------------

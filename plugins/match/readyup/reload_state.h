@@ -17,7 +17,7 @@
 // Not kept: per-player UI throttles, the scrim countdown (it restarts), the round in progress in
 // the stats model (starts over empty), log lines / events that arrived while no image was
 // loaded (one frame). The stash lives in core memory only: a server restart uses the
-// Postgres-persisted match state (match_recovery.h) as before.
+// match state persisted in state.json (local_store.h, match_recovery.h) as before.
 
 namespace readyup {
 

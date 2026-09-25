@@ -137,20 +137,14 @@ target_include_directories(server_shim PRIVATE
   ${CMAKE_SOURCE_DIR}  # "third_party/funchook/include/funchook.h"
 )
 
-# READYUP_STATIC_LIBPQ: link libpq statically into the plugins that use it (match, skins) so
-# they do not need libpq.so.5 on the game server host. Needs libpq.a (libpq-dev) plus the PIC
-# pgcommon/pgport archives (postgresql-server-dev-NN). Used by scripts/docker-build.sh.
-# The core itself links neither libpq nor libcurl (docs/ARCHITECTURE.md §5).
-option(READYUP_STATIC_LIBPQ "Link libpq statically" OFF)
-
 # READYUP_DEPS_PREFIX: release builds (scripts/sniper-build.sh, CI). Points at a
-# prefix produced by scripts/ci/build-static-deps.sh holding static PIC OpenSSL,
-# libpq and libcurl for the plugins. Everything (plus libstdc++/libgcc) is linked in and
+# prefix produced by scripts/ci/build-static-deps.sh holding static PIC OpenSSL
+# and libcurl for the plugins. Everything (plus libstdc++/libgcc) is linked in and
 # hidden, so the shim and the plugins only need glibc (<= 2.31, Steam Runtime sniper).
-set(READYUP_DEPS_PREFIX "" CACHE PATH "Prefix with static OpenSSL/libpq/libcurl (release builds)")
+set(READYUP_DEPS_PREFIX "" CACHE PATH "Prefix with static OpenSSL/libcurl (release builds)")
 
 if (READYUP_DEPS_PREFIX)
-  foreach(lib pq pgcommon_shlib pgport_shlib curl ssl crypto)
+  foreach(lib curl ssl crypto)
     if (NOT EXISTS "${READYUP_DEPS_PREFIX}/lib/lib${lib}.a")
       message(FATAL_ERROR "READYUP_DEPS_PREFIX: missing ${READYUP_DEPS_PREFIX}/lib/lib${lib}.a (run scripts/ci/build-static-deps.sh)")
     endif()
@@ -170,20 +164,8 @@ if (READYUP_DEPS_PREFIX)
   set_property(TARGET server_shim APPEND PROPERTY LINK_DEPENDS "${CMAKE_SOURCE_DIR}/core/src/exports.map")
   message(STATUS "Static release deps (for the plugins) from ${READYUP_DEPS_PREFIX}")
 else()
-  # For the plugins (plugins/match, plugins/skins, plugins/fleet).
-  find_package(PostgreSQL QUIET)
+  # For the plugins (plugins/match, plugins/fleet).
   find_package(CURL QUIET)
-endif()
-
-if (READYUP_STATIC_LIBPQ AND PostgreSQL_FOUND)
-  execute_process(COMMAND pg_config --pkglibdir OUTPUT_VARIABLE PG_PKGLIBDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
-  find_library(PQ_STATIC NAMES libpq.a REQUIRED)
-  find_library(PGCOMMON_SHLIB NAMES libpgcommon_shlib.a HINTS ${PG_PKGLIBDIR} REQUIRED)
-  find_library(PGPORT_SHLIB NAMES libpgport_shlib.a HINTS ${PG_PKGLIBDIR} REQUIRED)
-  message(STATUS "Plugins link libpq statically: ${PQ_STATIC}")
-endif()
-if (NOT READYUP_DEPS_PREFIX AND NOT PostgreSQL_FOUND)
-  message(WARNING "PostgreSQL dev files not found; plugins build without Postgres support (READYUP_NO_POSTGRES=1).")
 endif()
 
 target_link_libraries(server_shim PRIVATE readyup_funchook dl)
@@ -272,7 +254,7 @@ function(readyup_add_plugin name)
     $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>>:-fno-gnu-unique>)
   # Everything a plugin needs from the core arrives through ru_api; an unresolved symbol
   # at link time means it reached for core internals.
-  # Export exactly the three entry points; static deps (libpq, OpenSSL, libstdc++ in release
+  # Export exactly the three entry points; static deps (OpenSSL, libcurl, libstdc++ in release
   # builds) stay local so they never interpose on the engine's or the core's copies.
   target_link_options(${tgt} PRIVATE "LINKER:--no-undefined" "LINKER:--exclude-libs,ALL"
     "LINKER:--version-script=${CMAKE_SOURCE_DIR}/plugins/plugin.map")
@@ -282,34 +264,6 @@ function(readyup_add_plugin name)
     target_link_options(${tgt} PRIVATE -static-libstdc++ -static-libgcc)
   endif()
 endfunction()
-
-# Shared non-engine code for plugins (docs/ARCHITECTURE.md "libs/"). Static, PIC, hidden.
-# readyup_libs_db: readyup_db.json parsing + a small libpq client (skins; match later).
-add_library(readyup_libs_db STATIC libs/readyup/db_config.cpp libs/readyup/pg_client.cpp)
-set_target_properties(readyup_libs_db PROPERTIES POSITION_INDEPENDENT_CODE ON
-  CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
-target_include_directories(readyup_libs_db PUBLIC ${CMAKE_SOURCE_DIR}/libs)
-target_compile_options(readyup_libs_db PRIVATE -Wall -Wextra
-  $<$<CXX_COMPILER_ID:GNU>:-fno-gnu-unique>)
-if (READYUP_DEPS_PREFIX)
-  target_include_directories(readyup_libs_db PRIVATE "${READYUP_DEPS_PREFIX}/include")
-  target_link_libraries(readyup_libs_db PUBLIC
-    "${READYUP_DEPS_PREFIX}/lib/libpq.a"
-    "${READYUP_DEPS_PREFIX}/lib/libpgcommon_shlib.a"
-    "${READYUP_DEPS_PREFIX}/lib/libpgport_shlib.a"
-    "${READYUP_DEPS_PREFIX}/lib/libssl.a"
-    "${READYUP_DEPS_PREFIX}/lib/libcrypto.a"
-    pthread dl m)
-elseif (PostgreSQL_FOUND AND READYUP_STATIC_LIBPQ)
-  target_include_directories(readyup_libs_db PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-  target_link_libraries(readyup_libs_db PUBLIC ${PQ_STATIC} ${PGCOMMON_SHLIB} ${PGPORT_SHLIB}
-    ssl crypto gssapi_krb5 ldap lber pthread)
-elseif (PostgreSQL_FOUND)
-  target_include_directories(readyup_libs_db PRIVATE ${PostgreSQL_INCLUDE_DIRS})
-  target_link_libraries(readyup_libs_db PUBLIC ${PostgreSQL_LIBRARIES})
-else()
-  target_compile_definitions(readyup_libs_db PRIVATE READYUP_NO_POSTGRES=1)
-endif()
 
 add_subdirectory(plugins/hello)
 add_subdirectory(plugins/skins)
@@ -356,9 +310,15 @@ target_compile_options(readyup_status_http_test PRIVATE -Wall -Wextra)
 find_package(Threads REQUIRED)
 target_link_libraries(readyup_status_http_test PRIVATE Threads::Threads)
 
+# Versioned JSON files that replaced Postgres (docs/FLEET.md D13): atomic save, corrupt files.
+add_executable(readyup_json_store_test tests/json_store_test.cpp libs/readyup/json_store.cpp libs/readyup/status_snapshot.cpp)
+target_include_directories(readyup_json_store_test PRIVATE ${CMAKE_SOURCE_DIR}/libs)
+target_compile_options(readyup_json_store_test PRIVATE -Wall -Wextra)
+
 enable_testing()
 add_test(NAME match_flow COMMAND readyup_match_flow_test)
 add_test(NAME status_http COMMAND readyup_status_http_test)
+add_test(NAME json_store COMMAND readyup_json_store_test)
 add_test(NAME plugin_host_reload
   COMMAND readyup_plugin_host_test
     $<TARGET_FILE:readyup_plugin_hello> $<TARGET_FILE:readyup_plugin_hello_reload_test>)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Build OpenSSL + libpq + libcurl as static PIC archives into a prefix, so the
-# Ready Up shim can link them in and depend on nothing but glibc at runtime.
+# Build OpenSSL + libcurl as static PIC archives into a prefix, so the
+# Ready Up plugins can link them in and depend on nothing but glibc at runtime.
 #
 #   scripts/ci/build-static-deps.sh /opt/readyup-deps
 #
@@ -14,7 +14,6 @@
 #   OpenSSL  no-shared, no-module/no-engine/no-dso (nothing dlopen'd),
 #            no-autoload-config (never reads the host's openssl.cnf, which may be
 #            written for a different OpenSSL), openssldir=/etc/ssl.
-#   libpq    --with-openssl, no GSSAPI / LDAP / readline / ICU / zlib.
 #   libcurl  HTTP(S) and WebSockets (ws/wss, used by plugins/fleet) with OpenSSL; no
 #            zlib/brotli/zstd/nghttp2/idn/psl/ldap/ssh.
 #            CA bundle is probed at runtime by http_client.cpp (READYUP_CURL_CA_PROBE)
@@ -22,7 +21,7 @@
 set -euo pipefail
 
 PREFIX="${1:?usage: $0 <prefix>}"
-DEPS_REV=1
+DEPS_REV=2  # 2: libpq dropped (Postgres is gone, docs/FLEET.md D13)
 JOBS="${JOBS:-$(nproc)}"
 WORK="${DEPS_WORK:-$(mktemp -d)}"
 
@@ -30,16 +29,12 @@ OPENSSL_VER=3.5.8
 OPENSSL_SHA=a8f84a39918ec6415ce765d9b429d313ba97b8143169c172e734b9514464f5b2
 OPENSSL_URL="https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VER}/openssl-${OPENSSL_VER}.tar.gz"
 
-PG_VER=17.11
-PG_SHA=dd27f2b3c59e73ed14aa3324901242bf69a032a6347805f274e6260322d42979
-PG_URL="https://ftp.postgresql.org/pub/source/v${PG_VER}/postgresql-${PG_VER}.tar.bz2"
-
 CURL_VER=8.22.0
 CURL_SHA=f7ef3ae8a22e521f289803fe93543eb64c329b58aa73a9e224dfd915a2a5f4f7
 CURL_URL="https://curl.se/download/curl-${CURL_VER}.tar.xz"
 
 STAMP="$PREFIX/.readyup-deps"
-WANT_STAMP="rev=$DEPS_REV openssl=$OPENSSL_VER pg=$PG_VER curl=$CURL_VER"
+WANT_STAMP="rev=$DEPS_REV openssl=$OPENSSL_VER curl=$CURL_VER"
 if [[ -f "$STAMP" && "$(cat "$STAMP")" == "$WANT_STAMP" ]]; then
   echo "static deps already built in $PREFIX ($WANT_STAMP)"
   exit 0
@@ -80,32 +75,6 @@ fetch "$OPENSSL_URL" "$OPENSSL_SHA"
   make install_dev >/dev/null 2>&1
 )
 mark_step "openssl-$OPENSSL_VER"
-fi
-
-# --- libpq (client library only) ---------------------------------------------
-if ! done_step "pg-$PG_VER"; then
-fetch "$PG_URL" "$PG_SHA"
-(
-  cd "$WORK/postgresql-$PG_VER"
-  CPPFLAGS="-I$PREFIX/include" LDFLAGS="-L$PREFIX/lib" LIBS="-ldl -pthread" \
-  ./configure --prefix="$PREFIX" \
-    --with-openssl --without-readline --without-zlib --without-icu \
-    --without-gssapi --without-ldap --without-pam --without-libxml \
-    --without-llvm --without-zstd --without-lz4 >/dev/null
-  make -C src/include -j"$JOBS" >/dev/null
-  make -C src/common -j"$JOBS" >/dev/null
-  make -C src/port -j"$JOBS" >/dev/null
-  # Static archive only: libpq's shared-lib "no exit() references" check
-  # (libpq-refs-stamp) trips on static OpenSSL, and we never want libpq.so anyway.
-  make -C src/interfaces/libpq -j"$JOBS" libpq.a >/dev/null
-  make -C src/include install >/dev/null
-  make -C src/interfaces/libpq install-lib-static >/dev/null
-  install -m 644 src/interfaces/libpq/libpq-fe.h src/interfaces/libpq/libpq-events.h "$PREFIX/include/"
-  make -C src/common install >/dev/null
-  make -C src/port install >/dev/null
-) 2>&1 | grep -v -e '^DEBUG' -e 'uninitialized value' || true
-[[ -f "$PREFIX/lib/libpq.a" ]] || { echo "libpq.a build failed" >&2; exit 1; }
-mark_step "pg-$PG_VER"
 fi
 
 # --- libcurl -----------------------------------------------------------------

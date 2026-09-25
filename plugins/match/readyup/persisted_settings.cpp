@@ -4,18 +4,12 @@
 #include "readyup/logging.h"
 #include "readyup/mat_admins.h"
 #include "readyup/match_token.h"
-#include "readyup/db_writer.h"
-#include "readyup/postgres.h"
-#include "readyup/workers.h"
+#include "readyup/local_store.h"
 #include "readyup/webhook.h"
 
 #include <algorithm>
-#include <atomic>
-#include <chrono>
-#include <mutex>
 #include <optional>
 #include <string>
-#include <thread>
 
 namespace readyup::persisted_settings {
 namespace {
@@ -26,9 +20,9 @@ static constexpr const char* kKeyMatchToken = "ru_match_token";
 static constexpr const char* kKeyAdminsUrl = "ru_admins_url";
 static constexpr const char* kKeyAdminsRefreshSeconds = "ru_admins_refresh_seconds";
 
-// Ordered, on the plugin's DB writer thread (db_writer.h).
+// state.json (local_store.h): memory at once, saved by the store's writer thread.
 static void PersistAsync(std::string key, std::optional<std::string> value) {
-  db_writer::SetSettingAsync(std::move(key), std::move(value));
+  local_store::SetSetting(key, std::move(value));
 }
 
 static int ClampRefreshSeconds(int seconds) {
@@ -65,64 +59,40 @@ void PersistAdminsRefreshSeconds(std::optional<int> seconds) {
   PersistAsync(kKeyAdminsRefreshSeconds, std::to_string(ClampRefreshSeconds(*seconds)));
 }
 
-void RestoreFromDbAsync() {
-  static std::once_flag once;
-  std::call_once(once, [] {
-    if (!pg::Available()) return;
+void Restore() {
+  auto get = [](const char* k) { return local_store::GetSetting(k); };
+  const auto webhookUrl = get(kKeyWebhookUrl);
+  const auto heartbeatUrl = get(kKeyHeartbeatUrl);
+  const auto matchToken = get(kKeyMatchToken);
+  const auto adminsUrl = get(kKeyAdminsUrl);
+  const auto adminsRefresh = get(kKeyAdminsRefreshSeconds);
 
-    workers::Spawn("settings-restore", [] {
-      std::string err;
-      if (!pg::EnsureSchema(&err)) {
-        if (readyup::DebugEnabled()) readyup::Debug("persisted_settings: EnsureSchema failed: %s\n", err.c_str());
-        return;
-      }
+  if (webhookUrl) {
+    WebhookConfigure(*webhookUrl);
+    WebhookStartSenderThread();
+  }
+  if (heartbeatUrl) {
+    WebhookConfigureHeartbeatUrl(*heartbeatUrl);
+    WebhookStartSenderThread();
+  }
+  if (matchToken) {
+    readyup::SetMatchToken(*matchToken);
+  }
+  if (adminsUrl) {
+    readyup::mat_admins::ConfigureAdminsUrl(*adminsUrl);
+  }
+  if (adminsRefresh) {
+    try {
+      readyup::mat_admins::ConfigureRefreshSeconds(std::stoi(*adminsRefresh));
+    } catch (...) {
+    }
+  }
 
-      auto get = [&](const char* k) -> std::optional<std::string> {
-        std::string e;
-        auto v = pg::GetSetting(k, &e);
-        if (!e.empty() && readyup::DebugEnabled()) readyup::Debug("persisted_settings: GetSetting(%s) err=%s\n", k, e.c_str());
-        if (v && v->empty()) return std::nullopt;
-        return v;
-      };
-
-      const auto webhookUrl = get(kKeyWebhookUrl);
-      const auto heartbeatUrl = get(kKeyHeartbeatUrl);
-      const auto matchToken = get(kKeyMatchToken);
-      const auto adminsUrl = get(kKeyAdminsUrl);
-      const auto adminsRefresh = get(kKeyAdminsRefreshSeconds);
-
-      if (webhookUrl) {
-        WebhookConfigure(*webhookUrl);
-        WebhookStartSenderThread();
-      }
-      if (heartbeatUrl) {
-        WebhookConfigureHeartbeatUrl(*heartbeatUrl);
-        WebhookStartSenderThread();
-      }
-      if (matchToken) {
-        readyup::SetMatchToken(*matchToken);
-      }
-      if (adminsUrl) {
-        readyup::mat_admins::ConfigureAdminsUrl(*adminsUrl);
-      }
-      if (adminsRefresh) {
-        try {
-          const int s = std::stoi(*adminsRefresh);
-          readyup::mat_admins::ConfigureRefreshSeconds(s);
-        } catch (...) {
-        }
-      }
-
-      if (readyup::DebugEnabled()) {
-        readyup::Debug("persisted_settings: restored webhook=%s heartbeat=%s token=%s admins_url=%s admins_refresh=%s\n",
-                       webhookUrl ? "1" : "0",
-                       heartbeatUrl ? "1" : "0",
-                       matchToken ? "1" : "0",
-                       adminsUrl ? "1" : "0",
-                       adminsRefresh ? "1" : "0");
-      }
-    });
-  });
+  if (readyup::DebugEnabled()) {
+    readyup::Debug("persisted_settings: restored webhook=%s heartbeat=%s token=%s admins_url=%s admins_refresh=%s\n",
+                   webhookUrl ? "1" : "0", heartbeatUrl ? "1" : "0", matchToken ? "1" : "0", adminsUrl ? "1" : "0",
+                   adminsRefresh ? "1" : "0");
+  }
 }
 
 }  // namespace readyup::persisted_settings

@@ -355,7 +355,7 @@ void ProcessPlayer(int slot, void* controller) {
     if (ApplySpawnCosmetics(pawn, steamid64, team, late)) {
       if (++ps.cosmeticsPass >= kCosmeticPassCount) ps.cosmeticsPass = -1;
     } else if (g_tick - ps.spawnTick > kRetryTicks) {
-      ps.cosmeticsPass = -1;  // loadout never loaded (DB down?) — give up for this spawn
+      ps.cosmeticsPass = -1;  // loadout never loaded — give up for this spawn
     }
   }
 

@@ -6,7 +6,9 @@ readyup_add_plugin(skins
   loadout.cpp
   apply.cpp
   cosmetics.cpp
-  stattrak.cpp)
-target_link_libraries(readyup_plugin_skins PRIVATE readyup_libs_db)
+  stattrak.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/json_store.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp)
+target_include_directories(readyup_plugin_skins PRIVATE ${CMAKE_SOURCE_DIR}/libs)
 target_compile_definitions(readyup_plugin_skins PRIVATE SKINS_VERSION="${READYUP_SEMVER}")
 target_compile_options(readyup_plugin_skins PRIVATE -Wpedantic)

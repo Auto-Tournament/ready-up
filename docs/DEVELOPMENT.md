@@ -23,8 +23,7 @@ the runtime CS2 targets, so the shim loads on any CS2 host:
 scripts/sniper-build.sh          # -> build-sniper/libserver.so (docker)
 ```
 
-- `scripts/ci/build-static-deps.sh` builds pinned, sha256-checked OpenSSL, libpq (client
-  only) and libcurl as static PIC archives (cached in `~/.cache/readyup-sniper-deps`).
+- `scripts/ci/build-static-deps.sh` builds pinned, sha256-checked OpenSSL and libcurl as static PIC archives (cached in `~/.cache/readyup-sniper-deps`).
 - CMake `-DREADYUP_DEPS_PREFIX=<prefix>` links them plus libstdc++/libgcc statically, uses
   GCC 14 from the SDK (sniper's GCC 10 libstdc++ rejects `unordered_map` with an incomplete
   value type), and pins the dynamic symbol table to `core/src/exports.map`.
@@ -133,7 +132,7 @@ chat and the full report in the console). It prints:
 - every schema field Ready Up uses, with its offset
 - runtime hooks: GameFrame, ClientCommand, command buffer and log listener
 - engine events: manager, listener, and whether any event has been delivered yet
-- entity system, database and clientprint status
+- entity system, the JSON store (`store`) and clientprint status
 - the feature on/off table
 
 It ends with one line: `selftest: PASS n/n` or `selftest: FAIL k/n (...)`.

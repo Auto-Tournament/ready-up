@@ -38,7 +38,7 @@ PawnOffsets& POff() {
   return o;
 }
 
-// DB stores either a full model path ("agents/models/ctm_fbi/ctm_fbi_variantb.vmdl") or the short
+// A loadout holds either a full model path ("agents/models/ctm_fbi/ctm_fbi_variantb.vmdl") or the short
 // WeaponPaints-style form ("ctm_fbi/ctm_fbi_variantb"). CS2 1.41 ships agent models under
 // agents/models/ (the old characters/models/ entries are small stubs).
 std::string NormalizeAgentModel(const std::string& raw) {

@@ -92,7 +92,7 @@ P: `services/matchLoadingService.ts`, `allocation.ts`, `routes/rcon.ts`.
 | `css_switch` (swap teams) | AT: `ConsoleCommands.cs:184` | none | missing | `mp_swapteams` and keep the team1/team2 side mapping in sync. | none | S |
 | `css_prac` / `css_exitprac` | AT: `PracticeMode.cs:775` | `ru practice` / `ru idle` | partial | Aliases. | none | S |
 | `css_asay <msg>` | AT: `AutoTournamentCS2.cs:777` | none (`say` works) | missing | Chat with the admin prefix. | none | S |
-| `reload_admins` / `css_reload_admins` | AT | `ru_admins_url` + `ru admins` (Postgres/MAT) | partial | Alias to a MAT admins refresh (RU: `mat_admins::RefreshNow`). | none | S |
+| `reload_admins` / `css_reload_admins` | AT | `ru_admins_url` + `ru admins` (admins.json/MAT) | partial | Alias to a MAT admins refresh (RU: `mat_admins::RefreshNow`). | none | S |
 | `css_skipveto` | not registered in AT | none | not needed | The platform runs the veto in the browser (`skip_veto: true`). Accept it as a no-op. | none | S |
 | catalog: `css_roundknife`, `css_playout`, `css_whitelist`, `css_settings`, `css_readyrequired <n>`, `css_team1/2 <name>` | AT: `ConsoleCommands.cs` | none | missing | Toggles over the §2 settings. `team1/2` sets the names (plus `mp_teamname_1/2`). | none | S |
 | Plain engine commands (`mp_restartgame 1`, `mp_warmup_end`, `mp_roundtime_defuse`, `say`) | – | pass through to the engine | done | Note: `mp_warmup_end` during Ready Up's own warmup can confuse the gating. Map "end warmup" to `ru start`. | none | S |
@@ -126,7 +126,7 @@ The contract is `AT: Events.cs` plus `MatchData.cs`. The platform normalizer rea
 | Event | AT payload | Ready Up (RU: `webhook.cpp`) | Status | Gap | Effort |
 |---|---|---|---|---|---|
 | `server_configured` | `server_id, hostname, plugin_version, remote_log_url, timestamp, configured_by` | same fields. `server_id`/`hostname` = slug or "unknown", `matchid:-1` | partial | Use `ru_server_id` and the real `hostname`. **The platform reads `plugin_version` from this event only**: it will compare it against `cs2-plugin` releases, so point the version check at `ready-up` releases (platform-side, 1 line). | S |
-| `server_health` | `server_id, plugin_version, timestamp, db_ok, db_type (sqlite\|mysql), db_error, reason` | `db_type:"readyup"`, `db_ok:true` always | partial | Report the real Postgres state if Ready Up uses one. `db_type` = `postgres`. Emit periodically like AT. | S |
+| `server_health` | `server_id, plugin_version, timestamp, db_ok, db_type (sqlite\|mysql), db_error, reason` | `db_type:"readyup"`, `db_ok:true` always | partial | Ready Up has no database (FLEET.md D13); report the JSON store state instead. Emit periodically like AT. | S |
 | `test_event` (from `css_te` / `css_testevent`) | AT: `Events.cs:575`, `ConsoleCommands.cs:258, 998` | none | missing | The platform uses it for the connection test. | S |
 | `cs2_update_required` | `server_id, required_version, phase, timestamp` | none (the CS2 build is already in the heartbeat, RU: `cs2_version.cpp`) | missing | Steam `UpToDateCheck` HTTP call (appid 730, current `PatchVersion`). | S |
 | `series_start` | `team1:{id,name}, team2:{id,name}, num_maps` | `team1_name, team2_name, num_maps` | partial | Emit `team1`/`team2` objects (team `id` from match JSON `team1.id`). | S |
