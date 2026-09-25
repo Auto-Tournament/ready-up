@@ -6,7 +6,7 @@
 #   scripts/package-release.sh <build-dir> <version> <out-dir>
 #
 # <build-dir> holds libserver.so, plugins/match.so, plugins/fleet.so, plugins/skins.so,
-# plugins/hello.so, plugins/midas.so and (optionally) readyup_sigcheck / readyup_hookcheck.
+# plugins/hello.so, plugins/midas.so, plugins/whitelist.so and (optionally) readyup_sigcheck / readyup_hookcheck.
 #
 # Component zips (the installer mixes these):
 #   ready-up-core-<v>-linuxsteamrt64.zip    the core (libserver.so, engine-surface.json,
@@ -21,9 +21,10 @@
 #   ready-up-skins-<v>-linuxsteamrt64.zip   plugins/skins.so + engine-surface.skins.json
 #   ready-up-hello-<v>-linuxsteamrt64.zip   plugins/hello.so (example plugin)
 #   ready-up-midas-<v>-linuxsteamrt64.zip   plugins/midas.so + cfg template (fun: gold weapons, off by default)
+#   ready-up-whitelist-<v>-linuxsteamrt64.zip plugins/whitelist.so (only listed players; off by default)
 # Bundles (for manual download):
 #   ready-up-essentials-<v>-...zip          core + match + fleet. The default. NO skins.
-#   ready-up-full-<v>-...zip                core + match + fleet + skins + hello + midas + readyup_sigcheck/hookcheck
+#   ready-up-full-<v>-...zip                core + match + fleet + skins + hello + midas + whitelist + readyup_sigcheck/hookcheck
 # Plus SHA256SUMS over every zip.
 #
 # Each component ships readyup/manifests/<component>.json ({component, version, files}),
@@ -44,7 +45,7 @@ trap 'rm -rf "$WORK"' EXIT
 EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 SUFFIX="$VERSION-linuxsteamrt64.zip"
 
-for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so; do
+for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so; do
   [[ -f "$BUILD/$f" ]] || { echo "package-release: missing $BUILD/$f" >&2; exit 1; }
 done
 
@@ -128,6 +129,9 @@ stage_component midas "Fun: weapons picked up by chosen players turn gold (off b
   "$BUILD/plugins/midas.so:plugins/midas.so:755" \
   "$ROOT_DIR/cfg/ReadyUp/midas.cfg:cfg-templates/ReadyUp/midas.cfg"
 
+stage_component whitelist "Only listed players may stay on the server (off until ru whitelist on)" \
+  "$BUILD/plugins/whitelist.so:plugins/whitelist.so:755"
+
 extras=()
 for t in readyup_sigcheck readyup_hookcheck; do
   [[ -f "$BUILD/$t" ]] && extras+=("$BUILD/$t:tools/$t:755")
@@ -158,9 +162,10 @@ make_zip "ready-up-match-$SUFFIX" match
 make_zip "ready-up-skins-$SUFFIX" skins
 make_zip "ready-up-hello-$SUFFIX" hello
 make_zip "ready-up-midas-$SUFFIX" midas
+make_zip "ready-up-whitelist-$SUFFIX" whitelist
 make_zip "ready-up-fleet-$SUFFIX" fleet
 make_zip "ready-up-essentials-$SUFFIX" core match fleet
-full=(core match fleet skins hello midas)
+full=(core match fleet skins hello midas whitelist)
 [[ -d "$WORK/c/tools" ]] && full+=(tools)
 make_zip "ready-up-full-$SUFFIX" "${full[@]}"
 
