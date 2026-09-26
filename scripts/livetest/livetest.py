@@ -33,6 +33,12 @@ goes live without a knife round (esports_live.cfg), bots come back, then every V
 (read from cfg/ReadyUp/esports_live.cfg), the Premier values and the overrides are queried from the
 console; `ru match rules`, `skins_status` (inert), default_models (CT + T) and `ru selftest` are checked.
 
+Compatibility page (CI, .github/workflows/cs2-dynamic.yml): with COMPAT_STEP_EVENTS=1 every step
+is reported as it starts and ends through `scripts/ci/compat-report.py step` (nested under the
+step COMPAT_STEP_PARENT, e.g. live-match), from a background thread, at most one POST every
+COMPAT_STEP_INTERVAL seconds (default 5); the last state is always sent at the end. Reporting
+never slows down or fails the test. In GitHub Actions each FAIL step is also a ::error:: annotation.
+
 Exit codes: 0 PASS, 1 FAIL, 2 server busy / unavailable, or restarted by someone
 else mid-test (no verdict).
 """
@@ -518,6 +524,75 @@ class Facts:
         return None
 
 
+class StepEvents:
+    """Reports steps to the compatibility page (compat-report.py step) from a background thread,
+    in order, batching whatever queued up while the previous call ran. Off unless
+    COMPAT_STEP_EVENTS=1. Never raises into the test."""
+
+    def __init__(self, parent: str, interval: float):
+        self.parent = parent
+        self.interval = interval
+        self.q: "queue.Queue[Optional[dict]]" = queue.Queue()
+        self.script = os.path.join(REPO_ROOT, "scripts", "ci", "compat-report.py")
+        self.thread = threading.Thread(target=self._work, name="compat-steps", daemon=True)
+        self.thread.start()
+
+    @classmethod
+    def from_env(cls) -> "Optional[StepEvents]":
+        if os.environ.get("COMPAT_STEP_EVENTS", "") != "1":
+            return None
+        parent = os.environ.get("COMPAT_STEP_PARENT", "") or "livetest"
+        try:
+            interval = float(os.environ.get("COMPAT_STEP_INTERVAL", "5"))
+        except ValueError:
+            interval = 5.0
+        return cls(parent, interval)
+
+    def step_id(self, index: int) -> str:
+        return f"{self.parent}.{index:02d}"
+
+    def send(self, index: int, name: str, status: str, detail: str = "") -> None:
+        upd = {"id": self.step_id(index), "name": name, "stage": "live", "parent": self.parent, "status": status}
+        if detail:
+            upd["detail"] = detail
+        self.q.put(upd)
+
+    def _call(self, *extra: str) -> None:
+        try:
+            r = subprocess.run([sys.executable, self.script, "step", *extra], cwd=REPO_ROOT,
+                               capture_output=True, text=True, timeout=40)
+            for line in (r.stdout + r.stderr).splitlines():
+                if "warning" in line or r.returncode:
+                    log(f"compat step: {line}")
+        except Exception as e:  # noqa: BLE001 - reporting must never break the test
+            log(f"compat step: {type(e).__name__}")
+
+    def _work(self) -> None:
+        stop = False
+        while not stop:
+            batch = [self.q.get()]
+            while True:
+                try:
+                    batch.append(self.q.get_nowait())
+                except queue.Empty:
+                    break
+            if None in batch:
+                stop = True
+            updates = [u for u in batch if u is not None]
+            if updates:
+                self._call("--updates", json.dumps(updates), "--min-interval", str(self.interval))
+            if stop:
+                self._call("--flush")
+
+    def close(self, timeout: float = 60) -> None:
+        self.q.put(None)
+        self.thread.join(timeout)
+
+
+def gh_escape(text: str) -> str:
+    return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
 @dataclass
 class Step:
     name: str
@@ -544,6 +619,8 @@ class Runner:
         self.timescale_set = False
         self.flag_set = False
         self.quota_mode_set = False
+        self.events: Optional[StepEvents] = None
+        self.step_index: dict[int, int] = {}  # id(Step) -> 1-based position, for the step events
 
     # ---- plumbing
     def pump(self, wait: float = 0.5) -> None:
@@ -552,8 +629,13 @@ class Runner:
             self.captured.append(line)
             self.f.feed(line)
 
+    def emit(self, st: Step, status: str, detail: str = "") -> None:
+        if self.events and id(st) in self.step_index:
+            self.events.send(self.step_index[id(st)], st.name, status, detail)
+
     def run_step(self, st: Step) -> bool:
         log(f"step {st.name} (timeout {st.timeout:.0f}s)")
+        self.emit(st, "running")
         t0 = time.time()
         if st.action:
             st.action()
@@ -584,6 +666,7 @@ class Runner:
                 if d:
                     st.info = (st.info + "; " if st.info else "") + d
                 log(f"step {st.name}: {st.status} {st.info}")
+                self.emit(st, st.status.lower(), st.info)
                 self.results.append(st)
                 return st.status in ("PASS", "SKIP")
 
@@ -1224,6 +1307,11 @@ class Runner:
         print("=" * 100)
         print("mode sequence: " + " -> ".join(self.f.modes))
         print(f"LIVETEST {verdict}")
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            what = "scrim" if self.a.scrim else "forfeit" if self.a.forfeit else "match"
+            for st in self.results:
+                if st.status == "FAIL":
+                    print(f"::error title=livetest {what}::{gh_escape(st.name + ': ' + st.info)}")
         summ = os.environ.get("GITHUB_STEP_SUMMARY")
         if summ:
             with open(summ, "a") as fh:
@@ -1249,14 +1337,21 @@ class Runner:
         self.follower = self.srv.follow(self.srv.log_size())
         failed = False
         deadline = time.time() + self.a.total_timeout
+        self.events = StepEvents.from_env()
         try:
-            for st in self.steps():
+            steps = self.steps()
+            for i, st in enumerate(steps, 1):
+                self.step_index[id(st)] = i
+                self.emit(st, "queued")
+            for st in steps:
                 if failed:
                     st.status = "SKIP"
+                    self.emit(st, "skip")
                     self.results.append(st)
                     continue
                 if time.time() > deadline:
                     st.status, st.info = "FAIL", "total timeout"
+                    self.emit(st, "fail", st.info)
                     self.results.append(st)
                     failed = True
                     continue
@@ -1267,6 +1362,8 @@ class Runner:
             log("interrupted")
         finally:
             self.cleanup()
+            if self.events:
+                self.events.close()
         if failed and self.f.restarted:
             self.report("SKIPPED (server restarted mid-test)")
             return 2
