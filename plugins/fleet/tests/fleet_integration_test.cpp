@@ -76,6 +76,7 @@ HelloInfo Hello() {
   h.bootId = NewUlid(NowMs());
   h.capabilities = {"match.v1"};
   h.startedMs = NowMs();
+  h.pluginsDisabled = {{"skins", "missing CBaseModelEntity_SetModel after CS2 build 14032"}};
   return h;
 }
 
@@ -199,6 +200,7 @@ TEST(TestEnrollConnectPingAck) {
   CHECK_EQ(hp->Get("stream")->Get("last_tx_seq")->AsInt(), int64_t(0));
   CHECK(hp->Get("state")->IsNull());
   CHECK_EQ(hp->Get("availability")->AsStr(), std::string("available"));
+  CHECK_EQ(hp->Get("plugins_disabled")->a.at(0).Get("name")->AsStr(), std::string("skins"));
   CHECK(IsUlid(hello.env.Get("id")->AsStr()));
   CHECK(hello.env.Get("seq") == nullptr);  // hello is ephemeral
   CHECK(IsUlid(c.Status().sessionId));

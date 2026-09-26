@@ -21,6 +21,7 @@
 // `fleet ...`), `.fleet status|reconnect` / `.ru fleet ...` (admins, chat).
 #include "readyup/fleet_iface.h"
 #include "readyup/plugin_api.h"
+#include "readyup/plugin_needs_iface.h"
 #include "readyup/selftest_iface.h"
 
 #include "fleet_client.h"
@@ -214,6 +215,30 @@ int64_t ProcessStartMs() {
   return fleet::NowMs();
 }
 
+// Plugins the core refused to load on this CS2 build (hello.plugins_disabled). Older cores do not
+// provide the interface: nothing to report.
+std::vector<std::pair<std::string, std::string>> PluginsDisabled() {
+  std::vector<std::pair<std::string, std::string>> out;
+  const auto* ni = static_cast<const ru_plugin_needs_iface_v1*>(
+      g_api->get_interface(g_api->self, RU_PLUGIN_NEEDS_IFACE_NAME, RU_PLUGIN_NEEDS_IFACE_VERSION));
+  if (!ni || ni->struct_size < sizeof(ru_plugin_needs_iface_v1) || !ni->disabled_json) return out;
+  std::string buf(4096, '\0');
+  const uint32_t n = ni->disabled_json(buf.data(), static_cast<uint32_t>(buf.size()));
+  if (n >= buf.size()) {
+    buf.assign(n + 1, '\0');
+    ni->disabled_json(buf.data(), static_cast<uint32_t>(buf.size()));
+  }
+  buf.resize(std::min<size_t>(n, buf.size() - 1));
+  fleet::json::Value v;
+  if (!fleet::json::Parse(buf, &v) || !v.IsArr()) return out;
+  for (const auto& e : v.a) {
+    const auto* name = e.Get("name");
+    const auto* reason = e.Get("reason");
+    if (name && reason) out.emplace_back(name->AsStr(), reason->AsStr());
+  }
+  return out;
+}
+
 void BuildHello() {
   fleet::HelloInfo h;
   h.coreVersion = g_api->core_version ? g_api->core_version : "";
@@ -230,6 +255,7 @@ void BuildHello() {
   h.bootId = BootId();
   h.startedMs = ProcessStartMs();
   h.adminsRev = g_adminsRev;
+  h.pluginsDisabled = PluginsDisabled();
   h.stateJson.clear();     // keep whatever publish_state set
   h.availability.clear();
   g_hello = h;

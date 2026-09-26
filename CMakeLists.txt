@@ -63,6 +63,8 @@ add_library(server_shim SHARED
   libs/readyup/steamid.cpp
   core/src/readyup/entity.cpp
   core/src/readyup/plugin_loader.cpp
+  core/src/readyup/plugin_needs.cpp
+  core/src/readyup/plugin_needs_engine.cpp
   core/src/readyup/plugin_state.cpp
   core/src/readyup/plugin_engine_api.cpp
   core/src/readyup/engine_surface.cpp
@@ -289,7 +291,7 @@ set_target_properties(readyup_plugin_hello_reload_test PROPERTIES
 target_compile_definitions(readyup_plugin_hello_reload_test PRIVATE HELLO_VERSION="1.0.1-reloaded")
 
 add_executable(readyup_plugin_host_test tools/plugin_host_test.cpp core/src/readyup/plugin_loader.cpp core/src/readyup/perf_stats.cpp
-  core/src/readyup/plugin_state.cpp libs/readyup/minijson.cpp)
+  core/src/readyup/plugin_state.cpp core/src/readyup/plugin_needs.cpp libs/readyup/minijson.cpp)
 target_include_directories(readyup_plugin_host_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(readyup_plugin_host_test PRIVATE -Wall -Wextra)
 target_link_libraries(readyup_plugin_host_test PRIVATE dl)
@@ -357,6 +359,10 @@ target_compile_options(skins_reload_test PRIVATE -Wall -Wextra)
 
 # Persistent plugin enable / disable (core/src/readyup/plugin_state.h).
 add_executable(readyup_plugin_state_test tests/plugin_state_test.cpp core/src/readyup/plugin_state.cpp libs/readyup/minijson.cpp)
+# needs.json -> load / disable decision (docs/CS2-COMPAT.md "Plugin needs").
+add_executable(readyup_plugin_needs_test tests/plugin_needs_test.cpp core/src/readyup/plugin_needs.cpp libs/readyup/minijson.cpp)
+target_include_directories(readyup_plugin_needs_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs)
+target_compile_options(readyup_plugin_needs_test PRIVATE -Wall -Wextra)
 target_include_directories(readyup_plugin_state_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(readyup_plugin_state_test PRIVATE -Wall -Wextra)
 
@@ -364,6 +370,7 @@ enable_testing()
 add_test(NAME center_panel_owner COMMAND readyup_center_panel_owner_test)
 add_test(NAME skins_reload COMMAND skins_reload_test)
 add_test(NAME plugin_state COMMAND readyup_plugin_state_test)
+add_test(NAME plugin_needs COMMAND readyup_plugin_needs_test)
 add_test(NAME ru_help COMMAND readyup_ru_help_test)
 add_test(NAME load_order COMMAND readyup_load_order_test)
 add_test(NAME match_flow COMMAND readyup_match_flow_test)

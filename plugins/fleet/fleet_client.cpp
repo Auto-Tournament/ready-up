@@ -660,6 +660,16 @@ std::string Client::BuildHello() {
   p.Set("availability", json::Value::Str(h.availability));
   // The admins.set rev this server has cached: the platform sends admins.set only when it differs.
   if (h.adminsRev >= 0) p.Set("admins_rev", json::Value::Int(h.adminsRev));
+  if (!h.pluginsDisabled.empty()) {
+    json::Value off = json::Value::Array();
+    for (const auto& d : h.pluginsDisabled) {
+      json::Value e = json::Value::Object();
+      e.Set("name", json::Value::Str(d.first));
+      e.Set("reason", json::Value::Str(d.second));
+      off.Push(std::move(e));
+    }
+    p.Set("plugins_disabled", std::move(off));
+  }
   // hello.selftest is optional (object only); left out until the core exposes its result.
   return json::Dump(p);
 }

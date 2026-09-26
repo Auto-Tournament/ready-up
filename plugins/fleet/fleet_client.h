@@ -65,6 +65,9 @@ struct HelloInfo {
   std::string stateJson = "null";  // MatchState or null
   std::string availability = "available";
   int64_t adminsRev = -1;  // cached admins.set rev (hello.admins_rev); -1 = none
+  // Plugins the core did not load on this CS2 build (needs.json not met): name -> reason
+  // (hello.plugins_disabled; core/include/readyup/plugin_needs_iface.h). Empty = left out.
+  std::vector<std::pair<std::string, std::string>> pluginsDisabled;
   // ping health
   int players = 0;
   double tickMsP99 = 0.0;

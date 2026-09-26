@@ -561,6 +561,13 @@ GameEventsStatus GetGameEventsStatus() {
   return s;
 }
 
+int GameEventDescriptorKnown(const char* name) {
+  if (!name || !*name) return 0;
+  IGameEventManager2* mgr = VerifiedMgr();
+  if (!mgr || !g_ok.load(std::memory_order_acquire)) return -1;
+  return mgr->HasEventDescriptor(name) ? 1 : 0;
+}
+
 // Adds the listener for event names plugins subscribed to (subscribe_game_event). Game thread.
 // Re-checked when the wanted set changes and every ~2 s (a manager Reset drops listeners).
 static void RegisterPluginGameEvents() {

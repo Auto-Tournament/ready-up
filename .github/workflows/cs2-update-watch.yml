@@ -12,7 +12,9 @@ name: CS2 update watch
 #   pass -> "CS2 build N verified" (on the open issue, which is closed; else on the commit)
 #
 #   both -> compat.json + badge.json (scripts/ci/compat-report.py): per-component result in the
-#           contract of docs/CS2-COMPAT.md, committed to `cs2-build` (README badge)
+#           contract of docs/CS2-COMPAT.md (core, skins, and every plugin through its
+#           plugins/<name>/needs.json), committed to `cs2-build` (README badge). A new verdict
+#           starts .github/workflows/cs2-dynamic.yml (real server; off until enabled)
 #
 # Progress events: when repo variable COMPAT_INGEST_URL is set, every phase (queued ->
 # checking -> pass/warn/fail, or no_verdict) is POSTed there as compat.json with
@@ -56,6 +58,7 @@ jobs:
           sparse-checkout: |
             scripts/ci
             gamedata
+            plugins
 
       - name: Compare with last verified state
         id: poll
@@ -64,7 +67,8 @@ jobs:
         run: |
           started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           buildid="$(scripts/ci/cs2-buildid.sh)"
-          surface="$(cat gamedata/engine-surface.json gamedata/engine-surface.*.json | sha256sum | cut -d' ' -f1)"
+          # engine surface + every plugin's needs (plugins/<name>/needs.json: per-plugin verdicts)
+          surface="$(cat gamedata/engine-surface.json gamedata/engine-surface.*.json plugins/*/needs.json | sha256sum | cut -d' ' -f1)"
           state="$(scripts/ci/cs2-watch-state.sh read)"
           prev_build="$(printf '%s\n' "$state" | sed -n 's/^BUILDID=//p')"
           prev_surface="$(printf '%s\n' "$state" | sed -n 's/^SURFACE_SHA256=//p')"

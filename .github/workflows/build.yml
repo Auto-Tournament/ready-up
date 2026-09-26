@@ -59,6 +59,9 @@ jobs:
       - name: Unit tests (patch_gameinfo.py, compat-report.py)
         run: python3 -m unittest discover -s tests -v
 
+      - name: Plugin needs manifests match the source (plugins/*/needs.json)
+        run: python3 scripts/ci/compat-report.py needs-check
+
       - name: Cache static deps (OpenSSL, libcurl)
         uses: actions/cache@v4
         with:

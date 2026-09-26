@@ -1,11 +1,13 @@
 """Tests for scripts/ci/compat-report.py.   Run: python3 -m unittest discover -s tests -v"""
 import http.server
 import importlib.util
+import io
 import json
 import os
 import pathlib
 import shutil
 import tempfile
+import textwrap
 import threading
 import unittest
 from unittest import mock
@@ -72,10 +74,15 @@ class CompatReportTest(unittest.TestCase):
         (d / "rc.env").write_text("SIGCHECK_RC=%d\nHOOKCHECK_RC=%d\n" % (sig_rc, hook_rc))
         return d
 
-    def result(self, **kw):
+    def result(self, plugins_dir=None, **kw):
+        """plugins_dir None: no needs.json anywhere (plugins without a manifest)."""
         out = self.tmp / "out"
+        if plugins_dir is None:
+            plugins_dir = self.tmp / "no-plugins"
+            plugins_dir.mkdir(exist_ok=True)
         rc = cr.main(["result", "--raw-dir", str(self.raw(**kw)), "--gamedata", str(self.gamedata),
-                      "--build-env", str(FIX / "cs2-build.env"), "--out-dir", str(out)] + RUN)
+                      "--build-env", str(FIX / "cs2-build.env"), "--out-dir", str(out),
+                      "--plugins-dir", str(plugins_dir)] + RUN)
         self.assertEqual(rc, 0)
         doc = json.loads((out / "compat.json").read_text())
         assert_contract(self, doc)
@@ -116,7 +123,8 @@ class CompatReportTest(unittest.TestCase):
         for cid in cr.RUNTIME_ONLY:
             c = self.comp(doc, cid)
             self.assertEqual(c["status"], "pending")
-            self.assertEqual([k["status"] for k in c["checks"]], ["pending"])
+            self.assertEqual([k["kind"] for k in c["checks"]], ["selftest", "livetest"] if cid == "match" else ["selftest"])
+            self.assertTrue(all(k["status"] == "pending" for k in c["checks"]))
         self.assertEqual(badge, {"schemaVersion": 1, "label": "CS2 1.41.8.5", "message": "static ok",
                                  "color": "yellow"})
 
@@ -146,7 +154,7 @@ class CompatReportTest(unittest.TestCase):
         (d / "rc.env").write_text("SIGCHECK_RC=1\nHOOKCHECK_RC=1\n")
         out = self.tmp / "out2"
         cr.main(["result", "--raw-dir", str(d), "--gamedata", str(self.gamedata), "--build-env",
-                 str(FIX / "cs2-build.env"), "--out-dir", str(out)] + RUN)
+                 str(FIX / "cs2-build.env"), "--out-dir", str(out), "--plugins-dir", str(self.tmp)] + RUN)
         doc = json.loads((out / "compat.json").read_text())
         assert_contract(self, doc)
         core = self.comp(doc, "core")
@@ -169,7 +177,7 @@ class CompatReportTest(unittest.TestCase):
         empty = self.tmp / "empty"
         empty.mkdir()
         cr.main(["result", "--raw-dir", str(empty), "--gamedata", str(self.gamedata), "--out-dir", str(out),
-                 "--buildid", "1", "--patch", "1.0"] + RUN)
+                 "--buildid", "1", "--patch", "1.0", "--plugins-dir", str(empty)] + RUN)
         doc = json.loads((out / "compat.json").read_text())
         assert_contract(self, doc)
         self.assertEqual(doc["overall"], "fail")
@@ -227,6 +235,185 @@ class CompatReportTest(unittest.TestCase):
         self.assertEqual(total, len(owner))
         for c in comps:
             self.assertIn(c["status"], ("pass", "pending"))
+
+    # ---- plugin needs (plugins/<id>/needs.json) ------------------------------------------------
+
+    def test_plugin_static_verdicts_from_needs(self):
+        doc, badge = self.result(plugins_dir=ROOT / "plugins")
+        self.assertEqual(doc["overall"], "warn")
+        for cid in cr.RUNTIME_ONLY + ["skins"]:
+            c = self.comp(doc, cid)
+            self.assertEqual(c["status"], "pass", cid)
+            self.assertEqual(self.check(c, "selftest")["status"], "pending")
+        match = self.comp(doc, "match")
+        # match needs Host_Say (chat commands) + GameFrame (ticks) + the CCommand layout, among others
+        self.assertEqual(self.check(match, "hook_site")["total"], 1)
+        self.assertEqual(self.check(match, "vtable")["passed"], 2)
+        self.assertEqual(self.check(match, "schema")["status"], "pending")
+        self.assertEqual(self.check(match, "schema")["total"], 14)
+        self.assertEqual(self.check(match, "event")["status"], "pending")
+        self.assertEqual(self.check(match, "livetest")["status"], "pending")
+        # whitelist needs no Host_Say (no chat commands)
+        self.assertNotIn("hook_site", [k["kind"] for k in self.comp(doc, "whitelist")["checks"]])
+
+    def test_needed_entry_failure_fails_the_plugins_that_need_it(self):
+        hook = (FIX / "hookcheck-pass.txt").read_text().replace("OK   Host_Say", "FAIL Host_Say")
+        d = self.raw()
+        (d / "hookcheck.txt").write_text(hook)
+        (d / "rc.env").write_text("SIGCHECK_RC=0\nHOOKCHECK_RC=1\n")
+        out = self.tmp / "o"
+        cr.main(["result", "--raw-dir", str(d), "--gamedata", str(self.gamedata), "--build-env",
+                 str(FIX / "cs2-build.env"), "--out-dir", str(out), "--plugins-dir", str(ROOT / "plugins")] + RUN)
+        doc = json.loads((out / "compat.json").read_text())
+        assert_contract(self, doc)
+        status = {c["id"]: c["status"] for c in doc["components"]}
+        for cid in ("core", "match", "practice", "fleet", "skins"):
+            self.assertEqual(status[cid], "fail", cid)
+        for cid in ("essentials", "whitelist", "midas", "deathmatch"):
+            self.assertEqual(status[cid], "pass", cid)
+        self.assertTrue(self.check(self.comp(doc, "match"), "hook_site")["failures"][0].startswith("Host_Say:"))
+
+    def test_fragment_entry_needed_by_another_plugin(self):
+        # CBaseModelEntity_SetModel lives in the skins fragment; match needs it (entity_set_model)
+        doc, _ = self.result(plugins_dir=ROOT / "plugins", sig="sigcheck-skins-fail.txt", sig_rc=1)
+        status = {c["id"]: c["status"] for c in doc["components"]}
+        self.assertEqual((status["core"], status["skins"], status["match"]), ("pass", "fail", "fail"))
+        self.assertEqual(status["practice"], "pass")
+
+    def test_repo_needs_are_in_sync_with_the_source(self):
+        """The CI drift check: every plugin's needs.json covers its schema_offset / game event /
+        engine-facing ru_api use, and names only real engine-surface entries."""
+        self.assertEqual(cr.main(["needs-check"]), 0)
+
+    def test_needs_check_catches_drift(self):
+        plugins = self.tmp / "plugins"
+        src = plugins / "match"
+        (src / "tests").mkdir(parents=True)
+        (src / "a.cpp").write_text(textwrap.dedent("""
+            void Install(const ru_api* api) {
+              api->schema_offset(api->self, "CFoo", "m_bar");
+              int x = Pick({"CA", "CB"}, "m_both");
+              static const char* const kEvents[] = {"round_start", "bomb_planted"};
+              for (const char* e : kEvents) api->subscribe_game_event(api->self, e, &On, nullptr);
+              for (const char* e : {"player_hurt"}) api->subscribe_game_event(api->self, e, &On, nullptr);
+              api->entity_remove(api->self, ent);
+              // api->chat_all(api->self, "commented out", 0);
+            }
+        """))
+        (src / "tests" / "t.cpp").write_text('a->schema_offset(a->self, "CTest", "m_only_in_tests");')
+        good = {"schema_version": 1, "plugin": "match", "api": ["entity_remove", "schema_offset", "subscribe_game_event"],
+                "surface": ["UTIL_Remove", "CSchemaSystem", "CSchemaSystemTypeScope", "CGameEventManager_Init",
+                            "CGameEventManager"],
+                "schema": ["CFoo.m_bar", "CA.m_both|CB.m_both"], "schema_optional": [],
+                "events": ["bomb_planted", "player_hurt", "round_start"]}
+        (src / "needs.json").write_text(json.dumps(good))
+        gd = ["--gamedata", str(ROOT / "gamedata"), "--plugins-dir", str(plugins)]
+        self.assertEqual(cr.main(["needs-check"] + gd), 0)
+        bad = dict(good, events=["round_start"], schema=["CA.m_both"], surface=good["surface"][1:] + ["NoSuchEntry"])
+        (src / "needs.json").write_text(json.dumps(bad))
+        with mock.patch("sys.stdout", new_callable=io.StringIO) as outp:
+            self.assertEqual(cr.main(["needs-check"] + gd), 1)
+        text = outp.getvalue()
+        for want in ("game event bomb_planted", "game event player_hurt", "schema CFoo.m_bar", "schema CB.m_both",
+                     "ru_api entity_remove needs engine-surface entry UTIL_Remove", "NoSuchEntry"):
+            self.assertIn(want, text)
+        self.assertNotIn("m_only_in_tests", text)
+        self.assertNotIn("chat_all", text)
+
+    # ---- dynamic stages ------------------------------------------------------------------------
+
+    SELFTEST = textwrap.dedent("""\
+        [engine surface]
+          OK   fn Host_Say                                   rva=0x1c3f0c0
+        [schema]
+          OK   schema system                                 ok
+        [plugins]
+          OK   plugin host                                   api 1.6, dir /x/plugins, 3 loaded: essentials, fleet, match
+          OK   match: database                               json store ok
+          FAIL fleet: platform link                          handshake refused
+          WARN skins: disabled                               missing CEconEntity.m_nFallbackPaintKit after CS2 build 25537370
+        [needs]
+          OK   need match schema CBaseEntity.m_iTeamNum      0x3cb
+          OK   need match schema CBasePlayerController.m_steamID|CCSPlayerController.m_steamID 0x6d0
+          WARN need match schema CCSPlayerController.m_iTeamNum|CBaseEntity.m_iTeamNum not found
+          WARN need match schema_optional CCSPlayerController.m_iKills not found
+          OK   need match event round_start
+          WARN need match event round_mvp                     unknown to this CS2 build
+          OK   need essentials surface UTIL_ClientPrintAll   resolved
+        selftest: FAIL 5/6 (fleet: platform link)
+        exit_code: 1
+    """)
+
+    def dynamic(self, stage, selftest=SELFTEST, live=()):
+        base, _ = self.result(plugins_dir=ROOT / "plugins")
+        bp = self.tmp / "base.json"
+        bp.write_text(json.dumps(base))
+        sp = self.tmp / "readyup_selftest.txt"
+        sp.write_text(selftest)
+        out = self.tmp / ("dyn-" + stage)
+        args = ["dynamic", "--stage", stage, "--base", str(bp), "--selftest", str(sp), "--out-dir", str(out),
+                "--gamedata", str(self.gamedata), "--plugins-dir", str(ROOT / "plugins")] + RUN
+        for n, rc in live:
+            args += ["--livetest", "%s=%d" % (n, rc)]
+        self.assertEqual(cr.main(args), 0)
+        doc = json.loads((out / "compat.json").read_text())
+        assert_contract(self, doc)
+        self.assertEqual(doc["run"]["stage"], stage)
+        self.assertEqual(doc["cs2"]["buildid"], "25537370")
+        return doc
+
+    def test_dynamic_selftest_stage(self):
+        doc = self.dynamic("selftest")
+        match = self.comp(doc, "match")
+        schema = self.check(match, "schema")
+        self.assertEqual((schema["status"], schema["passed"], schema["total"]), ("fail", 2, 4))
+        self.assertIn("CCSPlayerController.m_iTeamNum|CBaseEntity.m_iTeamNum: not found", schema["failures"][0])
+        self.assertEqual(self.check(match, "event")["status"], "warn")
+        self.assertEqual(self.check(match, "selftest")["status"], "pass")
+        self.assertEqual(self.check(match, "livetest")["status"], "pending")
+        self.assertEqual(match["status"], "fail")
+        self.assertEqual(self.comp(doc, "fleet")["status"], "fail")
+        skins = self.check(self.comp(doc, "skins"), "selftest")
+        self.assertEqual(skins["status"], "fail")
+        self.assertIn("disabled: missing CEconEntity.m_nFallbackPaintKit", skins["failures"][0])
+        self.assertIn("not loaded", self.check(self.comp(doc, "practice"), "selftest")["failures"][0])
+        self.assertEqual(self.check(self.comp(doc, "essentials"), "selftest")["status"], "pass")
+        core = self.check(self.comp(doc, "core"), "selftest")
+        self.assertEqual((core["status"], core["passed"], core["total"]), ("pass", 2, 2))
+        self.assertEqual(doc["overall"], "fail")
+
+    def test_dynamic_live_all_green(self):
+        ok = "\n".join(l for l in self.SELFTEST.splitlines() if "WARN" not in l and "FAIL" not in l)
+        ok = ok.replace("3 loaded: essentials, fleet, match",
+                        "8 loaded: deathmatch, essentials, fleet, match, midas, practice, skins, whitelist")
+        # every need of every plugin resolved
+        lines = []
+        for pid, need in cr.load_needs(str(ROOT / "plugins")).items():
+            for k in ("schema", "schema_optional"):
+                lines += ["  OK   need %s %s %s 0x10" % (pid, k, e) for e in need.get(k) or []]
+            lines += ["  OK   need %s event %s" % (pid, e) for e in need.get("events") or []]
+        ok = ok.replace("[needs]\n", "[needs]\n" + "\n".join(lines) + "\n").replace("exit_code: 1", "exit_code: 0")
+        doc = self.dynamic("live", selftest=ok, live=[("match", 0), ("scrim", 0)])
+        for c in doc["components"]:
+            self.assertEqual(c["status"], "pass", c)
+        self.assertEqual(self.check(self.comp(doc, "match"), "livetest")["passed"], 2)
+        # the static rtti of CSchemaSystem is runtime-only (SKIP) -> nothing pending remains
+        self.assertEqual(doc["overall"], "pass")
+        self.assertEqual(cr.badge(doc)["message"], "compatible")
+
+    def test_dynamic_livetest_fail_and_no_verdict(self):
+        doc = self.dynamic("live", live=[("match", 1), ("scrim", 2)])
+        lt = self.check(self.comp(doc, "match"), "livetest")
+        self.assertEqual((lt["status"], lt["passed"], lt["total"]), ("fail", 0, 1))
+        doc = self.dynamic("live", live=[("match", 2)])
+        self.assertEqual(self.check(self.comp(doc, "match"), "livetest")["status"], "pending")
+
+    def test_dynamic_without_report_fails_core(self):
+        doc = self.dynamic("selftest", selftest="")
+        core = self.check(self.comp(doc, "core"), "selftest")
+        self.assertEqual(core["status"], "fail")
+        self.assertEqual(self.check(self.comp(doc, "match"), "selftest")["status"], "pending")
+        self.assertEqual(doc["overall"], "fail")
 
 
 class _Handler(http.server.BaseHTTPRequestHandler):

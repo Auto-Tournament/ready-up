@@ -55,6 +55,10 @@ struct GameEventsStatus {
 };
 GameEventsStatus GetGameEventsStatus();
 
+// 1 the running build has a descriptor for this game event, 0 it does not, -1 cannot tell yet
+// (event manager not verified / descriptors not loaded). plugin needs (plugin_needs.h).
+int GameEventDescriptorKnown(const char* name);
+
 namespace sdk {
 class IGameEventManager2;
 }

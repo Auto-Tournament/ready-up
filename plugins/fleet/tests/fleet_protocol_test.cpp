@@ -109,6 +109,11 @@ int main() {
   CHECK(broken("state.patch.json", [](Value* p) { p->Set("rev", Value::Int(0)); }));
   CHECK(broken("event.pause.json", [](Value* p) { p->Get("data")->Set("type", Value::Str("coffee")); }));
 
+  // hello.plugins_disabled (core needs.json enforcement): name + reason required.
+  CHECK(broken("hello.plugins_disabled.json", [](Value* p) {
+    p->Get("plugins_disabled")->a[0] = Value::Object();
+  }));
+  CHECK(broken("hello.plugins_disabled.json", [](Value* p) { p->Set("plugins_disabled", Value::Str("skins")); }));
   CHECK(broken("event.admin_called.json", [](Value* p) {
     p->Get("data")->Get("player")->Set("team", Value::Str("coach"));
   }));
