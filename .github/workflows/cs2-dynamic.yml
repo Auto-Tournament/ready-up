@@ -148,6 +148,10 @@ jobs:
             echo "::error::CS2_CI_DIR=$CS2_CI_DIR has no game/csgo (not a CS2 dedicated server install)"
             exit 1
           fi
+          if [ ! -x "$CS2_CI_DIR/game/cs2.sh" ]; then
+            echo "::error::$CS2_CI_DIR/game/cs2.sh is missing (the server is started through Valve's launcher, as csm does)"
+            exit 1
+          fi
           case "$CS2_CI_PORT" in ''|*[!0-9]*) echo "::error::CS2_CI_PORT=$CS2_CI_PORT is not a port"; exit 1 ;; esac
           OUT="$RUNNER_TEMP/cs2-dynamic"
           echo "OUT=$OUT" >> "$GITHUB_ENV"
@@ -195,8 +199,11 @@ jobs:
         id: selftest
         run: |
           set +e
+          # Start through Valve's game/cs2.sh, as csm does for every server: it sets up
+          # the library path (the real libserver.so needs libv8.so) and the rest of
+          # the runtime environment. Running the cs2 binary directly skips that.
           READYUP_SELFTEST_AND_QUIT=1 READYUP_SELFTEST_FILE="$OUT/readyup_selftest.txt" READYUP_SELFTEST_TIMEOUT=300 \
-            timeout 900 "$CS2_CI_DIR/game/bin/linuxsteamrt64/cs2" -dedicated -console -usercon -port "$CS2_CI_PORT" \
+            timeout 900 "$CS2_CI_DIR/game/cs2.sh" -dedicated -console -usercon -port "$CS2_CI_PORT" \
             +sv_lan 1 +game_type 0 +game_mode 1 +map de_dust2 > "$OUT/selftest-console.log" 2>&1
           echo "server exit code $?"
           set -e
@@ -224,7 +231,7 @@ jobs:
           mkdir -p "$t"
           cat > "$t/run.sh" <<EOF
           #!/usr/bin/env bash
-          exec "$CS2_CI_DIR/game/bin/linuxsteamrt64/cs2" -dedicated -console -usercon -port "$CS2_CI_PORT" +sv_lan 1 +game_type 0 +game_mode 1 +map de_dust2
+          exec "$CS2_CI_DIR/game/cs2.sh" -dedicated -console -usercon -port "$CS2_CI_PORT" +sv_lan 1 +game_type 0 +game_mode 1 +map de_dust2
           EOF
           chmod +x "$t/run.sh"
           session="ru-ci-${GITHUB_RUN_ID}"
