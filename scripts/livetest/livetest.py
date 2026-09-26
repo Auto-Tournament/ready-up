@@ -732,6 +732,7 @@ class Runner:
         def act_bots():
             # The match load kicks bots and sets bot_quota 0; bring 2 per side back.
             time.sleep(0.3)
+            self.srv.send("bot_join_after_player 0")  # bots join without a human on the server (empty CI server)
             self.srv.send(f"bot_quota {a.bots_per_side * 2}")
 
         def chk_warmup(_f):
@@ -1081,6 +1082,7 @@ class Runner:
             # esports_live.cfg: bot_quota 0 + bot_kick (Premier's base cfg fills bots).
             mark["bots2"] = f.seq
             time.sleep(2.0)
+            self.srv.send("bot_join_after_player 0")  # bots join without a human on the server (empty CI server)
             self.srv.send(f"bot_quota {a.bots_per_side * 2}")
             time.sleep(8.0)
             self.srv.send("ru match state")  # a fresh state: line even when the bot count did not change
@@ -1209,6 +1211,7 @@ class Runner:
             f.armed = True
             self.srv.send("ru mode scrim")  # `ru mode idle` (reset) turned auto scrim warmup off
             time.sleep(0.3)
+            self.srv.send("bot_join_after_player 0")  # bots join without a human on the server (empty CI server)
             self.srv.send(f"bot_quota {a.bots_per_side * 2}")
 
         def chk_scrim_warmup(_f):
@@ -1286,6 +1289,7 @@ class Runner:
                         self.srv.send(f"bot_quota_mode {self.f.bot_quota_mode or 'competitive'}")
                 self.srv.send("ru mode scrim")   # re-enable auto scrim warmup (ru mode idle turns it off)
                 quota = self.f.bot_quota if self.f.bot_quota is not None else self.a.restore_bot_quota
+                self.srv.send("bot_join_after_player 1")  # CS2 default, set to 0 while testing
                 self.srv.send(f"bot_quota {quota}")
                 self.pump(2.0)
         except Exception as e:  # noqa: BLE001
