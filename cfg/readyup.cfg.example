@@ -12,6 +12,11 @@ banner=1
 welcome=1
 # welcome_show_seconds=8        how long the welcome card stays up (then the ready HUD)
 # welcome_round_delay_ms=5000   the welcome card waits this long after a round (re)start (CS2's "Match started" covers the panel)
+# Go-live card: "LIVE · GO GO GO", the teams and the commands, in the center for everyone this many
+# seconds once a map goes live (starts welcome_round_delay_ms after the go-live restart). 0 = off.
+# golive_card_seconds=10
+# `.admin [message]`: seconds before the same player can call an admin again (0 = no cooldown).
+# admin_call_cooldown_s=60
 
 # DEBUG ONLY: bots on CT/T count as always-ready scrim players, so one human can
 # test ready -> live with bots. Never enable on a real match server.

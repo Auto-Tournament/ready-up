@@ -61,6 +61,7 @@ always may. An admin's `.help` points at `.ru help`.
 | `.ru match tech\|tac team1\|team2` | admin | technical pause / tactical timeout for a team, with its limits |
 | `.ru match side stay\|switch\|ct\|t` | knife winners, admin | knife side pick (`.stay` / `.switch`) |
 | `.ru match state` / `rules` | everyone | match and mode state / effective rules |
+| `.admin [message]` | everyone | calls an admin ([below](#calling-an-admin-admin)); not an `ru` command |
 | `.ru map change <name\|workshop id\|link> [force]` | admin | `changelevel <name>`, or `host_workshop_map <id>` for `3084291314`, `ws:<id>`, `workshop/<id>[/name]` or a pasted Workshop link (`…/filedetails/?id=3084291314`); refused during a knife round or a live map unless `force` (essentials plugin) |
 | `.ru map reload [force]` | admin | loads the current map again (a workshop map by its id) (essentials plugin) |
 | `.ru map restart [force]` | admin | restarts the game (`mp_restartgame 1`); a loaded match stays loaded (essentials plugin) |
@@ -86,6 +87,54 @@ Notes:
 - If no admins exist yet, the **first admin must be added from the server console** (or in
   `admins.json`).
 - SteamID input is **SteamID64** (decimal) or a connected-player name fragment.
+
+## Calling an admin (`.admin`)
+
+Any player (roster, spectator, scrim, any mode) can type `.admin [message]` in chat:
+
+- The caller gets a private "admins notified.". Each player can call once every
+  `admin_call_cooldown_s` seconds (`readyup.cfg`, default 60, 0 = no cooldown); a call during the
+  cooldown only answers "you can call again in Ns".
+- Every admin in game gets a private chat line (`ADMIN CALL <name> (<team>, <side>) needs an
+  admin: <message>`) and a center card for about 6 s ("ADMIN CALLED", same text) at
+  `RU_HTML_PRIO_ALERT` ([HUD.md](HUD.md)).
+- The server console logs `admin-call: <name> (<steamid64>, <team>): <message> [<call_id>]`.
+- The platform gets an `admin_called` event: through the webhook pipeline (same events URL,
+  token and retry queue as `match_paused` & co; the token goes in both `Authorization: Bearer`
+  and `X-Auto-Tournament-Token`), and on the fleet link as
+  `event.admin_called` (while the server has a platform assignment; `data` = the same fields
+  without `event` / `matchid` / `map_number`, schema
+  `plugins/fleet/protocol/v1/messages/event.admin_called.json`).
+
+Resolving a call is done on the platform; there is no in-game command for it.
+
+The webhook body (POSTed to `<events url>/<match slug | matchid>`; with no match loaded
+`<events url>/unknown`, in a scrim `<events url>/scrim`):
+
+```json
+{
+  "event": "admin_called",
+  "matchid": 4242,
+  "map_number": 0,
+  "server_id": "srv-eu-1",
+  "call_id": "3f2b8c1e-9a4d-4e6f-8b21-7c5d0e9f1a2b",
+  "player": { "steamid64": "76561198000000001", "name": "alice", "team": "team1", "side": "ct" },
+  "message": "smoke bugged on B site",
+  "called_at": "2026-09-25T12:40:12.345Z"
+}
+```
+
+- `matchid`: the loaded match's id (a number); `-1` in a scrim or with no match loaded.
+- `map_number`: the current map of the series, **0-based** (0 = the first map; 0 without a match).
+  The other webhook events count maps from 1.
+- `server_id`: the fleet server id, only when the server is enrolled in fleet mode.
+- `call_id`: unique per call (a version-4 UUID).
+- `player.steamid64`: a string. `player.team`: `"team1"` / `"team2"` (the match roster),
+  `"spectator"` (on the spectator team) or `null` (scrim player, not on the roster).
+  `player.side`: `"ct"` / `"t"` / `null`.
+- `message`: what followed `.admin`, trimmed, chat color bytes removed, at most 200 characters;
+  may be empty.
+- `called_at`: ISO 8601 UTC with milliseconds.
 
 ## Upgrading from Postgres
 

@@ -2002,4 +2002,6 @@ void RestoreJson(const Json& j) {
         g_asg.epoch, g_stream.Rev());
 }
 
+std::string FleetServerId() { return ServerId(); }
+
 }  // namespace readyup::fleet_bridge

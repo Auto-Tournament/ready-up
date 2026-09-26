@@ -70,7 +70,7 @@ int main() {
   for (const char* t : {"match.assign", "match.update", "match.unassign", "cmd", "cmd.result", "state.snapshot",
                         "state.patch", "state.request", "server.availability", "event.round_end", "event.map_result",
                         "event.backup", "event.phase", "event.pause", "event.demo", "event.series_end", "admins.set",
-                        "skins.loadout", "skins.invalidate", "skins.stattrak"}) {
+                        "skins.loadout", "skins.invalidate", "skins.stattrak", "event.admin_called"}) {
     CHECK(set.Has(kBase + "messages/" + t + ".json"));
   }
 
@@ -108,6 +108,27 @@ int main() {
   CHECK(broken("cmd.result.json", [](Value* p) { p->Set("status", Value::Str("maybe")); }));
   CHECK(broken("state.patch.json", [](Value* p) { p->Set("rev", Value::Int(0)); }));
   CHECK(broken("event.pause.json", [](Value* p) { p->Get("data")->Set("type", Value::Str("coffee")); }));
+
+  CHECK(broken("event.admin_called.json", [](Value* p) {
+    p->Get("data")->Get("player")->Set("team", Value::Str("coach"));
+  }));
+  CHECK(broken("event.admin_called.json", [](Value* p) {
+    p->Get("data")->Get("player")->Set("steamid64", Value::Int(76561198000000001LL));
+  }));
+  CHECK(broken("event.admin_called.json", [](Value* p) { p->Get("data")->Set("called_at", Value::Str("yesterday")); }));
+  CHECK(broken("event.admin_called.json", [](Value* p) { p->Get("data")->Set("message", Value::Str(std::string(801, 'x'))); }));
+
+  // `.admin` from a spectator / a player whose team or side is unknown, with no message.
+  {
+    Value env = Load(std::string(FLEET_EXAMPLES_DIR) + "/event.admin_called.json");
+    Value* data = env.Get("payload")->Get("data");
+    data->Get("player")->Set("team", Value::Str("spectator"));
+    data->Get("player")->Set("side", Value::Null());
+    data->Set("message", Value::Str(""));
+    CHECK(ValidateFrame(set, env, "event.admin_called.json spectator"));
+    data->Get("player")->Set("team", Value::Null());
+    CHECK(ValidateFrame(set, env, "event.admin_called.json team null"));
+  }
 
   // Every pause type the match plugin reports (pause_state.h) validates.
   for (const char* type : {"tactical", "technical", "admin", "offline", "halftime", "auto_5v5"}) {

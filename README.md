@@ -139,7 +139,7 @@ Loads into CS2, owns every engine touchpoint (`gamedata/engine-surface.json`), a
 
 <br />
 
-The match flow: scrim ready-up with a center-screen panel, knife round and side pick, pauses, admins, match configs, webhooks for the Auto Tournament platform, GOTV demos and per-map stats. Ships as `plugins/match.so` in both bundles. `ru plugin reload match` swaps in a new build without dropping a loaded match: ready states, scores and the knife round carry over.
+The match flow: scrim ready-up with a center-screen panel, knife round and side pick, a go-live card with the commands, pauses, `.admin [message]` to call an admin, admins, match configs, webhooks for the Auto Tournament platform, GOTV demos and per-map stats. Ships as `plugins/match.so` in both bundles. `ru plugin reload match` swaps in a new build without dropping a loaded match: ready states, scores and the knife round carry over.
 
 </details>
 

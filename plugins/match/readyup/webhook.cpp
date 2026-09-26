@@ -1,5 +1,6 @@
 #include "readyup/webhook.h"
 
+#include "readyup/admin_call_logic.h"
 #include "readyup/cs2_version.h"
 #include "readyup/config.h"
 #include "readyup/http_client.h"
@@ -711,6 +712,14 @@ void WebhookEmitSidePicked(int map_number, const char* map_name, const char* sid
       "\"team\":\"" + JsonEscape(t) + "\"" +
       "}";
   EnqueueLocked(st, json);
+}
+
+void WebhookEmitAdminCalled(const AdminCallEvent& e) {
+  WebhookStartSenderThread();
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  if (st.baseUrl.empty()) return;
+  EnqueueLocked(st, AdminCalledWebhookJson(e));
 }
 
 bool WebhookUpdateMapSide(int map_number, const char* map_side) {

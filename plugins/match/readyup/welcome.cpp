@@ -1,5 +1,7 @@
 #include "readyup/welcome.h"
 
+#include "readyup/admin_call.h"
+#include "readyup/card_html.h"
 #include "readyup/engine.h"
 #include "readyup/config.h"
 #include "readyup/logging.h"
@@ -89,32 +91,6 @@ static void ResetLocked(const std::string& map) {
   g_map = map;
 }
 
-static std::string HtmlEscape(const std::string& in, size_t maxBytes) {
-  std::string s = in;
-  if (s.size() > maxBytes) {
-    size_t cut = maxBytes;
-    // Don't split a UTF-8 sequence.
-    while (cut > 0 && (static_cast<unsigned char>(s[cut]) & 0xC0) == 0x80) --cut;
-    s.resize(cut);
-    s += "...";
-  }
-  std::string out;
-  out.reserve(s.size() + 16);
-  for (char c : s) {
-    switch (c) {
-      case '<': out += "&lt;"; break;
-      case '>': out += "&gt;"; break;
-      case '&': out += "&amp;"; break;
-      case '"': out += "&quot;"; break;
-      case '\'': out += "&#39;"; break;
-      default:
-        if (static_cast<unsigned char>(c) >= 0x20) out += c;  // drop control bytes (chat colors)
-        break;
-    }
-  }
-  return out;
-}
-
 static const char* ModeLabel(ReadyUpMode m) {
   switch (m) {
     case ReadyUpMode::Idle: return "Idle";
@@ -141,10 +117,10 @@ static std::string BuildHtml(const std::string& name, int team, ReadyUpMode mode
   const std::string brand = HudBrandHtml(/*imgHeight=*/32, "fontSize-l");
   if (!brand.empty()) h += brand + "<br>";
   h += "<font class='fontSize-s' color='#5B6068'>build ";
-  h += HtmlEscape(BuildVersion(), 40);
+  h += CardHtmlEscape(BuildVersion(), 40);
   h += "</font><br>";
   h += "<font class='fontSize-m' color='#FFFFFF'>Welcome, ";
-  h += HtmlEscape(name.empty() ? std::string("player") : name, 32);
+  h += CardHtmlEscape(name.empty() ? std::string("player") : name, 32);
   h += "</font><br>";
   h += "<font class='fontSize-m' color='";
   h += teamColor;
@@ -371,6 +347,7 @@ void WelcomeTick() {
         continue;
       }
       if (now < s.nextSend) continue;
+      if (AdminCallCardActiveFor(kv.first)) continue;  // an `.admin` call card is up (admin_call.h)
       std::string name = s.name;
       if (name.empty()) {
         if (auto ident = GetSlotIdentity(kv.first)) name = ident->name;

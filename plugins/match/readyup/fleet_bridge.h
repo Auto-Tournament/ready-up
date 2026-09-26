@@ -42,6 +42,8 @@ void OnLogLine(const char* line);
 
 // True while a platform assignment is active.
 bool Assigned();
+// The enrolled fleet server id (fleet.so status), "" without fleet / before enrollment. Game thread.
+std::string FleetServerId();
 // The fleet MatchState (what state.snapshot / hello carry) while assigned; false otherwise.
 bool CurrentState(status::Json* out);
 // False while a demo of the assignment still uploads or the series is not over (FLEET.md §17).

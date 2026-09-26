@@ -35,12 +35,12 @@ consume them: [`docs/fleet-step3-platform-notes.md`](../../../docs/fleet-step3-p
 | `messages/state.snapshot.json` | server → platform | ephemeral | |
 | `messages/state.patch.json` | server → platform | reliable | |
 | `messages/server.availability.json` | server → platform | reliable | |
-| `messages/event.<name>.json` (21) | server → platform | reliable | |
+| `messages/event.<name>.json` (22) | server → platform | reliable | |
 
 Events: `player_connect`, `player_disconnect`, `player_team`, `player_ready`, `player_unready`,
 `phase`, `knife_result`, `side_picked`, `round_start`, `round_end`, `backup`, `pause`, `halftime`,
-`overtime`, `rounds_voided`, `map_result`, `series_end`, `demo`, `match_restored`, `forfeit`, `gg`
-(and `error`, reserved).
+`overtime`, `rounds_voided`, `map_result`, `series_end`, `demo`, `match_restored`, `forfeit`, `gg`,
+`admin_called` (and `error`, reserved).
 
 Differences from the FLEET.md text, decided while implementing:
 
