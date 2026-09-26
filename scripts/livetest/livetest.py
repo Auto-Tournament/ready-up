@@ -652,8 +652,17 @@ class Runner:
             self.srv.send(f"bot_quota {a.bots_per_side * 2}")
 
         def chk_warmup(_f):
-            return state_where(lambda fl: fl.get("mode") == "match_warmup" and fl.get("warmup") == "1",
-                               "load") is not None
+            if state_where(lambda fl: fl.get("mode") == "match_warmup" and fl.get("warmup") == "1",
+                           "load") is not None:
+                return True
+            # With bots filling both teams the flow can pass warmup before a state line
+            # shows it (no countdown in the match flow, see chk_countdown): a knife or
+            # live state since the load means warmup was entered and left.
+            later = state_where(lambda fl: fl.get("mode") in ("match_knife", "match_live"), "load")
+            if later is not None:
+                f.warmup_note = f"passed through (next seen: {later.get('mode')})"
+                return True
+            return False
 
         def bots_ok(fl):
             # bot_quota counts differ with bot_quota_mode; require >= N bots and no humans per side.
@@ -821,7 +830,7 @@ class Runner:
             Step("reset (idle, no match)", 30, chk_reset, act_reset),
             Step("match load (ru match load)", 30, chk_load, act_load,
                  lambda f_: f"matchid={f_.loaded[1]} slug={f_.loaded[2]}" if f_.loaded else ""),
-            Step("warmup (match_warmup)", 20, chk_warmup, act_bots),
+            Step("warmup (match_warmup)", 20, chk_warmup, act_bots, lambda f_: getattr(f_, "warmup_note", "")),
             Step(f"bots (>= {a.bots_per_side} per side, no humans)", 60, chk_bots, None,
                  lambda f_: next((f"ct={fl.get('ct')} t={fl.get('t')}" for _, fl, _ in reversed(f_.states)), "")),
             Step("countdown", 1, chk_countdown),
