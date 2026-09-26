@@ -9,20 +9,20 @@
   "commit": "75485a703578d76aa76b76c2a2ff7a92c9582763"
  },
  "run": {
-  "id": "36205902908",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/36205902908",
-  "trigger": "surface_change",
-  "stage": "static",
-  "state": "warn",
-  "started_at": "2026-09-26T00:43:47Z",
-  "finished_at": "2026-09-26T00:45:10Z"
+  "id": "36230926507",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/36230926507",
+  "trigger": "nightly",
+  "stage": "selftest",
+  "state": "fail",
+  "started_at": "2026-09-26T08:49:22Z",
+  "finished_at": "2026-09-26T08:53:24Z"
  },
- "overall": "warn",
+ "overall": "fail",
  "components": [
   {
    "id": "core",
    "name": "Core",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -61,10 +61,12 @@
     },
     {
      "kind": "selftest",
-     "status": "pending",
+     "status": "fail",
      "passed": 0,
-     "total": 0,
-     "failures": []
+     "total": 1,
+     "failures": [
+      "no readyup_selftest.txt: the server did not finish booting with Ready Up"
+     ]
     }
    ]
   },
@@ -496,5 +498,5 @@
    ]
   }
  ],
- "checked_at": "2026-09-26T00:45:10Z"
+ "checked_at": "2026-09-26T08:53:24Z"
 }
