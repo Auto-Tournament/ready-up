@@ -8,7 +8,9 @@
 #include "readyup/logging.h"
 #include "readyup/perf_stats.h"
 #include "readyup/path.h"
+#include "readyup/plugin_needs.h"
 #include "readyup/plugin_state.h"
+#include "readyup/plugin_needs_iface.h"
 #include "readyup/ru_router.h"
 #include "readyup/version.h"
 
@@ -113,6 +115,13 @@ std::deque<LifecycleEvent> g_events;
 std::vector<PendingOp> g_ops;
 std::string g_currentMap;
 std::vector<std::string> g_loadFailures;  // "<name>: <error>" from the initial directory load
+// Plugins the core refused to load because their needs.json is not met on this CS2 build
+// (plugin_needs.h): name -> reason. Also guarded by g_mu.
+std::map<std::string, std::string> g_needsDisabled;
+NeedsProbeProvider g_needsProvider = nullptr;   // set by the server build (plugin_needs_engine.cpp)
+NeedsAdminNotifier g_needsNotifier = nullptr;
+uint64_t g_mapGen = 0;                          // bumped on every map start (admin notices)
+double g_nextNeedsNotice = 0;                   // game thread
 int g_nextId = 0;
 ru_handle g_nextHandle = 0;
 
@@ -576,6 +585,68 @@ const char* ApiConfigDir(ru_plugin*) {
   return dir.c_str();
 }
 
+// ---- plugin needs (plugin_needs.h) ------------------------------------------------------------
+
+std::string JsonEscape(const std::string& s) {
+  std::string o;
+  for (unsigned char c : s) {
+    if (c == '"' || c == '\\') {
+      o += '\\';
+      o += static_cast<char>(c);
+    } else if (c < 0x20) {
+      char b[8];
+      std::snprintf(b, sizeof(b), "\\u%04x", c);
+      o += b;
+    } else {
+      o += static_cast<char>(c);
+    }
+  }
+  return o;
+}
+
+uint32_t NeedsDisabledJson(char* buf, uint32_t cap) {
+  std::string j = "[";
+  for (const auto& d : NeedsDisabledPlugins()) {
+    j += (j.size() > 1 ? "," : "") + std::string("{\"name\":\"") + JsonEscape(d.name) + "\",\"reason\":\"" +
+         JsonEscape(d.reason) + "\"}";
+  }
+  j += "]";
+  if (buf && cap > 0) {
+    const size_t n = j.size() < cap - 1 ? j.size() : cap - 1;
+    std::memcpy(buf, j.data(), n);
+    buf[n] = '\0';
+  }
+  return static_cast<uint32_t>(j.size());
+}
+
+const ru_plugin_needs_iface_v1 g_needsIface = {sizeof(ru_plugin_needs_iface_v1), &NeedsDisabledJson};
+
+// Interfaces the core itself provides (never owned by a plugin).
+void* CoreOwnedInterface(const char* name, uint32_t minVersion) {
+  if (std::strcmp(name, RU_PLUGIN_NEEDS_IFACE_NAME) == 0 && minVersion <= RU_PLUGIN_NEEDS_IFACE_VERSION) {
+    return const_cast<ru_plugin_needs_iface_v1*>(&g_needsIface);
+  }
+  return nullptr;
+}
+
+// Game thread, every frame: once per map (after it starts), tell in-game admins which plugins
+// the core did not load and why. The notifier (server build) remembers who it told.
+void NoticeNeedsDisabled() {
+  if (!g_needsNotifier) return;
+  const double now = NowSeconds();
+  if (now < g_nextNeedsNotice) return;
+  g_nextNeedsNotice = now + 5.0;
+  std::vector<std::string> lines;
+  uint64_t gen = 0;
+  {
+    std::lock_guard<std::mutex> lk(g_mu);
+    gen = g_mapGen;
+    for (const auto& kv : g_needsDisabled) lines.push_back(NeedsDisabledLine(kv.first, kv.second));
+  }
+  if (gen == 0 || lines.empty()) return;
+  g_needsNotifier(lines, gen);
+}
+
 int ApiProvideInterface(ru_plugin* self, const char* name, uint32_t version, void* iface) {
   Instance* inst = GameThreadCaller(self, "provide_interface");
   if (!inst || !name || !*name || !iface) return 0;
@@ -593,6 +664,7 @@ int ApiProvideInterface(ru_plugin* self, const char* name, uint32_t version, voi
 
 void* ApiGetInterface(ru_plugin* self, const char* name, uint32_t minVersion) {
   if (!GameThreadCaller(self, "get_interface") || !name) return nullptr;
+  if (void* core = CoreOwnedInterface(name, minVersion)) return core;
   std::lock_guard<std::mutex> lk(g_mu);
   auto it = g_ifaces.find(name);
   if (it == g_ifaces.end() || it->second.version < minVersion) return nullptr;
@@ -724,7 +796,32 @@ bool UnloadNow(const std::string& name, std::string* err) {
 }
 
 // Game thread, g_depth == 0.
-bool LoadNow(const std::string& name, std::string* err) {
+// needs.json gate (plugin_needs.h). False (reason in *why) when the plugin must not load on this
+// build. Logs the decision and warnings; records / clears the plugin in g_needsDisabled.
+bool NeedsAllow(const std::string& dir, const std::string& name, std::string* why) {
+  if (!g_needsProvider) return true;  // offline host: no engine to check against
+  std::string perr;
+  const auto needs = LoadNeedsFile(dir + "/" + name + ".needs.json", &perr);
+  if (!needs) {
+    if (!perr.empty()) Print("plugin[%s]: WARNING: %s.needs.json ignored: %s\n", name.c_str(), name.c_str(), perr.c_str());
+    std::lock_guard<std::mutex> lk(g_mu);
+    g_needsDisabled.erase(name);
+    return true;
+  }
+  const NeedsVerdict v = EvaluateNeeds(*needs, g_needsProvider());
+  for (const auto& w : v.warnings) Print("plugin[%s]: WARNING: %s\n", name.c_str(), w.c_str());
+  std::lock_guard<std::mutex> lk(g_mu);
+  if (v.load) {
+    g_needsDisabled.erase(name);
+    return true;
+  }
+  Print("WARN %s\n", NeedsDisabledLine(name, v.reason).c_str());
+  g_needsDisabled[name] = v.reason;
+  if (why) *why = "disabled: " + v.reason;
+  return false;
+}
+
+bool LoadNow(const std::string& name, std::string* err, bool checkNeeds = true) {
   auto fail = [&](const std::string& why) {
     if (err) *err = why;
     return false;
@@ -739,6 +836,10 @@ bool LoadNow(const std::string& name, std::string* err) {
   const std::string path = dir + "/" + name + ".so";
   struct stat st {};
   if (stat(path.c_str(), &st) != 0 || !S_ISREG(st.st_mode)) return fail("no such file: " + path);
+  if (checkNeeds) {
+    std::string why;
+    if (!NeedsAllow(dir, name, &why)) return fail(why);
+  }
 
   if (void* old = dlopen(path.c_str(), RTLD_NOW | RTLD_NOLOAD)) {
     dlclose(old);
@@ -885,13 +986,20 @@ void LoadAllFromDir() {
   std::sort(names.begin(), names.end());
   Print("plugin: %zu plugin file(s) in %s\n", names.size(), dir.c_str());
   const std::set<std::string> disabled = LoadDisabled(PluginStatePath(dir));
+  // needs.json first, for every plugin, so the list of plugins this build cannot run is complete
+  // before any plugin loads (fleet reports it in hello).
+  std::set<std::string> unmet;
+  for (const auto& n : names) {
+    if (!disabled.count(n) && !NeedsAllow(dir, n, nullptr)) unmet.insert(n);
+  }
   for (const auto& n : names) {
     if (disabled.count(n)) {
       Print("plugin: %s is disabled (plugins.json); `ru plugin enable %s` turns it on\n", n.c_str(), n.c_str());
       continue;
     }
+    if (unmet.count(n)) continue;  // logged by NeedsAllow; a WARN in ru selftest, not a load failure
     std::string err;
-    if (!LoadNow(n, &err)) {
+    if (!LoadNow(n, &err, /*checkNeeds=*/false)) {
       Print("plugin: failed to load %s: %s\n", n.c_str(), err.c_str());
       std::lock_guard<std::mutex> lk(g_mu);
       g_loadFailures.push_back(n + ": " + err);
@@ -1094,6 +1202,7 @@ void PostEvent(LifecycleEvent ev) {
   if (ev.type == RU_EVENT_MAP_START) {
     if (ev.map.empty() || ev.map == g_currentMap) return;  // "Loading map" + "Started map"
     g_currentMap = ev.map;
+    ++g_mapGen;
   } else {
     ev.map = g_currentMap;
   }
@@ -1211,6 +1320,7 @@ void Frame(bool simulating) {
     g_initialized = true;
     LoadAllFromDir();
   }
+  NoticeNeedsDisabled();
 
   // 1. Load / unload / reload: nothing of any plugin is on the stack here.
   std::vector<PendingOp> ops;
@@ -1318,6 +1428,9 @@ void HandlePluginCommand(const std::vector<std::string>& args, bool replyToChat,
       for (const auto& n : disabled) d += (d.empty() ? "" : " ") + n;
       Reply("  disabled (plugins.json): " + d, replyToChat, slot);
     }
+    for (const auto& d : NeedsDisabledPlugins()) {
+      Reply("  disabled (needs.json not met): " + d.name + " - " + d.reason, replyToChat, slot);
+    }
     return;
   }
   if (verb != "load" && verb != "unload" && verb != "reload" && verb != "enable" && verb != "disable") {
@@ -1416,6 +1529,7 @@ int PluginAdminVerdict(uint64_t steamid64) {
 
 void* CoreGetInterface(const char* name, uint32_t minVersion) {
   if (!name) return nullptr;
+  if (void* core = CoreOwnedInterface(name, minVersion)) return core;
   std::lock_guard<std::mutex> lk(g_mu);
   auto it = g_ifaces.find(name);
   if (it == g_ifaces.end() || it->second.version < minVersion) return nullptr;
@@ -1461,6 +1575,40 @@ std::vector<PluginSelftestCheck> RunPluginSelftests() {
     } catch (...) {
       out.push_back(PluginSelftestCheck{it.plugin, "FAIL", "selftest", "threw an exception"});
     }
+  }
+  return out;
+}
+
+void SetNeedsProbeProvider(NeedsProbeProvider provider) { g_needsProvider = provider; }
+void SetNeedsAdminNotifier(NeedsAdminNotifier notifier) { g_needsNotifier = notifier; }
+
+std::vector<DisabledPlugin> NeedsDisabledPlugins() {
+  std::lock_guard<std::mutex> lk(g_mu);
+  std::vector<DisabledPlugin> out;
+  for (const auto& kv : g_needsDisabled) out.push_back({kv.first, kv.second});
+  return out;
+}
+
+std::vector<PluginNeedsReport> EvaluateAllNeedsNow() {
+  std::vector<PluginNeedsReport> out;
+  if (!g_needsProvider) return out;
+  const std::string dir = PluginsDir();
+  DIR* d = dir.empty() ? nullptr : opendir(dir.c_str());
+  if (!d) return out;
+  std::vector<std::string> names;
+  const std::string suffix = ".needs.json";
+  while (dirent* e = readdir(d)) {
+    const std::string f = e->d_name;
+    if (f.size() > suffix.size() && f.compare(f.size() - suffix.size(), suffix.size(), suffix) == 0) {
+      names.push_back(f.substr(0, f.size() - suffix.size()));
+    }
+  }
+  closedir(d);
+  std::sort(names.begin(), names.end());
+  const NeedsProbe probe = g_needsProvider();
+  for (const auto& n : names) {
+    std::string err;
+    if (const auto needs = LoadNeedsFile(dir + "/" + n + suffix, &err)) out.push_back({n, EvaluateNeeds(*needs, probe)});
   }
   return out;
 }

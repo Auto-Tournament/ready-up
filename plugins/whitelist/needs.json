@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "plugin": "whitelist",
+  "api": [
+    "chat_to_slot",
+    "on_tick",
+    "register_ru_subcommand"
+  ],
+  "surface": [
+    "CCommand",
+    "ClientPrint",
+    "ISource2GameClients::ClientCommand",
+    "ISource2Server::GameFrame"
+  ],
+  "schema": [],
+  "schema_optional": [],
+  "events": []
+}

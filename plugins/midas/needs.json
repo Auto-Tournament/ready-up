@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "plugin": "midas",
+  "api": [
+    "chat_all",
+    "entity_by_index",
+    "entity_classname",
+    "entity_from_handle",
+    "entity_mark_changed",
+    "entity_system_status",
+    "on_tick",
+    "schema_offset",
+    "subscribe_game_event"
+  ],
+  "surface": [
+    "CBaseEntity_NetworkStateChanged",
+    "CEntityInstance::NetworkStateChanged",
+    "CGameEventManager",
+    "CGameEventManager_Init",
+    "CSchemaSystem",
+    "CSchemaSystemTypeScope",
+    "ISource2Server::GameFrame",
+    "UTIL_ClientPrintAll",
+    "UTIL_Remove"
+  ],
+  "schema": [
+    "CBasePlayerController.m_steamID",
+    "CBasePlayerPawn.m_pWeaponServices",
+    "CCSPlayerController.m_hPlayerPawn",
+    "CPlayer_WeaponServices.m_hMyWeapons"
+  ],
+  "schema_optional": [
+    "CBaseModelEntity.m_clrRender"
+  ],
+  "events": [
+    "item_equip",
+    "item_pickup",
+    "player_spawn",
+    "round_start"
+  ]
+}

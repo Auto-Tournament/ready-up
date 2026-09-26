@@ -94,7 +94,8 @@ set_tests_properties(fleet_integration PROPERTIES TIMEOUT 240)
 # fleet.so inside the real plugin host (core plugin_loader.cpp + stubs) against the mock platform:
 # standalone idle, then enroll + connect, selftest lines, commands, unload joins the thread.
 add_executable(fleet_host_test tests/fleet_host_test.cpp ${CMAKE_SOURCE_DIR}/core/src/readyup/plugin_loader.cpp ${CMAKE_SOURCE_DIR}/core/src/readyup/perf_stats.cpp
-  ${CMAKE_SOURCE_DIR}/core/src/readyup/plugin_state.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp)
+  ${CMAKE_SOURCE_DIR}/core/src/readyup/plugin_state.cpp ${CMAKE_SOURCE_DIR}/core/src/readyup/plugin_needs.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp)
 target_include_directories(fleet_host_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs
   ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(fleet_host_test PRIVATE -Wall -Wextra)

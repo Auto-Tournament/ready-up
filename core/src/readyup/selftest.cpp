@@ -15,6 +15,7 @@
 #include "readyup/logging.h"
 #include "readyup/path.h"
 #include "readyup/plugin_loader.h"
+#include "readyup/plugin_needs.h"
 #include "readyup/round_termination_hook.h"
 #include "readyup/schema.h"
 #include "readyup/steam_ugc.h"
@@ -283,6 +284,22 @@ void AddFunchookSites(Report& r, const es::EngineSurface& s) {
   }
 }
 
+// Every plugin manifest (csgo/readyup/plugins/<name>.needs.json) evaluated against this build now:
+// "need <plugin> <surface|schema|schema_optional|event> <entry>". A miss is a WARN (the plugin is
+// disabled or degraded, Ready Up itself is fine); scripts/ci/compat-report.py turns these into
+// the per-plugin schema / event verdicts of docs/CS2-COMPAT.md.
+void AddPluginNeeds(Report& r) {
+  const auto all = plugins::EvaluateAllNeedsNow();
+  if (all.empty()) return;
+  r.Section("plugin needs");
+  for (const auto& p : all) {
+    for (const auto& c : p.verdict.checks) {
+      r.Check(c.state == 1 ? "OK" : c.state == 0 ? "WARN" : "PEND", "need " + p.plugin + " " + c.kind + " " + c.entry,
+              c.detail);
+    }
+  }
+}
+
 void AddPluginsAndHud(Report& r) {
   r.Section("plugins");
   const plugins::PluginHostStatus p = plugins::GetPluginHostStatus();
@@ -304,6 +321,8 @@ void AddPluginsAndHud(Report& r) {
       }
       r.Check(st, c.plugin + ": " + c.name, c.detail);
     }
+    // Plugins not loaded because their needs.json is not met on this build (plugin_needs.h).
+    for (const auto& d : plugins::NeedsDisabledPlugins()) r.Check("WARN", d.name + ": disabled", d.reason);
   }
 
   // (The database, ready HUD and hud brand lines come from plugins/match:
@@ -344,6 +363,7 @@ SelftestResult Build(const std::string& extraFailure) {
   AddSchema(r);
   AddRuntime(r);
   AddPluginsAndHud(r);
+  AddPluginNeeds(r);
   AddFeatures(r);
 
   SelftestResult out;

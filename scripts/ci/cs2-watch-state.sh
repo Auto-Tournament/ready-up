@@ -8,6 +8,9 @@
 #   scripts/ci/cs2-watch-state.sh write <buildid> <surface-sha256> <pass|fail> <commit> [patch-version]
 #       CS2_STATE_FILES="a/compat.json a/badge.json" also commits those files (by basename) to the
 #       branch root; they are served from raw.githubusercontent.com (README badge, docs/CS2-COMPAT.md).
+#   scripts/ci/cs2-watch-state.sh publish <message>
+#       commits only CS2_STATE_FILES (state.env untouched): the dynamic stages of
+#       .github/workflows/cs2-dynamic.yml update compat.json + badge.json this way.
 set -euo pipefail
 
 BRANCH="${CS2_STATE_BRANCH:-cs2-build}"
@@ -18,6 +21,25 @@ case "$cmd" in
     if git fetch -q --depth=1 origin "refs/heads/$BRANCH" 2>/dev/null; then
       git show FETCH_HEAD:state.env 2>/dev/null || true
     fi
+    ;;
+  publish)
+    msg="${2:?message}"
+    wt="$(mktemp -d)"
+    trap 'git worktree remove --force "$wt" >/dev/null 2>&1 || rm -rf "$wt"' EXIT
+    git fetch -q origin "refs/heads/$BRANCH"
+    git worktree add -q --detach "$wt" FETCH_HEAD
+    for f in ${CS2_STATE_FILES:-}; do
+      [[ -f "$f" ]] || { echo "warning: $f not found, not recorded" >&2; continue; }
+      cp "$f" "$wt/$(basename "$f")"
+      git -C "$wt" add "$(basename "$f")"
+    done
+    echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $msg" >>"$wt/history.log"
+    git -C "$wt" add history.log
+    git -C "$wt" -c user.name="github-actions[bot]" \
+      -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+      commit -q -m "$msg"
+    git -C "$wt" push -q origin "HEAD:refs/heads/$BRANCH"
+    echo "recorded on $BRANCH: $msg"
     ;;
   write)
     buildid="${2:?buildid}" surface="${3:?surface sha}" status="${4:?status}" commit="${5:?commit}"

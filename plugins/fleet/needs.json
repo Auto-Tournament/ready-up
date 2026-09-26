@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "plugin": "fleet",
+  "api": [
+    "chat_all",
+    "chat_to_slot",
+    "on_tick",
+    "post_to_game_thread",
+    "register_chat_command",
+    "register_console_command"
+  ],
+  "surface": [
+    "CCommand",
+    "ClientPrint",
+    "Host_Say",
+    "ISource2GameClients::ClientCommand",
+    "ISource2Server::GameFrame",
+    "UTIL_ClientPrintAll"
+  ],
+  "schema": [],
+  "schema_optional": [],
+  "events": []
+}

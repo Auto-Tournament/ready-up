@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "plugin": "deathmatch",
+  "api": [
+    "center_html_all",
+    "center_html_all_prio",
+    "center_html_to_slot",
+    "center_html_to_slot_prio",
+    "chat_all",
+    "chat_to_slot",
+    "on_tick",
+    "register_ru_subcommand",
+    "subscribe_game_event"
+  ],
+  "surface": [
+    "CCommand",
+    "CGameEventManager",
+    "CGameEventManager_Init",
+    "CServerSideClient_GameEventLegacyProxy",
+    "ClientPrint",
+    "ISource2GameClients::ClientCommand",
+    "ISource2Server::GameFrame",
+    "LegacyGameEventListener",
+    "UTIL_ClientPrintAll"
+  ],
+  "schema": [],
+  "schema_optional": [],
+  "events": [
+    "player_death"
+  ]
+}

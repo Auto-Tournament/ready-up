@@ -457,6 +457,8 @@ hello {
   state?: MatchState | null              // §9; null or absent when idle
   availability: "available" | "busy" | "draining" | "error"
   selftest?: { pass: boolean, passed: number, total: number, failures: string[] }   // optional
+  plugins_disabled?: { name: string, reason: string }[]   // plugins the core did not load: needs.json
+                                                          // not met on this CS2 build (CS2-COMPAT.md)
 }
 
 // platform → server, ephemeral

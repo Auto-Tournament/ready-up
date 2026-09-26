@@ -9,6 +9,8 @@
 //
 // Run by `ctest` (see CMakeLists.txt).
 #include "readyup/plugin_loader.h"
+#include "readyup/plugin_needs.h"
+#include "readyup/plugin_needs_iface.h"
 
 #include "readyup/plugin_api.h"
 
@@ -291,6 +293,59 @@ int main(int argc, char** argv) {
   rp::HandlePluginCommand({"load", "hello"}, false);
   rp::Frame(false);
   Check(Logged("loaded hello"), "load after unload works");
+
+  std::puts("-- needs.json: unmet needs keep a plugin out, with the reason everywhere");
+  rp::HandlePluginCommand({"unload", "hello"}, false);
+  rp::Frame(false);
+  const std::string needsPath = std::string(dir) + "/hello.needs.json";
+  if (FILE* f = std::fopen(needsPath.c_str(), "w")) {
+    std::fputs("{\"plugin\":\"hello\",\"surface\":[\"Host_Say\",\"Gone_Fn\"],"
+               "\"schema_optional\":[\"CFoo.m_bar\"],\"events\":[\"player_death\"]}", f);
+    std::fclose(f);
+  }
+  static std::vector<std::string> s_notices;
+  rp::SetNeedsProbeProvider([] {
+    rp::NeedsProbe p;
+    p.surface = [](const std::string& n) { return n == "Gone_Fn" ? 0 : 1; };
+    p.schema = [](const std::string&, const std::string&) { return -1; };
+    p.event = [](const std::string&) { return 1; };
+    p.cs2Build = "12345";
+    return p;
+  });
+  rp::SetNeedsAdminNotifier([](const std::vector<std::string>& lines, uint64_t) {
+    s_notices.insert(s_notices.end(), lines.begin(), lines.end());
+  });
+  g_log.clear();
+  rp::LoadAllFromDirForTest();
+  Check(Logged("WARN plugin[hello] disabled: missing Gone_Fn after CS2 build 12345") && !Logged("plugin: loaded hello"),
+        "boot scan refuses a plugin whose needed surface entry is missing");
+  Check(Logged("optional schema field CFoo.m_bar not found"), "missing optional schema field only warns");
+  Check(rp::GetPluginHostStatus().failures.empty(), "an unmet-needs plugin is not a load failure");
+  g_log.clear();
+  rp::HandlePluginCommand({"list"}, false);
+  Check(Logged("disabled (needs.json not met): hello - missing Gone_Fn after CS2 build 12345"), "ru plugin list shows why");
+  {
+    const auto* ni = static_cast<const ru_plugin_needs_iface_v1*>(
+        rp::CoreGetInterface(RU_PLUGIN_NEEDS_IFACE_NAME, RU_PLUGIN_NEEDS_IFACE_VERSION));
+    char buf[256] = {0};
+    Check(ni && ni->disabled_json(buf, sizeof(buf)) > 0 &&
+              std::string(buf) == "[{\"name\":\"hello\",\"reason\":\"missing Gone_Fn after CS2 build 12345\"}]",
+          "core interface lists the disabled plugin as JSON");
+  }
+  rp::PostEvent(rp::LifecycleEvent{RU_EVENT_MAP_START, 0, -1, 0, "", "de_needs"});
+  rp::Frame(false);
+  Check(s_notices.size() == 1 && s_notices[0] == "plugin[hello] disabled: missing Gone_Fn after CS2 build 12345",
+        "admins are told after a map starts");
+  g_log.clear();
+  rp::HandlePluginCommand({"load", "hello"}, false);
+  rp::Frame(false);
+  Check(Logged("load hello failed: disabled: missing Gone_Fn"), "a manual load is refused too");
+  unlink(needsPath.c_str());
+  rp::HandlePluginCommand({"load", "hello"}, false);
+  rp::Frame(false);
+  Check(Logged("loaded hello") && rp::NeedsDisabledPlugins().empty(), "no needs.json: loads as before");
+  rp::SetNeedsProbeProvider(nullptr);
+  rp::SetNeedsAdminNotifier(nullptr);
 
   unlink(so.c_str());
   unlink((std::string(dir) + "/readyup.cfg").c_str());

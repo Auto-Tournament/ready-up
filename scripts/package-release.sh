@@ -7,7 +7,9 @@
 #
 # <build-dir> holds libserver.so, plugins/match.so, plugins/fleet.so, plugins/skins.so,
 # plugins/hello.so, plugins/midas.so, plugins/whitelist.so, plugins/practice.so, plugins/essentials.so,
-# plugins/deathmatch.so and (optionally) readyup_sigcheck / readyup_hookcheck.
+# plugins/deathmatch.so and (optionally) readyup_sigcheck / readyup_hookcheck. Every plugin but
+# hello ships its plugins/<name>/needs.json as plugins/<name>.needs.json (the core does not load a
+# plugin whose needs this CS2 build does not meet; docs/CS2-COMPAT.md "Plugin needs").
 #
 # Component zips (the installer mixes these):
 #   ready-up-core-<v>-linuxsteamrt64.zip    the core (libserver.so, engine-surface.json,
@@ -99,7 +101,8 @@ core_files+=("$WORK/VERSION:VERSION" "$WORK/BUILD_INFO:BUILD_INFO")
 stage_component core "Ready Up core: libserver.so, engine surface, plugin host, status endpoint" "${core_files[@]}"
 
 # The match flow (plugins/match) and the ReadyUp/*.cfg files it execs (warmup, knife, live, ...).
-match_files=("$BUILD/plugins/match.so:plugins/match.so:755")
+match_files=("$BUILD/plugins/match.so:plugins/match.so:755"
+  "$ROOT_DIR/plugins/match/needs.json:plugins/match.needs.json")
 for f in "$ROOT_DIR"/cfg/ReadyUp/*.cfg; do
   case "$(basename "$f")" in fleet.cfg | midas.cfg | prac.cfg | practice.cfg | deathmatch.cfg) continue ;; esac  # the fleet / midas / practice / deathmatch components' own
   match_files+=("$f:cfg-templates/ReadyUp/$(basename "$f")")
@@ -110,6 +113,7 @@ stage_component match "Ready-up, scrims, knife round, pauses, practice, match co
 # protocol schemas (plugins/fleet/protocol) are for tests only; the plugin does not read them.
 stage_component fleet "Link to the Auto Tournament platform (idle until configured)" \
   "$BUILD/plugins/fleet.so:plugins/fleet.so:755" \
+  "$ROOT_DIR/plugins/fleet/needs.json:plugins/fleet.needs.json" \
   "$ROOT_DIR/cfg/ReadyUp/fleet.cfg:cfg-templates/ReadyUp/fleet.cfg"
 
 cat >"$WORK/SKINS-WARNING.txt" <<'EOF'
@@ -122,6 +126,7 @@ to go back to a skins-free server.
 EOF
 stage_component skins "Weapon paints, knives, gloves, agents (servers running skin changers risk GSLT bans)" \
   "$BUILD/plugins/skins.so:plugins/skins.so:755" \
+  "$ROOT_DIR/plugins/skins/needs.json:plugins/skins.needs.json" \
   "$ROOT_DIR/gamedata/engine-surface.skins.json:bin/linuxsteamrt64/engine-surface.skins.json" \
   "$WORK/SKINS-WARNING.txt:SKINS-WARNING.txt"
 
@@ -131,25 +136,30 @@ stage_component hello "Example plugin (.hello, hello_status); for plugin develop
 # Fun plugin; the template keeps it off (enabled=0).
 stage_component midas "Fun: weapons picked up by chosen players turn gold (off by default, never under the valve ruleset)" \
   "$BUILD/plugins/midas.so:plugins/midas.so:755" \
+  "$ROOT_DIR/plugins/midas/needs.json:plugins/midas.needs.json" \
   "$ROOT_DIR/cfg/ReadyUp/midas.cfg:cfg-templates/ReadyUp/midas.cfg"
 
 # Server basics apart from the match flow: admins (admins.json) and map change / reload / restart.
 stage_component essentials "Server basics: admins (admins.json), map change / reload / restart, default maps per mode" \
-  "$BUILD/plugins/essentials.so:plugins/essentials.so:755"
+  "$BUILD/plugins/essentials.so:plugins/essentials.so:755" \
+  "$ROOT_DIR/plugins/essentials/needs.json:plugins/essentials.needs.json"
 
 # Practice mode + tools (.prac, .savepos, .rethrow, .bot, ...): its own plugin, so a server can
 # run it without the match flow. Ships prac.cfg (the cvars it execs) and its settings template.
 stage_component practice "Practice mode and tools (.prac, .savepos/.loadpos, .spawn, .rethrow, .bot)" \
   "$BUILD/plugins/practice.so:plugins/practice.so:755" \
+  "$ROOT_DIR/plugins/practice/needs.json:plugins/practice.needs.json" \
   "$ROOT_DIR/cfg/ReadyUp/prac.cfg:cfg-templates/ReadyUp/prac.cfg" \
   "$ROOT_DIR/cfg/ReadyUp/practice.cfg:cfg-templates/ReadyUp/practice.cfg"
 
 stage_component whitelist "Only listed players may stay on the server (off until ru whitelist on)" \
-  "$BUILD/plugins/whitelist.so:plugins/whitelist.so:755"
+  "$BUILD/plugins/whitelist.so:plugins/whitelist.so:755" \
+  "$ROOT_DIR/plugins/whitelist/needs.json:plugins/whitelist.needs.json"
 
 # Deathmatch (FFA / TDM on CS2's deathmatch game mode): off until an admin switches it on.
 stage_component deathmatch "Deathmatch: free for all / team deathmatch with kill + time limits and a leaderboard (off until .ru dm ffa|tdm)" \
   "$BUILD/plugins/deathmatch.so:plugins/deathmatch.so:755" \
+  "$ROOT_DIR/plugins/deathmatch/needs.json:plugins/deathmatch.needs.json" \
   "$ROOT_DIR/cfg/ReadyUp/deathmatch.cfg:cfg-templates/ReadyUp/deathmatch.cfg"
 
 extras=()
