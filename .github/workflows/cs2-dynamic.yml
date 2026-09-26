@@ -12,6 +12,12 @@ name: CS2 dynamic check
 # Each stage updates compat.json (stage selftest, then live), POSTs it to COMPAT_INGEST_URL like
 # the static watch does, and commits compat.json + badge.json to the `cs2-build` branch.
 #
+# Live progress (docs/CS2-COMPAT.md "Run steps"): the run's steps (Build bundle, Update CS2,
+# Install bundle, Boot + selftest, Live: match, Live: scrim, Record) are POSTed as they go with
+# `compat-report.py step`, so the compatibility page shows the run step by step and never looks
+# finished while it is still going; the live test adds its own steps under Live: match / scrim
+# (COMPAT_STEP_EVENTS=1). A failed POST is a warning, never a failure.
+#
 # Runs on the runner labelled `readyup-live` (set up with `csm ci setup`; docs/CS2-COMPAT.md). It
 # is OFF until the repo variable CS2_DYNAMIC_ENABLED is `true`; with it on and no runner
 # registered, the `live` job just waits in the queue. Triggers are schedule / workflow_dispatch /
@@ -57,7 +63,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          sparse-checkout: scripts/ci
+          sparse-checkout: |
+            scripts/ci
+            gamedata
 
       - name: New static verdict?
         id: decide
@@ -79,6 +87,20 @@ jobs:
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
           echo "dynamic stage: run=$run" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: 'Progress: the planned steps (Build bundle running)'
+        if: steps.decide.outputs.run == 'true'
+        continue-on-error: true
+        env:
+          COMPAT_INGEST_URL: ${{ vars.COMPAT_INGEST_URL }}
+          COMPAT_INGEST_TOKEN: ${{ secrets.COMPAT_INGEST_TOKEN }}
+          TRIGGER: ${{ steps.decide.outputs.trigger }}
+          STARTED_AT: ${{ steps.decide.outputs.started_at }}
+        run: |
+          # The static verdict gives the CS2 build and the components shown until the selftest.
+          [ -f compat.json ] || { git fetch -q --depth=1 origin refs/heads/cs2-build && git show FETCH_HEAD:compat.json > compat.json; } || rm -f compat.json
+          python3 scripts/ci/compat-report.py step --base compat.json --trigger "$TRIGGER" --started-at "$STARTED_AT" \
+            --plan dynamic --id build --status running || true
 
   build:
     name: Build the Full bundle (sniper)
@@ -120,6 +142,39 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  build-progress:
+    name: 'Progress: Build bundle'
+    needs: [gate, build]
+    if: always() && needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    env:
+      COMPAT_INGEST_URL: ${{ vars.COMPAT_INGEST_URL }}
+      COMPAT_INGEST_TOKEN: ${{ secrets.COMPAT_INGEST_TOKEN }}
+      TRIGGER: ${{ needs.gate.outputs.trigger }}
+      STARTED_AT: ${{ needs.gate.outputs.started_at }}
+      BUILD_RESULT: ${{ needs.build.result }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/ci
+            gamedata
+
+      - name: Report the build
+        run: |
+          [ -n "$COMPAT_INGEST_URL" ] || exit 0
+          { git fetch -q --depth=1 origin refs/heads/cs2-build && git show FETCH_HEAD:compat.json > compat.json; } || rm -f compat.json
+          run=(python3 scripts/ci/compat-report.py step --base compat.json --trigger "$TRIGGER" --started-at "$STARTED_AT")
+          if [ "$BUILD_RESULT" = success ]; then
+            "${run[@]}" --id build --status pass || true
+          else
+            # The live job never runs: the build failed or was cancelled, and the run ends here.
+            "${run[@]}" --plan dynamic --id build --status fail --detail "build job: $BUILD_RESULT" \
+              --close --final-state no_verdict || true
+          fi
+
   live:
     name: Selftest + bot live test on a real CS2 server
     needs: [gate, build]
@@ -155,6 +210,13 @@ jobs:
           case "$CS2_CI_PORT" in ''|*[!0-9]*) echo "::error::CS2_CI_PORT=$CS2_CI_PORT is not a port"; exit 1 ;; esac
           OUT="$RUNNER_TEMP/cs2-dynamic"
           echo "OUT=$OUT" >> "$GITHUB_ENV"
+          # compat-report.py step (and scripts/livetest with COMPAT_STEP_EVENTS=1) read these;
+          # current.json is always the last compat.json of this run.
+          {
+            echo "COMPAT_STEP_STATE=$OUT/steps.json"
+            echo "COMPAT_STEP_BASE=$OUT/current.json"
+            echo "COMPAT_STEP_BUILD_ENV=$OUT/cs2-build.env"
+          } >> "$GITHUB_ENV"
           rm -rf "$OUT" && mkdir -p "$OUT"
           echo "CS2 install $CS2_CI_DIR, port $CS2_CI_PORT"
 
@@ -164,6 +226,18 @@ jobs:
         with:
           name: cs2-dynamic-dist-${{ github.run_id }}
           path: ${{ runner.temp }}/cs2-dynamic/dist
+
+      - name: 'Progress: Update CS2 running'
+        run: |
+          # The static verdict (cs2-build) is the base until this run has one of its own.
+          if ! { git fetch -q --depth=1 origin refs/heads/cs2-build && git show FETCH_HEAD:compat.json > "$OUT/static.json"; }; then
+            rm -f "$OUT/static.json"
+          fi
+          [ -f "$OUT/static.json" ] && cp "$OUT/static.json" "$OUT/current.json"
+          s=(python3 scripts/ci/compat-report.py step --trigger "$TRIGGER" --started-at "$STARTED_AT")
+          # the build job passed (this job needs it); keep the times the build-progress job sent
+          "${s[@]}" --plan dynamic --id build --status pass --no-time --no-post || true
+          "${s[@]}" --id update --status running || true
 
       - name: Update CS2 (steamcmd, anonymous; a delta when current)
         run: |
@@ -181,19 +255,20 @@ jobs:
           printf 'BUILDID=%s\nPATCH_VERSION=%s\n' "$buildid" "$patch" > "$OUT/cs2-build.env"
           echo "CS2 build ${buildid:-?} (patch ${patch:-?})" | tee -a "$GITHUB_STEP_SUMMARY"
 
-      - name: Static verdict (cs2-build) + progress event
+      - name: 'Progress: Update CS2 passed, Install bundle running'
         run: |
-          if ! { git fetch -q --depth=1 origin refs/heads/cs2-build && git show FETCH_HEAD:compat.json > "$OUT/static.json"; }; then
-            rm -f "$OUT/static.json"
+          # No static verdict to start from: the components are "checking" until the selftest.
+          if [ ! -f "$OUT/current.json" ]; then
+            python3 scripts/ci/compat-report.py phase checking --stage selftest --out "$OUT/current.json" \
+              --build-env "$OUT/cs2-build.env" --trigger "$TRIGGER" --started-at "$STARTED_AT"
           fi
-          python3 scripts/ci/compat-report.py phase checking --stage selftest --out "$OUT/checking.json" \
-            --build-env "$OUT/cs2-build.env" --trigger "$TRIGGER" --started-at "$STARTED_AT"
-          python3 scripts/ci/compat-report.py post "$OUT/checking.json"
+          python3 scripts/ci/compat-report.py step --updates '[{"id":"update","status":"pass"},{"id":"install","status":"running"}]' || true
 
       - name: Install the Full bundle
         run: |
           zip="$(find "$OUT/dist" -name 'ready-up-full-*-linuxsteamrt64.zip' | head -1)"
           bash install.sh --dir "$CS2_CI_DIR" --zip "$zip" --yes --accept-license=noncommercial full
+          python3 scripts/ci/compat-report.py step --updates '[{"id":"install","status":"pass"},{"id":"selftest","status":"running"}]' || true
 
       - name: 'Stage selftest: boot, READYUP_SELFTEST_AND_QUIT'
         id: selftest
@@ -204,16 +279,20 @@ jobs:
           # the runtime environment. Running the cs2 binary directly skips that.
           # sv_hibernate_when_empty 0: an empty server stops simulating, so the selftest
           # (which waits for a simulating GameFrame) and plugin loading never happen.
+          # The console streams into this log as it happens (line buffered) and into a file.
           READYUP_SELFTEST_AND_QUIT=1 READYUP_SELFTEST_FILE="$OUT/readyup_selftest.txt" READYUP_SELFTEST_TIMEOUT=300 \
-            timeout 900 "$CS2_CI_DIR/game/cs2.sh" -dedicated -console -usercon -port "$CS2_CI_PORT" \
-            +sv_lan 1 +sv_hibernate_when_empty 0 +game_type 0 +game_mode 1 +map de_dust2 > "$OUT/selftest-console.log" 2>&1
-          echo "server exit code $?"
+            stdbuf -oL -eL timeout 900 "$CS2_CI_DIR/game/cs2.sh" -dedicated -console -usercon -port "$CS2_CI_PORT" \
+            +sv_lan 1 +sv_hibernate_when_empty 0 +game_type 0 +game_mode 1 +map de_dust2 2>&1 \
+            | stdbuf -oL tee "$OUT/selftest-console.log"
+          rc=${PIPESTATUS[0]}
+          echo "server exit code $rc"
           set -e
           if [ -s "$OUT/readyup_selftest.txt" ]; then
             cat "$OUT/readyup_selftest.txt"
             { echo '```'; cat "$OUT/readyup_selftest.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            python3 scripts/ci/compat-report.py annotate-selftest "$OUT/readyup_selftest.txt"
           else
-            tail -n 80 "$OUT/selftest-console.log"
+            echo "::error title=selftest::no readyup_selftest.txt: the server did not finish booting with Ready Up (exit $rc)"
           fi
           args=()
           [ -f "$OUT/static.json" ] && args+=(--base "$OUT/static.json")
@@ -221,7 +300,14 @@ jobs:
             --selftest "$OUT/readyup_selftest.txt" --build-env "$OUT/cs2-build.env" --out-dir "$OUT/selftest" \
             --trigger "$TRIGGER" --started-at "$STARTED_AT"
           python3 scripts/ci/compat-report.py post "$OUT/selftest/compat.json"
-          echo "overall=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["overall"])' "$OUT/selftest/compat.json")" >> "$GITHUB_OUTPUT"
+          cp "$OUT/selftest/compat.json" "$OUT/current.json"
+          overall="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["overall"])' "$OUT/selftest/compat.json")"
+          echo "overall=$overall" >> "$GITHUB_OUTPUT"
+          if [ "$overall" = fail ]; then
+            python3 scripts/ci/compat-report.py step --id selftest --status fail --detail "selftest verdict: fail (see the components)" || true
+          else
+            python3 scripts/ci/compat-report.py step --id selftest --status pass || true
+          fi
 
       - name: 'Stage live: bot match + scrim (scripts/livetest)'
         id: live
@@ -240,30 +326,51 @@ jobs:
           echo "session=$session" >> "$GITHUB_OUTPUT"
           results=()
           for mode in match scrim; do
+            python3 scripts/ci/compat-report.py step --id "live-$mode" --status running || true
             set +e
             extra=()
             [ "$mode" = scrim ] && extra+=(--scrim)
-            scripts/livetest/run.sh --ssh '' --target "$t" --session "$session" --boot --wait-session 1 --out "$OUT/livetest-$mode" "${extra[@]}"
+            # COMPAT_STEP_EVENTS: the live test reports its own steps under live-<mode>.
+            COMPAT_STEP_EVENTS=1 COMPAT_STEP_PARENT="live-$mode" \
+              scripts/livetest/run.sh --ssh '' --target "$t" --session "$session" --boot --wait-session 1 --out "$OUT/livetest-$mode" "${extra[@]}"
             rc=$?
             set -e
             echo "livetest $mode: exit $rc" | tee -a "$GITHUB_STEP_SUMMARY"
             results+=(--livetest "$mode=$rc")
+            case $rc in
+              0) python3 scripts/ci/compat-report.py step --id "live-$mode" --status pass || true ;;
+              2) python3 scripts/ci/compat-report.py step --id "live-$mode" --status skip --detail "no verdict (exit 2: server busy, unavailable or restarted)" || true ;;
+              *) python3 scripts/ci/compat-report.py step --id "live-$mode" --status fail --detail "live test failed (exit $rc)" || true ;;
+            esac
           done
           tmux kill-session -t "$session" 2>/dev/null || true
           python3 scripts/ci/compat-report.py dynamic --stage live --base "$OUT/selftest/compat.json" \
             --selftest "$OUT/readyup_selftest.txt" --build-env "$OUT/cs2-build.env" --out-dir "$OUT/live" \
             --trigger "$TRIGGER" --started-at "$STARTED_AT" "${results[@]}"
           python3 scripts/ci/compat-report.py post "$OUT/live/compat.json"
+          cp "$OUT/live/compat.json" "$OUT/current.json"
+
+      - name: 'Progress: live test skipped'
+        if: steps.live.outcome == 'skipped'
+        env:
+          WHY: ${{ env.LIVETEST != 'true' && 'live test not requested' || 'selftest failed' }}
+        run: |
+          python3 scripts/ci/compat-report.py step --updates "$(python3 -c 'import json,os; print(json.dumps([{"id": i, "status": "skip", "detail": os.environ["WHY"]} for i in ("live-match", "live-scrim")]))')" || true
 
       - name: Record compat.json + badge.json on cs2-build
         run: |
+          python3 scripts/ci/compat-report.py step --id record --status running || true
           d="$OUT/live"
           [ -f "$d/compat.json" ] || d="$OUT/selftest"
           stage="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["run"]["stage"], d["overall"], d["cs2"]["buildid"])' "$d/compat.json")"
           for _ in 1 2 3; do
-            CS2_STATE_FILES="$d/compat.json $d/badge.json" scripts/ci/cs2-watch-state.sh publish "CS2 dynamic check: $stage" && exit 0
+            if CS2_STATE_FILES="$d/compat.json $d/badge.json" scripts/ci/cs2-watch-state.sh publish "CS2 dynamic check: $stage"; then
+              python3 scripts/ci/compat-report.py step --id record --status pass || true
+              exit 0
+            fi
             sleep 10
           done
+          python3 scripts/ci/compat-report.py step --id record --status fail --detail "could not push compat.json to cs2-build" || true
           exit 1
 
       - name: Stop the live-test server
@@ -277,6 +384,16 @@ jobs:
           python3 scripts/ci/compat-report.py phase no_verdict --stage selftest --out "$OUT/no-verdict.json" \
             --build-env "$OUT/cs2-build.env" --trigger "$TRIGGER" --started-at "$STARTED_AT"
           python3 scripts/ci/compat-report.py post "$OUT/no-verdict.json"
+          cp "$OUT/no-verdict.json" "$OUT/current.json"
+
+      - name: 'Progress: close the steps + summary'
+        if: always()
+        continue-on-error: true
+        run: |
+          # Anything still running failed (or was cancelled), anything queued never ran. Posts only
+          # when that changed something; the table of steps goes to the job summary either way.
+          [ -n "${OUT:-}" ] || exit 0
+          python3 scripts/ci/compat-report.py step --close --summary || true
 
       - name: Upload results
         if: always()

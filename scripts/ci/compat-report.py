@@ -18,6 +18,15 @@ so change it only together with `schema`.
       dynamic verdict (.github/workflows/cs2-dynamic.yml): the static compat.json plus the
       readyup_selftest.txt of a real server (plugin needs, plugin selftest lines) and, for
       stage live, the bot live test exit codes -> DIR/compat.json + DIR/badge.json
+  compat-report.py step [--plan dynamic] [--id ID --status STATUS [--name N] [--stage S] [--parent P]
+                   [--detail D]] [--updates JSON] [--close] [--flush] [--summary] [--no-post]
+                   [--min-interval SEC] [--state FILE] [--base FILE] [run options]
+      live progress of a run (run.steps, docs/CS2-COMPAT.md "Run steps"): updates the steps in the
+      --state file ($COMPAT_STEP_STATE) and POSTs the run like `post`, never failing the caller.
+      The document is --base ($COMPAT_STEP_BASE, the last compat.json of this run) with state
+      `checking` while a step is open. See cmd_step.
+  compat-report.py annotate-selftest FILE
+      print a GitHub ::error:: (FAIL) / ::warning:: (WARN) annotation per readyup_selftest.txt line
   compat-report.py needs-check [--plugins-dir DIR] [--gamedata DIR]
       every plugin's needs.json covers what its source calls (schema_offset literals,
       subscribe_game_event names, engine-facing ru_api members); exit 1 on drift
@@ -34,6 +43,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -721,9 +731,7 @@ def cmd_phase(args):
 
 
 def cmd_post(args):
-    url = os.environ.get("COMPAT_INGEST_URL", "").strip()
-    token = os.environ.get("COMPAT_INGEST_TOKEN", "").strip()
-    if not url:
+    if not os.environ.get("COMPAT_INGEST_URL", "").strip():
         return 0
     try:
         with open(args.file, "rb") as f:
@@ -732,17 +740,273 @@ def cmd_post(args):
     except (OSError, ValueError) as e:
         print("::warning::compat ingest: cannot read %s: %s" % (args.file, e))
         return 0
+    post_body(body, args.timeout)
+    return 0
+
+
+def post_body(body, timeout):
+    """POST one document to $COMPAT_INGEST_URL. Never raises: a failed POST is a warning only."""
+    url = os.environ.get("COMPAT_INGEST_URL", "").strip()
+    token = os.environ.get("COMPAT_INGEST_TOKEN", "").strip()
+    if not url:
+        return False
     headers = {"Content-Type": "application/json", "User-Agent": "readyup-cs2-watch"}
     if token:
         headers["Authorization"] = "Bearer " + token
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=args.timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             print("compat ingest: HTTP %d" % resp.status)
+            return True
     except urllib.error.HTTPError as e:
         print("::warning::compat ingest: HTTP %d (ignored)" % e.code)
     except Exception as e:  # noqa: BLE001 - never fail the check because the POST failed
         print("::warning::compat ingest: %s (ignored)" % type(e).__name__)
+    return False
+
+
+# ---------------------------------------------------------------------------------------------
+# Run steps: the live progress of a run (docs/CS2-COMPAT.md "Run steps")
+# ---------------------------------------------------------------------------------------------
+
+# The steps of .github/workflows/cs2-dynamic.yml, in order: (id, name, stage).
+DYNAMIC_PLAN = [
+    ("build", "Build bundle", "setup"),
+    ("update", "Update CS2", "setup"),
+    ("install", "Install bundle", "setup"),
+    ("selftest", "Boot + selftest", "selftest"),
+    ("live-match", "Live: match", "live"),
+    ("live-scrim", "Live: scrim", "live"),
+    ("record", "Record", "record"),
+]
+PLANS = {"dynamic": DYNAMIC_PLAN}
+STEP_STATUSES = ("queued", "running", "pass", "fail", "skip")
+STEP_STAGES = ("setup", "static", "selftest", "live", "record")
+STEP_OPEN = ("queued", "running")
+STEP_ID = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
+# The site's limits (website: lib/compat/document.ts COMPAT_LIMITS).
+MAX_STEPS, MAX_STEP_NAME, MAX_STEP_DETAIL = 100, 96, 500
+
+
+def step_text(value, limit):
+    """One line, no control characters, at most `limit` characters (the site refuses anything else)."""
+    text = re.sub(r"[\x00-\x1f\x7f]+", " ", str(value or "")).strip()
+    return text if len(text) <= limit else text[:limit - 3].rstrip() + "..."
+
+
+def load_step_state(path):
+    if path and os.path.isfile(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                state = json.load(f)
+            if isinstance(state, dict) and isinstance(state.get("steps"), list):
+                return state
+        except (OSError, ValueError):
+            print("::warning::compat step: %s is unreadable, starting over" % path)
+    return {"steps": [], "run": {}, "last_post": 0.0, "dirty": False}
+
+
+def save_step_state(path, state):
+    if not path:
+        return
+    tmp = path + ".tmp"
+    write_json(tmp, state)
+    os.replace(tmp, path)
+
+
+def apply_step(steps, upd, stamp=True, now=None):
+    """Add or update one step in `steps` (a list, in order). `upd`: id, status and optionally name,
+    stage, parent, detail. Running stamps started_at, a finished status stamps finished_at."""
+    now = now or now_iso()
+    sid = upd["id"]
+    if not STEP_ID.match(sid):
+        raise ValueError("step id %r: letters, digits, . _ : - only (max 64)" % sid)
+    status = upd["status"]
+    if status not in STEP_STATUSES:
+        raise ValueError("step status %r: one of %s" % (status, ", ".join(STEP_STATUSES)))
+    old = next((s for s in steps if s["id"] == sid), None)
+    step = dict(old) if old else {"id": sid, "name": sid, "stage": "setup", "status": "queued"}
+    if upd.get("name"):
+        step["name"] = step_text(upd["name"], MAX_STEP_NAME)
+    if upd.get("stage"):
+        if upd["stage"] not in STEP_STAGES:
+            raise ValueError("step stage %r: one of %s" % (upd["stage"], ", ".join(STEP_STAGES)))
+        step["stage"] = upd["stage"]
+    if upd.get("parent"):
+        step["parent"] = upd["parent"]
+    step["status"] = status
+    if status == "queued":
+        for k in ("started_at", "finished_at", "detail"):
+            step.pop(k, None)
+    elif status == "running":
+        step.pop("finished_at", None)
+        step.pop("detail", None)
+        if stamp:
+            step.setdefault("started_at", now)
+    elif stamp:
+        step["finished_at"] = now
+    if upd.get("detail"):
+        step["detail"] = step_text(upd["detail"], MAX_STEP_DETAIL)
+    if old:
+        steps[steps.index(old)] = step
+    elif step.get("parent") and any(s["id"] == step["parent"] or s.get("parent") == step["parent"] for s in steps):
+        # a nested step goes after its parent and its siblings, not at the end
+        last = max(i for i, s in enumerate(steps) if s["id"] == step["parent"] or s.get("parent") == step["parent"])
+        steps.insert(last + 1, step)
+    else:
+        steps.append(step)
+    return step
+
+
+def close_steps(steps, stamp=True):
+    """The run is over: a step still running failed, one still queued never ran. True if any changed."""
+    changed = False
+    for s in list(steps):
+        if s["status"] == "running":
+            apply_step(steps, {"id": s["id"], "status": "fail", "detail": s.get("detail") or "did not finish"}, stamp)
+            changed = True
+        elif s["status"] == "queued":
+            apply_step(steps, {"id": s["id"], "status": "skip"}, stamp)
+            changed = True
+    return changed
+
+
+def step_document(args, steps, run_meta, done):
+    """The run as a compat.json with run.steps: --base's cs2 and components, state `checking`
+    while not done; once done, --base's own verdict (or --final-state)."""
+    base = {}
+    if args.base and os.path.isfile(args.base):
+        try:
+            with open(args.base, encoding="utf-8") as f:
+                base = json.load(f)
+        except (OSError, ValueError):
+            base = {}
+    same_run = str(base.get("run", {}).get("id", "")) == str(args.run_id or "")
+    if not args.buildid:
+        args.buildid = base.get("cs2", {}).get("buildid", "")
+    if not args.patch:
+        args.patch = base.get("cs2", {}).get("patch", "")
+    args.trigger = args.trigger or run_meta.get("trigger") or (base.get("run", {}).get("trigger") if same_run else "") or "manual"
+    args.started_at = args.started_at or run_meta.get("started_at") or (base.get("run", {}).get("started_at") if same_run else "")
+    components = base.get("components")
+    if not isinstance(components, list):
+        ids = all_component_ids(surface_files(args.gamedata))
+        components = [{"id": cid, "name": component_name(cid), "status": "checking", "checks": []} for cid in ids]
+    stage = base.get("run", {}).get("stage") if same_run else "selftest"
+    if stage not in ("static", "selftest", "live"):
+        stage = "selftest"
+    if done:
+        state = args.final_state or (base.get("run", {}).get("state") if same_run else "") or "no_verdict"
+        if state in ("queued", "checking"):
+            state = "no_verdict"
+        overall = args.final_state or (base.get("overall") if same_run and state not in ("no_verdict",) else "") or state
+        if overall not in ("pass", "warn", "fail", "checking", "no_verdict"):
+            overall = "no_verdict"
+        finished = (base.get("run", {}).get("finished_at") if same_run else None) or now_iso()
+    else:
+        state, overall, finished = "checking", "checking", None
+    doc = document(args, state, overall, components, finished, args.build_env, stage=stage)
+    doc["run"]["steps"] = steps[:MAX_STEPS]
+    return doc
+
+
+def step_summary(steps):
+    """Markdown table of the steps, for $GITHUB_STEP_SUMMARY."""
+    icon = {"queued": "queued", "running": "running", "pass": "pass", "fail": "**FAIL**", "skip": "skip"}
+    rows = ["| step | result | time | detail |", "|---|---|---|---|"]
+    for s in steps:
+        took = ""
+        try:
+            a = datetime.datetime.strptime(s["started_at"], "%Y-%m-%dT%H:%M:%SZ")
+            b = datetime.datetime.strptime(s["finished_at"], "%Y-%m-%dT%H:%M:%SZ")
+            took = "%ds" % (b - a).total_seconds()
+        except (KeyError, ValueError):
+            pass
+        name = ("&nbsp;&nbsp;&nbsp;" if s.get("parent") else "") + s["name"].replace("|", "/")
+        rows.append("| %s | %s | %s | %s |" % (name, icon[s["status"]], took, (s.get("detail") or "").replace("|", "/")))
+    return "\n".join(rows) + "\n"
+
+
+def cmd_step(args):
+    """Update the run's steps and POST the run. Never exits non-zero on a POST problem; exit 2 only
+    for a malformed call (a bug in the caller), which callers treat as a warning too."""
+    state = load_step_state(args.state)
+    steps = state["steps"]
+    run_meta = state.setdefault("run", {})
+    if args.trigger:
+        run_meta["trigger"] = args.trigger
+    if args.started_at:
+        run_meta["started_at"] = args.started_at
+    stamp = not args.no_time
+    changed = False
+    try:
+        for plan in args.plan or []:
+            for sid, name, stage in PLANS[plan]:
+                if not any(s["id"] == sid for s in steps):
+                    apply_step(steps, {"id": sid, "name": name, "stage": stage, "status": "queued"}, stamp)
+                    changed = True
+        updates = json.loads(args.updates) if args.updates else []
+        if args.id:
+            updates.append({"id": args.id, "status": args.status, "name": args.name, "stage": args.stage,
+                            "parent": args.parent, "detail": args.detail})
+        for upd in updates:
+            if not upd.get("status"):
+                raise ValueError("step %s: --status is required" % upd.get("id"))
+            apply_step(steps, upd, stamp)
+            changed = True
+    except (ValueError, KeyError, TypeError) as e:
+        print("::warning::compat step: %s" % e)
+        return 2
+    if args.close and close_steps(steps, stamp):
+        changed = True
+    open_steps = [s for s in steps if s["status"] in STEP_OPEN]
+    done = bool(args.close) or (bool(args.state) and bool(steps) and not open_steps)
+    if args.summary:
+        summ = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summ and steps:
+            with open(summ, "a", encoding="utf-8") as fh:
+                fh.write("\n### Compatibility run steps\n\n" + step_summary(steps) + "\n")
+    want_post = changed or (args.flush and state.get("dirty"))
+    now = time.time()
+    doc = step_document(args, steps, run_meta, done)
+    if args.out:
+        write_json(args.out, doc)
+    if want_post and not args.no_post:
+        if args.min_interval and now - float(state.get("last_post") or 0) < args.min_interval and not done:
+            state["dirty"] = True
+        elif not doc["cs2"]["buildid"]:
+            print("::warning::compat step: no CS2 build id known yet (--base / --build-env / --buildid); not posted")
+        else:
+            post_body(json.dumps(doc).encode("utf-8"), args.timeout)
+            state["last_post"], state["dirty"] = now, False
+    elif want_post:
+        state["dirty"] = True
+    save_step_state(args.state, state)
+    current = ", ".join("%s=%s" % (s["id"], s["status"]) for s in steps if not s.get("parent"))
+    print("compat step: %s%s" % (current or "(no steps)", " (done)" if done else ""))
+    return 0
+
+
+def gh_escape(text):
+    return str(text).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def cmd_annotate_selftest(args):
+    """One annotation per FAIL / WARN line of readyup_selftest.txt, with its section."""
+    section = ""
+    n = 0
+    for raw in read_text(args.file).splitlines():
+        m = ST_SECTION.match(raw.rstrip())
+        if m:
+            section = m.group(1)
+            continue
+        m = ST_LINE.match(raw.rstrip())
+        if m and m.group(1) in ("FAIL", "WARN"):
+            level = "error" if m.group(1) == "FAIL" else "warning"
+            title = "selftest %s" % section if section else "selftest"
+            print("::%s title=%s::%s" % (level, gh_escape(title).replace(",", " ").replace(":", " "), gh_escape(m.group(2))))
+            n += 1
+    print("selftest: %d annotation(s)" % n)
     return 0
 
 
@@ -785,6 +1049,36 @@ def main(argv=None):
     dy.add_argument("--livetest", action="append", default=[], metavar="NAME=RC",
                     help="scripts/livetest/run.sh exit code (0 pass, 1 fail, 2 no verdict); repeatable")
     dy.add_argument("--out-dir", required=True)
+    stp = sub.add_parser("step")
+    add_run_options(stp)
+    # run-wide fields come from the first call that names them (kept in --state)
+    stp.set_defaults(trigger="", started_at="")
+    e = os.environ.get
+    stp.add_argument("--plan", action="append", choices=sorted(PLANS), help="add these planned steps as queued")
+    stp.add_argument("--id")
+    stp.add_argument("--name")
+    stp.add_argument("--stage", choices=STEP_STAGES)
+    stp.add_argument("--status", choices=STEP_STATUSES)
+    stp.add_argument("--parent", help="nest under this step (the live test's own steps)")
+    stp.add_argument("--detail")
+    stp.add_argument("--updates", default="", help='JSON list of {"id","status",...} applied in order')
+    stp.add_argument("--close", action="store_true",
+                     help="the run is over: running steps fail, queued ones are skipped; post the verdict")
+    stp.add_argument("--final-state", default="", choices=("", "pass", "warn", "fail", "no_verdict"),
+                     help="verdict when done (default: --base's own)")
+    stp.add_argument("--no-time", action="store_true", help="do not stamp started_at / finished_at")
+    stp.add_argument("--no-post", action="store_true", help="only update --state")
+    stp.add_argument("--flush", action="store_true", help="post if an earlier call skipped its post")
+    stp.add_argument("--min-interval", type=float, default=0.0,
+                     help="skip the POST when the last one was less than this many seconds ago (--flush sends it)")
+    stp.add_argument("--summary", action="store_true", help="append a table of the steps to $GITHUB_STEP_SUMMARY")
+    stp.add_argument("--state", default=e("COMPAT_STEP_STATE", ""), help="steps so far (JSON), kept between calls")
+    stp.add_argument("--base", default=e("COMPAT_STEP_BASE", ""), help="the last compat.json of this run")
+    stp.add_argument("--out", default="", help="also write the document here")
+    stp.add_argument("--timeout", type=float, default=15)
+    stp.set_defaults(build_env=e("COMPAT_STEP_BUILD_ENV", ""))
+    an = sub.add_parser("annotate-selftest")
+    an.add_argument("file")
     nc = sub.add_parser("needs-check")
     nc.add_argument("--plugins-dir", default=os.path.join(ROOT, "plugins"))
     nc.add_argument("--gamedata", default=os.path.join(ROOT, "gamedata"))
@@ -793,7 +1087,7 @@ def main(argv=None):
     nd.add_argument("--plugins-dir", default=os.path.join(ROOT, "plugins"))
     args = ap.parse_args(argv)
     return {"result": cmd_result, "phase": cmd_phase, "post": cmd_post, "needs-check": cmd_needs_check, "dynamic": cmd_dynamic,
-            "needs-derive": cmd_needs_derive}[args.cmd](args)
+            "needs-derive": cmd_needs_derive, "step": cmd_step, "annotate-selftest": cmd_annotate_selftest}[args.cmd](args)
 
 
 if __name__ == "__main__":

@@ -465,5 +465,178 @@ class PostTest(unittest.TestCase):
             self.assertEqual(cr.main(["post", self.file, "--timeout", "2"]), 0)
 
 
+def assert_steps_contract(tc, doc):
+    """run.steps as the site validates it (website: lib/compat/document.ts)."""
+    for s in doc["run"]["steps"]:
+        tc.assertTrue(set(s) <= {"id", "name", "stage", "status", "started_at", "finished_at", "detail", "parent"}, s)
+        tc.assertRegex(s["id"], r"^[A-Za-z0-9._:-]{1,64}$")
+        tc.assertIn(s["status"], ("queued", "running", "pass", "fail", "skip"))
+        tc.assertIn(s["stage"], ("setup", "static", "selftest", "live", "record"))
+        tc.assertTrue(0 < len(s["name"]) <= 96)
+        for k in ("started_at", "finished_at"):
+            if k in s:
+                tc.assertRegex(s[k], ISO)
+    ids = [s["id"] for s in doc["run"]["steps"]]
+    tc.assertEqual(len(ids), len(set(ids)))
+
+
+class StepTest(unittest.TestCase):
+    """compat-report.py step: the payload of a progress event with run.steps."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.state = os.path.join(self.tmp, "steps.json")
+        self.base = os.path.join(self.tmp, "base.json")
+        self.out = os.path.join(self.tmp, "out.json")
+        self.env = mock.patch.dict(os.environ, {"COMPAT_INGEST_URL": "", "COMPAT_STEP_STATE": "", "COMPAT_STEP_BASE": "",
+                                                "COMPAT_STEP_BUILD_ENV": "", "GITHUB_STEP_SUMMARY": ""})
+        self.env.start()
+        self.addCleanup(self.env.stop)
+
+    def write_base(self, run_id="123", state="warn", overall="warn", stage="selftest"):
+        doc = {"schema": 1, "cs2": {"buildid": "25537370", "patch": "1.41.8.5"},
+               "readyup": {"version": "0.1.0", "commit": "7f61b71"},
+               "run": {"id": run_id, "url": "https://example.invalid/run/" + run_id, "trigger": "build_change",
+                       "stage": stage, "state": state, "started_at": "2026-09-25T22:00:00Z",
+                       "finished_at": "2026-09-25T22:30:00Z"},
+               "overall": overall,
+               "components": [{"id": "core", "name": "Core", "status": "pass", "checks": []}],
+               "checked_at": "2026-09-25T22:30:00Z"}
+        cr.write_json(self.base, doc)
+
+    def step(self, *argv):
+        rc = cr.main(["step"] + RUN + ["--gamedata", str(FIX), "--state", self.state, "--base", self.base,
+                                       "--out", self.out] + list(argv))
+        with open(self.out, encoding="utf-8") as f:
+            return rc, json.load(f)
+
+    def test_plan_then_steps_while_running(self):
+        self.write_base(run_id="static-9", stage="static")  # the static verdict of another run
+        rc, doc = self.step("--plan", "dynamic", "--id", "build", "--status", "running")
+        self.assertEqual(rc, 0)
+        run = dict(doc["run"])
+        steps = run.pop("steps")
+        doc_no_steps = dict(doc, run=run)
+        assert_contract(self, doc_no_steps)
+        assert_steps_contract(self, doc)
+        self.assertEqual([s["id"] for s in steps],
+                         ["build", "update", "install", "selftest", "live-match", "live-scrim", "record"])
+        self.assertEqual([s["name"] for s in steps][:4], ["Build bundle", "Update CS2", "Install bundle", "Boot + selftest"])
+        self.assertEqual(steps[0]["status"], "running")
+        self.assertRegex(steps[0]["started_at"], ISO)
+        self.assertTrue(all(s["status"] == "queued" and "started_at" not in s for s in steps[1:]))
+        # this run, not the static one; still checking, with the static components and build
+        self.assertEqual((run["id"], run["state"], run["finished_at"], run["stage"]), ("123", "checking", None, "selftest"))
+        self.assertEqual(doc["overall"], "checking")
+        self.assertEqual(doc["cs2"]["buildid"], "25537370")
+        self.assertEqual(doc["components"][0]["id"], "core")
+
+        _, doc = self.step("--id", "build", "--status", "pass")
+        build = doc["run"]["steps"][0]
+        self.assertEqual(build["status"], "pass")
+        self.assertIn("started_at", build)
+        self.assertIn("finished_at", build)
+        self.assertEqual(len(doc["run"]["steps"]), 7)  # kept in --state
+        self.assertEqual(doc["run"]["trigger"], "build_change")
+
+    def test_stage_verdict_does_not_end_the_run_until_every_step_is_done(self):
+        self.write_base()  # this run's selftest verdict: warn
+        self.step("--plan", "dynamic")
+        for sid in ("build", "update", "install", "selftest"):
+            _, doc = self.step("--id", sid, "--status", "pass")
+        self.assertEqual((doc["run"]["state"], doc["overall"]), ("checking", "checking"))
+        _, doc = self.step("--id", "live-match", "--status", "fail", "--detail", "livetest exit 1\nsee log")
+        self.assertEqual(doc["run"]["steps"][4]["detail"], "livetest exit 1 see log")
+        self.step("--id", "live-scrim", "--status", "skip")
+        _, doc = self.step("--id", "record", "--status", "pass")
+        # every step done: the base's verdict, finished
+        self.assertEqual((doc["run"]["state"], doc["overall"], doc["run"]["finished_at"]),
+                         ("warn", "warn", "2026-09-25T22:30:00Z"))
+
+    def test_nested_steps_go_after_their_parent(self):
+        self.write_base()
+        self.step("--plan", "dynamic")
+        self.step("--id", "live-match.01", "--name", "warmup", "--stage", "live", "--parent", "live-match",
+                  "--status", "running")
+        _, doc = self.step("--updates", json.dumps([
+            {"id": "live-match.01", "status": "pass"},
+            {"id": "live-match.02", "name": "knife", "stage": "live", "parent": "live-match", "status": "running"}]))
+        ids = [s["id"] for s in doc["run"]["steps"]]
+        self.assertEqual(ids[4:8], ["live-match", "live-match.01", "live-match.02", "live-scrim"])
+        self.assertEqual(doc["run"]["steps"][6]["parent"], "live-match")
+        assert_steps_contract(self, doc)
+
+    def test_close_fails_running_and_skips_queued(self):
+        self.write_base(state="checking", overall="checking")
+        self.step("--plan", "dynamic", "--id", "build", "--status", "pass")
+        self.step("--id", "update", "--status", "running")
+        _, doc = self.step("--close")
+        st = {s["id"]: s for s in doc["run"]["steps"]}
+        self.assertEqual((st["update"]["status"], st["update"]["detail"]), ("fail", "did not finish"))
+        self.assertEqual(st["record"]["status"], "skip")
+        # no verdict was reached (the base is still checking)
+        self.assertEqual((doc["run"]["state"], doc["overall"]), ("no_verdict", "no_verdict"))
+        self.assertIsNotNone(doc["run"]["finished_at"])
+
+    def test_bad_calls_warn_and_long_text_is_cut(self):
+        self.write_base()
+        self.assertEqual(cr.main(["step", "--state", self.state, "--id", "bad id", "--status", "pass"]), 2)
+        _, doc = self.step("--id", "x", "--name", "n" * 200, "--status", "fail", "--detail", "d" * 900)
+        self.assertEqual(len(doc["run"]["steps"][0]["name"]), 96)
+        self.assertEqual(len(doc["run"]["steps"][0]["detail"]), 500)
+
+    def test_posts_and_throttles(self):
+        self.write_base(state="checking", overall="checking")
+        with mock.patch.dict(os.environ, {"COMPAT_INGEST_URL": "http://127.0.0.1:9/"}), \
+                mock.patch.object(cr, "post_body", return_value=True) as post:
+            self.step("--plan", "dynamic", "--id", "build", "--status", "running")
+            self.assertEqual(post.call_count, 1)
+            body = json.loads(post.call_args[0][0])
+            self.assertEqual(body["run"]["steps"][0]["status"], "running")
+            # within --min-interval: kept for later, not posted
+            self.step("--id", "build", "--status", "pass", "--min-interval", "60")
+            self.assertEqual(post.call_count, 1)
+            self.step("--flush")
+            self.assertEqual(post.call_count, 2)
+            self.assertEqual(json.loads(post.call_args[0][0])["run"]["steps"][0]["status"], "pass")
+            self.step("--flush")  # nothing left to send
+            self.assertEqual(post.call_count, 2)
+            self.step("--id", "update", "--status", "running", "--no-post")
+            self.assertEqual(post.call_count, 2)
+
+    def test_post_failure_never_fails_the_step(self):
+        self.write_base()
+        srv = http.server.HTTPServer(("127.0.0.1", 0), _Handler)
+        port = srv.server_port
+        srv.server_close()
+        env = {"COMPAT_INGEST_URL": "http://127.0.0.1:%d/" % port, "NO_PROXY": "127.0.0.1", "no_proxy": "127.0.0.1"}
+        with mock.patch.dict(os.environ, env):
+            rc, _ = self.step("--id", "build", "--status", "pass", "--timeout", "2")
+        self.assertEqual(rc, 0)
+
+    def test_summary_table(self):
+        self.write_base()
+        summ = os.path.join(self.tmp, "summary.md")
+        with mock.patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": summ}):
+            self.step("--plan", "dynamic", "--id", "build", "--status", "fail", "--detail", "a|b", "--summary")
+        with open(summ, encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn("| Build bundle | **FAIL** |", text)
+        self.assertIn("a/b", text)
+        self.assertIn("| Record | queued |", text)
+
+    def test_annotate_selftest(self):
+        path = os.path.join(self.tmp, "st.txt")
+        with open(path, "w") as f:
+            f.write("[core]\n  OK   hooks\n  FAIL schema  100% missing\n[plugins]\n  WARN match: event  late\n")
+        buf = io.StringIO()
+        with mock.patch("sys.stdout", buf):
+            self.assertEqual(cr.main(["annotate-selftest", path]), 0)
+        lines = buf.getvalue().splitlines()
+        self.assertEqual(lines[0], "::error title=selftest core::schema  100%25 missing")
+        self.assertEqual(lines[1], "::warning title=selftest plugins::match: event  late")
+
+
 if __name__ == "__main__":
     unittest.main()

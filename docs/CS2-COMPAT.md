@@ -163,6 +163,42 @@ With the variable unset nothing is sent. A failed POST is logged as a warning an
 the check. Each event is the full compat.json document (`Content-Type: application/json`); the
 receiver should key on `run.id` and treat later events as replacing earlier ones.
 
+### Run steps
+
+The dynamic check (`cs2-dynamic.yml`) also reports its progress step by step, so the
+compatibility page (autotournament.gg/compatibility) shows the run like a GitHub Actions job
+and never looks finished while it is still going. Its events carry an optional `run.steps`
+(still schema 1; autotournament.gg accepts it, stricter receivers must allow it):
+
+```json
+"steps": [
+  {"id": "selftest", "name": "Boot + selftest", "stage": "selftest", "status": "pass",
+   "started_at": "2026-09-26T12:10:00Z", "finished_at": "2026-09-26T12:21:00Z"},
+  {"id": "live-match", "name": "Live: match", "stage": "live", "status": "running",
+   "started_at": "2026-09-26T12:21:05Z"},
+  {"id": "live-match.07", "name": "knife: round running", "stage": "live", "status": "running",
+   "parent": "live-match"}
+]
+```
+
+`status` is `queued|running|pass|fail|skip`, `stage` is `setup|static|selftest|live|record`,
+`detail` (optional, one line, at most 500 characters) says why a step failed or was skipped,
+`parent` nests the live test's own steps. At most 100 steps. The receiver merges steps per
+`run.id` (an event without `steps` keeps the stored ones). While any step is queued or running
+the run is in progress and its verdict is "checking", whatever a finished stage said.
+
+`compat-report.py step` sends them: the planned steps first (`--plan dynamic`: Build bundle,
+Update CS2, Install bundle, Boot + selftest, Live: match, Live: scrim, Record), then each step
+as it runs and ends (`--id ID --status running|pass|fail|skip [--detail ...]`), and at the end
+`--close` (a step still running failed, one still queued is skipped) and `--summary` (a table
+of the steps in the job summary). The steps so far live in `--state` ($COMPAT_STEP_STATE); the
+rest of the document comes from `--base` ($COMPAT_STEP_BASE), the last compat.json of the run.
+`scripts/livetest` reports its own steps under `Live: match` / `Live: scrim` when
+`COMPAT_STEP_EVENTS=1` (`COMPAT_STEP_PARENT`, at most one POST every `COMPAT_STEP_INTERVAL`
+seconds, default 5). Like `post`, a failed POST is only a warning. The gate and build-progress
+jobs post too, so the token must be a repo secret (not only a `cs2-dynamic` environment secret)
+for the page to show the run while the bundle builds.
+
 ## Poller (fast detection)
 
 GitHub runs `schedule` workflows best effort, often hours late during load. `scripts/ci/cs2-poll.sh`
