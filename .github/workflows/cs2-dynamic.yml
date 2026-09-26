@@ -195,6 +195,9 @@ jobs:
         id: selftest
         run: |
           set +e
+          # Valve's cs2.sh puts game/bin/linuxsteamrt64 on the library path; the
+          # real libserver.so needs it to find libv8.so and friends.
+          export LD_LIBRARY_PATH="$CS2_CI_DIR/game/bin/linuxsteamrt64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           READYUP_SELFTEST_AND_QUIT=1 READYUP_SELFTEST_FILE="$OUT/readyup_selftest.txt" READYUP_SELFTEST_TIMEOUT=300 \
             timeout 900 "$CS2_CI_DIR/game/bin/linuxsteamrt64/cs2" -dedicated -console -usercon -port "$CS2_CI_PORT" \
             +sv_lan 1 +game_type 0 +game_mode 1 +map de_dust2 > "$OUT/selftest-console.log" 2>&1
@@ -224,6 +227,7 @@ jobs:
           mkdir -p "$t"
           cat > "$t/run.sh" <<EOF
           #!/usr/bin/env bash
+          export LD_LIBRARY_PATH="$CS2_CI_DIR/game/bin/linuxsteamrt64"
           exec "$CS2_CI_DIR/game/bin/linuxsteamrt64/cs2" -dedicated -console -usercon -port "$CS2_CI_PORT" +sv_lan 1 +game_type 0 +game_mode 1 +map de_dust2
           EOF
           chmod +x "$t/run.sh"
