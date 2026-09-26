@@ -1,0 +1,500 @@
+{
+ "schema": 1,
+ "cs2": {
+  "buildid": "25537370",
+  "patch": "1.41.8.5"
+ },
+ "readyup": {
+  "version": "0.1.0-dev.75485a7",
+  "commit": "75485a703578d76aa76b76c2a2ff7a92c9582763"
+ },
+ "run": {
+  "id": "36205902908",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/36205902908",
+  "trigger": "surface_change",
+  "stage": "static",
+  "state": "warn",
+  "started_at": "2026-09-26T00:43:47Z",
+  "finished_at": "2026-09-26T00:45:10Z"
+ },
+ "overall": "warn",
+ "components": [
+  {
+   "id": "core",
+   "name": "Core",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "signature",
+     "status": "pass",
+     "passed": 9,
+     "total": 9,
+     "failures": []
+    },
+    {
+     "kind": "rtti",
+     "status": "pass",
+     "passed": 5,
+     "total": 5,
+     "failures": []
+    },
+    {
+     "kind": "vtable",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "hook_site",
+     "status": "pass",
+     "passed": 3,
+     "total": 3,
+     "failures": []
+    },
+    {
+     "kind": "layout",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "skins",
+   "name": "Skins",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "signature",
+     "status": "pass",
+     "passed": 11,
+     "total": 11,
+     "failures": []
+    },
+    {
+     "kind": "rtti",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "vtable",
+     "status": "pass",
+     "passed": 3,
+     "total": 3,
+     "failures": []
+    },
+    {
+     "kind": "hook_site",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "layout",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "schema",
+     "status": "pending",
+     "passed": 0,
+     "total": 26,
+     "failures": []
+    },
+    {
+     "kind": "event",
+     "status": "pending",
+     "passed": 0,
+     "total": 4,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "match",
+   "name": "Match",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "signature",
+     "status": "pass",
+     "passed": 9,
+     "total": 9,
+     "failures": []
+    },
+    {
+     "kind": "rtti",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "vtable",
+     "status": "pass",
+     "passed": 3,
+     "total": 3,
+     "failures": []
+    },
+    {
+     "kind": "hook_site",
+     "status": "pass",
+     "passed": 3,
+     "total": 3,
+     "failures": []
+    },
+    {
+     "kind": "layout",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "schema",
+     "status": "pending",
+     "passed": 0,
+     "total": 14,
+     "failures": []
+    },
+    {
+     "kind": "event",
+     "status": "pending",
+     "passed": 0,
+     "total": 13,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
+    },
+    {
+     "kind": "livetest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "practice",
+   "name": "Practice",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "signature",
+     "status": "pass",
+     "passed": 7,
+     "total": 7,
+     "failures": []
+    },
+    {
+     "kind": "rtti",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "vtable",
+     "status": "pass",
+     "passed": 3,
+     "total": 3,
+     "failures": []
+    },
+    {
+     "kind": "hook_site",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "layout",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "schema",
+     "status": "pending",
+     "passed": 0,
+     "total": 11,
+     "failures": []
+    },
+    {
+     "kind": "event",
+     "status": "pending",
+     "passed": 0,
+     "total": 4,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "essentials",
+   "name": "Essentials",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "signature",
+     "status": "pass",
+     "passed": 3,
+     "total": 3,
+     "failures": []
+    },
+    {
+     "kind": "rtti",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "vtable",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "layout",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "midas",
+   "name": "Midas",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "signature",
+     "status": "pass",
+     "passed": 4,
+     "total": 4,
+     "failures": []
+    },
+    {
+     "kind": "rtti",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "vtable",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "hook_site",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "schema",
+     "status": "pending",
+     "passed": 0,
+     "total": 5,
+     "failures": []
+    },
+    {
+     "kind": "event",
+     "status": "pending",
+     "passed": 0,
+     "total": 4,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "whitelist",
+   "name": "Whitelist",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "signature",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "vtable",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "layout",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "deathmatch",
+   "name": "Deathmatch",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "signature",
+     "status": "pass",
+     "passed": 4,
+     "total": 4,
+     "failures": []
+    },
+    {
+     "kind": "rtti",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "vtable",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "hook_site",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "layout",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "event",
+     "status": "pending",
+     "passed": 0,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "fleet",
+   "name": "Fleet",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "signature",
+     "status": "pass",
+     "passed": 3,
+     "total": 3,
+     "failures": []
+    },
+    {
+     "kind": "vtable",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "hook_site",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "layout",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
+    }
+   ]
+  }
+ ],
+ "checked_at": "2026-09-26T00:45:10Z"
+}
