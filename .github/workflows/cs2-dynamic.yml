@@ -202,9 +202,11 @@ jobs:
           # Start through Valve's game/cs2.sh, as csm does for every server: it sets up
           # the library path (the real libserver.so needs libv8.so) and the rest of
           # the runtime environment. Running the cs2 binary directly skips that.
+          # sv_hibernate_when_empty 0: an empty server stops simulating, so the selftest
+          # (which waits for a simulating GameFrame) and plugin loading never happen.
           READYUP_SELFTEST_AND_QUIT=1 READYUP_SELFTEST_FILE="$OUT/readyup_selftest.txt" READYUP_SELFTEST_TIMEOUT=300 \
             timeout 900 "$CS2_CI_DIR/game/cs2.sh" -dedicated -console -usercon -port "$CS2_CI_PORT" \
-            +sv_lan 1 +game_type 0 +game_mode 1 +map de_dust2 > "$OUT/selftest-console.log" 2>&1
+            +sv_lan 1 +sv_hibernate_when_empty 0 +game_type 0 +game_mode 1 +map de_dust2 > "$OUT/selftest-console.log" 2>&1
           echo "server exit code $?"
           set -e
           if [ -s "$OUT/readyup_selftest.txt" ]; then
@@ -231,7 +233,7 @@ jobs:
           mkdir -p "$t"
           cat > "$t/run.sh" <<EOF
           #!/usr/bin/env bash
-          exec "$CS2_CI_DIR/game/cs2.sh" -dedicated -console -usercon -port "$CS2_CI_PORT" +sv_lan 1 +game_type 0 +game_mode 1 +map de_dust2
+          exec "$CS2_CI_DIR/game/cs2.sh" -dedicated -console -usercon -port "$CS2_CI_PORT" +sv_lan 1 +sv_hibernate_when_empty 0 +game_type 0 +game_mode 1 +map de_dust2
           EOF
           chmod +x "$t/run.sh"
           session="ru-ci-${GITHUB_RUN_ID}"
