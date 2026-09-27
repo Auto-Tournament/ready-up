@@ -3,6 +3,7 @@
   "plugin": "midas",
   "api": [
     "chat_all",
+    "chat_to_slot",
     "entity_by_index",
     "entity_classname",
     "entity_from_handle",
@@ -10,16 +11,20 @@
     "entity_set_model",
     "entity_system_status",
     "on_tick",
+    "register_chat_command",
     "schema_offset",
     "subscribe_game_event"
   ],
   "surface": [
     "CBaseEntity_NetworkStateChanged",
+    "CBaseModelEntity_SetModel",
     "CEntityInstance::NetworkStateChanged",
     "CGameEventManager",
     "CGameEventManager_Init",
     "CSchemaSystem",
     "CSchemaSystemTypeScope",
+    "ClientPrint",
+    "Host_Say",
     "ISource2Server::GameFrame",
     "UTIL_ClientPrintAll",
     "UTIL_Remove"
