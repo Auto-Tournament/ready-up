@@ -162,6 +162,7 @@ void RestoreAll(const char* why) {
 std::set<uint64_t> g_overrideSent;
 // `.midas` trial settings (runtime only; `.midas reset` or a plugin reload goes back to the cfg).
 int g_trialKit = 0;          // > 0: used instead of paint_kit
+std::set<uint32_t> g_modelled;  // weapon handles given a Midas model (model_<classname>)
 bool g_configRead = false;   // midas.cfg read once since load
 int g_lastFileKit = 0;       // paint_kit as last read from midas.cfg
 bool g_refreshHeld = false;  // the finish changed: refresh held weapons after the next sync
@@ -411,6 +412,20 @@ void TintSlot(int slot) {
     }
   };
   ForHeldWeapons(slot, [&](uint32_t h, void* w) {
+    // model_<classname>=<vmdl>: a Midas model (readyup_midas addon: white metal, tinted by `color`).
+    if (const char* mcn = g_api->entity_classname(g_api->self, w)) {
+      const std::string model = ConfigValue((std::string("model_") + mcn).c_str());
+      if (!model.empty() && RU_API_HAS(g_api, entity_set_model)) {
+        if (!g_modelled.count(h) && g_api->entity_set_model(g_api->self, w, model.c_str()) == 1) {
+          g_modelled.insert(h);
+          ru_logf(g_api, RU_LOG_INFO, "model %s on %s of slot %d", model.c_str(), mcn, slot);
+        }
+        if (g_modelled.count(h)) {
+          if (SetColor(w, g_color)) g_tinted.insert(h);
+          return;
+        }
+      }
+    }
     if (g_painted.count(h)) {
       paintTint(h, w);
       return;
@@ -605,6 +620,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_painted.clear();
   g_overrideSent.clear();
   g_trialKit = 0;
+  g_modelled.clear();
   g_tintPainted = false;
   g_configRead = g_refreshHeld = false;
   g_color = kGold;
