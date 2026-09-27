@@ -15,7 +15,7 @@
 #   --ssh DEST      ssh destination owning the server
 #                   default: cs2servermanager@localhost        (env RU_SSH)
 #   --session NAME  tmux session running the server, default ru-test (env RU_SESSION)
-#   --no-build      deploy the existing build-docker/libserver.so
+#   --no-build      deploy the existing build (libserver.so + every plugins/*.so)
 #   --restart       kill + relaunch the tmux session, wait for the server to
 #                   come up (or die) and print the Ready Up log lines
 #   --timeout SEC   how long --restart waits, default 180
@@ -129,6 +129,17 @@ deploy_file() {  # <src-dir> <file> <dest-dir>
     | "${SSH[@]}" "bash -c $(printf '%q' "$DEPLOY_SCRIPT") deploy $(printf '%q' "$3") $(printf '%q' "$2")"
 }
 deploy_file "$SRC_DIR" "$FILE" "$DEST"
+
+# A full deploy also ships every plugin that was built, and the plugin gamedata fragments,
+# so a plugin that was never on the server (midas, whitelist, ...) arrives too.
+if [[ -z "$PLUGIN" ]]; then
+  for so in "$ART_DIR"/plugins/*.so; do
+    if [[ -f "$so" ]]; then deploy_file "$ART_DIR/plugins" "$(basename "$so")" "$TARGET/game/csgo/readyup/plugins"; fi
+  done
+  for frag in "$ROOT_DIR"/gamedata/engine-surface.*.json; do
+    if [[ -f "$frag" ]]; then deploy_file "$ROOT_DIR/gamedata" "$(basename "$frag")" "$TARGET/game/csgo/readyup/bin/linuxsteamrt64"; fi
+  done
+fi
 
 if [[ -n "$PLUGIN" && -f "$ROOT_DIR/gamedata/engine-surface.$PLUGIN.json" ]]; then
   FRAG_DEST="$TARGET/game/csgo/readyup/bin/linuxsteamrt64"
