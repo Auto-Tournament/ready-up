@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 7
+#define READYUP_PLUGIN_API_VERSION_MINOR 8
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -568,7 +568,24 @@ typedef struct ru_api {
    * CCSPlayer_ItemServices_GiveNamedItem unresolved). Game thread. */
   void* (*player_give_item)(ru_plugin* self, int slot, const char* classname);
 
-  /* v1.8+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.8 ============================================================
+   * Engine access for plugins that ship their own gamedata fragment (engine-surface.<plugin>.json
+   * next to the core, merged at load; entries may live in other modules, e.g. "library": "engine2").
+   * Only listed entries that verify on this build: a plugin cannot patch arbitrary memory. Every
+   * hook is removed automatically when the plugin unloads (after readyup_plugin_unload, before its
+   * image is closed). Game thread.
+   */
+  /* Verified address of engine-surface function `key`, or NULL. */
+  void* (*surface_function)(ru_plugin* self, const char* key);
+  /* Detours function `key` (the entry must be marked "hook": "funchook", and not be one the core
+   * hooks). *trampoline calls the original. 1 = installed, 0 = refused (reason in the log). */
+  int (*hook_function)(ru_plugin* self, const char* key, void* detour, void** trampoline);
+  /* Replaces vtable slot `key` in the vtable of `object` (verified: RTTI, slot target, object vptr).
+   * Patches the class vtable, so every object of that class. *original = the previous target.
+   * 1 = installed, 0 = refused (reason in the log). */
+  int (*hook_vtable)(ru_plugin* self, const char* key, const void* object, void* replacement, void** original);
+
+  /* v1.9+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

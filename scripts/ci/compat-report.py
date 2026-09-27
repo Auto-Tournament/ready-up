@@ -137,7 +137,7 @@ def ownership(files):
 # Checker output parsing (formats: tools/sigcheck.cpp, tools/hookcheck.cpp)
 # ---------------------------------------------------------------------------------------------
 
-SIG_FUNC = re.compile(r"^(OK|FAIL)\s+(\S+)\s+(required|optional)\s+matches=(-?\d+)\s+rva=(\S+)\s*(.*)$")
+SIG_FUNC = re.compile(r"^(OK|FAIL)\s+(\S+)\s+(required|optional)(?:\s+\[\S+\])?\s+matches=(-?\d+)\s+rva=(\S+)\s*(.*)$")
 SIG_OTHER = re.compile(r"^(OK|FAIL|SKIP)\s+(rtti|vtable|layout)\s+(\S+)\s*(.*)$")
 HOOK_LINE = re.compile(r"^(OK|FAIL)\s+(\S+)\s+(.*)$")
 
@@ -317,6 +317,10 @@ API_SURFACE = {
                                      "CBaseModelEntity_SetBodygroup"],
     "entity_set_abs_origin": ["CBaseEntity_SetAbsOrigin"],
     "player_give_item": _ENTSYS + ["CCSPlayer_ItemServices_GiveNamedItem"],
+    # 1.8: the entries are the plugin's own (its engine-surface.<plugin>.json), listed in "surface".
+    "surface_function": [],
+    "hook_function": [],
+    "hook_vtable": [],
     "set_round_termination_suppressed": ["CCSGameRules_TerminateRound"],
 }
 NEEDS_KEYS = ("schema_version", "plugin", "api", "surface", "schema", "schema_optional", "events")

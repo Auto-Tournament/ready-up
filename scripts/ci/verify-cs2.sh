@@ -23,6 +23,13 @@ shopt -s nullglob
 FRAGMENTS=("$(dirname "$SURFACE")"/engine-surface.*.json)
 shopt -u nullglob
 LIB="$CS2/game/csgo/bin/linuxsteamrt64/libserver.so"
+# Other modules that entries may live in ("library" / "module"; plugin fragments use them), as
+# downloaded by fetch-cs2-binaries.sh. Entries of a module with no binary would only be SKIPped.
+LIBS=()
+for m in engine2 tier0 schemasystem; do
+  so="$CS2/game/bin/linuxsteamrt64/lib$m.so"
+  [[ -f "$so" ]] && LIBS+=(--lib "$m=$so")
+done
 
 BUILDID="" PATCH_VERSION="" SERVER_VERSION=""
 if [[ -f "$CS2/cs2-build.env" ]]; then
@@ -33,9 +40,9 @@ fi
 sig_out="$(mktemp)" hook_out="$(mktemp)"
 trap 'rm -f "$sig_out" "$hook_out"' EXIT
 set +e
-"$TOOLS/readyup_sigcheck" "$LIB" "$SURFACE" "${FRAGMENTS[@]}" >"$sig_out" 2>&1
+"$TOOLS/readyup_sigcheck" "$LIB" "$SURFACE" "${FRAGMENTS[@]}" "${LIBS[@]}" >"$sig_out" 2>&1
 sig_rc=$?
-"$TOOLS/readyup_hookcheck" "$LIB" "$SURFACE" "${FRAGMENTS[@]}" >"$hook_out" 2>&1
+"$TOOLS/readyup_hookcheck" "$LIB" "$SURFACE" "${FRAGMENTS[@]}" "${LIBS[@]}" >"$hook_out" 2>&1
 hook_rc=$?
 set -e
 cat "$sig_out" "$hook_out"

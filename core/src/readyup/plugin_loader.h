@@ -145,6 +145,9 @@ void FillEngineApi(ru_api* api);
 // True if `self` is a live plugin and this is the game thread (logs and returns false
 // otherwise). Every game-thread-only API member starts with this.
 bool CheckGameThread(ru_plugin* self, const char* fn);
+// The plugin's id / name (0 / "?" for NULL).
+int PluginId(ru_plugin* self);
+const char* PluginNameOf(ru_plugin* self);
 }  // namespace detail
 
 }  // namespace readyup::plugins

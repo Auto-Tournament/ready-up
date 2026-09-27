@@ -23,6 +23,9 @@ const es::EngineSurface* GetEngineSurface();
 // Results are cached per name; failures are logged once.
 void* EngineFunction(const char* name);
 
+// Loaded segments of lib<module>.so ("server" = the real libserver.so), snapshotted on first use.
+const es::Image* ModuleImage(const std::string& module);
+
 // Full resolution report (uncached re-run is not needed; returns the cached result).
 es::Resolution EngineFunctionResolution(const char* name);
 

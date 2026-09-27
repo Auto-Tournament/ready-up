@@ -226,6 +226,35 @@ SigResult FindInRealServerTextCount(const std::string& pattern, int maxMatches) 
   return out;
 }
 
+es::Image SnapshotModuleImage(const std::string& module) {
+  if (module == "server") return SnapshotRealServerImage();
+  struct Ctx {
+    std::string suffix;
+    es::Image img;
+  } ctx;
+  ctx.suffix = "/lib" + module + ".so";
+  auto cb = [](struct dl_phdr_info* info, size_t, void* data) -> int {
+    auto* c = reinterpret_cast<Ctx*>(data);
+    const std::string name = info->dlpi_name ? info->dlpi_name : "";
+    if (name.size() < c->suffix.size() || name.compare(name.size() - c->suffix.size(), c->suffix.size(), c->suffix) != 0) {
+      return 0;
+    }
+    for (ElfW(Half) i = 0; i < info->dlpi_phnum; ++i) {
+      const ElfW(Phdr)& ph = info->dlpi_phdr[i];
+      if (ph.p_type != PT_LOAD) continue;
+      es::Region r;
+      r.addr = static_cast<uintptr_t>(info->dlpi_addr + ph.p_vaddr);
+      r.data = reinterpret_cast<const uint8_t*>(r.addr);
+      r.size = static_cast<size_t>(ph.p_memsz);
+      r.exec = (ph.p_flags & PF_X) != 0;
+      c->img.regions.push_back(r);
+    }
+    return 1;
+  };
+  dl_iterate_phdr(cb, &ctx);
+  return ctx.img;
+}
+
 es::Image SnapshotRealServerImage() {
   RealServerLoadBase(nullptr);  // resolve outside the dl_iterate_phdr callback (loader lock)
   es::Image img;
