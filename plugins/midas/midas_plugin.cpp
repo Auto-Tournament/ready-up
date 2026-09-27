@@ -376,6 +376,14 @@ void TintSlot(int slot) {
     if (g_painted.count(h)) return;
     const char* cn = g_api->entity_classname(g_api->self, w);
     const uint64_t sid = Rd<uint64_t>(ctrl, g_off.ctrl_steamId);
+    if (paint && cn && Paintable(cn) && g_overrideSent.count(sid)) {
+      // skins.so already painted it gold when it was created (set_player_paint). Painting it again
+      // here would claim it before skins.so sees it (no knife model, no gold on clients); only
+      // remember it so it is handed back if this player stops being Midas.
+      g_painted.insert(h);
+      if (g_tinted.erase(h)) SetColor(w, kWhite);
+      return;
+    }
     if (paint && cn && Paintable(cn) && skins->paint_weapon(h, sid, g_paintKit, g_paintWear, g_paintSeed) == 1) {
       g_painted.insert(h);
       if (g_tinted.erase(h)) SetColor(w, kWhite);  // tinted before skins.so was there
