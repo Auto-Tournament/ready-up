@@ -17,15 +17,20 @@
 //    workshop map's own addon). Strings use tier0's allocator (MemAlloc_StrDupFunc / FreeFunc), the
 //    one CUtlString frees with.
 #include "addons_rules.h"
+#include "addons_vpk.h"
 
 #include "readyup/plugin_api.h"
 #include "readyup/selftest_iface.h"
 
 #include <dlfcn.h>
+#include <sys/stat.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdint>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 #include <map>
 #include <string>
 #include <vector>
@@ -39,11 +44,13 @@ const ru_api* g_api = nullptr;
 using UgcAccessorFn = void* (*)();
 using GetItemStateFn = uint32_t (*)(void*, uint64_t);
 using DownloadItemFn = bool (*)(void*, uint64_t, bool);
+using GetItemInstallInfoFn = bool (*)(void*, uint64_t, uint64_t*, char*, uint32_t, uint32_t*);
 
 struct Steam {
   UgcAccessorFn accessor = nullptr;
   GetItemStateFn itemState = nullptr;
   DownloadItemFn download = nullptr;
+  GetItemInstallInfoFn installInfo = nullptr;
   std::string status = "not resolved";
 } g_steam;
 
@@ -61,13 +68,14 @@ void ResolveSteam() {
   }
   g_steam.itemState = reinterpret_cast<GetItemStateFn>(dlsym(lib, "SteamAPI_ISteamUGC_GetItemState"));
   g_steam.download = reinterpret_cast<DownloadItemFn>(dlsym(lib, "SteamAPI_ISteamUGC_DownloadItem"));
+  g_steam.installInfo = reinterpret_cast<GetItemInstallInfoFn>(dlsym(lib, "SteamAPI_ISteamUGC_GetItemInstallInfo"));
   if (!g_steam.accessor) g_steam.status = "no SteamAPI_SteamGameServerUGC_v0xx export";
-  else if (!g_steam.itemState || !g_steam.download) g_steam.status = "missing ISteamUGC exports";
+  else if (!g_steam.itemState || !g_steam.download || !g_steam.installInfo) g_steam.status = "missing ISteamUGC exports";
 }
 
 void* Ugc() {
   ResolveSteam();
-  if (!g_steam.accessor || !g_steam.itemState || !g_steam.download) return nullptr;
+  if (!g_steam.accessor || !g_steam.itemState || !g_steam.download || !g_steam.installInfo) return nullptr;
   return g_steam.accessor();  // NULL until the game server is logged on to Steam
 }
 
@@ -155,6 +163,146 @@ void InstallHook() {
   }
 }
 
+// ---- Precache: the map's resource manifest ------------------------------------------------------
+// Detour of CGameRulesGameSystem::OnBuildGameSessionManifest (IGameSystem slot 7; engine-surface
+// entry CGameRulesGameSystem_BuildGameSessionManifest): after the game's own resources, add the
+// `precache=` paths to msg->m_pResourceManifest. AddResource(const char*) is CEntityResourceManifest
+// slot 0, a thunk `xor r8d,r8d; xor r9d,r9d; xor ecx,ecx; xor edx,edx; jmp <impl>`: checked before
+// every use, so a changed engine skips the precache instead of calling something else.
+using ManifestEventFn = void (*)(void*, const void*);
+using AddResourceFn = void (*)(void*, const char*);
+ManifestEventFn g_origManifest = nullptr;
+std::string g_precacheStatus = "not installed";
+std::vector<std::string> g_precache;  // `precache=` from addons.cfg
+
+bool IsAddResourceThunk(const void* fn) {
+  static const uint8_t kThunk[] = {0x45, 0x31, 0xC0, 0x45, 0x31, 0xC9, 0x31, 0xC9, 0x31, 0xD2, 0xE9};
+  return fn && std::memcmp(fn, kThunk, sizeof(kThunk)) == 0;
+}
+
+void DetourManifest(void* self, const void* msg) {
+  g_origManifest(self, msg);
+  if (!g_api || !msg || g_precache.empty()) return;
+  void* manifest = *static_cast<void* const*>(msg);
+  if (!manifest) return;
+  void** vt = *static_cast<void***>(manifest);
+  if (!vt || !IsAddResourceThunk(vt[0])) {
+    g_precacheStatus = "skipped: IEntityResourceManifest slot 0 is not AddResource on this build";
+    ru_logf(g_api, RU_LOG_WARN, "precache %s", g_precacheStatus.c_str());
+    return;
+  }
+  auto add = reinterpret_cast<AddResourceFn>(vt[0]);
+  for (const std::string& path : g_precache) add(manifest, path.c_str());
+  g_precacheStatus = "ok (" + std::to_string(g_precache.size()) + " resource(s) with the last map load)";
+  ru_logf(g_api, RU_LOG_INFO, "precache: added %zu resource(s) to the map's manifest", g_precache.size());
+}
+
+void InstallPrecacheHook() {
+  void* tramp = nullptr;
+  if (g_api->hook_function(g_api->self, "CGameRulesGameSystem_BuildGameSessionManifest",
+                           reinterpret_cast<void*>(&DetourManifest), &tramp) == 1) {
+    g_origManifest = reinterpret_cast<ManifestEventFn>(tramp);
+    g_precacheStatus = "ok (waiting for a map load)";
+  } else {
+    g_precacheStatus = "refused (see log): addon models will show as ERROR";
+  }
+}
+
+std::vector<std::string> SplitList(const std::string& text) {
+  std::vector<std::string> out;
+  std::string cur;
+  for (char c : text + ",") {
+    if (c == ',' || c == ';') {
+      while (!cur.empty() && (cur.back() == ' ' || cur.back() == '\t')) cur.pop_back();
+      size_t i = cur.find_first_not_of(" \t");
+      if (i != std::string::npos) out.push_back(cur.substr(i));
+      cur.clear();
+    } else {
+      cur.push_back(c);
+    }
+  }
+  return out;
+}
+
+// ---- Extraction: server-side content ------------------------------------------------------------
+// The engine's addon mount (the map-change request) makes clients load an addon but does not put
+// its files in the server's GAME search path, so precaching its models failed ("File not found").
+// Ready Up's own `Game csgo/readyup` line in gameinfo.gi is a GAME search path: the addon's content
+// files (models/, materials/, ...) are copied there as loose files once per addon version (the
+// install timestamp, kept in plugins/addons/extracted_<id>.txt with the file list).
+std::string g_root;  // csgo/readyup
+
+std::string ReadAll(const std::string& path) {
+  std::ifstream f(path, std::ios::binary);
+  std::stringstream ss;
+  ss << f.rdbuf();
+  return f ? ss.str() : std::string();
+}
+
+bool MakeDirs(const std::string& path) {
+  for (size_t i = 1; i <= path.size(); ++i) {
+    if (i == path.size() || path[i] == '/') {
+      const std::string d = path.substr(0, i);
+      if (mkdir(d.c_str(), 0755) != 0 && errno != EEXIST) return false;
+    }
+  }
+  return true;
+}
+
+// True when the addon's files are in place (extracted now or already for this version).
+bool ExtractAddon(void* ugc, uint64_t id) {
+  char folder[1024] = {};
+  uint64_t size = 0;
+  uint32_t stamp = 0;
+  if (!g_steam.installInfo(ugc, id, &size, folder, sizeof(folder), &stamp)) {
+    ru_logf(g_api, RU_LOG_WARN, "addon %llu: no install info from Steam", static_cast<unsigned long long>(id));
+    return false;
+  }
+  const std::string marker = g_root + "/plugins/addons/extracted_" + std::to_string(id) + ".txt";
+  const std::string wantHead = "stamp " + std::to_string(stamp) + "\n";
+  if (ReadAll(marker).compare(0, wantHead.size(), wantHead) == 0) return true;  // this version is out already
+
+  const std::string base = std::string(folder) + "/" + std::to_string(id);
+  std::string dirBytes = ReadAll(base + "_dir.vpk");
+  if (dirBytes.empty()) dirBytes = ReadAll(base + ".vpk");  // single-file (older) addons
+  VpkDir dir;
+  std::string err;
+  if (!ParseVpkDir(dirBytes, &dir, &err)) {
+    ru_logf(g_api, RU_LOG_WARN, "addon %llu: can't read its VPK (%s)", static_cast<unsigned long long>(id), err.c_str());
+    return false;
+  }
+  std::string list = wantHead;
+  int files = 0;
+  for (const VpkEntry& e : dir.entries) {
+    if (!ExtractablePath(e.path)) continue;
+    std::string data = e.preload;
+    if (e.length) {
+      if (e.archive == 0x7FFF) {
+        if (static_cast<size_t>(dir.dataStart) + e.offset + e.length > dirBytes.size()) continue;
+        data += dirBytes.substr(dir.dataStart + e.offset, e.length);
+      } else {
+        char n[16];
+        std::snprintf(n, sizeof(n), "_%03u.vpk", static_cast<unsigned>(e.archive));
+        std::ifstream a(base + n, std::ios::binary);
+        std::string chunk(e.length, '\0');
+        if (!a.seekg(e.offset) || !a.read(&chunk[0], e.length)) continue;
+        data += chunk;
+      }
+    }
+    const std::string dst = g_root + "/" + e.path;
+    if (!MakeDirs(dst.substr(0, dst.rfind('/')))) continue;
+    std::ofstream o(dst, std::ios::binary | std::ios::trunc);
+    o.write(data.data(), static_cast<std::streamsize>(data.size()));
+    if (!o) continue;
+    list += e.path + "\n";
+    ++files;
+  }
+  std::ofstream(marker, std::ios::trunc) << list;
+  ru_logf(g_api, RU_LOG_INFO, "addon %llu: %d content file(s) into csgo/readyup for the server", static_cast<unsigned long long>(id),
+          files);
+  return true;
+}
+
 // ---- Polling -----------------------------------------------------------------------------------
 void Poll() {
   void* ugc = Ugc();
@@ -173,7 +321,7 @@ void Poll() {
                 static_cast<unsigned long long>(id), it.downloadAsked ? "requested" : "refused by Steam");
         break;
       case Action::kMount:
-        if (!it.installed) {
+        if (!it.installed && ExtractAddon(ugc, id)) {
           it.installed = true;
           ru_logf(g_api, RU_LOG_INFO, "addon %llu: installed; mounts with the next map change (.ru map)",
                   static_cast<unsigned long long>(id));
@@ -197,6 +345,11 @@ void OnTick(void*, const ru_tick_info* t) {
     if (ids != g_ids) {
       g_ids = std::move(ids);
       ru_logf(g_api, RU_LOG_INFO, "workshop_addons: %zu addon(s)%s", g_ids.size(), bad ? " (some entries are not workshop ids)" : "");
+    }
+    auto pre = SplitList(ConfigValue("precache"));
+    if (pre != g_precache) {
+      g_precache = std::move(pre);
+      ru_logf(g_api, RU_LOG_INFO, "precache: %zu resource(s) (applied with the next map load)", g_precache.size());
     }
   }
   if (t->now - g_lastPoll >= 2.0 && !g_ids.empty()) {
@@ -222,14 +375,16 @@ void Reply(const ru_command_ctx* ctx, const std::string& msg) {
 // `ru addons`: status of every configured addon.
 void OnRu(void*, const ru_command_ctx* ctx) {
   ResolveSteam();
-  Reply(ctx, std::to_string(g_ids.size()) + " addon(s); steam " + g_steam.status + "; map-change hook " + g_hookStatus);
+  Reply(ctx, std::to_string(g_ids.size()) + " addon(s); steam " + g_steam.status + "; map-change hook " + g_hookStatus +
+                 "; precache " + g_precacheStatus);
   for (uint64_t id : g_ids) Reply(ctx, StatusLine(id));
 }
 
 void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   ResolveSteam();
   add(ctx, g_hookStatus == "ok" ? "INFO" : "WARN", "addons",
-      (std::to_string(g_ids.size()) + " addon(s), steam " + g_steam.status + ", map-change hook " + g_hookStatus).c_str());
+      (std::to_string(g_ids.size()) + " addon(s), steam " + g_steam.status + ", map-change hook " + g_hookStatus +
+       ", precache " + g_precacheStatus).c_str());
   for (uint64_t id : g_ids) add(ctx, "INFO", "addons", StatusLine(id).c_str());
 }
 const ru_selftest_iface_v1 g_selftestIface = {sizeof(ru_selftest_iface_v1), &RunSelftest};
@@ -259,8 +414,15 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_ids.clear();
   g_items.clear();
   g_lastConfig = g_lastPoll = -1e9;
+  const char* dd = api->data_dir(api->self);  // csgo/readyup/plugins/addons
+  g_root = dd ? std::string(dd) : std::string();
+  while (!g_root.empty() && g_root.back() == '/') g_root.pop_back();
+  for (int up = 0; up < 2 && g_root.rfind('/') != std::string::npos; ++up) g_root.erase(g_root.rfind('/'));
   g_origSetPending = nullptr;
+  g_origManifest = nullptr;
+  g_precache.clear();
   InstallHook();
+  InstallPrecacheHook();
   api->on_tick(api->self, &OnTick, nullptr);
   api->register_ru_subcommand(api->self, "addons", &OnRu, nullptr);
   if (RU_API_HAS(api, provide_interface)) {

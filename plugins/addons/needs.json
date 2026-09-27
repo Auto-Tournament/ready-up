@@ -9,6 +9,7 @@
   ],
   "surface": [
     "CCommand",
+    "CGameRulesGameSystem_BuildGameSessionManifest",
     "ClientPrint",
     "Engine2_SetPendingHostStateRequest",
     "ISource2GameClients::ClientCommand",

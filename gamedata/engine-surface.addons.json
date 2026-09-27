@@ -19,6 +19,24 @@
           "window": 256
         }
       ]
+    },
+    "CGameRulesGameSystem_BuildGameSessionManifest": {
+      "linux": "48 8B 3D ? ? ? ? 48 85 FF 0F 84 ? ? ? ? 55 48 8D 15 ? ? ? ? 48 89 E5 53 48 89 F3 48 83 EC 08 48 8B 07 48 8B 80 ? ? ? ? 48 39 D0",
+      "required": false,
+      "hook": "funchook",
+      "description": "CGameRulesGameSystem::OnBuildGameSessionManifest(this, const EventBuildGameSessionManifest_t* msg), IGameSystem slot 7: called while a map loads; msg->m_pResourceManifest (offset 0) is the map's IEntityResourceManifest. readyup-addons adds the models of its workshop addons there (AddResource = CEntityResourceManifest slot 0) so the engine loads them and clients get them.",
+      "anchors": [
+        {
+          "type": "string_ref",
+          "string": "GlassImpact",
+          "window": 192
+        },
+        {
+          "type": "string_ref",
+          "string": "gunshotsplash",
+          "window": 192
+        }
+      ]
     }
   }
 }
