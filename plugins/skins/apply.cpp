@@ -202,12 +202,28 @@ bool IsLegacyPaintKit(int paint) {
 }
 
 // Returns true when done (applied or definitively impossible), false to retry on a later tick.
+// m_CBodyComponent -> CBodyComponentSkeletonInstance::m_skeletonInstance -> m_modelState.m_MeshGroupMask.
+// Written directly (what WeaponPaints does): unlike SetBodygroup it needs no loaded model, so a
+// weapon that was just created or bought gets the legacy model before it is networked.
+bool WriteMeshGroupMask(void* ent, uint64_t mask) {
+  static const int kBody = SchemaOffset("CBaseEntity", "m_CBodyComponent");
+  static const int kSkel = SchemaOffset("CBodyComponentSkeletonInstance", "m_skeletonInstance");
+  static const int kState = SchemaOffset("CSkeletonInstance", "m_modelState");
+  static const int kMask = SchemaOffset("CModelState", "m_MeshGroupMask");
+  if (kBody < 0 || kSkel < 0 || kState < 0 || kMask < 0) return false;
+  void* body = Rd<void*>(ent, kBody);
+  if (!body) return false;
+  Wr<uint64_t>(static_cast<unsigned char*>(body) + kSkel + kState, kMask, mask);
+  return true;
+}
+
 bool ApplyLegacyBody(void* weapon, uint64_t steamid64) {
+  const bool masked = WriteMeshGroupMask(weapon, 2);  // mesh group 1 = the legacy model
   const auto r = SetBodygroupByName(weapon, "body", 1);
-  if (r == RU_BODYGROUP_NO_MODEL) return false;
+  if (r == RU_BODYGROUP_NO_MODEL && !masked) return false;
   if (DebugOn()) {
-    Log(RU_LOG_DEBUG, "legacy model (body=1) for %s owner=%llu: %s", EntityDesignerName(weapon),
-          static_cast<unsigned long long>(steamid64), BodygroupResultName(r));
+    Log(RU_LOG_DEBUG, "legacy model for %s owner=%llu: mask %s, body=1 %s", EntityDesignerName(weapon),
+          static_cast<unsigned long long>(steamid64), masked ? "2" : "unavailable", BodygroupResultName(r));
   }
   return true;
 }
