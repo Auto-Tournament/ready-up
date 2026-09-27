@@ -154,6 +154,25 @@ void RestoreAll(const char* why) {
   g_painted.clear();
 }
 
+// skins.so's set_player_paint: Midas players' new weapons get the gold paint kit when they are
+// created, before they are networked, instead of their loadout skin (a weapon painted after
+// that keeps its old wear on clients, and bought weapons were not gold at all). Sent again on
+// every config read (5 s) so a reloaded skins.so gets it back; `clear`: take it all back.
+std::set<uint64_t> g_overrideSent;
+void SyncPaintOverrides(bool clear) {
+  const auto* s = static_cast<const ru_skins_v1*>(g_api->get_interface(g_api->self, RU_SKINS_IFACE_NAME, 1));
+  if (!s || !RU_API_HAS(s, set_player_paint) || !s->set_player_paint) {
+    g_overrideSent.clear();
+    return;
+  }
+  const std::set<uint64_t> want = clear ? std::set<uint64_t>{} : PaintOverrideSet(g_active, g_finish, g_midas, g_best);
+  for (uint64_t sid : g_overrideSent) {
+    if (!want.count(sid)) s->set_player_paint(sid, 0, 0.0f, 0);
+  }
+  for (uint64_t sid : want) s->set_player_paint(sid, g_paintKit, g_paintWear, g_paintSeed);
+  g_overrideSent = want;
+}
+
 // Calls fn(handle, weapon) for each weapon the player in `slot` holds; returns their SteamID64
 // (0: no controller / pawn).
 template <typename Fn>
@@ -246,6 +265,7 @@ void RefreshConfig(double now) {
     }
   }
   CheckBestAllowed();
+  SyncPaintOverrides(false);
 }
 
 // ---- best player ------------------------------------------------------------------------------
@@ -298,6 +318,7 @@ void SetBest(uint64_t sid, const std::string& why) {
   const uint64_t old = g_best;
   g_best = sid;
   g_bestLine = sid ? PlayerName(sid) + " (" + why + ")" : std::string();
+  SyncPaintOverrides(false);
   if (old != 0 && !g_midas.count(old) && g_off.Ok()) {
     const int slot = g_api->slot_for_steamid(g_api->self, old);
     if (slot >= 0 && slot < 64) {
@@ -452,6 +473,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_midas.clear();
   g_tinted.clear();
   g_painted.clear();
+  g_overrideSent.clear();
   g_color = kGold;
   g_finish = Finish::kAuto;
   g_paintKit = kGoldPaintKit;
@@ -482,6 +504,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
 
 READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
   // Hot reload / unload: weapons go back to their normal colour; the next image tints again.
+  SyncPaintOverrides(true);
   RestoreAll("unload");
   ru_logf(g_api, RU_LOG_INFO, "unloaded");
   g_api = nullptr;

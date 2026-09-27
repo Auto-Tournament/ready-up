@@ -50,6 +50,10 @@ float ParseFloat(const std::string& text, float def, float lo, float hi);
 enum class Finish { kAuto, kTint };
 bool ParseFinish(const std::string& text, Finish* out);
 
+// Who gets skins.so's per-player gold paint (new weapons painted when they are created): nobody
+// while inactive or with finish=tint, else midas_steamids plus the best-player Midas.
+std::set<uint64_t> PaintOverrideSet(bool active, Finish finish, const std::set<uint64_t>& midas, uint64_t best);
+
 // The default `paint_kit`: 1025 "Gold Brick" (items_game am_gold_brick, the MAC-10 finish). An
 // anodized multicolour pattern (style 5, not a legacy-model kit), so it lays out on every gun
 // instead of being authored for one weapon's UVs (unlike e.g. 921 "Gold Arabesque", AK-47 only).

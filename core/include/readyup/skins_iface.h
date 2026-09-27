@@ -31,6 +31,13 @@ typedef struct ru_skins_v1 {
    * again with paint_kit 0, which hands it back: stock paint now, the holder's own loadout (if
    * any) on the next tick. Returns 1 when written; 0 when inactive or the handle is stale. */
   int (*paint_weapon)(uint32_t weapon_handle, uint64_t steamid64, int32_t paint_kit, float wear, int32_t seed);
+  /* Per-player paint: while set, every new weapon skins.so paints for `steamid64` (spawned or
+   * bought; not one another player owned first) gets `paint_kit` / wear / seed when it is created,
+   * before it is networked, instead of the loadout skin (knives keep the loadout knife model). A weapon painted
+   * after it was networked keeps its old wear on clients, which is why this exists. paint_kit 0
+   * clears it; weapons already painted keep their look. Not kept across a skins.so reload: set it
+   * again (midas re-sends every 5 s). Returns 1 when stored. Appended; check RU_API_HAS. */
+  int (*set_player_paint)(uint64_t steamid64, int32_t paint_kit, float wear, int32_t seed);
 } ru_skins_v1;
 
 #ifdef __cplusplus

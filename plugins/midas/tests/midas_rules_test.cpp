@@ -59,7 +59,7 @@ int main() {
   CHECK(!ParseFinish("gold", &f) && f == Finish::kTint);
   CHECK(kGoldPaintKit == 1025);
   CHECK(Paintable("weapon_ak47") && Paintable("weapon_deagle") && Paintable("weapon_awp") && Paintable("weapon_taser"));
-  CHECK(!Paintable("weapon_knife") && !Paintable("weapon_knife_t") && !Paintable("weapon_bayonet"));
+  CHECK(Paintable("weapon_knife") && Paintable("weapon_knife_t") && Paintable("weapon_bayonet"));
   CHECK(!Paintable("weapon_c4") && !Paintable("weapon_hegrenade") && !Paintable("weapon_flashbang"));
   CHECK(!Paintable("weapon_healthshot") && !Paintable("prop_physics") && !Paintable(""));
 
@@ -116,6 +116,14 @@ int main() {
   CHECK(PickBest({t1, t2}, BestStat::kKills, 0) == t1.steamid64);
   CHECK(PickBest({t1, t2}, BestStat::kKills, t2.steamid64) == t2.steamid64);
   CHECK(PickBest({t2, t1}, BestStat::kAdr, 0) == t1.steamid64);  // order does not matter
+
+  // skins.so per-player paint: midas_steamids plus the best player, only active with finish=auto.
+  const std::set<uint64_t> paintIds = {76561198000000001ull};
+  CHECK(PaintOverrideSet(true, Finish::kAuto, paintIds, 0) == paintIds);
+  CHECK(PaintOverrideSet(true, Finish::kAuto, paintIds, 76561198000000009ull).size() == 2);
+  CHECK(PaintOverrideSet(true, Finish::kAuto, {0ull}, 0).empty());
+  CHECK(PaintOverrideSet(true, Finish::kTint, paintIds, 76561198000000009ull).empty());
+  CHECK(PaintOverrideSet(false, Finish::kAuto, paintIds, 76561198000000009ull).empty());
 
   std::printf("midas_rules_test: %s\n", g_failures ? "FAIL" : "PASS");
   return g_failures ? 1 : 0;

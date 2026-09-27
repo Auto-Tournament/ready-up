@@ -211,11 +211,17 @@ bool ApplyLegacyBody(void* weapon, uint64_t steamid64) {
   return true;
 }
 
+// set_player_paint (readyup.skins.v1): steamid64 -> the paint every new weapon gets.
+std::unordered_map<uint64_t, WeaponSkinEntry> g_paintOverride;
 long long g_applied = 0;  // weapons painted / knives swapped this session (for skins_status)
 
 WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late, bool* legacyPending) {
   auto& o = Off();
-  if (!IsLoaded(steamid64)) return WeaponResult::kRetry;
+  const bool isKnife = IsKnifeDesigner(EntityDesignerName(weapon));
+  const auto ov = g_paintOverride.find(steamid64);
+  // A per-player paint needs no loadout: paint it now, before the weapon is networked. Knives still
+  // wait for it, since the knife model comes from the loadout.
+  if ((ov == g_paintOverride.end() || isKnife) && !IsLoaded(steamid64)) return WeaponResult::kRetry;
 
   // Weapons picked up from someone else keep their original owner's look.
   const uint64_t xuid = (static_cast<uint64_t>(Rd<uint32_t>(weapon, o.econ_xuidHigh)) << 32) |
@@ -231,7 +237,6 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
   if (defindex <= 0) return WeaponResult::kDone;
 
   bool changed = false;
-  const bool isKnife = IsKnifeDesigner(EntityDesignerName(weapon));
   if (isKnife) {
     if (const auto want = FindKnifeClassname(steamid64, team)) {
       if (const auto wantDef = KnifeClassnameToDefindex(*want)) {
@@ -253,7 +258,11 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
     }
   }
 
-  if (const auto skin = FindWeaponSkin(steamid64, team, defindex)) {
+  if (ov != g_paintOverride.end()) {
+    WritePaint(weapon, item, steamid64, ov->second);
+    changed = true;
+    if (IsLegacyPaintKit(ov->second.paint_id) && !ApplyLegacyBody(weapon, steamid64)) *legacyPending = true;
+  } else if (const auto skin = FindWeaponSkin(steamid64, team, defindex)) {
     if (skin->paint_id > 0) {
       WritePaint(weapon, item, steamid64, *skin);
       changed = true;
@@ -491,6 +500,20 @@ bool PaintWeaponExternal(uint32_t handle, uint64_t steamid64, int paintKit, floa
     Log(RU_LOG_DEBUG, "paint_weapon %s paint=%d owner=%llu", EntityDesignerName(weapon), paintKit,
         static_cast<unsigned long long>(steamid64));
   }
+  return true;
+}
+
+bool SetPlayerPaintExternal(uint64_t steamid64, int paintKit, float wear, int seed) {
+  if (steamid64 == 0) return false;
+  if (paintKit <= 0) {
+    g_paintOverride.erase(steamid64);
+    return true;
+  }
+  WeaponSkinEntry e;
+  e.paint_id = paintKit;
+  e.wear = std::min(1.0f, std::max(0.0f, wear));
+  e.seed = std::max(0, seed);
+  g_paintOverride[steamid64] = e;
   return true;
 }
 
