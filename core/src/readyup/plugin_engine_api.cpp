@@ -17,6 +17,7 @@
 #include "readyup/slot_registry.h"
 
 #include "readyup/plugin_api.h"
+#include "readyup/plugin_hooks.h"
 
 #include <cstring>
 #include <string>
@@ -252,6 +253,21 @@ void* ApiGiveItem(ru_plugin* self, int slot, const char* classname) {
   return svc ? entity::GiveNamedItem(svc, classname) : nullptr;
 }
 
+void* ApiSurfaceFunction(ru_plugin* self, const char* key) {
+  if (!CheckGameThread(self, "surface_function") || !key) return nullptr;
+  return hooks::SurfaceFunction(key);
+}
+
+int ApiHookFunction(ru_plugin* self, const char* key, void* detour, void** trampoline) {
+  if (!CheckGameThread(self, "hook_function")) return 0;
+  return hooks::HookFunction(detail::PluginId(self), detail::PluginNameOf(self), key, detour, trampoline, nullptr) ? 1 : 0;
+}
+
+int ApiHookVtable(ru_plugin* self, const char* key, const void* obj, void* fn, void** original) {
+  if (!CheckGameThread(self, "hook_vtable")) return 0;
+  return hooks::HookVtable(detail::PluginId(self), detail::PluginNameOf(self), key, obj, fn, original, nullptr) ? 1 : 0;
+}
+
 int ApiSetBodygroup(ru_plugin* self, void* ent, const char* group, int value) {
   if (!CheckGameThread(self, "entity_set_bodygroup_by_name") || !ent || !group) return RU_BODYGROUP_UNAVAILABLE;
   switch (entity::SetBodygroupByName(ent, group, value)) {
@@ -328,6 +344,9 @@ void detail::FillEngineApi(ru_api* a) {
   a->center_html_all_prio = &ApiCenterHtmlAllPrio;
   a->center_html_release = &ApiCenterHtmlRelease;
   a->player_give_item = &ApiGiveItem;                             // v1.7
+  a->surface_function = &ApiSurfaceFunction;                      // v1.8
+  a->hook_function = &ApiHookFunction;
+  a->hook_vtable = &ApiHookVtable;
 }
 
 }  // namespace readyup::plugins

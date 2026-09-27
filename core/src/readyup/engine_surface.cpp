@@ -129,6 +129,24 @@ const es::Image* RealServerImage() {
   return &*S().image;
 }
 
+namespace {
+// Images of other modules (lib<module>.so), only snapshotted when an entry asks for one.
+std::mutex g_modMu;
+std::map<std::string, es::Image> g_modImages;
+}  // namespace
+
+const es::Image* ModuleImage(const std::string& module) {
+  if (module == "server") return RealServerImage();
+  std::lock_guard<std::mutex> lk(g_modMu);
+  auto it = g_modImages.find(module);
+  if (it == g_modImages.end()) {
+    es::Image img = SnapshotModuleImage(module);
+    if (img.regions.empty()) return nullptr;  // not loaded yet; retry later
+    it = g_modImages.emplace(module, std::move(img)).first;
+  }
+  return &it->second;
+}
+
 es::Resolution EngineFunctionResolution(const char* name) {
   const es::EngineSurface* s = GetEngineSurface();
   es::Resolution res;
@@ -141,9 +159,9 @@ es::Resolution EngineFunctionResolution(const char* name) {
     res.detail = "not listed in engine-surface.json";
     return res;
   }
-  const es::Image* img = RealServerImage();
+  const es::Image* img = ModuleImage(spec->library);
   if (!img) {
-    res.detail = "real libserver.so not loaded";
+    res.detail = spec->library == "server" ? "real libserver.so not loaded" : "lib" + spec->library + ".so not loaded";
     return res;
   }
   {
@@ -182,13 +200,9 @@ VtableVerdict VerifySlotUncached(const es::EngineSurface& s, const es::VtableSpe
   v.name = spec.name;
   v.cls = spec.cls;
   v.index = spec.index;
-  if (spec.module != "server") {
-    v.detail = "module " + spec.module + " is not verifiable by vtable (runtime RTTI check at use)";
-    return v;
-  }
-  const es::Image* img = RealServerImage();
+  const es::Image* img = ModuleImage(spec.module);
   if (!img) {
-    v.detail = "real libserver.so not loaded";
+    v.detail = spec.module == "server" ? "real libserver.so not loaded" : "lib" + spec.module + ".so not loaded";
     return v;
   }
   uintptr_t expected = 0;

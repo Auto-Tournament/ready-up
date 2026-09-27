@@ -36,6 +36,7 @@ add_library(server_shim SHARED
   core/src/readyup/game_frame_hook.cpp
   core/src/readyup/game_events.cpp
   core/src/readyup/host_say_hook.cpp
+  core/src/readyup/plugin_hooks.cpp
   core/src/readyup/log_receiver.cpp
   core/src/readyup/logging.cpp
   libs/readyup/minijson.cpp

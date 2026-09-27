@@ -72,6 +72,10 @@ std::string GetThisModuleDir() { return g_moduleDir; }
 bool IsCoreChatCommand(const std::string& t) { return t == ".ru" || t == ".r" || t == ".ready"; }
 }  // namespace readyup
 
+namespace readyup::plugins::hooks {
+void DropPluginHooks(int, const std::string&) {}  // plugin_hooks.cpp
+}  // namespace readyup::plugins::hooks
+
 // ---- stub for the engine-facing API members (plugin_engine_api.cpp) -----------------
 // A fake game event: accessors read from this struct instead of an engine IGameEvent.
 struct FakeEvent {

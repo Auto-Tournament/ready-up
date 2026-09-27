@@ -1,4 +1,5 @@
 #include "readyup/plugin_loader.h"
+#include "readyup/plugin_hooks.h"
 
 #include "readyup/chat.h"
 #include "readyup/client_print.h"
@@ -785,6 +786,7 @@ bool UnloadNow(const std::string& name, std::string* err) {
   inst->handle.unloading.store(true);  // stops dispatch + post_to_game_thread for it
   if (inst->unload) InvokePlugin(inst, "readyup_plugin_unload", [&] { inst->unload(); });
   DropAdminProvider(inst->handle.id);  // waits for provider calls in flight on other threads
+  hooks::DropPluginHooks(inst->handle.id, inst->name);  // before the image is closed
   {
     std::lock_guard<std::mutex> lk(g_mu);
     DropOwnedLocked(inst->handle.id);
@@ -951,6 +953,7 @@ bool LoadNow(const std::string& name, std::string* err, bool checkNeeds = true) 
   if (rc != 0) {
     inst->handle.unloading.store(true);
     DropAdminProvider(inst->handle.id);
+    hooks::DropPluginHooks(inst->handle.id, inst->name);
     {
       std::lock_guard<std::mutex> lk(g_mu);
       DropOwnedLocked(inst->handle.id);
@@ -1454,6 +1457,9 @@ void HandlePluginCommand(const std::vector<std::string>& args, bool replyToChat,
 const char* CrashContextPlugin() {
   return g_crashName;
 }
+
+int detail::PluginId(ru_plugin* self) { return self ? self->id : 0; }
+const char* detail::PluginNameOf(ru_plugin* self) { return self && self->name[0] ? self->name : "?"; }
 
 bool detail::CheckGameThread(ru_plugin* self, const char* fn) { return GameThreadCaller(self, fn) != nullptr; }
 

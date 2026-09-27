@@ -547,6 +547,7 @@ std::optional<EngineSurface> ParseEngineSurface(const std::string& json, std::st
     if (const auto* rq = o.get("required"); rq && rq->type == minijson::Value::Type::Bool) f.required = rq->b;
     if (auto d = minijson::AsString(o.get("description"))) f.description = *d;
     if (auto h = minijson::AsString(o.get("hook"))) f.hook = *h;
+    if (auto l = minijson::AsString(o.get("library")); l && !l->empty()) f.library = *l;
     f.anchors = ParseAnchors(o);
     es.functions.push_back(std::move(f));
   }

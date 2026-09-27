@@ -27,5 +27,9 @@ SigResult FindInRealServerTextCount(const std::string& pattern, int maxMatches =
 // engine-surface verification. Empty if the module isn't loaded yet.
 es::Image SnapshotRealServerImage();
 
+// All PT_LOAD segments of lib<module>.so ("server" = SnapshotRealServerImage()). Empty if the
+// module isn't loaded.
+es::Image SnapshotModuleImage(const std::string& module);
+
 }  // namespace readyup
 

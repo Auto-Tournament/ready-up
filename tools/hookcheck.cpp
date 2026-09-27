@@ -23,6 +23,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <map>
 #include <vector>
 
 #include "funchook.h"
@@ -62,19 +63,16 @@ static std::optional<es::EngineSurface> LoadSurfaces(int argc, char** argv) {
   return es;
 }
 
-int main(int argc, char** argv) {
-  if (argc < 2) {
-    std::fprintf(stderr, "usage: %s <libserver.so> [engine-surface.json [fragment.json ...]]\n", argv[0]);
-    return 2;
-  }
-  const std::string bin = ReadFile(argv[1]);
-  if (bin.size() < sizeof(Elf64_Ehdr) || std::memcmp(bin.data(), ELFMAG, SELFMAG) != 0) {
-    std::fprintf(stderr, "failed to read inputs\n");
-    return 2;
-  }
+// One module mapped for funchook: every PT_LOAD at base + p_vaddr in one contiguous reservation
+// so RIP-relative targets keep their real distances (funchook allocates the trampoline within +-2GB).
+struct MappedModule {
+  uint8_t* base = nullptr;
+  es::Image img;
+};
 
-  // Map every PT_LOAD at base + p_vaddr in one contiguous reservation so RIP-relative
-  // targets keep their real distances (funchook allocates the trampoline within +-2GB).
+static bool MapModule(const char* path, MappedModule* out) {
+  const std::string bin = ReadFile(path);
+  if (bin.size() < sizeof(Elf64_Ehdr) || std::memcmp(bin.data(), ELFMAG, SELFMAG) != 0) return false;
   const auto* eh = reinterpret_cast<const Elf64_Ehdr*>(bin.data());
   std::vector<const Elf64_Phdr*> loads;
   uint64_t span = 0;
@@ -88,29 +86,65 @@ int main(int argc, char** argv) {
   void* mem = mmap(nullptr, span, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (mem == MAP_FAILED) {
     std::perror("mmap");
-    return 2;
+    return false;
   }
-  auto* base = static_cast<uint8_t*>(mem);
-  es::Image img;
+  out->base = static_cast<uint8_t*>(mem);
   for (const auto* ph : loads) {
-    std::memcpy(base + ph->p_vaddr, bin.data() + ph->p_offset, ph->p_filesz);
+    std::memcpy(out->base + ph->p_vaddr, bin.data() + ph->p_offset, ph->p_filesz);
     es::Region r;
-    r.addr = reinterpret_cast<uintptr_t>(base) + ph->p_vaddr;
-    r.data = base + ph->p_vaddr;
+    r.addr = reinterpret_cast<uintptr_t>(out->base) + ph->p_vaddr;
+    r.data = out->base + ph->p_vaddr;
     r.size = ph->p_filesz;
     r.exec = (ph->p_flags & PF_X) != 0;
-    img.regions.push_back(r);
+    out->img.regions.push_back(r);
+  }
+  return true;
+}
+
+int main(int argc, char** argv) {
+  // --lib <module>=<path> (repeatable): hooked entries of that module ("library") are checked
+  // against it; entries of a module with no binary are SKIPped.
+  std::map<std::string, MappedModule> mods;
+  std::vector<char*> args{argv[0]};
+  for (int i = 1; i < argc; ++i) {
+    const std::string a = argv[i];
+    if (a == "--lib" && i + 1 < argc) {
+      const std::string spec = argv[++i];
+      const auto eq = spec.find('=');
+      if (eq == std::string::npos || eq == 0 || !MapModule(spec.c_str() + eq + 1, &mods[spec.substr(0, eq)])) {
+        std::fprintf(stderr, "bad --lib %s (want <module>=<path to lib<module>.so>)\n", spec.c_str());
+        return 2;
+      }
+      continue;
+    }
+    args.push_back(argv[i]);
+  }
+  if (args.size() < 2) {
+    std::fprintf(stderr,
+                 "usage: %s <libserver.so> [engine-surface.json [fragment.json ...]] [--lib <module>=<lib.so> ...]\n",
+                 argv[0]);
+    return 2;
+  }
+  if (!MapModule(args[1], &mods["server"])) {
+    std::fprintf(stderr, "failed to read inputs\n");
+    return 2;
   }
 
-  auto surface = LoadSurfaces(argc, argv);
+  auto surface = LoadSurfaces(static_cast<int>(args.size()), args.data());
   if (!surface) return 2;
 
   int checked = 0, bad = 0;
   for (const auto& f : surface->functions) {
     if (f.hook != "funchook") continue;
+    auto mit = mods.find(f.library);
+    if (mit == mods.end()) {
+      std::printf("SKIP %-40s (lib%s.so not given: --lib %s=...)\n", f.name.c_str(), f.library.c_str(), f.library.c_str());
+      continue;
+    }
     ++checked;
+    uint8_t* base = mit->second.base;
 
-    const es::Resolution r = es::Resolve(img, f);
+    const es::Resolution r = es::Resolve(mit->second.img, f);
     if (!r.ok) {
       std::printf("FAIL %-40s unresolved (matches=%d) %s\n", f.name.c_str(), r.matches, r.detail.c_str());
       ++bad;

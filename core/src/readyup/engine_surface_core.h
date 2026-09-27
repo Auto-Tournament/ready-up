@@ -71,6 +71,10 @@ struct FunctionSpec {
   std::vector<Anchor> anchors;
   std::string description;
   std::string hook;  // "funchook" when Ready Up detours it (readyup_hookcheck checks the prologue)
+  // Module the function lives in: "server" = the real libserver.so, else lib<library>.so
+  // ("engine2" = libengine2.so). Only plugin fragments list other modules; the core's own
+  // engine-surface.json stays libserver-only.
+  std::string library = "server";
 };
 
 // One virtual slot we patch or call through. Verified by locating the implementing class's

@@ -658,3 +658,7 @@ int main(int argc, char** argv) {
   std::printf("%s\n", g_failed ? "match_host_test: FAIL" : "match_host_test: PASS");
   return g_failed ? 1 : 0;
 }
+
+namespace readyup::plugins::hooks {
+void DropPluginHooks(int, const std::string&) {}  // plugin_hooks.cpp
+}  // namespace readyup::plugins::hooks
