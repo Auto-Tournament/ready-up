@@ -5,37 +5,37 @@
   "patch": "1.41.8.5"
  },
  "readyup": {
-  "version": "0.1.0-dev.cf408d7",
-  "commit": "cf408d747bce3434ab8b90b74ad8974f1f7c0a8c"
+  "version": "0.1.0-dev.0b93053",
+  "commit": "0b93053b655fb6fd95af3c33bf06371e01343594"
  },
  "run": {
-  "id": "36309632735",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/36309632735",
-  "trigger": "nightly",
-  "stage": "live",
-  "state": "fail",
-  "started_at": "2026-09-27T09:32:27Z",
-  "finished_at": "2026-09-27T09:38:26Z"
+  "id": "36321506208",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/36321506208",
+  "trigger": "surface_change",
+  "stage": "static",
+  "state": "warn",
+  "started_at": "2026-09-27T13:10:59Z",
+  "finished_at": "2026-09-27T13:12:26Z"
  },
- "overall": "fail",
+ "overall": "warn",
  "components": [
   {
    "id": "core",
    "name": "Core",
-   "status": "warn",
+   "status": "pass",
    "checks": [
     {
      "kind": "signature",
      "status": "pass",
-     "passed": 9,
-     "total": 9,
+     "passed": 10,
+     "total": 10,
      "failures": []
     },
     {
      "kind": "rtti",
      "status": "pass",
-     "passed": 5,
-     "total": 5,
+     "passed": 7,
+     "total": 7,
      "failures": []
     },
     {
@@ -61,14 +61,10 @@
     },
     {
      "kind": "selftest",
-     "status": "warn",
-     "passed": 74,
-     "total": 77,
-     "failures": [
-      "schema CCSPlayerController::m_iAssists: not found [stats (else from events)]",
-      "schema CCSPlayerController::m_iDeaths: not found [stats (else from events)]",
-      "schema CCSPlayerController::m_iKills: not found [stats (else from events)]"
-     ]
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
     }
    ]
   },
@@ -80,15 +76,15 @@
     {
      "kind": "signature",
      "status": "pass",
-     "passed": 11,
-     "total": 11,
+     "passed": 12,
+     "total": 12,
      "failures": []
     },
     {
      "kind": "rtti",
      "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "passed": 3,
+     "total": 3,
      "failures": []
     },
     {
@@ -114,15 +110,15 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 26,
-     "total": 26,
+     "status": "pending",
+     "passed": 0,
+     "total": 33,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 4,
+     "status": "pending",
+     "passed": 0,
      "total": 4,
      "failures": []
     },
@@ -138,7 +134,7 @@
   {
    "id": "match",
    "name": "Match",
-   "status": "fail",
+   "status": "pass",
    "checks": [
     {
      "kind": "signature",
@@ -150,8 +146,8 @@
     {
      "kind": "rtti",
      "status": "pass",
-     "passed": 2,
-     "total": 2,
+     "passed": 4,
+     "total": 4,
      "failures": []
     },
     {
@@ -177,39 +173,31 @@
     },
     {
      "kind": "schema",
-     "status": "warn",
-     "passed": 10,
+     "status": "pending",
+     "passed": 0,
      "total": 14,
-     "failures": [
-      "CCSPlayerController.m_iAssists: not found",
-      "CCSPlayerController.m_iDeaths: not found",
-      "CCSPlayerController.m_iHeadshotKills|CCSPlayerController.m_iHeadShotKills|CCSPlayerController.m_iMatchStats_HeadshotKills: not found",
-      "CCSPlayerController.m_iKills: not found"
-     ]
+     "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 13,
+     "status": "pending",
+     "passed": 0,
      "total": 13,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     },
     {
      "kind": "livetest",
-     "status": "fail",
+     "status": "pending",
      "passed": 0,
-     "total": 2,
-     "failures": [
-      "match: bot live test failed (exit 1); see the run",
-      "scrim: bot live test failed (exit 1); see the run"
-     ]
+     "total": 0,
+     "failures": []
     }
    ]
   },
@@ -228,8 +216,8 @@
     {
      "kind": "rtti",
      "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "passed": 3,
+     "total": 3,
      "failures": []
     },
     {
@@ -255,23 +243,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 11,
+     "status": "pending",
+     "passed": 0,
      "total": 11,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 4,
+     "status": "pending",
+     "passed": 0,
      "total": 4,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -326,15 +314,15 @@
     {
      "kind": "signature",
      "status": "pass",
-     "passed": 4,
-     "total": 4,
+     "passed": 7,
+     "total": 7,
      "failures": []
     },
     {
      "kind": "rtti",
      "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "passed": 3,
+     "total": 3,
      "failures": []
     },
     {
@@ -347,29 +335,29 @@
     {
      "kind": "hook_site",
      "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "passed": 2,
+     "total": 2,
      "failures": []
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 5,
+     "status": "pending",
+     "passed": 0,
      "total": 5,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 4,
+     "status": "pending",
+     "passed": 0,
      "total": 4,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -451,8 +439,8 @@
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 1,
+     "status": "pending",
+     "passed": 0,
      "total": 1,
      "failures": []
     },
@@ -508,5 +496,5 @@
    ]
   }
  ],
- "checked_at": "2026-09-27T09:38:26Z"
+ "checked_at": "2026-09-27T13:12:26Z"
 }
