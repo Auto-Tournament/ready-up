@@ -28,6 +28,7 @@
 #include "readyup/skins_iface.h"
 
 #include <cstdio>
+#include <cctype>
 #include <cstring>
 #include <set>
 #include <string>
@@ -159,6 +160,9 @@ void RestoreAll(const char* why) {
 // that keeps its old wear on clients, and bought weapons were not gold at all). Sent again on
 // every config read (5 s) so a reloaded skins.so gets it back; `clear`: take it all back.
 std::set<uint64_t> g_overrideSent;
+// `.midas` trial settings (runtime only; `.midas reset` or a plugin reload goes back to the cfg).
+int g_trialKit = 0;          // > 0: used instead of paint_kit
+bool g_tintPainted = false;  // also tint weapons that got the paint kit
 void SyncPaintOverrides(bool clear) {
   const auto* s = static_cast<const ru_skins_v1*>(g_api->get_interface(g_api->self, RU_SKINS_IFACE_NAME, 1));
   if (!s || !RU_API_HAS(s, set_player_paint) || !s->set_player_paint) {
@@ -220,7 +224,7 @@ void RefreshConfig(double now) {
   Finish finish = Finish::kAuto;
   const std::string fs = ConfigValue("finish");
   if (!fs.empty() && !ParseFinish(fs, &finish)) ru_logf(g_api, RU_LOG_WARN, "finish \"%s\" is not auto|tint; using auto", fs.c_str());
-  const int kit = ParseInt(ConfigValue("paint_kit"), kGoldPaintKit, 1, 100000);
+  const int kit = g_trialKit > 0 ? g_trialKit : ParseInt(ConfigValue("paint_kit"), kGoldPaintKit, 1, 100000);
   const float wear = ParseFloat(ConfigValue("paint_wear"), 0.0f, 0.0f, 1.0f);
   const int seed = ParseInt(ConfigValue("paint_seed"), 0, 0, 1000);
   if (finish != g_finish || kit != g_paintKit || wear != g_paintWear || seed != g_paintSeed) {
@@ -372,8 +376,19 @@ void TintSlot(int slot) {
   if (!ctrl || !IsMidas(Rd<uint64_t>(ctrl, g_off.ctrl_steamId))) return;
   const ru_skins_v1* skins = g_finish == Finish::kAuto ? Skins() : nullptr;
   const bool paint = skins && skins->active() == 1;
+  // Painted weapons get the tint on top only with `.midas tint`.
+  auto paintTint = [&](uint32_t h, void* w) {
+    if (g_tintPainted) {
+      if (SetColor(w, g_color)) g_tinted.insert(h);
+    } else if (g_tinted.erase(h)) {
+      SetColor(w, kWhite);
+    }
+  };
   ForHeldWeapons(slot, [&](uint32_t h, void* w) {
-    if (g_painted.count(h)) return;
+    if (g_painted.count(h)) {
+      paintTint(h, w);
+      return;
+    }
     const char* cn = g_api->entity_classname(g_api->self, w);
     const uint64_t sid = Rd<uint64_t>(ctrl, g_off.ctrl_steamId);
     if (paint && cn && Paintable(cn) && g_overrideSent.count(sid)) {
@@ -381,12 +396,12 @@ void TintSlot(int slot) {
       // here would claim it before skins.so sees it (no knife model, no gold on clients); only
       // remember it so it is handed back if this player stops being Midas.
       g_painted.insert(h);
-      if (g_tinted.erase(h)) SetColor(w, kWhite);
+      paintTint(h, w);
       return;
     }
     if (paint && cn && Paintable(cn) && skins->paint_weapon(h, sid, g_paintKit, g_paintWear, g_paintSeed) == 1) {
       g_painted.insert(h);
-      if (g_tinted.erase(h)) SetColor(w, kWhite);  // tinted before skins.so was there
+      paintTint(h, w);
       if (g_api->debug_enabled(g_api->self)) ru_logf(g_api, RU_LOG_DEBUG, "painted %s of slot %d", cn, slot);
       return;
     }
@@ -395,6 +410,83 @@ void TintSlot(int slot) {
       if (g_api->debug_enabled(g_api->self)) ru_logf(g_api, RU_LOG_DEBUG, "tinted %s of slot %d", cn ? cn : "?", slot);
     }
   });
+}
+
+// `.midas`: try paint kits live (admins, or a Midas player). A finish only shows on a weapon
+// created with it, so the reply says to buy / pick up a new one (the knife: respawn).
+struct TrialKit {
+  int kit;
+  const char* name;
+};
+constexpr TrialKit kTrialKits[] = {
+    {159, "Brass"},           {409, "Tiger Tooth"},     {32, "Silver"},          {1025, "Gold Brick"},
+    {413, "Marble Fade"},     {38, "Fade"},             {44, "Case Hardened"},   {98, "Ultraviolet"},
+    {42, "Blue Steel"},       {410, "Damascus Steel"},  {578, "Bright Water"},   {252, "Silver Quartz"},
+    {407, "Quicksilver"},     {210, "Anodized Gunmetal"}, {921, "Gold Arabesque"}, {185, "Golden Koi"},
+    {497, "Golden Coil"},     {990, "Gold Bismuth"},    {1294, "Gold Leaf"},     {129, "Gold Toof"},
+    {1170, "Chrome Cannon"},
+};
+constexpr int kTrialCount = static_cast<int>(sizeof(kTrialKits) / sizeof(kTrialKits[0]));
+
+std::string KitLabel(int kit) {
+  for (int i = 0; i < kTrialCount; ++i) {
+    if (kTrialKits[i].kit == kit) {
+      return std::to_string(kit) + " " + kTrialKits[i].name + " (" + std::to_string(i + 1) + "/" +
+             std::to_string(kTrialCount) + ")";
+    }
+  }
+  return std::to_string(kit);
+}
+
+void OnMidasChat(void*, const ru_command_ctx* ctx) {
+  auto reply = [&](const std::string& msg) {
+    if (ctx->slot >= 0) g_api->chat_to_slot(g_api->self, ctx->slot, ("Midas: " + msg).c_str());
+    else ru_logf(g_api, RU_LOG_INFO, "%s", msg.c_str());
+  };
+  const bool admin = ctx->is_console || (RU_API_HAS(g_api, is_admin) && g_api->is_admin(g_api->self, ctx->steamid64) == 1);
+  if (!admin && !IsMidas(ctx->steamid64)) {
+    reply("only admins and Midas players can use .midas");
+    return;
+  }
+  std::string sub = ctx->argc >= 2 && ctx->argv[1] ? ctx->argv[1] : "";
+  for (char& c : sub) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  int cur = 0;
+  for (int i = 0; i < kTrialCount; ++i) {
+    if (kTrialKits[i].kit == g_paintKit) cur = i;
+  }
+  int kit = 0;
+  if (sub == "next") {
+    kit = kTrialKits[(cur + 1) % kTrialCount].kit;
+  } else if (sub == "prev") {
+    kit = kTrialKits[(cur + kTrialCount - 1) % kTrialCount].kit;
+  } else if (sub == "kit" && ctx->argc >= 3) {
+    kit = ParseInt(ctx->argv[2], 0, 1, 100000);
+    if (kit <= 0) {
+      reply("kit needs a paint kit id, e.g. .midas kit 409");
+      return;
+    }
+  } else if (sub == "tint") {
+    g_tintPainted = !g_tintPainted;
+    for (int& p : g_pending) p = 16;
+    reply(std::string("gold tint on painted weapons ") + (g_tintPainted ? "ON" : "OFF") + " (updates live)");
+    return;
+  } else if (sub == "reset") {
+    g_trialKit = 0;
+    g_tintPainted = false;
+    g_lastConfig = -1e9;  // re-read midas.cfg on the next tick
+    for (int& p : g_pending) p = 16;
+    reply("back to midas.cfg (new weapons)");
+    return;
+  } else {
+    reply("finish " + KitLabel(g_paintKit) + (g_tintPainted ? " + tint" : "") +
+          ". .midas next | prev | kit <id> | tint | reset");
+    return;
+  }
+  g_trialKit = kit;
+  g_paintKit = kit;
+  SyncPaintOverrides(false);
+  ru_logf(g_api, RU_LOG_INFO, ".midas: finish %s by %s", KitLabel(kit).c_str(), ctx->name ? ctx->name : "?");
+  reply("finish " + KitLabel(kit) + ". Buy or pick up a new weapon to see it (knife: respawn).");
 }
 
 void OnTick(void*, const ru_tick_info* t) {
@@ -482,6 +574,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_tinted.clear();
   g_painted.clear();
   g_overrideSent.clear();
+  g_trialKit = 0;
+  g_tintPainted = false;
   g_color = kGold;
   g_finish = Finish::kAuto;
   g_paintKit = kGoldPaintKit;
@@ -499,6 +593,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   for (const char* e : {"item_pickup", "item_equip", "player_spawn"}) {
     if (!api->subscribe_game_event(api->self, e, OnItemEvent, nullptr)) ru_logf(api, RU_LOG_WARN, "could not subscribe to %s", e);
   }
+  if (RU_API_HAS(api, register_chat_command)) api->register_chat_command(api->self, ".midas", OnMidasChat, nullptr);
   if (!api->subscribe_game_event(api->self, "round_start", OnRoundStart, nullptr)) {
     ru_logf(api, RU_LOG_WARN, "could not subscribe to round_start (no best player)");
   }

@@ -237,6 +237,9 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
   if (defindex <= 0) return WeaponResult::kDone;
 
   bool changed = false;
+  int paintUsed = 0;
+  float wearUsed = 0.0f;
+  const bool fromOverride = ov != g_paintOverride.end();
   if (isKnife) {
     if (const auto want = FindKnifeClassname(steamid64, team)) {
       if (const auto wantDef = KnifeClassnameToDefindex(*want)) {
@@ -260,11 +263,15 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
 
   if (ov != g_paintOverride.end()) {
     WritePaint(weapon, item, steamid64, ov->second);
+    paintUsed = ov->second.paint_id;
+    wearUsed = ov->second.wear;
     changed = true;
     if (IsLegacyPaintKit(ov->second.paint_id) && !ApplyLegacyBody(weapon, steamid64)) *legacyPending = true;
   } else if (const auto skin = FindWeaponSkin(steamid64, team, defindex)) {
     if (skin->paint_id > 0) {
       WritePaint(weapon, item, steamid64, *skin);
+      paintUsed = skin->paint_id;
+      wearUsed = skin->wear;
       changed = true;
       if (IsLegacyPaintKit(skin->paint_id) && !ApplyLegacyBody(weapon, steamid64)) *legacyPending = true;
     }
@@ -273,8 +280,9 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
   if (changed) ++g_applied;
   if (changed && late) MarkEntityFullyChanged(weapon);
   if (changed && DebugOn()) {
-    Log(RU_LOG_DEBUG, "applied to %s def=%d owner=%llu%s", EntityDesignerName(weapon), defindex,
-          static_cast<unsigned long long>(steamid64), late ? " (late)" : "");
+    Log(RU_LOG_DEBUG, "applied to %s def=%d owner=%llu paint=%d wear=%.2f%s%s", EntityDesignerName(weapon), defindex,
+          static_cast<unsigned long long>(steamid64), paintUsed, static_cast<double>(wearUsed),
+          fromOverride ? " (player paint)" : "", late ? " (late)" : "");
   }
   return WeaponResult::kDone;
 }
