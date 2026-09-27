@@ -316,6 +316,7 @@ API_SURFACE = {
     "entity_set_bodygroup_by_name": ["CBaseModelEntity_GetModel", "CModel_FindBodygroupByName",
                                      "CBaseModelEntity_SetBodygroup"],
     "entity_set_abs_origin": ["CBaseEntity_SetAbsOrigin"],
+    "player_give_item": _ENTSYS + ["CCSPlayer_ItemServices_GiveNamedItem"],
     "set_round_termination_suppressed": ["CCSGameRules_TerminateRound"],
 }
 NEEDS_KEYS = ("schema_version", "plugin", "api", "surface", "schema", "schema_optional", "events")

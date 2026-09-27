@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 // Weapon skins + knives, driven from the plugin's on_tick (the core's GameFrame hook).
 //
@@ -201,21 +202,43 @@ bool IsLegacyPaintKit(int paint) {
 }
 
 // Returns true when done (applied or definitively impossible), false to retry on a later tick.
+// m_CBodyComponent -> CBodyComponentSkeletonInstance::m_skeletonInstance -> m_modelState.m_MeshGroupMask.
+// Written directly (what WeaponPaints does): unlike SetBodygroup it needs no loaded model, so a
+// weapon that was just created or bought gets the legacy model before it is networked.
+bool WriteMeshGroupMask(void* ent, uint64_t mask) {
+  static const int kBody = SchemaOffset("CBaseEntity", "m_CBodyComponent");
+  static const int kSkel = SchemaOffset("CBodyComponentSkeletonInstance", "m_skeletonInstance");
+  static const int kState = SchemaOffset("CSkeletonInstance", "m_modelState");
+  static const int kMask = SchemaOffset("CModelState", "m_MeshGroupMask");
+  if (kBody < 0 || kSkel < 0 || kState < 0 || kMask < 0) return false;
+  void* body = Rd<void*>(ent, kBody);
+  if (!body) return false;
+  Wr<uint64_t>(static_cast<unsigned char*>(body) + kSkel + kState, kMask, mask);
+  return true;
+}
+
 bool ApplyLegacyBody(void* weapon, uint64_t steamid64) {
+  const bool masked = WriteMeshGroupMask(weapon, 2);  // mesh group 1 = the legacy model
   const auto r = SetBodygroupByName(weapon, "body", 1);
-  if (r == RU_BODYGROUP_NO_MODEL) return false;
+  if (r == RU_BODYGROUP_NO_MODEL && !masked) return false;
   if (DebugOn()) {
-    Log(RU_LOG_DEBUG, "legacy model (body=1) for %s owner=%llu: %s", EntityDesignerName(weapon),
-          static_cast<unsigned long long>(steamid64), BodygroupResultName(r));
+    Log(RU_LOG_DEBUG, "legacy model for %s owner=%llu: mask %s, body=1 %s", EntityDesignerName(weapon),
+          static_cast<unsigned long long>(steamid64), masked ? "2" : "unavailable", BodygroupResultName(r));
   }
   return true;
 }
 
+// set_player_paint (readyup.skins.v1): steamid64 -> the paint every new weapon gets.
+std::unordered_map<uint64_t, WeaponSkinEntry> g_paintOverride;
 long long g_applied = 0;  // weapons painted / knives swapped this session (for skins_status)
 
 WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late, bool* legacyPending) {
   auto& o = Off();
-  if (!IsLoaded(steamid64)) return WeaponResult::kRetry;
+  const bool isKnife = IsKnifeDesigner(EntityDesignerName(weapon));
+  const auto ov = g_paintOverride.find(steamid64);
+  // A per-player paint needs no loadout: paint it now, before the weapon is networked. Knives still
+  // wait for it, since the knife model comes from the loadout.
+  if ((ov == g_paintOverride.end() || isKnife) && !IsLoaded(steamid64)) return WeaponResult::kRetry;
 
   // Weapons picked up from someone else keep their original owner's look.
   const uint64_t xuid = (static_cast<uint64_t>(Rd<uint32_t>(weapon, o.econ_xuidHigh)) << 32) |
@@ -231,7 +254,9 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
   if (defindex <= 0) return WeaponResult::kDone;
 
   bool changed = false;
-  const bool isKnife = IsKnifeDesigner(EntityDesignerName(weapon));
+  int paintUsed = 0;
+  float wearUsed = 0.0f;
+  const bool fromOverride = ov != g_paintOverride.end();
   if (isKnife) {
     if (const auto want = FindKnifeClassname(steamid64, team)) {
       if (const auto wantDef = KnifeClassnameToDefindex(*want)) {
@@ -253,9 +278,17 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
     }
   }
 
-  if (const auto skin = FindWeaponSkin(steamid64, team, defindex)) {
+  if (ov != g_paintOverride.end()) {
+    WritePaint(weapon, item, steamid64, ov->second);
+    paintUsed = ov->second.paint_id;
+    wearUsed = ov->second.wear;
+    changed = true;
+    if (IsLegacyPaintKit(ov->second.paint_id) && !ApplyLegacyBody(weapon, steamid64)) *legacyPending = true;
+  } else if (const auto skin = FindWeaponSkin(steamid64, team, defindex)) {
     if (skin->paint_id > 0) {
       WritePaint(weapon, item, steamid64, *skin);
+      paintUsed = skin->paint_id;
+      wearUsed = skin->wear;
       changed = true;
       if (IsLegacyPaintKit(skin->paint_id) && !ApplyLegacyBody(weapon, steamid64)) *legacyPending = true;
     }
@@ -264,8 +297,9 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
   if (changed) ++g_applied;
   if (changed && late) MarkEntityFullyChanged(weapon);
   if (changed && DebugOn()) {
-    Log(RU_LOG_DEBUG, "applied to %s def=%d owner=%llu%s", EntityDesignerName(weapon), defindex,
-          static_cast<unsigned long long>(steamid64), late ? " (late)" : "");
+    Log(RU_LOG_DEBUG, "applied to %s def=%d owner=%llu paint=%d wear=%.2f%s%s", EntityDesignerName(weapon), defindex,
+          static_cast<unsigned long long>(steamid64), paintUsed, static_cast<double>(wearUsed),
+          fromOverride ? " (player paint)" : "", late ? " (late)" : "");
   }
   return WeaponResult::kDone;
 }
@@ -321,6 +355,132 @@ bool DisabledByEnv() {  // READYUP_DISABLE_SKINS=1: keep the plugin loaded but i
   return disabled;
 }
 
+// ---- refresh held weapons (player_give_item) --------------------------------------------------
+// A paint written after a weapon was networked keeps the old look on clients. So `.skins reload`
+// and the midas `.midas` trials swap the held weapons for new ones: note them, remove them, and
+// give fresh ones two ticks later (after the removal), which ProcessPlayer paints on first sight.
+// Clip and reserve ammo carry over; the weapon in hand is given last. Grenades, C4 and weapons
+// another player owned first are left alone.
+struct PendingGive {
+  std::string cls;
+  int clip = -1;
+  int reserve = -1;
+};
+struct PendingRefresh {
+  uint64_t steamid64 = 0;
+  long long at = 0;  // g_tick to give at (0 = none)
+  std::vector<PendingGive> gives;
+};
+PendingRefresh g_refresh[64];
+bool g_giveBroken = false;  // a give failed: no more refreshes this session (repaint instead)
+
+bool CanRefresh() {
+  return !g_giveBroken && g_api && RU_API_HAS(g_api, player_give_item) && g_api->player_give_item && RU_API_HAS(g_api, entity_remove) &&
+         g_api->entity_remove;
+}
+
+bool SkipOnRefresh(const std::string& dn) {
+  static const char* const kSkip[] = {"weapon_c4",       "weapon_hegrenade", "weapon_flashbang", "weapon_smokegrenade",
+                                      "weapon_molotov",  "weapon_incgrenade", "weapon_decoy",    "weapon_tagrenade",
+                                      "weapon_healthshot", "weapon_breachcharge", "weapon_shield", "weapon_snowball"};
+  if (dn.compare(0, 7, "weapon_") != 0) return true;
+  for (const char* s : kSkip) {
+    if (dn == s) return true;
+  }
+  return false;
+}
+
+// The name `give` needs: a few items share their entity class with another weapon.
+std::string GiveName(const std::string& dn, int defindex, int team) {
+  if (IsKnifeDesigner(dn.c_str())) return team == 2 ? "weapon_knife_t" : "weapon_knife";
+  switch (defindex) {
+    case 23: return "weapon_mp5sd";
+    case 60: return "weapon_m4a1_silencer";
+    case 61: return "weapon_usp_silencer";
+    case 63: return "weapon_cz75a";
+    case 64: return "weapon_revolver";
+    default: return dn;
+  }
+}
+
+bool RefreshHeldWeapons(int slot) {
+  if (slot < 0 || slot >= 64 || !CanRefresh()) return false;
+  auto& o = Off();
+  static const int kActive = SchemaOffset("CPlayer_WeaponServices", "m_hActiveWeapon");
+  static const int kClip = SchemaOffset("CBasePlayerWeapon", "m_iClip1");
+  static const int kReserve = SchemaOffset("CBasePlayerWeapon", "m_pReserveAmmo");
+  void* controller = EntityByIndex(slot + 1);
+  if (!controller) return false;
+  const uint64_t steamid64 = Rd<uint64_t>(controller, o.ctrl_steamId);
+  void* pawn = EntityFromHandle(Rd<uint32_t>(controller, o.ctrl_playerPawn));
+  if (!pawn || Rd<uint8_t>(pawn, o.ent_lifeState) != 0) return false;
+  const int team = Rd<uint8_t>(pawn, o.ent_teamNum);
+  void* ws = Rd<void*>(pawn, o.pawn_weaponServices);
+  if (!ws) return false;
+  const int count = Rd<int32_t>(ws, o.ws_myWeapons);
+  const uint32_t* handles = Rd<const uint32_t*>(ws, o.ws_myWeapons + 8);
+  if (!handles || count <= 0 || count > 64) return false;
+  const uint32_t active = kActive >= 0 ? Rd<uint32_t>(ws, kActive) : 0xFFFFFFFFu;
+
+  PendingRefresh pr;
+  pr.steamid64 = steamid64;
+  std::vector<void*> remove;
+  PendingGive inHand;
+  bool haveInHand = false;
+  for (int i = 0; i < count; ++i) {
+    void* weapon = EntityFromHandle(handles[i]);
+    if (!weapon) continue;
+    const char* dnp = EntityDesignerName(weapon);
+    if (!dnp) continue;
+    const std::string dn = dnp;
+    if (SkipOnRefresh(dn)) continue;
+    const uint64_t xuid = (static_cast<uint64_t>(Rd<uint32_t>(weapon, o.econ_xuidHigh)) << 32) |
+                          Rd<uint32_t>(weapon, o.econ_xuidLow);
+    if (xuid != 0 && xuid != steamid64) continue;
+    PendingGive g;
+    g.cls = GiveName(dn, Rd<uint16_t>(EconItemViewOfWeapon(weapon), o.item_defIndex), team);
+    if (kClip >= 0) g.clip = Rd<int32_t>(weapon, kClip);
+    if (kReserve >= 0) g.reserve = Rd<int32_t>(weapon, kReserve);
+    remove.push_back(weapon);
+    if (handles[i] == active) {
+      inHand = g;
+      haveInHand = true;
+    } else {
+      pr.gives.push_back(g);
+    }
+  }
+  if (haveInHand) pr.gives.push_back(inHand);
+  if (pr.gives.empty()) return false;
+  for (void* w : remove) g_api->entity_remove(g_api->self, w);
+  pr.at = g_tick + 2;
+  g_refresh[slot] = std::move(pr);
+  if (DebugOn()) Log(RU_LOG_DEBUG, "refresh: slot %d, %zu weapon(s)", slot, g_refresh[slot].gives.size());
+  return true;
+}
+
+// Before the player loop, so the new weapons are painted in the tick they are created. Waits for
+// the loadout (up to ~2 s after a `.skins reload`) so they get it on first sight.
+void RunPendingRefresh() {
+  static const int kClip = SchemaOffset("CBasePlayerWeapon", "m_iClip1");
+  static const int kReserve = SchemaOffset("CBasePlayerWeapon", "m_pReserveAmmo");
+  for (int slot = 0; slot < 64; ++slot) {
+    PendingRefresh& pr = g_refresh[slot];
+    if (pr.at == 0 || g_tick < pr.at) continue;
+    if (!IsLoaded(pr.steamid64) && g_tick < pr.at + 128) continue;
+    for (const PendingGive& g : pr.gives) {
+      void* w = g_api->player_give_item(g_api->self, slot, g.cls.c_str());
+      if (!w) {
+        Log(RU_LOG_WARN, "refresh: could not give %s to slot %d; weapon refresh off until restart", g.cls.c_str(), slot);
+        g_giveBroken = true;
+        continue;
+      }
+      if (kClip >= 0 && g.clip >= 0) Wr<int32_t>(w, kClip, g.clip);
+      if (kReserve >= 0 && g.reserve >= 0) Wr<int32_t>(w, kReserve, g.reserve);
+    }
+    pr = PendingRefresh{};
+  }
+}
+
 void ProcessPlayer(int slot, void* controller) {
   auto& o = Off();
   PlayerState& ps = g_players[slot];
@@ -345,10 +505,13 @@ void ProcessPlayer(int slot, void* controller) {
   const int team = Rd<uint8_t>(pawn, o.ent_teamNum);
   const bool alive = Rd<uint8_t>(pawn, o.ent_lifeState) == 0;
   bool repaintHeld = false;
+  bool refreshed = false;
   if (g_reapplyAt[slot] != 0 && g_tick >= g_reapplyAt[slot] && alive) {
     g_reapplyAt[slot] = 0;
     g_spawnRequested[slot] = true;
-    repaintHeld = true;
+    // New weapons get the loadout when they are created; without player_give_item, repaint.
+    refreshed = RefreshHeldWeapons(slot);
+    repaintHeld = !refreshed;
   }
   if (team != 2 && team != 3) {
     ps.wasAlive = false;
@@ -376,6 +539,7 @@ void ProcessPlayer(int slot, void* controller) {
     }
   }
 
+  if (refreshed) return;  // the new weapons arrive in two ticks
   void* ws = Rd<void*>(pawn, o.pawn_weaponServices);
   if (!ws) return;
   // CNetworkUtlVectorBase<CHandle<CBasePlayerWeapon>>: { int m_Size; <pad>; CHandle* m_pElements; }
@@ -443,6 +607,7 @@ void GameFrameTick() {
     for (auto& r : g_reapplyAt) r = 0;
   }
 
+  RunPendingRefresh();
   for (int slot = 0; slot < 64; ++slot) {
     void* controller = EntityByIndex(slot + 1);
     if (!controller) {
@@ -493,6 +658,22 @@ bool PaintWeaponExternal(uint32_t handle, uint64_t steamid64, int paintKit, floa
   }
   return true;
 }
+
+bool SetPlayerPaintExternal(uint64_t steamid64, int paintKit, float wear, int seed) {
+  if (steamid64 == 0) return false;
+  if (paintKit <= 0) {
+    g_paintOverride.erase(steamid64);
+    return true;
+  }
+  WeaponSkinEntry e;
+  e.paint_id = paintKit;
+  e.wear = std::min(1.0f, std::max(0.0f, wear));
+  e.seed = std::max(0, seed);
+  g_paintOverride[steamid64] = e;
+  return true;
+}
+
+bool RefreshWeaponsExternal(int slot) { return !Inert() && ResolveOffsets() && RefreshHeldWeapons(slot); }
 
 bool ExternalPaintReady() {
   return g_api && !DisabledByEnv() && !Inert() && g_api->entity_system_status(g_api->self) == RU_ENTSYS_OK &&

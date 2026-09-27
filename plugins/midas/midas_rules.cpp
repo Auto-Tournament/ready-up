@@ -120,7 +120,6 @@ bool ParseFinish(const std::string& text, Finish* out) {
 bool Paintable(const std::string& classname) {
   const std::string c = Lower(classname);
   if (c.compare(0, 7, "weapon_") != 0) return false;
-  if (c.compare(0, 12, "weapon_knife") == 0 || c == "weapon_bayonet") return false;
   static const char* const kNoPaint[] = {"weapon_c4",        "weapon_hegrenade", "weapon_flashbang",
                                          "weapon_smokegrenade", "weapon_molotov", "weapon_incgrenade",
                                          "weapon_decoy",     "weapon_tagrenade", "weapon_healthshot",
@@ -185,6 +184,15 @@ uint64_t PickBest(const std::vector<PlayerTotals>& players, BestStat stat, uint6
   if (!best) return 0;
   const bool scored = stat == BestStat::kAdr ? best->damage > 0 : best->kills > 0;
   return scored ? best->steamid64 : 0;
+}
+
+std::set<uint64_t> PaintOverrideSet(bool active, Finish finish, const std::set<uint64_t>& midas, uint64_t best) {
+  std::set<uint64_t> out;
+  if (!active || finish != Finish::kAuto) return out;
+  out = midas;
+  out.erase(0);
+  if (best != 0) out.insert(best);
+  return out;
 }
 
 }  // namespace midas

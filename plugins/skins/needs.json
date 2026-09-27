@@ -9,10 +9,12 @@
     "entity_classname",
     "entity_from_handle",
     "entity_mark_changed",
+    "entity_remove",
     "entity_set_bodygroup_by_name",
     "entity_set_model",
     "entity_system_status",
     "on_tick",
+    "player_give_item",
     "register_chat_command",
     "register_console_command",
     "schema_offset",
@@ -25,6 +27,7 @@
     "CBaseModelEntity_GetModel",
     "CBaseModelEntity_SetBodygroup",
     "CBaseModelEntity_SetModel",
+    "CCSPlayer_ItemServices_GiveNamedItem",
     "CCommand",
     "CEntityInstance::NetworkStateChanged",
     "CGameEventManager",
@@ -58,6 +61,10 @@
     "CPlayer_WeaponServices.m_hMyWeapons"
   ],
   "schema_optional": [
+    "CBaseEntity.m_CBodyComponent",
+    "CBasePlayerWeapon.m_iClip1",
+    "CBasePlayerWeapon.m_pReserveAmmo",
+    "CBodyComponentSkeletonInstance.m_skeletonInstance",
     "CCSPlayerPawn.m_nEconGlovesChanged",
     "CEconEntity.m_OriginalOwnerXuidHigh",
     "CEconEntity.m_OriginalOwnerXuidLow",
@@ -66,7 +73,10 @@
     "CEconItemView.m_iAccountID",
     "CEconItemView.m_iEntityQuality",
     "CEconItemView.m_iItemID",
-    "CEconItemView.m_szCustomName"
+    "CEconItemView.m_szCustomName",
+    "CModelState.m_MeshGroupMask",
+    "CPlayer_WeaponServices.m_hActiveWeapon",
+    "CSkeletonInstance.m_modelState"
   ],
   "events": [
     "item_equip",

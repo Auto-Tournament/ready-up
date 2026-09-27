@@ -100,6 +100,10 @@ void RequestSpawnCosmetics(int slot);
 // schema fields ready. PaintWeaponExternal: paint_weapon (paintKit 0 hands the weapon back).
 bool ExternalPaintReady();
 bool PaintWeaponExternal(uint32_t handle, uint64_t steamid64, int paintKit, float wear, int seed);
+// set_player_paint: new weapons of `steamid64` get this paint at creation (paintKit 0 clears).
+bool SetPlayerPaintExternal(uint64_t steamid64, int paintKit, float wear, int seed);
+// refresh_weapons: swap the held weapons of `slot` for new ones (player_give_item).
+bool RefreshWeaponsExternal(int slot);
 // `.skins reload`: about a second from now, gloves + agent again and the held weapons repainted
 // with the (re-read) loadout. Game thread.
 void RequestReapply(int slot);

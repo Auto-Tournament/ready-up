@@ -267,9 +267,9 @@ class CompatReportTest(unittest.TestCase):
         doc = json.loads((out / "compat.json").read_text())
         assert_contract(self, doc)
         status = {c["id"]: c["status"] for c in doc["components"]}
-        for cid in ("core", "match", "practice", "fleet", "skins"):
+        for cid in ("core", "match", "practice", "fleet", "skins", "midas"):  # midas: the .midas chat command
             self.assertEqual(status[cid], "fail", cid)
-        for cid in ("essentials", "whitelist", "midas", "deathmatch"):
+        for cid in ("essentials", "whitelist", "deathmatch"):
             self.assertEqual(status[cid], "pass", cid)
         self.assertTrue(self.check(self.comp(doc, "match"), "hook_site")["failures"][0].startswith("Host_Say:"))
 

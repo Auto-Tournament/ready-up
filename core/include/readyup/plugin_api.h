@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 6
+#define READYUP_PLUGIN_API_VERSION_MINOR 7
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -558,7 +558,17 @@ typedef struct ru_api {
   /* Give up this plugin's panel on `slot` (-1: every slot) so lower panels may draw at once. */
   void (*center_html_release)(ru_plugin* self, int slot);
 
-  /* v1.7+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.7 ============================================================
+   * Appended in 1.7. Require 1.7 in ru_plugin_info.api_version, or check RU_API_HAS().
+   */
+  /* Gives the live player in `slot` a new item by classname ("weapon_ak47", "weapon_knife", ...)
+   * through CCSPlayer_ItemServices::GiveNamedItem, like `give`. The item is created now, so a
+   * plugin that paints weapons on first sight (skins.so) paints it before it is networked.
+   * Returns the new entity, or NULL (no live pawn, unknown item, or
+   * CCSPlayer_ItemServices_GiveNamedItem unresolved). Game thread. */
+  void* (*player_give_item)(ru_plugin* self, int slot, const char* classname);
+
+  /* v1.8+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */
