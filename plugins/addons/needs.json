@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "plugin": "addons",
+  "api": [
+    "chat_to_slot",
+    "on_tick",
+    "register_ru_subcommand",
+    "surface_function"
+  ],
+  "surface": [
+    "CCommand",
+    "ClientPrint",
+    "Engine2_MountAddon",
+    "ISource2GameClients::ClientCommand",
+    "ISource2Server::GameFrame"
+  ],
+  "schema": [],
+  "events": []
+}
