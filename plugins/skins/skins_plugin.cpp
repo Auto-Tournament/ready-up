@@ -126,7 +126,15 @@ int SetPlayerPaintIface(uint64_t steamid64, int32_t paintKit, float wear, int32_
     return 0;
   }
 }
-const ru_skins_v1 g_skinsIface = {sizeof(ru_skins_v1), &SkinsActiveIface, &PaintWeaponIface, &SetPlayerPaintIface};
+int RefreshWeaponsIface(int slot) {
+  try {
+    return RefreshWeaponsExternal(slot) ? 1 : 0;
+  } catch (...) {
+    return 0;
+  }
+}
+const ru_skins_v1 g_skinsIface = {sizeof(ru_skins_v1), &SkinsActiveIface, &PaintWeaponIface, &SetPlayerPaintIface,
+                                  &RefreshWeaponsIface};
 }  // namespace
 
 bool Inert() { return g_inert.load(); }

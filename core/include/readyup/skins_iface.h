@@ -38,6 +38,11 @@ typedef struct ru_skins_v1 {
    * clears it; weapons already painted keep their look. Not kept across a skins.so reload: set it
    * again (midas re-sends every 5 s). Returns 1 when stored. Appended; check RU_API_HAS. */
   int (*set_player_paint)(uint64_t steamid64, int32_t paint_kit, float wear, int32_t seed);
+  /* Swaps the weapons the live player in `slot` holds for new ones (removed now, given two ticks
+   * later with their ammo), so they are painted when created: after set_player_paint, or when a
+   * loadout changed. Grenades, C4 and weapons another player owned first stay. 1 = queued, 0 =
+   * nothing to do or unavailable (core without player_give_item). Appended; check RU_API_HAS. */
+  int (*refresh_weapons)(int slot);
 } ru_skins_v1;
 
 #ifdef __cplusplus

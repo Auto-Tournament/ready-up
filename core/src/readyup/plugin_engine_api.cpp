@@ -236,6 +236,22 @@ int ApiSetAbsOrigin(ru_plugin* self, void* ent, const float* origin) {
   return entity::SetAbsOrigin(ent, origin) ? 1 : 0;
 }
 
+void* ApiGiveItem(ru_plugin* self, int slot, const char* classname) {
+  if (!CheckGameThread(self, "player_give_item") || slot < 0 || slot >= 64 || !classname || !*classname) return nullptr;
+  const auto pawnOff = SchemaFindOffset("server", "CCSPlayerController", "m_hPlayerPawn");
+  const auto svcOff = SchemaFindOffset("server", "CBasePlayerPawn", "m_pItemServices");
+  const auto lifeOff = SchemaFindOffset("server", "CBaseEntity", "m_lifeState");
+  void* ctrl = entity::EntityByIndex(slot + 1);
+  if (!ctrl || !pawnOff || !svcOff || !lifeOff) return nullptr;
+  uint32_t pawnHandle = 0;
+  std::memcpy(&pawnHandle, static_cast<const char*>(ctrl) + *pawnOff, sizeof(pawnHandle));
+  void* pawn = entity::EntityFromHandle(pawnHandle);
+  if (!pawn || static_cast<const unsigned char*>(pawn)[*lifeOff] != 0) return nullptr;  // not alive
+  void* svc = nullptr;
+  std::memcpy(&svc, static_cast<const char*>(pawn) + *svcOff, sizeof(svc));
+  return svc ? entity::GiveNamedItem(svc, classname) : nullptr;
+}
+
 int ApiSetBodygroup(ru_plugin* self, void* ent, const char* group, int value) {
   if (!CheckGameThread(self, "entity_set_bodygroup_by_name") || !ent || !group) return RU_BODYGROUP_UNAVAILABLE;
   switch (entity::SetBodygroupByName(ent, group, value)) {
@@ -311,6 +327,7 @@ void detail::FillEngineApi(ru_api* a) {
   a->center_html_to_slot_prio = &ApiCenterHtmlToSlotPrio;         // v1.6
   a->center_html_all_prio = &ApiCenterHtmlAllPrio;
   a->center_html_release = &ApiCenterHtmlRelease;
+  a->player_give_item = &ApiGiveItem;                             // v1.7
 }
 
 }  // namespace readyup::plugins

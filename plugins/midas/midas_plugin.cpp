@@ -162,6 +162,19 @@ void RestoreAll(const char* why) {
 std::set<uint64_t> g_overrideSent;
 // `.midas` trial settings (runtime only; `.midas reset` or a plugin reload goes back to the cfg).
 int g_trialKit = 0;          // > 0: used instead of paint_kit
+bool g_configRead = false;   // midas.cfg read once since load
+bool g_refreshHeld = false;  // the finish changed: refresh held weapons after the next sync
+
+// Swaps every Midas player's held weapons for new ones (skins.so refresh_weapons), so a new finish
+// shows at once: the weapons are painted when they are created.
+void RefreshMidasWeapons() {
+  const ru_skins_v1* s = Skins();
+  if (!s || !RU_API_HAS(s, refresh_weapons) || !s->refresh_weapons) return;
+  for (uint64_t sid : g_overrideSent) {
+    const int slot = g_api->slot_for_steamid(g_api->self, sid);
+    if (slot >= 0 && slot < 64) s->refresh_weapons(slot);
+  }
+}
 bool g_tintPainted = false;  // also tint weapons that got the paint kit
 void SyncPaintOverrides(bool clear) {
   const auto* s = static_cast<const ru_skins_v1*>(g_api->get_interface(g_api->self, RU_SKINS_IFACE_NAME, 1));
@@ -233,6 +246,7 @@ void RefreshConfig(double now) {
     g_paintWear = wear;
     g_paintSeed = seed;
     RestoreAll("finish changed");  // no-op on the first read
+    g_refreshHeld = g_configRead;   // midas.cfg saved: swap Midas players' held weapons for new ones
     ru_logf(g_api, RU_LOG_INFO, "finish %s, paint kit %d (wear %.2f, seed %d)", finish == Finish::kTint ? "tint" : "auto",
             kit, static_cast<double>(wear), seed);
     for (int& p : g_pending) p = 16;
@@ -270,6 +284,11 @@ void RefreshConfig(double now) {
   }
   CheckBestAllowed();
   SyncPaintOverrides(false);
+  g_configRead = true;
+  if (g_refreshHeld) {
+    g_refreshHeld = false;
+    RefreshMidasWeapons();
+  }
 }
 
 // ---- best player ------------------------------------------------------------------------------
@@ -486,7 +505,11 @@ void OnMidasChat(void*, const ru_command_ctx* ctx) {
   g_paintKit = kit;
   SyncPaintOverrides(false);
   ru_logf(g_api, RU_LOG_INFO, ".midas: finish %s by %s", KitLabel(kit).c_str(), ctx->name ? ctx->name : "?");
-  reply("finish " + KitLabel(kit) + ". Buy or pick up a new weapon to see it (knife: respawn).");
+  const ru_skins_v1* s = Skins();
+  const bool swapped = s && RU_API_HAS(s, refresh_weapons) && s->refresh_weapons && ctx->slot >= 0 &&
+                       s->refresh_weapons(ctx->slot) == 1;
+  reply("finish " + KitLabel(kit) + (swapped ? ": your weapons are being swapped for new ones."
+                                             : ". Buy or pick up a new weapon to see it (knife: respawn)."));
 }
 
 void OnTick(void*, const ru_tick_info* t) {
@@ -576,6 +599,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_overrideSent.clear();
   g_trialKit = 0;
   g_tintPainted = false;
+  g_configRead = g_refreshHeld = false;
   g_color = kGold;
   g_finish = Finish::kAuto;
   g_paintKit = kGoldPaintKit;
