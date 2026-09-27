@@ -163,6 +163,7 @@ std::set<uint64_t> g_overrideSent;
 // `.midas` trial settings (runtime only; `.midas reset` or a plugin reload goes back to the cfg).
 int g_trialKit = 0;          // > 0: used instead of paint_kit
 bool g_configRead = false;   // midas.cfg read once since load
+int g_lastFileKit = 0;       // paint_kit as last read from midas.cfg
 bool g_refreshHeld = false;  // the finish changed: refresh held weapons after the next sync
 
 // Swaps every Midas player's held weapons for new ones (skins.so refresh_weapons), so a new finish
@@ -172,7 +173,10 @@ void RefreshMidasWeapons() {
   if (!s || !RU_API_HAS(s, refresh_weapons) || !s->refresh_weapons) return;
   for (uint64_t sid : g_overrideSent) {
     const int slot = g_api->slot_for_steamid(g_api->self, sid);
-    if (slot >= 0 && slot < 64) s->refresh_weapons(slot);
+    if (slot < 0 || slot >= 64) continue;
+    s->refresh_weapons(slot);
+    g_api->chat_to_slot(g_api->self, slot, ("Midas: midas.cfg applied: finish " + std::to_string(g_paintKit) + ", wear " +
+                                            std::to_string(g_paintWear).substr(0, 4) + ", seed " + std::to_string(g_paintSeed)).c_str());
   }
 }
 bool g_tintPainted = false;  // also tint weapons that got the paint kit
@@ -237,7 +241,10 @@ void RefreshConfig(double now) {
   Finish finish = Finish::kAuto;
   const std::string fs = ConfigValue("finish");
   if (!fs.empty() && !ParseFinish(fs, &finish)) ru_logf(g_api, RU_LOG_WARN, "finish \"%s\" is not auto|tint; using auto", fs.c_str());
-  const int kit = g_trialKit > 0 ? g_trialKit : ParseInt(ConfigValue("paint_kit"), kGoldPaintKit, 1, 100000);
+  const int fileKit = ParseInt(ConfigValue("paint_kit"), kGoldPaintKit, 1, 100000);
+  if (g_configRead && fileKit != g_lastFileKit) g_trialKit = 0;  // a saved paint_kit wins over .midas
+  g_lastFileKit = fileKit;
+  const int kit = g_trialKit > 0 ? g_trialKit : fileKit;
   const float wear = ParseFloat(ConfigValue("paint_wear"), 0.0f, 0.0f, 1.0f);
   const int seed = ParseInt(ConfigValue("paint_seed"), 0, 0, 1000);
   if (finish != g_finish || kit != g_paintKit || wear != g_paintWear || seed != g_paintSeed) {
