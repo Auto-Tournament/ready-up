@@ -465,54 +465,6 @@ void RunPendingRefresh() {
   }
 }
 
-// Legacy paint kits need the legacy model (body=1) on the weapon AND on the player's view model:
-// first person draws the view model, which takes the weapon's bodygroup only when the weapon is
-// deployed. A weapon painted after it was drawn (bought, given) showed black / stock in first
-// person. So every tick: the view model's `body` follows the weapon in hand (1 = legacy paint).
-struct VmState {
-  uint32_t active = 0xFFFFFFFFu;
-  uint32_t vm = 0xFFFFFFFFu;
-  int body = -1;  // last value written, -1 = none yet
-};
-VmState g_vm[64];
-
-int ViewModelServicesOffset() {
-  static int off = -2;
-  if (off == -2) {
-    for (const char* cls : {"CCSPlayerPawnBase", "CCSPlayerPawn", "CBasePlayerPawn"}) {
-      off = SchemaOffset(cls, "m_pViewModelServices");
-      if (off >= 0) break;
-    }
-  }
-  return off;
-}
-
-void SyncViewModelLegacy(int slot, void* pawn, void* ws) {
-  static const int kActive = SchemaOffset("CPlayer_WeaponServices", "m_hActiveWeapon");
-  static const int kVm = SchemaOffset("CCSPlayer_ViewModelServices", "m_hViewModel");
-  const int vmsOff = ViewModelServicesOffset();
-  if (kActive < 0 || kVm < 0 || vmsOff < 0) return;
-  void* vms = Rd<void*>(pawn, vmsOff);
-  if (!vms) return;
-  const uint32_t vmHandle = Rd<uint32_t>(vms, kVm);  // m_hViewModel[0]
-  void* vm = EntityFromHandle(vmHandle);
-  const uint32_t active = Rd<uint32_t>(ws, kActive);
-  void* weapon = EntityFromHandle(active);
-  if (!vm || !weapon) return;
-  const int body = IsLegacyPaintKit(Rd<int32_t>(weapon, Off().econ_fbPaint)) ? 1 : 0;
-  VmState& s = g_vm[slot];
-  if (s.active == active && s.vm == vmHandle && s.body == body) return;
-  const auto r = SetBodygroupByName(vm, "body", body);
-  if (r == RU_BODYGROUP_NO_MODEL) return;  // not loaded yet: next tick
-  s.active = active;
-  s.vm = vmHandle;
-  s.body = body;
-  if (DebugOn()) {
-    Log(RU_LOG_DEBUG, "view model body=%d for %s (slot %d): %s", body, EntityDesignerName(weapon), slot,
-        BodygroupResultName(r));
-  }
-}
-
 void ProcessPlayer(int slot, void* controller) {
   auto& o = Off();
   PlayerState& ps = g_players[slot];
@@ -604,7 +556,6 @@ void ProcessPlayer(int slot, void* controller) {
       st.done = true;
     }
   }
-  SyncViewModelLegacy(slot, pawn, ws);
 }
 
 void PruneWeapons() {
