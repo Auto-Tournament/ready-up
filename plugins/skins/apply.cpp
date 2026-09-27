@@ -356,9 +356,10 @@ struct PendingRefresh {
   std::vector<PendingGive> gives;
 };
 PendingRefresh g_refresh[64];
+bool g_giveBroken = false;  // a give failed: no more refreshes this session (repaint instead)
 
 bool CanRefresh() {
-  return g_api && RU_API_HAS(g_api, player_give_item) && g_api->player_give_item && RU_API_HAS(g_api, entity_remove) &&
+  return !g_giveBroken && g_api && RU_API_HAS(g_api, player_give_item) && g_api->player_give_item && RU_API_HAS(g_api, entity_remove) &&
          g_api->entity_remove;
 }
 
@@ -453,7 +454,8 @@ void RunPendingRefresh() {
     for (const PendingGive& g : pr.gives) {
       void* w = g_api->player_give_item(g_api->self, slot, g.cls.c_str());
       if (!w) {
-        Log(RU_LOG_WARN, "refresh: could not give %s to slot %d", g.cls.c_str(), slot);
+        Log(RU_LOG_WARN, "refresh: could not give %s to slot %d; weapon refresh off until restart", g.cls.c_str(), slot);
+        g_giveBroken = true;
         continue;
       }
       if (kClip >= 0 && g.clip >= 0) Wr<int32_t>(w, kClip, g.clip);

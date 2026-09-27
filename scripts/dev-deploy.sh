@@ -136,7 +136,7 @@ if [[ -z "$PLUGIN" ]]; then
   for so in "$ART_DIR"/plugins/*.so; do
     if [[ -f "$so" ]]; then deploy_file "$ART_DIR/plugins" "$(basename "$so")" "$TARGET/game/csgo/readyup/plugins"; fi
   done
-  for frag in "$ROOT_DIR"/gamedata/engine-surface.*.json; do
+  for frag in "$ROOT_DIR"/gamedata/engine-surface*.json; do
     if [[ -f "$frag" ]]; then deploy_file "$ROOT_DIR/gamedata" "$(basename "$frag")" "$TARGET/game/csgo/readyup/bin/linuxsteamrt64"; fi
   done
 fi
