@@ -1,26 +1,29 @@
 // readyup-addons (plugins/addons, addons.so): Steam Workshop addons for the server.
 //
-// Step 1 (this file): the server downloads the addons listed in cfg/ReadyUp/addons.cfg
-// (`workshop_addons=<id>,...`) and mounts them, so their models and materials exist server side.
-// Making connecting players download them comes next (the connect / signon flow).
+// The server downloads the addons listed in cfg/ReadyUp/addons.cfg (`workshop_addons=<id>,...`)
+// and the engine mounts them on the next map change, like it mounts a workshop map. Making
+// connecting players download them comes next (the connect / signon flow).
 //
 // Engine access, all verified before use:
 //  - Steam Workshop: Steam's flat C API in libsteam_api.so (stable exported names, like the core's
 //    steam_ugc.cpp). Nothing a CS2 update can move.
-//  - Mounting: the engine's own `IApplication` ("VApplication001", libengine2.so) slot 37, a thunk
-//    `mov rdi,[rdi+8]; mov edx,1; jmp MountAddon`. MountAddon is this plugin's engine-surface entry
-//    Engine2_MountAddon (signature + string anchor, checked by CI on every CS2 build). The
-//    IApplication object is found through the globals MountAddon's own code references and only
-//    accepted if its slot 37 is that thunk jumping to that function; otherwise nothing is mounted.
+//  - Mounting: the engine only mounts addons while it loads a map, from the addon list of the
+//    pending host-state request (calling its MountAddon from a tick crashed the server). This
+//    plugin detours CHostStateMgr::SetPendingHostStateRequest (engine-surface entry
+//    Engine2_SetPendingHostStateRequest: libengine2 signature + string anchor, prologue checked by
+//    readyup_hookcheck on every CS2 build) and appends the installed addons to the request's
+//    m_Addons (CUtlString at +0x58; the request is 0x68 bytes and the engine reads m_Desc +0x10,
+//    m_ID +0x1c, m_iMode +0x20 there). The list keeps what the request already had first (a
+//    workshop map's own addon). Strings use tier0's allocator (MemAlloc_StrDupFunc / FreeFunc), the
+//    one CUtlString frees with.
 #include "addons_rules.h"
 
 #include "readyup/plugin_api.h"
 #include "readyup/selftest_iface.h"
 
 #include <dlfcn.h>
-#include <sys/uio.h>
-#include <unistd.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <map>
@@ -36,13 +39,11 @@ const ru_api* g_api = nullptr;
 using UgcAccessorFn = void* (*)();
 using GetItemStateFn = uint32_t (*)(void*, uint64_t);
 using DownloadItemFn = bool (*)(void*, uint64_t, bool);
-using GetItemInstallInfoFn = bool (*)(void*, uint64_t, uint64_t*, char*, uint32_t, uint32_t*);
 
 struct Steam {
   UgcAccessorFn accessor = nullptr;
   GetItemStateFn itemState = nullptr;
   DownloadItemFn download = nullptr;
-  GetItemInstallInfoFn installInfo = nullptr;
   std::string status = "not resolved";
 } g_steam;
 
@@ -60,104 +61,101 @@ void ResolveSteam() {
   }
   g_steam.itemState = reinterpret_cast<GetItemStateFn>(dlsym(lib, "SteamAPI_ISteamUGC_GetItemState"));
   g_steam.download = reinterpret_cast<DownloadItemFn>(dlsym(lib, "SteamAPI_ISteamUGC_DownloadItem"));
-  g_steam.installInfo = reinterpret_cast<GetItemInstallInfoFn>(dlsym(lib, "SteamAPI_ISteamUGC_GetItemInstallInfo"));
   if (!g_steam.accessor) g_steam.status = "no SteamAPI_SteamGameServerUGC_v0xx export";
-  else if (!g_steam.itemState || !g_steam.download || !g_steam.installInfo) g_steam.status = "missing ISteamUGC exports";
+  else if (!g_steam.itemState || !g_steam.download) g_steam.status = "missing ISteamUGC exports";
 }
 
 void* Ugc() {
   ResolveSteam();
-  if (!g_steam.accessor || !g_steam.itemState || !g_steam.download || !g_steam.installInfo) return nullptr;
+  if (!g_steam.accessor || !g_steam.itemState || !g_steam.download) return nullptr;
   return g_steam.accessor();  // NULL until the game server is logged on to Steam
 }
 
-// ---- Mounting ----------------------------------------------------------------------------------
-constexpr int kMountSlot = 37;  // IApplication: void MountAddon(const char* name)
-using MountFn = void (*)(void*, const char*);
+// ---- tier0 allocator (CUtlString's) ------------------------------------------------------------
+using StrDupFn = char* (*)(const char*);
+using FreeFn = void (*)(void*);
+StrDupFn g_strdup = nullptr;
+FreeFn g_free = nullptr;
 
-struct Mounter {
-  void* app = nullptr;
-  MountFn mount = nullptr;
-  std::string status = "not resolved";
-} g_mounter;
-
-// Reads memory without faulting (EFAULT on unmapped addresses).
-bool SafeRead(const void* addr, void* out, size_t n) {
-  struct iovec local {
-    out, n
-  };
-  struct iovec remote {
-    const_cast<void*>(addr), n
-  };
-  return process_vm_readv(getpid(), &local, 1, &remote, 1, 0) == static_cast<ssize_t>(n);
-}
-
-// `mov rdi,[rdi+8]; mov edx,1; jmp rel32` to `mountFn`: IApplication slot 37 on this engine.
-bool IsMountThunk(const void* slot, const uint8_t* mountFn) {
-  static const uint8_t kThunk[] = {0x48, 0x8B, 0x7F, 0x08, 0xBA, 0x01, 0x00, 0x00, 0x00, 0xE9};
-  uint8_t code[sizeof(kThunk) + 4];
-  if (!slot || !SafeRead(slot, code, sizeof(code)) || std::memcmp(code, kThunk, sizeof(kThunk)) != 0) return false;
-  int32_t rel = 0;
-  std::memcpy(&rel, code + sizeof(kThunk), sizeof(rel));
-  return static_cast<const uint8_t*>(slot) + sizeof(code) + rel == mountFn;
-}
-
-// The engine keeps IApplication in a global that MountAddon itself reads (lea reg,[rip+g]); it is
-// not exported through any CreateInterface. Take every RIP-relative lea in MountAddon's code, read
-// the pointer behind it without faulting, and accept the object whose slot 37 is the MountAddon
-// thunk: self-verifying, and on a changed engine nothing is found (nothing is mounted).
-void* FindApplication(const uint8_t* mountFn) {
-  for (int i = 0; i < 0x800 - 7; ++i) {
-    const uint8_t* ins = mountFn + i;
-    if ((ins[0] != 0x48 && ins[0] != 0x4C) || ins[1] != 0x8D || (ins[2] & 0xC7) != 0x05) continue;
-    int32_t disp = 0;
-    std::memcpy(&disp, ins + 3, sizeof(disp));
-    const void* global = ins + 7 + disp;
-    void* obj = nullptr;
-    void** vt = nullptr;
-    void* slot = nullptr;
-    if (!SafeRead(global, &obj, sizeof(obj)) || !obj) continue;
-    if (!SafeRead(obj, &vt, sizeof(vt)) || !vt) continue;
-    if (!SafeRead(vt + kMountSlot, &slot, sizeof(slot))) continue;
-    if (IsMountThunk(slot, mountFn)) return obj;
-  }
-  return nullptr;
-}
-
-void ResolveMounter() {
-  if (g_mounter.mount) return;
-  void* target = RU_API_HAS(g_api, surface_function) ? g_api->surface_function(g_api->self, "Engine2_MountAddon") : nullptr;
-  if (!target) {
-    g_mounter.status = "Engine2_MountAddon unresolved (engine-surface.addons.json)";
-    return;
-  }
-  void* app = FindApplication(static_cast<const uint8_t*>(target));
-  if (!app) {
-    g_mounter.status = "IApplication not found from Engine2_MountAddon";
-    return;
-  }
-  void** vt = *reinterpret_cast<void***>(app);
-  g_mounter.app = app;
-  g_mounter.mount = reinterpret_cast<MountFn>(vt[kMountSlot]);
-  g_mounter.status = "ok (VApplication001 slot 37 -> Engine2_MountAddon)";
+bool ResolveTier0() {
+  if (g_strdup && g_free) return true;
+  void* t0 = dlopen("libtier0.so", RTLD_NOW | RTLD_NOLOAD);
+  if (!t0) return false;
+  g_strdup = reinterpret_cast<StrDupFn>(dlsym(t0, "MemAlloc_StrDupFunc"));
+  g_free = reinterpret_cast<FreeFn>(dlsym(t0, "MemAlloc_FreeFunc"));
+  return g_strdup && g_free;
 }
 
 // ---- State -------------------------------------------------------------------------------------
 struct Item {
   bool downloadAsked = false;
-  bool mounted = false;
+  bool installed = false;
+  bool mounted = false;  // attached to a map change (the engine logs "Mounting addon '<id>'")
   bool refused = false;
   uint32_t lastState = 0xFFFFFFFFu;
 };
 std::vector<uint64_t> g_ids;  // from addons.cfg, in order
 std::map<uint64_t, Item> g_items;
 double g_lastConfig = -1e9, g_lastPoll = -1e9;
+std::string g_hookStatus = "not installed";
 
 std::string ConfigValue(const char* key) {
   char buf[1024] = {};
   return g_api->config_get(g_api->self, key, buf, sizeof(buf)) > 0 ? std::string(buf) : std::string();
 }
 
+// ---- The map-change hook -----------------------------------------------------------------------
+constexpr int kRequestAddons = 0x58;  // CHostStateRequest::m_Addons (CUtlString)
+using SetPendingFn = void (*)(void*, void*);
+SetPendingFn g_origSetPending = nullptr;
+
+// "a,b" + installed ids not in it yet -> "a,b,c". Empty when nothing to add.
+std::string MergedAddons(const char* current) {
+  std::string out = current ? current : "";
+  int bad = 0;
+  const auto have = ParseIds(out, &bad);
+  bool added = false;
+  for (uint64_t id : g_ids) {
+    const auto it = g_items.find(id);
+    if (it == g_items.end() || !it->second.installed) continue;
+    if (std::find(have.begin(), have.end(), id) != have.end()) continue;
+    out += (out.empty() ? "" : ",") + std::to_string(id);
+    added = true;
+  }
+  return added ? out : std::string();
+}
+
+void DetourSetPending(void* mgr, void* request) {
+  if (g_api && request && ResolveTier0()) {
+    char** addons = reinterpret_cast<char**>(static_cast<unsigned char*>(request) + kRequestAddons);
+    const std::string merged = MergedAddons(*addons);
+    if (!merged.empty()) {
+      char* dup = g_strdup(merged.c_str());
+      if (dup) {
+        if (*addons) g_free(*addons);
+        *addons = dup;
+        for (auto& kv : g_items) {
+          if (kv.second.installed) kv.second.mounted = true;
+        }
+        ru_logf(g_api, RU_LOG_INFO, "map change: addons %s", merged.c_str());
+      }
+    }
+  }
+  g_origSetPending(mgr, request);
+}
+
+void InstallHook() {
+  void* tramp = nullptr;
+  if (g_api->hook_function(g_api->self, "Engine2_SetPendingHostStateRequest", reinterpret_cast<void*>(&DetourSetPending),
+                           &tramp) == 1) {
+    g_origSetPending = reinterpret_cast<SetPendingFn>(tramp);
+    g_hookStatus = "ok";
+  } else {
+    g_hookStatus = "refused (see log): addons are downloaded but not mounted";
+  }
+}
+
+// ---- Polling -----------------------------------------------------------------------------------
 void Poll() {
   void* ugc = Ugc();
   if (!ugc) return;  // not logged on yet: next poll
@@ -175,15 +173,10 @@ void Poll() {
                 static_cast<unsigned long long>(id), it.downloadAsked ? "requested" : "refused by Steam");
         break;
       case Action::kMount:
-        // Calling the engine's MountAddon directly (IApplication slot 37) from a tick crashed the
-        // server (SIGSEGV in libtier0): the engine only mounts addons during a map change, from the
-        // host-state request's addon list. Until that route is built (hook HostStateRequest and
-        // attach the ids), installed addons are reported, never mounted here.
-        if (!it.refused) {
-          ResolveMounter();  // diagnostic only: `ru addons` shows whether the engine side resolves
-          ru_logf(g_api, RU_LOG_INFO, "addon %llu: installed; waiting for the map-change mount route",
+        if (!it.installed) {
+          it.installed = true;
+          ru_logf(g_api, RU_LOG_INFO, "addon %llu: installed; mounts with the next map change (.ru map)",
                   static_cast<unsigned long long>(id));
-          it.refused = true;  // log once
         }
         break;
       case Action::kRefuse:
@@ -215,7 +208,8 @@ void OnTick(void*, const ru_tick_info* t) {
 std::string StatusLine(uint64_t id) {
   const Item& it = g_items[id];
   std::string s = std::to_string(id) + ": " + (it.lastState == 0xFFFFFFFFu ? "unknown" : ItemStateText(it.lastState));
-  if (it.mounted) s += ", mounted";
+  if (it.mounted) s += ", mounted with this map";
+  else if (it.installed) s += ", mounts with the next map change";
   return s;
 }
 
@@ -228,13 +222,14 @@ void Reply(const ru_command_ctx* ctx, const std::string& msg) {
 // `ru addons`: status of every configured addon.
 void OnRu(void*, const ru_command_ctx* ctx) {
   ResolveSteam();
-  Reply(ctx, std::to_string(g_ids.size()) + " addon(s); steam " + g_steam.status + "; mount " + g_mounter.status);
+  Reply(ctx, std::to_string(g_ids.size()) + " addon(s); steam " + g_steam.status + "; map-change hook " + g_hookStatus);
   for (uint64_t id : g_ids) Reply(ctx, StatusLine(id));
 }
 
 void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   ResolveSteam();
-  add(ctx, "INFO", "addons", (std::to_string(g_ids.size()) + " addon(s), steam " + g_steam.status + ", mount " + g_mounter.status).c_str());
+  add(ctx, g_hookStatus == "ok" ? "INFO" : "WARN", "addons",
+      (std::to_string(g_ids.size()) + " addon(s), steam " + g_steam.status + ", map-change hook " + g_hookStatus).c_str());
   for (uint64_t id : g_ids) add(ctx, "INFO", "addons", StatusLine(id).c_str());
 }
 const ru_selftest_iface_v1 g_selftestIface = {sizeof(ru_selftest_iface_v1), &RunSelftest};
@@ -249,7 +244,7 @@ extern "C" {
 READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
   static const ru_plugin_info info = {
       sizeof(ru_plugin_info),
-      (1u << 16) | 8u,  // needs API 1.8 (surface_function)
+      (1u << 16) | 8u,  // needs API 1.8 (hook_function)
       "addons",
       ADDONS_VERSION,
       "Ready Up",
@@ -259,24 +254,26 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
 }
 
 READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_api_version) {
-  if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, surface_function)) return 1;
+  if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, hook_function)) return 1;
   g_api = api;
   g_ids.clear();
   g_items.clear();
   g_lastConfig = g_lastPoll = -1e9;
-  g_mounter = Mounter{};
+  g_origSetPending = nullptr;
+  InstallHook();
   api->on_tick(api->self, &OnTick, nullptr);
   api->register_ru_subcommand(api->self, "addons", &OnRu, nullptr);
   if (RU_API_HAS(api, provide_interface)) {
     api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "addons", RU_SELFTEST_IFACE_VERSION,
                            const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
   }
-  ru_logf(api, RU_LOG_INFO, "loaded " ADDONS_VERSION " (workshop_addons in cfg/ReadyUp/addons.cfg)");
+  ru_logf(api, RU_LOG_INFO, "loaded " ADDONS_VERSION " (workshop_addons in cfg/ReadyUp/addons.cfg; map-change hook %s)",
+          g_hookStatus.c_str());
   return 0;
 }
 
 READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
-  // Mounted addons stay mounted (the engine has no safe unmount for content in use).
+  // The core removes the detour after this returns. Mounted addons stay until the next map change.
   ru_logf(g_api, RU_LOG_INFO, "unloaded");
   g_api = nullptr;
 }

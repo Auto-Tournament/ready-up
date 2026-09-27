@@ -3,14 +3,14 @@
   "plugin": "addons",
   "api": [
     "chat_to_slot",
+    "hook_function",
     "on_tick",
-    "register_ru_subcommand",
-    "surface_function"
+    "register_ru_subcommand"
   ],
   "surface": [
     "CCommand",
     "ClientPrint",
-    "Engine2_MountAddon",
+    "Engine2_SetPendingHostStateRequest",
     "ISource2GameClients::ClientCommand",
     "ISource2Server::GameFrame"
   ],

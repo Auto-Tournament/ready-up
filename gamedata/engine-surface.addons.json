@@ -6,16 +6,17 @@
     "notes": "Owned by readyup-addons. Merged by the core at load like every engine-surface.<name>.json; readyup_sigcheck / readyup_hookcheck check it with --lib engine2=<libengine2.so>. Ships only with the addons plugin, so a server without it resolves nothing here."
   },
   "functions": {
-    "Engine2_MountAddon": {
+    "Engine2_SetPendingHostStateRequest": {
       "library": "engine2",
-      "linux": "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 81 EC ? ? ? ? 48 89 BD ? ? ? ? 48 89 B5 ? ? ? ? 88 95 ? ? ? ? 48 85 F6 74 ? 80 3E 00",
+      "linux": "55 48 89 E5 41 56 41 55 41 54 49 89 F4 53 48 83 7F 30 00 48 89 FB 74 ?",
       "required": false,
-      "description": "The engine's addon mount (this, const char* addon, bool): what `IApplication` (VApplication001) slot 37 jumps to. readyup-addons checks that thunk against this entry, then mounts downloaded workshop addons through it.",
+      "hook": "funchook",
+      "description": "CHostStateMgr::SetPendingHostStateRequest(this, CHostStateRequest* request): every map change goes through it. The pending request is at this+0x30; the request is 0x68 bytes with m_Desc +0x10, m_ID +0x1c, m_iMode +0x20, m_Addons (CUtlString) +0x58. readyup-addons appends installed workshop addons to m_Addons so the engine mounts them while it loads the map.",
       "anchors": [
         {
           "type": "string_ref",
-          "string": "MountAddon: Failed to find ADDONS search path.\n",
-          "window": 1024
+          "string": "Discarding pending request '%s, %u'\n",
+          "window": 256
         }
       ]
     }
