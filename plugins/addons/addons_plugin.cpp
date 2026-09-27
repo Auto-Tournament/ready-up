@@ -7,17 +7,19 @@
 // Engine access, all verified before use:
 //  - Steam Workshop: Steam's flat C API in libsteam_api.so (stable exported names, like the core's
 //    steam_ugc.cpp). Nothing a CS2 update can move.
-//  - Mounting: the engine's own `IApplication` (CreateInterface "VApplication001", libengine2.so)
-//    slot 37, a thunk `mov rdi,[rdi+8]; mov edx,1; jmp MountAddon`. MountAddon is this plugin's
-//    engine-surface entry Engine2_MountAddon (signature + string anchor, checked by CI on every CS2
-//    build). The thunk's bytes and jump target are compared with it at runtime; anything else and
-//    nothing is mounted.
+//  - Mounting: the engine's own `IApplication` ("VApplication001", libengine2.so) slot 37, a thunk
+//    `mov rdi,[rdi+8]; mov edx,1; jmp MountAddon`. MountAddon is this plugin's engine-surface entry
+//    Engine2_MountAddon (signature + string anchor, checked by CI on every CS2 build). The
+//    IApplication object is found through the globals MountAddon's own code references and only
+//    accepted if its slot 37 is that thunk jumping to that function; otherwise nothing is mounted.
 #include "addons_rules.h"
 
 #include "readyup/plugin_api.h"
 #include "readyup/selftest_iface.h"
 
 #include <dlfcn.h>
+#include <sys/uio.h>
+#include <unistd.h>
 
 #include <cstdint>
 #include <cstring>
@@ -71,7 +73,6 @@ void* Ugc() {
 
 // ---- Mounting ----------------------------------------------------------------------------------
 constexpr int kMountSlot = 37;  // IApplication: void MountAddon(const char* name)
-using CreateInterfaceFn = void* (*)(const char*, int*);
 using MountFn = void (*)(void*, const char*);
 
 struct Mounter {
@@ -80,7 +81,49 @@ struct Mounter {
   std::string status = "not resolved";
 } g_mounter;
 
-// The slot must still be `48 8B 7F 08  BA 01 00 00 00  E9 <rel32>` jumping to Engine2_MountAddon.
+// Reads memory without faulting (EFAULT on unmapped addresses).
+bool SafeRead(const void* addr, void* out, size_t n) {
+  struct iovec local {
+    out, n
+  };
+  struct iovec remote {
+    const_cast<void*>(addr), n
+  };
+  return process_vm_readv(getpid(), &local, 1, &remote, 1, 0) == static_cast<ssize_t>(n);
+}
+
+// `mov rdi,[rdi+8]; mov edx,1; jmp rel32` to `mountFn`: IApplication slot 37 on this engine.
+bool IsMountThunk(const void* slot, const uint8_t* mountFn) {
+  static const uint8_t kThunk[] = {0x48, 0x8B, 0x7F, 0x08, 0xBA, 0x01, 0x00, 0x00, 0x00, 0xE9};
+  uint8_t code[sizeof(kThunk) + 4];
+  if (!slot || !SafeRead(slot, code, sizeof(code)) || std::memcmp(code, kThunk, sizeof(kThunk)) != 0) return false;
+  int32_t rel = 0;
+  std::memcpy(&rel, code + sizeof(kThunk), sizeof(rel));
+  return static_cast<const uint8_t*>(slot) + sizeof(code) + rel == mountFn;
+}
+
+// The engine keeps IApplication in a global that MountAddon itself reads (lea reg,[rip+g]); it is
+// not exported through any CreateInterface. Take every RIP-relative lea in MountAddon's code, read
+// the pointer behind it without faulting, and accept the object whose slot 37 is the MountAddon
+// thunk: self-verifying, and on a changed engine nothing is found (nothing is mounted).
+void* FindApplication(const uint8_t* mountFn) {
+  for (int i = 0; i < 0x800 - 7; ++i) {
+    const uint8_t* ins = mountFn + i;
+    if ((ins[0] != 0x48 && ins[0] != 0x4C) || ins[1] != 0x8D || (ins[2] & 0xC7) != 0x05) continue;
+    int32_t disp = 0;
+    std::memcpy(&disp, ins + 3, sizeof(disp));
+    const void* global = ins + 7 + disp;
+    void* obj = nullptr;
+    void** vt = nullptr;
+    void* slot = nullptr;
+    if (!SafeRead(global, &obj, sizeof(obj)) || !obj) continue;
+    if (!SafeRead(obj, &vt, sizeof(vt)) || !vt) continue;
+    if (!SafeRead(vt + kMountSlot, &slot, sizeof(slot))) continue;
+    if (IsMountThunk(slot, mountFn)) return obj;
+  }
+  return nullptr;
+}
+
 void ResolveMounter() {
   if (g_mounter.mount) return;
   void* target = RU_API_HAS(g_api, surface_function) ? g_api->surface_function(g_api->self, "Engine2_MountAddon") : nullptr;
@@ -88,26 +131,12 @@ void ResolveMounter() {
     g_mounter.status = "Engine2_MountAddon unresolved (engine-surface.addons.json)";
     return;
   }
-  void* eng = dlopen("libengine2.so", RTLD_NOW | RTLD_NOLOAD);
-  auto ci = eng ? reinterpret_cast<CreateInterfaceFn>(dlsym(eng, "CreateInterface")) : nullptr;
-  void* app = ci ? ci("VApplication001", nullptr) : nullptr;
+  void* app = FindApplication(static_cast<const uint8_t*>(target));
   if (!app) {
-    g_mounter.status = "no VApplication001";
+    g_mounter.status = "IApplication not found from Engine2_MountAddon";
     return;
   }
   void** vt = *reinterpret_cast<void***>(app);
-  const auto* p = static_cast<const uint8_t*>(vt[kMountSlot]);
-  static const uint8_t kThunk[] = {0x48, 0x8B, 0x7F, 0x08, 0xBA, 0x01, 0x00, 0x00, 0x00, 0xE9};
-  if (std::memcmp(p, kThunk, sizeof(kThunk)) != 0) {
-    g_mounter.status = "IApplication slot 37 is not the MountAddon thunk on this build";
-    return;
-  }
-  int32_t rel = 0;
-  std::memcpy(&rel, p + sizeof(kThunk), sizeof(rel));
-  if (p + sizeof(kThunk) + sizeof(rel) + rel != target) {
-    g_mounter.status = "IApplication slot 37 does not jump to Engine2_MountAddon";
-    return;
-  }
   g_mounter.app = app;
   g_mounter.mount = reinterpret_cast<MountFn>(vt[kMountSlot]);
   g_mounter.status = "ok (VApplication001 slot 37 -> Engine2_MountAddon)";
@@ -145,15 +174,18 @@ void Poll() {
         ru_logf(g_api, it.downloadAsked ? RU_LOG_INFO : RU_LOG_WARN, "addon %llu: download %s",
                 static_cast<unsigned long long>(id), it.downloadAsked ? "requested" : "refused by Steam");
         break;
-      case Action::kMount: {
-        ResolveMounter();
-        if (!g_mounter.mount) break;  // status explains; `ru addons` shows it
-        const std::string name = std::to_string(id);
-        g_mounter.mount(g_mounter.app, name.c_str());
-        it.mounted = true;
-        ru_logf(g_api, RU_LOG_INFO, "addon %llu: mounted", static_cast<unsigned long long>(id));
+      case Action::kMount:
+        // Calling the engine's MountAddon directly (IApplication slot 37) from a tick crashed the
+        // server (SIGSEGV in libtier0): the engine only mounts addons during a map change, from the
+        // host-state request's addon list. Until that route is built (hook HostStateRequest and
+        // attach the ids), installed addons are reported, never mounted here.
+        if (!it.refused) {
+          ResolveMounter();  // diagnostic only: `ru addons` shows whether the engine side resolves
+          ru_logf(g_api, RU_LOG_INFO, "addon %llu: installed; waiting for the map-change mount route",
+                  static_cast<unsigned long long>(id));
+          it.refused = true;  // log once
+        }
         break;
-      }
       case Action::kRefuse:
         if (!it.refused) ru_logf(g_api, RU_LOG_WARN, "addon %llu: legacy item, not a CS2 addon", static_cast<unsigned long long>(id));
         it.refused = true;
