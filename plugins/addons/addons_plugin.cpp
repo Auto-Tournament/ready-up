@@ -100,6 +100,7 @@ struct Item {
   bool installed = false;
   bool mounted = false;  // attached to a map change (the engine logs "Mounting addon '<id>'")
   bool refused = false;
+  bool updateChecked = false;  // DownloadItem asked for an installed item (Steam fetches a newer version)
   uint32_t lastState = 0xFFFFFFFFu;
 };
 std::vector<uint64_t> g_ids;  // from addons.cfg, in order
@@ -144,6 +145,7 @@ void DetourSetPending(void* mgr, void* request) {
         *addons = dup;
         for (auto& kv : g_items) {
           if (kv.second.installed) kv.second.mounted = true;
+          kv.second.updateChecked = false;  // check for a newer version again
         }
         ru_logf(g_api, RU_LOG_INFO, "map change: addons %s", merged.c_str());
       }
@@ -338,6 +340,12 @@ void Poll() {
         break;
       case Action::kNone:
         break;
+    }
+    // A dedicated server's Steam does not refresh "needs update" on its own: ask once per plugin load
+    // and map change; Steam downloads only if a newer version is published.
+    if ((st & kItemInstalled) && !(st & (kItemDownloading | kItemDownloadPending)) && !it.updateChecked) {
+      it.updateChecked = true;
+      g_steam.download(ugc, id, true);
     }
   }
 }
