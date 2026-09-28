@@ -105,6 +105,10 @@ Json ContextToJson(const WebhookMatchContext& c) {
   Json coaches = Json::Array();
   for (uint64_t s : c.coaches) coaches.Push(U64(s));
   j["coaches"] = std::move(coaches);
+  Json coachTeam = Json::Object();
+  for (const auto& kv : c.coach_team) coachTeam[std::to_string(kv.first)] = static_cast<long long>(kv.second);
+  j["coach_team"] = std::move(coachTeam);
+  j["coaches_per_team"] = c.coaches_per_team;
   return j;
 }
 
@@ -156,6 +160,12 @@ WebhookMatchContext ContextFromJson(const Json& j) {
   c.ruleset = Str(&j, "ruleset");
   c.overrides_json = Str(&j, "overrides");
   if (const Json* v = j.Find("coaches")) for (const auto& s : v->Items()) c.coaches.insert(ToU64(&s));
+  if (const Json* v = j.Find("coach_team")) {
+    for (const auto& kv : v->Members()) {
+      c.coach_team[std::strtoull(kv.first.c_str(), nullptr, 10)] = static_cast<WebhookTeam>(kv.second.AsInt());
+    }
+  }
+  c.coaches_per_team = Int(&j, "coaches_per_team", c.coaches_per_team);
   return c;
 }
 

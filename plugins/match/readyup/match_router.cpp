@@ -7,6 +7,7 @@
 
 #include "readyup/admin_call.h"
 #include "readyup/admin_check.h"
+#include "readyup/coach.h"
 #include "readyup/config.h"
 #include "readyup/engine.h"
 #include "readyup/esports.h"
@@ -174,7 +175,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     }
     SendToChat("Ready Up commands: .r / .ready / .ur (.nr) | .forceready | .tac (timeout) | .tech (.pause) | .unpause | .admin [message]");
     if (hasMatch) {
-      SendToChat("Ready Up: knife: .stay/.switch (.ct/.t) | forfeit: .ff (captain)");
+      SendToChat("Ready Up: knife: .stay/.switch (.ct/.t) | forfeit: .ff (captain) | coaches: .coach ct|t, .uncoach");
     } else {
       SendToChat(Cfg().scrim_knife
                      ? "Ready Up: scrim: when everyone on CT/T is READY: 5s countdown, knife round, winners .stay/.switch, live."
@@ -531,6 +532,10 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       Print("%s\n", l.c_str());
       if (steamid64 != 0) replyPrivate(l);
     }
+    for (const auto& l : CoachStateLines()) {
+      Print("%s\n", l.c_str());
+      if (steamid64 != 0) replyPrivate(l);
+    }
     EmitStateLog("query");
     return;
   }
@@ -579,6 +584,13 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       return;
     }
     if (steamid64 == 0) PrintLine("side: ok");
+    return;
+  }
+  if (sub == "coach" || sub == "uncoach") {
+    // Admin / console: `ru match coach <player> team1|team2|ct|t`, `ru match uncoach <player>` (coach.h).
+    std::string announce;
+    replyPrivate(CoachAdminCommand(sub, args, &announce));
+    if (!announce.empty()) SendToChat(("Ready Up: " + announce).c_str());
     return;
   }
   if (sub == "tech" || sub == "tac") {

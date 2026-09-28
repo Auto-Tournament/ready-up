@@ -54,6 +54,7 @@
     "CBasePlayerController.m_bIsHLTV",
     "CBasePlayerController.m_iszPlayerName|CCSPlayerController.m_iszPlayerName",
     "CCSPlayerController.m_iAssists",
+    "CCSPlayerController.m_iCoachingTeam",
     "CCSPlayerController.m_iDeaths",
     "CCSPlayerController.m_iHeadshotKills|CCSPlayerController.m_iHeadShotKills|CCSPlayerController.m_iMatchStats_HeadshotKills",
     "CCSPlayerController.m_iKills",

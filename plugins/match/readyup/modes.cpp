@@ -1,4 +1,6 @@
 #include "readyup/modes.h"
+
+#include "readyup/coach.h"
 #include "readyup/scrim_flow.h"
 
 #include "readyup/map_names.h"
@@ -619,6 +621,7 @@ static void EnforceWhitelistLocked(State& st) {
     if (!seenSteam.insert(s.steamid64).second) continue;
     if (allowed.find(s.steamid64) != allowed.end()) continue;
     if (isAdmin(s.steamid64)) continue;
+    if (CoachAllowedOnServer(s.steamid64)) continue;  // an admin made them a coach (coach.h)
 
     auto it = st.lastKick.find(s.steamid64);
     if (it != st.lastKick.end() && (now - it->second) < minKickInterval) continue;

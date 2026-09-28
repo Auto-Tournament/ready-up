@@ -348,9 +348,11 @@ pauses the default flow does not expect.
 - Overtime: under `valve`, `maxOvertimes` / `damageTiebreak` (fleet `overtime.max_overtimes`,
   `tiebreak`) are ignored with a note at load; the context follows `overtime.enabled` /
   `.maxrounds`.
-- Coaches: MAT `"coaches": [steamid64]` (fleet `role: coach`) are whitelisted as spectators only
-  when `lan` or `coaches_online` is on; otherwise they are dropped from the whitelist (note at
-  load).
+- Coaches: MAT `"coaches": [steamid64]` and `team1` / `team2` `coaches` (fleet `role: coach`) are
+  whitelisted as spectators only when `lan` or `coaches_online` is on; otherwise they are dropped
+  from the whitelist (note at load) and `.coach` is refused. Admitted coaches take CS2's coach
+  slot (docs/ADMINS.md "Coaches"). Valve's coach communication windows (L557-564) are not
+  enforced: a coach can talk to the team at any time.
 - Pauses: `.tac` is CS2's own timeout (PR #23); technical pauses are counted and auto-unpause per
   `tech_pauses_per_team` / `tech_pause_seconds`. With `halftime_pausematch` the round start after
   the regulation halftime is marked as a `halftime` pause (`pause.type: "halftime"`): both teams

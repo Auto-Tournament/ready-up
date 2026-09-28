@@ -329,6 +329,19 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
         if (teamTag == WebhookTeam::Team2) ctx.team2_captain_steamid64 = sid;
       }
     }
+    // coaches: {steamid64: name} (get5) or [steamid64]. Read before the players return early.
+    if (const Value* coaches = team->get("coaches")) {
+      auto add = [&](uint64_t sid) {
+        if (sid) ctx.coach_team[sid] = teamTag;
+      };
+      if (IsObject(coaches)) {
+        for (const auto& kv : coaches->obj) add(ParseSteamId64Loose(kv.first));
+      } else if (coaches->type == Value::Type::Array) {
+        for (const auto& v : coaches->arr) {
+          if (v.type == Value::Type::String) add(ParseSteamId64Loose(v.str));
+        }
+      }
+    }
     const Value* players = team->get("players");
     if (!IsObject(players)) return;
     for (const auto& kv : players->obj) {
@@ -348,6 +361,16 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
       if (sid) ctx.coaches.insert(sid);
     }
   }
+  // A player on a roster is a player, not a coach.
+  for (auto it = ctx.coach_team.begin(); it != ctx.coach_team.end();) {
+    if (ctx.roster_team.count(it->first)) {
+      it = ctx.coach_team.erase(it);
+    } else {
+      ctx.coaches.insert(it->first);
+      ++it;
+    }
+  }
+  if (auto n = AsInt(cfg->get("coaches_per_team"))) ctx.coaches_per_team = static_cast<int>(*n);
 
   if (!ApplyRulesetToContext(json, &ctx, errOut)) return std::nullopt;
   return ctx;
