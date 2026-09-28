@@ -165,6 +165,7 @@ void RestoreAll(const char* why) {
 std::set<uint64_t> g_overrideSent;
 // `.midas` trial settings (runtime only; `.midas reset` or a plugin reload goes back to the cfg).
 int g_trialKit = 0;          // > 0: used instead of paint_kit
+std::set<uint32_t> g_modelFailed, g_noModel;  // logged once per weapon handle
 std::set<uint32_t> g_modelled;  // weapon handles given a Midas model (model_<classname>)
 
 // plugins/midas/models.txt (the readyup_midas addon's midas_models.txt): "<defindex> <classname> <model>"
@@ -576,15 +577,21 @@ void TintSlot(int slot) {
     // model_<classname>=<vmdl>: a Midas model (readyup_midas addon: white metal, tinted by `color`).
     if (const char* mcn = g_api->entity_classname(g_api->self, w)) {
       const std::string model = ModelFor(w, mcn);
+      if (model.empty() && !g_modelByDef.empty() && g_noModel.insert(h).second && g_api->debug_enabled(g_api->self)) {
+        ru_logf(g_api, RU_LOG_DEBUG, "no model for %s (item %d) of slot %d", mcn, ItemDefIndex(w), slot);
+      }
       if (!model.empty() && RU_API_HAS(g_api, entity_set_model)) {
         if (!g_modelled.count(h) && g_api->entity_set_model(g_api->self, w, model.c_str()) == 1) {
           g_modelled.insert(h);
           UseMaterialGroup(w, ConfigValue("model_group"));
           if (!ParseBool(ConfigValue("keep_charm"), false)) RemoveCharm(w);
-          // paint_kit=skin: the player's own skin decides the mesh (legacy or new), as in normal CS2.
-          if (g_paintKit < 0) g_api->entity_mark_changed(g_api->self, w);
-          else UseNormalMesh(w);  // also marks the entity changed
+          // The readyup_midas models ship only the new (hd) mesh: always show it, also under a legacy skin
+          // (paint_kit=skin), which would otherwise pick the legacy mesh the model doesn't have.
+          UseNormalMesh(w);  // also marks the entity changed
           ru_logf(g_api, RU_LOG_INFO, "model %s on %s of slot %d", model.c_str(), mcn, slot);
+        } else if (!g_modelled.count(h) && g_modelFailed.insert(h).second) {
+          ru_logf(g_api, RU_LOG_WARN, "model %s on %s (item %d) of slot %d: SetModel refused", model.c_str(), mcn,
+                  ItemDefIndex(w), slot);
         }
         if (g_modelled.count(h)) {
           if (SetColor(w, g_color)) g_tinted.insert(h);
