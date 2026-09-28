@@ -14,10 +14,12 @@ so change it only together with `schema`.
       POST FILE to $COMPAT_INGEST_URL with "Authorization: Bearer $COMPAT_INGEST_TOKEN".
       Silently skipped when the URL is unset; never exits non-zero (failures are logged).
   compat-report.py dynamic --stage {selftest,live} --base FILE --selftest FILE [--livetest NAME=RC ...]
-                   --out-dir DIR [run options]
+                   [--livetest-advisory NAMES] --out-dir DIR [run options]
       dynamic verdict (.github/workflows/cs2-dynamic.yml): the static compat.json plus the
       readyup_selftest.txt of a real server (plugin needs, plugin selftest lines) and, for
-      stage live, the bot live test exit codes -> DIR/compat.json + DIR/badge.json
+      stage live, the bot live test exit codes -> DIR/compat.json + DIR/badge.json. Each live
+      test goes to its component's `livetest` check (LIVETEST_COMPONENT: fleet -> fleet, the
+      rest -> match); an --livetest-advisory one that fails stays pending instead of failing.
   compat-report.py step [--plan dynamic] [--id ID --status STATUS [--name N] [--stage S] [--parent P]
                    [--detail D]] [--updates JSON] [--close] [--flush] [--summary] [--no-post]
                    [--min-interval SEC] [--state FILE] [--base FILE] [run options]
@@ -61,6 +63,11 @@ NEEDS_PLUGINS = ["match", "practice", "essentials", "midas", "whitelist", "death
 NAMES = {"core": "Core", "skins": "Skins", "match": "Match", "practice": "Practice",
          "essentials": "Essentials", "midas": "Midas", "whitelist": "Whitelist", "deathmatch": "Deathmatch",
          "fleet": "Fleet", "addons": "Addons"}
+# The component whose `livetest` check a live test (compat-report.py dynamic --livetest NAME=RC)
+# reports to; every other name goes to LIVETEST_DEFAULT. A component listed here gets a pending
+# `livetest` check from the static stage on, like match.
+LIVETEST_DEFAULT = "match"
+LIVETEST_COMPONENT = {"fleet": "fleet"}
 # Order of static check kinds inside a component.
 STATIC_KINDS = ["signature", "rtti", "vtable", "hook_site", "layout"]
 TRIGGERS = ("build_change", "surface_change", "nightly", "release", "manual")
@@ -263,9 +270,13 @@ def dynamic_pending_checks(cid, need):
         if need.get("events"):
             checks.append(dict(pending_check("event"), total=len(need["events"])))
     checks.append(pending_check("selftest"))
-    if cid == "match":
+    if cid in livetest_components():
         checks.append(pending_check("livetest"))
     return checks
+
+
+def livetest_components():
+    return [LIVETEST_DEFAULT] + [c for c in LIVETEST_COMPONENT.values() if c != LIVETEST_DEFAULT]
 
 
 def all_component_ids(files):
@@ -599,14 +610,18 @@ def dynamic_checks(cid, need, st, has_report):
     return checks
 
 
-def livetest_check(results):
-    """results: [(name, rc)] ; rc 0 pass, 1 fail, 2 no verdict (server busy/down)."""
+def livetest_check(results, advisory=()):
+    """results: [(name, rc)] ; rc 0 pass, 1 fail, 2 no verdict (server busy/down). A name in
+    `advisory` (a new live test that has not proven itself yet) never fails the check: its
+    failure keeps the check pending, with the reason in `failures`."""
     rows = []
     for name, rc in results:
         if rc == 0:
             rows.append(("OK", name))
         elif rc == 2:
             rows.append(("PEND", "%s: no verdict (exit 2)" % name))
+        elif name in advisory:
+            rows.append(("PEND", "%s: failed (exit %d); advisory (not required yet), see the run" % (name, rc)))
         else:
             rows.append(("FAIL", "%s: bot live test failed (exit %d); see the run" % (name, rc)))
     if not rows:
@@ -634,13 +649,18 @@ def cmd_dynamic(args):
     ids = [c["id"] for c in base.get("components") or []] or all_component_ids(surface_files(args.gamedata))
     by_id = {c["id"]: c for c in base.get("components") or []}
     live = [(n, int(rc)) for n, _, rc in (x.partition("=") for x in args.livetest or [])]
+    advisory = {n for x in args.livetest_advisory or [] for n in re.split(r"[\s,]+", x) if n}
+    live_for = {}
+    for n, rc in live:
+        live_for.setdefault(LIVETEST_COMPONENT.get(n, LIVETEST_DEFAULT), []).append((n, rc))
     components = []
     for cid in ids:
         old = by_id.get(cid, {"checks": []})
         static = [k for k in old["checks"] if k["kind"] in STATIC_KINDS]
         checks = static + dynamic_checks(cid, needs.get(cid), st, has_report)
-        if cid == "match":
-            checks.append(livetest_check(live) if args.stage == "live" else pending_check("livetest"))
+        if cid in livetest_components():
+            checks.append(livetest_check(live_for.get(cid, []), advisory) if args.stage == "live"
+                          else pending_check("livetest"))
         components.append({"id": cid, "name": component_name(cid), "status": component_status(checks), "checks": checks})
     if not has_report:
         # the server never wrote a report: that is Ready Up failing to boot on this build
@@ -784,6 +804,8 @@ DYNAMIC_PLAN = [
     ("selftest", "Boot + selftest", "selftest"),
     ("live-match", "Live: match", "live"),
     ("live-scrim", "Live: scrim", "live"),
+    ("live-fleet", "Live: fleet", "live"),
+    ("live-forfeit", "Live: forfeit + pauses", "live"),
     ("record", "Record", "record"),
 ]
 PLANS = {"dynamic": DYNAMIC_PLAN}
@@ -1055,6 +1077,9 @@ def main(argv=None):
     dy.add_argument("--selftest", default="", help="readyup_selftest.txt of the server")
     dy.add_argument("--livetest", action="append", default=[], metavar="NAME=RC",
                     help="scripts/livetest/run.sh exit code (0 pass, 1 fail, 2 no verdict); repeatable")
+    dy.add_argument("--livetest-advisory", action="append", default=[], metavar="NAMES",
+                    help="live tests (space / comma separated; repeatable) whose failure keeps their "
+                         "check pending instead of failing it: new checks until they have proven themselves")
     dy.add_argument("--out-dir", required=True)
     stp = sub.add_parser("step")
     add_run_options(stp)

@@ -25,14 +25,15 @@ cs2-dynamic.yml (self-hosted runner `readyup-live`; also nightly + workflow_disp
     build   : Full bundle in the sniper SDK (GitHub-hosted)
     live    : steamcmd app_update 730 -> install.sh --zip (Full) -> boot +sv_lan 1
               selftest: READYUP_SELFTEST_AND_QUIT -> readyup_selftest.txt  ── POST + cs2-build (stage selftest)
-              live:     scripts/livetest match + scrim (bots)            ── POST + cs2-build (stage live)
+              live:     scripts/livetest match, scrim, fleet, forfeit (bots)
+                                                                  ── POST + cs2-build (stage live)
 ```
 
 | Stage | What it proves | Status |
 |---|---|---|
 | `static` | Every signature, RTTI name, vtable slot, layout and hook site in `gamedata/engine-surface*.json` resolves in the new `libserver.so` | this workflow |
 | `selftest` | A real server boots the build with every plugin: `ru selftest` passes, no plugin is disabled, every plugin's schema fields and game events exist | `cs2-dynamic.yml` |
-| `live` | The bot live test (`scripts/livetest`: a match to map end, then a scrim to live) passes: tournaments are safe | `cs2-dynamic.yml` |
+| `live` | The bot live tests (`scripts/livetest`: a match to map end, a scrim to live, the fleet link driven by a mock platform, pauses + a team-left forfeit) pass: tournaments are safe | `cs2-dynamic.yml` |
 
 A clean static run is reported as **warn / "static ok" (yellow): static pass, live pending**.
 `pass` / "compatible" (green) needs every component to pass every check, which only the
@@ -44,7 +45,7 @@ dynamic stages can confirm.
 |---|---|---|
 | `core` | every entry of `engine-surface.json` (signature, rtti, vtable, hook_site, layout) | `selftest`: the core's own `ru selftest` lines |
 | `skins` | `engine-surface.skins.json` + the core entries in `plugins/skins/needs.json` | `schema`, `event`, `selftest` |
-| `match`, `practice`, `essentials`, `midas`, `whitelist`, `deathmatch`, `fleet` | the engine-surface entries in `plugins/<id>/needs.json` | `schema`, `event` (when it needs any), `selftest`; `match` also `livetest` |
+| `match`, `practice`, `essentials`, `midas`, `whitelist`, `deathmatch`, `fleet` | the engine-surface entries in `plugins/<id>/needs.json` | `schema`, `event` (when it needs any), `selftest`; `match` and `fleet` also `livetest` |
 
 A new `engine-surface.<id>.json` fragment automatically becomes its own component `<id>`. A
 failing check fails its component, and an entry needed by several plugins fails each of them (a
@@ -146,7 +147,8 @@ changes.
 `{"schemaVersion":1,"label":"CS2 1.41.8.5","message":"compatible|static ok|incompatible|checking","color":"brightgreen|yellow|red|blue"}`.
 
 Local run of the dynamic report: `python3 scripts/ci/compat-report.py dynamic --stage live
---base compat.json --selftest readyup_selftest.txt --livetest match=0 --livetest scrim=0 --out-dir .ci`.
+--base compat.json --selftest readyup_selftest.txt --livetest match=0 --livetest scrim=0 --livetest fleet=0
+--livetest forfeit=0 --livetest-advisory "fleet forfeit" --out-dir .ci`.
 
 Local run (after `VERIFY_RAW_DIR=.ci/raw scripts/ci/verify-cs2.sh ...`):
 `python3 scripts/ci/compat-report.py result --raw-dir .ci/raw --build-env <cs2>/cs2-build.env --out-dir .ci`.
@@ -188,14 +190,18 @@ and never looks finished while it is still going. Its events carry an optional `
 the run is in progress and its verdict is "checking", whatever a finished stage said.
 
 `compat-report.py step` sends them: the planned steps first (`--plan dynamic`: Build bundle,
-Update CS2, Install bundle, Boot + selftest, Live: match, Live: scrim, Record), then each step
+Update CS2, Install bundle, Boot + selftest, Live: match, Live: scrim, Live: fleet, Live: forfeit +
+pauses, Record), then each step
 as it runs and ends (`--id ID --status running|pass|fail|skip [--detail ...]`), and at the end
 `--close` (a step still running failed, one still queued is skipped) and `--summary` (a table
 of the steps in the job summary). The steps so far live in `--state` ($COMPAT_STEP_STATE); the
 rest of the document comes from `--base` ($COMPAT_STEP_BASE), the last compat.json of the run.
 `scripts/livetest` reports its own steps under `Live: match` / `Live: scrim` when
 `COMPAT_STEP_EVENTS=1` (`COMPAT_STEP_PARENT`, at most one POST every `COMPAT_STEP_INTERVAL`
-seconds, default 5). Like `post`, a failed POST is only a warning. The gate and build-progress
+seconds, default 5); `fleet_livetest.py` reports one step per phase under `Live: fleet` (enroll,
+assign, fencing, live, pause, backups, offline, end, resume, frame stream). `Live: forfeit + pauses`
+reports no nested steps (a run has at most 100); its result and the reason for a failure are on
+the step itself. Like `post`, a failed POST is only a warning. The gate and build-progress
 jobs post too, so the token must be a repo secret (not only a `cs2-dynamic` environment secret)
 for the page to show the run while the bundle builds.
 
@@ -267,8 +273,33 @@ job waits in the queue until one is.
      `WARN <plugin>: disabled` and a plugin missing from the loaded list -> that plugin's
      `selftest` (a loaded plugin whose own lines are all `INFO` passes as loaded), the
      `[plugin needs]` lines -> its `schema` / `event` checks;
-   - `scripts/livetest/run.sh --ssh '' --target <tmp> --boot` twice (match, then `--scrim`) on
-     the same install -> `match`'s `livetest` check (exit 2 = no verdict: stays pending);
+   - the live tests, one after the other on the same install and server (each is its own
+     `--livetest NAME=RC` entry of `compat-report.py dynamic`, so each shows on the page):
+
+     | Entry | Runs | Check |
+     |---|---|---|
+     | `match` | `scripts/livetest/run.sh --ssh '' --target <tmp> --boot --simulation` | `match` `livetest` |
+     | `scrim` | `... --scrim` | `match` `livetest` |
+     | `fleet` | `scripts/livetest/fleet_livetest.py --ssh '' --target <tmp> --game-dir $CS2_CI_DIR --boot --mock local`: a mock platform on loopback enrolls fleet.so, `match.assign` -> ready -> live -> `end_match` / `match.unassign` over the fleet link, fencing, pause / unpause, round backups + `restore_round`, the offline auto-pause, a failover resume; every frame checked against `plugins/fleet/protocol/v1`, `live_rev` +1 per `state.patch` / event, the patches rebuild the snapshots | `fleet` `livetest` |
+     | `forfeit` | `... --forfeit`: technical pause + its limit, tactical timeout, team-left forfeit countdown, cancel, forfeit, postgame, idle | `match` `livetest` |
+
+     Exit 0 passes, 1 fails, 2 is no verdict (busy / down / the mock did not start): stays
+     pending. The fleet test is self-contained: the mock platform is a local process on
+     127.0.0.1 (free ports per run; `websockets` + `jsonschema` pip-installed once into
+     `~/.cache/readyup-livetest/`, as the runner user is not in the docker group), the
+     enrollment code is a made-up constant and the token a random one minted per run. It writes
+     `game/csgo/cfg/ReadyUp/fleet.cfg` of the CI install for the run and moves it and fleet.so's
+     data dir to `<tmp>/.fleet-livetest/` afterwards, so the install is standalone again.
+     `--ruleset valve` (the esports ruleset) is not run: it refuses to go live without GOTV, and
+     the CI server boots without `tv_enable 1` (turning it on also needs a `tv_port` outside the
+     live servers' 27015-27050 range);
+   - **new live tests are advisory first.** The `LIVETEST_ADVISORY` list in the workflow (default
+     `fleet forfeit`; the repo variable `CS2_LIVETEST_ADVISORY` overrides it, `none` makes
+     every live test required) is passed as `--livetest-advisory`: a listed test that fails keeps
+     its check `pending` (the reason in `failures`; its `Live: <name>` step fails, marked
+     advisory) instead of failing the component, so it cannot turn the verdict to `fail` before
+     it has proven itself. Take a test off the list once it has passed 3 runs in a row (nightly
+     or manual dispatch on master); a flaky one stays on it;
    - POST each stage to `COMPAT_INGEST_URL` and commit compat.json + badge.json to `cs2-build`
      (`scripts/ci/cs2-watch-state.sh publish`). A run that breaks before the selftest verdict
      POSTs `no_verdict` and records nothing.
