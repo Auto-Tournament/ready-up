@@ -68,6 +68,10 @@ Json ContextToJson(const WebhookMatchContext& c) {
   j["damage_tiebreak"] = c.damageTiebreakEnabled;
   j["sudden_death_on_damage_tie"] = c.suddenDeathOnDamageTie;
   j["clinch_series"] = c.clinch_series;
+  j["players_per_team"] = c.players_per_team;
+  j["playout"] = c.playout;
+  j["whitelist"] = c.whitelist;
+  j["autoready"] = c.autoready;
   Json sides = Json::Array();
   for (const auto& s : c.map_sides) sides.Push(s);
   j["map_sides"] = std::move(sides);
@@ -134,6 +138,10 @@ WebhookMatchContext ContextFromJson(const Json& j) {
   c.damageTiebreakEnabled = Bool(&j, "damage_tiebreak");
   c.suddenDeathOnDamageTie = Bool(&j, "sudden_death_on_damage_tie", true);
   c.clinch_series = Bool(&j, "clinch_series", true);
+  c.players_per_team = Int(&j, "players_per_team", 0);
+  c.playout = Int(&j, "playout", -1);
+  c.whitelist = Int(&j, "whitelist", -1);
+  c.autoready = Int(&j, "autoready", -1);
   if (const Json* v = j.Find("map_sides")) for (const auto& s : v->Items()) c.map_sides.push_back(s.AsString());
   if (const Json* v = j.Find("maplist")) for (const auto& s : v->Items()) c.maplist.push_back(s.AsString());
   if (const Json* v = j.Find("spectators")) for (const auto& s : v->Items()) c.spectators.insert(ToU64(&s));

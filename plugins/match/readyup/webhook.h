@@ -136,6 +136,13 @@ struct WebhookMatchContext {
   // Coaches per team who are not listed (scrim `.coach`, admin-assigned); MAT / get5
   // `coaches_per_team`. <= 0: no limit.
   int coaches_per_team = 2;
+  // Per-match values of server settings (server_settings.h); -1 / 0 = not set (the server's).
+  // MAT keys `players_per_team`, `playout`, `whitelist`, `autoready`; fleet rules.playout,
+  // rules.whitelist, rules.ready.autoready and the team size from the player roles.
+  int players_per_team = 0;  // a full team for the ready gate (0 = 5); substitutes on top
+  int playout = -1;
+  int whitelist = -1;
+  int autoready = -1;
   // What the parser changed for the ruleset (logged at load).
   std::vector<std::string> ruleset_notes;
 };

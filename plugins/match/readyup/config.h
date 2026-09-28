@@ -13,6 +13,7 @@
 
 #include "readyup/match_rules.h"
 
+#include <map>
 #include <string>
 
 namespace readyup {
@@ -52,8 +53,8 @@ struct ReadyUpCfg {
   bool dev_bots_ready = false;
   // DEBUG ONLY: a scrim can start and run with only bots on CT and T.
   bool dev_bots_scrim = false;
-  // Scrims: knife round after everyone readied up.
-  bool scrim_knife = true;
+  // Scrims: knife round after everyone readied up is the server setting knife_enabled_default
+  // (server_settings.h; readyup.cfg `scrim_knife` is read as its file value).
   // Scrim / match warmup: money topped up to mp_maxmoney after every purchase (warmup_money.h),
   // like CS2's own warmup. 0 = off (players keep what they did not spend).
   bool warmup_money = true;
@@ -77,6 +78,10 @@ struct ReadyUpCfg {
   // Models the `default_models` rule resets players to (per team, the map-independent defaults).
   std::string default_model_ct = "agents/models/ctm_sas/ctm_sas.vmdl";
   std::string default_model_t = "agents/models/tm_phoenix/tm_phoenix.vmdl";
+  // Server settings (server_settings.h) named in the file: `playout_enabled_default=1`, ... and the
+  // legacy keys `min_players_to_ready`, `scrim_knife`. Handed to settings::Global() on every
+  // (re)load; a runtime value (console / chat / fleet) wins over them.
+  std::map<std::string, std::string> settings;
 };
 
 ReadyUpCfg Cfg();

@@ -54,9 +54,23 @@ admin_prefix=<DarkRed>[Admin]<Default>
 # tech_pause_max_seconds=300     auto-unpause after this long, 0 = never
 # both_teams_unpause_required=1  0 = the pausing team alone can unpause
 # allow_force_ready=1            .forceready readies the caller's team
-# min_players_to_ready=0         players a team needs connected to go live / force ready (0 = all)
+# min_players_to_ready=0         players a team needs ready to go live / connected to force ready
+#                                (0 = a full team: players_per_team, else 5; substitutes on top).
+#                                The same value as minimum_ready_required below.
 # forfeit_after_seconds=240      a team with nobody connected on a live map forfeits, 0 = off
 # Tactical timeouts (.tac) are CS2's: mp_team_timeout_max / mp_team_timeout_time (ReadyUp/live.cfg).
+
+# Match server settings (docs/INSTALL.md "Match server settings"). A console / RCON / chat / fleet
+# change (ru_<name> <value>, .ru settings set) is saved in state.json and wins over these.
+# minimum_ready_required=0             players a team needs ready to go live (0 = a full team)
+# playout_enabled_default=0            play every round, no clinch
+# autoready_enabled=0                  roster players are ready when they join their team
+# knife_enabled_default=1              knife round for scrims and maps without a side (old key: scrim_knife)
+# reset_cvars_on_series_end=1          reset the warmup cvars when a series ends
+# use_pause_command_for_tactical_pause=0   .pause / .p call a tactical timeout
+# hostname_format=                     e.g. "{TEAM1} vs {TEAM2}" while a match is loaded (empty = off)
+# kick_when_no_match_loaded=0          kick non-admins while no match is loaded
+# whitelist_enabled_default=1          only roster / spectators / admins may join a match
 
 # Scrim / match warmup: money topped up to $16000 after every purchase, like CS2's own warmup.
 # warmup_money=1

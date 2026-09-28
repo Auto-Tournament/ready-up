@@ -44,6 +44,7 @@ set(MATCH_SOURCES
   readyup/match_recovery.cpp
   readyup/match_rules.cpp
   readyup/match_router.cpp
+  readyup/match_settings.cpp
   readyup/match_signals.cpp
   readyup/match_state.cpp
   readyup/match_stats.cpp
@@ -60,6 +61,7 @@ set(MATCH_SOURCES
   readyup/round_restore_rules.cpp
   readyup/ruleset.cpp
   readyup/scrim_flow.cpp
+  readyup/server_settings.cpp
   readyup/vote_logic.cpp
   readyup/votes.cpp
   readyup/webhook.cpp
@@ -129,6 +131,16 @@ target_include_directories(match_rules_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(match_rules_test PRIVATE -Wall -Wextra)
 target_compile_definitions(match_rules_test PRIVATE READYUP_CFG_DIR="${CMAKE_SOURCE_DIR}/cfg/ReadyUp")
 add_test(NAME match_rules COMMAND match_rules_test)
+
+# Server settings (readyup/server_settings.h): the table, value checks, chat toggles, runtime >
+# readyup.cfg > built-in, the persist hook, `.settings` lines, hostname_format; the ready gate with
+# substitutes and playout (match_rules.h) (ctest `match_server_settings`).
+add_executable(match_server_settings_test tests/server_settings_test.cpp readyup/server_settings.cpp
+  readyup/match_rules.cpp)
+target_include_directories(match_server_settings_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(match_server_settings_test PRIVATE -Wall -Wextra)
+target_link_libraries(match_server_settings_test PRIVATE pthread)
+add_test(NAME match_server_settings COMMAND match_server_settings_test)
 
 # Damage report bookkeeping (readyup/damage_ledger.h), the .gg / .stop vote logic
 # (readyup/vote_logic.h) and their rules (ctest `match_damage_votes`).

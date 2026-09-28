@@ -13,6 +13,7 @@
 #include "readyup/player_registry.h"
 #include "readyup/scrim_flow.h"
 #include "readyup/players.h"
+#include "readyup/server_settings.h"
 #include "readyup/webhook.h"
 #include "readyup/welcome.h"
 
@@ -166,7 +167,7 @@ static Board BuildBoard(ReadyUpMode mode, const std::optional<WebhookMatchContex
       b.note = DevBotsReadyEnabled() ? "need players (or bots) on both CT and T" : "need players on both CT and T";
     }
     const int cd = ScrimCountdownSecondsLeft();
-    if (cd >= 0) b.countdown = std::string(Cfg().scrim_knife ? "knife in " : "live in ") + std::to_string(cd);
+    if (cd >= 0) b.countdown = std::string(settings::Bool("knife_enabled_default") ? "knife in " : "live in ") + std::to_string(cd);
   } else {
     b.scrim = (ctx->slug == "scrim");
     b.title = RecoveryGateEnabled() ? "recovered match" : (b.scrim ? "scrim" : "match warmup");
