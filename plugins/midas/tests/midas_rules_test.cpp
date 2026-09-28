@@ -222,6 +222,28 @@ int main() {
   CHECK(EquipmentItemFor("planted_c4", false).defindex == 49);
   CHECK(EquipmentItemFor("weapon_ak47", false).defindex == 0 && EquipmentItemFor("inferno", false).defindex == 0);
 
+  // Cards.
+  {
+    CHECK(FillCard("{stat} {value}: {name}! {x} {stat}", "ADR", "112", "Bob") == "ADR 112: Bob! {x} ADR");
+    CHECK(FillCard("", "a", "b", "c").empty() && FillCard("{", "a", "b", "c") == "{");
+    CHECK(CardName("<b>Evil</b>\x01") == "bEvil/b");
+    CHECK(CardName(std::string(40, 'x')).size() == 32);
+    CHECK(CardName(std::string(31, 'x') + "\xc3\xa9") == std::string(31, 'x'));  // no half UTF-8 char
+    const CardTexts t;
+    const std::string best = GainCardHtml(t, kWhyBest | kWhyGiven, "ADR", "112");
+    CHECK(best.find("Blessed by Midas") != std::string::npos && best.find("#FFD700") != std::string::npos);
+    CHECK(best.find("best player on the server (ADR 112). Everything you touch turns to gold.") != std::string::npos);
+    CHECK(GainCardHtml(t, kWhyGiven | kWhyConfig, "", "").find("An admin has blessed you") != std::string::npos);
+    CHECK(GainCardHtml(t, kWhyConfig, "", "").find("You have the Midas touch.") != std::string::npos);
+    const std::string lost = LostCardHtml(t, "<Big> Snax");
+    CHECK(lost.find("The Midas touch has left you.") != std::string::npos && lost.find("It passed to Big Snax.") != std::string::npos);
+    CHECK(LostCardHtml(t, "").find("passed") == std::string::npos);
+    CHECK(best.find("<i>") == std::string::npos && best.find("&") == std::string::npos);
+    CardTexts custom;
+    custom.best = "Top {stat}: {value}";
+    CHECK(GainCardHtml(custom, kWhyBest, "kills", "31").find("Top kills: 31") != std::string::npos);
+  }
+
   std::printf("midas_rules_test: %s\n", g_failures ? "FAIL" : "PASS");
   return g_failures ? 1 : 0;
 }

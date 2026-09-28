@@ -379,4 +379,55 @@ EquipmentItem EquipmentItemFor(const std::string& entityClass, bool incendiary) 
   return {};
 }
 
+std::string CardName(const std::string& name) {
+  std::string out;
+  for (char c : name) {
+    const unsigned char u = static_cast<unsigned char>(c);
+    if (c == '<' || c == '>' || u < 0x20 || u == 0x7f) continue;
+    out.push_back(c);
+  }
+  if (out.size() > 32) {
+    size_t cut = 32;
+    while (cut > 0 && (static_cast<unsigned char>(out[cut]) & 0xC0) == 0x80) --cut;  // not inside a UTF-8 char
+    out.resize(cut);
+  }
+  return out;
+}
+
+std::string FillCard(const std::string& text, const std::string& stat, const std::string& value, const std::string& name) {
+  std::string out;
+  for (size_t i = 0; i < text.size();) {
+    bool done = false;
+    for (const auto& kv : {std::make_pair("{stat}", &stat), std::make_pair("{value}", &value), std::make_pair("{name}", &name)}) {
+      const size_t n = std::strlen(kv.first);
+      if (text.compare(i, n, kv.first) == 0) {
+        out += *kv.second;
+        i += n;
+        done = true;
+        break;
+      }
+    }
+    if (!done) out.push_back(text[i++]);
+  }
+  return out;
+}
+
+namespace {
+std::string Card(const std::string& head, const char* headColor, const std::string& line) {
+  std::string h = "<font class='fontSize-l' color='" + std::string(headColor) + "'><b>" + head + "</b></font>";
+  if (!line.empty()) h += "<br><font class='fontSize-m' color='#FFFFFF'>" + line + "</font>";
+  return h;
+}
+}  // namespace
+
+std::string GainCardHtml(const CardTexts& t, unsigned why, const std::string& stat, const std::string& value) {
+  const std::string& line = (why & kWhyBest) ? t.best : (why & kWhyGiven) ? t.given : t.config;
+  return Card(t.title, "#FFD700", FillCard(line, stat, value, ""));
+}
+
+std::string LostCardHtml(const CardTexts& t, const std::string& passedTo) {
+  const std::string name = CardName(passedTo);
+  return Card(FillCard(t.lost, "", "", name), "#C9B458", name.empty() ? "" : FillCard(t.passed, "", "", name));
+}
+
 }  // namespace midas

@@ -529,6 +529,8 @@ void RefreshConfig(double now) {
   }
   CheckBestAllowed();
   SyncPaintOverrides(false);
+  ReadCardConfig();
+  UpdateCards();
   g_configRead = true;
   if (g_refreshHeld) {
     g_refreshHeld = false;
@@ -579,6 +581,147 @@ std::string PlayerName(uint64_t sid) {
   return std::to_string(sid);
 }
 
+// ---- cards: center HTML to a player who gains / loses Midas ------------------------------------
+// Shown at the player's next spawn or round start (right away when Midas changes within the first
+// seconds of a round, i.e. in freeze time) for kCardShow seconds. CS2 keeps a center panel steady
+// only when it is re-sent every frame with the same HTML, so the card is sent every tick. It asks
+// just below RU_HTML_PRIO_NOTICE: another plugin's notice (welcome, go-live, votes) or alert keeps
+// it waiting, the ready / status HUD does not. Not on screen within kCardWindow of its start: tried
+// again at the next spawn / round start. Everyone else keeps the chat line.
+constexpr double kCardShow = 5.0;
+constexpr double kCardWindow = 20.0;
+constexpr double kFreezeGuess = 12.0;  // seconds after round_start that count as freeze time
+constexpr int kCardPriority = RU_HTML_PRIO_NOTICE - 1;
+bool g_cardsOn = true;
+CardTexts g_cardTexts;
+bool g_cardsPrimed = false;       // the first UpdateCards only remembers who is Midas (no card at load)
+std::set<uint64_t> g_prevMidas;   // who was Midas at the last UpdateCards
+uint64_t g_prevBest = 0;
+std::string g_bestStatName, g_bestValue;  // the last pick: "ADR" / "kills" and the number
+double g_now = 0, g_prevNow = 0, g_lastRoundStart = -1e9;
+struct PendingCard {
+  std::string html;
+  std::string what;  // for the log
+  bool started = false;
+  double startedAt = 0;
+  double shown = 0;   // seconds on screen so far
+  bool waitLogged = false;
+};
+std::map<uint64_t, PendingCard> g_cards;
+
+void StartCard(uint64_t sid, PendingCard& c) {
+  if (c.started) return;
+  c.started = true;
+  c.startedAt = g_now;
+  c.shown = 0;
+  c.waitLogged = false;
+  (void)sid;
+}
+
+void QueueCard(uint64_t sid, const std::string& html, const std::string& what) {
+  if (sid == 0 || g_api->slot_for_steamid(g_api->self, sid) < 0) return;  // not connected: no card
+  PendingCard c;
+  c.html = html;
+  c.what = what;
+  g_cards[sid] = c;
+  const bool now = g_now - g_lastRoundStart < kFreezeGuess;
+  if (now) StartCard(sid, g_cards[sid]);
+  if (g_api->debug_enabled(g_api->self)) {
+    ru_logf(g_api, RU_LOG_DEBUG, "card for %s (%s): %s", PlayerName(sid).c_str(), what.c_str(),
+            now ? "now (freeze time)" : "at their next spawn / round start");
+  }
+}
+
+// Who gained / lost Midas since the last call: their card. Called after anything that changes it.
+void UpdateCards() {
+  const std::set<uint64_t> now = EffectiveMidas(g_active, g_midas, g_given, g_best);
+  if (!g_cardsPrimed) {
+    g_cardsPrimed = true;
+  } else if (g_cardsOn) {
+    for (uint64_t sid : now) {
+      if (g_prevMidas.count(sid)) continue;
+      const unsigned why = MidasWhy(sid);
+      QueueCard(sid, GainCardHtml(g_cardTexts, why, g_bestStatName, g_bestValue),
+                (why & kWhyBest) ? "gained: best player" : (why & kWhyGiven) ? "gained: given" : "gained: midas_steamids");
+    }
+    for (uint64_t sid : g_prevMidas) {
+      if (now.count(sid)) continue;
+      const bool passed = sid == g_prevBest && g_best != 0 && g_best != sid;
+      QueueCard(sid, LostCardHtml(g_cardTexts, passed ? PlayerName(g_best) : std::string()),
+                passed ? "lost: passed on" : "lost");
+    }
+  }
+  g_prevMidas = now;
+  g_prevBest = g_best;
+}
+
+int SendCard(int slot, const std::string& html) {
+  if (RU_API_HAS(g_api, center_html_to_slot_prio) && g_api->center_html_to_slot_prio) {
+    return g_api->center_html_to_slot_prio(g_api->self, slot, html.c_str(), 1, kCardPriority);
+  }
+  return RU_API_HAS(g_api, center_html_to_slot) && g_api->center_html_to_slot &&
+                 g_api->center_html_to_slot(g_api->self, slot, html.c_str(), 1) == 1 ? 1 : 0;
+}
+
+void ProcessCards() {
+  const double dt = std::min(0.1, std::max(0.0, g_now - g_prevNow));
+  const bool debug = g_api->debug_enabled(g_api->self) != 0;
+  for (auto it = g_cards.begin(); it != g_cards.end();) {
+    PendingCard& c = it->second;
+    const int slot = g_api->slot_for_steamid(g_api->self, it->first);
+    if (slot < 0 || slot >= 64) {  // left
+      it = g_cards.erase(it);
+      continue;
+    }
+    if (!c.started) {
+      ++it;
+      continue;
+    }
+    if (g_now - c.startedAt > kCardWindow) {
+      c.started = false;
+      if (debug) ru_logf(g_api, RU_LOG_DEBUG, "card for slot %d (%s) delayed to the next spawn / round start", slot, c.what.c_str());
+      ++it;
+      continue;
+    }
+    const int rc = SendCard(slot, c.html);
+    if (rc == 0) {
+      if (debug) ru_logf(g_api, RU_LOG_DEBUG, "card for slot %d (%s) dropped: no center HTML", slot, c.what.c_str());
+      it = g_cards.erase(it);
+      continue;
+    }
+    if (rc < 0) {
+      if (debug && !c.waitLogged) ru_logf(g_api, RU_LOG_DEBUG, "card for slot %d (%s) waits: another panel is up", slot, c.what.c_str());
+      c.waitLogged = true;
+      ++it;
+      continue;
+    }
+    c.shown += dt;
+    if (c.shown < kCardShow) {
+      ++it;
+      continue;
+    }
+    if (RU_API_HAS(g_api, center_html_release) && g_api->center_html_release) g_api->center_html_release(g_api->self, slot);
+    if (debug) ru_logf(g_api, RU_LOG_DEBUG, "card for slot %d (%s) shown", slot, c.what.c_str());
+    it = g_cards.erase(it);
+  }
+}
+
+void ReadCardConfig() {
+  g_cardsOn = ParseBool(ConfigValue("cards"), true);
+  const CardTexts def;
+  auto text = [](const char* key, const std::string& d) {
+    const std::string v = ConfigValue(key);
+    return v.empty() ? d : v;
+  };
+  g_cardTexts.title = text("card_title", def.title);
+  g_cardTexts.best = text("card_best", def.best);
+  g_cardTexts.given = text("card_given", def.given);
+  g_cardTexts.config = text("card_config", def.config);
+  g_cardTexts.lost = text("card_lost", def.lost);
+  g_cardTexts.passed = text("card_passed", def.passed);
+  if (!g_cardsOn) g_cards.clear();
+}
+
 // `sid` stopped being Midas (call after the sets changed and SyncPaintOverrides): the weapons they
 // hold go back to normal (a StatTrak counter is swapped off); weapons they dropped stay gold.
 // Nothing if they are still Midas for another reason.
@@ -604,6 +747,7 @@ void SetBest(uint64_t sid, const std::string& why) {
   g_bestLine = sid ? PlayerName(sid) + " (" + why + ")" : std::string();
   SyncPaintOverrides(false);
   StopMidas(old);
+  UpdateCards();
   if (sid == 0) {
     if (old != 0) ru_logf(g_api, RU_LOG_INFO, "best player: no Midas now");
     return;
@@ -639,6 +783,9 @@ void PickBestPlayer() {
     if (g_bestStat == BestStat::kAdr) std::snprintf(buf, sizeof(buf), "best ADR: %.0f", Adr(p));
     else std::snprintf(buf, sizeof(buf), "most kills: %d", p.kills);
     why = buf;
+    g_bestStatName = g_bestStat == BestStat::kAdr ? "ADR" : "kills";
+    std::snprintf(buf, sizeof(buf), "%.0f", g_bestStat == BestStat::kAdr ? Adr(p) : static_cast<double>(p.kills));
+    g_bestValue = buf;
   }
   SetBest(best, why);
 }
@@ -1003,6 +1150,7 @@ uint64_t ResolveTarget(const ru_command_ctx* ctx, const std::string& query) {
 // A given / taken Midas: skins.so paints (or stops painting) their new weapons, the held ones follow.
 void AfterGivenChanged(uint64_t sid, bool added) {
   SyncPaintOverrides(false);
+  UpdateCards();
   if (!added) {
     StopMidas(sid);
     return;
@@ -1092,8 +1240,11 @@ void OnRuMidas(void*, const ru_command_ctx* ctx) {
 }
 
 void OnTick(void*, const ru_tick_info* t) {
+  g_prevNow = g_now;
+  g_now = t->now;
   RefreshConfig(t->now);
   ResolveOffsets();
+  if (!g_cards.empty()) ProcessCards();
   if (g_pickIn > 0 && --g_pickIn == 0 && g_active && g_bestOn) PickBestPlayer();
   if (g_scanIn > 0) {
     // The projectile / planted_c4 may show up a tick after the event, m_hThrower a tick after that.
@@ -1111,13 +1262,25 @@ void OnTick(void*, const ru_tick_info* t) {
 }
 
 // item_pickup / item_equip / player_spawn: check that player's weapons over the next ticks.
-void OnItemEvent(void*, const char*, const ru_game_event* ev) {
+void OnItemEvent(void*, const char* name, const ru_game_event* ev) {
   const int slot = g_api->ev_get_player_slot(g_api->self, ev, "userid");
-  if (slot >= 0 && slot < 64) g_pending[slot] = 16;
+  if (slot < 0 || slot >= 64) return;
+  g_pending[slot] = 16;
+  if (!g_cards.empty() && std::strcmp(name, "player_spawn") == 0) {
+    // A card waiting for this player's spawn.
+    if (void* ctrl = g_off.Ok() ? g_api->entity_by_index(g_api->self, slot + 1) : nullptr) {
+      const auto it = g_cards.find(Rd<uint64_t>(ctrl, g_off.ctrl_steamId));
+      if (it != g_cards.end()) StartCard(it->first, it->second);
+    }
+  }
 }
 
 // round_start: pick the best player a few ticks from now.
-void OnRoundStart(void*, const char*, const ru_game_event*) { g_pickIn = 8; }
+void OnRoundStart(void*, const char*, const ru_game_event*) {
+  g_pickIn = 8;
+  g_lastRoundStart = g_now;
+  for (auto& kv : g_cards) StartCard(kv.first, kv.second);  // freeze time: waiting cards show now
+}
 
 void OnMap(void*, const ru_event*) {
   // New map: new entities; old handles mean nothing. New stats: no best player yet.
@@ -1217,6 +1380,16 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_bombSlot = -1;
   g_scanHigh = 0;
   g_equipSeen.clear();
+  g_cardsOn = true;
+  g_cardTexts = CardTexts{};
+  g_cardsPrimed = false;
+  g_prevMidas.clear();
+  g_prevBest = 0;
+  g_bestStatName.clear();
+  g_bestValue.clear();
+  g_now = g_prevNow = 0;
+  g_lastRoundStart = -1e9;
+  g_cards.clear();
   api->on_tick(api->self, OnTick, nullptr);
   api->subscribe(api->self, RU_EVENT_MAP_START, OnMap, nullptr);
   for (const char* e : {"item_pickup", "item_equip", "player_spawn"}) {
@@ -1247,6 +1420,9 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
 }
 
 READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
+  if (!g_cards.empty() && RU_API_HAS(g_api, center_html_release) && g_api->center_html_release) {
+    g_api->center_html_release(g_api->self, -1);
+  }
   // Hot reload / unload: weapons go back to their normal colour; the next image tints again.
   SyncPaintOverrides(true);
   RestoreAll("unload");

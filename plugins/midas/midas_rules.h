@@ -160,4 +160,27 @@ struct EquipmentItem {
 };
 EquipmentItem EquipmentItemFor(const std::string& entityClass, bool incendiary);
 
+// ---- cards: center HTML to a player who gains / loses Midas (`cards=1`, default) ------------------
+
+// midas.cfg card_title / card_best / card_given / card_config / card_lost / card_passed (empty =
+// the default). Placeholders: {stat} ("ADR" / "kills"), {value} (the number), {name} (who it passed to).
+struct CardTexts {
+  std::string title = "Blessed by Midas";
+  std::string best = "You're the best player on the server ({stat} {value}). Everything you touch turns to gold.";
+  std::string given = "An admin has blessed you with the Midas touch.";
+  std::string config = "You have the Midas touch.";
+  std::string lost = "The Midas touch has left you.";
+  std::string passed = "It passed to {name}.";
+};
+
+// A player name for center HTML: without '<', '>' (markup) and control characters, at most 32 bytes.
+std::string CardName(const std::string& name);
+// {stat}, {value} and {name} filled in (each as often as it appears; unknown {...} stay).
+std::string FillCard(const std::string& text, const std::string& stat, const std::string& value, const std::string& name);
+// The card for a player who became Midas (`why`: MidasReasons bits; the best-player wording wins,
+// then given, then midas_steamids): the gold title, the reason line under it.
+std::string GainCardHtml(const CardTexts& t, unsigned why, const std::string& stat, const std::string& value);
+// The card for a player who is no longer Midas; `passedTo` (a name, "" = nobody) adds card_passed.
+std::string LostCardHtml(const CardTexts& t, const std::string& passedTo);
+
 }  // namespace midas
