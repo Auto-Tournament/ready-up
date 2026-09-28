@@ -10,7 +10,8 @@ event (`loc_token` = HTML). Tested in game on CS2 1.41.8.3 with `.ru hud test 1-
 - Each send creates a new panel that fades in over the old one.
 - Steady display: resend every frame (`hud_tick_ms=0`, `hud_resend_ms=0`,
   `hud_duration_s=1`). These are the defaults.
-- Slower resends (1s/2s, 8s/10s) make the panel open and close.
+- Slower resends (1s/2s, 8s/10s) make the panel open and close. The welcome card and the
+  go-live card use the same every-frame cadence.
 - An `<img>` in a panel that is resent every frame flashes, because the image is
   reloaded on each send. Only use images in one-off sends.
 
@@ -83,6 +84,11 @@ live, `ru match start`), everyone gets a card for `golive_card_seconds` (readyup
 scrims) and the commands that work: `.p` / `.pause` / `.tech`, `.up` / `.unpause`, `.tac`,
 `.admin [message]`. The go-live restart and CS2's "Match started" announcement wipe the panel, so
 the card starts `welcome_round_delay_ms` (5 s) after the go-live round start, like the welcome
-card, and is re-sent every second with a 2 s duration at `RU_HTML_PRIO_NOTICE`. It stops early when
-a pause or a forfeit countdown needs the panel (the live panel above takes over). Chat keeps the
+card, and the same HTML is re-sent every frame (`hud_resend_ms` / `hud_duration_s`, like the ready
+HUD, see "Refresh rules") at `RU_HTML_PRIO_NOTICE` for the full `golive_card_seconds`. It ends when
+the go-live round's freeze time ends at the latest (the defaults, 5 s + 10 s, fit in `live.cfg`'s
+18 s `mp_freezetime`; a shorter freeze time cuts the card short), and early when a pause or a
+forfeit countdown needs the panel (the live panel above takes over). With `debug=1` (readyup.cfg), the log
+shows when the card was armed, shown, skipped for a player (welcome / `.admin` card, `.ru hud anim`,
+a higher panel) and why it ended, with the number of sends. Chat keeps the
 single "LIVE!" line; if center HTML is unavailable, one chat line lists the commands instead.

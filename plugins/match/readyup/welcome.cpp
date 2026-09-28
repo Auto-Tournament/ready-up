@@ -29,19 +29,18 @@ using Clock = std::chrono::steady_clock;
 
 // Display timing. The card waits for the player's first spawn after joining a team
 // (before that the client is still in the team menu / spawn transition, which wipes
-// the center panel), then is re-sent every second with a 2s duration so it stays up
-// continuously for ~5 seconds; then the ready HUD (ready_hud.cpp) takes the panel
-// over (WelcomeActiveForSteam turns false at kHandOver).
+// the center panel), then the same HTML is re-sent on the ready HUD's cadence (readyup.cfg
+// hud_resend_ms / hud_duration_s, default every tick): CS2's center panel ignores the event's
+// duration and only stays steady when re-sent every frame (docs/HUD.md). Then the ready HUD
+// (ready_hud.cpp) takes the panel over (WelcomeActiveForSteam turns false at HandOver()).
 constexpr auto kAfterSpawn = std::chrono::milliseconds(750);       // let the spawn fade finish
 constexpr auto kSpawnWait = std::chrono::seconds(20);              // no spawn seen: show anyway
 // After a round (re)start: readyup.cfg welcome_round_delay_ms (CS2's "Match started" announcement).
 constexpr auto kDelayTentative = std::chrono::milliseconds(1500);  // give log/event a chance to confirm
-// How long the card stays: readyup.cfg welcome_show_seconds (default 8). The last send is a
-// second before the end (each send lasts 2 s); the HUD takes the panel over at the end.
-std::chrono::milliseconds ShowFor() { return std::chrono::milliseconds(std::max(1, Cfg().welcome_show_seconds) * 1000 - 1000); }
-std::chrono::milliseconds HandOver() { return std::chrono::milliseconds(std::max(1, Cfg().welcome_show_seconds) * 1000); }
-constexpr auto kResendEvery = std::chrono::milliseconds(1000);
-constexpr int kEventDurationSeconds = 2;
+// How long the card stays: readyup.cfg welcome_show_seconds (default 8), sent until the end; the
+// HUD takes the panel over on the next tick.
+std::chrono::milliseconds ShowFor() { return std::chrono::milliseconds(std::max(1, Cfg().welcome_show_seconds) * 1000); }
+std::chrono::milliseconds HandOver() { return ShowFor(); }
 
 struct SlotState {
   uint64_t steamid64 = 0;
@@ -55,6 +54,11 @@ struct SlotState {
   Clock::time_point startAt{};
   Clock::time_point nextSend{};
   int sent = 0;
+  // The HTML sent every tick, built once (rebuilt when the name, team or mode changes).
+  std::string html;
+  std::string htmlName;
+  int htmlTeam = 0;
+  ReadyUpMode htmlMode = ReadyUpMode::Idle;
 };
 
 std::mutex g_mu;
@@ -344,6 +348,7 @@ void WelcomeTick() {
       }
       if (now - s.startAt > showFor) {
         s.active = false;
+        if (DebugEnabled()) Debug("welcome: done slot=%d (%d sends)\n", kv.first, s.sent);
         continue;
       }
       if (now < s.nextSend) continue;
@@ -352,14 +357,20 @@ void WelcomeTick() {
       if (name.empty()) {
         if (auto ident = GetSlotIdentity(kv.first)) name = ident->name;
       }
-      sends.push_back(Send{kv.first, BuildHtml(name, s.team, mode)});
-      s.nextSend = now + kResendEvery;
+      if (s.html.empty() || s.htmlName != name || s.htmlTeam != s.team || s.htmlMode != mode) {
+        s.html = BuildHtml(name, s.team, mode);
+        s.htmlName = name;
+        s.htmlTeam = s.team;
+        s.htmlMode = mode;
+      }
+      sends.push_back(Send{kv.first, s.html});
+      s.nextSend = now + std::chrono::milliseconds(Cfg().hud_resend_ms);
     }
   }
 
   static std::atomic<bool> s_warnedUnavailable{false};
   for (const auto& snd : sends) {
-    const bool ok = PrintCenterHtmlToClientOnly(snd.slot, snd.html, kEventDurationSeconds, RU_HTML_PRIO_NOTICE);
+    const bool ok = PrintCenterHtmlToClientOnly(snd.slot, snd.html, Cfg().hud_duration_s, RU_HTML_PRIO_NOTICE);
     std::lock_guard<std::mutex> lk(g_mu);
     auto it = g_slots.find(snd.slot);
     if (it == g_slots.end()) continue;
@@ -389,8 +400,8 @@ bool WelcomeActiveFor(int slot, uint64_t steamid64) {
     // that never made it out (center HTML unavailable) does not block the banner.
     if (!s.active && s.sent == 0) continue;
     if (s.active && s.waitingSpawn) return true;  // the card comes at spawn
-    // Covers the queue delay and the display window; after kHandOver the ready
-    // HUD's next send replaces the card (no gap: the last card send lasts 2s).
+    // Covers the queue delay and the display window; after HandOver() the ready
+    // HUD's next send (the next tick) replaces the card.
     if (now < s.startAt + handOver) return true;
   }
   return false;
