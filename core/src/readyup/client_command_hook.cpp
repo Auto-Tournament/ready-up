@@ -233,7 +233,11 @@ static void HandleLogLine(const char* lineCStr) {
   // .nobots, .tactics) silently fall through.
   auto isCmd = [&](const std::string& s) -> bool { return s.size() > 1 && s[0] == '.'; };
 
-  if (isCmd(msg)) {
+  if (isCmd(msg) && steamid64 == 0 && header != "Console<0><Console><Console>") {
+    // No SteamID parsed from a player's header: never route it as the console (steamid64 0 may
+    // run every `.ru` command); the ClientCommand hook routes that player's line with its SteamID.
+    Debug("chat-hook: chat cmd without a SteamID ignored (header=\"%s\")\n", header.c_str());
+  } else if (isCmd(msg)) {
     DebugLine("chat-hook: routing chat cmd via RouteChatCommand()");
     RouteChatCommand(steamid64, name, msg);
   } else if (DebugEnabled()) {

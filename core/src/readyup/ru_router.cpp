@@ -12,6 +12,7 @@
 #include "readyup/selftest.h"
 #include "readyup/version.h"
 
+#include <cctype>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -28,6 +29,11 @@ static std::string Trim(std::string s) {
   size_t i = 0;
   while (i < s.size() && is_ws(static_cast<unsigned char>(s[i]))) ++i;
   if (i) s.erase(0, i);
+  return s;
+}
+
+static std::string Lower(std::string s) {
+  for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   return s;
 }
 
@@ -127,6 +133,11 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
     return;
   }
 
+  // Help, "not authorized" and "unknown command" go to the sender only when the slot is known.
+  auto replyPrivate = [&](const std::string& msg) {
+    if (!SendToSlotChat(slot, msg.c_str())) SendToChat(msg.c_str());
+  };
+
   // `.ru` alone
   if (parts.size() == 1) {
     DebugLine("ru: cmd=.ru (version)");
@@ -135,19 +146,26 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
     return;
   }
 
-  const std::string cmd = parts[1];
+  const std::string cmd = Lower(parts[1]);
   Debug("ru: cmd=%s argc=%zu\n", cmd.c_str(), parts.size() > 2 ? parts.size() - 2 : 0u);
+
+  // Default deny: a player's `.ru <sub>` is admin-only unless it is public (.ru version | help |
+  // list, a few player commands of plugins; RuCommandPublic in ru_help_text.h). Checked here, before
+  // the core's commands and before any plugin sees it; plugins keep their own admin checks too.
+  // The server console / RCON (steamid64 0) may run everything.
+  const bool senderIsAdmin = steamid64 == 0 || readyup::IsReadyUpAdmin(steamid64);
+  if (!RuCommandAllowed(std::vector<std::string>(parts.begin() + 1, parts.end()), senderIsAdmin)) {
+    Debug("ru: \".ru %s\" refused: not an admin (steamid64=%llu)\n", cmd.c_str(),
+          static_cast<unsigned long long>(steamid64));
+    replyPrivate("not authorized");
+    return;
+  }
 
   // `.ru <sub>` a plugin registered (register_ru_subcommand); runs on the next GameFrame.
   if (!plugins::IsCoreRuSubcommand(cmd) && plugins::TryDispatchRu(/*console=*/false, steamid64, playerName, t, slot)) {
     Debug("ru: \".ru %s\" queued for its plugin\n", cmd.c_str());
     return;
   }
-
-  // Help and "unknown command" go to the sender only when the slot is known.
-  auto replyPrivate = [&](const std::string& msg) {
-    if (!SendToSlotChat(slot, msg.c_str())) SendToChat(msg.c_str());
-  };
 
   auto requireAdmin = [&]() -> bool {
     // Allow server console; otherwise require admin.
@@ -180,11 +198,11 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
     return;
   }
 
-  if (cmd == "help") {
+  if (cmd == "help" || cmd == "list") {
     // `.ru help`: main commands. `.ru help <main>`: the core's own, or the plugin's (forwarded as
     // `.ru <main> help`, answered by the plugin).
-    if (parts.size() >= 3) {
-      const std::string main = parts[2];
+    if (cmd == "help" && parts.size() >= 3) {
+      const std::string main = Lower(parts[2]);
       const auto lines = CoreRuSubHelpLines(main);
       for (const auto& l : lines) replyPrivate(l);
       if (!lines.empty()) return;
@@ -195,7 +213,9 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
       replyPrivate(RuUnknownCommandReply(main));
       return;
     }
-    for (const auto& l : RuMainHelpLines(plugins::PluginRuSubcommands())) replyPrivate(l);
+    // `.ru help` / `.ru list`: everything for admins, only what they can run for other players.
+    const auto mains = plugins::PluginRuSubcommands();
+    for (const auto& l : senderIsAdmin ? RuMainHelpLines(mains) : RuPublicHelpLines(mains)) replyPrivate(l);
     return;
   }
 

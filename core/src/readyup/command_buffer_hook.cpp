@@ -98,7 +98,7 @@ static bool HandleRuCommandLine(const std::string& line) {
 
   // `ru` / `ru help`. Every other `ru <sub>` (match load, idle, state, start, ...) belongs to a
   // plugin (register_ru_subcommand; readyup-match), or is unknown.
-  if (parts.size() == 1 || (parts.size() == 2 && parts[1] == "help")) {
+  if (parts.size() == 1 || (parts.size() == 2 && parts[1] == "help") || parts[1] == "list") {
     PrintRuHelp();
     return true;
   }

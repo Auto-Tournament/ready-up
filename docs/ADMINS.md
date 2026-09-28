@@ -47,8 +47,18 @@ nothing shows in chat). `.ru help` lists the main commands, one chat line each; 
 command, type .ru help". Help, state and errors go to the sender only; actions that concern
 everyone (a pause, a map change) are announced to all.
 
-Admin-only commands answer "not authorized" to anyone else and do nothing; the server console
-always may. An admin's `.help` points at `.ru help`.
+**Every `.ru` command is admin-only** (in chat and in a player's own console), except:
+
+- `.ru` and `.ru version` (the Ready Up build), `.ru help` and `.ru list` (the same list: for a
+  player who is not an admin, only the commands below),
+- `.ru dm status|top|hud` (and `.ru help dm`): deathmatch has no player chat commands.
+
+Anyone else gets a private "not authorized" and nothing runs: the core checks it before the
+command reaches the core or a plugin, whatever the plugin itself checks (plugins keep their own
+checks too). The server console / RCON always may. Players have their own chat commands for
+everything else (`.r`, `.pause`, `.stay` / `.switch`, `.settings`, `.coach`, `.admin`, `.help`,
+...). An admin's `.help` points at `.ru help`. The public list is `RuCommandPublic` in
+`core/src/readyup/ru_help_text.cpp`; add to it only a command players have no other way to run.
 
 | Command | Who | Does |
 |---|---|---|
@@ -61,30 +71,31 @@ always may. An admin's `.help` points at `.ru help`.
 | `.ru match backups` | admin | the loaded match's round backups on this server (`ru_listbackups` on the console) |
 | `.ru match pause` / `unpause` | admin | admin pause / unpause (`.fp` / `.fup` in chat) |
 | `.ru match tech\|tac team1\|team2` | admin | technical pause / tactical timeout for a team, with its limits |
-| `.ru match side stay\|switch\|ct\|t` | knife winners, admin | knife side pick (`.stay` / `.switch`) |
+| `.ru match side stay\|switch\|ct\|t` | admin | knife side pick for the knife winners (players: `.stay` / `.switch`) |
 | `.ru match coach <player> team1\|team2\|ct\|t` / `uncoach <player>` | admin | makes a spectator a team's coach / stops it (`<player>`: SteamID, `#userid` or name; players use `.coach ct\|t` / `.uncoach`, [below](#coaches-coach)) |
-| `.ru match state` / `rules` | everyone | match and mode state / effective rules |
+| `.ru match state` / `rules` | admin | match and mode state / effective rules |
 | `.ru match swap` | admin | swaps the teams' sides in warmup (`mp_swapteams`); team1 / team2 stay who they are (`.switch` when no knife pick is pending) |
 | `.ru match team1\|team2 <name>` | admin | renames a team of a match loaded with `ru match load` (fleet matches: rename on the platform); the in-game names follow |
-| `.ru settings show` | everyone | every [match server setting](INSTALL.md#match-server-settings) and where it comes from (`.settings`) |
+| `.ru settings show` | admin | every [match server setting](INSTALL.md#match-server-settings) and where it comes from (players: `.settings`) |
 | `.ru settings set <setting> <value>` / `default <setting>` | admin | change one (saved across restarts) / back to readyup.cfg or the default |
 | `.admin [message]` | everyone | calls an admin ([below](#calling-an-admin-admin)); not an `ru` command |
 | `.ru map change <name\|workshop id\|link> [force]` | admin | `changelevel <name>`, or `host_workshop_map <id>` for `3084291314`, `ws:<id>`, `workshop/<id>[/name]` or a pasted Workshop link (`…/filedetails/?id=3084291314`); refused during a knife round or a live map unless `force` (essentials plugin) |
 | `.ru map reload [force]` | admin | loads the current map again (a workshop map by its id) (essentials plugin) |
 | `.ru map restart [force]` | admin | restarts the game (`mp_restartgame 1`); a loaded match stays loaded (essentials plugin) |
-| `.ru map defaults` / `.ru map default <mode> [<map>\|clear]` | everyone / admin to set | the default map per mode (`ffa`, `tdm`, `practice`, `warmup`, `retakes`, ...), `plugins/essentials/default_maps.json` (essentials plugin) |
-| `.ru mode show` | everyone | the current mode |
+| `.ru map defaults` / `.ru map default <mode> [<map>\|clear]` | admin | the default map per mode (`ffa`, `tdm`, `practice`, `warmup`, `retakes`, ...), `plugins/essentials/default_maps.json` (essentials plugin) |
+| `.ru mode show` | admin | the current mode |
 | `.ru mode idle` / `practice` / `scrim` | admin | plain CS2 / practice mode (toggles, `.prac`; needs the practice plugin) / auto scrim warmup back on |
-| `.ru practice on\|off\|status` | admin | practice plugin: practice mode (`status`: everyone) |
-| `.ru dm ffa\|tdm [map]` / `.ru dm off` | admin | deathmatch plugin: free for all / team deathmatch (CS2's deathmatch game mode; loads the map given, else the mode's default map) / back to competitive; `.ru dm status\|top\|hud`: everyone ([DEATHMATCH.md](DEATHMATCH.md)) |
-| `.ru admins list` | everyone | the admins (essentials plugin) |
+| `.ru practice on\|off\|status` | admin | practice plugin: practice mode |
+| `.ru dm ffa\|tdm [map]` / `.ru dm off` | admin | deathmatch plugin: free for all / team deathmatch (CS2's deathmatch game mode; loads the map given, else the mode's default map) / back to competitive; `.ru dm status\|top\|hud`: everyone, the only public plugin `.ru` commands ([DEATHMATCH.md](DEATHMATCH.md)) |
+| `.ru admins list` | admin | the admins (essentials plugin) |
 | `.ru admins add\|remove <steamid64\|name_fragment>` | admin (standalone) | edit `admins.json` |
 | `.ru hud test <1-11>` | admin | a HUD test panel, to you only |
 | `.ru whitelist on\|off\|add\|remove\|list\|clear` | admin | whitelist plugin: only listed players may stay (not during a match) |
 | `.ru plugin list\|load\|unload\|reload <name>` | admin | plugins (core); load / unload last until a restart |
 | `.ru plugin enable\|disable <name>` | admin | load / unload a plugin and keep it that way after a restart (`csgo/readyup/plugins/plugins.json`) |
 | `.ru reload` | admin | reloads `readyup.cfg` (core) |
-| `.ru selftest` / `.ru version` | admin / everyone | core |
+| `.ru selftest` | admin | core |
+| `.ru` / `.ru version` / `.ru help` / `.ru list` | everyone | core: the build / the commands you can use |
 
 Chat shortcuts (admins; each one runs the `.ru` command it stands for, with the same checks):
 

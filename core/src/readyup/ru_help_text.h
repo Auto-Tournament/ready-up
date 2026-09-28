@@ -24,4 +24,23 @@ std::vector<std::string> CoreRuSubHelpLines(const std::string& main);
 // The reply to `.ru <unknown>`.
 std::string RuUnknownCommandReply(const std::string& cmd);
 
+// ---- who may run `.ru ...` ---------------------------------------------------------------------
+// Every `.ru <sub>` a player sends is admin-only (default deny), checked by the core router before
+// the core or a plugin sees it; the server console / RCON always may. Open to every player:
+//   .ru | .ru version | .ru help | .ru list
+//   .ru help <main> for a public main below (.ru help dm)
+//   a few plugin commands meant for players, kRuPublicPluginCommands in ru_help_text.cpp
+//   (.ru dm top | status | hud: deathmatch has no player chat commands).
+// Plugins still check admin themselves for their admin subcommands (defense in depth).
+
+// True when `words` (the words after `.ru`, any case) are open to every player.
+bool RuCommandPublic(const std::vector<std::string>& words);
+// True when a player may run `.ru <words...>`: public, or isAdmin.
+inline bool RuCommandAllowed(const std::vector<std::string>& words, bool isAdmin) {
+  return isAdmin || RuCommandPublic(words);
+}
+// `.ru help` / `.ru list` for a player who is not an admin: only what they can run.
+// `pluginMains` as for RuMainHelpLines.
+std::vector<std::string> RuPublicHelpLines(const std::vector<std::string>& pluginMains);
+
 }  // namespace readyup

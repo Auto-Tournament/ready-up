@@ -1,12 +1,13 @@
 #include "readyup/ru_help_text.h"
 
 #include <algorithm>
+#include <cctype>
 #include <map>
 
 namespace readyup {
 
 const std::vector<std::string>& CoreRuMainCommands() {
-  static const std::vector<std::string> k = {"plugin", "reload", "selftest", "version", "license", "help"};
+  static const std::vector<std::string> k = {"plugin", "reload", "selftest", "version", "license", "help", "list"};
   return k;
 }
 
@@ -17,6 +18,7 @@ std::vector<std::string> RuMainHelpLines(const std::vector<std::string>& pluginM
       {"selftest", "engine / plugin check, PASS or FAIL"},
       {"version", "the Ready Up build"},
       {"license", "commercial license key status"},
+      {"list", "the commands you can use (players: version, help, list)"},
   };
   std::map<std::string, std::string> all;  // name -> description, sorted
   for (const auto& kv : kCore) all[kv.first] = kv.second;
@@ -49,11 +51,79 @@ std::vector<std::string> CoreRuSubHelpLines(const std::string& main) {
             "server.cfg: readyup_license_key \"ATL1...\" (csm license set writes it), readyup_show_license 0|1"};
   }
   if (main == "help") return {".ru help: main commands", ".ru help <command>: its subcommands"};
+  if (main == "list") return {".ru list: the commands you can use (= .ru help)"};
   return {};
 }
 
 std::string RuUnknownCommandReply(const std::string& cmd) {
   return "Ready Up: unknown command \".ru " + cmd.substr(0, 32) + "\". Type .ru help for the list.";
+}
+
+namespace {
+
+std::string Lower(std::string s) {
+  for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  return s;
+}
+
+// Plugin `.ru <main> <sub>` commands meant for every player (the plugin answers them; its admin
+// subcommands stay admin-only). Add one here only for a command players have no other way to run.
+struct PublicPluginCommand {
+  const char* main;
+  std::vector<std::string> subs;  // also open: `.ru <main>` / `.ru <main> help` (its help)
+  bool alias;                     // not listed again in RuPublicHelpLines
+};
+const std::vector<PublicPluginCommand>& PublicPluginCommands() {
+  static const std::vector<PublicPluginCommand> k = {
+      // deathmatch plugin: leaderboard, status, your own leaderboard panel on / off.
+      {"dm", {"top", "status", "hud"}, false},
+      {"deathmatch", {"top", "status", "hud"}, true},
+  };
+  return k;
+}
+
+const PublicPluginCommand* FindPublicPlugin(const std::string& main) {
+  for (const auto& p : PublicPluginCommands()) {
+    if (main == p.main) return &p;
+  }
+  return nullptr;
+}
+
+}  // namespace
+
+bool RuCommandPublic(const std::vector<std::string>& words) {
+  if (words.empty()) return true;  // `.ru`: the version
+  const std::string main = Lower(words[0]);
+  if (main == "version" || main == "list") return true;
+  if (main == "help") {
+    if (words.size() < 2) return true;
+    const std::string topic = Lower(words[1]);
+    return topic == "version" || topic == "list" || topic == "help" || FindPublicPlugin(topic) != nullptr;
+  }
+  if (const PublicPluginCommand* p = FindPublicPlugin(main)) {
+    if (words.size() < 2) return true;  // its help
+    const std::string sub = Lower(words[1]);
+    if (sub == "help") return true;
+    return std::find(p->subs.begin(), p->subs.end(), sub) != p->subs.end();
+  }
+  return false;
+}
+
+std::vector<std::string> RuPublicHelpLines(const std::vector<std::string>& pluginMains) {
+  std::vector<std::string> out = {"Ready Up commands:", ".ru version: the Ready Up build",
+                                  ".ru help (.ru list): the commands you can use"};
+  std::map<std::string, bool> seen;
+  for (const auto& e : pluginMains) {
+    const std::string name = e.substr(0, e.find(' '));
+    const PublicPluginCommand* p = FindPublicPlugin(name);
+    if (!p || p->alias || seen[name]) continue;
+    seen[name] = true;
+    std::string l = ".ru " + name + " ";
+    for (size_t i = 0; i < p->subs.size(); ++i) l += (i ? "|" : "") + p->subs[i];
+    out.push_back(l + " (.ru help " + name + ")");
+  }
+  out.push_back("Players: .help");
+  return out;
 }
 
 }  // namespace readyup
