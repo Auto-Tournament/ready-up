@@ -7,11 +7,18 @@
 //   - else, and for knives / grenades / C4, the render colour: m_clrRender = `color`
 //     (default 255,200,40). The server can't send clients custom textures.
 //
-// Who is Midas: the players in `midas_steamids`, plus with best_player=1 the best player of the
+// Who is Midas: the players in `midas_steamids`, the players an admin gave it to (`.ru midas give
+// <player>`, kept in plugins/midas/given.txt), plus with best_player=1 the best player of the
 // map (top ADR or kills, `best_player_stat`) from the match plugin's stats (readyup.match.v1
 // map_stats), picked a few ticks after a round start (every round once
 // `best_player_min_rounds` are played, or at each new half: `best_player_when`). Scrims only
 // unless best_player_in_matches=1.
+//
+// Admins: `.ru midas` (who is Midas and why), `.ru midas give <player>` (toggles), `.ru midas take
+// <player>`. Replies go to the sender only.
+//
+// Gold equipment: grenades a Midas player throws and the bomb they plant get the gold model of
+// their item (models.txt by item definition index; no line, no change).
 //
 // StatTrak (`stattrak=1`, default): the Midas weapons a Midas player holds (guns and knives) show
 // a StatTrak counter = the player's kills on this map (the match plugin's stats while they record,
@@ -31,6 +38,7 @@
 #include "readyup/selftest_iface.h"
 #include "readyup/skins_iface.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cctype>
 #include <cstring>
@@ -67,6 +75,8 @@ struct Offsets {
 // Config (refreshed every 5 s) and state.
 bool g_enabled = false;
 std::set<uint64_t> g_midas;         // midas_steamids
+std::set<uint64_t> g_given;         // given by an admin (.ru midas give), plugins/midas/given.txt
+std::string g_givenPath;
 Rgba g_color = kGold;
 Finish g_finish = Finish::kAuto;
 int g_paintKit = kGoldPaintKit;
@@ -140,7 +150,8 @@ const ru_skins_v1* Skins() {
   return s && RU_API_HAS(s, paint_weapon) && s->active && s->paint_weapon ? s : nullptr;
 }
 
-bool IsMidas(uint64_t sid) { return ShouldTint(g_active, g_midas, sid) || (g_active && sid != 0 && sid == g_best); }
+unsigned MidasWhy(uint64_t sid) { return MidasReasons(g_active, g_midas, g_given, g_best, sid); }
+bool IsMidas(uint64_t sid) { return MidasWhy(sid) != 0; }
 // A player slot is Midas: its SteamID64, or (debug_midas_bots, dev) any bot (SteamID64 0).
 bool IsMidasSlot(uint64_t sid) { return IsMidas(sid) || (g_active && g_debugBots && sid == 0); }
 
@@ -190,8 +201,6 @@ void RestoreAll(const char* why, bool swapStatTrak = true) {
 // that keeps its old wear on clients, and bought weapons were not gold at all). Sent again on
 // every config read (5 s) so a reloaded skins.so gets it back; `clear`: take it all back.
 std::set<uint64_t> g_overrideSent;
-// `.midas` trial settings (runtime only; `.midas reset` or a plugin reload goes back to the cfg).
-int g_trialKit = 0;          // > 0: used instead of paint_kit
 std::set<uint32_t> g_modelFailed, g_noModel;  // logged once per weapon handle
 std::set<uint32_t> g_modelled;  // weapon handles given a Midas model (model_<classname>)
 
@@ -228,16 +237,16 @@ int ItemDefIndex(void* w) {
 }
 
 // model_def_<n> (midas.cfg) > models.txt > model_<classname> (midas.cfg).
-std::string ModelFor(void* w, const char* classname) {
-  const int def = ItemDefIndex(w);
+std::string ModelForDef(int def, const char* classname) {
   if (def > 0) {
     const std::string byCfg = ConfigValue(("model_def_" + std::to_string(def)).c_str());
     if (!byCfg.empty()) return byCfg;
     const auto it = g_modelByDef.find(def);
     if (it != g_modelByDef.end()) return it->second;
   }
-  return ConfigValue((std::string("model_") + classname).c_str());
+  return classname && *classname ? ConfigValue((std::string("model_") + classname).c_str()) : std::string();
 }
+std::string ModelFor(void* w, const char* classname) { return ModelForDef(ItemDefIndex(w), classname); }
 
 // A Midas model is drawn with its normal (hd) mesh. The gold paint kit through skins.so may be a
 // legacy one, which switches the weapon to the legacy mesh (m_MeshGroupMask 2, body 1): on the Midas
@@ -342,7 +351,6 @@ void UseNormalMesh(void* w) {
   g_api->entity_mark_changed(g_api->self, w);
 }
 bool g_configRead = false;   // midas.cfg read once since load
-int g_lastFileKit = 0;       // paint_kit as last read from midas.cfg
 bool g_refreshHeld = false;  // the finish changed: refresh held weapons after the next sync
 
 // Swaps every Midas player's held weapons for new ones (skins.so refresh_weapons), so a new finish
@@ -358,14 +366,13 @@ void RefreshMidasWeapons() {
                                             std::to_string(g_paintWear).substr(0, 4) + ", seed " + std::to_string(g_paintSeed)).c_str());
   }
 }
-bool g_tintPainted = false;  // also tint weapons that got the paint kit
 void SyncPaintOverrides(bool clear) {
   const auto* s = static_cast<const ru_skins_v1*>(g_api->get_interface(g_api->self, RU_SKINS_IFACE_NAME, 1));
   if (!s || !RU_API_HAS(s, set_player_paint) || !s->set_player_paint) {
     g_overrideSent.clear();
     return;
   }
-  const std::set<uint64_t> want = clear ? std::set<uint64_t>{} : PaintOverrideSet(g_active, g_finish, g_midas, g_best);
+  const std::set<uint64_t> want = clear ? std::set<uint64_t>{} : PaintOverrideSet(g_active, g_finish, EffectiveMidas(true, g_midas, g_given, 0), g_best);
   const bool tags = RU_API_HAS(s, set_player_name_tag) && s->set_player_name_tag;
   // name_tag (default "Midas Touch"): the name Midas weapons show instead of the paint kit's.
   const std::string tag = ConfigValue("name_tag").empty() ? std::string("Midas Touch") : ConfigValue("name_tag");
@@ -454,10 +461,7 @@ void RefreshConfig(double now) {
   if (!fs.empty() && !ParseFinish(fs, &finish)) ru_logf(g_api, RU_LOG_WARN, "finish \"%s\" is not auto|tint; using auto", fs.c_str());
   // paint_kit=skin: the player's own skin stays under a Midas model (its mesh, legacy or new, follows).
   const std::string pk = ConfigValue("paint_kit");
-  const int fileKit = pk == "skin" ? -1 : ParseInt(pk, kGoldPaintKit, 1, 100000);
-  if (g_configRead && fileKit != g_lastFileKit) g_trialKit = 0;  // a saved paint_kit wins over .midas
-  g_lastFileKit = fileKit;
-  const int kit = g_trialKit > 0 ? g_trialKit : fileKit;
+  const int kit = pk == "skin" ? -1 : ParseInt(pk, kGoldPaintKit, 1, 100000);
   const float wear = ParseFloat(ConfigValue("paint_wear"), 0.0f, 0.0f, 1.0f);
   const int seed = ParseInt(ConfigValue("paint_seed"), 0, 0, 1000);
   if (finish != g_finish || kit != g_paintKit || wear != g_paintWear || seed != g_paintSeed) {
@@ -512,7 +516,8 @@ void RefreshConfig(double now) {
   if (active != g_active) {
     g_active = active;
     if (active) {
-      ru_logf(g_api, RU_LOG_INFO, "active: %zu Midas player(s), colour %d,%d,%d,%d", g_midas.size(), g_color.r,
+      ru_logf(g_api, RU_LOG_INFO, "active: %zu Midas player(s) + %zu given, colour %d,%d,%d,%d", g_midas.size(),
+              g_given.size(), g_color.r,
               g_color.g, g_color.b, g_color.a);
       for (int& p : g_pending) p = 16;
     } else {
@@ -574,26 +579,31 @@ std::string PlayerName(uint64_t sid) {
   return std::to_string(sid);
 }
 
+// `sid` stopped being Midas (call after the sets changed and SyncPaintOverrides): the weapons they
+// hold go back to normal (a StatTrak counter is swapped off); weapons they dropped stay gold.
+// Nothing if they are still Midas for another reason.
+void StopMidas(uint64_t sid) {
+  if (sid == 0 || IsMidas(sid) || !g_off.Ok() || g_api->entity_system_status(g_api->self) != RU_ENTSYS_OK) return;
+  const int slot = g_api->slot_for_steamid(g_api->self, sid);
+  if (slot < 0 || slot >= 64) return;
+  const ru_skins_v1* skins = Skins();
+  std::set<uint32_t> counted;
+  ForHeldWeapons(slot, [&](uint32_t h, void*) {
+    if (g_stattrak.count(h)) counted.insert(h);
+    RestoreWeapon(h, skins);
+  });
+  SwapOutStatTrak(counted, "no longer Midas");
+}
+
 // A new best-player Midas (0 = none). The previous one's held weapons go back to normal (unless
-// they are on midas_steamids); weapons they dropped stay gold.
+// they are Midas for another reason: midas_steamids, given); weapons they dropped stay gold.
 void SetBest(uint64_t sid, const std::string& why) {
   if (sid == g_best) return;
   const uint64_t old = g_best;
   g_best = sid;
   g_bestLine = sid ? PlayerName(sid) + " (" + why + ")" : std::string();
   SyncPaintOverrides(false);
-  if (old != 0 && !g_midas.count(old) && g_off.Ok()) {
-    const int slot = g_api->slot_for_steamid(g_api->self, old);
-    if (slot >= 0 && slot < 64) {
-      const ru_skins_v1* skins = Skins();
-      std::set<uint32_t> counted;
-      ForHeldWeapons(slot, [&](uint32_t h, void*) {
-        if (g_stattrak.count(h)) counted.insert(h);
-        RestoreWeapon(h, skins);
-      });
-      SwapOutStatTrak(counted, "no longer Midas");
-    }
-  }
+  StopMidas(old);
   if (sid == 0) {
     if (old != 0) ru_logf(g_api, RU_LOG_INFO, "best player: no Midas now");
     return;
@@ -761,13 +771,9 @@ void TintSlot(int slot) {
   const ru_skins_v1* skins = g_finish == Finish::kAuto ? Skins() : nullptr;
   // debug_midas_bots: bots (no SteamID64, no loadout) only get the tint / model.
   const bool paint = skins && skins->active() == 1 && Rd<uint64_t>(ctrl, g_off.ctrl_steamId) != 0;
-  // Painted weapons get the tint on top only with `.midas tint`.
+  // Painted weapons show the paint kit, no tint on top.
   auto paintTint = [&](uint32_t h, void* w) {
-    if (g_tintPainted) {
-      if (SetColor(w, g_color)) g_tinted.insert(h);
-    } else if (g_tinted.erase(h)) {
-      SetColor(w, kWhite);
-    }
+    if (g_tinted.erase(h)) SetColor(w, kWhite);
   };
   ForHeldWeapons(slot, [&](uint32_t h, void* w) {
     // model_<classname>=<vmdl>: a Midas model (readyup_midas addon: white metal, tinted by `color`).
@@ -823,92 +829,278 @@ void TintSlot(int slot) {
   ApplyStatTrak(slot);
 }
 
-// `.midas`: try paint kits live (admins, or a Midas player). A finish only shows on a weapon
-// created with it, so the reply says to buy / pick up a new one (the knife: respawn).
-struct TrialKit {
-  int kit;
-  const char* name;
-};
-constexpr TrialKit kTrialKits[] = {
-    {159, "Brass"},           {409, "Tiger Tooth"},     {32, "Silver"},          {1025, "Gold Brick"},
-    {413, "Marble Fade"},     {38, "Fade"},             {44, "Case Hardened"},   {98, "Ultraviolet"},
-    {42, "Blue Steel"},       {410, "Damascus Steel"},  {578, "Bright Water"},   {252, "Silver Quartz"},
-    {407, "Quicksilver"},     {210, "Anodized Gunmetal"}, {921, "Gold Arabesque"}, {185, "Golden Koi"},
-    {497, "Golden Coil"},     {990, "Gold Bismuth"},    {1294, "Gold Leaf"},     {129, "Gold Toof"},
-    {1170, "Chrome Cannon"},
-};
-constexpr int kTrialCount = static_cast<int>(sizeof(kTrialKits) / sizeof(kTrialKits[0]));
+// ---- gold equipment in flight / planted --------------------------------------------------------
+// A grenade a Midas player throws (hegrenade_projectile, ...) and the bomb they plant (planted_c4)
+// get the gold model of their item: models.txt / model_def_<n> / model_<classname> by the item the
+// entity stands for (EquipmentItemFor). No model for it: nothing changes. Only looked for over a few
+// ticks after a Midas player's grenade_thrown / bomb_planted, not every entity every tick.
+int g_scanIn = 0;                  // ticks left in the scan window (0 = none)
+int g_bombSlot = -1;               // a Midas player planted in this window: their slot
+int g_scanHigh = 0;                // highest entity index seen by a scan (0 = scan them all)
+std::set<uint32_t> g_equipSeen;    // projectile / planted_c4 handles already handled
+bool g_lastThrowInc[64] = {};      // the slot's last grenade_thrown was an incendiary
 
-std::string KitLabel(int kit) {
-  for (int i = 0; i < kTrialCount; ++i) {
-    if (kTrialKits[i].kit == kit) {
-      return std::to_string(kit) + " " + kTrialKits[i].name + " (" + std::to_string(i + 1) + "/" +
-             std::to_string(kTrialCount) + ")";
-    }
+void GildEquipment(void* e, const char* cn, const EquipmentItem& item, int slot) {
+  const bool debug = g_api->debug_enabled(g_api->self) != 0;
+  const std::string model = ModelForDef(item.defindex, item.classname);
+  if (model.empty() || !RU_API_HAS(g_api, entity_set_model)) {
+    if (debug) ru_logf(g_api, RU_LOG_DEBUG, "no model for %s (item %d) of slot %d", cn, item.defindex, slot);
+    return;
   }
-  return std::to_string(kit);
+  if (g_api->entity_set_model(g_api->self, e, model.c_str()) != 1) {
+    ru_logf(g_api, RU_LOG_WARN, "model %s on %s (item %d) of slot %d: SetModel refused", model.c_str(), cn,
+            item.defindex, slot);
+    return;
+  }
+  UseMaterialGroup(e, ConfigValue("model_group"));
+  if (g_off.clrRender >= 0) SetColor(e, g_color);
+  g_api->entity_mark_changed(g_api->self, e);
+  if (debug) ru_logf(g_api, RU_LOG_DEBUG, "model %s on %s of slot %d", model.c_str(), cn, slot);
 }
 
-void OnMidasChat(void*, const ru_command_ctx* ctx) {
-  auto reply = [&](const std::string& msg) {
-    if (ctx->slot >= 0) g_api->chat_to_slot(g_api->self, ctx->slot, ("Midas: " + msg).c_str());
-    else ru_logf(g_api, RU_LOG_INFO, "%s", msg.c_str());
-  };
-  const bool admin = ctx->is_console || (RU_API_HAS(g_api, is_admin) && g_api->is_admin(g_api->self, ctx->steamid64) == 1);
-  if (!admin && !IsMidas(ctx->steamid64)) {
-    reply("only admins and Midas players can use .midas");
-    return;
+bool EndsWith(const char* s, const char* suffix) {
+  const size_t n = std::strlen(s), m = std::strlen(suffix);
+  return n >= m && std::strcmp(s + n - m, suffix) == 0;
+}
+
+void ScanEquipment() {
+  // Midas players' pawns (CHandle -> slot): m_hThrower of their projectiles.
+  std::map<uint32_t, int> pawns;
+  for (int slot = 0; slot < 64; ++slot) {
+    void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
+    if (ctrl && IsMidasSlot(Rd<uint64_t>(ctrl, g_off.ctrl_steamId))) pawns[Rd<uint32_t>(ctrl, g_off.ctrl_playerPawn)] = slot;
   }
-  std::string sub = ctx->argc >= 2 && ctx->argv[1] ? ctx->argv[1] : "";
-  for (char& c : sub) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-  int cur = 0;
-  for (int i = 0; i < kTrialCount; ++i) {
-    if (kTrialKits[i].kit == g_paintKit) cur = i;
-  }
-  int kit = 0;
-  if (sub == "next") {
-    kit = kTrialKits[(cur + 1) % kTrialCount].kit;
-  } else if (sub == "prev") {
-    kit = kTrialKits[(cur + kTrialCount - 1) % kTrialCount].kit;
-  } else if (sub == "kit" && ctx->argc >= 3) {
-    kit = ParseInt(ctx->argv[2], 0, 1, 100000);
-    if (kit <= 0) {
-      reply("kit needs a paint kit id, e.g. .midas kit 409");
-      return;
+  if (pawns.empty() && g_bombSlot < 0) return;
+  const int thrower = g_api->schema_offset(g_api->self, "CBaseGrenade", "m_hThrower");
+  const int inc = g_api->schema_offset(g_api->self, "CMolotovProjectile", "m_bIsIncGrenade");
+  if (g_equipSeen.size() > 256) {
+    for (auto it = g_equipSeen.begin(); it != g_equipSeen.end();) {
+      it = g_api->entity_from_handle(g_api->self, *it) ? std::next(it) : g_equipSeen.erase(it);
     }
-  } else if (sub == "tint") {
-    g_tintPainted = !g_tintPainted;
-    for (int& p : g_pending) p = 16;
-    reply(std::string("gold tint on painted weapons ") + (g_tintPainted ? "ON" : "OFF") + " (updates live)");
-    return;
-  } else if (sub == "reset") {
-    g_trialKit = 0;
-    g_tintPainted = false;
-    g_lastConfig = -1e9;  // re-read midas.cfg on the next tick
-    for (int& p : g_pending) p = 16;
-    reply("back to midas.cfg (new weapons)");
-    return;
+  }
+  // The first scan of a map looks at every index; later ones up to the highest seen + 2048.
+  const int last = g_scanHigh > 0 ? std::min(0x7FFE, g_scanHigh + 2048) : 0x7FFE;
+  for (int i = 65; i <= last; ++i) {
+    void* e = g_api->entity_by_index(g_api->self, i);
+    if (!e) continue;
+    if (i > g_scanHigh) g_scanHigh = i;
+    const char* cn = g_api->entity_classname(g_api->self, e);
+    if (!cn) continue;
+    const bool bomb = std::strcmp(cn, "planted_c4") == 0;
+    if (!bomb && !EndsWith(cn, "_projectile")) continue;
+    int slot = -1;
+    if (bomb) {
+      slot = g_bombSlot;
+    } else if (thrower >= 0) {
+      const auto it = pawns.find(Rd<uint32_t>(e, thrower));
+      if (it != pawns.end()) slot = it->second;
+    }
+    if (slot < 0) continue;  // not a Midas player's (m_hThrower may be set a tick late: looked at again)
+    const uint32_t h = g_api->entity_handle_of(g_api->self, e);
+    if (h == 0xFFFFFFFFu || !g_equipSeen.insert(h).second) continue;
+    const bool incendiary = inc >= 0 ? Rd<uint8_t>(e, inc) != 0 : g_lastThrowInc[slot];
+    const EquipmentItem item = EquipmentItemFor(cn, incendiary);
+    if (item.defindex > 0) GildEquipment(e, cn, item, slot);
+    else if (g_api->debug_enabled(g_api->self)) ru_logf(g_api, RU_LOG_DEBUG, "%s of slot %d: no item for it", cn, slot);
+  }
+}
+
+// grenade_thrown / bomb_planted: a Midas player's grenade / bomb shows up over the next ticks.
+void OnEquipmentEvent(void*, const char* name, const ru_game_event* ev) {
+  if (!g_active || !g_off.Ok()) return;
+  const int slot = g_api->ev_get_player_slot(g_api->self, ev, "userid");
+  if (slot < 0 || slot >= 64) return;
+  void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
+  if (!ctrl || !IsMidasSlot(Rd<uint64_t>(ctrl, g_off.ctrl_steamId))) return;
+  if (std::strcmp(name, "bomb_planted") == 0) {
+    g_bombSlot = slot;
   } else {
-    reply("finish " + KitLabel(g_paintKit) + (g_tintPainted ? " + tint" : "") +
-          ". .midas next | prev | kit <id> | tint | reset");
+    const char* w = g_api->ev_get_string(g_api->self, ev, "weapon", "");
+    g_lastThrowInc[slot] = w && std::strstr(w, "incgrenade") != nullptr;
+  }
+  g_scanIn = 8;
+}
+
+// ---- .ru midas (admins) ---------------------------------------------------------------------------
+
+void Reply(const ru_command_ctx* ctx, const std::string& msg) {
+  if (ctx->is_console || ctx->slot < 0) ru_logf(g_api, RU_LOG_INFO, "%s", msg.c_str());
+  else g_api->chat_to_slot(g_api->self, ctx->slot, ("Midas: " + msg).c_str());
+}
+
+bool SaveGiven() {
+  if (g_givenPath.empty()) return false;
+  const std::string tmp = g_givenPath + ".tmp";
+  {
+    std::ofstream f(tmp, std::ios::trunc);
+    if (!f) return false;
+    f << FormatGivenFile(g_given);
+    if (!f) return false;
+  }
+  return std::rename(tmp.c_str(), g_givenPath.c_str()) == 0;
+}
+
+void LoadGiven() {
+  g_given.clear();
+  if (g_givenPath.empty()) return;
+  std::ifstream f(g_givenPath);
+  if (!f) return;
+  std::stringstream ss;
+  ss << f.rdbuf();
+  g_given = ParseGivenFile(ss.str());
+  if (!g_given.empty()) ru_logf(g_api, RU_LOG_INFO, "given.txt: Midas given to %zu player(s)", g_given.size());
+}
+
+// Why `sid` is (or would be, while Midas is off) Midas.
+unsigned WhyAnyway(uint64_t sid) { return MidasReasons(true, g_midas, g_given, g_best, sid); }
+
+std::string DescribeWho(uint64_t sid) {
+  std::string why = DescribeReasons(WhyAnyway(sid));
+  if ((WhyAnyway(sid) & kWhyBest) && !g_bestLine.empty()) {
+    const size_t open = g_bestLine.rfind(" (");
+    if (open != std::string::npos) why += ": " + g_bestLine.substr(open + 2, g_bestLine.size() - open - 3);
+  }
+  return PlayerName(sid) + " (" + why + ")";
+}
+
+std::string StateLine() {
+  if (!g_enabled) return "Midas is off (enabled=0 in midas.cfg)";
+  if (!g_active) return "Midas is inert (valve ruleset)";
+  return "Midas is on";
+}
+
+struct Online {
+  std::string name;
+  uint64_t sid;
+};
+
+int CollectOnline(void* user, const ru_player* p) {
+  if (p->connected && !p->is_bot && p->steamid64 != 0) static_cast<std::vector<Online>*>(user)->push_back({p->name, p->steamid64});
+  return 1;
+}
+
+// <player>: a SteamID64, or a connected player's name (ResolvePlayerName). 0 = none (replied).
+uint64_t ResolveTarget(const ru_command_ctx* ctx, const std::string& query) {
+  int bad = 0;
+  const auto ids = ParseSteamIds(query, &bad);
+  if (ids.size() == 1 && bad == 0) return *ids.begin();
+  std::vector<Online> online;
+  if (RU_API_HAS(g_api, for_each_player)) g_api->for_each_player(g_api->self, &CollectOnline, &online);
+  std::vector<std::string> names;
+  for (const auto& o : online) names.push_back(o.name);
+  const PlayerMatch m = ResolvePlayerName(query, names);
+  if (m.index >= 0) return online[static_cast<size_t>(m.index)].sid;
+  if (m.ambiguous.empty()) {
+    Reply(ctx, "no connected player matches \"" + query + "\"");
+    return 0;
+  }
+  std::string list;
+  for (int i : m.ambiguous) list += (list.empty() ? "" : ", ") + online[static_cast<size_t>(i)].name;
+  Reply(ctx, "\"" + query + "\" matches several players: " + list + ". Nothing changed; type more of the name.");
+  return 0;
+}
+
+// A given / taken Midas: skins.so paints (or stops painting) their new weapons, the held ones follow.
+void AfterGivenChanged(uint64_t sid, bool added) {
+  SyncPaintOverrides(false);
+  if (!added) {
+    StopMidas(sid);
     return;
   }
-  g_trialKit = kit;
-  g_paintKit = kit;
-  SyncPaintOverrides(false);
-  ru_logf(g_api, RU_LOG_INFO, ".midas: finish %s by %s", KitLabel(kit).c_str(), ctx->name ? ctx->name : "?");
-  const ru_skins_v1* s = Skins();
-  const bool swapped = s && RU_API_HAS(s, refresh_weapons) && s->refresh_weapons && ctx->slot >= 0 &&
-                       s->refresh_weapons(ctx->slot) == 1;
-  reply("finish " + KitLabel(kit) + (swapped ? ": your weapons are being swapped for new ones."
-                                             : ". Buy or pick up a new weapon to see it (knife: respawn)."));
+  const int slot = g_api->slot_for_steamid(g_api->self, sid);
+  if (slot < 0 || slot >= 64 || !g_active) return;
+  g_pending[slot] = 16;
+  // Held weapons get the paint kit only when they are created: swap them for new ones.
+  const ru_skins_v1* s = g_finish == Finish::kAuto ? Skins() : nullptr;
+  if (s && RU_API_HAS(s, refresh_weapons) && s->refresh_weapons) s->refresh_weapons(slot);
+}
+
+void OnRuMidas(void*, const ru_command_ctx* ctx) {
+  if (!ctx->is_console && !(RU_API_HAS(g_api, is_admin) && g_api->is_admin(g_api->self, ctx->steamid64) == 1)) {
+    Reply(ctx, "not authorized");
+    return;
+  }
+  std::string sub = ctx->argc >= 3 && ctx->argv[2] ? ctx->argv[2] : "";
+  for (char& c : sub) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  std::string target;
+  for (int i = 3; i < ctx->argc; ++i) {
+    if (!ctx->argv[i]) continue;
+    if (!target.empty()) target += ' ';
+    target += ctx->argv[i];
+  }
+  if (sub == "help") {
+    for (const char* l : {".ru midas: who is Midas and why", ".ru midas give <player>: give Midas (again: takes it back)",
+                          ".ru midas take <player>: take a given Midas back",
+                          "<player>: part of a connected player's name, or a SteamID64"}) {
+      Reply(ctx, l);
+    }
+    return;
+  }
+  if (sub.empty() || sub == "status" || sub == "list") {
+    const std::set<uint64_t> who = EffectiveMidas(true, g_midas, g_given, g_best);
+    Reply(ctx, StateLine() + ". Best player rule: " + (g_bestOn ? "on" : "off") + ". Midas players: " +
+                   (who.empty() ? "nobody" : std::to_string(who.size())));
+    int shown = 0;
+    for (uint64_t sid : who) {
+      if (g_api->slot_for_steamid(g_api->self, sid) < 0) continue;  // online first
+      Reply(ctx, "  " + DescribeWho(sid));
+      ++shown;
+    }
+    const int offline = static_cast<int>(who.size()) - shown;
+    if (offline > 0) Reply(ctx, "  + " + std::to_string(offline) + " not connected");
+    if (g_debugBots) Reply(ctx, "  + every bot (debug_midas_bots)");
+    return;
+  }
+  if (sub != "give" && sub != "take") {
+    Reply(ctx, "unknown command. .ru midas | .ru midas give <player> | .ru midas take <player>");
+    return;
+  }
+  if (target.empty()) {
+    Reply(ctx, "usage: .ru midas " + sub + " <player>");
+    return;
+  }
+  const uint64_t sid = ResolveTarget(ctx, target);
+  if (sid == 0) return;
+  const std::string name = PlayerName(sid);
+  const std::string off = g_active ? "" : " (" + StateLine() + ")";
+  bool added = false;
+  if (sub == "give") {
+    added = ToggleGiven(&g_given, sid);
+  } else if (g_given.erase(sid) == 0) {
+    const unsigned why = WhyAnyway(sid);
+    if (why) {
+      Reply(ctx, name + " is Midas through " + DescribeReasons(why) + ", not given by an admin: take can't remove that" +
+                     ((why & kWhyConfig) ? " (edit midas_steamids in midas.cfg)" : "") +
+                     ((why & kWhyBest) ? " (best player: best_player=0, or someone plays better)" : ""));
+    } else {
+      Reply(ctx, name + " is not Midas");
+    }
+    return;
+  }
+  const bool saved = SaveGiven();
+  AfterGivenChanged(sid, added);
+  ru_logf(g_api, RU_LOG_INFO, ".ru midas %s: %s (%llu) %s by %s", sub.c_str(), name.c_str(),
+          static_cast<unsigned long long>(sid), added ? "given Midas" : "no longer given Midas", ctx->name ? ctx->name : "?");
+  if (added) {
+    Reply(ctx, name + " is Midas now (given)" + off);
+  } else {
+    const unsigned still = WhyAnyway(sid);
+    Reply(ctx, (sub == "give" ? name + " already had Midas (given): took it back" : "took Midas from " + name) +
+                   (still ? "; still Midas through " + DescribeReasons(still) : "") + off);
+  }
+  if (!saved) Reply(ctx, "could not save " + g_givenPath + " (the change lasts until the plugin reloads)");
 }
 
 void OnTick(void*, const ru_tick_info* t) {
   RefreshConfig(t->now);
   ResolveOffsets();
   if (g_pickIn > 0 && --g_pickIn == 0 && g_active && g_bestOn) PickBestPlayer();
-  if (!g_active || !g_off.Ok() || (g_midas.empty() && g_best == 0 && !g_debugBots)) return;
+  if (g_scanIn > 0) {
+    // The projectile / planted_c4 may show up a tick after the event, m_hThrower a tick after that.
+    if (g_active && g_off.Ok() && (g_scanIn == 8 || g_scanIn == 7 || g_scanIn == 5 || g_scanIn == 1)) ScanEquipment();
+    if (--g_scanIn == 0) g_bombSlot = -1;
+  }
+  if (!g_active || !g_off.Ok() || (g_midas.empty() && g_given.empty() && g_best == 0 && !g_debugBots)) return;
   for (int s = 0; s < 64; ++s) {
     if (g_stattrakDue[s] > 0 && --g_stattrakDue[s] == 0) ApplyStatTrak(s);
     if (g_pending[s] <= 0) continue;
@@ -938,6 +1130,10 @@ void OnMap(void*, const ru_event*) {
   g_bestLine.clear();
   g_lastPickHalf = 0;
   g_pickIn = 0;
+  g_scanIn = 0;
+  g_bombSlot = -1;
+  g_scanHigh = 0;
+  g_equipSeen.clear();
   g_off.resolved = false;
 }
 
@@ -948,8 +1144,8 @@ void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   } else if (!g_active) {
     add(ctx, "INFO", "midas", "inert (valve ruleset)");
   } else {
-    std::snprintf(line, sizeof(line), "active: %zu player(s), %zu weapon(s) tinted, %zu painted (%s)", g_midas.size(),
-                  g_tinted.size(), g_painted.size(),
+    std::snprintf(line, sizeof(line), "active: %zu player(s) + %zu given, %zu weapon(s) tinted, %zu painted (%s)",
+                  g_midas.size(), g_given.size(), g_tinted.size(), g_painted.size(),
                   g_finish == Finish::kTint ? "finish tint" : Skins() ? "paint kit via skins.so" : "no skins.so: tint");
     add(ctx, "INFO", "midas", line);
     if (g_bestOn) {
@@ -978,7 +1174,7 @@ extern "C" {
 READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
   static const ru_plugin_info info = {
       sizeof(ru_plugin_info),
-      (1u << 16) | 1u,  // needs API 1.1 (entities, schema, raw events, config, interfaces)
+      (1u << 16) | 2u,  // needs API 1.2 (register_ru_subcommand; entities, schema, raw events, config)
       "midas",
       MIDAS_VERSION,
       "Ready Up",
@@ -1003,9 +1199,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   for (int& d : g_stattrakDue) d = 0;
   g_modelByDef.clear();
   g_modelsPath = api->data_dir(api->self) ? std::string(api->data_dir(api->self)) + "/models.txt" : std::string();
-  g_trialKit = 0;
   g_modelled.clear();
-  g_tintPainted = false;
   g_configRead = g_refreshHeld = false;
   g_color = kGold;
   g_finish = Finish::kAuto;
@@ -1019,6 +1213,10 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_pickIn = 0;
   g_lastConfig = -1e9;
   for (int& p : g_pending) p = 0;
+  g_scanIn = 0;
+  g_bombSlot = -1;
+  g_scanHigh = 0;
+  g_equipSeen.clear();
   api->on_tick(api->self, OnTick, nullptr);
   api->subscribe(api->self, RU_EVENT_MAP_START, OnMap, nullptr);
   for (const char* e : {"item_pickup", "item_equip", "player_spawn"}) {
@@ -1027,7 +1225,16 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   if (!api->subscribe_game_event(api->self, "player_death", OnPlayerDeath, nullptr)) {
     ru_logf(api, RU_LOG_WARN, "could not subscribe to player_death (StatTrak counts only the match plugin's stats)");
   }
-  if (RU_API_HAS(api, register_chat_command)) api->register_chat_command(api->self, ".midas", OnMidasChat, nullptr);
+  for (const char* e : {"grenade_thrown", "bomb_planted"}) {
+    if (!api->subscribe_game_event(api->self, e, OnEquipmentEvent, nullptr)) {
+      ru_logf(api, RU_LOG_WARN, "could not subscribe to %s (no gold grenades / bomb)", e);
+    }
+  }
+  g_givenPath = api->data_dir(api->self) ? std::string(api->data_dir(api->self)) + "/given.txt" : std::string();
+  LoadGiven();
+  if (!RU_API_HAS(api, register_ru_subcommand) || !api->register_ru_subcommand(api->self, "midas", &OnRuMidas, nullptr)) {
+    ru_logf(api, RU_LOG_WARN, "could not register `ru midas` (no admin commands)");
+  }
   if (!api->subscribe_game_event(api->self, "round_start", OnRoundStart, nullptr)) {
     ru_logf(api, RU_LOG_WARN, "could not subscribe to round_start (no best player)");
   }
