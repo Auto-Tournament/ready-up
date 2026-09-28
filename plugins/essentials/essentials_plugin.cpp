@@ -413,6 +413,17 @@ void OnRu(void*, const ru_command_ctx* c) {
   else if (main == "map") OnMap(c, sub, args);
 }
 
+// `.map <name>` / `.reloadmap`: chat shortcuts for `.ru map change <name>` / `.ru map reload` (same
+// admin check, live-match guard and `force`).
+void OnMapChat(void*, const ru_command_ctx* c) {
+  const std::string cmd = c->argc >= 1 && c->argv[0] ? c->argv[0] : "";
+  std::vector<std::string> args;
+  for (int i = 1; i < c->argc; ++i) args.emplace_back(c->argv[i] ? c->argv[i] : "");
+  if (cmd == ".reloadmap") return OnMap(c, "reload", args);
+  if (args.empty() || args[0] == "help") return Reply(c, ".map <name|workshop id|link> [force]: change map (admin)");
+  OnMap(c, "change", args);
+}
+
 void OnMapStart(void*, const ru_event* e) {
   g_dl = Download{};  // downloaded (or cached) and loaded
   if (e && e->map && *e->map) readyup::mapnames::NoteMapLoaded(e->map);  // binds a workshop id to its map
@@ -531,6 +542,11 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   for (const char* m : {"admins", "map"}) {
     if (!api->register_ru_subcommand(api->self, m, &OnRu, nullptr)) {
       ru_logf(api, RU_LOG_WARN, "could not register `ru %s` (another plugin owns it)", m);
+    }
+  }
+  for (const char* m : {".map", ".reloadmap"}) {
+    if (!api->register_chat_command(api->self, m, &OnMapChat, nullptr)) {
+      ru_logf(api, RU_LOG_WARN, "could not register `%s` (another plugin owns it)", m);
     }
   }
   api->set_admin_provider(api->self, &Provider, nullptr);

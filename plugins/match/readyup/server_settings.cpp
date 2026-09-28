@@ -64,7 +64,8 @@ const SettingInfo* Find(const std::string& name) {
 }
 
 const SettingInfo* FindChat(const std::string& chatCommand) {
-  const std::string c = Lower(chatCommand);
+  std::string c = Lower(chatCommand);
+  if (c == ".rk") c = ".roundknife";  // MatchZy / Get5 short name
   for (const auto& s : Table()) {
     if (s.chat && c == s.chat) return &s;
   }

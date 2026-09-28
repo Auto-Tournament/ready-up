@@ -274,6 +274,7 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
   ruleBool("both_teams_unpause_required", &ctx.rules.both_teams_unpause);
   ruleBool("allow_force_ready", &ctx.rules.allow_force_ready);
   ruleInt("min_players_to_ready", &ctx.rules.min_players_to_ready);
+  ruleInt("min_spectators_to_ready", &ctx.rules.min_spectators_to_ready);
   ruleInt("forfeit_after_seconds", &ctx.rules.forfeit_after_seconds);
   ruleBool("gg_enabled", &ctx.rules.gg_enabled);
   if (const Value* g = cfg->get("gg_threshold")) {

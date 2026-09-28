@@ -7,6 +7,7 @@
     "chat_all",
     "chat_to_slot",
     "on_tick",
+    "register_chat_command",
     "register_ru_subcommand"
   ],
   "surface": [

@@ -13,6 +13,7 @@ MatchRules BuiltinDefaultRules() {
   r.both_teams_unpause = 1;
   r.allow_force_ready = 1;
   r.min_players_to_ready = 0;
+  r.min_spectators_to_ready = 0;
   r.forfeit_after_seconds = 240;
   r.gg_enabled = 0;
   r.gg_threshold_pct = 80;
@@ -34,6 +35,8 @@ MatchRules ResolveRules(const MatchRules& match, const MatchRules& base) {
   r.both_teams_unpause = pick(match.both_teams_unpause, base.both_teams_unpause, d.both_teams_unpause) ? 1 : 0;
   r.allow_force_ready = pick(match.allow_force_ready, base.allow_force_ready, d.allow_force_ready) ? 1 : 0;
   r.min_players_to_ready = pick(match.min_players_to_ready, base.min_players_to_ready, d.min_players_to_ready);
+  r.min_spectators_to_ready =
+      pick(match.min_spectators_to_ready, base.min_spectators_to_ready, d.min_spectators_to_ready);
   r.forfeit_after_seconds =
       pick(match.forfeit_after_seconds, base.forfeit_after_seconds, d.forfeit_after_seconds);
   r.gg_enabled = pick(match.gg_enabled, base.gg_enabled, d.gg_enabled) ? 1 : 0;
@@ -113,6 +116,10 @@ bool TeamReadyToGoLive(int rosterSize, int connected, int ready, int minPlayers,
   if (rosterSize <= 0) return true;
   return ready >= TeamReadyNeeded(rosterSize, connected, minPlayers, playersPerTeam);
 }
+
+bool SpectatorsReadyToGoLive(int required, int readySpectators) { return required <= 0 || readySpectators >= required; }
+
+bool SpecCommandAllowed(bool onLoadedMatchRoster) { return !onLoadedMatchRoster; }
 
 bool PlayoutRoundsLeft(int maxRounds, bool overtimeEnabled, int overtimeSegments, int maxOvertimes, int team1Score,
                        int team2Score) {

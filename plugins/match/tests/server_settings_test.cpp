@@ -43,6 +43,7 @@ static void TestTable() {
   CHECK(st::FindChat(".playout") == st::Find("playout_enabled_default"));
   CHECK(st::FindChat(".READYREQUIRED") == st::Find("minimum_ready_required"));
   CHECK(st::FindChat(".roundknife") == st::Find("knife_enabled_default"));
+  CHECK(st::FindChat(".rk") == st::Find("knife_enabled_default"));
   CHECK(st::FindChat(".whitelist") == st::Find("whitelist_enabled_default"));
   CHECK(st::FindChat(".ready") == nullptr);
   // The defaults keep today's behaviour: whitelist on, knife on, cvars reset.
