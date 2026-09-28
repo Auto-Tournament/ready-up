@@ -27,6 +27,7 @@
 
 static std::vector<std::string> g_log;   // everything the core would print to the console
 static std::vector<std::string> g_chat;  // chat_all / chat_to_slot output
+static std::vector<std::string> g_serverCmds;  // server_command / cvar_query output (the engine command buffer)
 
 static void Capture(const char* fmt, va_list ap) {
   char buf[2048];
@@ -61,7 +62,10 @@ bool ClientPrintChat(int slot, const char* msg) {
   return true;
 }
 bool SendToSlotChat(int slot, const char* msg) { return ClientPrintChat(slot, msg); }
-bool EnqueueServerCommand(const char*) { return true; }
+bool EnqueueServerCommand(const char* c) {
+  g_serverCmds.push_back(c);
+  return true;
+}
 std::optional<int> GameEventsSlotForSteam(unsigned long long steamid64) {
   if (steamid64 == 76561198000000001ull) return 4;
   return std::nullopt;
@@ -219,9 +223,73 @@ int main(int argc, char** argv) {
     Check(subs.size() == 1 && subs[0] == "hello (hello)", "ru subcommand listed for ru help");
   }
 
+  std::puts("-- v1.10: cvar_query line parsing");
+  {
+    std::string v;
+    Check(rp::ParseCvarAnswer("mp_maxrounds = 24\n", "mp_maxrounds", &v) == 1 && v == "24", "`name = value` answers");
+    Check(rp::ParseCvarAnswer("hostname = My Server #1", "hostname", &v) == 1 && v == "My Server #1",
+          "value keeps its spaces");
+    Check(rp::ParseCvarAnswer("mp_t_default_primary = ", "mp_t_default_primary", &v) == 1 && v.empty(),
+          "empty string value");
+    Check(rp::ParseCvarAnswer("mp_t_default_primary =\r\n", "mp_t_default_primary", &v) == 1 && v.empty(),
+          "empty value with the line end trimmed");
+    Check(rp::ParseCvarAnswer("MP_MaxRounds = 30", "mp_maxrounds", &v) == 1 && v == "30", "name is case-insensitive");
+    Check(rp::ParseCvarAnswer("mp_maxrounds = 24", "mp_maxround", &v) == -1, "a longer name is another cvar");
+    Check(rp::ParseCvarAnswer("mp_maxrounds", "mp_maxrounds", &v) == -1, "the echoed command is no answer");
+    Check(rp::ParseCvarAnswer("Unknown command 'mp_nope'!", "mp_nope", &v) == 0, "`Unknown command` = unknown");
+    Check(rp::ParseCvarAnswer("Unknown command 'mp_nope2'!", "mp_nope", &v) == -1, "another unknown name is unrelated");
+    Check(rp::ParseCvarAnswer("L 01/01/2026 - 00:00:00: server_cvar: \"mp_maxrounds\" \"24\"", "mp_maxrounds", &v) == -1,
+          "server_cvar log lines are not answers");
+    Check(rp::ValidCvarName("sv_cheats") && rp::ValidCvarName("tv.delay") && !rp::ValidCvarName("") &&
+              !rp::ValidCvarName("sv_cheats;quit") && !rp::ValidCvarName("a b") && !rp::ValidCvarName(std::string(64, 'a')),
+          "cvar names: [A-Za-z0-9_.], 1..63");
+  }
+
+  std::puts("-- v1.10: cvar_query through the plugin (hello_cvar)");
+  g_serverCmds.clear();
+  Check(rp::TryDispatchConsole("hello_cvar mp_maxrounds"), "hello_cvar is owned by the plugin");
+  rp::Frame(false);
+  Check(g_serverCmds.size() == 1 && g_serverCmds[0] == "mp_maxrounds", "the query went out as the bare cvar name");
+  Check(!Logged("cvar mp_maxrounds"), "no answer before the engine printed one");
+  rp::PostLogLine("mp_maxrounds = 24\n");
+  rp::PostLogLine("mp_maxrounds = 99\n");  // only the first answer counts
+  rp::Frame(false);
+  Check(Logged("cvar mp_maxrounds = \"24\""), "the plugin got the value from the console line");
+  Check(!Logged("cvar mp_maxrounds = \"99\""), "answered once");
+  rp::TryDispatchConsole("hello_cvar mp_t_default_primary");
+  rp::TryDispatchConsole("hello_cvar mp_nope");
+  rp::Frame(false);
+  rp::PostLogLine("mp_t_default_primary = ");
+  rp::PostLogLine("Unknown command 'mp_nope'!");
+  rp::Frame(false);
+  Check(Logged("cvar mp_t_default_primary = \"\""), "empty string value delivered as \"\"");
+  Check(Logged("cvar mp_nope: unknown"), "unknown cvar delivered as NULL");
+  g_serverCmds.clear();
+  rp::TryDispatchConsole("hello_cvar sv_cheats;quit");
+  rp::Frame(false);
+  Check(Logged("cvar sv_cheats;quit: query refused") && g_serverCmds.empty(), "a name with ';' is refused, nothing queued");
+  rp::TryDispatchConsole("hello_cvar sv_silent");
+  rp::Frame(false);
+  usleep(3200 * 1000);
+  rp::Frame(false);
+  Check(Logged("cvar sv_silent: unknown"), "no answer within 3 s: delivered as NULL");
+
+  std::puts("-- v1.10: selftest_summary (hello_selftest)");
+  rp::TryDispatchConsole("hello_selftest");
+  rp::Frame(false);
+  Check(Logged("selftest: none yet"), "no provider / no run yet: -1");
+  rp::SetSelftestJsonProvider([] {
+    return std::string("{\"pass\":false,\"passed\":40,\"total\":41,\"failures\":[\"fn:Host_Say\"],\"ran_at\":1}");
+  });
+  rp::TryDispatchConsole("hello_selftest");
+  rp::Frame(false);
+  Check(Logged("selftest: {\"pass\":false,\"passed\":40,\"total\":41,\"failures\":[\"fn:Host_Say\"],\"ran_at\":1}"),
+        "selftest_summary returns the core's JSON");
+  rp::SetSelftestJsonProvider(nullptr);
+
   std::puts("-- list");
   rp::HandlePluginCommand({"list"}, false);
-  Check(Logged("hello 1.2.0 (api 1.0) cmds=5 ticks=2 subs=3"), "list shows the plugin and its registrations");
+  Check(Logged("hello 1.2.0 (api 1.0) cmds=7 ticks=2 subs=3"), "list shows the plugin and its registrations");
 
   std::puts("-- hot reload with a rebuilt hello.so");
   if (!CopyFile(argv[2], so)) return 2;
@@ -233,6 +301,8 @@ int main(int argc, char** argv) {
     std::fclose(cfg);
   }
   g_chat.clear();
+  rp::TryDispatchConsole("hello_cvar sv_gravity");  // pending across the reload: dropped, never delivered
+  rp::Frame(false);
   rp::HandlePluginCommand({"reload", "hello"}, false);
   Check(!Logged("reloaded hello"), "reload is deferred to the next frame");
   rp::TryDispatchChat(76561198000000001ull, "alice", ".hello");  // queued before the reload runs
@@ -242,6 +312,9 @@ int main(int argc, char** argv) {
   Check(Logged("plugin: loaded hello 1.0.1-reloaded"), "new code loaded");
   Check(Logged("reloaded hello"), "reload reported");
   Check(g_chat.empty(), "command queued for the old image was dropped, not run against the new one");
+  rp::PostLogLine("sv_gravity = 800");
+  rp::Frame(false);
+  Check(!Logged("cvar sv_gravity"), "a cvar_query pending at unload is dropped, not delivered to the new image");
   rp::TryDispatchChat(76561198000000001ull, "alice", ".hello");
   rp::Frame(true);
   Check(Chatted("readyup-hello 1.0.1-reloaded, greeting #1"), "new code answers .hello with fresh state");

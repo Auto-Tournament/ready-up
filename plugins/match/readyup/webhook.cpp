@@ -4,6 +4,7 @@
 #include "readyup/at_payloads.h"
 #include "readyup/cs2_version.h"
 #include "readyup/config.h"
+#include "readyup/cvar_snapshot.h"
 #include "readyup/http_client.h"
 #include "readyup/logging.h"
 #include "readyup/match_signals.h"
@@ -324,10 +325,16 @@ void WebhookSetBearerToken(std::optional<std::string> token) {
 }
 
 void WebhookSetMatchContext(WebhookMatchContext ctx) {
-  auto& st = St();
-  std::lock_guard<std::mutex> lk(st.mu);
-  st.match = std::move(ctx);
-  st.hbStatus = State::HbStatus::Warmup;
+  const auto cvars = ctx.cvars;
+  {
+    auto& st = St();
+    std::lock_guard<std::mutex> lk(st.mu);
+    st.match = std::move(ctx);
+    st.hbStatus = State::HbStatus::Warmup;
+  }
+  // Read the pre-match values of the config's cvars now, long before go-live sets them
+  // (reset_cvars_on_series_end puts them back; cvar_snapshot.h).
+  cvar_snapshot::CaptureMatchCvars(cvars);
 }
 
 void WebhookClearMatchContext() {

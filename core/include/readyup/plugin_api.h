@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 9
+#define READYUP_PLUGIN_API_VERSION_MINOR 10
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -199,6 +199,13 @@ typedef void (*ru_game_event_fn)(void* user, const char* name, const ru_game_eve
 /* One server log line (the core's own output is filtered out). Queued; `line` is a copy
  * that lives for the duration of the callback. */
 typedef void (*ru_log_line_fn)(void* user, const char* line);
+
+/* ---- v1.10: cvar values ------------------------------------------------------ */
+
+/* cvar_query answer, on the game thread. `value` is the cvar's value as the engine printed it
+ * ("" for an empty string), or NULL when the engine does not know the name or did not answer in
+ * time. Both strings live for the duration of the callback. */
+typedef void (*ru_cvar_fn)(void* user, const char* name, const char* value);
 
 /* ---- v1.1: entities -------------------------------------------------------- */
 
@@ -594,7 +601,28 @@ typedef struct ru_api {
    * key). Informational only: the core never blocks anything over a license. Any thread. */
   int (*license_player_line)(ru_plugin* self, char* buf, uint32_t len);
 
-  /* v1.10+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.10 ===========================================================
+   * Appended in 1.10. Require 1.10 in ru_plugin_info.api_version, or check RU_API_HAS().
+   */
+  /* Reads a cvar's current value. Asynchronous: the core queues `name` as a console command
+   * (what typing a cvar name in the console does) and answers from the `<name> = <value>` line the
+   * engine prints, through the logging listener. No engine surface of its own: it needs the
+   * command buffer and the log listener (feature_state "cmdbuf" / "loglistener"). fn runs on the
+   * game thread, usually one frame later; value NULL = unknown cvar (`Unknown command`) or no
+   * answer within 3 s. A query queued before a `<name> <value>` command reads the value before
+   * that command, so a plugin can snapshot cvars right before it changes them. name is
+   * [A-Za-z0-9_.] (1..63). Game thread. 1 = queued, 0 = refused (bad name, too many pending, or
+   * no command buffer yet). Pending queries of an unloaded plugin are dropped without a call. */
+  int (*cvar_query)(ru_plugin* self, const char* name, ru_cvar_fn fn, void* user);
+  /* The latest core selftest result (`ru selftest`, the automatic one 15 s after the first map, or
+   * the status endpoint's `/selftest?run=1`) as one JSON object:
+   *   {"pass":bool,"passed":n,"total":n,"pending":n?,"failures":["..."],"summary":"...","ran_at":unix_s}
+   * the same object the status endpoint shows as `selftest` (docs/FLEET.md §17). Returns its
+   * length (the JSON is truncated to len-1 bytes in buf; call again with a bigger buffer), or -1
+   * when no selftest has run yet. Any thread. */
+  int (*selftest_summary)(ru_plugin* self, char* buf, uint32_t len);
+
+  /* v1.11+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

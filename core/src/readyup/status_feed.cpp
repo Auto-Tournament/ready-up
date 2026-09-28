@@ -351,8 +351,16 @@ void NoteSelftest(const SelftestResult& r) {
   g_selftestPass = r.pass;
 }
 
+// ru_api selftest_summary (plugin_loader.h): the record NoteSelftest keeps, "" before the first run.
+static std::string SelftestJsonForPlugins() {
+  std::lock_guard<std::mutex> lk(g_selftestMu);
+  return g_selftestRan ? g_selftestJson.Dump() : std::string();
+}
+
 void StartAtLoad() {
   if (g_started.exchange(true)) return;
+  // Before the endpoint's own on/off switch: plugins (fleet hello.selftest) read it either way.
+  plugins::SetSelftestJsonProvider(&SelftestJsonForPlugins);
   const ReadyUpCfg cfg = Cfg();
   const std::string csgo = GetCsgoDirFromModuleDir();
   g_discoveryPath = csgo.empty() ? std::string() : csgo + "/readyup/status.json";

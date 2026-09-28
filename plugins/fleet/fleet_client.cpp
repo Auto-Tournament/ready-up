@@ -670,7 +670,12 @@ std::string Client::BuildHello() {
     }
     p.Set("plugins_disabled", std::move(off));
   }
-  // hello.selftest is optional (object only); left out until the core exposes its result.
+  // The core's latest selftest (ru_api 1.10 selftest_summary, fleet_proto.h SelftestPayload);
+  // left out before the first selftest ran (it is optional).
+  if (!h.selftestJson.empty()) {
+    json::Value st;
+    if (json::Parse(h.selftestJson, &st) && st.IsObj()) p.Set("selftest", std::move(st));
+  }
   return json::Dump(p);
 }
 

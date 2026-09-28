@@ -146,6 +146,25 @@ std::atomic<uint64_t> g_wantedGen{0};
 std::atomic<int> g_gameEventRegs{0};
 std::atomic<int> g_logLineRegs{0};
 
+// v1.10 cvar_query (guarded by g_mu). A query is answered by the first matching console line
+// after it was queued (PostLogLine), then delivered on the next Frame; or it times out there.
+struct CvarQuery {
+  int owner = 0;
+  std::string name;
+  ru_cvar_fn fn = nullptr;
+  void* user = nullptr;
+  double deadline = 0;  // NowSeconds()
+  int answer = -1;      // -1 pending, 0 unknown, 1 value
+  std::string value;
+};
+std::vector<CvarQuery> g_cvarQueries;
+std::atomic<int> g_cvarPending{0};  // queries still waiting for their line (fast path in PostLogLine)
+constexpr size_t kMaxCvarQueries = 256;
+constexpr double kCvarQueryTimeoutS = 3.0;
+
+// v1.10 selftest_summary.
+std::atomic<SelftestJsonProvider> g_selftestProvider{nullptr};
+
 // Plugin selftest interfaces run on arbitrary threads under a shared lock; CloseImage takes it
 // exclusively, so an image is never unmapped while its `run` is on some stack.
 std::shared_mutex g_selftestMu;
@@ -520,6 +539,95 @@ ru_handle ApiSubscribeLogLine(ru_plugin* self, ru_log_line_fn fn, void* user) {
   return h;
 }
 
+// ---- API v1.10 ----
+
+int ApiCvarQuery(ru_plugin* self, const char* name, ru_cvar_fn fn, void* user) {
+  Instance* inst = GameThreadCaller(self, "cvar_query");
+  if (!inst || !name || !fn) return 0;
+  const std::string n(name);
+  if (!ValidCvarName(n)) {
+    Print("plugin[%s]: cvar_query: invalid cvar name \"%s\"\n", self->name, name);
+    return 0;
+  }
+  {
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (g_cvarQueries.size() >= kMaxCvarQueries) return 0;
+    CvarQuery q;
+    q.owner = inst->handle.id;
+    q.name = n;
+    q.fn = fn;
+    q.user = user;
+    q.deadline = NowSeconds() + kCvarQueryTimeoutS;
+    g_cvarQueries.push_back(std::move(q));
+    g_cvarPending.fetch_add(1);
+  }
+  // Registered before the command goes out: the answer can be printed while AddText runs.
+  if (EnqueueServerCommand(n.c_str())) return 1;
+  std::lock_guard<std::mutex> lk(g_mu);
+  for (auto it = g_cvarQueries.end(); it != g_cvarQueries.begin();) {
+    --it;
+    if (it->owner == inst->handle.id && it->fn == fn && it->user == user && it->name == n && it->answer < 0) {
+      g_cvarQueries.erase(it);
+      g_cvarPending.fetch_sub(1);
+      break;
+    }
+  }
+  return 0;
+}
+
+int ApiSelftestSummary(ru_plugin* self, char* buf, uint32_t len) {
+  if (!self) return -1;
+  const SelftestJsonProvider p = g_selftestProvider.load(std::memory_order_acquire);
+  if (!p) return -1;
+  const std::string j = p();
+  if (j.empty()) return -1;
+  if (buf && len > 0) std::snprintf(buf, len, "%s", j.c_str());
+  return static_cast<int>(j.size());
+}
+
+// Must hold g_mu. A console line answers every pending query of the name it is about (several
+// plugins asking for the same cvar asked the same question).
+void MatchCvarLineLocked(const std::string& line) {
+  for (auto& q : g_cvarQueries) {
+    if (q.answer >= 0) continue;
+    std::string value;
+    const int a = ParseCvarAnswer(line, q.name, &value);
+    if (a < 0) continue;
+    q.answer = a;
+    q.value = std::move(value);
+    g_cvarPending.fetch_sub(1);
+  }
+}
+
+// Game thread (Frame): answered and timed-out queries go to their plugins.
+void DeliverCvarQueries() {
+  std::vector<CvarQuery> ready;
+  const double now = NowSeconds();
+  {
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (g_cvarQueries.empty()) return;
+    for (auto it = g_cvarQueries.begin(); it != g_cvarQueries.end();) {
+      if (it->answer < 0 && now < it->deadline) {
+        ++it;
+        continue;
+      }
+      if (it->answer < 0) g_cvarPending.fetch_sub(1);  // timed out
+      ready.push_back(std::move(*it));
+      it = g_cvarQueries.erase(it);
+    }
+  }
+  for (const auto& q : ready) {
+    Instance* inst = nullptr;
+    {
+      std::lock_guard<std::mutex> lk(g_mu);
+      inst = FindLiveByIdLocked(q.owner);
+    }
+    if (!inst || inst->handle.unloading.load()) continue;
+    const char* v = q.answer == 1 ? q.value.c_str() : nullptr;
+    InvokePlugin(inst, "cvar_query", [&] { q.fn(q.user, q.name.c_str(), v); });
+  }
+}
+
 std::string Trim(std::string s) {
   while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back())) != 0) s.pop_back();
   size_t i = 0;
@@ -748,6 +856,14 @@ void DropOwnedLocked(int id) {
                g_regs.end());
   g_tasks.erase(std::remove_if(g_tasks.begin(), g_tasks.end(), [id](const QueuedTask& t) { return t.owner == id; }),
                 g_tasks.end());
+  for (auto it = g_cvarQueries.begin(); it != g_cvarQueries.end();) {
+    if (it->owner != id) {
+      ++it;
+      continue;
+    }
+    if (it->answer < 0) g_cvarPending.fetch_sub(1);
+    it = g_cvarQueries.erase(it);
+  }
 }
 
 void DropAdminProvider(int id) {
@@ -937,6 +1053,9 @@ bool LoadNow(const std::string& name, std::string* err, bool checkNeeds = true) 
   a.register_ru_subcommand = &ApiRegisterRuSub;
   a.on_frame = &ApiOnFrame;
   a.current_map = &ApiCurrentMap;
+  // v1.10 (engine-free: the command buffer and the log listener, like server_command)
+  a.cvar_query = &ApiCvarQuery;
+  a.selftest_summary = &ApiSelftestSummary;
   // Engine-facing members (output, players, event accessors, schema/entities, round
   // suppression, is_admin). Anything left NULL there is a core bug; fail closed.
   detail::FillEngineApi(&a);
@@ -1362,6 +1481,7 @@ void Frame(bool simulating) {
     }
     if (!lines.empty()) DeliverLogLines(lines);
   }
+  DeliverCvarQueries();
 
   // 3. Per-tick callbacks (simulating frames), then per-frame callbacks (every frame).
   if (simulating) {
@@ -1490,7 +1610,12 @@ std::vector<std::string> WantedGameEvents() {
 uint64_t WantedGameEventsGeneration() { return g_wantedGen.load(std::memory_order_acquire); }
 
 void PostLogLine(const std::string& line) {
-  if (line.empty() || g_logLineRegs.load(std::memory_order_relaxed) <= 0) return;
+  if (line.empty()) return;
+  if (g_cvarPending.load(std::memory_order_acquire) > 0) {
+    std::lock_guard<std::mutex> lk(g_mu);
+    MatchCvarLineLocked(line);
+  }
+  if (g_logLineRegs.load(std::memory_order_relaxed) <= 0) return;
   std::lock_guard<std::mutex> lk(g_mu);
   if (g_logLines.size() >= kMaxQueued) g_logLines.pop_front();
   g_logLines.push_back(line);
@@ -1583,6 +1708,51 @@ std::vector<PluginSelftestCheck> RunPluginSelftests() {
     }
   }
   return out;
+}
+
+void SetSelftestJsonProvider(SelftestJsonProvider provider) {
+  g_selftestProvider.store(provider, std::memory_order_release);
+}
+
+bool ValidCvarName(const std::string& name) {
+  if (name.empty() || name.size() > 63) return false;
+  for (unsigned char c : name) {
+    if (!(std::isalnum(c) != 0 || c == '_' || c == '.')) return false;
+  }
+  return true;
+}
+
+int ParseCvarAnswer(const std::string& line, const std::string& name, std::string* value) {
+  if (name.empty()) return -1;
+  std::string l = line;
+  while (!l.empty() && (l.back() == '\n' || l.back() == '\r')) l.pop_back();
+  size_t i = 0;
+  while (i < l.size() && (l[i] == ' ' || l[i] == '\t')) ++i;
+  auto nameAt = [&](size_t pos) {
+    if (pos + name.size() > l.size()) return false;
+    for (size_t k = 0; k < name.size(); ++k) {
+      if (std::tolower(static_cast<unsigned char>(l[pos + k])) != std::tolower(static_cast<unsigned char>(name[k]))) {
+        return false;
+      }
+    }
+    return true;
+  };
+  // `mp_maxrounds = 24` (a string cvar prints its text as is, "" as nothing after "= ").
+  if (nameAt(i) && l.compare(i + name.size(), 3, " = ") == 0) {
+    if (value) *value = l.substr(i + name.size() + 3);
+    return 1;
+  }
+  if (nameAt(i) && l.size() == i + name.size() + 2 && l.compare(i + name.size(), 2, " =") == 0) {
+    if (value) value->clear();  // the line end was trimmed right after "="
+    return 1;
+  }
+  // `Unknown command 'mp_nope'!`
+  static const std::string kUnknown = "Unknown command '";
+  if (l.compare(i, kUnknown.size(), kUnknown) == 0) {
+    const size_t p = i + kUnknown.size();
+    if (nameAt(p) && l.compare(p + name.size(), 1, "'") == 0) return 0;
+  }
+  return -1;
 }
 
 void SetNeedsProbeProvider(NeedsProbeProvider provider) { g_needsProvider = provider; }

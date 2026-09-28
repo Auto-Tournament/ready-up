@@ -88,6 +88,10 @@ double g_lastTickNow = 0.0, g_lastHousekeeping = 0.0;
 std::vector<float> g_frameMs;
 size_t g_frameIdx = 0;
 int64_t g_offlineFiredFor = -1;
+// Core selftest (ru_api 1.10 selftest_summary): the SelftestPayload last sent as server.selftest
+// (kept in the stash across `ru plugin reload fleet`) and when it was last read (game thread).
+std::string g_selftestSent;
+double g_lastSelftestPoll = 0.0;
 
 void Log(int level, const char* fmt, ...) RU_PRINTF(2, 3);
 void Log(int level, const char* fmt, ...) {
@@ -239,6 +243,22 @@ std::vector<std::pair<std::string, std::string>> PluginsDisabled() {
   return out;
 }
 
+// The core's latest selftest as hello.selftest / server.selftest payload; "" before the first run
+// or on a core without selftest_summary (older than 1.10).
+std::string CoreSelftest() {
+  if (!RU_API_HAS(g_api, selftest_summary) || !g_api->selftest_summary) return {};
+  std::string buf(4096, '\0');
+  int n = g_api->selftest_summary(g_api->self, buf.data(), static_cast<uint32_t>(buf.size()));
+  if (n < 0) return {};
+  if (static_cast<size_t>(n) >= buf.size()) {
+    buf.assign(static_cast<size_t>(n) + 1, '\0');
+    n = g_api->selftest_summary(g_api->self, buf.data(), static_cast<uint32_t>(buf.size()));
+    if (n < 0) return {};
+  }
+  buf.resize(std::min(static_cast<size_t>(n), buf.size() - 1));
+  return fleet::SelftestPayload(buf);
+}
+
 void BuildHello() {
   fleet::HelloInfo h;
   h.coreVersion = g_api->core_version ? g_api->core_version : "";
@@ -256,6 +276,7 @@ void BuildHello() {
   h.startedMs = ProcessStartMs();
   h.adminsRev = g_adminsRev;
   h.pluginsDisabled = PluginsDisabled();
+  h.selftestJson = CoreSelftest();
   h.stateJson.clear();     // keep whatever publish_state set
   h.availability.clear();
   g_hello = h;
@@ -741,6 +762,27 @@ int CountPlayers() {
   return n;
 }
 
+// A new core selftest outcome (pass/fail, counts or the failing checks changed): hello carries it
+// from now on, and the platform gets `server.selftest` (reliable) right away. A re-run with the
+// same outcome sends nothing.
+void PollSelftest(fleet::Client& c) {
+  const std::string now = CoreSelftest();
+  if (now.empty()) return;
+  if (now != g_hello.selftestJson) {
+    g_hello.selftestJson = now;
+    c.SetHelloInfo(g_hello);
+  }
+  if (now == g_selftestSent) return;
+  std::string err;
+  if (!c.Send("server.selftest", now, 0, true, &err)) {
+    Log(RU_LOG_WARN, "fleet: server.selftest not queued: %s", err.c_str());
+    return;
+  }
+  g_selftestSent = now;
+  g_api->stash_put(g_api->self, "selftest_sent", now.data(), static_cast<uint32_t>(now.size()));
+  Log(RU_LOG_DEBUG, "fleet: server.selftest %s", now.c_str());
+}
+
 void OnTick(void*, const ru_tick_info* t) {
   try {
     if (g_lastTickNow > 0.0) {
@@ -761,6 +803,10 @@ void OnTick(void*, const ru_tick_info* t) {
       p99 = v[k];
     }
     c->UpdateHealth(CountPlayers(), p99);
+    if (t->now - g_lastSelftestPoll >= 5.0) {
+      g_lastSelftestPoll = t->now;
+      PollSelftest(*c);
+    }
 
     // Offline timer (D12). The auto-pause itself lands with the match plugin; this fires the
     // hook once per offline period.
@@ -803,8 +849,15 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     g_handlers.clear();
     g_caps.clear();
     g_frameMs.clear();
-    g_lastTickNow = g_lastHousekeeping = 0.0;
+    g_lastTickNow = g_lastHousekeeping = g_lastSelftestPoll = 0.0;
     g_offlineFiredFor = -1;
+    g_selftestSent.clear();
+    {
+      // What the previous image already told the platform (`ru plugin reload fleet`).
+      std::string sent(4096, '\0');
+      const int n = api->stash_get(api->self, "selftest_sent", sent.data(), static_cast<uint32_t>(sent.size()));
+      if (n > 0 && static_cast<size_t>(n) < sent.size()) g_selftestSent.assign(sent.data(), static_cast<size_t>(n));
+    }
     g_dataDir = api->data_dir(api->self) ? api->data_dir(api->self) : "";
     while (g_dataDir.size() > 1 && g_dataDir.back() == '/') g_dataDir.pop_back();
     LoadSettings();

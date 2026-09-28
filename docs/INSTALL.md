@@ -159,7 +159,7 @@ or `ru settings show` lists them all.
 | `playout_enabled_default 0\|1` | 0 | every round is played (no clinch; overtime blocks are played out); `mp_match_can_clinch 0`. `.playout` |
 | `autoready_enabled 0\|1` | 0 | a roster player is READY as soon as they are on their team in match warmup (once per connection: `.unready` sticks) |
 | `knife_enabled_default 0\|1` | 1 | knife round for scrims and for match maps the config gives no side (never under the valve ruleset). `.roundknife` |
-| `reset_cvars_on_series_end 0\|1` | 1 | after a series: reset the warmup cvars (respawn, buy anywhere, ...). 0 keeps them; team names are cleared either way |
+| `reset_cvars_on_series_end 0\|1` | 1 | after a series (or `ru match end`): reset the warmup cvars (respawn, buy anywhere, ...) and put the match config's own `cvars{}` back to their values from before the match. 0 keeps them; team names are cleared either way |
 | `use_pause_command_for_tactical_pause 0\|1` | 0 | `.pause` / `.p` call a tactical timeout instead of a technical pause (`.tech` / `.tac` stay what they are) |
 | `hostname_format "<fmt>"` | empty (off) | `hostname` while a match is loaded: `{TEAM1}` `{TEAM2}` `{MATCH_ID}` `{MAP}` `{MAPNUMBER}` `{TEAM1_SCORE}` `{TEAM2_SCORE}` `{TEAM1_SERIES}` `{TEAM2_SERIES}`. The server's own hostname (seen on the console, e.g. from `server.cfg`) comes back when the match unloads |
 | `kick_when_no_match_loaded 0\|1` | 0 | non-admins are kicked while no match is loaded (not in practice or another plugin's mode, not while a fleet match loads) |

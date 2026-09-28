@@ -17,6 +17,8 @@ set(MATCH_SOURCES
   readyup/config.cpp
   readyup/cs2_update_check.cpp
   readyup/cs2_version.cpp
+  readyup/cvar_snapshot.cpp
+  readyup/cvar_snapshot_glue.cpp
   readyup/damage_ledger.cpp
   readyup/damage_report.cpp
   readyup/demo_naming.cpp
@@ -233,3 +235,11 @@ target_include_directories(match_restore_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR
   ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(match_restore_test PRIVATE -Wall -Wextra)
 add_test(NAME match_restore COMMAND match_restore_test)
+
+# Pre-match values of the match config's cvars (readyup/cvar_snapshot.h): which names are read,
+# first value wins, the restore commands, reload / restart JSON (ctest `match_cvar_snapshot`).
+add_executable(match_cvar_snapshot_test tests/cvar_snapshot_test.cpp readyup/cvar_snapshot.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp)
+target_include_directories(match_cvar_snapshot_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
+target_compile_options(match_cvar_snapshot_test PRIVATE -Wall -Wextra)
+add_test(NAME match_cvar_snapshot COMMAND match_cvar_snapshot_test)

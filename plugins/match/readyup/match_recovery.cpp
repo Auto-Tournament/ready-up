@@ -1,6 +1,7 @@
 // Server restart recovery (see match_recovery.h).
 #include "readyup/match_recovery.h"
 
+#include "readyup/cvar_snapshot.h"
 #include "readyup/engine.h"
 #include "readyup/fleet_bridge.h"
 #include "readyup/game_timers.h"
@@ -123,10 +124,15 @@ void Recover() {
   if (g_plan.kind == restore::RecoveryPlan::Kind::None) {
     Print("recovery: match %s not recovered: %s\n", name.c_str(), g_plan.why.c_str());
     persisted_match_state::ClearActiveMatch();
+    cvar_snapshot::Discard();
+    persisted_match_state::PersistCvarSnapshot({});
     return;
   }
 
   WebhookStartSenderThread();
+  // The pre-match cvar values read before the restart (cvar_snapshot.h); setting the context
+  // below reads only the names missing there (this fresh server still has its pre-match values).
+  cvar_snapshot::RestorePersisted();
   WebhookSetMatchContext(*ctxOpt);
   // Boot mode is idle; a restored match needs match_warmup gating.
   SetModeMatchWarmupForRecovery();

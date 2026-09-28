@@ -103,6 +103,12 @@ bool IsPrivateHostUrl(const std::string& url);
 // §4.4 scheme check. Empty = allowed, otherwise the reason.
 std::string CheckUrlAllowed(const std::string& url, bool insecureDev);
 
+// hello.selftest / server.selftest payload from the core's selftest_summary JSON (ru_api 1.10):
+// {"pass","passed","total","failures"} in that order (the schema's fields; failures capped at 256
+// entries of 512 bytes). "" when the core JSON is not a selftest object. The result doubles as the
+// change key: the same outcome gives the same string, whenever the selftest ran.
+std::string SelftestPayload(const std::string& coreJson);
+
 // Inbound reliable stream (platform -> server). Tracks the highest contiguous seq received,
 // the highest contiguous seq processed (what we ack), duplicates by seq and by id.
 class RxTracker {

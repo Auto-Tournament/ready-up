@@ -84,6 +84,14 @@ Examples: `examples/v1/{admins.set,skins.loadout,skins.invalidate,skins.stattrak
 admins.set list the server has cached (absent = none). `state.snapshot.admins_rev` carries the
 same value (0 = none). The platform sends `admins.set` after `welcome` only when its rev differs.
 
+## Core selftest: proposed here — the platform must adopt it
+
+**Status: proposed — platform must adopt.** `hello.selftest` (already in the copied step-1 schema,
+optional) is now filled from the core's latest selftest (ru_api 1.10 `selftest_summary`), and
+`messages/server.selftest.json` (server → platform, reliable) carries the same object whenever
+the outcome changes (pass/fail, counts, failing checks; a re-run with the same outcome is not
+sent). Examples: `examples/v1/{hello.selftest,server.selftest}.json`.
+
 ## Tests
 
 - `fleet_protocol` (`tests/fleet_protocol_test.cpp`): every schema loads and every example frame in
