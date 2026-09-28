@@ -50,9 +50,12 @@ struct State {
   std::atomic<bool> started{false};
 };
 
+// Never destroyed: SenderThread waits on st.cv, and a function-local static first used after
+// workers::Start() registered its exit handler would be destroyed before that handler joins the
+// sender (exit hung in pthread_cond_destroy when the server quit with the sender running).
 State& St() {
-  static State st;
-  return st;
+  static State* st = new State();
+  return *st;
 }
 
 static std::string JsonEscape(const std::string& s) {
