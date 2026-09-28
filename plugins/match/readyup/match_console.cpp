@@ -14,6 +14,7 @@
 #include "readyup/match_config_parser.h"
 #include "readyup/match_end.h"
 #include "readyup/match_log.h"
+#include "readyup/match_settings.h"
 #include "readyup/match_state.h"
 #include "readyup/match_token.h"
 #include "readyup/modes.h"
@@ -506,8 +507,12 @@ bool LoadMapEntry(const std::string& entry) {
   return EnqueueServerCommand(cmd.c_str());
 }
 
-void ApplyLoadedMatch(const WebhookMatchContext& ctx, const std::string& configJson, int firstMapNumber) {
+void ApplyLoadedMatch(const WebhookMatchContext& loaded, const std::string& configJson, int firstMapNumber) {
   if (firstMapNumber < 1) firstMapNumber = 1;
+  // Maps the config gives no side: knife or team1_ct by knife_enabled_default (match_settings.h),
+  // fixed here so a knife pick (WebhookUpdateMapSide) has an entry to update.
+  WebhookMatchContext ctx = loaded;
+  match_settings::FillMissingSides(&ctx);
   WebhookStartSenderThread();
   if (auto prev = WebhookGetMatchContext()) {
     if (prev->matchid != 0 && prev->matchid != ctx.matchid) {
@@ -639,7 +644,12 @@ const std::vector<std::string>& MatchConsoleCommands() {
       "ru_demo_upload_method", "ru_demo_upload_header", "ru_demo_upload_headers_clear", "ru_demo_upload_attempts",
       "ru_demo_status", "ru_series_end_kick_delay_no_demo", "ru_series_end_kick_delay_demo_no_upload",
       "ru_series_end_kick_delay_demo_upload", "ru_match_stats"};
-  return k;
+  static const std::vector<std::string> all = [] {
+    std::vector<std::string> v = k;
+    for (const auto& c : match_settings::ConsoleCommands()) v.push_back(c);  // ru_<server setting>
+    return v;
+  }();
+  return all;
 }
 
 namespace {
@@ -666,6 +676,8 @@ bool RunConsoleCommand(const std::string& line) {
 }  // namespace
 
 bool MatchConsoleCommand(const std::string& line) {
+  // Server settings (server_settings.h): ru_minimum_ready_required, ru_playout_enabled_default, ...
+  if (match_settings::ConsoleCommand(line)) return true;
   // ru_warmup_* / ru_cfg_exec_enable / ru_demo_* / kick delays: saved in state.json (and
   // `<setting> default`), see persisted_settings.h.
   bool consumed = false;

@@ -61,6 +61,10 @@ always may. An admin's `.help` points at `.ru help`.
 | `.ru match tech\|tac team1\|team2` | admin | technical pause / tactical timeout for a team, with its limits |
 | `.ru match side stay\|switch\|ct\|t` | knife winners, admin | knife side pick (`.stay` / `.switch`) |
 | `.ru match state` / `rules` | everyone | match and mode state / effective rules |
+| `.ru match swap` | admin | swaps the teams' sides in warmup (`mp_swapteams`); team1 / team2 stay who they are (`.switch` when no knife pick is pending) |
+| `.ru match team1\|team2 <name>` | admin | renames a team of a match loaded with `ru match load` (fleet matches: rename on the platform); the in-game names follow |
+| `.ru settings show` | everyone | every [match server setting](INSTALL.md#match-server-settings) and where it comes from (`.settings`) |
+| `.ru settings set <setting> <value>` / `default <setting>` | admin | change one (saved across restarts) / back to readyup.cfg or the default |
 | `.admin [message]` | everyone | calls an admin ([below](#calling-an-admin-admin)); not an `ru` command |
 | `.ru map change <name\|workshop id\|link> [force]` | admin | `changelevel <name>`, or `host_workshop_map <id>` for `3084291314`, `ws:<id>`, `workshop/<id>[/name]` or a pasted Workshop link (`…/filedetails/?id=3084291314`); refused during a knife round or a live map unless `force` (essentials plugin) |
 | `.ru map reload [force]` | admin | loads the current map again (a workshop map by its id) (essentials plugin) |
@@ -78,6 +82,21 @@ always may. An admin's `.help` points at `.ru help`.
 | `.ru plugin enable\|disable <name>` | admin | load / unload a plugin and keep it that way after a restart (`csgo/readyup/plugins/plugins.json`) |
 | `.ru reload` | admin | reloads `readyup.cfg` (core) |
 | `.ru selftest` / `.ru version` | admin / everyone | core |
+
+Chat shortcuts (admins; each one runs the `.ru` command it stands for, with the same checks):
+
+| Shortcut | Runs |
+|---|---|
+| `.start` / `.forcestart` | `.ru match start` |
+| `.restart` / `.rr` | `.ru match restart` (back to warmup; the match stays loaded) |
+| `.endmatch` / `.forceend` | `.ru match end` |
+| `.team1 <name>` / `.team2 <name>` | `.ru match team1\|team2 <name>` |
+| `.switch` / `.swap` | `.ru match swap` when no knife pick is pending (during a pick they stay the knife winners' side choice) |
+| `.settings` | `.ru settings show` (anyone) |
+| `.readyrequired <n>` | `.ru settings set minimum_ready_required <n>` |
+| `.playout` / `.roundknife` / `.whitelist` `[on\|off]` | toggle (or set) `playout_enabled_default` / `knife_enabled_default` / `whitelist_enabled_default` |
+| `.asay <message>` | the message in chat with the admin prefix |
+| `.prac` / `.exitprac` | practice mode on / off (practice plugin) |
 
 Before this layout the match commands were flat (`ru start`, `ru end`, `ru idle`, `ru state`,
 `ru side`, `ru fp`, ...). Those names are gone: use the table above. `ru match load <url>` is

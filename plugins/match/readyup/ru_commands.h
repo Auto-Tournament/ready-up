@@ -29,7 +29,7 @@ struct RuMainCommand {
   std::vector<RuSubcommand> subs;
 };
 
-// In display order: match, mode, hud. (map and admins are the essentials plugin's.)
+// In display order: match, mode, settings, hud. (map and admins are the essentials plugin's.)
 const std::vector<RuMainCommand>& MatchRuCommands();
 const RuMainCommand* FindRuMain(const std::string& name);
 const RuSubcommand* FindRuSub(const RuMainCommand& main, const std::string& sub);
@@ -45,5 +45,8 @@ std::string RuUnknownSubReply(const std::string& main, const std::string& sub);
 bool ParseMapChange(const std::vector<std::string>& args, std::string* entry, std::string* err);
 // Arguments after `match load`: one http(s) URL. False and *err otherwise.
 bool ParseMatchLoad(const std::vector<std::string>& args, std::string* url, std::string* err);
+// The text after the first `n` words of `line` (blanks around it trimmed): the team name of
+// `.ru match team1 <name with spaces>`, the value of `.ru settings set <setting> <value>`.
+std::string RestAfterWords(const std::string& line, size_t n);
 
 }  // namespace readyup

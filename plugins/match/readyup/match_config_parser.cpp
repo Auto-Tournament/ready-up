@@ -255,6 +255,11 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
   ruleBool("stop_command_available", &ctx.rules.stop_command_available);
   ruleBool("stop_command_no_damage", &ctx.rules.stop_command_no_damage);
   ruleInt("stop_vote_seconds", &ctx.rules.stop_vote_seconds);
+  // Server settings the match may set for itself (server_settings.h).
+  if (auto n = parseNonNegativeInt(cfg->get("players_per_team"))) ctx.players_per_team = std::min(*n, 32);
+  ruleBool("playout", &ctx.playout);
+  ruleBool("whitelist", &ctx.whitelist);
+  ruleBool("autoready", &ctx.autoready);
 
   // Fallbacks if maxRounds wasn't provided explicitly.
   if (ctx.maxRounds <= 0) ctx.maxRounds = 24;

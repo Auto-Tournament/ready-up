@@ -222,6 +222,16 @@ static void TestAssign() {
   CHECK(ctx->rules.forfeit_after_seconds == 0);
   CHECK(ctx->cvars["mp_team_timeout_max"] == "2");
   CHECK(ctx->cvars["mp_team_timeout_time"] == "45");
+  // Server settings the match sets (server_settings.h): a team with a substitute gives the team size
+  // (1 starter each here), rules.whitelist / rules.ready.autoready; playout left out stays unset.
+  CHECK(ctx->players_per_team == 1);
+  CHECK(ctx->whitelist == 1 && ctx->autoready == 0 && ctx->playout == -1);
+  {
+    Json po = *p.Find("config");
+    po["rules"] = J(R"({"max_rounds": 24, "playout": true, "whitelist": false})");
+    auto c3 = ParseWebhookMatchContextFromJson(fs::AssignToMatConfig("x", po, nullptr).Dump(), &err);
+    CHECK(c3 && c3->playout == 1 && c3->whitelist == 0 && c3->autoready == -1);
+  }
   {
     // Rules left out stay unset (-1) so the server's readyup.cfg / defaults apply.
     Json bare = *p.Find("config");
@@ -229,6 +239,12 @@ static void TestAssign() {
     auto c2 = ParseWebhookMatchContextFromJson(fs::AssignToMatConfig("x", bare, nullptr).Dump(), &err);
     CHECK(c2 && c2->rules.tech_pauses_per_team == -1 && c2->rules.forfeit_after_seconds == -1 &&
           c2->rules.both_teams_unpause == -1 && c2->cvars.count("mp_team_timeout_max") == 0);
+    CHECK(c2 && c2->playout == -1 && c2->whitelist == -1 && c2->autoready == -1);
+    // No substitute: no team size (the ready gate caps a full team at 5).
+    Json noSub = bare;
+    noSub["team1"] = J(R"({"name":"A","players":[{"steamid64":"76561198000000001","name":"a1"}]})");
+    auto c4 = ParseWebhookMatchContextFromJson(fs::AssignToMatConfig("x", noSub, nullptr).Dump(), &err);
+    CHECK(c4 && c4->players_per_team == 0);
   }
 
   CHECK(fs::NumericMatchId("12345") == 12345);

@@ -32,6 +32,7 @@
 #include "readyup/match_stats.h"
 #include "readyup/match_recovery.h"
 #include "readyup/match_router.h"
+#include "readyup/match_settings.h"
 #include "readyup/match_status.h"
 #include "readyup/modes.h"
 #include "readyup/persisted_settings.h"
@@ -84,7 +85,7 @@ void Guard(const char* what, F&& f) {
 // ---- commands ------------------------------------------------------------------------------
 
 void OnPlayerChat(void*, const ru_command_ctx* c) {
-  Guard("chat command", [&] { MatchChatCommand(c->steamid64, c->name, c->text); });
+  Guard("chat command", [&] { MatchChatCommand(c->steamid64, c->name, c->text, c->slot); });
 }
 
 void OnRuSub(void*, const ru_command_ctx* c) {
@@ -96,6 +97,13 @@ void OnRuSub(void*, const ru_command_ctx* c) {
 
 void OnConsole(void*, const ru_command_ctx* c) {
   Guard("console command", [&] { (void)MatchConsoleCommand(c->text); });
+}
+
+// `hostname "<x>"` typed on the console (server.cfg): the hostname hostname_format gives back.
+void OnHostname(void*, const ru_command_ctx* c) {
+  Guard("hostname", [&] {
+    if (c->argc >= 2 && c->argv[1]) match_settings::ObserveHostname(c->argv[1]);
+  });
 }
 
 // `tv_delay N` typed on the console: observed for the GOTV flush timing, the engine runs it.
@@ -171,6 +179,7 @@ void OnTick(void*, const ru_tick_info* t) {
       DamageReportTick();       // damage reports built at round_end (damage_report.h)
       VotesTick(t->now);        // .gg / .stop vote timeouts (votes.h)
       WarmupMoneyTick(t->now);  // warmup money top-up (warmup_money.h)
+      match_settings::Tick(t->now);  // autoready, kick_when_no_match_loaded, hostname_format
       WeaponCleanupTick(t->now);  // dropped weapons in warmup (weapon_cleanup.h)
     }
     // Fleet link (no-op without fleet.so): platform handlers, MatchState patches, events.
@@ -364,6 +373,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
       local_store::Init(dir && *dir ? std::string(dir) : GetThisModuleDir() + "/../../plugins/match");
     }
     (void)ReloadCfg(nullptr);
+    match_settings::Install();  // server settings saved in state.json (server_settings.h)
 
     // Commands: player chat, `ru <sub>` / `.ru <sub>`, console settings, `tv_delay` observer.
     RegisterReadyCommands();
@@ -378,6 +388,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
       }
     }
     api->register_console_command_ex(api->self, "tv_delay", RU_CMD_OBSERVE, &OnTvDelay, nullptr);
+    api->register_console_command_ex(api->self, "hostname", RU_CMD_OBSERVE, &OnHostname, nullptr);
 
     api->on_frame(api->self, &OnFrame, nullptr);
     api->on_tick(api->self, &OnTick, nullptr);

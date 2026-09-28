@@ -19,6 +19,7 @@
 #include "readyup/knife_tracker.h"
 #include "readyup/logging.h"
 #include "readyup/match_rules.h"
+#include "readyup/match_settings.h"
 #include "readyup/match_state.h"
 #include "readyup/pause_state.h"
 #include "readyup/admin_check.h"
@@ -598,6 +599,8 @@ static void EnforceWhitelistLocked(State& st) {
   const auto& ctx = *ctxOpt;
   // Pickup scrims are open: late joiners are not kicked.
   if (ctx.slug == "scrim") return;
+  // whitelist_enabled_default / the match's `whitelist` (match_settings.h).
+  if (!match_settings::WhitelistOn(ctx)) return;
 
   // Allow roster players and configured spectators only.
   std::unordered_set<uint64_t> allowed;
@@ -640,22 +643,23 @@ static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContex
     if (s.steamid64 != 0) connected.insert(s.steamid64);
   }
 
-  // Every connected roster player is ready, and each team has min_players_to_ready of them
-  // (0 = the full roster, i.e. everyone connected; match_rules.h).
+  // Each team has min_players_to_ready ready (0 = a full team: players_per_team, else 5), and every
+  // connected player a full team needs is ready; a connected substitute beyond it does not hold
+  // the match up (match_rules.h TeamReadyToGoLive).
   const int minPlayers = EffectiveRules().min_players_to_ready;
-  int roster[2] = {0, 0}, ready[2] = {0, 0};
+  int roster[2] = {0, 0}, present[2] = {0, 0}, ready[2] = {0, 0};
   for (const auto& kv : ctx.roster_team) {
     const uint64_t sid = kv.first;
     if (sid == 0) continue;
     const int t = kv.second == WebhookTeam::Team2 ? 1 : 0;
     ++roster[t];
     if (connected.find(sid) == connected.end()) continue;
+    ++present[t];
     auto it = st.ready.find(sid);
-    if (it == st.ready.end() || !it->second) return false;
-    ++ready[t];
+    if (it != st.ready.end() && it->second) ++ready[t];
   }
   for (int t = 0; t < 2; ++t) {
-    if (ready[t] < ForceReadyRequired(roster[t], minPlayers)) return false;
+    if (!TeamReadyToGoLive(roster[t], present[t], ready[t], minPlayers, ctx.players_per_team)) return false;
   }
   return true;
 }
@@ -840,6 +844,11 @@ static void AppendTeamNameCmds(std::vector<std::string>* cmds) {
 static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx) {
   std::vector<std::string> cmds;
   AppendTeamNameCmds(&cmds);
+  // Playout (match_settings.h): the engine must not end the map at the clinch either. A match
+  // cvar mp_match_can_clinch wins (it follows below).
+  if (!ctx.cvars.count("mp_match_can_clinch")) {
+    cmds.push_back(match_settings::PlayoutOn(&ctx) ? "mp_match_can_clinch 0" : "mp_match_can_clinch 1");
+  }
   if (ctx.cvars.empty()) {
     AppendRuleCommands(&cmds);  // ruleset overrides win over the cfg (esports.h)
     EnqueueAfterCfg(std::move(cmds));
@@ -1437,6 +1446,13 @@ void ModesSetSeriesWins(int team1, int team2) {
   st.seriesWinsTeam2 = std::max(0, team2);
 }
 
+void ModesGetSeriesWins(int* team1, int* team2) {
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  if (team1) *team1 = st.seriesWinsTeam1;
+  if (team2) *team2 = st.seriesWinsTeam2;
+}
+
 void SetRecoveryGate(bool enabled) {
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
@@ -1464,6 +1480,12 @@ bool RecoveryGateEnabled() {
   return st.recoveryGate;
 }
 
+void ApplyTeamNamesNow() {
+  std::vector<std::string> cmds;
+  AppendTeamNameCmds(&cmds);
+  for (const auto& c : cmds) (void)EnqueueServerCommand(c.c_str());
+}
+
 void ApplyMatchCvarsNow() {
   auto ctxOpt = WebhookGetMatchContext();
   if (!ctxOpt) return;
@@ -1481,6 +1503,12 @@ static std::optional<const char*> DetermineMapWinnerIfComplete(const WebhookMatc
   const int winTargetReg = (maxRounds / 2) + 1;
 
   const int sum = team1Score + team2Score;
+
+  // Playout: every regulation round (and every round of an overtime block) is played.
+  if (match_settings::PlayoutOn(&ctx) &&
+      PlayoutRoundsLeft(maxRounds, ctx.overtime_enabled, ctx.overtimeSegments, ctx.maxOvertimes, team1Score, team2Score)) {
+    return std::nullopt;
+  }
 
   auto winnerByDamage = [&]() -> std::optional<const char*> {
     if (!ctx.damageTiebreakEnabled) return std::nullopt;
@@ -1661,7 +1689,17 @@ bool ForfeitCurrentMap(WebhookTeam loser, const char* reason) {
 // Unloads the match and returns to idle (series over; match_end.cpp calls this after the
 // kick delay).
 static void ResetToIdleAfterSeriesLocked(State& st) {
-  (void)ResetServerRulesAndRestartLocked(st);
+  // reset_cvars_on_series_end 0: the cvars stay as the match left them (match_settings.h); the
+  // team names go (they are the match's) and the game restarts as usual.
+  if (match_settings::ResetCvarsOnSeriesEnd()) {
+    (void)ResetServerRulesAndRestartLocked(st);
+  } else {
+    Print("match: series over; cvars kept (ru_reset_cvars_on_series_end 0)\n");
+    for (const char* c : {"mp_teamname_1 \"\"", "mp_teamname_2 \"\"", "mp_teamflag_1 \"\"", "mp_teamflag_2 \"\"",
+                          "mp_restartgame 1"}) {
+      (void)EnqueueServerCommand(c);
+    }
+  }
   st.mode = ReadyUpMode::Idle;
   st.idleCfgExecuted = false;
   st.ready.clear();

@@ -1,7 +1,7 @@
 // readyup-practice: practice mode and its tools, as a plugin of its own so a server can run it
 // without the match flow (a dedicated practice server) or next to it.
 //
-//   .prac / .tactics        admin: practice mode on / off. On: ReadyUp/prac.cfg (cheats, full
+//   .prac / .tactics        admin: practice mode on / off (.exitprac: off). On: ReadyUp/prac.cfg (cheats, full
 //                           grenade set, infinite ammo, ...) and everyone respawns with it. Off:
 //                           ReadyUp/idle.cfg and everyone respawns without it.
 //   ru practice on|off|status   the same from the console / `.ru practice ...` (admin)
@@ -613,6 +613,18 @@ void OnPracChat(void*, const ru_command_ctx* c) {
   ChatAll("Ready Up: " + reply);
 }
 
+// `.exitprac` (MatchZy name): practice off, never on (`.prac` toggles).
+void OnExitPracChat(void*, const ru_command_ctx* c) {
+  const int slot = SenderSlot(c);
+  if (g_api->is_admin(g_api->self, c->steamid64) != 1) {
+    if (slot >= 0) g_api->chat_to_slot(g_api->self, slot, " \x04[ReadyUp]\x01 not authorized");
+    return;
+  }
+  std::string reply;
+  (void)Toggle(false, &reply);
+  ChatAll("Ready Up: " + reply);
+}
+
 // `ru practice on|off|status` and `ru practice as <slot> <.command> [args]`.
 void OnRu(void*, const ru_command_ctx* c) {
   const std::string sub = c->argc >= 3 && c->argv[2] ? Lower(c->argv[2]) : "";
@@ -846,7 +858,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_standaloneActive = false;
   (void)api->stash_get(api->self, "standalone_active", &g_standaloneActive, sizeof(g_standaloneActive));
   if (!api->register_chat_command(api->self, ".prac", &OnPracChat, nullptr) ||
-      !api->register_chat_command(api->self, ".tactics", &OnPracChat, nullptr)) {
+      !api->register_chat_command(api->self, ".tactics", &OnPracChat, nullptr) ||
+      !api->register_chat_command(api->self, ".exitprac", &OnExitPracChat, nullptr)) {
     ru_logf(api, RU_LOG_WARN, "could not register .prac (another plugin owns it)");
   }
   for (const char* c : {".rethrow", ".rt", ".savepos", ".loadpos", ".back", ".clear", ".noflash", ".god", ".spawn",

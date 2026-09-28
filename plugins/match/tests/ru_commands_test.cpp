@@ -34,7 +34,7 @@ static bool Admin(const char* main, const char* sub) {
 static void TestTree() {
   std::vector<std::string> mains;
   for (const auto& m : MatchRuCommands()) mains.push_back(m.name);
-  CHECK((mains == std::vector<std::string>{"match", "mode", "hud"}));
+  CHECK((mains == std::vector<std::string>{"match", "mode", "settings", "hud"}));
   // The old flat commands are gone: nothing named like them at the top level.
   for (const char* old : {"restart", "start", "end", "pause", "idle", "state", "fp", "reloadmap", "load", "side"}) {
     CHECK(FindRuMain(old) == nullptr);
@@ -47,6 +47,9 @@ static void TestTree() {
     CHECK(Admin(p.first, p.second));
   }
   CHECK(!Admin("match", "state") && !Admin("match", "rules") && !Admin("match", "side") && !Admin("mode", "show"));
+  // Settings: anyone reads them, admins change them; swapping / renaming teams is an admin's.
+  CHECK(!Admin("settings", "show") && Admin("settings", "set") && Admin("settings", "default"));
+  CHECK(Admin("match", "swap") && Admin("match", "team1") && Admin("match", "team2"));
 }
 
 static void TestHelp() {
@@ -69,6 +72,14 @@ static void TestMapChange() {
   CHECK(!ParseMapChange({"de_dust2;quit"}, &entry, &err) && err.find("not a map name") != std::string::npos);
   CHECK(!ParseMapChange({"../../etc"}, &entry, &err));
   CHECK(!ParseMapChange({"123456789012345678901"}, &entry, &err));  // 21 digits
+}
+
+static void TestRestAfterWords() {
+  CHECK(RestAfterWords(".ru match team1  Team  Liquid ", 3) == "Team  Liquid");
+  CHECK(RestAfterWords(".ru settings set hostname_format \"{TEAM1} vs {TEAM2}\"", 4) == "\"{TEAM1} vs {TEAM2}\"");
+  CHECK(RestAfterWords(".team1", 1).empty());
+  CHECK(RestAfterWords(".team1 x", 5).empty());
+  CHECK(RestAfterWords("\t.asay  hello there", 1) == "hello there");
 }
 
 static void TestMatchLoad() {
@@ -100,6 +111,7 @@ int main() {
   TestHelp();
   TestMapChange();
   TestMatchLoad();
+  TestRestAfterWords();
   TestReloadEntry();
   std::printf("ru_commands_test: %d checks, %d failures\n", g_checks, g_failures);
   return g_failures ? 1 : 0;

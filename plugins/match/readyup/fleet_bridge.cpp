@@ -17,7 +17,9 @@
 #include "readyup/match_console.h"
 #include "readyup/match_end.h"
 #include "readyup/match_events.h"
+#include "readyup/match_features.h"
 #include "readyup/match_log.h"
+#include "readyup/match_settings.h"
 #include "readyup/match_signals.h"
 #include "readyup/match_state.h"
 #include "readyup/match_stats.h"
@@ -1425,14 +1427,8 @@ Result CmdSwapTeams() {
   if (!IsWarmupMode()) return Rejected("bad_phase", "swap_teams works in warmup only");
   const auto ctx = WebhookGetMatchContext();
   if (!CtxIsOurs(ctx)) return Rejected("bad_phase", "no match loaded");
-  const auto ms = MatchStateGet();
-  const size_t idx = static_cast<size_t>(std::max(1, ms.map_number) - 1);
-  if (idx < ctx->map_sides.size()) {
-    const std::string& s = ctx->map_sides[idx];
-    if (s == "team1_ct") WebhookUpdateMapSide(ms.map_number, "team2_ct");
-    else if (s == "team2_ct") WebhookUpdateMapSide(ms.map_number, "team1_ct");
-  }
-  (void)EnqueueServerCommand("mp_swapteams");
+  std::string why;
+  if (!MatchFeaturesSwapTeams(&why)) return Rejected("bad_phase", why);  // the same as `.switch`
   return Ok();
 }
 
@@ -1491,6 +1487,69 @@ Result CmdPracticeSet(const Json& args) {
   const char* why = "";
   if (p->set_active(on->AsBool() ? 1 : 0, &why) != 1) return Rejected("bad_phase", why ? why : "refused");
   return Ok();
+}
+
+// A JSON scalar as the text a console setting takes (true -> "1").
+bool SettingText(const Json& v, std::string* out) {
+  switch (v.type()) {
+    case Json::Type::Bool: *out = v.AsBool() ? "1" : "0"; return true;
+    case Json::Type::Int: *out = std::to_string(v.AsInt()); return true;
+    case Json::Type::String: *out = v.AsString(); return true;
+    default: return false;
+  }
+}
+
+// `settings.set` {settings: {<name>: value, ...}}: server settings (match_settings.h), all or none;
+// an empty object only reads them. cmd.result.output: the settings after the change.
+Result CmdSettingsSet(const Json& args, const std::string& by) {
+  const Json* set = args.Find("settings");
+  if (set && !set->IsObject()) return Rejected("bad_args", "settings must be an object");
+  std::vector<std::pair<std::string, std::string>> todo;
+  if (set) {
+    for (const auto& kv : set->Members()) {
+      std::string v, err;
+      if (!SettingText(kv.second, &v)) return Rejected("bad_args", kv.first + ": a boolean, number or string");
+      if (!match_settings::Validate(kv.first, v, &err)) return Rejected("bad_args", err);
+      todo.emplace_back(kv.first, v);
+    }
+  }
+  for (const auto& t : todo) {
+    std::string reply;
+    if (!match_settings::Set(t.first, t.second, by, &reply)) return Failed("engine", reply);
+  }
+  Result r = Ok();
+  for (const auto& l : match_settings::ShowLines()) r.output += l + "\n";
+  r.haveOutput = true;
+  return r;
+}
+
+// server.config {rev, settings}: the fields that are server settings here (hostname_format,
+// scrim_knife -> knife_enabled_default, series_end_kick_delay.*); the rest belongs to other parts
+// (chat prefixes, warmup, demo, ...).
+void OnServerConfig(const ru_fleet_msg* m) {
+  const Json p = ParsePayload(m);
+  const Json* st = p.Find("settings");
+  if (!st || !st->IsObject()) {
+    Print("fleet: server.config ignored (no settings)\n");
+    return;
+  }
+  const long long rev = Int(p, "rev", 0);
+  const std::string by = "platform:server.config rev " + std::to_string(rev);
+  int n = 0;
+  auto apply = [&](const std::string& name, const Json* v) {
+    std::string text, reply;
+    if (!v || !SettingText(*v, &text)) return;
+    if (match_settings::Set(name, text, by, &reply)) ++n;
+    else Print("fleet: server.config %s: %s\n", name.c_str(), reply.c_str());
+  };
+  apply("hostname_format", st->Find("hostname_format"));
+  apply("knife_enabled_default", st->Find("scrim_knife"));
+  if (const Json* k = st->Find("series_end_kick_delay"); k && k->IsObject()) {
+    apply("series_end_kick_delay_no_demo", k->Find("no_demo"));
+    apply("series_end_kick_delay_demo_no_upload", k->Find("demo_no_upload"));
+    apply("series_end_kick_delay_demo_upload", k->Find("demo_upload"));
+  }
+  Print("fleet: server.config rev %lld: %d setting(s) applied\n", rev, n);
 }
 
 void OnCmd(const ru_fleet_msg* m) {
@@ -1578,6 +1637,8 @@ void OnCmd(const ru_fleet_msg* m) {
     r = CmdWhitelistSet(args);
   } else if (name == "practice.set") {
     r = CmdPracticeSet(args);
+  } else if (name == "settings.set") {
+    r = CmdSettingsSet(args, by);
   } else if (name == "snapshot_now") {
     r = SendSnapshot("request", true) ? Ok() : Failed("offline", "not connected");
   } else if (name == "exec") {
@@ -1664,6 +1725,7 @@ void OnMessage(void*, const ru_fleet_msg* m) {
     else if (t == "local.offline_timeout") OnOfflineTimeout(m);
     else if (t == "local.connection") OnConnection(m);
     else if (t == "admins.set") OnAdminsSet(m);
+    else if (t == "server.config") OnServerConfig(m);
   } catch (const std::exception& e) {
     Print("fleet: handling %s threw: %s\n", m->type, e.what());
   }
@@ -1682,7 +1744,7 @@ void EnsureHandlers() {
   g_fleetInstance = inst;
   g_handlerIds.clear();  // a new fleet.so image has no registrations
   for (const char* type : {"match.assign", "match.update", "match.unassign", "cmd", "local.offline_timeout",
-                           "local.connection", "admins.set"}) {
+                           "local.connection", "admins.set", "server.config"}) {
     const uint64_t id = f->register_handler(type, &OnMessage, nullptr);
     if (id) g_handlerIds.push_back(id);
   }

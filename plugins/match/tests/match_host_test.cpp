@@ -628,6 +628,29 @@ int main(int argc, char** argv) {
   rp::Frame(true);
   Check(Logged("ru_series_end_kick_delay_demo_upload: back to the default"), "`<setting> default` answered");
 
+  std::puts("-- match server settings (server_settings.h): console, `ru settings`, hostname_format");
+  ClearLog();
+  rp::TryDispatchConsole("ru_playout_enabled_default 1");
+  rp::TryDispatchConsole("ru_minimum_ready_required 99");
+  rp::TryDispatchConsole("ru_hostname_format \"{TEAM1} vs {TEAM2}\"");
+  rp::Frame(true);
+  Check(Logged("playout_enabled_default = on (runtime)"), "ru_playout_enabled_default 1: set");
+  Check(Logged("minimum_ready_required takes a number from 0 to 32"), "ru_minimum_ready_required 99: refused");
+  Check(FramesUntil([] { return Sent("hostname \"Alpha vs Bravo\""); }, 3000), "hostname_format applied to the loaded match");
+  ClearLog();
+  Check(rp::TryDispatchRu(true, 0, "Console", "ru settings show"), "`ru settings show` dispatched");
+  rp::Frame(true);
+  Check(Logged("hostname_format = \"{TEAM1} vs {TEAM2}\" (runtime)") && Logged("series_end_kick_delay: no_demo="),
+        "ru settings show lists the settings");
+  ClearLog();
+  rp::TryDispatchRu(true, 0, "Console", "ru settings set whitelist_enabled_default off");
+  rp::TryDispatchRu(true, 0, "Console", "ru settings default playout_enabled_default");
+  rp::TryDispatchRu(true, 0, "Console", "ru settings set series_end_kick_delay_no_demo 12");
+  rp::Frame(true);
+  Check(Logged("whitelist_enabled_default = off (runtime)"), "ru settings set");
+  Check(Logged("playout_enabled_default = off"), "ru settings default");
+  Check(Logged("series_end_kick_delay_no_demo = 12"), "ru settings set takes the kick delays too");
+
   std::puts("-- unload");
   ClearLog();
   rp::HandlePluginCommand({"unload", "match"}, false);
@@ -654,6 +677,9 @@ int main(int argc, char** argv) {
     Check(Has(st, "\"ru_series_end_kick_delay_no_demo\"") && !Has(st, "ru_series_end_kick_delay_demo_upload"),
           "state.json: kick delay saved; `default` removed the other");
     Check(!Has(st, "ru_warmup_respawn"), "state.json: settings left at their default are not stored");
+    Check(Has(st, "\"ru_whitelist_enabled_default\"") && Has(st, "\"ru_hostname_format\"") &&
+              !Has(st, "ru_playout_enabled_default") && !Has(st, "ru_minimum_ready_required"),
+          "state.json: server settings saved; `default` and refused values not");
     if (g_failed) std::printf("  state.json: %s\n", st.c_str());
   }
 
@@ -662,6 +688,7 @@ int main(int argc, char** argv) {
   rp::HandlePluginCommand({"load", "match"}, false);
   rp::Frame(true);
   Check(Logged("plugin: loaded match") && Logged("match=hosttest"), "load after unload restores the match");
+  Check(Logged("restored 2 server setting(s) from state.json"), "server settings restored from state.json");
 
   // Return with match.so still loaded and its workers running, like a server `quit` (the core never
   // unloads plugins): the plugin's exit handler must join them before its statics are destroyed,

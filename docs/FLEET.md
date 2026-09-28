@@ -667,6 +667,7 @@ Every command gets exactly one `cmd.result`.
 | `plugins.set` | `{ enable?: string[], disable?: string[] }` | the core's `ru plugin enable\|disable <name>` for each: loaded / unloaded and remembered across restarts (`csgo/readyup/plugins/plugins.json`). Plugin names `[a-z0-9_-]`, at most 16 per list; `match` and `fleet` cannot be disabled over the link. For server profiles ("practice server": practice + skins + whitelist; "official": no practice / skins / midas) |
 | `practice.set` | `{ on: boolean }` | practice mode on / off through the practice plugin (prac.cfg + respawn, or back to idle); `rejected unsupported` without practice.so, `rejected bad_phase` while a match is loaded |
 | `whitelist.set` | `{ enabled: boolean, steamids?: string[] }` | replaces the whitelist plugin's list and on/off (saved in `plugins/whitelist/whitelist.json`); `rejected unsupported` without whitelist.so. At most 1000 SteamID64 strings |
+| `settings.set` | `{ settings?: { [setting]: boolean \| number \| string } }` | server settings of the match plugin (`playout_enabled_default`, `minimum_ready_required`, `hostname_format`, `series_end_kick_delay_*`, ...; docs/INSTALL.md "Match server settings"), the same values `ru_<setting>` and `.ru settings set` change, saved across restarts. All or none: one bad name or value is `rejected bad_args` and nothing changes. `cmd.result.output`: every setting after the change (so `{}` reads them) |
 | `snapshot_now` | `{}` | reliable `state.request` |
 | `exec` | `{ command: string }` | **root admins only** (D10). The platform checks the web user's role and writes an audit row (user, server, match, command, time) before sending; the server rejects it unless `issued_by.root`, logs it as `fleet: exec by <user>: <command>`, runs it through `EnqueueServerCommand`, and returns captured console output (max 8 KB) in `cmd.result.output`. Single line, max 512 bytes, no `ru fleet …` (cannot change its own credentials). |
 
@@ -684,6 +685,13 @@ server.config { rev: number, settings: {
 } }
 
 admins.set { rev: number, admins: Array<{ steamid64: u64s, name: string }> }     // one fleet-wide list (D5)
+```
+
+Ready Up applies these `server.config` fields today: `hostname_format`, `scrim_knife`
+(= `knife_enabled_default`) and `series_end_kick_delay.*`, through the same server settings as
+`cmd settings.set` (saved across restarts). The other fields are not read yet.
+
+```ts
 
 skins.loadout { steamid64: u64s, rev: number, items: {
   paints: Array<{ team: 0|2|3, defindex: number, paint: number, wear: number, seed: number, nametag?: string, stattrak?: number }>,
