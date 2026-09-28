@@ -440,6 +440,9 @@ add_subdirectory(plugins/midas)
 # readyup-whitelist (plugins/whitelist), plus its unit test (after enable_testing()).
 add_subdirectory(plugins/whitelist)
 
+# readyup-addons (plugins/addons): Steam Workshop addons, plus its unit test.
+add_subdirectory(plugins/addons)
+
 # readyup-deathmatch (plugins/deathmatch): FFA / team deathmatch, plus its unit test.
 add_subdirectory(plugins/deathmatch)
 

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "plugin": "addons",
+  "api": [
+    "chat_to_slot",
+    "hook_function",
+    "on_tick",
+    "register_ru_subcommand"
+  ],
+  "surface": [
+    "CCommand",
+    "CGameRulesGameSystem_BuildGameSessionManifest",
+    "ClientPrint",
+    "Engine2_SetPendingHostStateRequest",
+    "ISource2GameClients::ClientCommand",
+    "ISource2Server::GameFrame"
+  ],
+  "schema": [],
+  "events": []
+}
