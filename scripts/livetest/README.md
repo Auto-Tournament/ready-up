@@ -146,8 +146,8 @@ live, because Ready Up's restart checks use wall-clock time), `--round-timeout`,
 ## Fleet (platform link) test
 
 `scripts/livetest/fleet_livetest.py` is the step-3 fleet test (docs/FLEET.md): a mock platform
-(`fleet_mock_platform.py`, Python `websockets` + `jsonschema` in a `python:3.12-slim` container on
-127.0.0.1:18095-18097) enrolls fleet.so, assigns a bot match, checks every frame against
+(`fleet_mock_platform.py`, Python `websockets` + `jsonschema`, on 127.0.0.1, free ports per run
+unless `--http-port` / `--ws-port` / `--ctl-port` are given) enrolls fleet.so, assigns a bot match, checks every frame against
 `plugins/fleet/protocol/v1`, and drives fencing, `match.update`, pause / unpause, `exec`, round
 backups + `restore_round`, the offline auto-pause (75 s outage, `offline_pause_minutes=1`),
 `end_match` and `match.unassign`, then a failover resume (`match.assign` with `resume`: map 2 of
@@ -160,13 +160,32 @@ FILE` (resume from a backup of an earlier run), `--map ws:<id>` (a workshop map)
 (frames.json, console.log, mock.log), `--save-examples DIR`.
 
 It writes `csgo/cfg/ReadyUp/fleet.cfg` for the run and afterwards moves it and fleet.so's data dir
-(`csgo/readyup/plugins/fleet/`) to `~/readyup-test/.fleet-livetest/<time>/` and reloads fleet.so,
-so the server is standalone again.
+(`csgo/readyup/plugins/fleet/`) to `<target>/.fleet-livetest/<time>/` and reloads fleet.so,
+so the server is standalone again. Nothing leaves the box: the enrollment code is a made-up
+constant and the mock mints a random token per run.
+
+The mock runs in a `python:3.12-slim` container when this user can use Docker (`--mock docker`),
+otherwise as a local process with its deps pip-installed once into
+`~/.cache/readyup-livetest/pydeps-<python>` (`--mock local`, `$LIVETEST_PYDEPS`); `--mock auto`
+(default) picks Docker when usable. If the mock does not start the test exits 2 (no verdict).
+Like `run.sh` it takes `--boot` / `--wait-session`, and `--game-dir DIR` when the CS2 install is
+not `--target` (CI: the console log is in a temp dir, the install is `$CS2_CI_DIR`).
+
+```bash
+flock /tmp/readyup-test.lock -c 'scripts/livetest/fleet_livetest.py --mock local --out /tmp/fleet-lt'
+```
 
 ## CI
 
-`.github/workflows/livetest.yml` runs this on a self-hosted runner labelled
-`readyup-live` (manual dispatch only; input `mode` = match or scrim). **That runner does
-not exist yet.** Register one on the cs2 box, as a user that can
-`ssh -o BatchMode=yes cs2servermanager@localhost`, before dispatching. Until then the
-job just waits in the queue.
+`.github/workflows/cs2-dynamic.yml` (nightly, after CS2 updates, manual dispatch on master) runs
+match (`--simulation`), scrim, fleet and forfeit against its own CI server and reports each to
+the compatibility page (docs/CS2-COMPAT.md, "Dynamic stage"). fleet and forfeit are advisory until
+they have passed 3 runs in a row: a failure keeps their check pending instead of failing it.
+`--ruleset valve` is not in CI: it needs GOTV (`tv_enable 1` before the map loads), which the CI
+server (and readyup-test) boot without.
+
+`.github/workflows/livetest.yml` (manual dispatch only; input `mode` = match or scrim) targets
+readyup-test over `ssh cs2servermanager@localhost` from a runner labelled `readyup-live`. The
+only such runner is cs2-dynamic's, which runs as cs2servermanager itself and is meant for the CI
+install, so do not dispatch it; run the tests by hand on the cs2 box instead (wrapped in
+`flock /tmp/readyup-test.lock`).
