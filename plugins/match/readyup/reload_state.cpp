@@ -98,6 +98,7 @@ Json ContextToJson(const WebhookMatchContext& c) {
   rules["both_teams_unpause"] = c.rules.both_teams_unpause;
   rules["allow_force_ready"] = c.rules.allow_force_ready;
   rules["min_players_to_ready"] = c.rules.min_players_to_ready;
+  rules["min_spectators_to_ready"] = c.rules.min_spectators_to_ready;
   rules["forfeit_after_seconds"] = c.rules.forfeit_after_seconds;
   rules["gg_enabled"] = c.rules.gg_enabled;
   rules["gg_threshold_pct"] = c.rules.gg_threshold_pct;
@@ -168,6 +169,7 @@ WebhookMatchContext ContextFromJson(const Json& j) {
     c.rules.both_teams_unpause = Int(r, "both_teams_unpause", -1);
     c.rules.allow_force_ready = Int(r, "allow_force_ready", -1);
     c.rules.min_players_to_ready = Int(r, "min_players_to_ready", -1);
+    c.rules.min_spectators_to_ready = Int(r, "min_spectators_to_ready", -1);
     c.rules.forfeit_after_seconds = Int(r, "forfeit_after_seconds", -1);
     c.rules.gg_enabled = Int(r, "gg_enabled", -1);
     c.rules.gg_threshold_pct = Int(r, "gg_threshold_pct", -1);

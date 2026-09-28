@@ -7,6 +7,8 @@
 
 #include "readyup/admin_check.h"
 #include "readyup/backup_files.h"
+#include "readyup/cs2_update_check.h"
+#include "readyup/cs2_version.h"
 #include "readyup/demo_recorder.h"
 #include "readyup/engine.h"
 #include "readyup/esports.h"
@@ -32,10 +34,12 @@
 #include "readyup/players.h"
 #include "readyup/round_restore.h"
 #include "readyup/scrim_flow.h"
+#include "readyup/http_client.h"
 #include "readyup/webhook.h"
 #include "readyup/workers.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdio>
@@ -547,7 +551,12 @@ Json BuildState() {
   return st;
 }
 
+// server.drain (FLEET.md §14.3): finish the current series, take nothing new, report "draining"
+// until server.undrain. Held in memory only: a restart (the update the drain was for) clears it.
+bool g_draining = false;
+
 std::string Availability() {
+  if (g_draining) return "draining";
   if (!g_asg.active) return LocalMatchActive() ? "busy" : "available";
   return g_serverReset ? "available" : "busy";
 }
@@ -561,7 +570,7 @@ void PublishState(const Json& st) {
   if (avail != g_lastPublishedAvail && !g_lastPublishedAvail.empty() && FleetActive(f)) {
     Json p = Json::Object();
     p["availability"] = avail;
-    p["reason"] = g_asg.active ? (g_serverReset ? "series_end" : "assigned") : "idle";
+    p["reason"] = avail == "draining" ? "drain" : g_asg.active ? (g_serverReset ? "series_end" : "assigned") : "idle";
     Send("server.availability", p, 0, true);
   }
   g_lastPublishedAvail = avail;
@@ -1068,6 +1077,10 @@ void OnAssign(const ru_fleet_msg* m) {
                                            : "epoch " + std::to_string(epoch) + " is older than this server's"));
     return;
   }
+  if (g_draining) {
+    Reply(ref, epoch, Rejected("busy", "this server is draining: it takes no new match"));
+    return;
+  }
   if (resume.present && resume.round >= 1) {
     const Result r = PrepareResumeBackup(mid, &resume);
     if (r.status != "ok") {
@@ -1553,6 +1566,67 @@ void OnServerConfig(const ru_fleet_msg* m) {
   Print("fleet: server.config rev %lld: %d setting(s) applied\n", rev, n);
 }
 
+void OnDrain(bool drain, const ru_fleet_msg* m) {
+  const Json p = ParsePayload(m);
+  const std::string reason = Str(p, "reason");
+  if (g_draining == drain) return;
+  g_draining = drain;
+  Print("fleet: %s%s%s\n", drain ? "server.drain" : "server.undrain", reason.empty() ? "" : ": ", reason.c_str());
+  PublishState(g_asg.active && g_stream.HasState() ? g_stream.State() : Json());  // sends server.availability
+}
+
+// ---- CS2 build check: Steam's UpToDateCheck on a worker thread, `server.cs2_update_required
+// {required_build}` once per required version (cs2_update_check.h).
+constexpr double kCs2FirstCheckS = 60.0;
+constexpr double kCs2CheckEveryS = 1800.0;
+std::atomic<bool> g_cs2Running{false};
+std::mutex g_cs2Mu;
+cs2update::Answer g_cs2Answer;
+bool g_cs2AnswerNew = false;
+double g_nextCs2Check = 0;
+long long g_cs2Reported = 0;
+
+void CheckCs2Update(double now, bool active) {
+  cs2update::Answer a;
+  bool have = false;
+  {
+    std::lock_guard<std::mutex> lk(g_cs2Mu);
+    if (g_cs2AnswerNew) {
+      a = g_cs2Answer;
+      have = true;
+      g_cs2AnswerNew = false;
+    }
+  }
+  if (have && active && cs2update::ShouldReport(a, g_cs2Reported)) {
+    g_cs2Reported = a.required;
+    Json p = Json::Object();
+    p["required_build"] = static_cast<int>(a.required);
+    Send("server.cs2_update_required", p, 0, true);
+    Print("fleet: CS2 update required (build %lld)\n", a.required);
+  }
+  if (!active || g_cs2Running.load()) return;
+  if (g_nextCs2Check == 0) g_nextCs2Check = now + kCs2FirstCheckS;
+  if (now < g_nextCs2Check) return;
+  g_nextCs2Check = now + kCs2CheckEveryS;
+  const Cs2VersionSnapshot snap = GetCs2VersionSnapshot();
+  if (!snap.version_string || snap.version_string->rfind("Patchversion", 0) != 0) return;  // no PatchVersion in steam.inf
+  const long long cur = cs2update::PatchVersionNumber(*snap.version_string);
+  if (cur <= 0) return;
+  g_cs2Running = true;
+  if (!workers::Spawn("cs2-update-check", [cur]() {
+        const HttpResponse r = HttpGet(cs2update::CheckUrl(cur), std::nullopt);
+        if (r.status == 200) {
+          const cs2update::Answer ans = cs2update::ParseAnswer(r.body);
+          std::lock_guard<std::mutex> lk(g_cs2Mu);
+          g_cs2Answer = ans;
+          g_cs2AnswerNew = true;
+        }
+        g_cs2Running = false;
+      })) {
+    g_cs2Running = false;
+  }
+}
+
 void OnCmd(const ru_fleet_msg* m) {
   const Json p = ParsePayload(m);
   const std::string ref = m->id ? m->id : "";
@@ -1727,6 +1801,8 @@ void OnMessage(void*, const ru_fleet_msg* m) {
     else if (t == "local.connection") OnConnection(m);
     else if (t == "admins.set") OnAdminsSet(m);
     else if (t == "server.config") OnServerConfig(m);
+    else if (t == "server.drain") OnDrain(true, m);
+    else if (t == "server.undrain") OnDrain(false, m);
   } catch (const std::exception& e) {
     Print("fleet: handling %s threw: %s\n", m->type, e.what());
   }
@@ -1745,7 +1821,8 @@ void EnsureHandlers() {
   g_fleetInstance = inst;
   g_handlerIds.clear();  // a new fleet.so image has no registrations
   for (const char* type : {"match.assign", "match.update", "match.unassign", "cmd", "local.offline_timeout",
-                           "local.connection", "admins.set", "server.config"}) {
+                           "local.connection", "admins.set", "server.config", "server.drain",
+                           "server.undrain"}) {
     const uint64_t id = f->register_handler(type, &OnMessage, nullptr);
     if (id) g_handlerIds.push_back(id);
   }
@@ -1864,6 +1941,7 @@ void Tick(double now) {
   g_now = now;
   EnsureHandlers();
   const ru_fleet_v1* f = Fleet();
+  CheckCs2Update(now, FleetActive(f));
   if (!g_asg.active) {
     (void)signals::Take();
     if (f && now - g_lastIdlePublish >= 1.0) {

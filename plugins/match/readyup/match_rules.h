@@ -6,7 +6,7 @@
 // Where a value comes from (first one set wins):
 //   1. the match config: MAT JSON top-level keys `max_tech_pauses_per_team`, `tech_pause_max_seconds`,
 //      `both_teams_unpause_required`, `allow_force_ready`, `min_players_to_ready`,
-//      `forfeit_after_seconds`; a fleet `match.assign` maps `rules.pause.technical_per_team`,
+//      `min_spectators_to_ready`, `forfeit_after_seconds`; a fleet `match.assign` maps `rules.pause.technical_per_team`,
 //      `rules.pause.technical_seconds`, `rules.pause.unpause`, `rules.ready.allow_force_ready`,
 //      `rules.ready.min_per_team` and `rules.forfeit.team_absent_seconds` onto them
 //      (fleet_state.cpp AssignToMatConfig),
@@ -27,6 +27,7 @@ struct MatchRules {
   int both_teams_unpause = -1;     // 1: both teams type .unpause; 0: the pausing team alone
   int allow_force_ready = -1;      // `.forceready`
   int min_players_to_ready = -1;   // connected players a team needs for .forceready; 0 = full roster
+  int min_spectators_to_ready = -1; // spectators (casters, match `spectators`) that must be ready before go-live; 0 = none
   int forfeit_after_seconds = -1;  // whole team disconnected while live -> forfeit; 0 = off
   // `.gg` surrender vote and `.stop` round-restore vote (votes.h). MAT keys gg_enabled,
   // gg_threshold (0.8 or 80), gg_min_score_diff, stop_command_available, stop_command_no_damage,
@@ -91,6 +92,15 @@ int ForceReadyRequired(int rosterSize, int minPlayers, int playersPerTeam = 0);
 // full team does not hold the match up. An empty roster is always ready.
 bool TeamReadyToGoLive(int rosterSize, int connected, int ready, int minPlayers, int playersPerTeam = 0);
 int TeamReadyNeeded(int rosterSize, int connected, int minPlayers, int playersPerTeam = 0);
+
+// Spectators of the match config (casters) who typed .ready: `required` (min_spectators_to_ready)
+// of them are needed before go-live. 0 (the default) never holds the match up.
+bool SpectatorsReadyToGoLive(int required, int readySpectators);
+
+// `.spec`: a player moves themselves to spectator. Refused for a player on the roster of a loaded
+// (non-scrim) match: the roster enforcement (modes.cpp MaybeForceRosterTeamsLocked) would put them
+// straight back. Everyone else (idle, scrim warmup / live, non-roster players) may.
+bool SpecCommandAllowed(bool onLoadedMatchRoster);
 
 // ---- playout ---------------------------------------------------------------------------------
 

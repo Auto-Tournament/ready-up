@@ -144,7 +144,7 @@ const std::vector<std::string>& MatchPlayerChatCommands() {
       ".unpause", ".up", ".gg",      ".ff",   ".forfeit",  ".stay",  ".switch", ".swap", ".ct",
       ".t",    ".help",  ".stop", ".admin", ".restore",
       // Admin shortcuts (match_settings.h, `.ru match ...`); `.settings` is for anyone.
-      ".settings", ".readyrequired", ".playout", ".roundknife", ".whitelist", ".start", ".forcestart",
+      ".settings", ".readyrequired", ".playout", ".roundknife", ".rk", ".spec", ".whitelist", ".start", ".forcestart",
       ".restart", ".rr", ".endmatch", ".forceend", ".team1", ".team2", ".asay"};
   return k;
 }
@@ -250,6 +250,32 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
       }
     }
     SendAdmin(reply + note);
+    return;
+  }
+
+  // `.spec`: join the spectators (not for a rostered player of a loaded match, who would be put back).
+  if (first == ".spec") {
+    const bool onRoster = hasMatch && ctx->slug != "scrim" && ctx->roster_team.count(steamid64) != 0;
+    if (!SpecCommandAllowed(onRoster)) return ReplyTo(slot, "you are on this match's roster: ask an admin to move you");
+    int s = slot;
+    if (s < 0) {
+      for (const auto& id : ListSlotIdentities()) {
+        if (id.steamid64 == steamid64) s = id.slot;
+      }
+    }
+    if (s < 0 || !ForceJoinTeamForSlot(s, 1)) return ReplyTo(slot, "could not move you to spectators");
+    return;
+  }
+
+  // A match spectator (caster) counts towards min_spectators_to_ready: .ready / .unready for them.
+  if (hasMatch && ctx->spectators.count(steamid64) != 0 && EffectiveRules().min_spectators_to_ready > 0 &&
+      (first == ".r" || first == ".ready" || first == ".unready" || first == ".ur" || first == ".notready" ||
+       first == ".nr")) {
+    const bool nowReady = first == ".r" || first == ".ready";
+    const bool was = SetReady(steamid64, nowReady);
+    if (was != nowReady && !HudReplacesChat()) {
+      SendToChat(("Ready Up: " + playerName + " (spectator) is now " + (nowReady ? "READY" : "NOT READY") + ".").c_str());
+    }
     return;
   }
 

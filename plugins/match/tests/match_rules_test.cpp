@@ -260,8 +260,21 @@ static void TestWeaponCleanup() {
   }
 }
 
+static void TestSpectators() {
+  CHECK(BuiltinDefaultRules().min_spectators_to_ready == 0);
+  MatchRules m;
+  m.min_spectators_to_ready = 2;
+  CHECK(ResolveRules(m, MatchRules{}).min_spectators_to_ready == 2);
+  CHECK(ResolveRules(MatchRules{}, MatchRules{}).min_spectators_to_ready == 0);
+  CHECK(SpectatorsReadyToGoLive(0, 0));   // default: never holds the match up
+  CHECK(!SpectatorsReadyToGoLive(2, 1));
+  CHECK(SpectatorsReadyToGoLive(2, 2) && SpectatorsReadyToGoLive(2, 3));
+  CHECK(SpecCommandAllowed(false) && !SpecCommandAllowed(true));  // .spec
+}
+
 int main() {
   TestResolve();
+  TestSpectators();
   TestPauses();
   TestAuto5v5();
   TestForceReady();
