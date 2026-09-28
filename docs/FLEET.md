@@ -455,7 +455,7 @@ After the upgrade, the server sends `hello` first. The platform answers `welcome
 hello {
   server_id: string, install_id: string, tenant_id: "default"
   protocol: { min: 1, max: 1 }
-  versions: { core: "0.4.0", plugin_api: "1.1", plugins: { match: "0.4.0", fleet: "0.4.0", skins?: "0.4.0" },
+  versions: { core: "0.4.0 (a1b2c3d)", plugin_api: "1.1", plugins: { match: "0.4.0", fleet: "0.4.0", skins?: "0.4.0" },
               cs2_build: 14032, cs2_patch: "1.40.3.2" }
   capabilities: string[]                 // §14.2
   host: { hostname: string, game_port: number, tv_port?: number, public_addr?: string, status_port?: number }
@@ -481,6 +481,28 @@ welcome {
 If `hello.state.epoch` is lower than the platform's for that match, the platform follows up
 with `match.unassign {reason: "superseded"}` (§11.4). A second connection with the same
 `server_id` wins; the older one is closed with `4409`.
+
+#### Version strings
+
+`hello.versions.core` (also the enroll body's `versions.core` and `/status` `versions.core_build`)
+is the core's build string: the SemVer version, one space, and the short git commit in
+parentheses. Pre-releases keep their suffix before the space:
+
+| Build | `versions.core` | `versions.plugins.*`, `/status` `versions.core` |
+|---|---|---|
+| stable tag `v0.1.0` | `0.1.0 (a1b2c3d)` | `0.1.0` |
+| beta tag `v0.1.0-beta.1` | `0.1.0-beta.1 (a1b2c3d)` | `0.1.0-beta.1` |
+| release candidate `v0.1.0-rc.1` | `0.1.0-rc.1 (a1b2c3d)` | `0.1.0-rc.1` |
+| not from a tag (PR / master CI, local) | `<VERSION file> (<commit>)`, e.g. `0.1.0 (a1b2c3d)` | `0.1.0` |
+| no git available at build time | `0.1.0 (unknown)` | `0.1.0` |
+
+Parse it with `^(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?) \(([0-9a-f]{7,40}|unknown)\)$`: group 1 is
+SemVer 2.0.0 (compare with SemVer precedence, so `0.1.0-beta.1 < 0.1.0-rc.1 < 0.1.0`), group 2 the
+commit. Plugin versions (`versions.plugins.<name>`) are the bare SemVer. Releases only use the
+suffixes `-beta.N` and `-rc.N` ([RELEASING.md](RELEASING.md)); treat any other suffix as a
+pre-release too. CMake refuses a `VERSION` that is not SemVer, and the whole string stays well
+under the schema's 64 characters. An update check should compare against GitHub's
+`releases/latest`, which never returns a pre-release, unless the operator opted into betas.
 
 ### 6.2 Heartbeat
 

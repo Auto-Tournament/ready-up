@@ -134,6 +134,12 @@ if (NOT READYUP_GIT_SHA)
   set(READYUP_GIT_SHA "unknown")
 endif()
 
+# "<semver> (<sha>)", e.g. "0.1.0 (a1b2c3d)" or "0.1.0-beta.1 (a1b2c3d)": what `ru version`, the
+# crash log and hello.versions.core (docs/FLEET.md "Version strings") report. The platform parses
+# it, so VERSION must stay SemVer: X.Y.Z with an optional -pre-release suffix (release.sh).
+if (NOT READYUP_SEMVER MATCHES "^(unknown|[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?)$")
+  message(FATAL_ERROR "VERSION must be X.Y.Z or X.Y.Z-<pre-release> (got \"${READYUP_SEMVER}\")")
+endif()
 set(READYUP_BUILD_VERSION "${READYUP_SEMVER} (${READYUP_GIT_SHA})")
 
 # License coverage is by version line (core/src/readyup/license.h): the release date of this

@@ -17,6 +17,7 @@ namespace readyup::license {
 namespace {
 
 constexpr const char* kCfgFile = "readyup_license.cfg";
+constexpr const char* kAcceptCfgFile = "ReadyUp/license.cfg";  // install.sh writes it
 
 struct State {
   std::mutex mu;
@@ -24,6 +25,9 @@ struct State {
   bool show = false;                      // readyup_show_license
   std::string lastLogged;                 // key whose status line was printed last
   bool noKeyLogged = false;
+  std::optional<std::string> consoleAccepted;    // last readyup_license_accepted value seen
+  std::optional<std::string> consoleAcceptedAt;  // last readyup_license_accepted_at value seen
+  bool notAcceptedLogged = false;
   bool frameDone = false;
   std::optional<std::chrono::steady_clock::time_point> firstFrame;
 };
@@ -64,26 +68,70 @@ bool ParseSetting(const std::string& rawLine, const char* name, bool* hasValue, 
   return true;
 }
 
-std::string CfgFilePath() {
+std::string CfgFilePath(const char* file = kCfgFile) {
   const std::string csgo = GetCsgoDirFromModuleDir();
-  return csgo.empty() ? std::string() : csgo + "/cfg/" + kCfgFile;
+  return csgo.empty() ? std::string() : csgo + "/cfg/" + file;
 }
 
-// The readyup_license_key line of csgo/cfg/readyup_license.cfg, or "".
-std::string KeyFromCfgFile() {
-  const std::string path = CfgFilePath();
+// The value of the last `name` line of a cfg file (like exec: last one wins), or "".
+std::string SettingFromFile(const std::string& path, const char* name) {
   if (path.empty()) return {};
   std::ifstream f(path);
   if (!f.good()) return {};
-  std::string line, key;
+  std::string line, found;
   size_t read = 0;
   while (read < 64 * 1024 && std::getline(f, line)) {
     read += line.size() + 1;
     bool hasValue = false;
     std::string v;
-    if (ParseSetting(line, kKeySetting, &hasValue, &v) && hasValue) key = v;  // last one wins, like exec
+    if (ParseSetting(line, name, &hasValue, &v) && hasValue) found = v;
   }
-  return key;
+  return found;
+}
+
+// The readyup_license_key line of csgo/cfg/readyup_license.cfg, or "".
+std::string KeyFromCfgFile() { return SettingFromFile(CfgFilePath(), kKeySetting); }
+
+std::string Lower(std::string v) {
+  for (char& c : v) {
+    if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+  }
+  return v;
+}
+
+struct Acceptance {
+  std::string use;     // "noncommercial" / "commercial"; empty = no (valid) answer
+  std::string at;      // readyup_license_accepted_at, may be empty
+  std::string origin;  // where it came from
+};
+
+// The console setting (any cfg the server ran) wins; else cfg/ReadyUp/license.cfg (install.sh),
+// else cfg/readyup_license.cfg.
+Acceptance FindAcceptanceLocked(State& s) {
+  Acceptance a;
+  if (s.consoleAccepted) {
+    a.use = Lower(*s.consoleAccepted);
+    a.at = s.consoleAcceptedAt.value_or("");
+    a.origin = kAcceptedSetting;
+  } else {
+    for (const char* file : {kAcceptCfgFile, kCfgFile}) {
+      const std::string path = CfgFilePath(file);
+      const std::string use = SettingFromFile(path, kAcceptedSetting);
+      if (use.empty()) continue;
+      a.use = Lower(use);
+      a.at = SettingFromFile(path, kAcceptedAtSetting);
+      a.origin = path;
+      break;
+    }
+  }
+  if (a.use != "noncommercial" && a.use != "commercial") a.use.clear();
+  return a;
+}
+
+std::string AcceptanceLine(const Acceptance& a) {
+  if (a.use.empty()) return kNotAcceptedLine;
+  return "License terms accepted for " + a.use + " use" + (a.at.empty() ? "" : " on " + Printable(a.at, 40)) +
+         " (" + a.origin + ")";
 }
 
 struct KeySource {
@@ -143,6 +191,16 @@ void LicenseFrame() {
     s.noKeyLogged = true;
     PrintLine(kNoKeyLine);
   }
+  if (FindAcceptanceLocked(s).use.empty() && !s.notAcceptedLogged) {
+    s.notAcceptedLogged = true;
+    PrintLine(kNotAcceptedLine);
+  }
+}
+
+std::string AcceptedUse() {
+  State& s = S();
+  std::lock_guard<std::mutex> lk(s.mu);
+  return FindAcceptanceLocked(s).use;
 }
 
 bool HandleConsoleLine(const std::string& line) {
@@ -173,6 +231,24 @@ bool HandleConsoleLine(const std::string& line) {
     LogKeyLocked(s, value, /*force=*/false);
     return true;
   }
+  if (ParseSetting(line, kAcceptedSetting, &hasValue, &value)) {
+    std::lock_guard<std::mutex> lk(s.mu);
+    if (hasValue) {
+      s.consoleAccepted = value;
+    } else {
+      PrintLine(AcceptanceLine(FindAcceptanceLocked(s)).c_str());
+    }
+    return true;
+  }
+  if (ParseSetting(line, kAcceptedAtSetting, &hasValue, &value)) {
+    std::lock_guard<std::mutex> lk(s.mu);
+    if (hasValue) {
+      s.consoleAcceptedAt = value;
+    } else {
+      PrintLine(AcceptanceLine(FindAcceptanceLocked(s)).c_str());
+    }
+    return true;
+  }
   if (ParseSetting(line, kShowSetting, &hasValue, &value)) {
     std::lock_guard<std::mutex> lk(s.mu);
     if (hasValue) {
@@ -192,9 +268,10 @@ std::vector<std::string> StatusLines() {
   std::lock_guard<std::mutex> lk(s.mu);
   const KeySource src = FindKeyLocked(s);
   const std::string line = std::string("this build's version line: ") + (*LineDate() ? LineDate() : "unknown");
+  const std::string terms = AcceptanceLine(FindAcceptanceLocked(s));
   if (src.key.empty()) {
     return {kNoKeyLine, std::string("Commercial use: ") + kKeySetting + " \"ATL1...\" in server.cfg (or `csm license set`)",
-            line};
+            line, terms};
   }
   const Result r = Check(src.key);
   std::vector<std::string> out = {ConsoleLine(r), "key from " + src.origin + "; " + line};
@@ -207,6 +284,7 @@ std::vector<std::string> StatusLines() {
   } else {
     out.push_back("players see \"" + player + "\" in .help and .ru version (" + kShowSetting + " 1)");
   }
+  out.push_back(terms);
   return out;
 }
 

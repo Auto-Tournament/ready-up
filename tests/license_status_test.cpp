@@ -1,6 +1,7 @@
 // Offline tests for core/src/readyup/license_status.h: the `readyup_license_key` /
 // `readyup_show_license` console settings, the csgo/cfg/readyup_license.cfg fallback that CS2
-// Server Manager writes, and that nothing printed contains the key. ctest `license_status`.
+// Server Manager writes, the license answer install.sh records (readyup_license_accepted in
+// csgo/cfg/ReadyUp/license.cfg), and that nothing printed contains the key. ctest `license_status`.
 #include "readyup/license.h"
 #include "readyup/license_status.h"
 
@@ -43,6 +44,11 @@ static int g_failures = 0;
   } while (0)
 
 static bool Has(const std::string& s, const std::string& n) { return s.find(n) != std::string::npos; }
+// The line about what players see (the last line is the license-terms answer).
+static std::string PlayersLine() {
+  const auto l = license::StatusLines();
+  return l.size() >= 2 ? l[l.size() - 2] : std::string();
+}
 static bool LogHas(const std::string& n) {
   for (const auto& l : g_log) {
     if (Has(l, n)) return true;
@@ -71,6 +77,10 @@ int main() {
   CHECK(g_log.empty());
   CHECK(license::StatusLines().front() == license::kNoKeyLine);
   CHECK(license::PlayerLineIfShown().empty());
+  // No license answer recorded: a notice in `ru license`, never anything else.
+  CHECK(license::AcceptedUse().empty());
+  CHECK(license::StatusLines().back() == license::kNotAcceptedLine);
+  CHECK(Has(license::kNotAcceptedLine, "run the installer") && Has(license::kNotAcceptedLine, "readyup_license_accepted"));
 
   // Other commands are not ours.
   CHECK(!license::HandleConsoleLine("sv_cheats 1"));
@@ -109,9 +119,9 @@ int main() {
   // Players: nothing by default, and nothing for a key that does not verify.
   CHECK(license::HandleConsoleLine("readyup_show_license 1"));
   CHECK(license::PlayerLineIfShown().empty());
-  CHECK(Has(license::StatusLines().back(), "no licensee"));
+  CHECK(Has(PlayersLine(), "no licensee"));
   CHECK(license::HandleConsoleLine("readyup_show_license \"0\""));
-  CHECK(Has(license::StatusLines().back(), "players see nothing"));
+  CHECK(Has(PlayersLine(), "players see nothing"));
 
   // Cleared on the console: no key, even with the file still there.
   CHECK(license::HandleConsoleLine("readyup_license_key \"\""));
@@ -124,12 +134,38 @@ int main() {
   license::LogOnReload();
   CHECK(g_log.size() == before + 2);
 
+  // The installer's answer: cfg/ReadyUp/license.cfg, read without the file being exec'd.
+  mkdir((g_csgoDir + "/cfg/ReadyUp").c_str(), 0700);
+  {
+    std::ofstream f(g_csgoDir + "/cfg/ReadyUp/license.cfg");
+    f << "// Written by the Ready Up installer\n"
+      << "readyup_license_accepted \"noncommercial\"\n"
+      << "readyup_license_accepted_at \"2026-09-29T10:00:00Z\"\n";
+  }
+  CHECK(license::AcceptedUse() == "noncommercial");
+  CHECK(Has(license::StatusLines().back(), "accepted for noncommercial use on 2026-09-29T10:00:00Z"));
+  CHECK(Has(license::StatusLines().back(), "ReadyUp/license.cfg"));
+  // The same settings from a cfg / the console win; any case; an unknown answer counts as none.
+  CHECK(!license::HandleConsoleLine("readyup_license_acceptedx 1"));
+  CHECK(license::HandleConsoleLine("readyup_license_accepted \"Commercial\""));
+  CHECK(license::HandleConsoleLine("readyup_license_accepted_at \"2026-10-01\""));
+  CHECK(license::AcceptedUse() == "commercial");
+  CHECK(Has(license::StatusLines().back(), "commercial use on 2026-10-01 (readyup_license_accepted)"));
+  const size_t n = g_log.size();
+  CHECK(license::HandleConsoleLine("readyup_license_accepted"));  // bare: the state
+  CHECK(g_log.size() == n + 1 && Has(g_log.back(), "accepted for commercial use"));
+  CHECK(license::HandleConsoleLine("readyup_license_accepted maybe"));
+  CHECK(license::AcceptedUse().empty());
+  CHECK(license::StatusLines().back() == license::kNotAcceptedLine);
+
   // The key never reaches the log.
   for (const auto& l : g_log) {
     CHECK(!Has(l, kFileKey.substr(5, 40)) && !Has(l, kConsoleKey.substr(5, 40)));
   }
 
   std::remove((g_csgoDir + "/cfg/readyup_license.cfg").c_str());
+  std::remove((g_csgoDir + "/cfg/ReadyUp/license.cfg").c_str());
+  rmdir((g_csgoDir + "/cfg/ReadyUp").c_str());
   rmdir((g_csgoDir + "/cfg").c_str());
   rmdir(g_csgoDir.c_str());
   std::printf("license_status_test: %s\n", g_failures ? "FAIL" : "PASS");

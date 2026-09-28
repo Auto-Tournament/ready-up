@@ -19,6 +19,20 @@ namespace readyup::license {
 constexpr const char* kKeySetting = "readyup_license_key";
 constexpr const char* kShowSetting = "readyup_show_license";
 
+// The license answer install.sh records (docs/INSTALL.md "License"): `readyup_license_accepted
+// "noncommercial"|"commercial"` and `readyup_license_accepted_at "<ISO time>"` in
+// csgo/cfg/ReadyUp/license.cfg (read at load; the same settings also work from any cfg or the
+// console). Without an answer the core prints kNotAcceptedLine once and in `ru license`. Warning
+// only: nothing is blocked or limited.
+constexpr const char* kAcceptedSetting = "readyup_license_accepted";
+constexpr const char* kAcceptedAtSetting = "readyup_license_accepted_at";
+constexpr const char* kNotAcceptedLine =
+    "License terms not accepted: run the installer or set readyup_license_accepted "
+    "\"noncommercial\" (or \"commercial\" with a paid license). Nothing is limited.";
+
+// "noncommercial" / "commercial" when an answer is recorded, else "".
+std::string AcceptedUse();
+
 // Release date of this build's x.y.0 (CMake READYUP_LINE_DATE; local builds: the build date).
 const char* LineDate();
 
@@ -30,10 +44,11 @@ void LogAtLoad();
 void LogOnReload();
 
 // Every simulating frame (cheap). About 10 s into the first map, with no key seen anywhere:
-// the free-use line, once per process.
+// the free-use line, once per process; with no license answer recorded: kNotAcceptedLine, once.
 void LicenseFrame();
 
-// A console line (AddText). `readyup_license_key ["<key>"]` / `readyup_show_license [0|1]`:
+// A console line (AddText). `readyup_license_key ["<key>"]` / `readyup_show_license [0|1]` /
+// `readyup_license_accepted [...]` / `readyup_license_accepted_at [...]`:
 // applies it (a changed key logs its status line; never the key itself) and returns true so the
 // engine does not see an unknown command. Without a value it prints the current state. Any
 // other line: false.

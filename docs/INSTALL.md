@@ -22,19 +22,67 @@ From the server root (the folder with `game/`), as the server's user:
 curl -fsSL https://raw.githubusercontent.com/Auto-Tournament/ready-up/master/install.sh | bash
 ```
 
-It asks once whether you use Ready Up noncommercially (accept the PolyForm Noncommercial
-license by typing `yes`) or commercially (needs a paid license; see the
-[README](../README.md#commercial-use)), and saves the answer and a UTC timestamp in
-`game/csgo/readyup/license-acceptance.json`. Unattended runs pass
-`--accept-license=noncommercial|commercial` instead; without it (and no saved choice) they stop
-before changing anything. Removing components and uninstalling never ask.
-
 See the [README](../README.md#install) for the checklist, the non-interactive forms
 (`essentials`, `full`, `--yes`, `--remove`, `--uninstall [--purge]`, `--zip`, `--version`,
-`--dir`, `--accept-license`) and what it touches. It records what is installed in
+`--channel`, `--dir`, `--accept-license`, `--license-key`) and what it touches. It records what is installed in
 `game/csgo/readyup/installed.json` (component -> version) and each component's file list in
 `game/csgo/readyup/manifests/<component>.json`, which is how updates remove files a newer
 version no longer ships and how unticking a component removes it.
+
+### License
+
+Before it installs anything, the installer asks once:
+
+1. **How will you use Ready Up?** `1` personal / non-commercial (free, PolyForm Noncommercial
+   1.0.0) or `2` commercial (needs a paid license, see the [README](../README.md#commercial-use)).
+   With `2` you can paste your license key (`ATL1...`) now or press enter to add it later.
+2. **A short summary of the terms**, with links to the license text and pricing. Type
+   `I AGREE` (any case) to continue; anything else stops without installing.
+
+The answer is saved in `game/csgo/cfg/ReadyUp/license.cfg`:
+
+```
+readyup_license_accepted "noncommercial"        // or "commercial"
+readyup_license_accepted_at "2026-09-29T10:00:00Z"
+```
+
+and a pasted key in `game/csgo/cfg/readyup_license.cfg` as `readyup_license_key "ATL1..."` (the
+file `csm license set` writes; the core reads both files at startup). Updates don't ask again.
+An answer saved by an older installer (`readyup/license-acceptance.json`) still counts and moves to
+`license.cfg` on the next run.
+
+Unattended installs (CI, csm, containers, `--yes`, a bundle/component name, no terminal) pass the
+answer as flags; without them (and no saved answer) they stop before changing anything:
+
+```bash
+bash install.sh essentials --accept-license=noncommercial
+bash install.sh essentials --accept-license=commercial --license-key ATL1...   # key optional
+```
+
+`--license-key` on its own also replaces the key on a server that already has an answer.
+Removing components and uninstalling never ask.
+
+Without a recorded answer the server prints `License terms not accepted: run the installer or set
+readyup_license_accepted ...` once at startup and in `ru license`. That is a notice only: nothing
+is ever blocked or limited. Servers installed by hand can set the two lines above in
+`cfg/ReadyUp/license.cfg` (or any cfg the server runs).
+
+### Beta channel (pre-releases)
+
+Pre-releases (`vX.Y.Z-beta.N`, `vX.Y.Z-rc.N`) are published on GitHub as pre-releases, never as
+"latest". The installer's default is the latest **stable** release; pre-releases are opt-in:
+
+```bash
+curl -fsSL .../install.sh | bash -s -- --channel beta           # the newest release, pre-releases included
+curl -fsSL .../install.sh | bash -s -- --version v0.1.0-beta.1  # exactly that release (the v is optional)
+```
+
+`--channel stable` is the default. `--channel` and `--version` don't go together. Updates follow
+the flags of each run: `bash install.sh --yes` goes back to the latest stable release, so testers
+keep passing `--channel beta`. While there is no stable release at all, a run without either flag
+stops with a message naming `--channel beta` and the newest pre-release for `--version` (it does
+not fall back to a pre-release on its own). The platform's update check reads GitHub's
+`releases/latest`, so it never offers a pre-release either.
 
 ## Install from a release zip by hand
 

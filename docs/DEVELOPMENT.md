@@ -41,8 +41,9 @@ on the test box.
 - `.github/workflows/build.yml` (push to master/dev/*, PRs, tags `v*`): sniper build, unit
   tests, then `readyup_sigcheck` + `readyup_hookcheck` against the **current public CS2
   build** (fetched as below, cached per buildid). Uploads the zip + tools as an artifact.
-  Tags `v*` (must match `VERSION`) publish the GitHub release; `./release.sh` just bumps,
-  tags and pushes.
+  Tags `v*` (must match `VERSION`) publish the GitHub release: `vX.Y.Z` as latest,
+  `vX.Y.Z-beta.N` / `vX.Y.Z-rc.N` as a pre-release. `./release.sh` just bumps, tags and pushes
+  (`--dry-run` shows what it would do); see [RELEASING.md](RELEASING.md).
 - `.github/workflows/cs2-update-watch.yml` (every 15 min): polls CS2's public buildid via
   api.steamcmd.net; on a new build (or a changed engine surface) it downloads only
   `libserver.so`, `libengine2.so`, `libtier0.so`, `libschemasystem.so` (depot 2347773) and
