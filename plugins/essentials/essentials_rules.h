@@ -45,6 +45,17 @@ std::string MapArgToEntry(const std::string& arg);
 // or a live map) unless the admin adds `force`.
 bool MapCommandBlocked(const std::string& ruMode);
 
+// What `.ru map change <name>` meant, given the maps the server has ("de_mirage", ...):
+//  1. an exact name; 2. a standard prefix added ("mirage" -> de_mirage, also cs_ ar_ dz_ ...);
+//  3. one map containing it ("dust" -> de_dust2); 4. the closest name by edit distance (typos)
+// when clearly the best. Case-insensitive. `ambiguous` holds the best few when it can't decide;
+// `name` is empty then (and when nothing is close).
+struct MapMatch {
+  std::string name;
+  std::vector<std::string> ambiguous;
+};
+MapMatch ResolveMapName(const std::string& query, const std::vector<std::string>& maps);
+
 // ---- default maps per mode (default_maps.json, readyup.essentials.v1 default_map) ----------------
 //
 // {"version": 1, "maps": {"ffa": "aim_map", "tdm": "de_dust2", "practice": "workshop/3084291314"}}
