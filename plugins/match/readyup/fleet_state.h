@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace readyup::fleetstate {
@@ -102,8 +103,37 @@ unsigned long long NumericMatchId(const std::string& matchId);
 // {name, tag, players{steamid64: name}, captain_steamid64}, spectators, admins, maxRounds,
 // overtimeMode / overtimeSegments / maxOvertimes, damageTiebreak*, knifeDecisionSeconds,
 // clinch_series and cvars (engine cvars only: mp_*, sv_*, tv_*, bot_*; never sv_password, which
-// the link sets itself, or ru_*; dropped names go to *dropped). slug = match_id.
+// the link sets itself, or ru_*; dropped names go to *dropped), demo_record / demo_upload
+// (rules.demo.record / .upload; absent = the server's demo settings). slug = match_id.
 Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vector<std::string>* dropped);
+
+// ---------------------------------------------------------------------------- server.config
+
+// server.config {rev, settings} (FLEET.md §7.5) -> what the match plugin sets. fleet.so reads
+// settings.offline_pause_minutes and settings.status_http.token itself (fleet_plugin.cpp).
+//
+//   settings field                          -> Ready Up
+//   hostname_format                         server setting hostname_format
+//   scrim_knife                             server setting knife_enabled_default
+//   scrim_when_idle                         server setting scrim_when_idle
+//   chat_prefix / admin_chat_prefix         server settings chat_prefix / admin_chat_prefix
+//   series_end_kick_delay.{no_demo, demo_no_upload, demo_upload}
+//                                           ru_series_end_kick_delay_* (match_settings::Set)
+//   demo.path / demo.name_format            ru_demo_path / ru_demo_name_format
+//   warmup.message_html / respawn / money   ru_warmup_message_html / ru_warmup_respawn /
+//                                           ru_warmup_startmoney
+//
+// Demos of platform matches are streamed over the link (FLEET.md §12.2), so server.config has
+// no upload target. A field that is absent leaves its setting alone; a field of the wrong type is
+// skipped and named in `skipped`.
+struct ServerConfigPlan {
+  // Server settings (server_settings.h) and ru_series_end_kick_delay_*: match_settings::Set.
+  std::vector<std::pair<std::string, std::string>> settings;
+  // Console settings (persisted_settings.h ApplyConsoleSetting): {"ru_demo_path", "ReadyUp/"}.
+  std::vector<std::pair<std::string, std::string>> console;
+  std::vector<std::string> skipped;
+};
+ServerConfigPlan PlanServerConfig(const Json& settings);
 
 // Applies match.update ops (§7.3) to the stored assign config. False + *err on a bad op (the
 // config is then unchanged). *passwordChanged when a set_password op ran.

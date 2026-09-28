@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 
@@ -70,6 +71,10 @@ class StatusServer {
   bool Start(std::string* err);
   void Stop();
   bool Running() const { return running_.load(); }
+  // Replaces the token (any thread; requests after the call check the new one). The caller
+  // validates it (>= 16 bytes for a non-loopback bind).
+  void SetToken(const std::string& token);
+  std::string Token() const;
   int BoundPort() const { return boundPort_; }
 
   struct Counters {
@@ -89,6 +94,7 @@ class StatusServer {
   void Run();
 
   ServerConfig cfg_;
+  mutable std::mutex tokenMu_;  // guards cfg_.token after Start
   std::shared_ptr<Hub> hub_;
   std::unique_ptr<Impl> impl_;
   std::thread thread_;

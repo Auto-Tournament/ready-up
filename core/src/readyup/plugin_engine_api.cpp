@@ -8,6 +8,7 @@
 #include "readyup/admin_check.h"
 #include "readyup/center_html.h"
 #include "readyup/center_panel_owner.h"
+#include "readyup/config.h"
 #include "readyup/features.h"
 #include "readyup/license_status.h"
 #include "readyup/plugin_loader.h"
@@ -16,6 +17,7 @@
 #include "readyup/sdk/igameevents.h"
 #include "readyup/entity.h"
 #include "readyup/slot_registry.h"
+#include "readyup/status_feed.h"
 
 #include "readyup/plugin_api.h"
 #include "readyup/plugin_hooks.h"
@@ -318,6 +320,17 @@ int ApiLicensePlayerLine(ru_plugin* self, char* buf, uint32_t len) {
   return static_cast<int>(line.size());
 }
 
+// ---- v1.10 --------------------------------------------------------------------------
+
+int ApiSetCoreSetting(ru_plugin* self, const char* key, const char* value) {
+  if (!CheckGameThread(self, "set_core_setting") || !key) return 0;
+  const std::string k = key;
+  const std::string v = value ? value : "";
+  if (k == "chat_prefix") return SetChatPrefixOverride(v) ? 1 : 0;
+  if (k == "status_http_token") return status_feed::SetTokenOverride(v) ? 1 : 0;
+  return 0;
+}
+
 }  // namespace
 
 void detail::FillEngineApi(ru_api* a) {
@@ -358,6 +371,7 @@ void detail::FillEngineApi(ru_api* a) {
   a->hook_function = &ApiHookFunction;
   a->hook_vtable = &ApiHookVtable;
   a->license_player_line = &ApiLicensePlayerLine;                 // v1.9
+  a->set_core_setting = &ApiSetCoreSetting;                       // v1.10
 }
 
 }  // namespace readyup::plugins

@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 9
+#define READYUP_PLUGIN_API_VERSION_MINOR 10
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -594,7 +594,21 @@ typedef struct ru_api {
    * key). Informational only: the core never blocks anything over a license. Any thread. */
   int (*license_player_line)(ru_plugin* self, char* buf, uint32_t len);
 
-  /* v1.10+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.10 ===========================================================
+   * Appended in 1.10. Require 1.10 in ru_plugin_info.api_version, or check RU_API_HAS().
+   */
+  /*
+   * Runtime value of a core readyup.cfg setting, for settings a platform pushes (docs/FLEET.md
+   * §7.5 server.config). It wins over readyup.cfg until it is cleared (value NULL or ""), and is
+   * not saved by the core: the plugin that sets it restores it after a restart. Keys:
+   *   "chat_prefix"        the chat prefix, with <Color> tokens like readyup.cfg (max 64 bytes)
+   *   "status_http_token"  the local status endpoint's token (FLEET.md §17): 16..200 printable
+   *                        bytes, no spaces or quotes; status.json is rewritten with it
+   * Game thread. 1 = applied, 0 = unknown key or invalid value. Never logs the value.
+   */
+  int (*set_core_setting)(ru_plugin* self, const char* key, const char* value);
+
+  /* v1.11+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

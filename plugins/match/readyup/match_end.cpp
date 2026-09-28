@@ -156,7 +156,10 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
   int kNo = 0, kNoUp = 0, kUp = 0;
   GetSeriesEndKickDelays(&kNo, &kNoUp, &kUp);
   const bool recording = demo::IsRecording();
-  const bool hasUpload = !demo::Get().uploadUrl.empty();
+  const auto uploadCtx = WebhookGetMatchContext();
+  // Uploaded over HTTP, or streamed to the platform over the fleet link (FLEET.md §12.2).
+  const bool hasUpload = demo::CurrentRecordingStreamed() ||
+                         demo::UploadWanted(demo::Get(), uploadCtx ? uploadCtx->demo_upload : -1);
   const int tvDelay = demo::TvDelaySeconds();
   const MapEndPlan plan = ComputeMapEndPlan(recording, hasUpload, tvDelay, kNo, kNoUp, kUp);
   const unsigned gen = g_generation.load();

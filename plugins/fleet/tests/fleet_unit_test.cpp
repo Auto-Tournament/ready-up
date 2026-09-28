@@ -369,6 +369,57 @@ TEST(TestCredentialsFile) {
   RmRf(dir);
 }
 
+// server.config fields fleet.so applies itself (offline timer, status token), and their file.
+TEST(TestServerConfigLocal) {
+  ServerConfigLocal c;
+  std::string ignored;
+  CHECK(ParseServerConfigLocal(
+      R"({"rev":3,"settings":{"offline_pause_minutes":5,"status_http":{"token":"platform_token_0123456789"},"chat_prefix":"x"}})",
+      &c, &ignored));
+  CHECK_EQ(c.offlinePauseMinutes, 5);
+  CHECK_EQ(c.statusToken, std::string("platform_token_0123456789"));
+  CHECK(ignored.empty());
+  // Absent = not set (readyup.cfg applies again).
+  CHECK(ParseServerConfigLocal(R"({"rev":4,"settings":{}})", &c, &ignored));
+  CHECK_EQ(c.offlinePauseMinutes, -1);
+  CHECK(c.statusToken.empty());
+  CHECK(ParseServerConfigLocal(R"({"rev":4,"settings":{"offline_pause_minutes":0}})", &c, &ignored));
+  CHECK_EQ(c.offlinePauseMinutes, 0);  // 0 = timer off, a real value
+  // Out of range / wrong type / a token the core would refuse: left unset, named.
+  CHECK(ParseServerConfigLocal(
+      R"({"rev":5,"settings":{"offline_pause_minutes":-1,"status_http":{"token":"short"}}})", &c, &ignored));
+  CHECK_EQ(c.offlinePauseMinutes, -1);
+  CHECK(c.statusToken.empty());
+  CHECK(ignored.find("offline_pause_minutes") != std::string::npos && ignored.find("status_http.token") != std::string::npos);
+  CHECK(ParseServerConfigLocal(R"({"settings":{"offline_pause_minutes":"3","status_http":{"token":"has space 0123456789"}}})",
+                               &c, &ignored));
+  CHECK_EQ(c.offlinePauseMinutes, -1);
+  CHECK(c.statusToken.empty());
+  CHECK(!ParseServerConfigLocal(R"({"rev":1})", &c, &ignored));
+  CHECK(!ParseServerConfigLocal("not json", &c, &ignored));
+
+  // The file: 0600, round trip, absent fields stay absent.
+  const std::string dir = TempDir();
+  std::string err;
+  ServerConfigLocal w;
+  w.offlinePauseMinutes = 7;
+  w.statusToken = "platform_token_0123456789";
+  CHECK(SaveServerConfigLocal(dir + "/server-config.json", w, &err));
+  struct stat st {};
+  stat((dir + "/server-config.json").c_str(), &st);
+  CHECK_EQ(static_cast<int>(st.st_mode & 0777), 0600);
+  ServerConfigLocal r;
+  CHECK(LoadServerConfigLocal(dir + "/server-config.json", &r));
+  CHECK_EQ(r.offlinePauseMinutes, 7);
+  CHECK_EQ(r.statusToken, w.statusToken);
+  CHECK(SaveServerConfigLocal(dir + "/server-config.json", ServerConfigLocal{}, &err));
+  CHECK(LoadServerConfigLocal(dir + "/server-config.json", &r));
+  CHECK_EQ(r.offlinePauseMinutes, -1);
+  CHECK(r.statusToken.empty());
+  CHECK(!LoadServerConfigLocal(dir + "/missing.json", &r));
+  RmRf(dir);
+}
+
 int main() {
   RUN(TestJsonRoundTrip);
   RUN(TestUlid);
@@ -382,5 +433,6 @@ int main() {
   RUN(TestSpoolPersistence);
   RUN(TestSpoolLimits);
   RUN(TestCredentialsFile);
+  RUN(TestServerConfigLocal);
   return ftest::Finish("fleet_unit_test");
 }

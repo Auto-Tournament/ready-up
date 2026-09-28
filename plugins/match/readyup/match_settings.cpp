@@ -4,6 +4,7 @@
 #include "readyup/engine.h"
 #include "readyup/esports.h"
 #include "readyup/fleet_bridge.h"
+#include "readyup/host.h"
 #include "readyup/local_store.h"
 #include "readyup/logging.h"
 #include "readyup/match_console.h"
@@ -176,6 +177,23 @@ void HostnameTick() {
   }
 }
 
+// chat_prefix: the core owns the chat prefix (readyup.cfg); a value set here (console, chat,
+// fleet server.config, match.cfg) is pushed to it with ru_api set_core_setting, "" hands it back.
+std::string g_pushedChatPrefix;
+bool g_chatPrefixPushed = false;
+
+void ChatPrefixTick() {
+  const std::string want = Global().Get("chat_prefix");
+  if (g_chatPrefixPushed && want == g_pushedChatPrefix) return;
+  const ru_api* a = host::Api();
+  if (!a || !RU_API_HAS(a, set_core_setting) || !a->set_core_setting) return;
+  g_chatPrefixPushed = true;
+  g_pushedChatPrefix = want;
+  if (!a->set_core_setting(a->self, "chat_prefix", want.c_str())) {
+    Print("settings: the core refused chat_prefix \"%s\"\n", want.c_str());
+  }
+}
+
 }  // namespace
 
 void Install() {
@@ -191,6 +209,8 @@ void Install() {
   g_autoReadied.clear();
   g_autoKey.clear();
   g_lastKick.clear();
+  g_chatPrefixPushed = false;
+  g_pushedChatPrefix.clear();
 }
 
 const std::vector<std::string>& ConsoleCommands() {
@@ -351,6 +371,7 @@ void Tick(double now) {
   AutoReadyTick();
   NoMatchKickTick(now);
   HostnameTick();
+  ChatPrefixTick();
 }
 
 }  // namespace readyup::match_settings
