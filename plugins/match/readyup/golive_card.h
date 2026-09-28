@@ -7,8 +7,11 @@
 //
 // Timing: the go-live mp_restartgame and CS2's "Match started" announcement wipe the center
 // panel, so the card starts welcome_round_delay_ms after the go-live round start (the same wait
-// as the welcome card, welcome.h), then is re-sent every second with a 2 s duration at
-// RU_HTML_PRIO_NOTICE. It stops early when the map stops being live or the live panel has
+// as the welcome card, welcome.h), then the same HTML is re-sent on the ready HUD's cadence
+// (hud_resend_ms / hud_duration_s, default every tick: the panel ignores the event's duration and
+// only stays steady when re-sent every frame) at RU_HTML_PRIO_NOTICE for golive_card_seconds.
+// It ends at the go-live round's freeze end at the latest (defaults: 5 s + 10 s inside live.cfg's
+// 18 s freeze time), and early when the map stops being live or the live panel has
 // something to show (a pause, a forfeit countdown: ready_hud.cpp takes over). With the card off
 // chat is as before (the "LIVE!" line only); when center HTML is unavailable one chat line lists
 // the commands instead.
@@ -22,7 +25,10 @@ void GoLiveCardArm(const char* reason, bool restartPending);
 // Thread-safe: a round (re)started (round_start). A card that has not started yet waits it out.
 void GoLiveCardObserveRoundStart();
 
-// GameFrame thread: sends / refreshes the card.
+// Thread-safe: the freeze time ended (round_freeze_end). A card of the go-live round ends.
+void GoLiveCardObserveFreezeEnd();
+
+// GameFrame thread: sends / refreshes the card. Debug logs every drop and per-player skip.
 void GoLiveCardTick();
 
 }  // namespace readyup

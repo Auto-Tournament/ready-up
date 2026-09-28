@@ -644,6 +644,7 @@ void OnGameEvent(void* /*user*/, const char* name, const ru_game_event* ev) {
   if (std::strcmp(name, "round_start") == 0 || std::strcmp(name, "round_freeze_end") == 0) {
     MatchFeaturesOnGameEvent(name);  // freeze time tracking for pauses (match_features.h)
     if (name[6] == 'f') {
+      GoLiveCardObserveFreezeEnd();  // the round is being played: the go-live card ends
       std::lock_guard<std::mutex> lk(g_pendingMu);
       g_freezeEndAt = host::NowSeconds();  // round_time of round_end
       return;

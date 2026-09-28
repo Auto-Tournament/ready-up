@@ -654,8 +654,9 @@ void ReadyHudTick() {
     }
     if (html.empty()) continue;
 
-    // Same HTML: resend once a second (2s duration) so the panel never lapses
-    // and its fade-in does not restart. Changed HTML: send right away.
+    // Same HTML: resend every hud_resend_ms (default 0 = every tick; CS2's center panel ignores
+    // the event's duration and only stays steady when re-sent every frame, docs/HUD.md).
+    // Changed HTML: send right away.
     auto& s = g_sent[slot];
     const bool changed = (s.html != html);
     if (s.html == html && (now - s.at) < std::chrono::milliseconds(Cfg().hud_resend_ms)) continue;

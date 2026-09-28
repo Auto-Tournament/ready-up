@@ -11,6 +11,7 @@ set(MATCH_SOURCES
   readyup/at_payloads.cpp
   readyup/backup_files.cpp
   readyup/card_html.cpp
+  readyup/golive_card_logic.cpp
   readyup/coach.cpp
   readyup/coach_rules.cpp
   readyup/config.cpp
@@ -203,10 +204,12 @@ target_include_directories(match_idle_refresh_test PRIVATE ${CMAKE_CURRENT_SOURC
 target_compile_options(match_idle_refresh_test PRIVATE -Wall -Wextra)
 add_test(NAME match_idle_refresh COMMAND match_idle_refresh_test)
 
-# Go-live card and `.admin` (readyup/card_html.h, readyup/admin_call_logic.h): card HTML, escaping,
+# Go-live card and `.admin` (readyup/card_html.h, readyup/admin_call_logic.h, readyup/golive_card_logic.h):
+# card HTML, escaping, the go-live card's send cadence and end,
 # the per-player cooldown, message cleanup, call id / timestamp, the `admin_called` payload
 # (ctest `match_live_cards`).
 add_executable(match_live_cards_test tests/live_cards_test.cpp readyup/card_html.cpp readyup/admin_call_logic.cpp
+  readyup/golive_card_logic.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp)
 target_include_directories(match_live_cards_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(match_live_cards_test PRIVATE -Wall -Wextra)

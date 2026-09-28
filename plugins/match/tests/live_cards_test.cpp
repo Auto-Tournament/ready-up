@@ -1,10 +1,13 @@
 // Offline tests for the go-live card and `.admin` (readyup/card_html.h, readyup/admin_call_logic.h):
-// the card HTML (escaping, size, which commands show), the admin card, the per-player cooldown,
+// the card HTML (escaping, size, which commands show), the go-live card's every-tick resend and
+// its end (golive_card_logic.h), the admin card, the per-player cooldown,
 // the message cleanup, the call id / timestamp and the `admin_called` payload.
 // ctest `match_live_cards`.
 #include "readyup/admin_call_logic.h"
 #include "readyup/card_html.h"
+#include "readyup/golive_card_logic.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <string>
 
@@ -68,6 +71,70 @@ static void TestGoLiveCard() {
   u.team2 = "B";
   const std::string hu = GoLiveCardHtml(u);
   CHECK(Has(hu, ">A</font>") && Has(hu, ">B</font>") && !Has(hu, "(CT)"));
+}
+
+// The go-live card re-sends every tick (hud_resend_ms=0) for all of golive_card_seconds: CS2's
+// center panel ignores the event's duration, so a slower cadence makes the card blink.
+static void TestGoLiveCardTiming() {
+  GoLiveCardStop why = GoLiveCardStop::None;
+  CHECK(GoLiveCardUntilMs(5000, 10) == 15000);  // the full 10 s, no "- 2"
+  CHECK(GoLiveCardUntilMs(5000, 0) == 5000);
+  CHECK(GoLiveCardUntilMs(5000, -3) == 5000);
+
+  GoLiveCardClock c;
+  c.startMs = 5000;
+  c.untilMs = GoLiveCardUntilMs(5000, 10);
+  // Before the start: wait (also while the go-live restart has not made the mode live yet).
+  CHECK(GoLiveCardDecide(c, 4999, true, false, 0, &why) == GoLiveCardAction::Wait);
+  CHECK(GoLiveCardDecide(c, 4000, false, false, 0, &why) == GoLiveCardAction::Wait);
+  // Every tick (64 Hz ~ 16 ms) from the start to the end sends.
+  int sends = 0;
+  int64_t last = -1;
+  for (int64_t t = 5000; t < 15000; t += 16) {
+    c.lastSendMs = last;
+    if (GoLiveCardDecide(c, t, true, false, 0, &why) == GoLiveCardAction::Send) {
+      ++sends;
+      last = t;
+    }
+  }
+  CHECK(sends == (15000 - 5000 + 15) / 16);
+  CHECK(last >= 15000 - 16);  // sent until the very end
+  // Even two sends in the same millisecond (two ticks) both go out with resend 0.
+  c.lastSendMs = 6000;
+  CHECK(GoLiveCardDecide(c, 6000, true, false, 0, &why) == GoLiveCardAction::Send);
+  // A configured hud_resend_ms is honoured.
+  CHECK(GoLiveCardDecide(c, 6100, true, false, 250, &why) == GoLiveCardAction::Wait);
+  CHECK(GoLiveCardDecide(c, 6250, true, false, 250, &why) == GoLiveCardAction::Send);
+  // The end.
+  c.lastSendMs = 14990;
+  why = GoLiveCardStop::None;
+  CHECK(GoLiveCardDecide(c, 15000, true, false, 0, &why) == GoLiveCardAction::Stop);
+  CHECK(why == GoLiveCardStop::TimeUp);
+
+  // Early ends, with the reason.
+  c.lastSendMs = 7000;
+  CHECK(GoLiveCardDecide(c, 7010, false, false, 0, &why) == GoLiveCardAction::Stop);
+  CHECK(why == GoLiveCardStop::NotLive);
+  CHECK(GoLiveCardDecide(c, 7010, true, true, 0, &why) == GoLiveCardAction::Stop);
+  CHECK(why == GoLiveCardStop::LivePanel);
+  CHECK(GoLiveCardDecide(c, 4000, true, true, 0, &why) == GoLiveCardAction::Stop);  // before the start too
+  CHECK(why == GoLiveCardStop::LivePanel);
+  // The freeze time ended (a short mp_freezetime): the card never covers the played round.
+  c.freezeEnded = true;
+  CHECK(GoLiveCardDecide(c, 7010, true, false, 0, &why) == GoLiveCardAction::Stop);
+  CHECK(why == GoLiveCardStop::FreezeEnd);
+  CHECK(GoLiveCardDecide(c, 4000, true, false, 0, &why) == GoLiveCardAction::Stop);
+  CHECK(why == GoLiveCardStop::FreezeEnd);
+  c.freezeEnded = false;
+  // golive_card_seconds=0: nothing is shown.
+  GoLiveCardClock off;
+  off.startMs = off.untilMs = GoLiveCardUntilMs(5000, 0);
+  CHECK(GoLiveCardDecide(off, 5000, true, false, 0, &why) == GoLiveCardAction::Stop);
+  CHECK(why == GoLiveCardStop::TimeUp);
+  for (GoLiveCardStop s : {GoLiveCardStop::None, GoLiveCardStop::NotLive, GoLiveCardStop::LivePanel,
+                           GoLiveCardStop::FreezeEnd, GoLiveCardStop::TimeUp}) {
+    CHECK(std::string(GoLiveCardStopName(s)) != "?");
+  }
 }
 
 static void TestAdminCard() {
@@ -163,6 +230,7 @@ static void TestPayload() {
 int main() {
   TestEscape();
   TestGoLiveCard();
+  TestGoLiveCardTiming();
   TestAdminCard();
   TestCooldown();
   TestMessage();
