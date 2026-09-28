@@ -114,7 +114,9 @@ match plugin loads after a server restart:
   `ru_warmup_maxmoney`, `ru_warmup_buy_anywhere`, `ru_warmup_infinite_ammo`
 - `ru_demo_recording_enabled`, `ru_demo_path`, `ru_demo_name_format`, `ru_demo_upload_url`,
   `ru_demo_upload_method`, `ru_demo_upload_attempts`, and the headers from
-  `ru_demo_upload_header` (saved together as one key, `ru_demo_upload_headers`)
+  `ru_demo_upload_header` (saved together as one key, `ru_demo_upload_headers`), and
+  `ru_demo_upload_header_key` / `ru_demo_upload_header_value` (the platform's token header; the
+  `get5_demo_upload_header_key` / `_value` aliases are saved under these names)
 - `ru_series_end_kick_delay_no_demo`, `ru_series_end_kick_delay_demo_no_upload`,
   `ru_series_end_kick_delay_demo_upload`
 
@@ -438,11 +440,21 @@ If you run Auto Tournament, you typically don’t set these manually. MAT can pu
 - `match_paused` / `unpause_requested` / `match_unpaused`
 - `match_forfeit` (captain-only)
 - `admin_called` (`.admin [message]`, any player; also in scrims with `matchid: -1`, see docs/ADMINS.md)
+- `round_end` and `map_result` in the Auto Tournament shape: `winner: {side, team}`, `team1` /
+  `team2` objects (`id`, `name`, `series_score`, `score`, `score_ct`, `score_t`, `players[]`) with
+  every player's stats (kills, deaths, assists, flash assists, damage, utility damage, flashes,
+  1k–5k, 1v1–1v5 clutches, first kills/deaths, trades, KAST %, MVPs, score, ...), `round_time` in
+  ms since the freeze time ended. `map_result` carries the map's final stats.
+- `demo_recording_start` / `demo_recording_stop`, `demo_upload_start`, `demo_upload_success` /
+  `demo_upload_fail`, then `demo_upload_ended` (`success`): the platform frees the server once the
+  last demo upload ended. The upload itself (`ru_demo_upload_url`) carries the
+  `Auto-Tournament-FileName` / `-MatchId` / `-MapNumber` / `-RoundNumber` headers (and `Get5-*`), plus
+  `ru_demo_upload_header_key` / `_value` (the platform sends `X-Auto-Tournament-Token`).
 - Best-effort from server console logs:
   - `player_connect`
   - `player_disconnect`
   - `round_started`
-  - `round_end`
+  - `round_end` (kills / deaths only, when engine game events are not available)
   - `map_result` (on map load log lines)
   - `series_end` (when a different match is loaded)
 

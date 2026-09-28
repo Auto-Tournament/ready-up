@@ -326,13 +326,14 @@ target_include_directories(readyup_plugin_host_test PRIVATE ${CMAKE_SOURCE_DIR}/
 target_compile_options(readyup_plugin_host_test PRIVATE -Wall -Wextra)
 target_link_libraries(readyup_plugin_host_test PRIVATE dl)
 
-# Offline unit tests for the match stats model, map/series-end logic and demo naming
-# (engine-free sources only).
+# Offline unit tests for the match stats model, map/series-end logic, demo naming and upload
+# headers, and the AT webhook payloads (at_payloads.h) (engine-free sources only).
 add_executable(readyup_match_flow_test
   tests/match_flow_test.cpp
   plugins/match/readyup/match_stats.cpp
   plugins/match/readyup/match_end_logic.cpp
   plugins/match/readyup/demo_naming.cpp
+  plugins/match/readyup/at_payloads.cpp
   libs/readyup/minijson.cpp
   libs/readyup/status_snapshot.cpp
 )

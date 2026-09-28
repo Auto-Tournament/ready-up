@@ -102,6 +102,10 @@ const std::vector<ConsoleEntry>& Entries() {
       {"ru_demo_upload_method", [] { return demo::Get().uploadMethod; },
        [](const std::string& v) { (void)demo::SetUploadMethod(v); }},
       {"ru_demo_upload_headers", &HeadersGet, &HeadersSet},
+      {"ru_demo_upload_header_key", [] { return demo::Get().headerKey; },
+       [](const std::string& v) { (void)demo::SetUploadHeaderKey(v); }},
+      {"ru_demo_upload_header_value", [] { return demo::Get().headerValue; },
+       [](const std::string& v) { (void)demo::SetUploadHeaderValue(v); }},
       {"ru_demo_upload_attempts", [] { return std::to_string(demo::Get().uploadAttempts); },
        [](const std::string& v) { demo::SetUploadAttempts(PI(v)); }},
       {"ru_series_end_kick_delay_no_demo", [] { return std::to_string(Kick(0)); },
@@ -125,6 +129,8 @@ const ConsoleEntry* EntryForCommand(const std::string& cmd, size_t* index) {
   std::string key = cmd;
   if (cmd == "ru_demo_upload_header" || cmd == "ru_demo_upload_headers_clear") key = "ru_demo_upload_headers";
   else if (cmd == "ru_demo_upload_headers") return nullptr;  // not a command
+  else if (cmd == "get5_demo_upload_header_key") key = "ru_demo_upload_header_key";
+  else if (cmd == "get5_demo_upload_header_value") key = "ru_demo_upload_header_value";
   const auto& es = Entries();
   for (size_t i = 0; i < es.size(); ++i) {
     if (key == es[i].key) {

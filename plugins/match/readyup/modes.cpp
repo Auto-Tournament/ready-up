@@ -1437,6 +1437,12 @@ void ModesSetSeriesWins(int team1, int team2) {
   st.seriesWinsTeam2 = std::max(0, team2);
 }
 
+std::pair<int, int> ModesGetSeriesWins() {
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  return {st.seriesWinsTeam1, st.seriesWinsTeam2};
+}
+
 void SetRecoveryGate(bool enabled) {
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
@@ -1574,16 +1580,20 @@ namespace {
 static void FinishMapLocked(State& st, const WebhookMatchContext& ctx, int map_number, const std::string& map,
                             int team1_score, int team2_score, const char* winner, bool forfeit) {
   const WebhookMatchContext* ctxOpt = &ctx;
-  WebhookEmitMapResult(map_number,
-                       map.empty() ? "" : map.c_str(),
-                       std::max(0, team1_score),
-                       std::max(0, team2_score),
-                       winner);
-  st.mapResultEmittedForMapNumber = map_number;
-
   // Update series score (maps won). A drawn map counts as played.
   if (std::strcmp(winner, "team1") == 0) st.seriesWinsTeam1 += 1;
   else if (std::strcmp(winner, "team2") == 0) st.seriesWinsTeam2 += 1;
+
+  // map_result with the map's final player stats (the round that decided it is already closed in
+  // the stats model) and the series score after this map.
+  stats::MapStats mapStats;
+  {
+    std::lock_guard<std::recursive_mutex> slk(stats::Mutex());
+    mapStats = stats::Current().Snapshot();
+  }
+  WebhookEmitMapResult(map_number, map.empty() ? "" : map.c_str(), std::max(0, team1_score), std::max(0, team2_score),
+                       winner, mapStats, st.seriesWinsTeam1, st.seriesWinsTeam2);
+  st.mapResultEmittedForMapNumber = map_number;
 
   const int totalMaps =
       ctxOpt->num_maps > 0 ? ctxOpt->num_maps : static_cast<int>(ctxOpt->maplist.size());

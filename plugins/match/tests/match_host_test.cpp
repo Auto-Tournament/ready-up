@@ -623,10 +623,16 @@ int main(int argc, char** argv) {
   rp::TryDispatchConsole("ru_demo_path /rejected/");
   rp::TryDispatchConsole("ru_warmup_startmoney 20000");
   rp::TryDispatchConsole("ru_demo_upload_header \"X-Token\" \"abc\"");
+  // The platform's token header (AT at_demo_upload_header_key / _value; get5_* aliases).
+  rp::TryDispatchConsole("ru_demo_upload_header_key \"X-Auto-Tournament-Token\"");
+  rp::TryDispatchConsole("get5_demo_upload_header_value \"tok123\"");
+  rp::TryDispatchConsole("ru_demo_status");
   rp::TryDispatchConsole("ru_series_end_kick_delay_demo_upload 77");
   rp::TryDispatchConsole("ru_series_end_kick_delay_demo_upload default");
   rp::Frame(true);
   Check(Logged("ru_series_end_kick_delay_demo_upload: back to the default"), "`<setting> default` answered");
+  Check(Logged("ru_demo_upload_header_value: set") && !Logged("tok123"), "header value set, never printed");
+  Check(Logged("headers=[X-Token,X-Auto-Tournament-Token]"), "ru_demo_status lists the token header");
 
   std::puts("-- unload");
   ClearLog();
@@ -651,6 +657,9 @@ int main(int argc, char** argv) {
     Check(Has(st, "\"ru_warmup_startmoney\"") && Has(st, "\"ru_warmup_maxmoney\""),
           "state.json: startmoney + the maxmoney it raised");
     Check(Has(st, "X-Token: abc"), "state.json: upload headers");
+    Check(Has(st, "\"ru_demo_upload_header_key\"") && Has(st, "\"X-Auto-Tournament-Token\"") &&
+              Has(st, "\"ru_demo_upload_header_value\"") && Has(st, "\"tok123\""),
+          "state.json: the token header key / value (get5_ alias saved under the ru_ name)");
     Check(Has(st, "\"ru_series_end_kick_delay_no_demo\"") && !Has(st, "ru_series_end_kick_delay_demo_upload"),
           "state.json: kick delay saved; `default` removed the other");
     Check(!Has(st, "ru_warmup_respawn"), "state.json: settings left at their default are not stored");
