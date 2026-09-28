@@ -36,7 +36,9 @@ typedef struct ru_skins_v1 {
    * before it is networked, instead of the loadout skin (knives keep the loadout knife model). A weapon painted
    * after it was networked keeps its old wear on clients, which is why this exists. paint_kit 0
    * clears it; weapons already painted keep their look. Not kept across a skins.so reload: set it
-   * again (midas re-sends every 5 s). Returns 1 when stored. Appended; check RU_API_HAS. */
+   * again (midas re-sends every 5 s). paint_kit -1: the player's own loadout paint stays (a
+   * legacy one keeps the legacy mesh), only set_player_name_tag is added. Returns 1 when stored.
+   * Appended; check RU_API_HAS. */
   int (*set_player_paint)(uint64_t steamid64, int32_t paint_kit, float wear, int32_t seed);
   /* Swaps the weapons the live player in `slot` holds for new ones (removed now, given two ticks
    * later with their ammo), so they are painted when created: after set_player_paint, or when a

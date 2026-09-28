@@ -239,7 +239,9 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
   const auto ov = g_paintOverride.find(steamid64);
   // A per-player paint needs no loadout: paint it now, before the weapon is networked. Knives still
   // wait for it, since the knife model comes from the loadout.
-  if ((ov == g_paintOverride.end() || isKnife) && !IsLoaded(steamid64)) return WeaponResult::kRetry;
+  // paint_kit -1 ("the player's own skin") needs the loadout like no override at all.
+  const bool ownPaint = ov != g_paintOverride.end() && ov->second.paint_id < 0;
+  if ((ov == g_paintOverride.end() || isKnife || ownPaint) && !IsLoaded(steamid64)) return WeaponResult::kRetry;
 
   // Weapons picked up from someone else keep their original owner's look.
   const uint64_t xuid = (static_cast<uint64_t>(Rd<uint32_t>(weapon, o.econ_xuidHigh)) << 32) |
@@ -281,13 +283,18 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
 
   if (ov != g_paintOverride.end()) {
     WeaponSkinEntry paint = ov->second;
+    if (ownPaint) {  // the loadout's skin for this weapon (stock when none), with the override's name tag
+      const auto own = FindWeaponSkin(steamid64, team, defindex);
+      paint = own ? *own : WeaponSkinEntry{};
+      if (paint.paint_id < 0) paint.paint_id = 0;
+    }
     const auto tag = g_overrideNameTag.find(steamid64);
     if (tag != g_overrideNameTag.end()) paint.nametag = tag->second;
     WritePaint(weapon, item, steamid64, paint);
-    paintUsed = ov->second.paint_id;
-    wearUsed = ov->second.wear;
+    paintUsed = paint.paint_id;
+    wearUsed = paint.wear;
     changed = true;
-    if (IsLegacyPaintKit(ov->second.paint_id) && !ApplyLegacyBody(weapon, steamid64)) *legacyPending = true;
+    if (IsLegacyPaintKit(paint.paint_id) && !ApplyLegacyBody(weapon, steamid64)) *legacyPending = true;
   } else if (const auto skin = FindWeaponSkin(steamid64, team, defindex)) {
     if (skin->paint_id > 0) {
       WritePaint(weapon, item, steamid64, *skin);
@@ -665,6 +672,12 @@ bool PaintWeaponExternal(uint32_t handle, uint64_t steamid64, int paintKit, floa
 
 bool SetPlayerPaintExternal(uint64_t steamid64, int paintKit, float wear, int seed) {
   if (steamid64 == 0) return false;
+  if (paintKit == -1) {  // the player's own loadout paint, only the name tag (set_player_name_tag) added
+    WeaponSkinEntry own;
+    own.paint_id = -1;
+    g_paintOverride[steamid64] = own;
+    return true;
+  }
   if (paintKit <= 0) {
     g_paintOverride.erase(steamid64);
     return true;

@@ -49,6 +49,7 @@
     "CEconEntity.m_AttributeManager",
     "CEconItemView.m_AttributeList",
     "CEconItemView.m_NetworkedDynamicAttributes",
+    "CEconItemView.m_iItemDefinitionIndex",
     "CModelState.m_MeshGroupMask",
     "CSkeletonInstance.m_materialGroup",
     "CSkeletonInstance.m_modelState"
