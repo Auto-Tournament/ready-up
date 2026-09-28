@@ -9,7 +9,6 @@
 #include "readyup/players.h"
 #include "readyup/simulation_rules.h"
 #include "readyup/webhook.h"
-#include "readyup/wingman.h"
 
 #include <algorithm>
 #include <map>
@@ -76,7 +75,8 @@ std::vector<sim::Identity> IdentitiesFor(const WebhookMatchContext& ctx) {
     auto n = ctx.roster_names.find(kv.first);
     roster.push_back(sim::Identity{kv.first, n != ctx.roster_names.end() ? n->second : std::string(), team});
   }
-  return sim::PlanIdentities(roster, ctx.wingman ? wingman::kPlayersPerTeam : kFullTeam);
+  // A team without a roster gets a full team of anonymous bots (players_per_team; wingman: 2).
+  return sim::PlanIdentities(roster, ctx.players_per_team > 0 ? ctx.players_per_team : kFullTeam);
 }
 
 WebhookTeam TeamTag(int team) {

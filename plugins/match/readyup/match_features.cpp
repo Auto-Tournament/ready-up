@@ -4,6 +4,7 @@
 #include "readyup/config.h"
 #include "readyup/engine.h"
 #include "readyup/esports.h"
+#include "readyup/fleet_bridge.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
 #include "readyup/match_events.h"
@@ -348,9 +349,10 @@ void MatchFeaturesForceReady(uint64_t steamid64, const std::string& name) {
       if (connected.count(kv.first)) ++present;
     }
     teamName = TeamName(*ctx, team);
-    if (!ForceReadyAllowed(present, rosterSize, rules.min_players_to_ready)) {
+    if (!ForceReadyAllowed(present, rosterSize, rules.min_players_to_ready, ctx->players_per_team)) {
       return Reply(steamid64, "Ready Up: " + teamName + " needs " +
-                                  std::to_string(ForceReadyRequired(rosterSize, rules.min_players_to_ready)) +
+                                  std::to_string(ForceReadyRequired(rosterSize, rules.min_players_to_ready,
+                                                                    ctx->players_per_team)) +
                                   " players connected to force ready (" + std::to_string(present) + " now).");
     }
     for (const auto& kv : ctx->roster_team) {
@@ -362,6 +364,55 @@ void MatchFeaturesForceReady(uint64_t steamid64, const std::string& name) {
   SendToChat(("Ready Up: " + name + " readied " + teamName + " (" + std::to_string(readied) + " player" +
               (readied == 1 ? "" : "s") + ").")
                  .c_str());
+}
+
+bool MatchFeaturesSwapTeams(std::string* why) {
+  const auto ctx = WebhookGetMatchContext();
+  if (!ctx || ctx->slug == "scrim") {
+    if (why) *why = "no match loaded";
+    return false;
+  }
+  if (GetMode() != ReadyUpMode::MatchWarmup || GoLiveTriggered() || KnifeIsAwaitingPick()) {
+    if (why) *why = "teams can only be swapped in warmup";
+    return false;
+  }
+  const auto ms = MatchStateGet();
+  const int mapNumber = std::max(1, ms.map_number);
+  const size_t idx = static_cast<size_t>(mapNumber - 1);
+  if (idx < ctx->map_sides.size()) {
+    const std::string& side = ctx->map_sides[idx];
+    if (side == "team1_ct") WebhookUpdateMapSide(mapNumber, "team2_ct");
+    else if (side == "team2_ct") WebhookUpdateMapSide(mapNumber, "team1_ct");
+  }
+  if (!EnqueueServerCommand("mp_swapteams")) {
+    if (why) *why = "the command could not be queued";
+    return false;
+  }
+  ApplyTeamNamesNow();  // team names follow the sides
+  Print("match: teams swapped (map %d)\n", mapNumber);
+  return true;
+}
+
+bool MatchFeaturesRenameTeam(int team, const std::string& name, std::string* why) {
+  auto ctx = WebhookGetMatchContext();
+  if (!ctx || ctx->slug == "scrim") {
+    if (why) *why = "no match loaded";
+    return false;
+  }
+  if (fleet_bridge::Assigned()) {
+    if (why) *why = "this match comes from the platform: rename the team there";
+    return false;
+  }
+  const std::string clean = SanitizeTeamName(name);
+  if (clean.empty() || (team != 1 && team != 2)) {
+    if (why) *why = "usage: .team1 <name> / .team2 <name>";
+    return false;
+  }
+  (team == 1 ? ctx->team1_name : ctx->team2_name) = clean;
+  WebhookSetMatchContext(*ctx);
+  ApplyTeamNamesNow();  // mp_teamname_1 / _2
+  Print("match: team%d renamed to \"%s\"\n", team, clean.c_str());
+  return true;
 }
 
 void MatchFeaturesTick() {

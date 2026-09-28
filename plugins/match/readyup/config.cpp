@@ -5,6 +5,7 @@
 #include "readyup/host.h"
 #include "readyup/logging.h"
 #include "readyup/ruleset.h"
+#include "readyup/server_settings.h"
 
 #include <sys/stat.h>
 
@@ -115,6 +116,12 @@ ReadyUpCfg DefaultCfg() {
 }
 
 void Apply(ReadyUpCfg* out, const std::string& key, const std::string& val) {
+  // Server settings (server_settings.h) keep the raw text; the store validates it. The legacy keys
+  // (min_players_to_ready, scrim_knife) are read below as well.
+  if (settings::Find(key) && key.rfind("ru_", 0) != 0) out->settings[key] = val;
+  for (const auto& s : settings::Table()) {
+    if (s.cfgKey && key == s.cfgKey) out->settings[key] = val;
+  }
   if (key == "welcome") out->welcome = ParseBool(val, out->welcome);
   else if (key == "welcome_show_seconds") out->welcome_show_seconds = std::clamp(std::atoi(val.c_str()), 2, 60);
   else if (key == "welcome_round_delay_ms") out->welcome_round_delay_ms = std::clamp(std::atoi(val.c_str()), 0, 30000);
@@ -134,7 +141,6 @@ void Apply(ReadyUpCfg* out, const std::string& key, const std::string& val) {
   else if (key == "consume_ready_chat") out->consume_ready_chat = ParseBool(val, out->consume_ready_chat);
   else if (key == "dev_bots_ready") out->dev_bots_ready = ParseBool(val, out->dev_bots_ready);
   else if (key == "dev_bots_scrim") out->dev_bots_scrim = ParseBool(val, out->dev_bots_scrim);
-  else if (key == "scrim_knife") out->scrim_knife = ParseBool(val, out->scrim_knife);
   else if (key == "warmup_money") out->warmup_money = ParseBool(val, out->warmup_money);
   else if (key == "warmup_weapon_cleanup") out->warmup_weapon_cleanup = ParseBool(val, out->warmup_weapon_cleanup);
   else if (key == "knife_pick_seconds") out->knife_pick_seconds = ParseInt(val, out->knife_pick_seconds);
@@ -155,6 +161,7 @@ void Apply(ReadyUpCfg* out, const std::string& key, const std::string& val) {
   else if (key == "stop_command_available") out->rules.stop_command_available = ParseBool(val, false) ? 1 : 0;
   else if (key == "stop_command_no_damage") out->rules.stop_command_no_damage = ParseBool(val, false) ? 1 : 0;
   else if (key == "stop_vote_seconds") out->rules.stop_vote_seconds = RuleInt(val);
+  else if (key == "pause_after_restore") out->rules.pause_after_restore = ParseBool(val, true) ? 1 : 0;
   else if (key == "damage_report") out->damage_report = ParseBool(val, out->damage_report);
   else if (key == "ruleset") out->ruleset = Lower(val);
   else if (key == "default_model_ct" || key == "default_model_t") {
@@ -223,6 +230,7 @@ bool LoadLocked(CfgState& st, std::string* err) {
     c.ruleset = "default";
   }
   SetServerRuleset(rs);
+  settings::Global().SetFileValues(c.settings);
   st.cfg = std::move(c);
   st.loaded = true;
   st.sig = Signature();

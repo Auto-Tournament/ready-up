@@ -11,6 +11,7 @@
 #include "readyup/modes.h"
 #include "readyup/ready_hud.h"
 #include "readyup/players.h"
+#include "readyup/server_settings.h"
 #include "readyup/webhook.h"
 
 #include <algorithm>
@@ -276,7 +277,7 @@ static void ScrimWarmupStepLocked(FlowState& f, Clock::time_point now, const Scr
     const int secs = static_cast<int>((leftMs + 999) / 1000);
     if (secs <= 3 && secs != f.countdownLastAnnounced) {
       f.countdownLastAnnounced = secs;
-      if (!HudReplacesChat()) SendToChat(((Cfg().scrim_knife ? "Ready Up: knife round in " : "Ready Up: going live in ") + std::to_string(secs) + "...").c_str());
+      if (!HudReplacesChat()) SendToChat(((settings::Bool("knife_enabled_default") ? "Ready Up: knife round in " : "Ready Up: going live in ") + std::to_string(secs) + "...").c_str());
     }
     return;
   }
@@ -287,9 +288,9 @@ static void ScrimWarmupStepLocked(FlowState& f, Clock::time_point now, const Scr
     f.countdownLastAnnounced = kCountdownSeconds;
     if (BotsOnlyScrim(c)) {
       Print("dev_bots_scrim: bots-only scrim ready (CT %d bot(s), T %d bot(s)); %s in %ds\n", c.devBotsCt,
-            c.devBotsT, Cfg().scrim_knife ? "knife round" : "going live", kCountdownSeconds);
+            c.devBotsT, settings::Bool("knife_enabled_default") ? "knife round" : "going live", kCountdownSeconds);
     }
-    if (!HudReplacesChat()) SendToChat(("Ready Up: all " + std::to_string(c.total) + " player(s) ready - " + (Cfg().scrim_knife ? "knife round" : "going live") + " in " +
+    if (!HudReplacesChat()) SendToChat(("Ready Up: all " + std::to_string(c.total) + " player(s) ready - " + (settings::Bool("knife_enabled_default") ? "knife round" : "going live") + " in " +
                 std::to_string(kCountdownSeconds) + "s (.ur to cancel).")
                    .c_str());
     return;
@@ -370,7 +371,7 @@ bool MaybeStartScrimIfAllReady(const ScrimRoster& roster) {
   ctx.overtimeSegments = 3;
   // Scrim uses current teams; team1=CT, team2=T. With scrim_knife the side is
   // decided by the knife round (map side becomes team1_ct/team2_ct after the pick).
-  const bool knife = Cfg().scrim_knife;
+  const bool knife = settings::Bool("knife_enabled_default");
   ctx.map_sides = {knife ? "knife" : "team1_ct"};
   ctx.knifeDecisionSeconds = std::max(5, std::min(300, Cfg().knife_pick_seconds));
   if (!ms.current_map.empty()) ctx.maplist = {ms.current_map};

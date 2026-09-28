@@ -157,6 +157,8 @@ bool EndMatchResetServer();
 
 // Apply match cvars immediately (no restart). Best-effort.
 void ApplyMatchCvarsNow();
+// mp_teamname_1/2 + mp_teamflag_1/2 from the loaded match and the current map side (a rename, a swap).
+void ApplyTeamNamesNow();
 
 // Ready toggling for players.
 bool ToggleReady(uint64_t steamid64);

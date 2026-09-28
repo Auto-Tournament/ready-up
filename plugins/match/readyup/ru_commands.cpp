@@ -14,10 +14,15 @@ const std::vector<RuMainCommand>& MatchRuCommands() {
            {"restart", "", "the loaded match back to warmup (everyone readies again)", true},
            {"end", "", "end the loaded match (winner none) and reset the server", true},
            {"recover", "[round]", "ask the platform to recover the match", true},
+           {"restore", "<round>", "play <round> of this map again from its start (also .restore)", true},
+           {"backups", "", "this match's round backups on the server", true},
            {"pause", "", "admin pause", true},
            {"unpause", "", "unpause", true},
            {"tech", "team1|team2", "technical pause for a team (its limits)", true},
            {"tac", "team1|team2", "tactical timeout for a team (its limits)", true},
+           {"swap", "", "swap the teams' sides in warmup; team1 / team2 stay who they are (also .switch)", true},
+           {"team1", "<name>", "rename team1 (also .team1)", true},
+           {"team2", "<name>", "rename team2 (also .team2)", true},
            {"side", "stay|switch|ct|t", "knife side pick (the knife-winning team, or an admin)", false},
            {"coach", "<player> team1|team2|ct|t", "make a spectator a team's coach (players: .coach ct|t)", true},
            {"uncoach", "<player>", "stop a player coaching (players: .uncoach)", true},
@@ -31,6 +36,13 @@ const std::vector<RuMainCommand>& MatchRuCommands() {
            {"idle", "", "plain CS2; no auto scrim warmup until `mode scrim` or a map change", true},
            {"practice", "", "practice mode on / off (practice plugin; also .prac)", true},
            {"scrim", "", "auto scrim warmup back on", true},
+       }},
+      {"settings",
+       "server settings (also console ru_<setting>)",
+       {
+           {"show", "", "every setting and its value (also .settings)", false},
+           {"set", "<setting> <value>", "change one; saved across restarts", true},
+           {"default", "<setting>", "back to readyup.cfg / the built-in default", true},
        }},
       {"hud",
        "center-screen HUD",
@@ -86,6 +98,20 @@ bool ParseMapChange(const std::vector<std::string>& args, std::string* entry, st
   }
   if (entry) *entry = a;
   return true;
+}
+
+std::string RestAfterWords(const std::string& line, size_t n) {
+  auto blank = [](char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; };
+  size_t i = 0;
+  for (size_t w = 0; w < n; ++w) {
+    while (i < line.size() && blank(line[i])) ++i;
+    if (i >= line.size()) return {};
+    while (i < line.size() && !blank(line[i])) ++i;
+  }
+  while (i < line.size() && blank(line[i])) ++i;
+  size_t e = line.size();
+  while (e > i && blank(line[e - 1])) --e;
+  return line.substr(i, e - i);
 }
 
 bool ParseMatchLoad(const std::vector<std::string>& args, std::string* url, std::string* err) {

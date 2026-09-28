@@ -155,6 +155,11 @@ static void TestParser() {
   // Wingman: MR8 and MR2 overtime unless the config sets them.
   c = Parse(R"({"matchid":7,"wingman":true,"maplist":["de_shortdust"],)" + teams + "}");
   CHECK(c && c->wingman && c->maxRounds == wingman::kMaxRounds && c->overtimeSegments == wingman::kOvertimeHalf);
+  CHECK(c && c->players_per_team == wingman::kPlayersPerTeam);
+  c = Parse(R"({"matchid":7,"wingman":true,"players_per_team":3,"maplist":["de_shortdust"],)" + teams + "}");
+  CHECK(c && c->players_per_team == 3);
+  c = Parse(R"({"matchid":7,"maplist":["de_dust2"],)" + teams + "}");
+  CHECK(c && c->players_per_team == 0);
   c = Parse(R"({"matchid":7,"wingman":true,"maxRounds":12,"overtimeSegments":3,"maplist":["de_shortdust"],)" + teams + "}");
   CHECK(c && c->maxRounds == 12 && c->overtimeSegments == 3);
   c = Parse(R"({"matchid":7,"wingman":"true","cvars":{"mp_maxrounds":20},"maplist":["de_shortdust"],)" + teams + "}");

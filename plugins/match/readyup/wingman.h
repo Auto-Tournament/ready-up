@@ -21,7 +21,8 @@ constexpr const char* kLiveCfg = "ReadyUp/live_wingman.cfg";
 // config sets neither maxRounds / mp_maxrounds nor overtimeSegments.
 constexpr int kMaxRounds = 16;
 constexpr int kOvertimeHalf = 2;
-// Players per side (simulation fills a team without a roster with this many bots).
+// Players per side: the match's players_per_team when the config sets none (ready gate, simulation
+// bots for a team without a roster).
 constexpr int kPlayersPerTeam = 2;
 
 // game_type / game_mode for a match: {"game_type 0", "game_mode 2"} (wingman) or

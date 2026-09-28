@@ -6,6 +6,7 @@
 #include "readyup/logging.h"
 #include "readyup/modes.h"
 #include "readyup/pause_state.h"
+#include "readyup/server_settings.h"
 #include "readyup/wingman.h"
 
 #include <atomic>
@@ -166,6 +167,9 @@ EffectiveRuleSet EffectiveRulesFor(const WebhookMatchContext* ctx) {
   RulesInput in;
   in.ruleset = CtxRuleset(ctx);
   in.cfg = Cfg().rules;
+  // The server's minimum-ready value is the setting (console / chat / fleet, else readyup.cfg
+  // min_players_to_ready, else 0; server_settings.h): one value for scrims and the match fallback.
+  in.cfg.min_players_to_ready = settings::Int("minimum_ready_required");
   if (ctx) {
     std::string err;
     if (!ParseOverridesText(ctx->overrides_json, &in.overrides, &err)) in.overrides.clear();  // validated at load

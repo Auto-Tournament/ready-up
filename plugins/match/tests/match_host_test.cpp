@@ -618,6 +618,40 @@ int main(int argc, char** argv) {
   Check(Logged("rules: tech_pauses=2 tech_max_s=45 unpause=both force_ready=1 min_ready=0 forfeit_s=0"),
         "match rules survive the reload");
 
+  std::puts("-- round restore: backups list, refusals, ru_pause_after_restore");
+  ClearLog();
+  rp::TryDispatchRu(true, 0, "Console", "ru match backups");
+  rp::Frame(true);
+  Check(Logged("no round backups for match 4242 on this server."), "ru match backups: none yet");
+  std::system(("mkdir -p '" + csgo + "/readyup' && touch '" + csgo + "/readyup/readyup_backup_4242_map1_round00.txt' '" +
+               csgo + "/readyup/readyup_backup_4242_map1_round01.txt' '" + csgo +
+               "/readyup/readyup_backup_99_map1_round05.txt'").c_str());
+  ClearLog();
+  rp::TryDispatchRu(true, 0, "Console", "ru match backups");
+  rp::TryDispatchConsole("ru_listbackups 99");
+  rp::Frame(true);
+  Check(Logged("map 1 round 1 (0-0) readyup_backup_4242_map1_round00.txt") &&
+            Logged("map 1 round 2 readyup_backup_4242_map1_round01.txt"),
+        "ru match backups: this match's files, round = the round they restore");
+  Check(Logged("map 1 round 6 readyup_backup_99_map1_round05.txt"), "ru_listbackups <matchid>: another match's files");
+  ClearLog();
+  ClearCmds();
+  rp::TryDispatchRu(true, 0, "Console", "ru match restore 1");
+  rp::TryDispatchRu(true, 0, "Console", "ru match restore x");
+  rp::TryDispatchConsole("ru_loadbackup readyup_backup_99_map1_round05.txt");
+  rp::TryDispatchChat(76561198000000002ull, "bob", ".restore 1", 3);
+  rp::Frame(true);
+  Check(Logged("restore refused: a restore needs a live map."), "ru match restore in warmup: refused");
+  Check(Logged("usage: .restore <round>"), "ru match restore x: usage");
+  Check(Logged("is not a round backup of the loaded match"), "ru_loadbackup: another match's file refused");
+  Check(Chatted("not authorized"), ".restore from a non-admin refused");
+  Check(!Sent("mp_backup_restore_load_file"), "nothing restored");
+  ClearLog();
+  rp::TryDispatchConsole("ru_pause_after_restore");
+  rp::TryDispatchConsole("ru_pause_after_restore 0");
+  rp::Frame(true);
+  Check(Logged("pause after restore: 1") && Logged("pause after restore: 0"), "ru_pause_after_restore: default 1, set 0");
+
   std::puts("-- console settings go to state.json (a server restart restores them)");
   rp::TryDispatchConsole("ru_demo_path persist/");
   rp::TryDispatchConsole("ru_demo_path /rejected/");
@@ -633,6 +667,30 @@ int main(int argc, char** argv) {
   Check(Logged("ru_series_end_kick_delay_demo_upload: back to the default"), "`<setting> default` answered");
   Check(Logged("ru_demo_upload_header_value: set") && !Logged("tok123"), "header value set, never printed");
   Check(Logged("headers=[X-Token,X-Auto-Tournament-Token]"), "ru_demo_status lists the token header");
+
+  std::puts("-- match server settings (server_settings.h): console, `ru settings`, hostname_format");
+  ClearLog();
+  rp::TryDispatchConsole("ru_playout_enabled_default 1");
+  rp::TryDispatchConsole("ru_minimum_ready_required 99");
+  rp::TryDispatchConsole("ru_hostname_format \"{TEAM1} vs {TEAM2}\"");
+  rp::Frame(true);
+  Check(Logged("playout_enabled_default = on (runtime)"), "ru_playout_enabled_default 1: set");
+  Check(Logged("minimum_ready_required takes a number from 0 to 32"), "ru_minimum_ready_required 99: refused");
+  Check(FramesUntil([] { return Sent("hostname \"Alpha vs Bravo\""); }, 3000), "hostname_format applied to the loaded match");
+  ClearLog();
+  Check(rp::TryDispatchRu(true, 0, "Console", "ru settings show"), "`ru settings show` dispatched");
+  rp::Frame(true);
+  Check(Logged("hostname_format = \"{TEAM1} vs {TEAM2}\" (runtime)") && Logged("series_end_kick_delay: no_demo=") &&
+              Logged("pause_after_restore = "),
+        "ru settings show lists the settings");
+  ClearLog();
+  rp::TryDispatchRu(true, 0, "Console", "ru settings set whitelist_enabled_default off");
+  rp::TryDispatchRu(true, 0, "Console", "ru settings default playout_enabled_default");
+  rp::TryDispatchRu(true, 0, "Console", "ru settings set series_end_kick_delay_no_demo 12");
+  rp::Frame(true);
+  Check(Logged("whitelist_enabled_default = off (runtime)"), "ru settings set");
+  Check(Logged("playout_enabled_default = off"), "ru settings default");
+  Check(Logged("series_end_kick_delay_no_demo = 12"), "ru settings set takes the kick delays too");
 
   std::puts("-- unload");
   ClearLog();
@@ -663,6 +721,11 @@ int main(int argc, char** argv) {
     Check(Has(st, "\"ru_series_end_kick_delay_no_demo\"") && !Has(st, "ru_series_end_kick_delay_demo_upload"),
           "state.json: kick delay saved; `default` removed the other");
     Check(!Has(st, "ru_warmup_respawn"), "state.json: settings left at their default are not stored");
+    Check(Has(st, "\"ru_pause_after_restore\"") && Has(st, "\"ru_active_match_json\""),
+          "state.json: ru_pause_after_restore and the loaded match (crash recovery)");
+    Check(Has(st, "\"ru_whitelist_enabled_default\"") && Has(st, "\"ru_hostname_format\"") &&
+              !Has(st, "ru_playout_enabled_default") && !Has(st, "ru_minimum_ready_required"),
+          "state.json: server settings saved; `default` and refused values not");
     if (g_failed) std::printf("  state.json: %s\n", st.c_str());
   }
 
@@ -671,6 +734,7 @@ int main(int argc, char** argv) {
   rp::HandlePluginCommand({"load", "match"}, false);
   rp::Frame(true);
   Check(Logged("plugin: loaded match") && Logged("match=hosttest"), "load after unload restores the match");
+  Check(Logged("restored 2 server setting(s) from state.json"), "server settings restored from state.json");
 
   // Return with match.so still loaded and its workers running, like a server `quit` (the core never
   // unloads plugins): the plugin's exit handler must join them before its statics are destroyed,

@@ -50,6 +50,14 @@ void MatchFeaturesUnpause(WebhookTeam team, uint64_t steamid64, const std::strin
 // `.forceready` from a roster player (match) or a player on CT/T (scrim warmup: ctx empty).
 void MatchFeaturesForceReady(uint64_t steamid64, const std::string& name);
 
+// `.switch` (admin, no knife pick pending) / `ru match swap` / fleet cmd swap_teams: mp_swapteams in
+// match warmup, and the map's side follows (team1_ct <-> team2_ct) so team1 / team2 stay who they
+// are. False + *why outside warmup or without a match. Game thread.
+bool MatchFeaturesSwapTeams(std::string* why);
+// `.team1 <name>` / `ru match team1 <name>`: renames a team of a match loaded with `ru match load`
+// (fleet matches are renamed by the platform, match.update rename_team); the in-game names follow.
+bool MatchFeaturesRenameTeam(int team, const std::string& name, std::string* why);
+
 // Center HUD while a map is live (ready_hud.cpp).
 struct LiveHudInfo {
   bool paused = false;

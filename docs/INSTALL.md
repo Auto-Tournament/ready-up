@@ -144,6 +144,42 @@ Details:
 - Saved values are plain text, like `ru_match_token`: `ru_demo_upload_url` and upload header
   values (tokens) end up in `state.json`. An empty value is stored as `""`.
 
+### Match server settings
+
+One value per setting, the same from every side: the console / RCON (`ru_<setting> <value>`),
+chat for admins (`.ru settings set <setting> <value>` and the shortcuts below) and the fleet link
+(`cmd settings.set`, `server.config`). Every change is saved in `match/state.json` and applied
+again after a restart; `ru_<setting> default` (or `.ru settings default <setting>`) forgets it.
+`ru_<setting>` alone shows the value, where it comes from and what it does; `.settings` (anyone)
+or `ru settings show` lists them all.
+
+| Setting | Default | Does |
+|---|---|---|
+| `minimum_ready_required <n>` | 0 | players a team needs READY to go live (0 = a full team: the match's `players_per_team`, else 5). Also the `.forceready` threshold. `.readyrequired <n>` |
+| `playout_enabled_default 0\|1` | 0 | every round is played (no clinch; overtime blocks are played out); `mp_match_can_clinch 0`. `.playout` |
+| `autoready_enabled 0\|1` | 0 | a roster player is READY as soon as they are on their team in match warmup (once per connection: `.unready` sticks) |
+| `knife_enabled_default 0\|1` | 1 | knife round for scrims and for match maps the config gives no side (never under the valve ruleset). `.roundknife` |
+| `reset_cvars_on_series_end 0\|1` | 1 | after a series: reset the warmup cvars (respawn, buy anywhere, ...). 0 keeps them; team names are cleared either way |
+| `use_pause_command_for_tactical_pause 0\|1` | 0 | `.pause` / `.p` call a tactical timeout instead of a technical pause (`.tech` / `.tac` stay what they are) |
+| `hostname_format "<fmt>"` | empty (off) | `hostname` while a match is loaded: `{TEAM1}` `{TEAM2}` `{MATCH_ID}` `{MAP}` `{MAPNUMBER}` `{TEAM1_SCORE}` `{TEAM2_SCORE}` `{TEAM1_SERIES}` `{TEAM2_SERIES}`. The server's own hostname (seen on the console, e.g. from `server.cfg`) comes back when the match unloads |
+| `kick_when_no_match_loaded 0\|1` | 0 | non-admins are kicked while no match is loaded (not in practice or another plugin's mode, not while a fleet match loads) |
+| `whitelist_enabled_default 0\|1` | 1 | only the roster, spectators and admins may stay while a match is loaded. `.whitelist` |
+
+`.ru settings set` also takes `series_end_kick_delay_no_demo`, `series_end_kick_delay_demo_no_upload`
+and `series_end_kick_delay_demo_upload` (the console settings above).
+
+Where a value comes from, first one set wins: the saved / runtime value, then `readyup.cfg` /
+`match.cfg` (the same key without `ru_`, e.g. `playout_enabled_default=1`; the older keys
+`min_players_to_ready` and `scrim_knife` are read as `minimum_ready_required` and
+`knife_enabled_default`), then the default above. A match config sets its own value for one match
+with `playout`, `whitelist`, `autoready`, `min_players_to_ready` and `players_per_team` (fleet:
+`rules.playout`, `rules.whitelist`, `rules.ready.autoready`, `rules.ready.min_per_team`, and the team
+size from the players' roles when a team has a `sub`).
+
+Substitutes: a team is ready when `minimum_ready_required` of its roster are READY (0 = a full
+team) and every connected player a full team needs is READY. A connected substitute beyond the full
+team does not hold the match up (before, a roster with a substitute could never go live).
+
 ## Upgrading from Postgres
 
 Versions before this one kept admins, settings and skins in Postgres (`readyup_db.json`). Ready Up
@@ -177,7 +213,8 @@ The installer only creates this file if it's missing; it never overwrites your e
 
 The core reads `debug`, `banner`, `chat_prefix`, `chat_debug`, `consume_ru_chat` and the
 `status_http_*` keys. The match plugin (`match.so`) reads its keys (`welcome`, `ready_hud`,
-`hud_*`, `admin_prefix`, `captain_prefix_*`, `consume_ready_chat`, `dev_bots_*`, `scrim_knife`,
+`hud_*`, `admin_prefix`, `captain_prefix_*`, `consume_ready_chat`, `dev_bots_*`, the
+[match server settings](#match-server-settings),
 `knife_pick_seconds`, `idle_map_refresh_hours`, `warmup_money`, `warmup_weapon_cleanup`) from the same place, or from a `[match]` section of this file, or from
 `game/csgo/cfg/ReadyUp/match.cfg` (later ones win). It re-reads them by itself when one of those
 files changes.
@@ -256,7 +293,9 @@ chat_prefix="<Green>[PUG #1]<Default>"
 
 ### Knife round
 
-- Real matches: `map_sides: "knife"` for a map. Scrims: `scrim_knife=1` (default).
+- Real matches: `map_sides: "knife"` for a map; a map with no entry in `map_sides` gets the
+  knife round when `knife_enabled_default` is on (default). Scrims: `knife_enabled_default`
+  (`.roundknife`; readyup.cfg `scrim_knife=` still works).
 - After everyone is ready: `exec ReadyUp/knife.cfg` (+ overrides so the emulated
   warmup is undone, and `mp_logdetail 3` for the round), restart, knife round.
 - Works from server log lines alone (engine events are used when they arrive):
@@ -356,7 +395,9 @@ When this succeeds, Ready Up stores:
 
 ## Whitelist + team enforcement (when match loaded)
 
-When a match is loaded (match context exists), Ready Up enables **whitelist mode**:
+When a match is loaded (match context exists), Ready Up enables **whitelist mode**
+(`whitelist_enabled_default`, default on; a match config's `whitelist: false` turns it off for
+that match):
 
 - **Whitelist**: only SteamIDs present in `team1.players`, `team2.players`, or `spectators.players` are allowed to stay connected. Others are kicked shortly after they appear in server identity tracking.
 - **Admins**: server admins are never kicked by whitelist enforcement (even if not in the match roster).

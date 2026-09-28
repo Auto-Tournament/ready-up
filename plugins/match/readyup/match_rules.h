@@ -37,6 +37,10 @@ struct MatchRules {
   int stop_command_available = -1;  // .stop: both teams restore the start of the current round
   int stop_command_no_damage = -1;  // .stop only while no player damaged an opponent this round
   int stop_vote_seconds = -1;       // the other team has this long to confirm a .stop
+  // After a round restore (round_restore.h): stay paused (1) or go live 3 s later (0). MAT key
+  // pause_after_restore; fleet rules.pause.pause_after_restore; between the match config and
+  // readyup.cfg sits the console setting ru_pause_after_restore.
+  int pause_after_restore = -1;
 };
 
 // gg_threshold as written in a config: a fraction (0.8) or a percent (80). -1 if invalid.
@@ -70,10 +74,32 @@ int Auto5v5ShortSide(int ctPlayers, int tPlayers);
 
 // ---- .forceready -----------------------------------------------------------------------------
 
-// connected: roster players of the team on the server; rosterSize: the team's roster; minPlayers:
-// rule (0 = the full roster). Empty rosters never qualify.
-bool ForceReadyAllowed(int connected, int rosterSize, int minPlayers);
-int ForceReadyRequired(int rosterSize, int minPlayers);
+// connected: roster players of the team on the server; rosterSize: the team's roster (substitutes
+// included); minPlayers: rule `min_players_to_ready` / `ru_minimum_ready_required` (0 = a full
+// team); playersPerTeam: the match's `players_per_team` (0 = kFullTeamPlayers). A full team is
+// playersPerTeam capped at the roster, so a roster with substitutes (7 players, 5 per team) needs 5,
+// not 7. Empty rosters never qualify.
+int FullTeamSize(int rosterSize, int playersPerTeam = 0);
+bool ForceReadyAllowed(int connected, int rosterSize, int minPlayers, int playersPerTeam = 0);
+int ForceReadyRequired(int rosterSize, int minPlayers, int playersPerTeam = 0);
+
+// ---- go-live ready gate ----------------------------------------------------------------------
+
+// One team may go live when `ready` (its connected roster players who typed .ready) reaches
+// max(ForceReadyRequired, min(connected, full team)): the minimum is always met, and every player
+// needed for a full team who is connected has to be ready, but a connected substitute beyond the
+// full team does not hold the match up. An empty roster is always ready.
+bool TeamReadyToGoLive(int rosterSize, int connected, int ready, int minPlayers, int playersPerTeam = 0);
+int TeamReadyNeeded(int rosterSize, int connected, int minPlayers, int playersPerTeam = 0);
+
+// ---- playout ---------------------------------------------------------------------------------
+
+// Playout (`ru_playout_enabled_default`, match `playout`): every regulation round is played (no
+// clinch at maxRounds/2 + 1) and an overtime is only decided at the end of its block. True while
+// the map may not be decided yet at this score. Past the overtime cap (maxOvertimes >= 0) the
+// rounds are sudden death and playout no longer holds anything back.
+bool PlayoutRoundsLeft(int maxRounds, bool overtimeEnabled, int overtimeSegments, int maxOvertimes, int team1Score,
+                       int team2Score);
 
 // ---- team names ------------------------------------------------------------------------------
 

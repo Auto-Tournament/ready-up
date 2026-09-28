@@ -20,6 +20,7 @@ MatchRules BuiltinDefaultRules() {
   r.stop_command_available = 0;
   r.stop_command_no_damage = 0;
   r.stop_vote_seconds = 30;
+  r.pause_after_restore = 1;
   return r;
 }
 
@@ -43,6 +44,7 @@ MatchRules ResolveRules(const MatchRules& match, const MatchRules& base) {
   r.stop_command_no_damage =
       pick(match.stop_command_no_damage, base.stop_command_no_damage, d.stop_command_no_damage) ? 1 : 0;
   r.stop_vote_seconds = std::clamp(pick(match.stop_vote_seconds, base.stop_vote_seconds, d.stop_vote_seconds), 5, 300);
+  r.pause_after_restore = pick(match.pause_after_restore, base.pause_after_restore, d.pause_after_restore) ? 1 : 0;
   return r;
 }
 
@@ -85,15 +87,43 @@ int Auto5v5ShortSide(int ctPlayers, int tPlayers) {
   return ctPlayers <= tPlayers ? 3 : 2;
 }
 
-int ForceReadyRequired(int rosterSize, int minPlayers) {
+int FullTeamSize(int rosterSize, int playersPerTeam) {
   if (rosterSize <= 0) return 0;
-  if (minPlayers <= 0) return rosterSize;
+  return std::min(rosterSize, playersPerTeam > 0 ? playersPerTeam : kFullTeamPlayers);
+}
+
+int ForceReadyRequired(int rosterSize, int minPlayers, int playersPerTeam) {
+  if (rosterSize <= 0) return 0;
+  if (minPlayers <= 0) return FullTeamSize(rosterSize, playersPerTeam);
   return std::min(minPlayers, rosterSize);
 }
 
-bool ForceReadyAllowed(int connected, int rosterSize, int minPlayers) {
+bool ForceReadyAllowed(int connected, int rosterSize, int minPlayers, int playersPerTeam) {
   if (rosterSize <= 0) return false;
-  return connected >= ForceReadyRequired(rosterSize, minPlayers);
+  return connected >= ForceReadyRequired(rosterSize, minPlayers, playersPerTeam);
+}
+
+int TeamReadyNeeded(int rosterSize, int connected, int minPlayers, int playersPerTeam) {
+  if (rosterSize <= 0) return 0;
+  const int full = FullTeamSize(rosterSize, playersPerTeam);
+  return std::max(ForceReadyRequired(rosterSize, minPlayers, playersPerTeam), std::min(std::max(0, connected), full));
+}
+
+bool TeamReadyToGoLive(int rosterSize, int connected, int ready, int minPlayers, int playersPerTeam) {
+  if (rosterSize <= 0) return true;
+  return ready >= TeamReadyNeeded(rosterSize, connected, minPlayers, playersPerTeam);
+}
+
+bool PlayoutRoundsLeft(int maxRounds, bool overtimeEnabled, int overtimeSegments, int maxOvertimes, int team1Score,
+                       int team2Score) {
+  maxRounds = std::max(1, maxRounds);
+  const int sum = std::max(0, team1Score) + std::max(0, team2Score);
+  if (sum < maxRounds) return true;
+  if (sum == maxRounds || !overtimeEnabled) return false;
+  const int block = 2 * std::max(1, overtimeSegments);
+  const int past = sum - maxRounds;
+  if (maxOvertimes >= 0 && past >= maxOvertimes * block) return false;  // sudden death past the cap
+  return past % block != 0;
 }
 
 std::string SanitizeTeamName(const std::string& in) {

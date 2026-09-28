@@ -345,6 +345,10 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
   Json spectators = Json::Object();
   Json specPlayers = Json::Object();
   Json coaches = Json::Array();
+  // Starting players per team (role "player"); set when a team has substitutes (role "sub") so
+  // the ready gate waits for a full team, not the whole roster (match_rules.h).
+  long long starters = 0;
+  bool subs = false;
   auto team = [&](const char* key) {
     Json t = Json::Object();
     const Json* src = Obj(config, key);
@@ -354,19 +358,24 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
     if (!Str(*src, "flag").empty()) t["flag"] = Str(*src, "flag");
     Json players = Json::Object();
     Json teamCoaches = Json::Object();
+    long long teamStarters = 0;
     if (const Json* ps = Arr(*src, "players")) {
       for (const auto& p : ps->Items()) {
         const std::string sid = Str(p, "steamid64");
+        const std::string role = Str(p, "role", "player");
         // Coaches are not ready-gated players: whitelisted spectators who coach this team
         // (coach.h), listed in the team's `coaches` (get5 shape) and the flat `coaches`.
-        if (Str(p, "role", "player") == "coach") {
+        if (role == "coach") {
           specPlayers[sid] = Str(p, "name");
           coaches.Push(sid);
           teamCoaches[sid] = Str(p, "name");
         }
         else players[sid] = Str(p, "name");
+        if (role == "sub") subs = true;
+        else if (role != "coach") ++teamStarters;
       }
     }
+    starters = std::max(starters, teamStarters);
     t["players"] = std::move(players);
     if (!teamCoaches.Members().empty()) t["coaches"] = std::move(teamCoaches);
     if (!Str(*src, "captain").empty()) t["captain_steamid64"] = Str(*src, "captain");
@@ -374,6 +383,7 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
   };
   cfg["team1"] = team("team1");
   cfg["team2"] = team("team2");
+  if (subs && starters > 0) cfg["players_per_team"] = starters;
   if (const Json* specs = Arr(config, "spectators")) {
     for (const auto& s : specs->Items()) {
       if (!specPlayers.Find(s.AsString())) specPlayers[s.AsString()] = "";
@@ -422,10 +432,15 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
   if (pause && pause->Find("technical_per_team")) cfg["max_tech_pauses_per_team"] = Int(*pause, "technical_per_team", 0);
   if (pause && pause->Find("technical_seconds")) cfg["tech_pause_max_seconds"] = Int(*pause, "technical_seconds", 0);
   if (pause && !Str(*pause, "unpause").empty()) cfg["both_teams_unpause_required"] = Str(*pause, "unpause") != "caller_team";
+  if (pause && pause->Find("pause_after_restore")) cfg["pause_after_restore"] = Bool(*pause, "pause_after_restore", true);
   if (const Json* ready = Obj(r, "ready")) {
     if (ready->Find("allow_force_ready")) cfg["allow_force_ready"] = Bool(*ready, "allow_force_ready", true);
     if (ready->Find("min_per_team")) cfg["min_players_to_ready"] = Int(*ready, "min_per_team", 0);
+    if (ready->Find("autoready")) cfg["autoready"] = Bool(*ready, "autoready", false);
   }
+  // Server settings the match sets for itself (server_settings.h); absent = the server's value.
+  if (r.Find("playout")) cfg["playout"] = Bool(r, "playout", false);
+  if (r.Find("whitelist")) cfg["whitelist"] = Bool(r, "whitelist", true);
   if (const Json* ff = Obj(r, "forfeit"); ff && ff->Find("team_absent_seconds")) {
     cfg["forfeit_after_seconds"] = Int(*ff, "team_absent_seconds", 240);
   }

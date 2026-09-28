@@ -4,6 +4,7 @@
   "api": [
     "chat_all",
     "chat_to_slot",
+    "econ_attr_set_by_name",
     "entity_by_index",
     "entity_classname",
     "entity_from_handle",
@@ -17,6 +18,7 @@
     "subscribe_game_event"
   ],
   "surface": [
+    "CAttributeList_SetOrAddAttributeValueByName",
     "CBaseEntity_NetworkStateChanged",
     "CBaseModelEntity_GetModel",
     "CBaseModelEntity_SetBodygroup",
@@ -40,9 +42,13 @@
     "CPlayer_WeaponServices.m_hMyWeapons"
   ],
   "schema_optional": [
+    "CAttributeContainer.m_Item",
     "CBaseEntity.m_CBodyComponent",
     "CBaseModelEntity.m_clrRender",
     "CBodyComponentSkeletonInstance.m_skeletonInstance",
+    "CEconEntity.m_AttributeManager",
+    "CEconItemView.m_AttributeList",
+    "CEconItemView.m_NetworkedDynamicAttributes",
     "CModelState.m_MeshGroupMask",
     "CSkeletonInstance.m_materialGroup",
     "CSkeletonInstance.m_modelState"

@@ -17,8 +17,9 @@
 
 namespace readyup {
 
-// Player chat command lines (first token is one of the player commands above).
-void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const std::string& text);
+// Player chat command lines (first token is one of the player commands above). slot: the
+// sender's (-1 if unknown): answers meant for the sender alone (.settings) go there.
+void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const std::string& text, int slot = -1);
 
 // `.ru <main> <sub> ...` from chat (steamid64 != 0; slot: the sender's, -1 if unknown) or from
 // the console (steamid64 == 0, replies go to the console).

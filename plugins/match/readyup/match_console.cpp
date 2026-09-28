@@ -14,11 +14,13 @@
 #include "readyup/match_config_parser.h"
 #include "readyup/match_end.h"
 #include "readyup/match_log.h"
+#include "readyup/match_settings.h"
 #include "readyup/match_state.h"
 #include "readyup/match_token.h"
 #include "readyup/modes.h"
 #include "readyup/persisted_match_state.h"
 #include "readyup/persisted_settings.h"
+#include "readyup/round_restore.h"
 #include "readyup/webhook.h"
 #include "readyup/wingman.h"
 
@@ -507,8 +509,12 @@ bool LoadMapEntry(const std::string& entry) {
   return EnqueueServerCommand(cmd.c_str());
 }
 
-void ApplyLoadedMatch(const WebhookMatchContext& ctx, const std::string& configJson, int firstMapNumber) {
+void ApplyLoadedMatch(const WebhookMatchContext& loaded, const std::string& configJson, int firstMapNumber) {
   if (firstMapNumber < 1) firstMapNumber = 1;
+  // Maps the config gives no side: knife or team1_ct by knife_enabled_default (match_settings.h),
+  // fixed here so a knife pick (WebhookUpdateMapSide) has an entry to update.
+  WebhookMatchContext ctx = loaded;
+  match_settings::FillMissingSides(&ctx);
   WebhookStartSenderThread();
   if (auto prev = WebhookGetMatchContext()) {
     if (prev->matchid != 0 && prev->matchid != ctx.matchid) {
@@ -644,8 +650,15 @@ const std::vector<std::string>& MatchConsoleCommands() {
       "ru_demo_upload_header_key", "ru_demo_upload_header_value", "get5_demo_upload_header_key",
       "get5_demo_upload_header_value",
       "ru_demo_status", "ru_series_end_kick_delay_no_demo", "ru_series_end_kick_delay_demo_no_upload",
-      "ru_series_end_kick_delay_demo_upload", "ru_match_stats"};
-  return k;
+      "ru_series_end_kick_delay_demo_upload", "ru_match_stats",
+      // round_restore.h
+      "ru_pause_after_restore", "ru_listbackups", "ru_loadbackup"};
+  static const std::vector<std::string> all = [] {
+    std::vector<std::string> v = k;
+    for (const auto& c : match_settings::ConsoleCommands()) v.push_back(c);  // ru_<server setting>
+    return v;
+  }();
+  return all;
 }
 
 namespace {
@@ -666,12 +679,15 @@ bool RunConsoleCommand(const std::string& line) {
   if (HandleWarmupMaxMoneyCommand(line)) return true;
   if (HandleWarmupBuyAnywhereCommand(line)) return true;
   if (HandleWarmupInfiniteAmmoCommand(line)) return true;
+  if (round_restore::HandleConsoleLine(Trim(line))) return true;
   // Demo recording/upload, series-end kick delays, ru_match_stats, tv_delay (match_end.h).
   return MatchFlowHandleConsoleLine(Trim(line));
 }
 }  // namespace
 
 bool MatchConsoleCommand(const std::string& line) {
+  // Server settings (server_settings.h): ru_minimum_ready_required, ru_playout_enabled_default, ...
+  if (match_settings::ConsoleCommand(line)) return true;
   // ru_warmup_* / ru_cfg_exec_enable / ru_demo_* / kick delays: saved in state.json (and
   // `<setting> default`), see persisted_settings.h.
   bool consumed = false;

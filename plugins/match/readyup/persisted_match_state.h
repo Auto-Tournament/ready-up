@@ -16,6 +16,10 @@ void PersistLiveFlag(bool live);
 // Persist a minimal runtime snapshot.
 void PersistSnapshot(int map_number, int round_number, int team1_score, int team2_score);
 
+// Crash recovery progress record (round_restore_rules.h Progress as JSON; match_recovery.h).
+void PersistProgress(std::string json);
+std::optional<std::string> GetProgressJson();
+
 // Persist current backup prefix and last-known backup file name.
 void PersistBackupPrefix(std::string prefix);
 void PersistBackupFile(std::string filename);
