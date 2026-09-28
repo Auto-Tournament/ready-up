@@ -12,6 +12,7 @@
 #include "readyup/selftest_iface.h"
 
 #include "readyup/admin_check.h"
+#include "readyup/coach.h"
 #include "readyup/config.h"
 #include "readyup/damage_report.h"
 #include "readyup/demo_recorder.h"
@@ -85,6 +86,11 @@ void Guard(const char* what, F&& f) {
 
 void OnPlayerChat(void*, const ru_command_ctx* c) {
   Guard("chat command", [&] { MatchChatCommand(c->steamid64, c->name, c->text); });
+}
+
+// `.coach` / `.uncoach` (coach.h): with the sender's slot for the private replies.
+void OnCoachChat(void*, const ru_command_ctx* c) {
+  Guard("coach command", [&] { CoachChatCommand(c->steamid64, c->name, c->text, c->slot); });
 }
 
 void OnRuSub(void*, const ru_command_ctx* c) {
@@ -172,6 +178,7 @@ void OnTick(void*, const ru_tick_info* t) {
       VotesTick(t->now);        // .gg / .stop vote timeouts (votes.h)
       WarmupMoneyTick(t->now);  // warmup money top-up (warmup_money.h)
       WeaponCleanupTick(t->now);  // dropped weapons in warmup (weapon_cleanup.h)
+      CoachTick(t->now);          // coaches: m_iCoachingTeam, sv_coaching_enabled (coach.h)
     }
     // Fleet link (no-op without fleet.so): platform handlers, MatchState patches, events.
     fleet_bridge::Tick(t->now);
@@ -200,6 +207,7 @@ void OnEvent(void*, const ru_event* e) {
         WelcomeObserveTeamJoin(e->slot, e->team, e->steamid64, e->name ? e->name : "", WelcomeSource::GameEvent);
       }
     }
+    CoachOnEvent(e);
     if (e->steamid64 && e->name && *e->name) ObservePlayer(e->steamid64, e->name);
     fleet_bridge::OnCoreEvent(e);
   });
@@ -378,6 +386,11 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
       }
     }
     api->register_console_command_ex(api->self, "tv_delay", RU_CMD_OBSERVE, &OnTvDelay, nullptr);
+    for (const char* name : {".coach", ".uncoach"}) {
+      if (!api->register_chat_command_ex(api->self, name, 0, &OnCoachChat, nullptr)) {
+        Print("match: could not register %s\n", name);
+      }
+    }
 
     api->on_frame(api->self, &OnFrame, nullptr);
     api->on_tick(api->self, &OnTick, nullptr);

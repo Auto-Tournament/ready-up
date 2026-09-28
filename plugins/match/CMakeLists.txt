@@ -11,6 +11,8 @@ set(MATCH_SOURCES
   readyup/at_payloads.cpp
   readyup/backup_files.cpp
   readyup/card_html.cpp
+  readyup/coach.cpp
+  readyup/coach_rules.cpp
   readyup/config.cpp
   readyup/cs2_version.cpp
   readyup/damage_ledger.cpp
@@ -143,6 +145,18 @@ target_include_directories(match_ruleset_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR
   ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(match_ruleset_test PRIVATE -Wall -Wextra)
 add_test(NAME match_ruleset COMMAND match_ruleset_test)
+
+# Coaches: the policy, the side a coach watches, the admin command's player lookup, and the
+# match config side (team coaches, coaches_per_team, fleet role coach) (readyup/coach_rules.h;
+# ctest `match_coach_rules`).
+add_executable(match_coach_rules_test tests/coach_rules_test.cpp readyup/coach_rules.cpp readyup/fleet_state.cpp
+  readyup/map_names.cpp readyup/match_stats.cpp readyup/match_config_parser.cpp readyup/match_rules.cpp readyup/ruleset.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/steamid.cpp)
+target_include_directories(match_coach_rules_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs
+  ${CMAKE_SOURCE_DIR}/core/include)
+target_compile_options(match_coach_rules_test PRIVATE -Wall -Wextra)
+add_test(NAME match_coach_rules COMMAND match_coach_rules_test)
 
 # `ru` main commands + subcommands of the match plugin (readyup/ru_commands.h): the help, the
 # lookup, `.ru map change` / `.ru match load` parsing, `ru map reload`'s entry for workshop maps

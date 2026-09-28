@@ -129,6 +129,13 @@ struct WebhookMatchContext {
   // Coaches (MAT "coaches": [steamid64]; fleet role "coach"). Whitelisted as spectators unless the
   // ruleset keeps them out (valve online: lan false, coaches_online false).
   std::unordered_set<uint64_t> coaches;
+  // The team of each coach listed per team (MAT team1/team2 "coaches": {steamid64: name} as get5,
+  // or [steamid64]; fleet role "coach" inside a team). Also in `coaches`. They coach that team
+  // without typing anything (coach.h).
+  std::unordered_map<uint64_t, WebhookTeam> coach_team;
+  // Coaches per team who are not listed (scrim `.coach`, admin-assigned); MAT / get5
+  // `coaches_per_team`. <= 0: no limit.
+  int coaches_per_team = 2;
   // What the parser changed for the ruleset (logged at load).
   std::vector<std::string> ruleset_notes;
 };

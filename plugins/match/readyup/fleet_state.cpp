@@ -353,18 +353,22 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
     if (!Str(*src, "tag").empty()) t["tag"] = Str(*src, "tag");
     if (!Str(*src, "flag").empty()) t["flag"] = Str(*src, "flag");
     Json players = Json::Object();
+    Json teamCoaches = Json::Object();
     if (const Json* ps = Arr(*src, "players")) {
       for (const auto& p : ps->Items()) {
         const std::string sid = Str(p, "steamid64");
-        // Coaches may join and watch but are not ready-gated players: whitelisted as spectators.
+        // Coaches are not ready-gated players: whitelisted spectators who coach this team
+        // (coach.h), listed in the team's `coaches` (get5 shape) and the flat `coaches`.
         if (Str(p, "role", "player") == "coach") {
           specPlayers[sid] = Str(p, "name");
           coaches.Push(sid);
+          teamCoaches[sid] = Str(p, "name");
         }
         else players[sid] = Str(p, "name");
       }
     }
     t["players"] = std::move(players);
+    if (!teamCoaches.Members().empty()) t["coaches"] = std::move(teamCoaches);
     if (!Str(*src, "captain").empty()) t["captain_steamid64"] = Str(*src, "captain");
     return t;
   };

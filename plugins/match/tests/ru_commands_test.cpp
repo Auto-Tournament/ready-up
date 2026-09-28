@@ -43,7 +43,8 @@ static void TestTree() {
   // Admin-only vs public.
   for (const auto& p : std::vector<std::pair<const char*, const char*>>{
            {"match", "load"}, {"match", "start"}, {"match", "restart"}, {"match", "end"}, {"match", "pause"},
-           {"match", "unpause"}, {"mode", "idle"}, {"mode", "practice"}, {"mode", "scrim"}, {"hud", "test"}}) {
+           {"match", "unpause"}, {"match", "coach"}, {"match", "uncoach"}, {"mode", "idle"},
+           {"mode", "practice"}, {"mode", "scrim"}, {"hud", "test"}}) {
     CHECK(Admin(p.first, p.second));
   }
   CHECK(!Admin("match", "state") && !Admin("match", "rules") && !Admin("match", "side") && !Admin("mode", "show"));

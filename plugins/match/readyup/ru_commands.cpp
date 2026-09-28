@@ -19,6 +19,8 @@ const std::vector<RuMainCommand>& MatchRuCommands() {
            {"tech", "team1|team2", "technical pause for a team (its limits)", true},
            {"tac", "team1|team2", "tactical timeout for a team (its limits)", true},
            {"side", "stay|switch|ct|t", "knife side pick (the knife-winning team, or an admin)", false},
+           {"coach", "<player> team1|team2|ct|t", "make a spectator a team's coach (players: .coach ct|t)", true},
+           {"uncoach", "<player>", "stop a player coaching (players: .uncoach)", true},
            {"state", "", "match and mode state", false},
            {"rules", "", "effective rules (ruleset + overrides)", false},
        }},
