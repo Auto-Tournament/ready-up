@@ -27,8 +27,8 @@ Parity is (done + 0.5 × partial) / rows. Stable is the number of rows marked st
 | 6. Events and reports | 7 | 7 | 0 | 0 | 100.0% | 0 |
 | 7. Player-facing and admin features | 27 | 22 | 1 | 4 | 83.3% | 3 |
 | 8. Player stats | 7 | 5 | 2 | 0 | 85.7% | 0 |
-| 9. ME features not previously listed | 15 | 10 | 1 | 4 | 70.0% | 0 |
-| **Total** | **100** | **81** | **8** | **11** | **85.0%** | **5** (5%) |
+| 9. ME features not previously listed | 15 | 10 | 2 | 3 | 73.3% | 0 |
+| **Total** | **100** | **81** | **9** | **10** | **85.5%** | **5** (5%) |
 
 Stable rows: minimum ready, engine version/status, `.ready`, knife / `.stay` / `.switch`, simulation.
 
@@ -187,7 +187,7 @@ Features of the previous (ME) plugin that the first version of this file did not
 |---|---|---|---|---|---|
 | Practice grenade history: `.last`, `.back N`, `.lastindex`, `.delay`, `.throw` (alias of `.rethrow`) | Per-player history from `grenade_thrown` (position, eye angles, kind; ME numbering, max 100). `.delay` makes `.rethrow` wait. `practice_tools.h` | done | tested | events | – |
 | Per-player rethrow: `.throwidx N` / `.throwindex`, typed `.rethrow{smoke,flash,nade,grenade,molotov,decoy}` / `.throw{...}` | The history is checked and ME's messages kept, then the reply says it is not available. Needs grenade projectile creation (ME: `C*Projectile::Create` signatures, flash via CreateEntityByName) in a practice engine-surface fragment with verified anchors. `.rethrow` stays the server-wide `sv_rethrow_last_grenade` | missing | untested | fragile | M |
-| Lineup library: `.savenade`, `.loadnade`, `.listnades`, `.importnade`, `.deletenade`, `.globalnades` | Not built. CS2 cannot set another player's view | missing | untested | fragile | L |
+| Lineup library: `.savenade` / `.sn`, `.loadnade` / `.ln`, `.listnades` / `.lin`, `.importnade` / `.in`, `.deletenade` / `.delnade` / `.dn`, `.globalnades` | Per map in `<plugin data dir>/lineups/<map>.json` (owner = SteamID64 or `default` for the global ones, like ME's savednades.json; written by a writer thread). Position, eye angles, grenade kind (of your last throw), description; ME's nearest-name load (Dice, with a 0.25 floor) and import code. Gaps vs ME: `.loadnade` cannot set the view (the reply gives the `setang` to type) or switch to the grenade slot; no throw (ME had none either). `practice_lineups.h` | partial | tested | schema read/write | S |
 | `.bestspawn` / `.worstspawn`, `.bestctspawn` / `.worstctspawn`, `.besttspawn` / `.worsttspawn` | Teleport to the closest / farthest competitive spawn (lowest priority) of the team (`entity_set_abs_origin`) | done | tested | schema read/write | – |
 | `.showspawns` / `.hidespawns` | Registered; the reply gives the spawn counts and points at `.spawn N`. Markers need beam entities (entity creation), which `ru_api` does not have | missing | untested | fragile | M |
 | `.impacts`, `.traj` / `.pip`, `.solid`, `.break`, `.timer` | ME cvar toggles (`sv_showimpacts`, `sv_grenade_trajectory_prac_pipreview`, `mp_solid_teammates` 1/2) tracked from prac.cfg's values (`ru_api` has no cvar read); `.break` removes `func_breakable(_surf)` and damageable `prop_dynamic` with health > 0 (`entity_remove`, no break effect); `.timer` stopwatch in the center panel. Private replies | done | tested | schema read/write | – |
@@ -236,4 +236,4 @@ Rows from the old RCON + webhook contract. Not counted in the summary.
 4. Fleet path in CI. In progress.
 5. `reset_cvars_on_series_end` for match `cvars{}` (needs a cvar read in `ru_api`), `server.selftest` (the core does not expose its selftest result to plugins).
 6. Player-facing gaps: `.rcon`.
-7. Practice: per-player rethrow (projectile creation), `.showspawns` (entity creation), `.fas` / `.watchme`, the lineup library (fragile, L).
+7. Practice: per-player rethrow (projectile creation), `.showspawns` (entity creation), `.fas` / `.watchme`, the lineup library's view angle and grenade slot on `.loadnade` (fragile).

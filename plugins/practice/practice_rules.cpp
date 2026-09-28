@@ -29,7 +29,10 @@ bool IsToolCommand(const std::string& cmd) {
       ".impacts", ".traj", ".pip", ".solid", ".break", ".timer",
       // spawns
       ".bestspawn", ".worstspawn", ".bestctspawn", ".worstctspawn", ".besttspawn", ".worsttspawn", ".showspawns",
-      ".hidespawns"};
+      ".hidespawns",
+      // lineup library
+      ".savenade", ".sn", ".loadnade", ".ln", ".listnades", ".lin", ".deletenade", ".delnade", ".dn", ".importnade",
+      ".in"};
   return k.count(Lower(cmd)) != 0;
 }
 
@@ -61,7 +64,7 @@ bool ParseBool(const std::string& text, bool def) {
 const char* HelpLine() {
   return "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N "
          ".bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | "
-         ".dryrun | .prac to leave";
+         ".savenade .loadnade .listnades | .dryrun | .prac to leave";
 }
 
 }  // namespace practice
