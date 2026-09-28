@@ -9,6 +9,7 @@ scripts/livetest/run.sh                    # on the cs2 box, as sivert: match mo
 scripts/livetest/run.sh --scrim            # bots-only scrim: warmup -> countdown -> knife -> pick -> live
 scripts/livetest/run.sh --side switch      # pick sides from the console instead of the timeout
 scripts/livetest/run.sh --forfeit          # match + pauses + team-left forfeit (see below)
+scripts/livetest/run.sh --simulation       # the match as a simulation: Ready Up brings the bots
 scripts/livetest/run.sh --out /tmp/lt      # keep console-capture.log + result.json
 ```
 
@@ -107,19 +108,36 @@ esports_override.cfg --cfg live.cfg`).
 
 Cleanup also sends `mp_unpause_match`, `sv_matchpause_auto_5v5 0` and `mp_halftime_pausematch 0`.
 
+### Simulation (`--simulation`)
+
+The match flow above, but the match config has `simulation: true`, `simulation_timescale`
+(`--timescale`, applied by Ready Up while the map is live) and a made-up roster of
+`--bots-per-side` players per team (SteamID64s `7656119899000010N` / `...20N`, names `SimA1`,
+`SimB1`, ...). The test adds no bots: Ready Up does (plugins/match/readyup/simulation.h), one per
+roster player, and each bot plays as its player and readies up by itself. The bots step also
+waits for `simulation: bot <name><N> plays <player> (...)` for every roster player. After the
+match (or `ru mode idle` in cleanup) Ready Up kicks the bots and puts `bot_quota 0`,
+`bot_join_team any` and `bot_join_after_player 1` back. CI (`cs2-dynamic.yml`) runs the match
+this way. Not with `--scrim`, `--forfeit` or `--ruleset valve`.
+
+The server must log (`log on`, which csm's server.cfg sets): the knife winner, round ends and
+the bots' sides come from game log lines.
+
 ### Knife round time
 
 Bots do not knife each other, so a bots-only knife round always runs to the time
-limit. With `dev_bots_ready` or `dev_bots_scrim` on and no human on CT/T, Ready Up sets
-the knife round time to 0.5 min (`knife: dev flag on and no humans on CT/T ...`); the
-knife step shows `[dev knife time 0.5 min]` when that happened. `live.cfg` restores the
-real round time before going live. Servers without dev flags are unchanged.
+limit. With `dev_bots_ready` or `dev_bots_scrim` on, or a simulated match, and no human on
+CT/T, Ready Up sets the knife round time to 0.5 min (`knife: dev flag on and no humans on
+CT/T ...` / `knife: simulation and no humans ...`); the knife step shows
+`[dev knife time 0.5 min]` when that happened. `live.cfg` restores the real round time before
+going live. Servers without dev flags are unchanged.
 
 Afterwards it always puts the server back the way it was: `ru mode idle`, then `ru mode scrim`
 (so scrims start again on their own) and the old `bot_quota`. It never restarts the
 server. Use `--boot` to start it if the session is still missing after the wait.
 
-Options (also as env vars, see `--help`): `--scrim` (`LIVETEST_MODE=scrim`),
+Options (also as env vars, see `--help`): `--scrim` (`LIVETEST_MODE=scrim`), `--simulation`
+(`LIVETEST_SIMULATION=1`),
 `--max-rounds` (even, default 4), `--bots-per-side` (2), `--side auto|stay|switch`,
 `--timescale N` (sets `host_timescale` with `sv_cheats 1`, but only once the match is
 live, because Ready Up's restart checks use wall-clock time), `--round-timeout`,

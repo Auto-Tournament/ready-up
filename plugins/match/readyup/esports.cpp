@@ -6,6 +6,7 @@
 #include "readyup/logging.h"
 #include "readyup/modes.h"
 #include "readyup/pause_state.h"
+#include "readyup/wingman.h"
 
 #include <atomic>
 #include <chrono>
@@ -190,11 +191,13 @@ EffectiveRuleSet CurrentEffectiveRules() {
 
 std::string LiveCfgExecCommand() {
   const auto ctx = WebhookGetMatchContext();
+  if (ctx && ctx->wingman) return std::string("exec ") + wingman::kLiveCfg;
   return std::string("exec ") + LiveCfgFor(CtxRuleset(ctx ? &*ctx : nullptr));
 }
 
 bool LiveCfgRequired() {
   const auto ctx = WebhookGetMatchContext();
+  if (ctx && ctx->wingman) return true;  // without it a wingman map plays competitive rules
   return CtxRuleset(ctx ? &*ctx : nullptr) == Ruleset::Valve;
 }
 
@@ -228,8 +231,9 @@ void EsportsOnMatchLoaded(const WebhookMatchContext& ctx) {
   std::string d;
   for (const auto& k : differs) d += (d.empty() ? "" : ",") + k;
   Print("esports: ruleset=%s (%s) go-live cfg=%s differs=%s\n", RulesetName(e.ruleset),
-        ctx.ruleset.empty() ? "readyup.cfg" : "match config", LiveCfgFor(e.ruleset), d.empty() ? "none" : d.c_str());
-  if (e.ruleset == Ruleset::Valve && !ctx.ruleset_notes.empty()) {
+        ctx.ruleset.empty() ? "readyup.cfg" : "match config", ctx.wingman ? wingman::kLiveCfg : LiveCfgFor(e.ruleset),
+        d.empty() ? "none" : d.c_str());
+  if ((e.ruleset == Ruleset::Valve || ctx.wingman) && !ctx.ruleset_notes.empty()) {
     for (const auto& n : ctx.ruleset_notes) Print("esports: %s\n", n.c_str());
   }
   if (InventoryLocked(e)) Print("esports: players' inventories are not modified (skins plugin inert)\n");

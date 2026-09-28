@@ -111,6 +111,12 @@ Json ContextToJson(const WebhookMatchContext& c) {
   for (const auto& kv : c.coach_team) coachTeam[std::to_string(kv.first)] = static_cast<long long>(kv.second);
   j["coach_team"] = std::move(coachTeam);
   j["coaches_per_team"] = c.coaches_per_team;
+  Json names = Json::Object();
+  for (const auto& kv : c.roster_names) names[U64(kv.first)] = kv.second;
+  j["roster_names"] = std::move(names);
+  j["wingman"] = c.wingman;
+  j["simulation"] = c.simulation;
+  j["simulation_timescale"] = c.simulation_timescale;
   return j;
 }
 
@@ -170,6 +176,12 @@ WebhookMatchContext ContextFromJson(const Json& j) {
     }
   }
   c.coaches_per_team = Int(&j, "coaches_per_team", c.coaches_per_team);
+  if (const Json* v = j.Find("roster_names")) {
+    for (const auto& kv : v->Members()) c.roster_names[std::strtoull(kv.first.c_str(), nullptr, 10)] = kv.second.AsString();
+  }
+  c.wingman = Bool(&j, "wingman");
+  c.simulation = Bool(&j, "simulation");
+  if (const Json* v = j.Find("simulation_timescale")) c.simulation_timescale = v->AsDouble();
   return c;
 }
 

@@ -138,6 +138,15 @@ struct WebhookMatchContext {
   int coaches_per_team = 2;
   // What the parser changed for the ruleset (logged at load).
   std::vector<std::string> ruleset_notes;
+
+  // Roster player names (team1/2.players {steamid64: name}); simulated bots play as them.
+  std::unordered_map<uint64_t, std::string> roster_names;
+  // `wingman: true`: 2v2 on CS2's wingman mode (wingman.h).
+  bool wingman = false;
+  // `simulation: true`: bots play the match (simulation.h); `simulation_timescale` (0.1 .. 4)
+  // is host_timescale while a map is live.
+  bool simulation = false;
+  double simulation_timescale = 1.0;
 };
 
 // Configure base events URL (e.g. https://mat.example.com/api/events).

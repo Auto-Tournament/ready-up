@@ -14,6 +14,7 @@
 #include "readyup/modes.h"
 #include "readyup/persisted_match_state.h"
 #include "readyup/players.h"
+#include "readyup/simulation.h"
 #include "readyup/webhook.h"
 #include "readyup/golive_card.h"
 #include "readyup/welcome.h"
@@ -73,14 +74,21 @@ std::atomic<int> g_eventsLive{0};
 
 // ---- helpers -----------------------------------------------------------------------------
 
+// A simulated match's bot counts as the roster player it plays as (simulation.h).
 std::optional<uint64_t> SteamForSlot(int slot) {
   auto ident = GetSlotIdentity(slot);
-  if (!ident || ident->steamid64 == 0) return std::nullopt;
+  if (!ident || ident->steamid64 == 0) {
+    if (auto sim = SimulationPlayerForSlot(slot)) return sim->steamid64;
+    return std::nullopt;
+  }
   return ident->steamid64;
 }
 
 std::string NameForSlot(int slot) {
   auto ident = GetSlotIdentity(slot);
+  if (!ident) {
+    if (auto sim = SimulationPlayerForSlot(slot)) return sim->name;
+  }
   return ident ? ident->name : std::string();
 }
 

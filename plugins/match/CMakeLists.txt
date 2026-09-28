@@ -58,10 +58,13 @@ set(MATCH_SOURCES
   readyup/reload_state.cpp
   readyup/ruleset.cpp
   readyup/scrim_flow.cpp
+  readyup/simulation.cpp
+  readyup/simulation_rules.cpp
   readyup/vote_logic.cpp
   readyup/votes.cpp
   readyup/webhook.cpp
   readyup/welcome.cpp
+  readyup/wingman.cpp
   readyup/workers.cpp
   # Shared engine-free code (libs/readyup).
   ${CMAKE_SOURCE_DIR}/libs/readyup/http_client.cpp
@@ -166,6 +169,19 @@ target_include_directories(match_ru_commands_test PRIVATE ${CMAKE_CURRENT_SOURCE
 target_compile_options(match_ru_commands_test PRIVATE -Wall -Wextra)
 target_link_libraries(match_ru_commands_test PRIVATE pthread)
 add_test(NAME match_ru_commands COMMAND match_ru_commands_test)
+
+# Simulation mode and wingman (readyup/simulation_rules.h, readyup/wingman.h): timescale, roster
+# identities, bot -> identity assignment, when to add a bot, the setup / teardown commands, the game
+# mode, the match config fields and cfg/ReadyUp/live_wingman.cfg (ctest `match_simulation`).
+add_executable(match_simulation_test tests/simulation_test.cpp readyup/simulation_rules.cpp readyup/wingman.cpp
+  readyup/match_config_parser.cpp readyup/ruleset.cpp readyup/match_rules.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/steamid.cpp)
+target_include_directories(match_simulation_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs
+  ${CMAKE_SOURCE_DIR}/core/include)
+target_compile_options(match_simulation_test PRIVATE -Wall -Wextra)
+target_compile_definitions(match_simulation_test PRIVATE READYUP_CFG_DIR="${CMAKE_SOURCE_DIR}/cfg/ReadyUp")
+add_test(NAME match_simulation COMMAND match_simulation_test)
 
 # Idle map refresh decision (readyup/idle_refresh.h; ctest `match_idle_refresh`).
 add_executable(match_idle_refresh_test tests/idle_refresh_test.cpp)

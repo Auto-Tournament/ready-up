@@ -1,0 +1,301 @@
+// Simulation mode, engine side (simulation.h).
+#include "readyup/simulation.h"
+
+#include "readyup/engine.h"
+#include "readyup/logging.h"
+#include "readyup/match_events.h"
+#include "readyup/match_state.h"
+#include "readyup/modes.h"
+#include "readyup/players.h"
+#include "readyup/simulation_rules.h"
+#include "readyup/webhook.h"
+#include "readyup/wingman.h"
+
+#include <algorithm>
+#include <map>
+#include <mutex>
+#include <set>
+#include <string>
+#include <vector>
+
+namespace readyup {
+namespace {
+
+// A new map is given this long to settle (gamemode cfgs, the engine re-adding the old quota's
+// bots) before the bots start over; a match load that never brings a map start still goes on.
+constexpr double kMapSettleSeconds = 3.0;
+constexpr double kMapStartWaitSeconds = 20.0;
+constexpr double kAfterSetupSeconds = 1.5;
+constexpr int kFullTeam = 5;
+
+struct Data {
+  uint64_t matchid = 0;  // the simulated match (0 = none)
+  std::vector<sim::Identity> ids;
+  double timescale = 1.0;
+  bool timescaleOn = false;
+  // Waiting for the map the match load changes to (or a new map of the series).
+  bool waitMapStart = false;
+  double noticedAt = 0;
+  double lastMapStartAt = -1;
+  double resumeAt = 0;       // nothing before this (map settle, after the setup commands)
+  bool setupDone = false;    // SetupCommands sent on this map
+  sim::BotFeeder feeder;
+  std::map<int, int> assigned;          // bot userid -> ids index
+  std::map<int, double> assignedAt;     // bot userid -> when it took its identity
+  std::set<uint64_t> announced;         // roster ids sent as player_connect (this match)
+};
+
+std::mutex g_mu;
+Data g_d;
+
+Data& S() { return g_d; }
+
+bool ActiveCtx(const std::optional<WebhookMatchContext>& ctx) {
+  return ctx && ctx->simulation && ctx->slug != "scrim";
+}
+
+void Send(const std::vector<std::string>& cmds) {
+  for (const auto& c : cmds) (void)EnqueueServerCommand(c.c_str());
+}
+
+// team1 plays CT right now: the map's starting side, flipped by every side swap so far.
+bool Team1IsCtNow(const WebhookMatchContext& ctx) {
+  const int mapNumber = std::max(1, MatchStateGet().map_number);
+  bool team1Ct = true;
+  if (static_cast<size_t>(mapNumber) <= ctx.map_sides.size()) {
+    team1Ct = ctx.map_sides[static_cast<size_t>(mapNumber - 1)] != "team2_ct";
+  }
+  if (MatchEventsSnapshot().swapCount % 2 != 0) team1Ct = !team1Ct;
+  return team1Ct;
+}
+
+std::vector<sim::Identity> IdentitiesFor(const WebhookMatchContext& ctx) {
+  std::vector<sim::Identity> roster;
+  for (const auto& kv : ctx.roster_team) {
+    const int team = kv.second == WebhookTeam::Team1 ? 1 : kv.second == WebhookTeam::Team2 ? 2 : 0;
+    auto n = ctx.roster_names.find(kv.first);
+    roster.push_back(sim::Identity{kv.first, n != ctx.roster_names.end() ? n->second : std::string(), team});
+  }
+  return sim::PlanIdentities(roster, ctx.wingman ? wingman::kPlayersPerTeam : kFullTeam);
+}
+
+WebhookTeam TeamTag(int team) {
+  return team == 1 ? WebhookTeam::Team1 : team == 2 ? WebhookTeam::Team2 : WebhookTeam::Unknown;
+}
+
+// A player_ready webhook with the roster counts, as `.ready` sends it (match_router.cpp).
+void EmitReady(const WebhookMatchContext& ctx, const sim::Identity& id) {
+  int r1 = 0, r2 = 0;
+  for (const auto& kv : ctx.roster_team) {
+    if (kv.first == 0 || !IsReady(kv.first)) continue;
+    if (kv.second == WebhookTeam::Team1) ++r1;
+    else if (kv.second == WebhookTeam::Team2) ++r2;
+  }
+  WebhookEmitPlayerReady(WebhookPlayer{id.steamid64, id.name, TeamTag(id.team)}, true, r1, r2, r1 + r2,
+                         static_cast<int>(ctx.roster_team.size()));
+}
+
+}  // namespace
+
+bool SimulationActive() { return ActiveCtx(WebhookGetMatchContext()); }
+
+void SimulationOnMapStart(double now) {
+  auto& s = S();
+  std::lock_guard<std::mutex> lk(g_mu);
+  s.lastMapStartAt = now;
+  if (s.matchid == 0) return;
+  // New userids on the new map: identities are handed out again (no disconnect / connect webhooks:
+  // the roster stays "connected" across the map change, as humans do).
+  s.waitMapStart = false;
+  s.setupDone = false;
+  s.resumeAt = now + kMapSettleSeconds;
+  s.assigned.clear();
+  s.assignedAt.clear();
+  s.feeder.Reset();
+  s.timescaleOn = false;  // the map starts in warmup (real time); the engine keeps host_timescale
+}
+
+void SimulationOnRoundStart() {
+  auto& s = S();
+  std::vector<std::string> cmds;
+  {
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (s.matchid == 0 || !s.timescaleOn) return;
+    cmds = sim::TimescaleCommands(s.timescale);
+  }
+  Send(cmds);
+}
+
+void SimulationAddConnected(std::unordered_set<uint64_t>* connected) {
+  if (!connected) return;
+  auto& s = S();
+  std::lock_guard<std::mutex> lk(g_mu);
+  if (s.matchid == 0) return;
+  for (const auto& kv : s.assigned) {
+    const uint64_t sid = s.ids[static_cast<size_t>(kv.second)].steamid64;
+    if (sid != 0) connected->insert(sid);
+  }
+}
+
+std::optional<SimulatedPlayer> SimulationPlayerForSlot(int slot) {
+  auto& s = S();
+  std::lock_guard<std::mutex> lk(g_mu);
+  if (s.matchid == 0) return std::nullopt;
+  auto it = s.assigned.find(slot);
+  if (it == s.assigned.end()) return std::nullopt;
+  const auto& id = s.ids[static_cast<size_t>(it->second)];
+  if (id.steamid64 == 0) return std::nullopt;
+  return SimulatedPlayer{id.steamid64, id.name};
+}
+
+void SimulationTick(double now) {
+  auto& s = S();
+  const auto ctx = WebhookGetMatchContext();
+  const bool active = ActiveCtx(ctx);
+  const ReadyUpMode mode = GetMode();
+  // Read before taking g_mu: match_events / the player registry call back into this file
+  // (SimulationPlayerForSlot) while holding their own locks.
+  const bool team1Ct = active ? Team1IsCtNow(*ctx) : true;
+  const std::vector<BotIdentity> botList = active ? ListBots() : std::vector<BotIdentity>();
+
+  std::vector<std::string> cmds;
+  std::vector<WebhookPlayer> connects, disconnects;
+  std::vector<sim::Identity> toReady;
+  {
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (!active) {
+      if (s.matchid == 0) return;
+      // The simulated match is gone (series over, unloaded, replaced): bots out, defaults back.
+      if (s.timescaleOn) cmds = sim::RealTimeCommands();
+      for (const auto& c : sim::TeardownCommands()) cmds.push_back(c);
+      Print("simulation: match %llu is over - bots removed, bot and timescale defaults restored\n",
+            static_cast<unsigned long long>(s.matchid));
+      const double lastMap = s.lastMapStartAt;
+      s = Data();
+      s.lastMapStartAt = lastMap;
+    } else {
+      if (s.matchid != ctx->matchid) {
+        // A new simulated match. Loaded now: its map load comes next, the bots start on that map.
+        // Found already going (plugin reload, boot recovery of a live map): keep the bots there.
+        const double lastMap = s.lastMapStartAt;
+        s = Data();
+        s.lastMapStartAt = lastMap;
+        s.matchid = ctx->matchid;
+        s.ids = IdentitiesFor(*ctx);
+        s.timescale = sim::ClampTimescale(ctx->simulation_timescale);
+        s.noticedAt = now;
+        const bool adopt = mode == ReadyUpMode::MatchLive || mode == ReadyUpMode::MatchKnife ||
+                           mode == ReadyUpMode::Postgame;
+        s.waitMapStart = !adopt;
+        s.setupDone = adopt;
+        int named = 0;
+        for (const auto& id : s.ids) named += id.steamid64 != 0 ? 1 : 0;
+        Print("simulation: match %llu - %zu bot(s) (%d roster player(s), %zu anonymous), timescale %s%s%s\n",
+              static_cast<unsigned long long>(s.matchid), s.ids.size(), named, s.ids.size() - named,
+              sim::TimescaleText(s.timescale).c_str(), ctx->wingman ? ", wingman" : "",
+              adopt ? " (already running: keeping the bots)" : "");
+      }
+      if (s.waitMapStart) {
+        if (s.lastMapStartAt > s.noticedAt) {
+          s.waitMapStart = false;
+          s.resumeAt = s.lastMapStartAt + kMapSettleSeconds;
+        } else if (now - s.noticedAt > kMapStartWaitSeconds) {
+          Print("simulation: no map start %.0fs after the match load; adding bots on this map\n", kMapStartWaitSeconds);
+          s.waitMapStart = false;
+          s.resumeAt = now;
+        }
+      }
+      const bool playing = mode == ReadyUpMode::MatchWarmup || mode == ReadyUpMode::MatchKnife ||
+                           mode == ReadyUpMode::MatchLive;
+      // Real time outside a live map (warmup, knife, between maps); simulation_timescale while live.
+      if (mode == ReadyUpMode::MatchLive && !s.timescaleOn) {
+        cmds = sim::TimescaleCommands(s.timescale);
+        if (!cmds.empty()) {
+          s.timescaleOn = true;
+          Print("simulation: map live - host_timescale %s\n", sim::TimescaleText(s.timescale).c_str());
+        }
+      } else if (mode != ReadyUpMode::MatchLive && s.timescaleOn) {
+        cmds = sim::RealTimeCommands();
+        s.timescaleOn = false;
+      }
+      if (playing && !s.waitMapStart && now >= s.resumeAt) {
+        if (!s.setupDone) {
+          for (const auto& c : sim::SetupCommands()) cmds.push_back(c);
+          s.setupDone = true;
+          s.resumeAt = now + kAfterSetupSeconds;
+          s.feeder.Reset();
+          s.assigned.clear();
+          s.assignedAt.clear();
+        } else {
+          std::vector<sim::Bot> bots;
+          int ct = 0, t = 0;
+          for (const auto& b : botList) {
+            bots.push_back(sim::Bot{b.userid, b.team});
+            if (b.team == 3) ++ct;
+            else if (b.team == 2) ++t;
+          }
+          int ctWanted = 0, tWanted = 0;
+          sim::WantedPerSide(s.ids, team1Ct, &ctWanted, &tWanted);
+          int quota = 0;
+          const int side = s.feeder.Next(now, static_cast<int>(bots.size()), ct, t, ctWanted, tWanted,
+                                         static_cast<int>(s.ids.size()) + 2, &quota);
+          if (side != 0) {
+            for (const auto& c : sim::AddBotCommands(side, quota)) cmds.push_back(c);
+            Debug("simulation: adding a bot on %s (bot_quota %d; CT %d/%d, T %d/%d)\n", side == 3 ? "CT" : "T", quota,
+                  ct, ctWanted, t, tWanted);
+          }
+
+          const auto next = sim::Assign(s.assigned, bots, s.ids, team1Ct);
+          for (const auto& kv : s.assigned) {
+            if (next.count(kv.first)) continue;
+            const auto& id = s.ids[static_cast<size_t>(kv.second)];
+            s.assignedAt.erase(kv.first);
+            if (id.steamid64 != 0 && s.announced.erase(id.steamid64)) {
+              disconnects.push_back(WebhookPlayer{id.steamid64, id.name, TeamTag(id.team)});
+            }
+          }
+          for (const auto& kv : next) {
+            if (s.assigned.count(kv.first)) continue;
+            const auto& id = s.ids[static_cast<size_t>(kv.second)];
+            s.assignedAt[kv.first] = now;
+            std::string botName;
+            for (const auto& b : botList) {
+              if (b.userid == kv.first) botName = b.name;
+            }
+            Print("simulation: bot %s<%d> plays %s (%llu, team%d)\n", botName.c_str(), kv.first,
+                  id.steamid64 ? id.name.c_str() : "an anonymous player", static_cast<unsigned long long>(id.steamid64),
+                  id.team);
+            if (id.steamid64 != 0 && s.announced.insert(id.steamid64).second) {
+              connects.push_back(WebhookPlayer{id.steamid64, id.name, TeamTag(id.team)});
+            }
+          }
+          s.assigned = next;
+
+          // Simulated `.ready` in warmup, a moment after each bot took its identity.
+          if (mode == ReadyUpMode::MatchWarmup) {
+            for (const auto& kv : s.assigned) {
+              const auto& id = s.ids[static_cast<size_t>(kv.second)];
+              if (id.steamid64 == 0) continue;
+              if (now - s.assignedAt[kv.first] >= sim::ReadyDelaySeconds(kv.second)) toReady.push_back(id);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Outside the lock: modes / webhooks take their own.
+  Send(cmds);
+  for (const auto& p : disconnects) WebhookEmitPlayerDisconnect(p);
+  for (const auto& p : connects) WebhookEmitPlayerConnect(p);
+  if (!toReady.empty() && ctx && !GoLiveTriggered()) {
+    for (const auto& id : toReady) {
+      if (IsReady(id.steamid64)) continue;
+      (void)SetReady(id.steamid64, true);
+      EmitReady(*ctx, id);
+      Debug("simulation: %s (%llu) is ready\n", id.name.c_str(), static_cast<unsigned long long>(id.steamid64));
+    }
+  }
+}
+
+}  // namespace readyup

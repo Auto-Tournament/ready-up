@@ -1690,6 +1690,8 @@ void EnsureHandlers() {
   f->add_capability("match.backup.v1");
   f->add_capability("match.resume.v1");
   f->add_capability("maps.workshop.v1");
+  f->add_capability("mode.wingman.v1");
+  f->add_capability("mode.simulation.v1");
   PublishAdminsRev();
   g_lastPublishedAvail.clear();
   if (g_asg.active) {

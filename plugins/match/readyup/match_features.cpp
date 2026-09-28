@@ -12,6 +12,7 @@
 #include "readyup/pause_state.h"
 #include "readyup/players.h"
 #include "readyup/scrim_flow.h"
+#include "readyup/simulation.h"
 
 #include <algorithm>
 #include <atomic>
@@ -83,7 +84,8 @@ void Unpause(const char* why) {
 }
 
 // A team is there if one of its roster players is connected. Teams without a roster (bot tests:
-// livetest's empty roster, dev_bots_scrim) and the dev bot flags count bots on the team's side.
+// livetest's empty roster, dev_bots_scrim), the dev bot flags and simulated matches count bots on
+// the team's side.
 bool TeamPresent(const WebhookMatchContext& ctx, WebhookTeam team, const std::unordered_set<uint64_t>& connected,
                  const std::vector<BotIdentity>& bots) {
   bool hasRoster = false;
@@ -92,7 +94,7 @@ bool TeamPresent(const WebhookMatchContext& ctx, WebhookTeam team, const std::un
     hasRoster = true;
     if (connected.count(kv.first)) return true;
   }
-  if (hasRoster && !DevBotsReadyEnabled() && !DevBotsScrimEnabled()) return false;
+  if (hasRoster && !DevBotsReadyEnabled() && !DevBotsScrimEnabled() && !SimulationActive()) return false;
   const int side = CsSideOf(ctx, team);
   for (const auto& b : bots) {
     if (b.team == side) return true;
@@ -275,9 +277,9 @@ void MatchFeaturesUnpause(WebhookTeam team, uint64_t steamid64, const std::strin
   const MatchRules rules = EffectiveRules();
   const int mapNumber = MatchStateGet().map_number;
   auto snap = PauseStateRequestUnpause(team);
-  // dev_bots_ready: a team with no connected human on the roster is all bots (or empty);
-  // nobody can confirm for it, so confirm on its behalf.
-  if (DevBotsReadyEnabled()) {
+  // dev_bots_ready / simulation: a team with no connected human on the roster is all bots (or
+  // empty); nobody can confirm for it, so confirm on its behalf.
+  if (DevBotsReadyEnabled() || SimulationActive()) {
     std::unordered_set<uint64_t> connected;
     for (const auto& h : ListHumans()) connected.insert(h.steamid64);
     auto botOnly = [&](WebhookTeam t) {

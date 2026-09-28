@@ -20,6 +20,7 @@
 #include "readyup/persisted_match_state.h"
 #include "readyup/persisted_settings.h"
 #include "readyup/webhook.h"
+#include "readyup/wingman.h"
 
 #include <atomic>
 #include <cctype>
@@ -556,6 +557,9 @@ void ApplyLoadedMatch(const WebhookMatchContext& ctx, const std::string& configJ
     MatchStateSetMap(firstMapNumber, MatchStateGet().current_map);
   }
   if (idx < ctx.maplist.size()) {
+    // CS2 reads game_type / game_mode at the map load: competitive, or wingman (wingman.h).
+    for (const auto& c : wingman::GameModeCommands(ctx.wingman)) (void)EnqueueServerCommand(c.c_str());
+    if (ctx.wingman) PrintLine("match: wingman - game_type 0 / game_mode 2 for the map load");
     (void)LoadMapEntry(ctx.maplist[idx]);
   }
 }

@@ -237,6 +237,23 @@ static uint64_t SteamFromController(void* controller) {
   return *v;
 }
 
+// A bot's name from its controller (m_iszPlayerName, char[128]); "" when unknown.
+static std::string BotNameFromController(void* controller) {
+  if (!controller) return {};
+  static std::optional<int> s_off;
+  static std::atomic<bool> s_lookedUp{false};
+  bool expected = false;
+  if (s_lookedUp.compare_exchange_strong(expected, true)) {
+    s_off = SchemaFindOffset("server", "CCSPlayerController", "m_iszPlayerName");
+    if (!s_off) s_off = SchemaFindOffset("server", "CBasePlayerController", "m_iszPlayerName");
+  }
+  if (!s_off || *s_off < 0 || *s_off > 0x20000) return {};
+  char buf[128];
+  std::memcpy(buf, reinterpret_cast<const unsigned char*>(controller) + *s_off, sizeof(buf));
+  buf[sizeof(buf) - 1] = 0;
+  return buf;
+}
+
 // SteamID64 for an event's `userid` player: the controller's m_steamID first, the
 // log-keyed slot map as a fallback. Logs a debug line when both are known and differ.
 static uint64_t ResolveEventSteam(IGameEvent* ev, int slot, const char* what) {
@@ -351,6 +368,8 @@ struct ListenerImpl : IGameEventListener2 {
     if (std::strcmp(name, "player_disconnect") == 0) {
       const int slot = event->GetPlayerSlot(CKV3MemberName("userid")).value;
       if (slot >= 0) g_slotController.erase(slot);
+      // A bot that held this slot is gone (a human's slot never holds a bot entry).
+      if (slot >= 0) ForgetBot(slot);
       return;
     }
     if (std::strcmp(name, "player_team") == 0) {
@@ -358,7 +377,19 @@ struct ListenerImpl : IGameEventListener2 {
       // GetInt (not GetBool): same accessor the debug path above already uses.
       const bool disc = event->GetInt(CKV3MemberName("disconnect"), 0) != 0;
       const bool isBot = event->GetInt(CKV3MemberName("isbot"), 0) != 0;
-      if (!disc && !isBot) {
+      if (isBot) {
+        // Bots, source #2 (the log header `Name<N><BOT><TEAM>` is #1): without `log on` the
+        // server prints no log lines, and bots would never be seen on a team.
+        const int slot = event->GetPlayerSlot(CKV3MemberName("userid")).value;
+        if (slot >= 0 && slot < 64) {
+          if (disc) {
+            ForgetBot(slot);
+          } else if (team >= 0 && team <= 3) {
+            ObserveBot(slot, BotNameFromController(event->GetPlayerController(CKV3MemberName("userid"))), team);
+            Debug("teams: player_team bot slot=%d team=%d\n", slot, team);
+          }
+        }
+      } else if (!disc) {
         const int slot = event->GetPlayerSlot(CKV3MemberName("userid")).value;
         const uint64_t sid = ResolveEventSteam(event, slot, "player_team");
         // Team source #2 for the SteamID-keyed human table (log lines are #1).
