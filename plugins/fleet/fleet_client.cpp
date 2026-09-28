@@ -277,7 +277,32 @@ void Client::MarkProcessed(int64_t seq) {
 
 ClientStatus Client::Status() const {
   std::lock_guard<std::mutex> lk(mu_);
-  return status_;
+  ClientStatus st = status_;
+  st.bulkQueuedBytes = bulkBytes_;
+  return st;
+}
+
+bool Client::SendBulk(const std::string& type, const std::string& payloadJson, int64_t epoch, std::string* err) {
+  auto fail = [&](const std::string& why) {
+    if (err) *err = why;
+    return false;
+  };
+  if (!IsValidType(type) || IsEphemeralType(type) || type.rfind("local.", 0) == 0) return fail("invalid type");
+  if (payloadJson.empty() || payloadJson.size() > kMaxFrameBytes - 1024) return fail("payload size");
+  {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (status_.state != LinkState::Online) return fail("not online");
+    if (!bulk_.empty() && bulkBytes_ + payloadJson.size() > cfg_.bulkMaxBytes) return fail("bulk lane full");
+    bulk_.push_back(Out{type, payloadJson, {}, epoch, false, 0});
+    bulkBytes_ += payloadJson.size();
+  }
+  Wake();
+  return true;
+}
+
+void Client::HoldOutboundForTest(bool hold) {
+  holdOut_ = hold;
+  Wake();
 }
 
 void Client::PushLocal(const std::string& type, const std::string& payloadJson) {
@@ -670,7 +695,7 @@ std::string Client::BuildHello() {
     }
     p.Set("plugins_disabled", std::move(off));
   }
-  // The core's latest selftest (ru_api 1.10 selftest_summary, fleet_proto.h SelftestPayload);
+  // The core's latest selftest (ru_api 1.11 selftest_summary, fleet_proto.h SelftestPayload);
   // left out before the first selftest ran (it is optional).
   if (!h.selftestJson.empty()) {
     json::Value st;
@@ -768,6 +793,9 @@ Client::SessionResult Client::RunSession() {
     s.c = nullptr;
     if (hdrs) curl_slist_free_all(hdrs);
     hdrs = nullptr;
+    std::lock_guard<std::mutex> lk(mu_);
+    bulk_.clear();  // ephemeral: the sender resumes from the platform's ack (demo.ack)
+    bulkBytes_ = 0;
   };
 
   const CURLcode rc = curl_easy_perform(s.c);
@@ -950,24 +978,44 @@ Client::SessionResult Client::RunSession() {
     }
     // Outbound: new reliable messages (already spooled) and ephemeral ones, in the order the
     // plugins queued them (a state.snapshot queued before an event goes out before it).
-    eph.clear();
-    DrainOutbox(&eph);
-    size_t ei = 0;
     auto sendEph = [&](const Out& o) {
       Envelope e;
       e.type = o.type;
       e.epoch = o.epoch;
       e.ref = o.ref;
-      sendEnv(e, o.payload);
+      return sendEnv(e, o.payload);
     };
-    for (const auto& r : spool_.records()) {
-      if (r.seq <= s.lastSentSeq) continue;
-      while (ei < eph.size() && eph[ei].afterSeq < r.seq && !s.broken) sendEph(eph[ei++]);
-      if (s.broken) break;
-      sendRecord(r);
-      if (s.broken) break;
+    bool bulkWaiting = false;
+    if (!holdOut_) {
+      eph.clear();
+      DrainOutbox(&eph);
+      size_t ei = 0;
+      for (const auto& r : spool_.records()) {
+        if (r.seq <= s.lastSentSeq) continue;
+        while (ei < eph.size() && eph[ei].afterSeq < r.seq && !s.broken) sendEph(eph[ei++]);
+        if (s.broken) break;
+        sendRecord(r);
+        if (s.broken) break;
+      }
+      while (ei < eph.size() && !s.broken) sendEph(eph[ei++]);
+      // The bulk lane (SendBulk): one message, and only when the normal lane is empty again.
+      Out b;
+      bool haveBulk = false;
+      {
+        std::lock_guard<std::mutex> lk(mu_);
+        if (!bulk_.empty() && outbox_.empty()) {
+          b = std::move(bulk_.front());
+          bulk_.pop_front();
+          bulkBytes_ -= std::min(bulkBytes_, b.payload.size());
+          haveBulk = true;
+        }
+        bulkWaiting = !bulk_.empty();
+      }
+      if (haveBulk && !s.broken && sendEph(b)) {
+        std::lock_guard<std::mutex> lk(mu_);
+        ++status_.bulkSent;
+      }
     }
-    while (ei < eph.size() && !s.broken) sendEph(eph[ei++]);
     // What the game thread finished handling.
     std::vector<int64_t> done;
     {
@@ -1008,8 +1056,9 @@ Client::SessionResult Client::RunSession() {
     PublishSpoolStatus();
     if (s.broken) break;
 
-    // Wait for the socket, a wake-up, the next ping or a due ack.
-    int64_t waitMs = std::min<int64_t>(250, nextPing - now);
+    // Wait for the socket, a wake-up, the next ping or a due ack (no wait while bulk is queued:
+    // the next pass sends the normal lane first, then the next bulk message).
+    int64_t waitMs = bulkWaiting ? 0 : std::min<int64_t>(250, nextPing - now);
     const int64_t ackDue = rx_.NextAckDueMs();
     if (ackDue >= 0) waitMs = std::min<int64_t>(waitMs, ackDue - nowWall);
     pollfd pf[2] = {};

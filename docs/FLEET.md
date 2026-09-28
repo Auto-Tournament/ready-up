@@ -21,9 +21,10 @@ The server-side model the protocol carries already exists (PR #8):
 | `plugins/match/readyup/demo_recorder.h` | per-map GOTV recording, uploader, `DemoEvent` | `event.demo`, the demo upload (§12) |
 
 The fleet link subscribes to those listeners (`AddMatchFlowListener`, `demo::AddListener`) and
-the `ToJson` serializers define the payload field names. The existing `ru_demo_*` and
-`ru_series_end_kick_delay_*` console settings are set by the fleet link from `server.config`
-in fleet mode, instead of by hand.
+the `ToJson` serializers define the payload field names. The existing `ru_demo_path` /
+`ru_demo_name_format` and `ru_series_end_kick_delay_*` console settings are set by the fleet link
+from `server.config` in fleet mode, instead of by hand. Demos of platform matches are streamed
+over the link (§12.2), so fleet mode needs no upload URL or token.
 
 ## Implementation status (Ready Up)
 
@@ -42,7 +43,9 @@ in fleet mode, instead of by hand.
 
 Config is the `[fleet]` section of `readyup.cfg` (or `csgo/cfg/ReadyUp/fleet.cfg`), read with
 `config_get`: `url`, `enroll_code`, `enroll_key`, `insecure_dev`, `ca_file`, `pin_sha256`,
-`offline_pause_minutes` (default 3, 0 = off), `spool_max_msgs`, `spool_max_mb`, `enabled`.
+`offline_pause_minutes` (default 3, 0 = off; the platform's `server.config` value wins),
+`spool_max_msgs`, `spool_max_mb`, `demo_keep_hours` (24; 0 = keep streamed demos), `demo_chunk_kb`
+(128), `demo_window_kb` (1024), `enabled`.
 The `fleet_`-prefixed names used in this document (`fleet_url`, ...) are accepted too. No `url`
 and no `credentials.json` = standalone: the plugin loads, logs one line and stays idle.
 
@@ -59,7 +62,7 @@ Choices made where this document leaves room:
 
 - `state.snapshot` is sent ephemerally (only while online): after a `reset` resume, on
   `state.request`. A spooled snapshot would be stale by the time it is replayed.
-- `hello.selftest` is the core's latest selftest (`ru_api` 1.10 `selftest_summary`: the automatic one 15 s
+- `hello.selftest` is the core's latest selftest (`ru_api` 1.11 `selftest_summary`: the automatic one 15 s
   after the first map, `ru selftest`, or `/selftest?run=1`), reduced to `{pass, passed, total, failures}`;
   left out before the first selftest ran. fleet.so reads it every 5 s; when the outcome changes (not
   on a re-run with the same outcome) hello carries the new one and `server.selftest` (reliable, same
@@ -173,9 +176,35 @@ version.**
   `readyup.fleet.v1`); `hello` leaves it out when there is none. Capabilities `match.resume.v1`
   and `maps.workshop.v1`.
 
+**Server settings and demos from the platform (M1: server.config, rules.demo, demo streaming).**
+
+- `server.config` is applied in full (§7.5 has the field → setting table). The match plugin maps
+  its fields (`fleetstate::PlanServerConfig`, `plugins/match/readyup/fleet_state.h`) to server
+  settings and console settings, saved in `state.json` like a console change; fleet.so applies
+  `offline_pause_minutes` and `status_http.token` itself and keeps them in
+  `csgo/readyup/plugins/fleet/server-config.json` (0600). New core API member (ru_api 1.10)
+  `set_core_setting` for the two core-owned values (`chat_prefix`, `status_http_token`).
+- `match.assign` `rules.demo.record` / `rules.demo.upload` → MAT `demo_record` / `demo_upload`:
+  `record` wins over `ru_demo_recording_enabled` for that match, `upload: false` keeps the demo
+  on disk (neither streamed nor HTTP-uploaded).
+- Demo streaming (§12.2): `plugins/fleet/fleet_demo.*` (tailer + ack / resume state machine,
+  `demos.json`), the client's lowest-priority lane (`Client::SendBulk`), `readyup.fleet.v1`
+  `demo_stream_begin` / `demo_stream_end`, and `demo_recorder.h` `StreamHooks` installed by
+  `fleet_bridge.cpp`. Schemas `messages/demo.{begin,chunk,end,ack}.json` (proposed; the
+  platform must implement the receiver). `[fleet]` keys `demo_keep_hours` (24), `demo_chunk_kb`
+  (128), `demo_window_kb` (1024). `ru fleet status` lists the streams; `get_status.update_blocked`
+  is 1 while a streamed demo is not confirmed by the platform.
+
 Tests: `match_fleet_state` (merge patch / rev, fencing, CAS, assign → MAT config through the real
-parser, update ops, sha256 / base64, validators, stats rewind), `fleet_protocol` (schemas vs the
-example frames), `fleet_integration` (its frames now validate against the step-3 schemas too) and
+parser, update ops, sha256 / base64, validators, stats rewind, `rules.demo`, server.config →
+settings), `fleet_demo` (tailer on a growing file, window / full lane, final pass with the header
+rewritten, resume after a new session and after a restart, checksum / refusal / silence, nothing
+deleted without a full confirmation, no platform → no changes), `fleet_unit` (server.config
+fields of fleet.so and their file), `fleet_host` (server.config → token pushed to the core,
+restored on reload; `demo_stream_begin` 0 standalone), `fleet_protocol` (schemas vs the
+example frames), `fleet_integration` (its frames now validate against the step-3 schemas too; the
+bulk lane's priority; a demo streamed to the mock platform across a dropped connection, verified
+and then deleted) and
 `scripts/livetest/fleet_livetest.py`: a Python mock platform in Docker assigns a bot match to the
 test server and checks acks, fencing, CAS, events, backups + restore, the offline auto-pause and
 the `live_rev` stream against the schemas (`--play-out` for the natural map end, `--from-scrim`
@@ -197,7 +226,7 @@ Answers to the review questions:
 
 | # | Topic | Decision |
 |---|---|---|
-| D1 | Storage | **No S3/MinIO.** Demos upload to the platform API, which stores them on its filesystem. Round backups go **inline over the WebSocket** into the platform. S3 is only a possible future storage backend behind the platform's upload endpoint. Uploads use the server token, sha256 integrity, and chunked, resumable upload for large demos. |
+| D1 | Storage | **No S3/MinIO.** Demos upload to the platform API, which stores them on its filesystem. Round backups go **inline over the WebSocket** into the platform. S3 is only a possible future storage backend behind the platform's upload endpoint. Demos stream over the fleet WebSocket while they record (§12.2: chunks, acked offsets, resume, sha256 at the end); the local file is the buffer. |
 | D2 | Enrollment | Both: a one-time code per server from the UI, and a reusable **fleet enrollment key** for csm/containers (servers self-enroll and appear in the UI). |
 | D3 | Tokens | Opaque `rus_<id>_<secret>`, hashed at rest, **auto-rotated every 90 days**. |
 | D4 | Tenancy | One organization per deployment. A reserved `tenant_id` field (always `"default"`) is kept on servers, tokens and stored files. |
@@ -255,7 +284,7 @@ No open questions remain ([§20](#20-open-questions)).
 | StatTrak counters | server writes `stattrak.json` | server reports increments, platform stores |
 | Persisted match state (crash recovery) | `state.json` (`local_store.h`; was a Postgres key/value) | local JSON files on the server **and** the platform's state store |
 | Player stats storage, aggregates, leaderboards | platform (from webhooks) | platform (from WS events, `match_stats.h` model) |
-| Demos | AT: HTTP POST to platform disk | chunked HTTPS upload to the platform API → platform filesystem |
+| Demos | AT: HTTP POST to platform disk | streamed over the fleet link while recording (§12.2) → platform filesystem |
 | Round backups | local disk only | local disk + inline over WS → platform |
 | Server status for allocation | RCON `ru_tournament_status` poll | server pushes state; platform registry holds it |
 | Live status for csm | RCON / process checks | local status endpoint `/status` + `/stream` (§17, §18) |
@@ -697,9 +726,27 @@ server.config { rev: number, settings: {
 admins.set { rev: number, admins: Array<{ steamid64: u64s, name: string }> }     // one fleet-wide list (D5)
 ```
 
-Ready Up applies these `server.config` fields today: `hostname_format`, `scrim_knife`
-(= `knife_enabled_default`) and `series_end_kick_delay.*`, through the same server settings as
-`cmd settings.set` (saved across restarts). The other fields are not read yet.
+Ready Up applies every field. Server and console settings are set like `cmd settings.set` /
+the console would (saved in `state.json`, so they survive a restart); a later console or chat
+change wins until the next `server.config`. An absent field leaves its setting alone.
+
+| `settings` field | Ready Up setting | Applied by |
+|---|---|---|
+| `chat_prefix` | server setting `chat_prefix` (`ru_chat_prefix`; `<Color>` tokens; pushed to the core with ru_api `set_core_setting`, `""` = readyup.cfg's) | match |
+| `admin_chat_prefix` | server setting `admin_chat_prefix` (`ru_admin_chat_prefix`; readyup.cfg `admin_prefix`) | match |
+| `hostname_format` | server setting `hostname_format` | match |
+| `scrim_knife` | server setting `knife_enabled_default` | match |
+| `scrim_when_idle` | server setting `scrim_when_idle` (`ru_scrim_when_idle`, default 1): off = an idle server stays idle when players join | match |
+| `series_end_kick_delay.{no_demo,demo_no_upload,demo_upload}` | `ru_series_end_kick_delay_*` | match |
+| `demo.path` / `demo.name_format` | `ru_demo_path` / `ru_demo_name_format` | match |
+| `warmup.message_html` / `respawn` / `money` | `ru_warmup_message_html` / `ru_warmup_respawn` / `ru_warmup_startmoney` | match |
+| `offline_pause_minutes` | the offline timer (D12), over `[fleet] offline_pause_minutes` | fleet.so |
+| `status_http.token` | the local status endpoint token (§17), over readyup.cfg `status_http_token`; `status.json` is rewritten | fleet.so (core via `set_core_setting`) |
+
+`offline_pause_minutes` and `status_http.token` are platform layers: fleet.so keeps the latest
+values in `server-config.json` (0600) and re-applies them at load; absent from the latest
+`server.config` = the readyup.cfg value again. The token is never logged. There is no demo upload
+target here: in fleet mode demos are streamed over the link (§12.2).
 
 ```ts
 
@@ -1020,27 +1067,81 @@ sequenceDiagram
 - Retention is a platform setting (default: keep demos, delete round backups 14 days after the
   series ends).
 
-### 12.2 Demo upload: chunked and resumable over HTTPS
+### 12.2 Demo streaming over the link (implemented on the Ready Up side)
 
-`demo_recorder.h` already records, waits for the GOTV flush, and uploads from its own thread with
-retries. In fleet mode `fleet.so` gives it the endpoint and token, and the uploader switches from a
-single request to this chunked protocol (auth: `Authorization: Bearer <server token>`):
+**Ready Up works fully without a platform.** Without a fleet link (standalone, not enrolled) or
+for a match the platform did not assign (a scrim, `ru match load`), demos behave exactly as
+before: recorded locally, never deleted by Ready Up, uploaded over HTTP only when
+`ru_demo_upload_url` is set (§5 of PARITY.md). Streaming is an addition on top: nothing in the
+match flow waits for it or for the platform, and the local file is deleted only after the
+platform confirmed it stored the whole file.
 
-| Request | Body | Response |
-|---|---|---|
-| `POST /api/fleet/uploads` | `{ kind: "demo", match_id, epoch, map_number, part?, file, size, sha256, chunk_size? }` | `201 { upload_id, chunk_size: 8388608, received: 0 }`. Idempotent on `(match_id, map_number, part, sha256)`: an existing upload is returned with its `received` offset |
-| `PUT /api/fleet/uploads/:id` | one chunk, `Content-Range: bytes <from>-<to>/<size>`, `Digest: sha-256=<chunk hash, base64>` | `204`, header `Upload-Offset: <received>`. `409` + `Upload-Offset` if `from` ≠ the platform's offset |
-| `HEAD /api/fleet/uploads/:id` | – | `Upload-Offset: <received>` (after a restart or error) |
-| `POST /api/fleet/uploads/:id/complete` | `{ sha256 }` | `200 { stored: true }` after the platform hashed the whole file and it matches; `422` on mismatch (the upload is discarded) |
+For a platform match, the demo streams **while it records**: fleet.so tails the growing `.dem`
+and sends it in chunks over the existing WebSocket; the local file is the buffer.
 
-Rules: the platform checks `epoch` and that the server holds (or held) that assignment; `size`
-≤ `max_demo_size` (default 2 GiB); chunks are written to a temp file and moved into place only
-after the full-file sha256 matches. The server retries a failed chunk 5 times (1 s, 5 s, 15 s,
-45 s, 120 s), resumes from `Upload-Offset` after a restart, and keeps trying for 24 h. It deletes
-the local file only after `complete` succeeded, and then only after `demo_keep_days` (default 3).
-Uploads are rate-limited while a match is live on the same server (`upload_max_kbps_live`,
-default 20 000). `DemoEvent`s (`upload_started`, `upload_succeeded`, `upload_failed`) go out as
-`event.demo` for turnover.
+```ts
+// server -> platform (ephemeral; envelope epoch = the demo's assignment epoch)
+demo.begin { demo_id: ulid, match_id, map_number, file, started_at: unix_ms,
+             chunk_size: number, recording: boolean, restart?: true }        // normal lane
+demo.chunk { demo_id, offset: number, size: number, data: base64 }         // lowest-priority lane
+demo.end   { demo_id, size: number, sha256: hex }                          // lowest-priority lane
+// platform -> server (ephemeral)
+demo.ack   { demo_id, offset: number, complete?: true,
+             error?: { code: "gap"|"unknown_demo"|"checksum"|"storage"|"not_assigned"|"stale_epoch"|"too_large",
+                       message? } }
+```
+
+The contract (schemas `plugins/fleet/protocol/v1/messages/demo.*.json`, examples in
+`protocol/examples/v1/demo.*.json`; **the platform must implement the receiver**):
+
+1. **Announce / resume.** Ready Up sends `demo.begin` when the recording starts, on every new
+   session, after a plugin reload or server restart (streams are saved in
+   `csgo/readyup/plugins/fleet/demos.json`), after `unknown_demo`, and when no `demo.ack` came for
+   15 s while bytes were in flight (retries back off 5 s, 10 s, 20 s ... 5 min). The platform
+   answers `demo.ack {offset}` = the bytes it has stored **contiguously from 0** (0 for a new
+   demo; `complete: true` if it already verified it). Ready Up sends chunks only after that answer
+   and continues **from that offset, never from zero** (unless `restart: true`: the platform drops
+   what it has and answers 0; sent when the local file was replaced or truncated, or after a
+   `checksum` error). `demo.begin` is idempotent on `demo_id`.
+2. **Chunks.** Every chunk starts at a multiple of `chunk_size` (default 128 KiB, at most 512 KiB;
+   `[fleet] demo_chunk_kb`) and is `chunk_size` long except the last one of the file; while the
+   file is still recording only full chunks are sent. With `stored` = the platform's contiguous
+   bytes: `offset > stored` → do not write, answer `{offset: stored, error: gap}` (Ready Up
+   continues from there); else write at `offset` (a chunk below `stored` overwrites: Ready Up
+   re-sends chunks whose bytes changed after they were sent, e.g. the demo header CS2 rewrites
+   when the recording stops), `stored = max(stored, offset + size)`, answer `{offset: stored}`.
+   The platform may merge acks for chunks that arrive together but answers within 5 s. Nothing is
+   spooled: chunks lost with a connection are re-sent from the platform's offset after the next
+   `demo.begin`.
+3. **End.** After `tv_stoprecord` (which follows the GOTV flush) and 3 s without growth, Ready Up
+   hashes the file, re-sends changed chunks, sends the tail and `demo.end {size, sha256}` (again
+   every 10 s until complete). The platform: `stored < size` → `{offset: stored}`; else truncate to
+   `size`, hash, on a match move it into place (`demos/<match_id>/map<N>/<file>`) and answer
+   `{offset: size, complete: true}` (also for a repeated `demo.end`); on a mismatch discard the
+   copy and answer `{offset: 0, error: checksum}` (Ready Up restarts; after 3 failures it keeps the
+   demo locally). `demo.end` travels on the same lane as the chunks, so it arrives after them.
+4. **Errors.** `storage` = temporary (Ready Up announces again with backoff); `not_assigned` /
+   `stale_epoch` (the server never held that match / epoch; it may have ended since, which is
+   fine) and `too_large` (over `max_demo_size`, default 2 GiB) = Ready Up stops streaming that demo
+   and keeps the file.
+5. **Priority / backpressure.** Chunks and `demo.end` go on the client's lowest-priority lane: a
+   bulk message is written only when nothing else is waiting, one per pass of the network loop,
+   so events, `state.patch`, acks and pings wait at most for the one chunk being written. At most
+   `[fleet] demo_window_kb` (default 1 MiB) is sent but not acknowledged, and at most 2 MiB waits
+   in the lane (a full lane just means "later"). File I/O and hashing run on fleet.so's streamer
+   thread, never on the game thread; the match plugin only hands over the path
+   (`readyup.fleet.v1` `demo_stream_begin` / `demo_stream_end`).
+6. **Deletion.** Only a demo the platform confirmed with `complete: true` is deleted, and only
+   `[fleet] demo_keep_hours` (default 24) later; `demo_keep_hours=0` keeps every file. A demo the
+   platform never confirms (silent, refused, failed) is kept forever. While any streamed demo is
+   unconfirmed, `get_status().update_blocked` is 1 (the local file is the only copy).
+
+A streamed demo is never HTTP-uploaded. `event.demo` still reports `recording_started` /
+`recording_stopped`; the platform knows the upload finished when it answers `complete: true`.
+The per-match switch `rules.demo.upload: false` turns streaming (and the HTTP upload) off for
+that match, `rules.demo.record` turns recording on or off. The chunked HTTPS upload this section
+used to describe (`/api/fleet/uploads`) is not used; the HTTP upload (`ru_demo_upload_url`) stays
+for servers without a platform.
 
 ### 12.3 Round backups: inline over the WebSocket
 
@@ -1057,33 +1158,31 @@ InlineBackup { map_number: number, round: number, file: string, size: number, sh
 and adds it to the list the admin chooses from (§11.2). The platform sends backups back the same
 way (`resume.backup`, `cmd restore_round.backup`).
 
-### 12.4 Demo upload flow
+### 12.4 Demo streaming flow
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant RU as Ready Up (demo_recorder + fleet.so)
-    participant API as Platform API
+    participant RU as Ready Up (match + fleet.so streamer)
+    participant API as Platform (fleet WebSocket)
     participant FS as Platform filesystem
-    RU->>RU: map ends, wait tv_delay + 15 s, tv_stoprecord
-    RU-->>API: WS event.demo {recording_stopped, file}
-    RU->>RU: size stable, sha256 (upload thread)
-    RU->>API: POST /api/fleet/uploads {match, epoch, map 2, size, sha256}
-    API-->>RU: 201 {upload_id, chunk_size 8 MiB, received 0}
-    loop each chunk
-        RU->>API: PUT chunk (Content-Range, Digest)
-        API->>FS: append to temp file
-        API-->>RU: 204 Upload-Offset
+    RU->>RU: map goes live, tv_record
+    RU->>API: demo.begin {demo_id, match, map, file, chunk_size, recording: true}
+    API-->>RU: demo.ack {offset 0}
+    loop while recording (lowest priority, window 1 MiB)
+        RU->>API: demo.chunk {offset, size, data}
+        API->>FS: write at offset
+        API-->>RU: demo.ack {offset: stored}
     end
-    alt network error or restart
-        RU->>API: HEAD /api/fleet/uploads/:id
-        API-->>RU: Upload-Offset (resume from there)
+    alt reconnect / reload / restart
+        RU->>API: demo.begin (same demo_id)
+        API-->>RU: demo.ack {offset: stored} (resume there)
     end
-    RU->>API: POST …/complete {sha256}
-    API->>FS: hash temp file, move to demos/<match>/map2/
-    API-->>RU: 200 stored
-    RU-->>API: WS event.demo {upload_succeeded}
-    API->>API: turnover: release server early
+    RU->>RU: map ends, wait tv_delay + 15 s, tv_stoprecord, 3 s stable, sha256
+    RU->>API: demo.chunk (tail + chunks CS2 rewrote), demo.end {size, sha256}
+    API->>FS: truncate, hash, move to demos/<match>/map<N>/
+    API-->>RU: demo.ack {offset: size, complete: true}
+    RU->>RU: delete the local .dem after demo_keep_hours
 ```
 
 ## 13. Stats
@@ -1114,7 +1213,7 @@ simulation.
 
 ### 14.2 Capabilities
 
-`match.v1`, `restore.round`, `restore.inline`, `upload.chunked`, `stats.v1` (the `match_stats.h`
+`match.v1`, `restore.round`, `restore.inline`, `demo.stream.v1` (§12.2; sent by fleet.so), `stats.v1` (the `match_stats.h`
 model), `pause.tactical`, `pause.offline`, `maps.workshop`, `mode.wingman`, `mode.simulation`,
 `coach`, `skins.v1`, `exec`, `status_http`, `status_sse`.
 
@@ -1486,7 +1585,7 @@ holds the socket) can replace it without touching callers.
 | 2 | **Server registry + enrollment** | tables `cs2_fleet_servers` (id, tenant_id, install_id, name, availability, versions, caps, host, last_seen), `cs2_fleet_tokens`, `cs2_fleet_enrollment_codes`, `cs2_fleet_enrollment_keys` (the CS2 module owns its tables, prefix `cs2_`); enroll endpoint; 90-day rotation job; UI: add server, keys, revoke, rotate, drain | M |
 | 3 | **Match state store** | `match_live_state` (match_id, epoch, server_id, live_rev, config_rev, state json); `cs2_fleet_events` unique on (stream_id, seq); merge-patch apply; drift check | M |
 | 4 | **Fleet driver + normalizer** | `match.assign` from the stored match config (`matchConfig.ts` → `config`/`rules`), per-match password, connect string visible to roster/admins only | M |
-| 5 | **Uploads + artifact store** | chunked upload endpoints (§12.2), `ArtifactStore` with the filesystem backend, `match_round_backups`, demo page reading from the store, retention job | M |
+| 5 | **Uploads + artifact store** | the demo stream receiver (`demo.begin` / `demo.chunk` / `demo.end` → `demo.ack`, §12.2), `ArtifactStore` with the filesystem backend, `match_round_backups`, demo page reading from the store, retention job | M |
 | 6 | **Failover proposals** | unreachable timers, csm health + A2S fallback, restart-in-place or spare-server suggestion, backup picker UI, epoch bump, resume block; also used by "move match" and restore | M |
 | 7 | **Admins, skins, exec** | fleet-wide admin list + `admins.set`; skins opt-in setting, loadout store + web picker, `skins.loadout`, StatTrak; root-only `exec` with audit log | M |
 | 8 | **Turnover** | `utils/serverTurnover.ts` fed from `event.demo` + `series_end` | S |

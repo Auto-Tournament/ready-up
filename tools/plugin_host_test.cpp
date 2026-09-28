@@ -223,7 +223,7 @@ int main(int argc, char** argv) {
     Check(subs.size() == 1 && subs[0] == "hello (hello)", "ru subcommand listed for ru help");
   }
 
-  std::puts("-- v1.10: cvar_query line parsing");
+  std::puts("-- v1.11: cvar_query line parsing");
   {
     std::string v;
     Check(rp::ParseCvarAnswer("mp_maxrounds = 24\n", "mp_maxrounds", &v) == 1 && v == "24", "`name = value` answers");
@@ -245,7 +245,7 @@ int main(int argc, char** argv) {
           "cvar names: [A-Za-z0-9_.], 1..63");
   }
 
-  std::puts("-- v1.10: cvar_query through the plugin (hello_cvar)");
+  std::puts("-- v1.11: cvar_query through the plugin (hello_cvar)");
   g_serverCmds.clear();
   Check(rp::TryDispatchConsole("hello_cvar mp_maxrounds"), "hello_cvar is owned by the plugin");
   rp::Frame(false);
@@ -274,7 +274,7 @@ int main(int argc, char** argv) {
   rp::Frame(false);
   Check(Logged("cvar sv_silent: unknown"), "no answer within 3 s: delivered as NULL");
 
-  std::puts("-- v1.10: selftest_summary (hello_selftest)");
+  std::puts("-- v1.11: selftest_summary (hello_selftest)");
   rp::TryDispatchConsole("hello_selftest");
   rp::Frame(false);
   Check(Logged("selftest: none yet"), "no provider / no run yet: -1");

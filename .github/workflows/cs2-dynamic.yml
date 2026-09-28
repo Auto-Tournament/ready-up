@@ -7,16 +7,18 @@ name: CS2 dynamic check
 #              selftest lines, disabled plugins, and every plugin's schema / game event needs
 #              (plugins/<name>/needs.json) confirmed on the running build
 #   live     : scripts/livetest (bots only: a simulated match (`simulation: true`, Ready Up adds
-#              the bots), then a scrim) -> the `match` component's livetest check (exit 2 = no
-#              verdict, stays pending)
+#              the bots), a scrim, the fleet link driven by a mock platform on loopback
+#              (fleet_livetest.py), a match with pauses + team-left forfeit)
+#              -> the `livetest` check of `match` (fleet's goes to `fleet`); exit 2 = no verdict,
+#              stays pending; a failure of a LIVETEST_ADVISORY test also stays pending
 #
 # Each stage updates compat.json (stage selftest, then live), POSTs it to COMPAT_INGEST_URL like
 # the static watch does, and commits compat.json + badge.json to the `cs2-build` branch.
 #
 # Live progress (docs/CS2-COMPAT.md "Run steps"): the run's steps (Build bundle, Update CS2,
-# Install bundle, Boot + selftest, Live: match, Live: scrim, Record) are POSTed as they go with
+# Install bundle, Boot + selftest, Live: match / scrim / fleet / forfeit, Record) are POSTed as they go with
 # `compat-report.py step`, so the compatibility page shows the run step by step and never looks
-# finished while it is still going; the live test adds its own steps under Live: match / scrim
+# finished while it is still going; the live test adds its own steps under Live: match / scrim / fleet
 # (COMPAT_STEP_EVENTS=1). A failed POST is a warning, never a failure.
 #
 # Runs on the runner labelled `readyup-live` (set up with `csm ci setup`; docs/CS2-COMPAT.md). It
@@ -34,7 +36,7 @@ on:
   workflow_dispatch:
     inputs:
       livetest:
-        description: Also run the bot live test (match + scrim) after the selftest
+        description: Also run the bot live tests (match, scrim, fleet, forfeit) after the selftest
         type: boolean
         default: true
 
@@ -192,6 +194,10 @@ jobs:
       COMPAT_INGEST_URL: ${{ vars.COMPAT_INGEST_URL }}
       COMPAT_INGEST_TOKEN: ${{ secrets.COMPAT_INGEST_TOKEN }}
       LIVETEST: ${{ github.event_name != 'workflow_dispatch' || inputs.livetest }}
+      # Live tests whose failure only keeps their check pending (not required yet). A new one stays
+      # here until it has passed 3 runs in a row; repo variable CS2_LIVETEST_ADVISORY overrides
+      # the list (`none` = every live test required).
+      LIVETEST_ADVISORY: ${{ vars.CS2_LIVETEST_ADVISORY || 'fleet forfeit' }}
     steps:
       - name: Runner settings (CS2_CI_DIR, CS2_CI_PORT from `csm ci setup`)
         run: |
@@ -312,7 +318,7 @@ jobs:
             python3 scripts/ci/compat-report.py step --id selftest --status pass || true
           fi
 
-      - name: 'Stage live: bot match + scrim (scripts/livetest)'
+      - name: 'Stage live: bot match, scrim, fleet, forfeit (scripts/livetest)'
         id: live
         if: env.LIVETEST == 'true' && steps.selftest.outputs.overall != 'fail'
         run: |
@@ -329,30 +335,49 @@ jobs:
           session="ru-ci-${GITHUB_RUN_ID}"
           echo "session=$session" >> "$GITHUB_OUTPUT"
           results=()
-          for mode in match scrim; do
+          # match + scrim are required. fleet (scripts/livetest/fleet_livetest.py: a mock platform
+          # on loopback drives the fleet link) and forfeit (pauses + team-left forfeit) are newer:
+          # while listed in LIVETEST_ADVISORY a failure keeps their livetest check pending instead
+          # of failing the component (docs/CS2-COMPAT.md). Not here: --ruleset valve, which needs
+          # GOTV (tv_enable 1 + a tv_port) on the CI server.
+          for mode in match scrim fleet forfeit; do
             python3 scripts/ci/compat-report.py step --id "live-$mode" --status running || true
             set +e
             extra=()
-            [ "$mode" = scrim ] && extra+=(--scrim)
-            # The match is a simulation (match config `simulation: true`): Ready Up adds the bots.
-            [ "$mode" = match ] && extra+=(--simulation)
-            # COMPAT_STEP_EVENTS: the live test reports its own steps under live-<mode>.
-            COMPAT_STEP_EVENTS=1 COMPAT_STEP_PARENT="live-$mode" \
-              scripts/livetest/run.sh --ssh '' --target "$t" --session "$session" --boot --wait-session 1 --out "$OUT/livetest-$mode" "${extra[@]}"
+            # COMPAT_STEP_EVENTS: the live test reports its own steps under live-<mode>; forfeit
+            # does not (a run has at most 100 steps; its result is on live-forfeit).
+            events=1
+            case $mode in
+              match) extra+=(--simulation) ;;  # match config `simulation: true`: Ready Up adds the bots
+              scrim) extra+=(--scrim) ;;
+              forfeit) extra+=(--forfeit); events=0 ;;
+            esac
+            if [ "$mode" = fleet ]; then
+              # fleet.cfg + fleet.so's data dir are in the install ($CS2_CI_DIR), the console in $t;
+              # the test moves both aside afterwards and reloads fleet.so standalone.
+              COMPAT_STEP_EVENTS=1 COMPAT_STEP_PARENT="live-$mode" \
+                python3 -u scripts/livetest/fleet_livetest.py --ssh '' --target "$t" --game-dir "$CS2_CI_DIR" \
+                  --session "$session" --boot --wait-session 1 --mock local --out "$OUT/livetest-$mode"
+            else
+              COMPAT_STEP_EVENTS=$events COMPAT_STEP_PARENT="live-$mode" \
+                scripts/livetest/run.sh --ssh '' --target "$t" --session "$session" --boot --wait-session 1 --out "$OUT/livetest-$mode" "${extra[@]}"
+            fi
             rc=$?
             set -e
-            echo "livetest $mode: exit $rc" | tee -a "$GITHUB_STEP_SUMMARY"
+            advisory=""
+            case " $LIVETEST_ADVISORY " in *" $mode "*) advisory=" (advisory: not required yet)" ;; esac
+            echo "livetest $mode: exit $rc$advisory" | tee -a "$GITHUB_STEP_SUMMARY"
             results+=(--livetest "$mode=$rc")
             case $rc in
               0) python3 scripts/ci/compat-report.py step --id "live-$mode" --status pass || true ;;
               2) python3 scripts/ci/compat-report.py step --id "live-$mode" --status skip --detail "no verdict (exit 2: server busy, unavailable or restarted)" || true ;;
-              *) python3 scripts/ci/compat-report.py step --id "live-$mode" --status fail --detail "live test failed (exit $rc)" || true ;;
+              *) python3 scripts/ci/compat-report.py step --id "live-$mode" --status fail --detail "live test failed (exit $rc)$advisory" || true ;;
             esac
           done
           tmux kill-session -t "$session" 2>/dev/null || true
           python3 scripts/ci/compat-report.py dynamic --stage live --base "$OUT/selftest/compat.json" \
             --selftest "$OUT/readyup_selftest.txt" --build-env "$OUT/cs2-build.env" --out-dir "$OUT/live" \
-            --trigger "$TRIGGER" --started-at "$STARTED_AT" "${results[@]}"
+            --trigger "$TRIGGER" --started-at "$STARTED_AT" "${results[@]}" --livetest-advisory "$LIVETEST_ADVISORY"
           python3 scripts/ci/compat-report.py post "$OUT/live/compat.json"
           cp "$OUT/live/compat.json" "$OUT/current.json"
 
@@ -361,7 +386,7 @@ jobs:
         env:
           WHY: ${{ env.LIVETEST != 'true' && 'live test not requested' || 'selftest failed' }}
         run: |
-          python3 scripts/ci/compat-report.py step --updates "$(python3 -c 'import json,os; print(json.dumps([{"id": i, "status": "skip", "detail": os.environ["WHY"]} for i in ("live-match", "live-scrim")]))')" || true
+          python3 scripts/ci/compat-report.py step --updates "$(python3 -c 'import json,os; print(json.dumps([{"id": i, "status": "skip", "detail": os.environ["WHY"]} for i in ("live-match", "live-scrim", "live-fleet", "live-forfeit")]))')" || true
 
       - name: Record compat.json + badge.json on cs2-build
         run: |

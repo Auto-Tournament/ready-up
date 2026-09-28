@@ -4,7 +4,7 @@
 // them back (reset_cvars_on_series_end 1, server_settings.h).
 //
 // When a match config is installed (WebhookSetMatchContext), every `cvars{}` name not read yet
-// is read with ru_api cvar_query (1.10): the core queues the bare cvar name and answers from the
+// is read with ru_api cvar_query (1.11): the core queues the bare cvar name and answers from the
 // `<name> = <value>` console line. The match cvars go out much later (at go-live, after the cfg),
 // so the value read is the one from before the match. The first value read for a name wins: a
 // second match loaded over the first keeps the original values. At series end (and on
@@ -17,7 +17,7 @@
 // rest again on the fresh server, which still has its pre-match values). A query still pending
 // when the plugin unloads is lost: that name is not restored.
 //
-// Without cvar_query (a core older than 1.10) nothing is read and nothing is restored; the
+// Without cvar_query (a core older than 1.11) nothing is read and nothing is restored; the
 // fixed warmup / team-name reset still runs.
 
 #include <map>

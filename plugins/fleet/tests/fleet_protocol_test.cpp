@@ -109,13 +109,24 @@ int main() {
   CHECK(broken("state.patch.json", [](Value* p) { p->Set("rev", Value::Int(0)); }));
   CHECK(broken("event.pause.json", [](Value* p) { p->Get("data")->Set("type", Value::Str("coffee")); }));
 
+  // Demo streaming (FLEET.md §12.2): the contract the platform implements.
+  CHECK(broken("demo.begin.json", [](Value* p) { p->Set("file", Value::Str("../../etc/passwd.dem")); }));
+  CHECK(broken("demo.begin.json", [](Value* p) { p->Set("chunk_size", Value::Int(1 << 20)); }));
+  CHECK(broken("demo.begin.json", [](Value* p) { p->Set("demo_id", Value::Str("not-a-ulid")); }));
+  CHECK(broken("demo.begin.json", [](Value* p) { p->Set("extra", Value::Int(1)); }));
+  CHECK(broken("demo.chunk.json", [](Value* p) { p->Set("offset", Value::Int(-1)); }));
+  CHECK(broken("demo.chunk.json", [](Value* p) { p->Set("size", Value::Int(0)); }));
+  CHECK(broken("demo.end.json", [](Value* p) { p->Set("sha256", Value::Str("ABC")); }));
+  CHECK(broken("demo.ack.json", [](Value* p) { p->Set("offset", Value::Str("12")); }));
+  CHECK(broken("demo.ack.gap.json", [](Value* p) { p->Get("error")->Set("code", Value::Str("oops")); }));
+
   // hello.plugins_disabled (core needs.json enforcement): name + reason required.
   CHECK(broken("hello.plugins_disabled.json", [](Value* p) {
     p->Get("plugins_disabled")->a[0] = Value::Object();
   }));
   CHECK(broken("hello.plugins_disabled.json", [](Value* p) { p->Set("plugins_disabled", Value::Str("skins")); }));
 
-  // hello.selftest / server.selftest (core selftest_summary, ru_api 1.10): all four fields, typed.
+  // hello.selftest / server.selftest (core selftest_summary, ru_api 1.11): all four fields, typed.
   CHECK(broken("hello.selftest.json", [](Value* p) { p->Get("selftest")->Set("pass", Value::Str("yes")); }));
   CHECK(broken("hello.selftest.json", [](Value* p) { p->Set("selftest", Value::Object()); }));
   CHECK(broken("server.selftest.json", [](Value* p) { p->Set("passed", Value::Int(-1)); }));

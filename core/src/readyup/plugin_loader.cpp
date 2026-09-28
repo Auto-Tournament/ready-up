@@ -146,7 +146,7 @@ std::atomic<uint64_t> g_wantedGen{0};
 std::atomic<int> g_gameEventRegs{0};
 std::atomic<int> g_logLineRegs{0};
 
-// v1.10 cvar_query (guarded by g_mu). A query is answered by the first matching console line
+// v1.11 cvar_query (guarded by g_mu). A query is answered by the first matching console line
 // after it was queued (PostLogLine), then delivered on the next Frame; or it times out there.
 struct CvarQuery {
   int owner = 0;
@@ -162,7 +162,7 @@ std::atomic<int> g_cvarPending{0};  // queries still waiting for their line (fas
 constexpr size_t kMaxCvarQueries = 256;
 constexpr double kCvarQueryTimeoutS = 3.0;
 
-// v1.10 selftest_summary.
+// v1.11 selftest_summary.
 std::atomic<SelftestJsonProvider> g_selftestProvider{nullptr};
 
 // Plugin selftest interfaces run on arbitrary threads under a shared lock; CloseImage takes it
@@ -539,7 +539,7 @@ ru_handle ApiSubscribeLogLine(ru_plugin* self, ru_log_line_fn fn, void* user) {
   return h;
 }
 
-// ---- API v1.10 ----
+// ---- API v1.11 ----
 
 int ApiCvarQuery(ru_plugin* self, const char* name, ru_cvar_fn fn, void* user) {
   Instance* inst = GameThreadCaller(self, "cvar_query");
@@ -1053,7 +1053,7 @@ bool LoadNow(const std::string& name, std::string* err, bool checkNeeds = true) 
   a.register_ru_subcommand = &ApiRegisterRuSub;
   a.on_frame = &ApiOnFrame;
   a.current_map = &ApiCurrentMap;
-  // v1.10 (engine-free: the command buffer and the log listener, like server_command)
+  // v1.11 (engine-free: the command buffer and the log listener, like server_command)
   a.cvar_query = &ApiCvarQuery;
   a.selftest_summary = &ApiSelftestSummary;
   // Engine-facing members (output, players, event accessors, schema/entities, round

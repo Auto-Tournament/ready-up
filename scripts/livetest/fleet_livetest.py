@@ -34,13 +34,27 @@ Runs on the cs2 box as sivert (like livetest.py, whose console helpers it uses):
   backup for such a later run.
 
 Afterwards the server is standalone again: fleet.cfg and fleet.so's data dir are moved to
-~/readyup-test/.fleet-livetest/<time>/, fleet.so reloaded, `ru mode idle`, `ru mode scrim`, bot_quota back.
-Exit 0 PASS, 1 FAIL, 2 no verdict (server busy / down).
+<target>/.fleet-livetest/<time>/, fleet.so reloaded, `ru mode idle`, `ru mode scrim`, bot_quota back.
+Exit 0 PASS, 1 FAIL, 2 no verdict (server busy / down, or the mock platform could not start).
+
+Self-contained: the mock is the only "platform" (loopback only, free ports picked per run unless
+--http-port / --ws-port / --ctl-port are given), the enrollment code is a made-up constant and the
+token a random one the mock mints per run; nothing leaves the box. The mock runs in Docker when
+this user can use it (--mock docker), otherwise as a local process with websockets + jsonschema
+pip-installed into a cache dir (--mock local; $LIVETEST_PYDEPS, default
+~/.cache/readyup-livetest/pydeps-<python>): the CI runner is not in the docker group.
+
+CI (.github/workflows/cs2-dynamic.yml, `Live: fleet`): `--ssh '' --target <tmp> --game-dir
+$CS2_CI_DIR --boot`, like scripts/livetest/run.sh. With COMPAT_STEP_EVENTS=1 the
+checks are reported to the compatibility page grouped by phase (enroll, assign, fencing, live,
+pause, backups, offline, end, resume, frame stream), nested under COMPAT_STEP_PARENT, and
+GITHUB_STEP_SUMMARY gets the table of checks.
 """
 import argparse
 import json
 import os
 import shlex
+import socket
 import subprocess
 import sys
 import time
@@ -50,10 +64,20 @@ from typing import Optional
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
-from livetest import STATE_RE, KV_RE, CRASH_RE, Server, log  # noqa: E402
+from livetest import STATE_RE, KV_RE, CRASH_RE, Server, StepEvents, gh_escape, log  # noqa: E402
 
 MOCK_NAME = "ru-fleet-mock"
+# A throwaway enrollment code: the mock accepts any code and mints a random token per run.
 CODE = "RUE-7F3K-9QX2-LM4D-P8TW"
+MOCK_DEPS = ["websockets>=13", "jsonschema>=4.18"]
+
+
+def free_port() -> int:
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
 
 
 def merge_patch(target, patch):
@@ -71,34 +95,98 @@ def merge_patch(target, patch):
 
 
 class Mock:
+    """The mock platform (fleet_mock_platform.py): in Docker, or as a local process."""
+
     def __init__(self, a):
         self.a = a
+        for k in ("http_port", "ws_port", "ctl_port"):
+            if not getattr(a, k):
+                setattr(a, k, free_port())
         self.base = f"http://127.0.0.1:{a.ctl_port}"
+        self.how = a.mock
+        self.proc: Optional[subprocess.Popen] = None
+        self.log_path = ""
+        self.name = f"{MOCK_NAME}-{a.ctl_port}"
+
+    @staticmethod
+    def docker_usable() -> bool:
+        try:
+            return subprocess.run(["docker", "info"], capture_output=True, timeout=20).returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+
+    def args(self, schemas: str) -> list:
+        return ["--http", str(self.a.http_port), "--ws", str(self.a.ws_port), "--ctl", str(self.a.ctl_port),
+                "--schemas", schemas]
+
+    def local_deps(self) -> str:
+        """A dir with websockets + jsonschema (pip install --target), reused across runs."""
+        d = os.environ.get("LIVETEST_PYDEPS") or os.path.expanduser(
+            f"~/.cache/readyup-livetest/pydeps-{sys.version_info[0]}.{sys.version_info[1]}")
+        probe = [sys.executable, "-c", "import websockets.asyncio.server, jsonschema, referencing"]
+        env = dict(os.environ, PYTHONPATH=d)
+        if subprocess.run(probe, env=env, capture_output=True).returncode == 0:
+            return d
+        log(f"installing the mock platform's Python deps into {d} ...")
+        r = subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--disable-pip-version-check",
+                            "--no-warn-script-location", "--upgrade", "--target", d] + MOCK_DEPS,
+                           capture_output=True, text=True, timeout=600)
+        if r.returncode != 0 or subprocess.run(probe, env=env, capture_output=True).returncode != 0:
+            raise RuntimeError("pip install of the mock's deps failed: " + (r.stdout + r.stderr)[-600:])
+        return d
 
     def start(self) -> None:
-        subprocess.run(["docker", "rm", "-f", MOCK_NAME], capture_output=True)
-        cmd = ("pip install -q --disable-pip-version-check --root-user-action=ignore websockets jsonschema && "
-               f"exec python -u /mock.py --http {self.a.http_port} --ws {self.a.ws_port} --ctl {self.a.ctl_port} "
-               "--schemas /proto/v1")
-        subprocess.run(["docker", "run", "-d", "--rm", "--name", MOCK_NAME, "--network", "host",
-                        "-v", f"{REPO}/plugins/fleet/protocol:/proto:ro",
-                        "-v", f"{HERE}/fleet_mock_platform.py:/mock.py:ro",
-                        "python:3.12-slim", "sh", "-c", cmd], check=True, capture_output=True)
+        if self.how == "auto":
+            self.how = "docker" if self.docker_usable() else "local"
+        log(f"mock platform ({self.how}): enroll :{self.a.http_port} ws :{self.a.ws_port} ctl :{self.a.ctl_port}")
+        if self.how == "docker":
+            subprocess.run(["docker", "rm", "-f", self.name], capture_output=True)
+            cmd = ("pip install -q --disable-pip-version-check --root-user-action=ignore websockets jsonschema && "
+                   "exec python -u /mock.py " + " ".join(self.args("/proto/v1")))
+            subprocess.run(["docker", "run", "-d", "--rm", "--name", self.name, "--network", "host",
+                            "-v", f"{REPO}/plugins/fleet/protocol:/proto:ro",
+                            "-v", f"{HERE}/fleet_mock_platform.py:/mock.py:ro",
+                            "python:3.12-slim", "sh", "-c", cmd], check=True, capture_output=True)
+        else:
+            deps = self.local_deps()
+            self.log_path = os.path.join(self.a.out or os.environ.get("RUNNER_TEMP") or "/tmp",
+                                         f"fleet-mock-{self.a.ctl_port}.log")
+            os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
+            env = dict(os.environ, PYTHONPATH=deps, PYTHONUNBUFFERED="1")
+            with open(self.log_path, "w") as fh:
+                self.proc = subprocess.Popen([sys.executable, "-u", os.path.join(HERE, "fleet_mock_platform.py")] +
+                                             self.args(os.path.join(REPO, "plugins", "fleet", "protocol", "v1")),
+                                             stdout=fh, stderr=subprocess.STDOUT, env=env, start_new_session=True)
         deadline = time.time() + 180
         while time.time() < deadline:
+            if self.proc is not None and self.proc.poll() is not None:
+                break
             try:
                 self.get("/status")
                 return
             except Exception:  # noqa: BLE001
                 time.sleep(1)
-        raise RuntimeError("mock platform did not start: " + self.logs())
+        raise RuntimeError("mock platform did not start: " + self.logs()[-1500:])
 
     def logs(self) -> str:
-        r = subprocess.run(["docker", "logs", "--tail", "60", MOCK_NAME], capture_output=True, text=True)
-        return r.stdout + r.stderr
+        if self.how == "docker":
+            r = subprocess.run(["docker", "logs", "--tail", "60", self.name], capture_output=True, text=True)
+            return r.stdout + r.stderr
+        try:
+            with open(self.log_path, errors="replace") as fh:
+                return fh.read()
+        except OSError:
+            return ""
 
     def stop(self) -> None:
-        subprocess.run(["docker", "rm", "-f", MOCK_NAME], capture_output=True)
+        if self.how == "docker":
+            subprocess.run(["docker", "rm", "-f", self.name], capture_output=True)
+        elif self.proc is not None and self.proc.poll() is None:
+            self.proc.terminate()
+            try:
+                self.proc.wait(10)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
 
     def get(self, path: str):
         with urllib.request.urlopen(self.base + path, timeout=10) as r:
@@ -127,10 +215,18 @@ class Test:
         self.lines = []
         self.results = []
         self.failures = []
-        self.cfg_path = f"{a.target}/game/csgo/cfg/ReadyUp/fleet.cfg"
-        self.data_dir = f"{a.target}/game/csgo/readyup/plugins/fleet"
+        game = (a.game_dir or a.target).rstrip("/")
+        self.cfg_path = f"{game}/game/csgo/cfg/ReadyUp/fleet.cfg"
+        self.data_dir = f"{game}/game/csgo/readyup/plugins/fleet"
         # admins.set is cached by match.so (fleet-admins.json): kept aside and put back afterwards.
-        self.admins_cache = f"{a.target}/game/csgo/readyup/plugins/match/fleet-admins.json"
+        self.admins_cache = f"{game}/game/csgo/readyup/plugins/match/fleet-admins.json"
+        # Compatibility page (COMPAT_STEP_EVENTS=1): one step per phase, not per check (a run has
+        # at most 100 steps).
+        self.events: Optional[StepEvents] = None
+        self.phase_name = ""
+        self.phase_no = 0
+        self.phase_fail: list = []
+        self.phase_n = 0
         self.admins_rev = None
         self.touched = False
         self.match_id = f"lt-{int(time.time())}"
@@ -173,9 +269,29 @@ class Test:
         detail = detail or ""
         self.results.append((name, "PASS" if ok else "FAIL", detail))
         log(f"{'PASS' if ok else 'FAIL'} {name}: {detail}")
+        self.phase_n += 1
         if not ok:
             self.failures.append(name)
+            self.phase_fail.append(name)
         return ok
+
+    def phase(self, name: str) -> None:
+        """Start a group of checks (one step on the compatibility page); ends the previous one."""
+        self.end_phase()
+        self.phase_name, self.phase_fail, self.phase_n = name, [], 0
+        self.phase_no += 1
+        if self.events:
+            self.events.send(self.phase_no, name, "running")
+
+    def end_phase(self) -> None:
+        if not self.phase_name:
+            return
+        if self.events:
+            if self.phase_fail:
+                self.events.send(self.phase_no, self.phase_name, "fail", "failed: " + "; ".join(self.phase_fail))
+            else:
+                self.events.send(self.phase_no, self.phase_name, "pass", f"{self.phase_n} check(s)")
+        self.phase_name = ""
 
     def cmd(self, name: str, args: dict, match: bool = True, epoch: Optional[int] = None, root: bool = False,
             audit: str = "", match_id: Optional[str] = None, timeout: float = 20.0):
@@ -251,25 +367,55 @@ class Test:
             },
         }
 
-    def run(self) -> int:
+    def preflight(self) -> Optional[str]:
+        deadline = time.time() + self.a.wait_session
+        while not self.srv.session_alive():
+            if time.time() > deadline:
+                if self.a.boot:
+                    log(f"tmux session {self.a.session} missing; booting the server (--boot)")
+                    if self.srv.boot(240):
+                        break
+                    return "server did not boot"
+                return f"tmux session {self.a.session} missing (server down or mid-restart)"
+            log(f"tmux session {self.a.session} missing; waiting (another deploy restarting?)")
+            time.sleep(10)
         humans = self.srv.connected_humans()
-        if not self.srv.session_alive():
-            log("tmux session missing")
-            return 2
         if humans and not self.a.force:
-            log("humans connected: " + ", ".join(humans))
+            return "humans connected: " + ", ".join(humans)
+        return None
+
+    def run(self) -> int:
+        why = self.preflight()
+        if why:
+            log(f"BUSY/UNAVAILABLE: {why}")
+            print(f"FLEET LIVETEST SKIPPED ({why})")
             return 2
         self.follower = self.srv.follow(self.srv.log_size())
-        log("starting the mock platform (docker) ...")
-        self.mock.start()
+        try:
+            self.mock.start()
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
+            # The test's own stand-in platform, not Ready Up: no verdict.
+            log(f"mock platform: {e}")
+            print("FLEET LIVETEST SKIPPED (the mock platform did not start)")
+            self.mock.stop()
+            self.follower.close()
+            return 2
+        self.events = StepEvents.from_env()
         try:
             return self.body()
+        except Exception as e:  # noqa: BLE001 - a driver error is a failed run, with its table
+            log(f"error: {type(e).__name__}: {e}")
+            self.step("test driver", False, f"{type(e).__name__}: {e}")
+            return self.finish()
         finally:
             self.cleanup()
+            if self.events:
+                self.events.close()
 
     def body(self) -> int:
         a = self.a
         # ---- enroll + hello
+        self.phase("enroll + hello")
         mark = len(self.lines)
         self.srv.send("ru mode idle")
         self.srv.send("bot_kick")
@@ -286,6 +432,7 @@ class Test:
                   "match.resume.v1" in caps and "maps.workshop.v1" in caps, ",".join(caps))
 
         # ---- admins cache version (D13): admins.set rev N -> admins_rev N in snapshots and hellos
+        self.phase("admins.set -> admins_rev")
         cached = hello["payload"].get("admins_rev")
         self.admins_rev = (cached or 0) + 1
         self.mock.send("admins.set", {"rev": self.admins_rev, "admins": []})
@@ -296,6 +443,7 @@ class Test:
                   f"{snapa and snapa['payload'].get('admins_rev')}")
 
         # ---- assign
+        self.phase("match.assign")
         cur_map = ""
         for ln in reversed(self.lines):
             m = STATE_RE.search(ln)
@@ -342,6 +490,7 @@ class Test:
         self.srv.send(f"bot_quota {2 * a.bots_per_side}")
 
         # fencing while it warms up
+        self.phase("fencing, match.update, exec")
         since = len(self.frames)
         other = self.assign_payload(map_name)
         other["match_id"] = self.match_id + "-other"
@@ -382,6 +531,7 @@ class Test:
                   f" output={len((res or {}).get('payload', {}).get('output', ''))}B")
 
         # ---- the match goes live
+        self.phase("warmup -> knife -> live, rounds")
         live = self.wait_frame("event.phase", 0, lambda f: f["payload"]["data"]["to"] == "live", timeout=300)
         phases = [f["frame"]["payload"]["data"]["from"] + "->" + f["frame"]["payload"]["data"]["to"]
                   for f in self.frames_of("event.phase")]
@@ -401,6 +551,7 @@ class Test:
         self.step("round numbers start at 1 on a fresh match", bool(rnums) and rnums[0] == 1, f"round_start rounds {rnums}")
 
         # ---- pause / unpause (right after round 1: the match is live)
+        self.phase("pause / unpause")
         res = self.cmd("pause", {"type": "admin"})
         pz = self.wait_frame("event.pause", 0, lambda f: f["payload"]["data"]["action"] == "paused")
         self.step("cmd pause -> ok + event.pause", self.result_ok(res) and bool(pz),
@@ -416,6 +567,7 @@ class Test:
         self.step("unpause when not paused -> not_paused", self.err_code(res) == "not_paused", self.err_code(res))
 
         # ---- round backups: forwarded inline, then restored (local file, then inline)
+        self.phase("round backups + restore_round")
         bk = self.wait_frame("event.backup", 0, timeout=a.round_timeout)
         if bk:  # the newest backup so far (a restore then really goes back)
             self.pump(2.0)
@@ -460,6 +612,7 @@ class Test:
 
         # ---- D12: platform unreachable -> auto-pause
         if not a.no_offline:
+            self.phase("platform offline -> auto-pause")
             mark = len(self.lines)
             self.mock.post("/offline", {"seconds": 75})
             line = self.wait_line("auto-paused match", mark, 120)
@@ -477,6 +630,7 @@ class Test:
                       f"{len(hellos)} hello(s), last admins_rev {last.get('admins_rev')} (want {self.admins_rev})")
 
         # ---- end
+        self.phase("end_match + match.unassign")
         if a.play_out:
             mr = self.wait_frame("event.map_result", 0, timeout=a.round_timeout * (a.max_rounds + 2))
             se = self.wait_frame("event.series_end", 0, timeout=120)
@@ -519,6 +673,7 @@ class Test:
 
     def resume_scenario(self, bd: dict, map_name: str) -> None:
         a = self.a
+        self.phase("failover resume")
         prev_epoch = self.epoch
         self.epoch += 1
         rnd = bd["round"]
@@ -609,6 +764,7 @@ class Test:
 
     # ---- checks over everything received -----------------------------------------------------
     def verify_stream(self) -> None:
+        self.phase("frame stream: schemas, live_rev, patches")
         bad = [(f["frame"].get("type"), f["errors"]) for f in self.frames if f["errors"]]
         if self.a.save_examples:
             # The resume's own frames too (the generic dump below keeps the first of each type).
@@ -678,6 +834,7 @@ class Test:
         except Exception as e:  # noqa: BLE001
             log(f"pump: {e}")
         self.verify_stream()
+        self.end_phase()
         print()
         print("=" * 100)
         for name, status, detail in self.results:
@@ -685,6 +842,16 @@ class Test:
         print("=" * 100)
         verdict = "FAIL" if self.failures else "PASS"
         print(f"FLEET LIVETEST {verdict}" + (f" ({', '.join(self.failures)})" if self.failures else ""))
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            for name, status, detail in self.results:
+                if status == "FAIL":
+                    print(f"::error title=livetest fleet::{gh_escape(name + ': ' + (detail or ''))}")
+        summ = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summ:
+            with open(summ, "a") as fh:
+                fh.write(f"## Ready Up fleet live test: {verdict}\n\n| check | result | detail |\n|---|---|---|\n")
+                for name, status, detail in self.results:
+                    fh.write(f"| {name} | {status} | {(detail or '').replace('|', '/')[:300]} |\n")
         if self.a.out:
             os.makedirs(self.a.out, exist_ok=True)
             with open(os.path.join(self.a.out, "frames.json"), "w") as fh:
@@ -726,13 +893,21 @@ def parse_args(argv=None):
     p.add_argument("--ssh", default=env("RU_SSH", "cs2servermanager@localhost"))
     p.add_argument("--target", default=env("RU_TARGET", "/home/cs2servermanager/readyup-test"))
     p.add_argument("--session", default=env("RU_SESSION", "ru-test"))
+    p.add_argument("--game-dir", default=env("RU_GAME_DIR", ""),
+                   help="CS2 install root (contains game/) when it is not --target (CI: $CS2_CI_DIR)")
+    p.add_argument("--boot", action="store_true", help="start the server if the session is still missing")
+    p.add_argument("--wait-session", type=float, default=float(env("LIVETEST_WAIT_SESSION", "300")),
+                   help="how long to wait for a missing tmux session (deploy mid-restart)")
+    p.add_argument("--mock", choices=["auto", "docker", "local"], default=env("FLEET_MOCK", "auto"),
+                   help="how the mock platform runs: docker (python:3.12-slim), local (deps pip-installed "
+                        "into $LIVETEST_PYDEPS), auto = docker when this user can use it")
     p.add_argument("--map", default="")
     p.add_argument("--max-rounds", type=int, default=4)
     p.add_argument("--bots-per-side", type=int, default=2)
     p.add_argument("--round-timeout", type=float, default=200)
-    p.add_argument("--http-port", type=int, default=18095)
-    p.add_argument("--ws-port", type=int, default=18096)
-    p.add_argument("--ctl-port", type=int, default=18097)
+    p.add_argument("--http-port", type=int, default=0, help="mock platform ports (loopback); 0 = a free one")
+    p.add_argument("--ws-port", type=int, default=0)
+    p.add_argument("--ctl-port", type=int, default=0)
     p.add_argument("--play-out", action="store_true", help="play the map to the end instead of cmd end_match")
     p.add_argument("--no-offline", action="store_true", help="skip the 75 s platform outage (D12 auto-pause)")
     p.add_argument("--from-scrim", action="store_true",

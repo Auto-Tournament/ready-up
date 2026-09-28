@@ -67,9 +67,21 @@ std::string GetThisModuleDir() { return g_moduleDir; }
 bool IsCoreChatCommand(const std::string& t) { return t == ".ru"; }
 }  // namespace readyup
 
+// ru_api set_core_setting (v1.10): what fleet.so pushed last (server.config status_http.token).
+static std::mutex g_coreMu;
+static std::string g_coreKey, g_coreValue;
+static int g_coreCalls = 0;
+
 namespace readyup::plugins::detail {
 void FillEngineApi(ru_api* a) {
   a->for_each_player = [](ru_plugin*, ru_player_fn, void*) { return 0; };
+  a->set_core_setting = [](ru_plugin*, const char* key, const char* value) {
+    std::lock_guard<std::mutex> lk(g_coreMu);
+    g_coreKey = key ? key : "";
+    g_coreValue = value ? value : "";
+    ++g_coreCalls;
+    return 1;
+  };
 }
 }  // namespace readyup::plugins::detail
 
@@ -149,6 +161,13 @@ int main(int argc, char** argv) {
     ru_fleet_status fs{};
     fs.struct_size = sizeof(fs);
     Check(f && f->get_status && f->get_status(&fs) == 0, "standalone: readyup.fleet.v1 get_status returns 0");
+    // No platform: demos are not streamed (the match plugin records / keeps / uploads as before).
+    const std::string spec = std::string(R"({"match_id":"m1","epoch":1,"map_number":1,"path":")") + dir +
+                             R"(/standalone.dem","started_at":1})";
+    Check(f && f->struct_size >= offsetof(ru_fleet_v1, demo_stream_end) + sizeof(f->demo_stream_end) &&
+              f->demo_stream_begin(spec.c_str()) == 0 && f->demo_stream_end((std::string(dir) + "/standalone.dem").c_str()) == 0,
+          "standalone: demo_stream_begin / _end return 0 (demos handled as without a platform)");
+    Check(stat((std::string(dir) + "/fleet/demos.json").c_str(), &st) != 0, "standalone writes no demos.json");
   }
 
   std::puts("-- fleet mode: enroll + connect to the mock platform");
@@ -161,7 +180,7 @@ int main(int argc, char** argv) {
                  platform.BaseUrl().c_str());
     std::fclose(cfg);
   }
-  // The core's latest selftest (ru_api 1.10 selftest_summary), as status_feed.cpp records it.
+  // The core's latest selftest (ru_api 1.11 selftest_summary), as status_feed.cpp records it.
   rp::SetSelftestJsonProvider(&CoreSelftestJson);
   ClearLog();
   rp::HandlePluginCommand({"reload", "fleet"}, false);
@@ -234,12 +253,54 @@ int main(int argc, char** argv) {
           "send_event reached the platform with a seq");
     Check(f && f->publish_state("{\"match_id\":\"m9\"}", "busy") == 1 && f->publish_state("[1]", nullptr) == 0,
           "publish_state validates its JSON");
+    const std::string demoPath = std::string(dir) + "/host-demo.dem";
+    const std::string spec = R"({"match_id":"m9","epoch":2,"map_number":1,"path":")" + demoPath + R"(","started_at":1})";
+    Check(f->demo_stream_begin(spec.c_str()) == 1, "fleet mode: demo_stream_begin streams a platform demo");
+    Check(f->demo_stream_begin(R"({"match_id":"m9","path":"relative.dem"})") == 0, "demo_stream_begin refuses a bad spec");
+    Check(f->demo_stream_end(demoPath.c_str()) == 1, "demo_stream_end accepted");
   }
   ClearLog();
   Check(rp::TryDispatchConsole("fleet status"), "fleet status dispatched");
   rp::Frame(false);
   Check(Logged("fleet: online for"), "`fleet status` shows online");
   Check(Logged("server srv_test_1"), "`fleet status` shows the server id");
+
+  std::puts("-- server.config: offline_pause_minutes and status_http.token (fleet.so's part)");
+  {
+    ClearLog();
+    const std::string tok = "platform_status_token_0123456789";
+    const int64_t ackBefore = platform.lastAckFromServer();
+    Check(platform.SendToServer("server.config",
+                                R"({"rev":2,"settings":{"offline_pause_minutes":5,"chat_prefix":"x",)"
+                                R"("status_http":{"token":")" + tok + R"("}}})",
+                                true),
+          "server.config sent");
+    Check(FramesUntil([&] {
+      std::lock_guard<std::mutex> lk(g_coreMu);
+      return g_coreKey == "status_http_token" && g_coreValue == tok;
+    }, 3000), "status_http.token pushed to the core (set_core_setting)");
+    Check(FramesUntil([] { return AnyLogContains("offline_pause_minutes=5 (platform)"); }, 2000),
+          "offline_pause_minutes from the platform");
+    Check(!AnyLogContains(tok), "the status token is never logged");
+    Check(FramesUntil([&] { return platform.lastAckFromServer() > ackBefore; }, 8000), "server.config acked");
+    Check(platform.MessagesOfType("error").empty(), "server.config is a handled type (no unknown_type)");
+    Check(stat((std::string(dir) + "/fleet/server-config.json").c_str(), &st) == 0 && (st.st_mode & 0777) == 0600,
+          "server-config.json written with mode 0600");
+    // Reload: the saved values apply again before the platform sends anything.
+    ClearLog();
+    {
+      std::lock_guard<std::mutex> lk(g_coreMu);
+      g_coreValue.clear();
+    }
+    rp::HandlePluginCommand({"reload", "fleet"}, false);
+    rp::Frame(false);
+    Check(AnyLogContains("server.config (saved): offline_pause_minutes=5 (platform)"), "saved server.config restored on load");
+    {
+      std::lock_guard<std::mutex> lk(g_coreMu);
+      Check(g_coreValue == tok, "saved status token pushed again on load");
+    }
+    Check(FramesUntil([] { return AnyLogContains("fleet: online"); }, 8000), "online again after the reload");
+  }
 
   std::puts("-- reconnect command + platform restart");
   ClearLog();

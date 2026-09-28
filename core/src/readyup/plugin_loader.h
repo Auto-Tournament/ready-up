@@ -129,7 +129,7 @@ uint64_t WantedGameEventsGeneration();
 // pending cvar_query calls from it (`<name> = <value>` / `Unknown command '<name>'!`).
 void PostLogLine(const std::string& line);
 
-// ---- API v1.10 ----------------------------------------------------------------------
+// ---- API v1.11 ----------------------------------------------------------------------
 
 // selftest_summary's source: the latest selftest as one JSON object, "" before the first run.
 // Any thread. The server build registers status_feed's record (status_feed.cpp); nullptr = none.

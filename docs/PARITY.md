@@ -19,16 +19,16 @@ Parity is (done + 0.5 × partial) / rows. Stable is the number of rows marked st
 
 | Section | Rows | Done | Partial | Missing | Parity | Stable |
 |---|---|---|---|---|---|---|
-| 1. Link, enrollment and server setup | 10 | 7 | 1 | 2 | 75.0% | 0 |
-| 2. Per-server settings | 14 | 13 | 1 | 0 | 96.4% | 1 |
+| 1. Link, enrollment and server setup | 9 | 9 | 0 | 0 | 100.0% | 0 |
+| 2. Per-server settings | 14 | 14 | 0 | 0 | 100.0% | 1 |
 | 3. Match load and lifecycle | 13 | 13 | 0 | 0 | 100.0% | 0 |
 | 4. Status | 3 | 3 | 0 | 0 | 100.0% | 1 |
-| 5. Demos | 4 | 3 | 1 | 0 | 87.5% | 0 |
+| 5. Demos | 5 | 5 | 0 | 0 | 100.0% | 0 |
 | 6. Events and reports | 7 | 7 | 0 | 0 | 100.0% | 0 |
 | 7. Player-facing and admin features | 27 | 22 | 1 | 4 | 83.3% | 3 |
 | 8. Player stats | 7 | 5 | 2 | 0 | 85.7% | 0 |
 | 9. ME features not previously listed | 12 | 4 | 1 | 7 | 37.5% | 0 |
-| **Total** | **97** | **77** | **7** | **13** | **83.0%** | **5** (5%) |
+| **Total** | **97** | **82** | **4** | **11** | **86.6%** | **5** (5%) |
 
 Stable rows: minimum ready, engine version/status, `.ready`, knife / `.stay` / `.switch`, simulation.
 
@@ -51,10 +51,9 @@ The platform used to send these as RCON commands (`ru_server_id`, `ru_bootstrap_
 | Remote log URL + auth header | Events go over the WSS link; no per-channel URL or header | done | tested | none | – |
 | Retry queue that survives a restart | Disk spool (`fleet_spool.*`), replayed with seq/ack after a reconnect | done | tested | none | – |
 | Match report (live match page) | `MatchState` via `state.patch` / `state.snapshot`, cmd `snapshot_now`, and the local `/status` endpoint | done | tested | none | – |
-| `server.config` fields applied: `hostname_format`, `scrim_knife`, `series_end_kick_delay.*` | `OnServerConfig` in `plugins/match/readyup/fleet_bridge.cpp` | done | tested | none | – |
-| `server.config` fields applied: `chat_prefix`, `admin_chat_prefix`, `warmup`, `demo`, `offline_pause_minutes`, `status_http` | Accepted, not applied (the code comment says they belong to other parts). In progress | partial | untested | none | S |
+| `server.config` fields applied (all of FLEET.md §7.5) | Match plugin (`fleetstate::PlanServerConfig`, `OnServerConfig` in `fleet_bridge.cpp`): `hostname_format`, `scrim_knife`, `scrim_when_idle`, `chat_prefix` / `admin_chat_prefix` (server settings `ru_chat_prefix` / `ru_admin_chat_prefix`; the chat prefix goes to the core with ru_api 1.10 `set_core_setting`), `series_end_kick_delay.*`, `demo.path` / `name_format`, `warmup.*`; fleet.so: `offline_pause_minutes`, `status_http.token` (`server-config.json`) | done | tested | none | – |
 | Server drain / undrain | `server.drain` / `server.undrain` in `fleet_bridge.cpp`: availability `draining`, `match.assign` refused as `busy`; in memory only | done | untested | none | – |
-| `server.selftest` / `hello.selftest` | The core's latest selftest (`ru_api` 1.10 `selftest_summary`): `hello.selftest` carries it, `server.selftest` (reliable, proposed schema) goes out when the outcome changes (`fleet_plugin.cpp`) | done | tested | none | – |
+| `server.selftest` / `hello.selftest` | The core's latest selftest (`ru_api` 1.11 `selftest_summary`): `hello.selftest` carries it, `server.selftest` (reliable, proposed schema) goes out when the outcome changes (`fleet_plugin.cpp`) | done | tested | none | – |
 | `server.cs2_update_required` | Steam UpToDateCheck (appid 730) every 30 min on a worker thread, once per required version (`cs2_update_check.h`) | done | tested | none | – |
 
 ## 2. Per-server settings
@@ -70,11 +69,11 @@ These arrived as bootstrap `commands[]` (`ru_<setting> <value>`). Now they are R
 | Whitelist enabled default | Setting `.whitelist`; match `whitelist` / fleet `rules.whitelist` wins | done | tested | none | – |
 | Kick when no match loaded | Server setting, default 0 | done | tested | none | – |
 | Playout enabled default | Setting `.playout`; match `playout` / fleet `rules.playout` wins | done | tested | none | – |
-| Reset cvars on series end | Server setting (default 1). The warmup cvars reset and the match's own `cvars{}` go back to their pre-match values, read at match load with `ru_api` 1.10 `cvar_query` and kept across a reload or restart (`cvar_snapshot.h`) | done | tested | none | – |
+| Reset cvars on series end | Server setting (default 1). The warmup cvars reset and the match's own `cvars{}` go back to their pre-match values, read at match load with `ru_api` 1.11 `cvar_query` and kept across a reload or restart (`cvar_snapshot.h`) | done | tested | none | – |
 | Tactical pause via `.pause` | Server setting `use_pause_command_for_tactical_pause` (default 0) | done | tested | none | – |
-| Autostart mode | `scrim_when_idle` (server.config) is not read; scrim flow when idle, no mode switch. In progress | partial | untested | none | S |
+| Autostart mode | Server setting `scrim_when_idle` (`ru_scrim_when_idle`, default 1; `server.config.scrim_when_idle`): off = an idle server stays idle when players join, until `.ru mode scrim` or a match (`scrim_flow.cpp`) | done | tested | none | – |
 | Hostname format | Setting; `server.config.hostname_format` too. `{TEAM1}` `{TEAM2}` `{MATCH_ID}` `{MAP}` … | done | tested | none | – |
-| Demo path and name format | `ru_demo_path`, `ru_demo_name_format` (`demo_recorder.h`) | done | tested | none | – |
+| Demo path and name format | `ru_demo_path`, `ru_demo_name_format` (`demo_recorder.h`); `server.config.demo.path` / `name_format` | done | tested | none | – |
 | Series-end kick delays | Console settings; `server.config.series_end_kick_delay` (`match_end.h`) | done | tested | none | – |
 | Catalog toggles (roundknife, playout, whitelist, settings, readyrequired) | cmd `settings.set`; `.ru settings show\|set\|default` | done | tested | none | – |
 
@@ -110,14 +109,15 @@ Replaces the `ru_tournament_*` convars read over RCON.
 
 ## 5. Demos
 
-Recording is done. Upload has a gap in fleet mode.
+Recording is done. In fleet mode demos stream to the platform over the link (FLEET.md §12.2); without a platform they are kept and HTTP-uploaded as before.
 
 | Feature | How (fleet message / Ready Up command) | Status | Stability | Engine | Effort |
 |---|---|---|---|---|---|
 | Recording per map | `tv_record` per map, name format (`demo_recorder.h`) | done | tested | none | – |
 | GOTV gate for the valve ruleset | `EsportsGoLiveAllowed`; `start {force: true}` overrides | done | tested | schema read | – |
 | Demo events (recording start/stop, upload start/success/fail/ended) | fleet `event.demo`; webhook payloads still exist locally | done | tested | none | – |
-| Upload in fleet mode | Upload code is done (`demo_recorder.h`), but there is no way to set the URL or token over the link and `rules.demo` is not mapped. The chunked upload (FLEET.md §12.2) is not built. In progress | partial | untested | none | M |
+| Upload in fleet mode | Streamed while recording: fleet.so tails the `.dem` (`fleet_demo.h`), `demo.chunk` on the link's lowest-priority lane, resume from the platform's `demo.ack` offset, `demo.end {size, sha256}`, local file deleted only after the platform confirmed it (`demo_keep_hours`). Never HTTP-uploaded; without a fleet link nothing changes. The platform receiver (`demo.*.json`) is platform work | done | tested | none | – |
+| Per-match `rules.demo.record` / `.upload` | MAT `demo_record` / `demo_upload`: record wins over `ru_demo_recording_enabled`; upload false = no stream, no HTTP upload (`fleet_state.cpp`) | done | tested | none | – |
 
 ## 6. Events and reports
 
@@ -227,9 +227,7 @@ Rows from the old RCON + webhook contract. Not counted in the summary.
 
 ## Remaining work
 
-1. Demo upload in fleet mode (URL and token over the link, `rules.demo`, chunked upload). In progress.
-2. `server.config` fields: chat prefixes, warmup, demo, `offline_pause_minutes`, `status_http`. In progress.
-3. `autostart_mode` (`scrim_when_idle`). In progress.
-4. Fleet path in CI. In progress.
-5. Player-facing gaps: `.rcon`.
-6. Practice extras and the lineup library (fragile, L).
+1. Platform side of demo streaming: the `demo.begin` / `demo.chunk` / `demo.end` receiver answering `demo.ack` (FLEET.md §12.2).
+2. Fleet path in CI. In progress.
+3. Player-facing gaps: `.rcon`.
+4. Practice extras and the lineup library (fragile, L).

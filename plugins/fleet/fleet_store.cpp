@@ -136,6 +136,66 @@ bool SaveCredentials(const std::string& path, const Credentials& c, std::string*
   return WriteFileAtomic(path, json::Dump(v) + "\n", 0600, err);
 }
 
+namespace {
+
+// Printable ASCII, no spaces / quotes / backslashes, 16..200 bytes (what the core accepts).
+bool ValidStatusToken(const std::string& t) {
+  if (t.size() < 16 || t.size() > 200) return false;
+  for (unsigned char c : t) {
+    if (c <= 0x20 || c >= 0x7f || c == '"' || c == '\\' || c == '\'') return false;
+  }
+  return true;
+}
+
+void FromSettings(const json::Value& st, ServerConfigLocal* out, std::string* ignored) {
+  auto skip = [&](const char* f) {
+    if (ignored) *ignored += (ignored->empty() ? "" : ", ") + std::string(f);
+  };
+  if (const json::Value* v = st.Get("offline_pause_minutes"); v && !v->IsNull()) {
+    if (v->t == json::Value::T::Int && v->i >= 0 && v->i <= 1440) out->offlinePauseMinutes = static_cast<int>(v->i);
+    else skip("offline_pause_minutes");
+  }
+  if (const json::Value* h = st.Get("status_http"); h && h->IsObj()) {
+    if (const json::Value* v = h->Get("token"); v && !v->IsNull()) {
+      if (v->IsStr() && (v->s.empty() || ValidStatusToken(v->s))) out->statusToken = v->s;
+      else skip("status_http.token");
+    }
+  }
+}
+
+}  // namespace
+
+bool ParseServerConfigLocal(const std::string& payloadJson, ServerConfigLocal* out, std::string* ignored) {
+  *out = ServerConfigLocal{};
+  if (ignored) ignored->clear();
+  json::Value v;
+  if (!json::Parse(payloadJson, &v) || !v.IsObj()) return false;
+  const json::Value* st = v.Get("settings");
+  if (!st || !st->IsObj()) return false;
+  FromSettings(*st, out, ignored);
+  return true;
+}
+
+bool LoadServerConfigLocal(const std::string& path, ServerConfigLocal* out) {
+  *out = ServerConfigLocal{};
+  std::string s;
+  json::Value v;
+  if (!ReadFile(path, &s, 64 * 1024) || !json::Parse(s, &v) || !v.IsObj()) return false;
+  FromSettings(v, out, nullptr);
+  return true;
+}
+
+bool SaveServerConfigLocal(const std::string& path, const ServerConfigLocal& c, std::string* err) {
+  json::Value v = json::Value::Object();
+  if (c.offlinePauseMinutes >= 0) v.Set("offline_pause_minutes", json::Value::Int(c.offlinePauseMinutes));
+  if (!c.statusToken.empty()) {
+    json::Value h = json::Value::Object();
+    h.Set("token", json::Value::Str(c.statusToken));
+    v.Set("status_http", std::move(h));
+  }
+  return WriteFileAtomic(path, json::Dump(v) + "\n", 0600, err);
+}
+
 std::string LoadOrCreateInstallId(const std::string& dir, std::string* err) {
   const std::string path = dir + "/install_id";
   std::string s;

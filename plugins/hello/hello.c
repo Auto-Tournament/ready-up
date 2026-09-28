@@ -20,7 +20,7 @@
  *   on_frame          frames counted (simulating or not), shown by hello_status
  *   sv_cheats         observed on the console (RU_CMD_OBSERVE; the engine still runs it)
  *   current_map       shown by hello_status
- * and the 1.10 ones:
+ * and the 1.11 ones:
  *   hello_cvar <name> (console)  reads a cvar with cvar_query and logs the answer
  *   hello_selftest    (console)  logs the core's latest selftest summary (selftest_summary)
  *
@@ -96,7 +96,7 @@ static void OnObserveCheats(void* user, const ru_command_ctx* ctx) {
   ru_logf(g_api, RU_LOG_INFO, "observed console: %s", ctx->text);
 }
 
-/* v1.10: cvar_query answers on the game thread (value NULL = unknown cvar / no answer). */
+/* v1.11: cvar_query answers on the game thread (value NULL = unknown cvar / no answer). */
 static void OnCvarValue(void* user, const char* name, const char* value) {
   (void)user;
   if (value) ru_logf(g_api, RU_LOG_INFO, "cvar %s = \"%s\"", name, value);
@@ -114,7 +114,7 @@ static void OnCvar(void* user, const ru_command_ctx* ctx) {
   }
 }
 
-/* v1.10: the core's latest selftest as JSON (-1 before the first run). */
+/* v1.11: the core's latest selftest as JSON (-1 before the first run). */
 static void OnSelftest(void* user, const ru_command_ctx* ctx) {
   (void)user;
   (void)ctx;

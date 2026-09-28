@@ -123,7 +123,7 @@ class CompatReportTest(unittest.TestCase):
         for cid in cr.RUNTIME_ONLY:
             c = self.comp(doc, cid)
             self.assertEqual(c["status"], "pending")
-            self.assertEqual([k["kind"] for k in c["checks"]], ["selftest", "livetest"] if cid == "match" else ["selftest"])
+            self.assertEqual([k["kind"] for k in c["checks"]], ["selftest", "livetest"] if cid in ("match", "fleet") else ["selftest"])
             self.assertTrue(all(k["status"] == "pending" for k in c["checks"]))
         self.assertEqual(badge, {"schemaVersion": 1, "label": "CS2 1.41.8.5", "message": "static ok",
                                  "color": "yellow"})
@@ -344,7 +344,7 @@ class CompatReportTest(unittest.TestCase):
         exit_code: 1
     """)
 
-    def dynamic(self, stage, selftest=SELFTEST, live=()):
+    def dynamic(self, stage, selftest=SELFTEST, live=(), advisory=()):
         base, _ = self.result(plugins_dir=ROOT / "plugins")
         bp = self.tmp / "base.json"
         bp.write_text(json.dumps(base))
@@ -355,6 +355,8 @@ class CompatReportTest(unittest.TestCase):
                 "--gamedata", str(self.gamedata), "--plugins-dir", str(ROOT / "plugins")] + RUN
         for n, rc in live:
             args += ["--livetest", "%s=%d" % (n, rc)]
+        for n in advisory:
+            args += ["--livetest-advisory", n]
         self.assertEqual(cr.main(args), 0)
         doc = json.loads((out / "compat.json").read_text())
         assert_contract(self, doc)
@@ -393,10 +395,11 @@ class CompatReportTest(unittest.TestCase):
                 lines += ["  OK   need %s %s %s 0x10" % (pid, k, e) for e in need.get(k) or []]
             lines += ["  OK   need %s event %s" % (pid, e) for e in need.get("events") or []]
         ok = ok.replace("[needs]\n", "[needs]\n" + "\n".join(lines) + "\n").replace("exit_code: 1", "exit_code: 0")
-        doc = self.dynamic("live", selftest=ok, live=[("match", 0), ("scrim", 0)])
+        doc = self.dynamic("live", selftest=ok, live=[("match", 0), ("scrim", 0), ("fleet", 0)])
         for c in doc["components"]:
             self.assertEqual(c["status"], "pass", c)
         self.assertEqual(self.check(self.comp(doc, "match"), "livetest")["passed"], 2)
+        self.assertEqual(self.check(self.comp(doc, "fleet"), "livetest")["passed"], 1)
         # the static rtti of CSchemaSystem is runtime-only (SKIP) -> nothing pending remains
         self.assertEqual(doc["overall"], "pass")
         self.assertEqual(cr.badge(doc)["message"], "compatible")
@@ -420,6 +423,31 @@ class CompatReportTest(unittest.TestCase):
         self.assertEqual((lt["status"], lt["passed"], lt["total"]), ("fail", 0, 1))
         doc = self.dynamic("live", live=[("match", 2)])
         self.assertEqual(self.check(self.comp(doc, "match"), "livetest")["status"], "pending")
+
+    def test_dynamic_livetest_per_component_and_advisory(self):
+        # fleet reports to the fleet component, forfeit / valve to match
+        doc = self.dynamic("live", live=[("match", 0), ("scrim", 0), ("fleet", 1), ("forfeit", 0)])
+        self.assertEqual(self.check(self.comp(doc, "match"), "livetest")["passed"], 3)
+        fl = self.check(self.comp(doc, "fleet"), "livetest")
+        self.assertEqual((fl["status"], fl["passed"], fl["total"]), ("fail", 0, 1))
+        # an advisory live test that fails keeps its check pending (never fail), with the reason
+        doc = self.dynamic("live", live=[("match", 0), ("fleet", 1), ("forfeit", 1), ("valve", 0)],
+                           advisory=["fleet forfeit,valve"])
+        fl = self.check(self.comp(doc, "fleet"), "livetest")
+        self.assertEqual(fl["status"], "pending")
+        self.assertIn("fleet: failed (exit 1); advisory", fl["failures"][0])
+        lt = self.check(self.comp(doc, "match"), "livetest")
+        self.assertEqual((lt["status"], lt["passed"]), ("pending", 2))
+        self.assertIn("forfeit: failed (exit 1); advisory", lt["failures"][0])
+        # advisory and passing: a normal pass
+        doc = self.dynamic("live", live=[("match", 0), ("fleet", 0)], advisory=["fleet"])
+        self.assertEqual(self.check(self.comp(doc, "fleet"), "livetest")["status"], "pass")
+        # a required one still fails next to an advisory one
+        doc = self.dynamic("live", live=[("match", 1), ("forfeit", 1)], advisory=["forfeit"])
+        self.assertEqual(self.check(self.comp(doc, "match"), "livetest")["status"], "fail")
+        # no fleet result (live test not run for it): its check stays pending
+        doc = self.dynamic("live", live=[("match", 0)])
+        self.assertEqual(self.check(self.comp(doc, "fleet"), "livetest")["status"], "pending")
 
     def test_dynamic_without_report_fails_core(self):
         doc = self.dynamic("selftest", selftest="")
@@ -534,7 +562,8 @@ class StepTest(unittest.TestCase):
         assert_contract(self, doc_no_steps)
         assert_steps_contract(self, doc)
         self.assertEqual([s["id"] for s in steps],
-                         ["build", "update", "install", "selftest", "live-match", "live-scrim", "record"])
+                         ["build", "update", "install", "selftest", "live-match", "live-scrim", "live-fleet",
+                          "live-forfeit", "record"])
         self.assertEqual([s["name"] for s in steps][:4], ["Build bundle", "Update CS2", "Install bundle", "Boot + selftest"])
         self.assertEqual(steps[0]["status"], "running")
         self.assertRegex(steps[0]["started_at"], ISO)
@@ -550,7 +579,7 @@ class StepTest(unittest.TestCase):
         self.assertEqual(build["status"], "pass")
         self.assertIn("started_at", build)
         self.assertIn("finished_at", build)
-        self.assertEqual(len(doc["run"]["steps"]), 7)  # kept in --state
+        self.assertEqual(len(doc["run"]["steps"]), len(cr.DYNAMIC_PLAN))  # kept in --state
         self.assertEqual(doc["run"]["trigger"], "build_change")
 
     def test_stage_verdict_does_not_end_the_run_until_every_step_is_done(self):
@@ -561,7 +590,8 @@ class StepTest(unittest.TestCase):
         self.assertEqual((doc["run"]["state"], doc["overall"]), ("checking", "checking"))
         _, doc = self.step("--id", "live-match", "--status", "fail", "--detail", "livetest exit 1\nsee log")
         self.assertEqual(doc["run"]["steps"][4]["detail"], "livetest exit 1 see log")
-        self.step("--id", "live-scrim", "--status", "skip")
+        for sid in ("live-scrim", "live-fleet", "live-forfeit"):
+            self.step("--id", sid, "--status", "skip")
         _, doc = self.step("--id", "record", "--status", "pass")
         # every step done: the base's verdict, finished
         self.assertEqual((doc["run"]["state"], doc["overall"], doc["run"]["finished_at"]),

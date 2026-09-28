@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 10
+#define READYUP_PLUGIN_API_VERSION_MINOR 11
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -200,7 +200,7 @@ typedef void (*ru_game_event_fn)(void* user, const char* name, const ru_game_eve
  * that lives for the duration of the callback. */
 typedef void (*ru_log_line_fn)(void* user, const char* line);
 
-/* ---- v1.10: cvar values ------------------------------------------------------ */
+/* ---- v1.11: cvar values ------------------------------------------------------ */
 
 /* cvar_query answer, on the game thread. `value` is the cvar's value as the engine printed it
  * ("" for an empty string), or NULL when the engine does not know the name or did not answer in
@@ -604,6 +604,20 @@ typedef struct ru_api {
   /* ==== v1.10 ===========================================================
    * Appended in 1.10. Require 1.10 in ru_plugin_info.api_version, or check RU_API_HAS().
    */
+  /*
+   * Runtime value of a core readyup.cfg setting, for settings a platform pushes (docs/FLEET.md
+   * §7.5 server.config). It wins over readyup.cfg until it is cleared (value NULL or ""), and is
+   * not saved by the core: the plugin that sets it restores it after a restart. Keys:
+   *   "chat_prefix"        the chat prefix, with <Color> tokens like readyup.cfg (max 64 bytes)
+   *   "status_http_token"  the local status endpoint's token (FLEET.md §17): 16..200 printable
+   *                        bytes, no spaces or quotes; status.json is rewritten with it
+   * Game thread. 1 = applied, 0 = unknown key or invalid value. Never logs the value.
+   */
+  int (*set_core_setting)(ru_plugin* self, const char* key, const char* value);
+
+  /* ==== v1.11 ===========================================================
+   * Appended in 1.11. Require 1.11 in ru_plugin_info.api_version, or check RU_API_HAS().
+   */
   /* Reads a cvar's current value. Asynchronous: the core queues `name` as a console command
    * (what typing a cvar name in the console does) and answers from the `<name> = <value>` line the
    * engine prints, through the logging listener. No engine surface of its own: it needs the
@@ -622,7 +636,7 @@ typedef struct ru_api {
    * when no selftest has run yet. Any thread. */
   int (*selftest_summary)(ru_plugin* self, char* buf, uint32_t len);
 
-  /* v1.11+: fields are appended here. Check RU_API_HAS() before use. */
+  /* v1.12+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

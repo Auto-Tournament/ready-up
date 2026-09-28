@@ -13,7 +13,7 @@
     },
     "versions": {
       "core": "0.1.0",
-      "plugin_api": "1.10",
+      "plugin_api": "1.11",
       "plugins": {
         "fleet": "0.1.0"
       },

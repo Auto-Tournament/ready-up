@@ -1,4 +1,4 @@
-// The match plugin's cvar snapshot (cvar_snapshot.h): reads through ru_api cvar_query (1.10),
+// The match plugin's cvar snapshot (cvar_snapshot.h): reads through ru_api cvar_query (1.11),
 // persistence in the reload stash and state.json.
 #include "readyup/cvar_snapshot.h"
 

@@ -418,6 +418,12 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
   cfg["clinch_series"] = Bool(r, "clinch_series", true);
   // Wingman (wingman.h) and simulation (simulation.h): rules.wingman, rules.simulation.timescale.
   if (Bool(r, "wingman", false)) cfg["wingman"] = true;
+  // GOTV demo of this match (demo_recorder.h): rules.demo.record / .upload win over the server's
+  // ru_demo_recording_enabled and upload target; absent = the server's settings.
+  if (const Json* d = Obj(r, "demo")) {
+    if (const Json* v = d->Find("record"); v && v->type() == Json::Type::Bool) cfg["demo_record"] = v->AsBool();
+    if (const Json* v = d->Find("upload"); v && v->type() == Json::Type::Bool) cfg["demo_upload"] = v->AsBool();
+  }
   if (const Json* sm = Obj(r, "simulation")) {
     cfg["simulation"] = true;
     if (const Json* ts = sm->Find("timescale"); ts && (ts->type() == Json::Type::Double || ts->type() == Json::Type::Int)) {
@@ -492,6 +498,53 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
   wrapper["slug"] = matchId;
   wrapper["config"] = std::move(cfg);
   return wrapper;
+}
+
+// ---------------------------------------------------------------------------- server.config
+
+ServerConfigPlan PlanServerConfig(const Json& st) {
+  ServerConfigPlan plan;
+  // A JSON scalar as the text a setting takes (true -> "1"); false for another type.
+  auto text = [](const Json& v, std::string* out) {
+    switch (v.type()) {
+      case Json::Type::Bool: *out = v.AsBool() ? "1" : "0"; return true;
+      case Json::Type::Int: *out = std::to_string(v.AsInt()); return true;
+      case Json::Type::String: *out = v.AsString(); return true;
+      default: return false;
+    }
+  };
+  auto add = [&](std::vector<std::pair<std::string, std::string>>* to, const std::string& name, const Json* v,
+                 const char* field) {
+    if (!v || v->IsNull()) return;
+    std::string t;
+    if (!text(*v, &t)) {
+      plan.skipped.push_back(field);
+      return;
+    }
+    to->emplace_back(name, t);
+  };
+  if (!st.IsObject()) return plan;
+  add(&plan.settings, "hostname_format", st.Find("hostname_format"), "hostname_format");
+  add(&plan.settings, "knife_enabled_default", st.Find("scrim_knife"), "scrim_knife");
+  add(&plan.settings, "scrim_when_idle", st.Find("scrim_when_idle"), "scrim_when_idle");
+  add(&plan.settings, "chat_prefix", st.Find("chat_prefix"), "chat_prefix");
+  add(&plan.settings, "admin_chat_prefix", st.Find("admin_chat_prefix"), "admin_chat_prefix");
+  if (const Json* k = Obj(st, "series_end_kick_delay")) {
+    add(&plan.settings, "series_end_kick_delay_no_demo", k->Find("no_demo"), "series_end_kick_delay.no_demo");
+    add(&plan.settings, "series_end_kick_delay_demo_no_upload", k->Find("demo_no_upload"),
+        "series_end_kick_delay.demo_no_upload");
+    add(&plan.settings, "series_end_kick_delay_demo_upload", k->Find("demo_upload"), "series_end_kick_delay.demo_upload");
+  }
+  if (const Json* w = Obj(st, "warmup")) {
+    add(&plan.console, "ru_warmup_message_html", w->Find("message_html"), "warmup.message_html");
+    add(&plan.console, "ru_warmup_respawn", w->Find("respawn"), "warmup.respawn");
+    add(&plan.console, "ru_warmup_startmoney", w->Find("money"), "warmup.money");
+  }
+  if (const Json* d = Obj(st, "demo")) {
+    add(&plan.console, "ru_demo_path", d->Find("path"), "demo.path");
+    add(&plan.console, "ru_demo_name_format", d->Find("name_format"), "demo.name_format");
+  }
+  return plan;
 }
 
 // ---------------------------------------------------------------------------- failover resume

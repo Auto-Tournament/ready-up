@@ -43,6 +43,7 @@ struct ClientConfig {
   int64_t helloTimeoutMs = 10000;
   int64_t httpTimeoutMs = 20000;
   size_t outboxMax = 20000;  // messages queued by the game thread, not yet on the net thread
+  size_t bulkMaxBytes = 2u << 20;  // SendBulk payload bytes that may wait (the lowest-priority lane)
   std::string userAgent = "ReadyUp-fleet";
   uint64_t rngSeed = 0;      // tests: deterministic jitter
   // Log sink, called from the network thread (level: 0 info, 1 warn, 2 error, 3 debug).
@@ -105,6 +106,8 @@ struct ClientStatus {
   int64_t nextAttemptMs = 0;      // unix ms of the next connect/enroll attempt (0 = none)
   int64_t heartbeatMs = 0, rttMs = -1;
   uint64_t framesIn = 0, framesOut = 0;
+  uint64_t bulkQueuedBytes = 0;  // SendBulk payloads waiting
+  uint64_t bulkSent = 0;         // SendBulk messages sent (all sessions)
 };
 
 class Client {
@@ -128,6 +131,14 @@ class Client {
   // `ref`: the id of the message this answers (cmd.result), empty = none.
   bool Send(const std::string& type, const std::string& payloadJson, int64_t epoch, bool reliable, std::string* err,
             const std::string& ref = {});
+  // The lowest-priority lane (FLEET.md §12.2, demo.chunk): ephemeral, only while online, and sent
+  // only when nothing else is waiting, one message per pass of the network loop, so events,
+  // state.patch, acks and pings never wait behind more than the one bulk frame being written.
+  // Dropped when the session ends. False (and *err) = not online, lane full (bulkMaxBytes) or
+  // invalid: the caller tries again later.
+  bool SendBulk(const std::string& type, const std::string& payloadJson, int64_t epoch, std::string* err);
+  // Tests: hold every outbound message (both lanes) in its queue until released.
+  void HoldOutboundForTest(bool hold);
   // state.snapshot {reason, state, availability, config_rev, admins_rev, ...extraJson} now (ephemeral,
   // envelope epoch = state.epoch). False when not online (a snapshot is never spooled).
   bool SendSnapshot(const std::string& reason, const std::string& extraJson);
@@ -194,6 +205,8 @@ class Client {
   Credentials creds_;
   HelloInfo hello_;
   std::deque<Out> outbox_;
+  std::deque<Out> bulk_;  // SendBulk
+  size_t bulkBytes_ = 0;
   std::deque<Inbound> inbox_;
   std::vector<int64_t> processed_;  // seqs the game thread finished
   std::set<std::string> handled_;
@@ -204,6 +217,7 @@ class Client {
 
   std::atomic<bool> stop_{false};
   std::atomic<bool> reconnect_{false};
+  std::atomic<bool> holdOut_{false};
   int wakeFd_[2] = {-1, -1};
   std::thread thread_;
 

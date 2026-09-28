@@ -1,9 +1,13 @@
 // Integration test: the real fleet::Client (libcurl WebSocket, spool, credentials) against the
 // mock platform in tests/mock_platform.cpp over 127.0.0.1. Covers enroll, hello/welcome, ping/pong,
 // seq/ack both ways, unknown types, reconnect with backoff, resume with replay, reset + snapshot,
-// resume after a process restart, heartbeat timeout, 4401 and a refused one-time code.
+// resume after a process restart, heartbeat timeout, 4401 and a refused one-time code, the bulk
+// lane's priority, and demo streaming end to end (FLEET.md §12.2).
+// Timing: the waits are generous, but a heavily loaded box (game servers, parallel builds) can
+// still make a WaitFor miss; rerun before suspecting the code.
 //   build/fleet_integration_test
 #include "fleet_client.h"
+#include "fleet_demo.h"
 #include "mock_platform.h"
 #include "schema_check.h"
 #include "test_util.h"
@@ -15,6 +19,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <memory>
 #include <thread>
 
@@ -539,6 +544,146 @@ TEST(TestTokenRotation) {
   p.Stop();
 }
 
+// The bulk lane (demo.chunk) only moves when the normal lane is empty: an event queued after
+// bulk messages still goes out before them.
+TEST(TestBulkLanePriority) {
+  mock::Platform p;
+  CHECK(p.Start());
+  const std::string dir = TempDir();
+  ClientConfig cfg = BaseConfig(p, dir);
+  cfg.enrollKey = kKey;
+  cfg.bulkMaxBytes = 4096;
+  Client c(cfg);
+  c.SetHelloInfo(Hello());
+  std::string err;
+  CHECK(!c.SendBulk("demo.chunk", "{}", 1, &err) && err == "not online");
+  CHECK(c.Start(&err));
+  CHECK(WaitState(c, LinkState::Online, 5000));
+  const std::string id = NewUlid(NowMs());
+  auto chunk = [&](int off) {
+    return R"({"demo_id":")" + id + R"(","offset":)" + std::to_string(off) + R"(,"size":3,"data":"YWJj"})";
+  };
+  c.HoldOutboundForTest(true);
+  CHECK(c.SendBulk("demo.chunk", chunk(0), 1, &err));
+  CHECK(c.SendBulk("demo.chunk", chunk(3), 1, &err));
+  CHECK(c.SendBulk("demo.chunk", chunk(6), 1, &err));
+  CHECK(c.Status().bulkQueuedBytes > 0);
+  // Lane full: refused, the caller keeps the bytes (the file is the buffer).
+  std::string big = R"({"demo_id":")" + id + R"(","offset":9,"size":3,"data":")" + std::string(4000, 'A') + R"("})";
+  CHECK(!c.SendBulk("demo.chunk", big, 1, &err) && err == "bulk lane full");
+  CHECK(c.Send("event.phase", Ev(R"({"from":"warmup","to":"live","reason":"flow"})"), 1, true, &err));
+  c.HoldOutboundForTest(false);
+  CHECK(p.WaitFor([&] { return p.MessagesOfType("demo.chunk").size() >= 3; }, 3000));
+  int evAt = -1, firstChunk = -1, i = 0;
+  for (const auto& m : p.Messages()) {
+    if (m.type() == "event.phase" && evAt < 0) evAt = i;
+    if (m.type() == "demo.chunk" && firstChunk < 0) firstChunk = i;
+    ++i;
+  }
+  CHECK(evAt >= 0 && firstChunk > evAt);
+  CHECK(c.Status().bulkSent >= 3);
+  CheckSchemas(p);
+  c.Stop();
+  p.Stop();
+}
+
+// Demo streaming against the mock platform: a growing file, a dropped connection mid-way
+// (resume from the platform's offset, not from zero), the final pass, stored + verified, and
+// the local copy deleted only after that.
+TEST(TestDemoStreaming) {
+  mock::Platform p;
+  CHECK(p.Start());
+  const std::string dir = TempDir();
+  ClientConfig cfg = BaseConfig(p, dir);
+  cfg.enrollKey = kKey;
+  Client c(cfg);
+  c.SetHelloInfo(Hello());
+  c.SetHandledTypes({"demo.ack"}, false);
+  std::string err;
+  CHECK(c.Start(&err));
+  CHECK(WaitState(c, LinkState::Online, 5000));
+
+  demo::Config dc;
+  dc.chunkBytes = 16 * 1024;
+  dc.windowBytes = 64 * 1024;
+  dc.settleMs = 300;
+  dc.ackTimeoutMs = 3000;
+  dc.keepAfterStoredMs = 500;
+  demo::Streams streams(dc, dir + "/demos.json",
+                        [](int level, const std::string& msg) { std::printf("    [demo %d] %s\n", level, msg.c_str()); });
+  demo::Link link;
+  link.online = [&] { return c.Status().state == LinkState::Online; };
+  link.session = [&] { return c.Status().sessions; };
+  link.send = [&](const std::string& t, const std::string& pl, int64_t e) {
+    std::string why;
+    return c.Send(t, pl, e, false, &why);
+  };
+  link.sendBulk = [&](const std::string& t, const std::string& pl, int64_t e) {
+    std::string why;
+    return c.SendBulk(t, pl, e, &why);
+  };
+  auto pump = [&](int ms) {
+    const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+    while (std::chrono::steady_clock::now() < end) {
+      for (auto& in : c.TakeInbound()) {
+        if (in.env.type == "demo.ack") streams.OnAck(in.payloadJson);
+      }
+      streams.Tick(link, NowMs());
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+  };
+  const std::string path = dir + "/2026-09-29_it-1_de_nuke_A_vs_B.dem";
+  auto grow = [&](size_t n, unsigned seed) {
+    std::string s(n, '\0');
+    uint32_t x = seed;
+    for (auto& ch : s) ch = static_cast<char>((x = x * 1103515245u + 12345u) >> 16);
+    std::ofstream(path, std::ios::binary | std::ios::app) << s;
+  };
+  demo::Spec spec;
+  spec.matchId = "it-1";
+  spec.epoch = 4;
+  spec.mapNumber = 1;
+  spec.path = path;
+  const std::string id = streams.Begin(spec, NowMs());
+  CHECK(!id.empty());
+  grow(200 * 1024, 1);
+  pump(1500);
+  auto demos = p.Demos();
+  CHECK(demos.count(id) == 1 && demos[id].stored == 192 * 1024);  // full chunks while recording
+  CHECK_EQ(demos[id].matchId, std::string("it-1"));
+  CHECK_EQ(demos[id].epoch, int64_t(4));
+  // Connection lost mid-demo: the next session resumes from the platform's offset.
+  const int64_t before = demos[id].chunkBytes;
+  p.DropCurrent();
+  grow(300 * 1024, 2);
+  CHECK(p.WaitFor([&] { return p.connections() >= 2; }, 5000));
+  pump(2500);
+  demos = p.Demos();
+  CHECK(demos[id].begins >= 2);
+  CHECK(demos[id].stored == 496 * 1024);
+  // Not from zero: at most one window was sent twice.
+  CHECK(demos[id].chunkBytes - before <= (496 - 192) * 1024 + dc.windowBytes);
+  // The recording stops: the header changes (CS2 does that), the tail goes out, then demo.end.
+  {
+    FILE* f = std::fopen(path.c_str(), "r+b");
+    std::fwrite("PBDEMS2", 1, 7, f);
+    std::fclose(f);
+  }
+  grow(5000, 3);
+  streams.End(path, NowMs());
+  CHECK(p.WaitFor([&] { pump(100); return p.Demos()[id].complete; }, 6000));
+  std::ifstream in(path, std::ios::binary);
+  const std::string file((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  CHECK(p.Demos()[id].data == file);
+  CHECK(!p.MessagesOfType("demo.end").empty());
+  // Deleted after keepAfterStoredMs, never before the platform confirmed it.
+  CHECK(p.WaitFor([&] { pump(100); return access(path.c_str(), F_OK) != 0; }, 3000));
+  CHECK_EQ(streams.Unfinished(), size_t(0));
+  CheckSchemas(p);
+  c.Stop();
+  p.Stop();
+}
+
 int main() {
   RUN(TestSchemaValidator);
   RUN(TestEnrollConnectPingAck);
@@ -548,5 +693,7 @@ int main() {
   RUN(TestHeartbeatTimeout);
   RUN(TestRejections);
   RUN(TestTokenRotation);
+  RUN(TestBulkLanePriority);
+  RUN(TestDemoStreaming);
   return ftest::Finish("fleet_integration_test");
 }
