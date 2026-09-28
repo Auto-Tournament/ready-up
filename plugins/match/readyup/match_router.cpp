@@ -73,6 +73,18 @@ void SendAdmin(const std::string& msg) {
   SendToChat((AdminPrefix() + " " + msg).c_str());
 }
 
+// `.help`: with `readyup_show_license 1` and a valid license key that names a licensee, one
+// "Licensed to ..." line after the commands (the core's, ru_api 1.9). Nothing otherwise: never
+// anything like "unlicensed".
+void SendLicenseLine() {
+  const ru_api* api = host::Api();
+  char buf[256];
+  if (RU_API_HAS(api, license_player_line) && api->license_player_line &&
+      api->license_player_line(api->self, buf, sizeof(buf)) > 0) {
+    SendToChat(buf);
+  }
+}
+
 }  // namespace
 
 bool MatchSetPractice(bool on) {
@@ -151,11 +163,13 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   if (first == ".help") {
     if (GetMode() == ReadyUpMode::Practice) {
       if (const ru_practice_v1* p = Practice()) SendToChat(p->help());
+      SendLicenseLine();
       return;
     }
     if (GetMode() == ReadyUpMode::External) {
       const std::string ext = ExternalModeName();
       SendToChat(("Ready Up: " + ext + " mode is on. Commands: .ru help " + ext).c_str());
+      SendLicenseLine();
       return;
     }
     SendToChat("Ready Up commands: .r / .ready / .ur (.nr) | .forceready | .tac (timeout) | .tech (.pause) | .unpause | .admin [message]");
@@ -167,6 +181,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
                      : "Ready Up: scrim: when everyone on CT/T is READY, a 5s countdown starts and the scrim goes live.");
     }
     if (IsReadyUpAdmin(steamid64)) SendToChat("Ready Up admin: .ru help (commands) | .ru help <command> (its subcommands)");
+    SendLicenseLine();
     return;
   }
 

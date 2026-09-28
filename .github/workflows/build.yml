@@ -55,6 +55,19 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Version: $version"
+          # License coverage is by version line: the release date of this version's x.y.0
+          # (core/src/readyup/license.h). A tag x.y.z takes the date of tag vx.y.0; the first
+          # x.y.0 build, and dev builds, use today.
+          line_date=""
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            zero="v$(echo "$version" | cut -d. -f1-2).0"
+            if git fetch --depth=1 --no-tags origin "refs/tags/$zero:refs/tags/$zero" 2>/dev/null; then
+              line_date="$(git for-each-ref --format='%(creatordate:short)' "refs/tags/$zero")"
+            fi
+          fi
+          [ -n "$line_date" ] || line_date="$(date -u +%F)"
+          echo "READYUP_LINE_DATE=$line_date" >> "$GITHUB_ENV"
+          echo "License line date: $line_date"
 
       - name: Unit tests (patch_gameinfo.py, compat-report.py)
         run: python3 -m unittest discover -s tests -v

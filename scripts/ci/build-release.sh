@@ -8,6 +8,8 @@
 # Env:
 #   DEPS_PREFIX  where static OpenSSL/libcurl live / get built (default /opt/readyup-deps)
 #   BUILD_TYPE   CMake build type (default Release)
+#   READYUP_LINE_DATE  release date of this version's x.y.0 (YYYY-MM-DD, license coverage);
+#                empty = the build date
 #   CC / CXX     compilers (default gcc-14 / g++-14 from the SDK: sniper's default GCC 10
 #                libstdc++ rejects std::unordered_map with an incomplete value type, which
 #                minijson::Value uses. GCC 14 in sniper still targets glibc 2.31, and its
@@ -34,7 +36,8 @@ fi
 
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-  -DREADYUP_DEPS_PREFIX="$DEPS_PREFIX"
+  -DREADYUP_DEPS_PREFIX="$DEPS_PREFIX" \
+  -DREADYUP_LINE_DATE="${READYUP_LINE_DATE:-}"
 cmake --build "$BUILD_DIR" -j"$(nproc)"
 
 "$ROOT_DIR/scripts/ci/check-portable.sh" "$BUILD_DIR/libserver.so"

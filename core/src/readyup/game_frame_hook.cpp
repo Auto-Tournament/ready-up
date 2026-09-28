@@ -6,6 +6,7 @@
 #include "readyup/engine_surface.h"
 #include "readyup/features.h"
 #include "readyup/game_events.h"
+#include "readyup/license_status.h"
 #include "readyup/logging.h"
 #include "readyup/plugin_loader.h"
 #include "readyup/real_server.h"
@@ -80,6 +81,8 @@ static void Hook_GameFrame(void* thisptr, bool simulating, bool bFirstTick, bool
     }
     readyup::plugins::Frame(/*simulating=*/true);
   }
+  // No license key anywhere ~10 s into the first map: one free-use console line (never blocks).
+  readyup::license::LicenseFrame();
   // READYUP_SELFTEST_AND_QUIT: runs the selftest once the first map is up, then quits.
   readyup::SelftestFrameTick();
   // Local status endpoint: rebuild the snapshot (at most every 250 ms) and hand it to the

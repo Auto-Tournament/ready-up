@@ -1,6 +1,7 @@
 #include "readyup/command_buffer_hook.h"
 
 #include "readyup/config.h"
+#include "readyup/license_status.h"
 #include "readyup/logging.h"
 #include "readyup/plugin_loader.h"
 #include "readyup/ru_help.h"
@@ -146,6 +147,12 @@ static bool HandleRuCommandLine(const std::string& line) {
       return true;
     }
     PrintLine("reload: ok");
+    license::LogOnReload();
+    return true;
+  }
+
+  if (parts[1] == "license") {
+    for (const auto& l : license::StatusLines()) PrintLine(l.c_str());
     return true;
   }
 
@@ -172,6 +179,9 @@ static bool HandleRuCommandLine(const std::string& line) {
 static bool HandleReadyUpConsoleCommandLine(const std::string& line) {
   // RU_CMD_OBSERVE console registrations see the line; it still runs normally.
   plugins::ObserveConsole(Trim(line));
+
+  // `readyup_license_key "..."` / `readyup_show_license 0|1` (license_status.h): informational.
+  if (license::HandleConsoleLine(line)) return true;
 
   // Handle `ru ...` command family.
   if (HandleRuCommandLine(line)) return true;
@@ -201,6 +211,17 @@ static void Hook_AddText(void* thisptr, const char* text, int a, int b, bool c, 
     if (HandleReadyUpConsoleCommandLine(first)) {
       // Swallow this command so the engine doesn't try to interpret it as an alias/unknown.
       return;
+    }
+    // A whole cfg in one call (e.g. csm's readyup_license.cfg: two comment lines, then the key):
+    // the license settings on later lines are still read; the text itself runs unchanged.
+    if (nl != std::string::npos && s.find("readyup_", nl) != std::string::npos) {
+      size_t pos = nl;
+      while (pos < s.size()) {
+        const size_t end = s.find_first_of("\r\n", pos + 1);
+        (void)license::HandleConsoleLine(s.substr(pos + 1, end == std::string::npos ? std::string::npos : end - pos - 1));
+        if (end == std::string::npos) break;
+        pos = end;
+      }
     }
   }
 

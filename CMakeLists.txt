@@ -33,6 +33,9 @@ add_library(server_shim SHARED
   core/src/readyup/crash_handler.cpp
   core/src/readyup/disabled.cpp
   core/src/readyup/features.cpp
+  core/src/readyup/license.cpp
+  core/src/readyup/license_keys.cpp
+  core/src/readyup/license_status.cpp
   core/src/readyup/game_frame_hook.cpp
   core/src/readyup/game_events.cpp
   core/src/readyup/host_say_hook.cpp
@@ -102,6 +105,16 @@ target_include_directories(readyup_funchook
 target_compile_options(readyup_funchook PRIVATE -w)
 target_link_libraries(readyup_funchook PRIVATE dl)
 
+# Vendored Monocypher 4.0.3 (Ed25519 signature check for license keys, core/src/readyup/license.h).
+# Its own static PIC library, like funchook, so our warning flags don't apply to it.
+add_library(readyup_monocypher STATIC
+  third_party/monocypher/src/monocypher.c
+  third_party/monocypher/src/optional/monocypher-ed25519.c
+)
+set_target_properties(readyup_monocypher PROPERTIES POSITION_INDEPENDENT_CODE ON C_VISIBILITY_PRESET hidden)
+target_include_directories(readyup_monocypher PUBLIC ${CMAKE_SOURCE_DIR}/third_party/monocypher/src)
+target_compile_options(readyup_monocypher PRIVATE -w)
+
 # Build/version strings for `ru`.
 # SemVer is sourced from VERSION file, git SHA is appended as build metadata.
 set(READYUP_SEMVER "unknown")
@@ -122,9 +135,25 @@ if (NOT READYUP_GIT_SHA)
 endif()
 
 set(READYUP_BUILD_VERSION "${READYUP_SEMVER} (${READYUP_GIT_SHA})")
+
+# License coverage is by version line (core/src/readyup/license.h): the release date of this
+# build's x.y.0. The release workflow passes it for tags (.github/workflows/build.yml); a new
+# x.y.0, dev and local builds use the build date.
+set(READYUP_LINE_DATE "" CACHE STRING "Release date of this build's x.y.0 (YYYY-MM-DD); empty = build date")
+if (READYUP_LINE_DATE)
+  set(READYUP_LINE_DATE_VALUE "${READYUP_LINE_DATE}")
+else()
+  string(TIMESTAMP READYUP_LINE_DATE_VALUE "%Y-%m-%d" UTC)
+endif()
+if (NOT READYUP_LINE_DATE_VALUE MATCHES "^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$")
+  message(FATAL_ERROR "READYUP_LINE_DATE must be YYYY-MM-DD (got \"${READYUP_LINE_DATE_VALUE}\")")
+endif()
+message(STATUS "License line date: ${READYUP_LINE_DATE_VALUE}")
+
 target_compile_definitions(server_shim PRIVATE
   READYUP_SEMVER="${READYUP_SEMVER}"
   READYUP_BUILD_VERSION="${READYUP_BUILD_VERSION}"
+  READYUP_LINE_DATE="${READYUP_LINE_DATE_VALUE}"
 )
 
 # Produce the artifact name the engine expects.
@@ -182,7 +211,7 @@ else()
   find_package(CURL QUIET)
 endif()
 
-target_link_libraries(server_shim PRIVATE readyup_funchook dl)
+target_link_libraries(server_shim PRIVATE readyup_funchook readyup_monocypher dl)
 
 # readyup_ctor's translation unit goes last on the link line (see the source list above).
 if (READYUP_DEPS_PREFIX)
@@ -337,6 +366,22 @@ target_include_directories(readyup_load_order_test PRIVATE ${CMAKE_SOURCE_DIR}/c
 target_compile_options(readyup_load_order_test PRIVATE -Wall -Wextra)
 target_link_libraries(readyup_load_order_test PRIVATE dl)
 
+# License keys (core/src/readyup/license.h) against tests/fixtures/license/vectors.json.
+add_executable(readyup_license_test tests/license_test.cpp core/src/readyup/license.cpp
+  core/src/readyup/license_keys.cpp libs/readyup/minijson.cpp)
+target_include_directories(readyup_license_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs)
+target_compile_options(readyup_license_test PRIVATE -Wall -Wextra)
+target_compile_definitions(readyup_license_test PRIVATE
+  READYUP_LICENSE_VECTORS="${CMAKE_SOURCE_DIR}/tests/fixtures/license/vectors.json")
+target_link_libraries(readyup_license_test PRIVATE readyup_monocypher)
+# readyup_license_key / readyup_show_license and csm's readyup_license.cfg (license_status.h).
+add_executable(readyup_license_status_test tests/license_status_test.cpp core/src/readyup/license_status.cpp
+  core/src/readyup/license.cpp core/src/readyup/license_keys.cpp libs/readyup/minijson.cpp)
+target_include_directories(readyup_license_status_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs)
+target_compile_options(readyup_license_status_test PRIVATE -Wall -Wextra)
+target_compile_definitions(readyup_license_status_test PRIVATE READYUP_LINE_DATE="2026-09-28")
+target_link_libraries(readyup_license_status_test PRIVATE readyup_monocypher)
+
 # `ru help` text (core/src/readyup/ru_help_text.h).
 add_executable(readyup_ru_help_test tests/ru_help_test.cpp core/src/readyup/ru_help_text.cpp)
 target_include_directories(readyup_ru_help_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
@@ -373,6 +418,8 @@ add_test(NAME skins_reload COMMAND skins_reload_test)
 add_test(NAME plugin_state COMMAND readyup_plugin_state_test)
 add_test(NAME plugin_needs COMMAND readyup_plugin_needs_test)
 add_test(NAME ru_help COMMAND readyup_ru_help_test)
+add_test(NAME license COMMAND readyup_license_test)
+add_test(NAME license_status COMMAND readyup_license_status_test)
 add_test(NAME load_order COMMAND readyup_load_order_test)
 add_test(NAME match_flow COMMAND readyup_match_flow_test)
 add_test(NAME status_http COMMAND readyup_status_http_test)
