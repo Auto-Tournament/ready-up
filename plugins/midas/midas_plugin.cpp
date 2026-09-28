@@ -168,6 +168,72 @@ std::set<uint32_t> g_modelled;  // weapon handles given a Midas model (model_<cl
 // legacy one, which switches the weapon to the legacy mesh (m_MeshGroupMask 2, body 1): on the Midas
 // model that put the charm on the wrong attachment. Mesh group mask: m_CBodyComponent ->
 // CBodyComponentSkeletonInstance::m_skeletonInstance -> m_modelState.m_MeshGroupMask.
+// CUtlStringToken of a name: MurmurHash2 of the lower-cased bytes, seed 0x31415926 (Source 2).
+uint32_t StringToken(const std::string& name) {
+  const uint32_t m = 0x5bd1e995;
+  const int r = 24;
+  uint32_t h = 0x31415926u ^ static_cast<uint32_t>(name.size());
+  std::string low = name;
+  for (char& c : low) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  const unsigned char* d = reinterpret_cast<const unsigned char*>(low.data());
+  size_t len = low.size();
+  while (len >= 4) {
+    uint32_t k = static_cast<uint32_t>(d[0]) | static_cast<uint32_t>(d[1]) << 8 | static_cast<uint32_t>(d[2]) << 16 |
+                 static_cast<uint32_t>(d[3]) << 24;
+    k *= m;
+    k ^= k >> r;
+    k *= m;
+    h *= m;
+    h ^= k;
+    d += 4;
+    len -= 4;
+  }
+  switch (len) {
+    case 3: h ^= static_cast<uint32_t>(d[2]) << 16; [[fallthrough]];
+    case 2: h ^= static_cast<uint32_t>(d[1]) << 8; [[fallthrough]];
+    case 1: h ^= d[0]; h *= m;
+  }
+  h ^= h >> 13;
+  h *= m;
+  h ^= h >> 15;
+  return h;
+}
+
+// model_group=<name>: one of the Midas model's material groups (the readyup_midas addon: brushed,
+// matte, painted, silver; empty = its default, polished gold). CSkeletonInstance::m_materialGroup
+// (on 1.41.8.5) holds the group name's string token.
+void UseMaterialGroup(void* w, const std::string& group) {
+  const int body = g_api->schema_offset(g_api->self, "CBaseEntity", "m_CBodyComponent");
+  const int skel = g_api->schema_offset(g_api->self, "CBodyComponentSkeletonInstance", "m_skeletonInstance");
+  const int state = g_api->schema_offset(g_api->self, "CSkeletonInstance", "m_modelState");
+  if (body < 0 || skel < 0 || state < 0) return;
+  void* bc = Rd<void*>(w, body);
+  if (!bc) return;
+  if (group.empty()) return;  // the model's default group; a wrong token would drop every remap
+  const uint32_t token = StringToken(group);
+  // Where m_materialGroup lives differs between builds: look it up once and log where it was found.
+  static int where = -2, off = -1;
+  static const char* const kClasses[] = {"CSkeletonInstance", "CModelState", "CBodyComponentSkeletonInstance",
+                                         "CBaseModelEntity", "CGameSceneNode", "CBodyComponent"};
+  if (where == -2) {
+    where = -1;
+    for (int i = 0; i < 6 && where < 0; ++i) {
+      off = g_api->schema_offset(g_api->self, kClasses[i], "m_materialGroup");
+      if (off >= 0) where = i;
+    }
+    ru_logf(g_api, RU_LOG_INFO, "m_materialGroup: %s", where >= 0 ? kClasses[where] : "not found");
+  }
+  unsigned char* base = nullptr;
+  switch (where) {
+    case 0: base = static_cast<unsigned char*>(bc) + skel; break;
+    case 1: base = static_cast<unsigned char*>(bc) + skel + state; break;
+    case 2: case 5: base = static_cast<unsigned char*>(bc); break;
+    case 3: base = static_cast<unsigned char*>(w); break;
+    default: return;  // CGameSceneNode / not found: not handled
+  }
+  std::memcpy(base + off, &token, sizeof(token));
+}
+
 void UseNormalMesh(void* w) {
   const int body = g_api->schema_offset(g_api->self, "CBaseEntity", "m_CBodyComponent");
   const int skel = g_api->schema_offset(g_api->self, "CBodyComponentSkeletonInstance", "m_skeletonInstance");
@@ -438,7 +504,8 @@ void TintSlot(int slot) {
       if (!model.empty() && RU_API_HAS(g_api, entity_set_model)) {
         if (!g_modelled.count(h) && g_api->entity_set_model(g_api->self, w, model.c_str()) == 1) {
           g_modelled.insert(h);
-          UseNormalMesh(w);
+          UseMaterialGroup(w, ConfigValue("model_group"));
+          UseNormalMesh(w);  // also marks the entity changed
           ru_logf(g_api, RU_LOG_INFO, "model %s on %s of slot %d", model.c_str(), mcn, slot);
         }
         if (g_modelled.count(h)) {

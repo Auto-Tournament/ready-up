@@ -44,6 +44,7 @@
     "CBaseModelEntity.m_clrRender",
     "CBodyComponentSkeletonInstance.m_skeletonInstance",
     "CModelState.m_MeshGroupMask",
+    "CSkeletonInstance.m_materialGroup",
     "CSkeletonInstance.m_modelState"
   ],
   "events": [
