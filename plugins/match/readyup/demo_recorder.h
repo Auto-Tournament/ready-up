@@ -10,9 +10,15 @@
 //  - The upload runs on its own thread: wait until the file size settles (or search
 //    the demo dirs for this match's newest demo), then send the file as
 //    application/octet-stream with ru_demo_upload_method (POST or PUT) to
-//    ru_demo_upload_url, with the configured headers, retrying network errors,
-//    429 and 5xx (ru_demo_upload_attempts). No header names are built in: add what
-//    the receiver needs with ru_demo_upload_header.
+//    ru_demo_upload_url, with the headers below, retrying network errors, 429 and 5xx
+//    (ru_demo_upload_attempts).
+//
+// Upload headers (UploadHeaderLines), a later one replacing an earlier one of the same name:
+//   1. the demo's metadata, which the Auto Tournament demo route reads (docs/PARITY.md §5):
+//      Auto-Tournament-FileName / -MatchId / -MapNumber / -RoundNumber, and the same as Get5-*
+//   2. ru_demo_upload_header entries
+//   3. the ru_demo_upload_header_key / ru_demo_upload_header_value pair (the platform's token
+//      header; get5_demo_upload_header_key / _value are aliases)
 //
 // Name / URL / header value tokens:
 //   {TIME} (local, yyyy-mm-dd_HH-MM-SS)  {MATCH_ID}  {SLUG}  {MAP}  {MAP_NUMBER} (1-based)
@@ -27,6 +33,8 @@
 //   ru_demo_upload_method POST|PUT         default POST
 //   ru_demo_upload_header "<Name>" "<value>"   add/replace one header ("" value removes it)
 //   ru_demo_upload_headers_clear
+//   ru_demo_upload_header_key "<Name>"      the AT custom header's name ("" clears it)
+//   ru_demo_upload_header_value "<value>"   its value ("" clears it); sent once both are set
 //   ru_demo_upload_attempts <1-10>         default 3
 //   ru_demo_status                         print settings, recording and the last upload
 // `tv_delay N` typed on the console is observed (not consumed) for the flush timing.
@@ -49,6 +57,9 @@ struct Settings {
   std::string uploadMethod = "POST";
   std::vector<std::pair<std::string, std::string>> uploadHeaders;
   int uploadAttempts = 3;
+  // The AT plugin's one custom header (ru_demo_upload_header_key / _value).
+  std::string headerKey;
+  std::string headerValue;
 };
 
 Settings Get();
@@ -62,6 +73,9 @@ bool SetUploadMethod(const std::string& method);
 void SetUploadHeader(const std::string& name, const std::string& value);
 void ClearUploadHeaders();
 void SetUploadAttempts(int attempts);
+// Empty clears. A name with ':' or a line break, or a value with a line break, is refused.
+bool SetUploadHeaderKey(const std::string& name);
+bool SetUploadHeaderValue(const std::string& value);
 
 // tv_delay seen on the console. Match cvars (tv_delay / tv_delay1) win.
 void ObserveTvDelay(int seconds);
@@ -131,6 +145,11 @@ struct TokenValues {
 std::string ExpandTokens(const std::string& format, const TokenValues& v);
 // Pure (tested): ExpandTokens + file-name safety (spaces -> '_', no path separators or quotes).
 std::string FormatDemoFileName(const std::string& format, const TokenValues& v);
+
+// Pure (tested): the upload's headers as "Name: value" lines (see the top of this file). The
+// values of ru_demo_upload_header entries have their tokens expanded; names compare
+// case-insensitively.
+std::vector<std::string> UploadHeaderLines(const Settings& s, const TokenValues& v);
 
 // Pure (tested): when the expected file is missing, the newest .dem whose name contains
 // "_<matchid>_" (and the map name when given), not older than notBeforeEpoch.

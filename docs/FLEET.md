@@ -121,8 +121,10 @@ Choices made where this document leaves room:
   `clinch_series`, `pause.technical_per_team` / `technical_seconds` / `unpause`,
   `pause.tactical_per_team` / `tactical_seconds` (as `mp_team_timeout_max` / `_time`),
   `ready.allow_force_ready` / `min_per_team` and `forfeit.team_absent_seconds` (through the MAT
-  config the match flow already loads; `plugins/match/readyup/match_rules.h`). Coaches are
-  whitelisted spectators. The gg-vote rules are carried in `MatchState.rules` only.
+  config the match flow already loads; `plugins/match/readyup/match_rules.h`). Coaches
+  (`role: coach`) are whitelisted spectators who coach their team (CS2's coach slot,
+  docs/ADMINS.md "Coaches"); no protocol field beyond the role. The gg-vote rules are carried
+  in `MatchState.rules` only.
 - Round backups: CS2 writes `readyup_backup_<matchid>_map<N>__roundNN.txt` to `csgo/readyup/`
   (NN = rounds played; `InlineBackup.round` = NN + 1, the round it starts). The bridge forwards a
   file 1.5 s after each round start, again when its content changes (a replayed round after a

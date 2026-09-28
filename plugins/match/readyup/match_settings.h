@@ -39,8 +39,8 @@ bool Set(const std::string& name, const std::string& value, const std::string& b
 bool Validate(const std::string& name, const std::string& value, std::string* err);
 bool SetDefault(const std::string& name, const std::string& by, std::string* reply);
 
-// `.settings` / `ru settings show`: every setting, the series-end kick delays and what the loaded
-// match sets for itself.
+// `.settings` / `ru settings show`: every setting, pause_after_restore (round_restore.h), the
+// series-end kick delays and what the loaded match sets for itself.
 std::vector<std::string> ShowLines();
 
 // Effective values (the match's own value first).

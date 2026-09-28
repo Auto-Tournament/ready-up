@@ -12,6 +12,12 @@
 namespace readyup {
 
 struct AdminCallEvent;  // admin_call_logic.h
+namespace stats {
+struct MapStats;  // match_stats.h
+}
+namespace demo {
+struct DemoEvent;  // demo_recorder.h
+}
 
 // Minimal team identity for MAT/MatchZy-style events.
 enum class WebhookTeam {
@@ -53,6 +59,10 @@ struct WebhookMatchContext {
   int num_maps = 0;
   std::string team1_name;
   std::string team2_name;
+  // Match config team1.id / team2.id (string or number; "" when absent): the AT `team.id` in
+  // round_end / map_result.
+  std::string team1_id;
+  std::string team2_id;
 
   uint64_t team1_captain_steamid64 = 0;
   uint64_t team2_captain_steamid64 = 0;
@@ -119,6 +129,13 @@ struct WebhookMatchContext {
   // Coaches (MAT "coaches": [steamid64]; fleet role "coach"). Whitelisted as spectators unless the
   // ruleset keeps them out (valve online: lan false, coaches_online false).
   std::unordered_set<uint64_t> coaches;
+  // The team of each coach listed per team (MAT team1/team2 "coaches": {steamid64: name} as get5,
+  // or [steamid64]; fleet role "coach" inside a team). Also in `coaches`. They coach that team
+  // without typing anything (coach.h).
+  std::unordered_map<uint64_t, WebhookTeam> coach_team;
+  // Coaches per team who are not listed (scrim `.coach`, admin-assigned); MAT / get5
+  // `coaches_per_team`. <= 0: no limit.
+  int coaches_per_team = 2;
   // Per-match values of server settings (server_settings.h); -1 / 0 = not set (the server's).
   // MAT keys `players_per_team`, `playout`, `whitelist`, `autoready`; fleet rules.playout,
   // rules.whitelist, rules.ready.autoready and the team size from the player roles.
@@ -164,7 +181,11 @@ void WebhookEmitServerConfigured(const char* configuredBy);
 void WebhookEmitServerHealth(const char* reason = nullptr);
 void WebhookEmitSeriesStart();
 void WebhookEmitSeriesEnd(int team1_series_score, int team2_series_score, const char* winner, int time_until_restore);
-void WebhookEmitMapResult(int map_number, const char* map_name, int team1_score, int team2_score, const char* winner);
+// map_result in the AT shape (at_payloads.h MapResultJson): winner {side, team}, team1 / team2
+// {id, name, series_score (after this map), score, score_ct, score_t, players[] with the map's final
+// stats}. `stats`: the stats model's snapshot of the map (empty when stats were not recorded).
+void WebhookEmitMapResult(int map_number, const char* map_name, int team1_score, int team2_score, const char* winner,
+                          const stats::MapStats& stats, int team1_series_score, int team2_series_score);
 void WebhookEmitPlayerConnect(const WebhookPlayer& p);
 void WebhookEmitPlayerDisconnect(const WebhookPlayer& p);
 // Emits MatchZy-style ready/unready events with counts.
@@ -200,6 +221,10 @@ bool WebhookUpdateMapSide(int map_number, const char* map_side);
 // optionally rewinding to a specific round number.
 // - round_number == 0 => recover to latest
 void WebhookEmitRecoverRequested(int map_number, int round_number);
+// A round backup was loaded (round_restore.h): Auto Tournament CS2 `backup_loaded`
+// {map_number, round_number, filename}; round_number = rounds played before the restored round
+// (the NN of the backup's file name).
+void WebhookEmitBackupLoaded(int map_number, int round_number, const std::string& filename);
 void WebhookEmitRoundStarted(int map_number, int round_number, int team1_score, int team2_score);
 void WebhookEmitRoundEnd(int map_number, int round_number, int round_time, int reason, const char* winner, int team1_score, int team2_score);
 void WebhookEmitRoundEndWithPlayerStats(int map_number,
@@ -221,6 +246,17 @@ void WebhookEmitRoundEndMatchzy(int map_number,
                                 int team2_score,
                                 const std::vector<WebhookPlayerStats>& team1_players,
                                 const std::vector<WebhookPlayerStats>& team2_players);
+
+// round_end in the AT shape (at_payloads.h RoundEndJson) with the full per-player stat set, from
+// the stats model after it closed the round. Used while the stats model is live; the MatchZy
+// shape above is the fallback without it.
+void WebhookEmitRoundEndStats(int map_number, int round_number, int round_time_ms, int reason, int winner_side,
+                              const stats::MapStats& stats, int team1_series_score, int team2_series_score);
+
+// demo_recording_start / _stop, demo_upload_start / _success / _fail / _ended (at_payloads.h
+// DemoEventJsons). A demo::AddListener listener: any thread. Needs only the webhook URL, not a
+// loaded match (a demo upload ends after the series unloaded).
+void WebhookEmitDemoEvent(const demo::DemoEvent& e);
 
 // Starts sender thread (idempotent). Safe to call early during startup.
 void WebhookStartSenderThread();

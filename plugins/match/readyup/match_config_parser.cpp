@@ -255,6 +255,7 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
   ruleBool("stop_command_available", &ctx.rules.stop_command_available);
   ruleBool("stop_command_no_damage", &ctx.rules.stop_command_no_damage);
   ruleInt("stop_vote_seconds", &ctx.rules.stop_vote_seconds);
+  ruleBool("pause_after_restore", &ctx.rules.pause_after_restore);
   // Server settings the match may set for itself (server_settings.h).
   if (auto n = parseNonNegativeInt(cfg->get("players_per_team"))) ctx.players_per_team = std::min(*n, 32);
   ruleBool("playout", &ctx.playout);
@@ -318,6 +319,9 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
     const Value* team = cfg->get(key);
     if (!IsObject(team)) return;
     if (auto n = AsString(team->get("name"))) nameOut = *n;
+    std::string& idOut = teamTag == WebhookTeam::Team1 ? ctx.team1_id : ctx.team2_id;
+    if (auto id = AsString(team->get("id"))) idOut = *id;
+    else if (auto idn = AsInt(team->get("id"))) idOut = std::to_string(*idn);
     if (auto f = AsString(team->get("flag"))) {
       (teamTag == WebhookTeam::Team1 ? ctx.team1_flag : ctx.team2_flag) = *f;
     }
@@ -332,6 +336,19 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
       if (sid != 0) {
         if (teamTag == WebhookTeam::Team1) ctx.team1_captain_steamid64 = sid;
         if (teamTag == WebhookTeam::Team2) ctx.team2_captain_steamid64 = sid;
+      }
+    }
+    // coaches: {steamid64: name} (get5) or [steamid64]. Read before the players return early.
+    if (const Value* coaches = team->get("coaches")) {
+      auto add = [&](uint64_t sid) {
+        if (sid) ctx.coach_team[sid] = teamTag;
+      };
+      if (IsObject(coaches)) {
+        for (const auto& kv : coaches->obj) add(ParseSteamId64Loose(kv.first));
+      } else if (coaches->type == Value::Type::Array) {
+        for (const auto& v : coaches->arr) {
+          if (v.type == Value::Type::String) add(ParseSteamId64Loose(v.str));
+        }
       }
     }
     const Value* players = team->get("players");
@@ -353,6 +370,16 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
       if (sid) ctx.coaches.insert(sid);
     }
   }
+  // A player on a roster is a player, not a coach.
+  for (auto it = ctx.coach_team.begin(); it != ctx.coach_team.end();) {
+    if (ctx.roster_team.count(it->first)) {
+      it = ctx.coach_team.erase(it);
+    } else {
+      ctx.coaches.insert(it->first);
+      ++it;
+    }
+  }
+  if (auto n = AsInt(cfg->get("coaches_per_team"))) ctx.coaches_per_team = static_cast<int>(*n);
 
   if (!ApplyRulesetToContext(json, &ctx, errOut)) return std::nullopt;
   return ctx;

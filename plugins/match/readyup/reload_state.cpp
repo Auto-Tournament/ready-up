@@ -56,6 +56,8 @@ Json ContextToJson(const WebhookMatchContext& c) {
   j["num_maps"] = c.num_maps;
   j["team1_name"] = c.team1_name;
   j["team2_name"] = c.team2_name;
+  j["team1_id"] = c.team1_id;
+  j["team2_id"] = c.team2_id;
   j["team1_captain"] = U64(c.team1_captain_steamid64);
   j["team2_captain"] = U64(c.team2_captain_steamid64);
   j["knife_decision_seconds"] = c.knifeDecisionSeconds;
@@ -103,12 +105,17 @@ Json ContextToJson(const WebhookMatchContext& c) {
   rules["stop_command_available"] = c.rules.stop_command_available;
   rules["stop_command_no_damage"] = c.rules.stop_command_no_damage;
   rules["stop_vote_seconds"] = c.rules.stop_vote_seconds;
+  rules["pause_after_restore"] = c.rules.pause_after_restore;
   j["rules"] = std::move(rules);
   j["ruleset"] = c.ruleset;
   j["overrides"] = c.overrides_json;
   Json coaches = Json::Array();
   for (uint64_t s : c.coaches) coaches.Push(U64(s));
   j["coaches"] = std::move(coaches);
+  Json coachTeam = Json::Object();
+  for (const auto& kv : c.coach_team) coachTeam[std::to_string(kv.first)] = static_cast<long long>(kv.second);
+  j["coach_team"] = std::move(coachTeam);
+  j["coaches_per_team"] = c.coaches_per_team;
   return j;
 }
 
@@ -119,6 +126,8 @@ WebhookMatchContext ContextFromJson(const Json& j) {
   c.num_maps = Int(&j, "num_maps");
   c.team1_name = Str(&j, "team1_name");
   c.team2_name = Str(&j, "team2_name");
+  c.team1_id = Str(&j, "team1_id");
+  c.team2_id = Str(&j, "team2_id");
   c.team1_captain_steamid64 = ToU64(j.Find("team1_captain"));
   c.team2_captain_steamid64 = ToU64(j.Find("team2_captain"));
   c.knifeDecisionSeconds = Int(&j, "knife_decision_seconds", c.knifeDecisionSeconds);
@@ -160,10 +169,17 @@ WebhookMatchContext ContextFromJson(const Json& j) {
     c.rules.stop_command_available = Int(r, "stop_command_available", -1);
     c.rules.stop_command_no_damage = Int(r, "stop_command_no_damage", -1);
     c.rules.stop_vote_seconds = Int(r, "stop_vote_seconds", -1);
+    c.rules.pause_after_restore = Int(r, "pause_after_restore", -1);
   }
   c.ruleset = Str(&j, "ruleset");
   c.overrides_json = Str(&j, "overrides");
   if (const Json* v = j.Find("coaches")) for (const auto& s : v->Items()) c.coaches.insert(ToU64(&s));
+  if (const Json* v = j.Find("coach_team")) {
+    for (const auto& kv : v->Members()) {
+      c.coach_team[std::strtoull(kv.first.c_str(), nullptr, 10)] = static_cast<WebhookTeam>(kv.second.AsInt());
+    }
+  }
+  c.coaches_per_team = Int(&j, "coaches_per_team", c.coaches_per_team);
   return c;
 }
 

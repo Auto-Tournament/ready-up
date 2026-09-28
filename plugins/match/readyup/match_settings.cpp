@@ -12,6 +12,7 @@
 #include "readyup/match_state.h"
 #include "readyup/modes.h"
 #include "readyup/players.h"
+#include "readyup/round_restore.h"
 #include "readyup/server_settings.h"
 
 #include <algorithm>
@@ -151,7 +152,9 @@ void HostnameTick() {
     v.mapNumber = ms.map_number;
     v.team1Score = ms.team1_score;
     v.team2Score = ms.team2_score;
-    ModesGetSeriesWins(&v.team1Series, &v.team2Series);
+    const auto series = ModesGetSeriesWins();
+    v.team1Series = series.first;
+    v.team2Series = series.second;
     want = settings::ExpandHostname(fmt, v);
   }
   std::string cmd;
@@ -283,6 +286,10 @@ bool SetDefault(const std::string& name, const std::string& by, std::string* rep
 
 std::vector<std::string> ShowLines() {
   std::vector<std::string> out = settings::ShowLines(Global());
+  // The round restore's own setting (round_restore.h, ru_pause_after_restore), read, not copied.
+  const int pauseConsole = round_restore::ConsolePauseAfterRestore();
+  out.push_back(std::string("pause_after_restore = ") + (round_restore::PauseAfterRestore() ? "on" : "off") +
+                (pauseConsole >= 0 ? " (runtime)" : ""));
   out.push_back("series_end_kick_delay: no_demo=" + std::to_string(KickDelay(0)) + " demo_no_upload=" +
                 std::to_string(KickDelay(1)) + " demo_upload=" + std::to_string(KickDelay(2)) + " (seconds)");
   const auto ctx = WebhookGetMatchContext();

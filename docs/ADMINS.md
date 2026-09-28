@@ -57,9 +57,12 @@ always may. An admin's `.help` points at `.ru help`.
 | `.ru match restart` | admin | the loaded match back to its warmup; everyone readies again |
 | `.ru match end` | admin | ends the loaded match (`series_end` winner none) and resets the server |
 | `.ru match recover [round]` | admin | asks the platform to recover the match (`recover_requested`) |
+| `.ru match restore <round>` | admin | plays `<round>` of the current map again from its start (CS2's round backup); `.restore <round>` in chat. Paused afterwards until both teams `.unpause` (`ru_pause_after_restore 0`: live after 3 s) |
+| `.ru match backups` | admin | the loaded match's round backups on this server (`ru_listbackups` on the console) |
 | `.ru match pause` / `unpause` | admin | admin pause / unpause (`.fp` / `.fup` in chat) |
 | `.ru match tech\|tac team1\|team2` | admin | technical pause / tactical timeout for a team, with its limits |
 | `.ru match side stay\|switch\|ct\|t` | knife winners, admin | knife side pick (`.stay` / `.switch`) |
+| `.ru match coach <player> team1\|team2\|ct\|t` / `uncoach <player>` | admin | makes a spectator a team's coach / stops it (`<player>`: SteamID, `#userid` or name; players use `.coach ct\|t` / `.uncoach`, [below](#coaches-coach)) |
 | `.ru match state` / `rules` | everyone | match and mode state / effective rules |
 | `.ru match swap` | admin | swaps the teams' sides in warmup (`mp_swapteams`); team1 / team2 stay who they are (`.switch` when no knife pick is pending) |
 | `.ru match team1\|team2 <name>` | admin | renames a team of a match loaded with `ru match load` (fleet matches: rename on the platform); the in-game names follow |
@@ -106,6 +109,26 @@ Notes:
 - If no admins exist yet, the **first admin must be added from the server console** (or in
   `admins.json`).
 - SteamID input is **SteamID64** (decimal) or a connected-player name fragment.
+
+## Coaches (`.coach`)
+
+A coach is a spectator who belongs to a team: CS2's own coach slot (`sv_coaching_enabled`, the
+controller's `m_iCoachingTeam`). CS2 counts them as a member of that team for voice and team
+chat and lets them spectate only that team (`mp_forcecamera 1`). They follow the team through the
+knife `.switch`, halftime and overtime, and never take a player slot: they are not in the ready
+gate, the auto_5v5 count or the forfeit check.
+
+- Coaches listed per team in the match config coach that team as soon as they are spectators:
+  MAT / get5 `team1` / `team2` `coaches` (`{"<steamid64>": "<name>"}` or `["<steamid64>"]`), the
+  fleet role `coach` in a team. The top-level MAT `coaches: [...]` (no team) type `.coach ct|t`.
+- `.coach ct|t` (or `.coach` alone for a listed coach) / `.uncoach` in chat. Rostered players
+  never coach. Outside scrims only listed coaches can; in scrims anyone who is not playing can.
+- Admins: `.ru match coach <player> team1|team2|ct|t` (also someone not in the config; the
+  whitelist then lets them stay) and `.ru match uncoach <player>`.
+- Unlisted coaches (scrim, admin): at most `coaches_per_team` per team (match config, default 2).
+- A coach who joins CT / T is told to go back to Spectators; they coach again once there.
+- The ruleset can keep coaches out: `valve` online (`lan` false, `coaches_online` false).
+- `.ru match state` lists the coaches.
 
 ## Calling an admin (`.admin`)
 

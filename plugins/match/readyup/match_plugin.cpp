@@ -12,6 +12,7 @@
 #include "readyup/selftest_iface.h"
 
 #include "readyup/admin_check.h"
+#include "readyup/coach.h"
 #include "readyup/config.h"
 #include "readyup/damage_report.h"
 #include "readyup/demo_recorder.h"
@@ -86,6 +87,11 @@ void Guard(const char* what, F&& f) {
 
 void OnPlayerChat(void*, const ru_command_ctx* c) {
   Guard("chat command", [&] { MatchChatCommand(c->steamid64, c->name, c->text, c->slot); });
+}
+
+// `.coach` / `.uncoach` (coach.h): with the sender's slot for the private replies.
+void OnCoachChat(void*, const ru_command_ctx* c) {
+  Guard("coach command", [&] { CoachChatCommand(c->steamid64, c->name, c->text, c->slot); });
 }
 
 void OnRuSub(void*, const ru_command_ctx* c) {
@@ -181,6 +187,7 @@ void OnTick(void*, const ru_tick_info* t) {
       WarmupMoneyTick(t->now);  // warmup money top-up (warmup_money.h)
       match_settings::Tick(t->now);  // autoready, kick_when_no_match_loaded, hostname_format
       WeaponCleanupTick(t->now);  // dropped weapons in warmup (weapon_cleanup.h)
+      CoachTick(t->now);          // coaches: m_iCoachingTeam, sv_coaching_enabled (coach.h)
     }
     // Fleet link (no-op without fleet.so): platform handlers, MatchState patches, events.
     fleet_bridge::Tick(t->now);
@@ -200,6 +207,7 @@ void OnEvent(void*, const ru_event* e) {
       IdleRefreshOnMapStart(host::NowSeconds());
       EsportsOnMapStart();  // the GOTV client is looked for again
       fleet_bridge::OnMapStart();
+      match_recovery::OnMapStart();  // a recovery changing to the match map continues
     } else if (e->type == RU_EVENT_PLAYER_DISCONNECT) {
       // Ready state must not survive a reconnect.
       if (e->steamid64) ClearReady(e->steamid64);
@@ -209,6 +217,7 @@ void OnEvent(void*, const ru_event* e) {
         WelcomeObserveTeamJoin(e->slot, e->team, e->steamid64, e->name ? e->name : "", WelcomeSource::GameEvent);
       }
     }
+    CoachOnEvent(e);
     if (e->steamid64 && e->name && *e->name) ObservePlayer(e->steamid64, e->name);
     fleet_bridge::OnCoreEvent(e);
   });
@@ -389,6 +398,11 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     }
     api->register_console_command_ex(api->self, "tv_delay", RU_CMD_OBSERVE, &OnTvDelay, nullptr);
     api->register_console_command_ex(api->self, "hostname", RU_CMD_OBSERVE, &OnHostname, nullptr);
+    for (const char* name : {".coach", ".uncoach"}) {
+      if (!api->register_chat_command_ex(api->self, name, 0, &OnCoachChat, nullptr)) {
+        Print("match: could not register %s\n", name);
+      }
+    }
 
     api->on_frame(api->self, &OnFrame, nullptr);
     api->on_tick(api->self, &OnTick, nullptr);
@@ -406,6 +420,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "match", RU_SELFTEST_IFACE_VERSION,
                            const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
     MatchStatusInstall();
+    demo::AddListener(&WebhookEmitDemoEvent);  // demo_recording_* / demo_upload_* webhooks
     fleet_bridge::Install(api);
 
     // Players already connected (plugin loaded mid-map / reloaded).

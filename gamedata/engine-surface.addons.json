@@ -1,0 +1,42 @@
+{
+  "_meta": {
+    "game_version": "1.41.8.4",
+    "steam_buildid": 25515854,
+    "binary": "game/bin/linuxsteamrt64/libengine2.so",
+    "notes": "Owned by readyup-addons. Merged by the core at load like every engine-surface.<name>.json; readyup_sigcheck / readyup_hookcheck check it with --lib engine2=<libengine2.so>. Ships only with the addons plugin, so a server without it resolves nothing here."
+  },
+  "functions": {
+    "Engine2_SetPendingHostStateRequest": {
+      "library": "engine2",
+      "linux": "55 48 89 E5 41 56 41 55 41 54 49 89 F4 53 48 83 7F 30 00 48 89 FB 74 ?",
+      "required": false,
+      "hook": "funchook",
+      "description": "CHostStateMgr::SetPendingHostStateRequest(this, CHostStateRequest* request): every map change goes through it. The pending request is at this+0x30; the request is 0x68 bytes with m_Desc +0x10, m_ID +0x1c, m_iMode +0x20, m_Addons (CUtlString) +0x58. readyup-addons appends installed workshop addons to m_Addons so the engine mounts them while it loads the map.",
+      "anchors": [
+        {
+          "type": "string_ref",
+          "string": "Discarding pending request '%s, %u'\n",
+          "window": 256
+        }
+      ]
+    },
+    "CGameRulesGameSystem_BuildGameSessionManifest": {
+      "linux": "48 8B 3D ? ? ? ? 48 85 FF 0F 84 ? ? ? ? 55 48 8D 15 ? ? ? ? 48 89 E5 53 48 89 F3 48 83 EC 08 48 8B 07 48 8B 80 ? ? ? ? 48 39 D0",
+      "required": false,
+      "hook": "funchook",
+      "description": "CGameRulesGameSystem::OnBuildGameSessionManifest(this, const EventBuildGameSessionManifest_t* msg), IGameSystem slot 7: called while a map loads; msg->m_pResourceManifest (offset 0) is the map's IEntityResourceManifest. readyup-addons adds the models of its workshop addons there (AddResource = CEntityResourceManifest slot 0) so the engine loads them and clients get them.",
+      "anchors": [
+        {
+          "type": "string_ref",
+          "string": "GlassImpact",
+          "window": 192
+        },
+        {
+          "type": "string_ref",
+          "string": "gunshotsplash",
+          "window": 192
+        }
+      ]
+    }
+  }
+}

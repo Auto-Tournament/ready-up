@@ -357,15 +357,18 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
     if (!Str(*src, "tag").empty()) t["tag"] = Str(*src, "tag");
     if (!Str(*src, "flag").empty()) t["flag"] = Str(*src, "flag");
     Json players = Json::Object();
+    Json teamCoaches = Json::Object();
     long long teamStarters = 0;
     if (const Json* ps = Arr(*src, "players")) {
       for (const auto& p : ps->Items()) {
         const std::string sid = Str(p, "steamid64");
         const std::string role = Str(p, "role", "player");
-        // Coaches may join and watch but are not ready-gated players: whitelisted as spectators.
+        // Coaches are not ready-gated players: whitelisted spectators who coach this team
+        // (coach.h), listed in the team's `coaches` (get5 shape) and the flat `coaches`.
         if (role == "coach") {
           specPlayers[sid] = Str(p, "name");
           coaches.Push(sid);
+          teamCoaches[sid] = Str(p, "name");
         }
         else players[sid] = Str(p, "name");
         if (role == "sub") subs = true;
@@ -374,6 +377,7 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
     }
     starters = std::max(starters, teamStarters);
     t["players"] = std::move(players);
+    if (!teamCoaches.Members().empty()) t["coaches"] = std::move(teamCoaches);
     if (!Str(*src, "captain").empty()) t["captain_steamid64"] = Str(*src, "captain");
     return t;
   };
@@ -420,6 +424,7 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
   if (pause && pause->Find("technical_per_team")) cfg["max_tech_pauses_per_team"] = Int(*pause, "technical_per_team", 0);
   if (pause && pause->Find("technical_seconds")) cfg["tech_pause_max_seconds"] = Int(*pause, "technical_seconds", 0);
   if (pause && !Str(*pause, "unpause").empty()) cfg["both_teams_unpause_required"] = Str(*pause, "unpause") != "caller_team";
+  if (pause && pause->Find("pause_after_restore")) cfg["pause_after_restore"] = Bool(*pause, "pause_after_restore", true);
   if (const Json* ready = Obj(r, "ready")) {
     if (ready->Find("allow_force_ready")) cfg["allow_force_ready"] = Bool(*ready, "allow_force_ready", true);
     if (ready->Find("min_per_team")) cfg["min_players_to_ready"] = Int(*ready, "min_per_team", 0);

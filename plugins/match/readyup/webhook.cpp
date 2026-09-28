@@ -1,6 +1,7 @@
 #include "readyup/webhook.h"
 
 #include "readyup/admin_call_logic.h"
+#include "readyup/at_payloads.h"
 #include "readyup/cs2_version.h"
 #include "readyup/config.h"
 #include "readyup/http_client.h"
@@ -10,6 +11,7 @@
 #include "readyup/engine.h"
 #include "readyup/workers.h"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -442,26 +444,62 @@ void WebhookEmitSeriesEnd(int team1_series_score, int team2_series_score, const 
   EnqueueLocked(st, json);
 }
 
-void WebhookEmitMapResult(int map_number, const char* map_name, int team1_score, int team2_score, const char* winner) {
+static at::TeamInfo AtTeamLocked(const WebhookMatchContext& m, int slot, int seriesScore) {
+  at::TeamInfo t;
+  t.id = slot == 1 ? m.team1_id : m.team2_id;
+  t.name = slot == 1 ? m.team1_name : m.team2_name;
+  t.series_score = std::max(0, seriesScore);
+  return t;
+}
+
+void WebhookEmitMapResult(int map_number, const char* map_name, int team1_score, int team2_score, const char* winner,
+                          const stats::MapStats& stats, int team1_series_score, int team2_series_score) {
   WebhookStartSenderThread();
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
   if (!st.match || st.baseUrl.empty()) return;
   const auto& m = *st.match;
   st.hbStatus = State::HbStatus::Postgame;
-  const std::string map = map_name ? map_name : "";
-  const std::string win = winner ? winner : "none";
-  const std::string json =
-      std::string("{") +
-      "\"event\":\"map_result\"," +
-      "\"matchid\":" + std::to_string(m.matchid) + "," +
-      "\"map_number\":" + std::to_string(map_number) + "," +
-      "\"map_name\":\"" + JsonEscape(map) + "\"," +
-      "\"team1_score\":" + std::to_string(team1_score) + "," +
-      "\"team2_score\":" + std::to_string(team2_score) + "," +
-      "\"winner\":\"" + JsonEscape(win) + "\"" +
-      "}";
-  EnqueueLocked(st, json);
+  at::MapResult r;
+  r.matchid = static_cast<long long>(m.matchid);
+  r.map_number = map_number;
+  r.map_name = map_name ? map_name : "";
+  r.team1_score = team1_score;
+  r.team2_score = team2_score;
+  r.winner = winner ? winner : "none";
+  r.team1 = AtTeamLocked(m, 1, team1_series_score);
+  r.team2 = AtTeamLocked(m, 2, team2_series_score);
+  r.stats = stats;
+  EnqueueLocked(st, at::MapResultJson(r));
+}
+
+void WebhookEmitRoundEndStats(int map_number, int round_number, int round_time_ms, int reason, int winner_side,
+                              const stats::MapStats& stats, int team1_series_score, int team2_series_score) {
+  WebhookStartSenderThread();
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  if (!st.match || st.baseUrl.empty()) return;
+  const auto& m = *st.match;
+  at::RoundEnd r;
+  r.matchid = static_cast<long long>(m.matchid);
+  r.map_number = map_number;
+  r.round_number = round_number;
+  r.round_time_ms = std::max(0, round_time_ms);
+  r.reason = reason;
+  r.winner_side = winner_side;
+  r.team1 = AtTeamLocked(m, 1, team1_series_score);
+  r.team2 = AtTeamLocked(m, 2, team2_series_score);
+  r.stats = stats;
+  EnqueueLocked(st, at::RoundEndJson(r));
+}
+
+void WebhookEmitDemoEvent(const demo::DemoEvent& e) {
+  const std::vector<std::string> events = at::DemoEventJsons(e);
+  if (WebhookBaseUrl().empty()) return;
+  WebhookStartSenderThread();
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  for (const auto& json : events) EnqueueLocked(st, json);
 }
 
 static std::string PlayerObj(const WebhookPlayer& p) {
@@ -752,6 +790,20 @@ void WebhookEmitRecoverRequested(int map_number, int round_number) {
       "\"map_number\":" + std::to_string(std::max(0, map_number)) + "," +
       "\"round_number\":" + std::to_string(rn) +
       "}";
+  EnqueueLocked(st, json);
+}
+
+void WebhookEmitBackupLoaded(int map_number, int round_number, const std::string& filename) {
+  WebhookStartSenderThread();
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  if (!st.match || st.baseUrl.empty()) return;
+  const auto& m = *st.match;
+  const std::string json = std::string("{") + "\"event\":\"backup_loaded\"," +
+                           "\"matchid\":" + std::to_string(m.matchid) + "," +
+                           "\"map_number\":" + std::to_string(std::max(0, map_number)) + "," +
+                           "\"round_number\":" + std::to_string(std::max(0, round_number)) + "," +
+                           "\"filename\":\"" + JsonEscape(filename) + "\"" + "}";
   EnqueueLocked(st, json);
 }
 

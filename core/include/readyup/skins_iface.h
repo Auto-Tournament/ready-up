@@ -43,6 +43,9 @@ typedef struct ru_skins_v1 {
    * loadout changed. Grenades, C4 and weapons another player owned first stay. 1 = queued, 0 =
    * nothing to do or unavailable (core without player_give_item). Appended; check RU_API_HAS. */
   int (*refresh_weapons)(int slot);
+  /* The name tag new weapons of `steamid64` get with their set_player_paint ("Midas Touch"); max 40
+   * characters, empty clears it. Kept until cleared or skins.so reloads. 1 = stored. Appended. */
+  int (*set_player_name_tag)(uint64_t steamid64, const char* name_tag);
 } ru_skins_v1;
 
 #ifdef __cplusplus

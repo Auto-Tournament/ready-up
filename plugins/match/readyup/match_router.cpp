@@ -7,6 +7,7 @@
 
 #include "readyup/admin_call.h"
 #include "readyup/admin_check.h"
+#include "readyup/coach.h"
 #include "readyup/config.h"
 #include "readyup/engine.h"
 #include "readyup/esports.h"
@@ -26,6 +27,7 @@
 #include "readyup/ru_commands.h"
 #include "readyup/players.h"
 #include "readyup/ready_hud.h"
+#include "readyup/round_restore.h"
 #include "readyup/scrim_flow.h"
 #include "readyup/server_settings.h"
 #include "readyup/votes.h"
@@ -140,7 +142,7 @@ const std::vector<std::string>& MatchPlayerChatCommands() {
       ".r",    ".ready", ".unready", ".ur",   ".notready", ".nr",    ".pause", ".p",     ".tech",
       ".tac",  ".forceready", ".forcepause", ".fp", ".forceunpause", ".fup",
       ".unpause", ".up", ".gg",      ".ff",   ".forfeit",  ".stay",  ".switch", ".swap", ".ct",
-      ".t",    ".help",  ".stop", ".admin",
+      ".t",    ".help",  ".stop", ".admin", ".restore",
       // Admin shortcuts (match_settings.h, `.ru match ...`); `.settings` is for anyone.
       ".settings", ".readyrequired", ".playout", ".roundknife", ".whitelist", ".start", ".forcestart",
       ".restart", ".rr", ".endmatch", ".forceend", ".team1", ".team2", ".asay"};
@@ -184,7 +186,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     }
     SendToChat("Ready Up commands: .r / .ready / .ur (.nr) | .forceready | .tac (timeout) | .tech (.pause) | .unpause | .admin [message]");
     if (hasMatch) {
-      SendToChat("Ready Up: knife: .stay/.switch (.ct/.t) | forfeit: .ff (captain)");
+      SendToChat("Ready Up: knife: .stay/.switch (.ct/.t) | forfeit: .ff (captain) | coaches: .coach ct|t, .uncoach");
     } else {
       SendToChat(settings::Bool("knife_enabled_default")
                      ? "Ready Up: scrim: when everyone on CT/T is READY: 5s countdown, knife round, winners .stay/.switch, live."
@@ -201,6 +203,13 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   }
   if (first == ".forceunpause" || first == ".fup") {
     MatchRuCommand(steamid64, playerName, ".ru match unpause", -1);
+    return;
+  }
+  if (first == ".restore") {
+    // Admins (roster or not): `.ru match restore <round>` (round_restore.h).
+    std::string line = ".ru match restore";
+    for (size_t i = 1; i < parts.size(); ++i) line += " " + parts[i];
+    MatchRuCommand(steamid64, playerName, line, -1);
     return;
   }
 
@@ -606,6 +615,10 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       Print("%s\n", l.c_str());
       if (steamid64 != 0) replyPrivate(l);
     }
+    for (const auto& l : CoachStateLines()) {
+      Print("%s\n", l.c_str());
+      if (steamid64 != 0) replyPrivate(l);
+    }
     EmitStateLog("query");
     return;
   }
@@ -656,6 +669,13 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     if (steamid64 == 0) PrintLine("side: ok");
     return;
   }
+  if (sub == "coach" || sub == "uncoach") {
+    // Admin / console: `ru match coach <player> team1|team2|ct|t`, `ru match uncoach <player>` (coach.h).
+    std::string announce;
+    replyPrivate(CoachAdminCommand(sub, args, &announce));
+    if (!announce.empty()) SendToChat(("Ready Up: " + announce).c_str());
+    return;
+  }
   if (sub == "tech" || sub == "tac") {
     // Admin / console on behalf of a team, with the team's limits: `ru match tech team1`.
     const std::string t = args.empty() ? std::string() : Lower(args[0]);
@@ -668,7 +688,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     else MatchFeaturesTacticalTimeout(team, steamid64, who);
     return;
   }
-  // start / restart / end / recover / pause / unpause need a loaded match.
+  // start / restart / end / recover / restore / backups / pause / unpause need a loaded match.
   if (!WebhookGetMatchContext()) {
     replyPrivate("Ready Up: no match loaded.");
     return;
@@ -704,6 +724,14 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     const int round = args.empty() ? 0 : std::max(0, std::atoi(args[0].c_str()));
     WebhookEmitRecoverRequested(MatchStateGet().map_number, round);
     sendAdmin(round > 0 ? "recovery requested (rewind)." : "recovery requested.");
+  } else if (sub == "restore") {
+    // Everyone is told (chat, admin prefix); the console sees it too.
+    round_restore::RestoreCommand(args, who, replyPrivate, [&](const std::string& msg) {
+      if (steamid64 == 0) PrintLine(msg.c_str());
+      SendAdmin(msg);
+    });
+  } else if (sub == "backups") {
+    round_restore::BackupsCommand(replyPrivate);
   } else if (sub == "pause") {
     if (PauseStateGet().paused) {
       replyPrivate("Ready Up: match is already paused.");
