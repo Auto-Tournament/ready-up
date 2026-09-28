@@ -34,6 +34,7 @@ CI checks the file against every new CS2 build, usually within minutes of the up
 - Match configs loaded from the Auto Tournament platform, with a roster whitelist and team locks
 - Pauses (`.pause` / `.unpause`) and captain forfeit
 - Practice mode (its own plugin): `.prac`, `.savepos`/`.loadpos`, `.spawn N`, `.rethrow`, `.bot`, `.noflash`, `.god`; a dedicated practice server with `always=1`
+- Steam Workshop addons (its own plugin, Full bundle): the server downloads the addons listed in `cfg/ReadyUp/addons.cfg` (`workshop_addons=`) and mounts them with every map change; idle until you list one (`ru addons` shows their state)
 - Deathmatch (its own plugin, Full bundle): free for all or team deathmatch with a kill / time limit, a live leaderboard, headshot only and weapon rounds (`.ru dm ffa|tdm [map]`)
 - Admins, settings, crash recovery and skins loadouts in small JSON files, no database (`ru admins add|remove|list`); in fleet mode admins and loadouts come from the platform
 - Per-player center-screen HTML, such as the welcome screen
@@ -67,6 +68,7 @@ In a terminal it then shows the components with the installed and latest version
   [x] Practice new 0.2.0   practice mode + tools (.prac, .savepos, .rethrow, .bot)
   [x] Essentials new 0.2.0 admins + map commands (needed for admins without a match config)
   [ ] Deathmatch new 0.2.0 FFA / team deathmatch with a leaderboard (off until .ru dm ffa|tdm)
+  [ ] Addons new 0.2.0     Steam Workshop addons (idle until workshop_addons is set)
 ```
 
 It downloads the ticked components from the latest release (checking `SHA256SUMS`), puts them in `game/csgo/readyup/`, and adds `Game csgo/readyup` to `gameinfo.gi` and `gameinfo_branchspecific.gi` (right after Metamod's line if you have Metamod; a backup is saved as `gameinfo.gi.readyup-backup-<time>`). Your `readyup.cfg`, `cfg/ReadyUp/*.cfg` and the plugins' JSON data are never overwritten: when a shipped default changes, it lands next to yours as `*.default`. Then restart the server and run `ru selftest` in its console.
@@ -218,7 +220,7 @@ A minimal plugin that registers `.hello` in chat. Start here to write your own.
 
 </details>
 
-Downloads: `ready-up-core`, `ready-up-match`, `ready-up-fleet`, `ready-up-skins`, `ready-up-hello`, `ready-up-midas`, `ready-up-whitelist`, `ready-up-practice`, `ready-up-essentials-plugin`, `ready-up-deathmatch`, and two bundles: **Essentials** (core + essentials + match + fleet + practice) and **Full** (core + essentials + match + fleet + practice + skins + hello + midas + whitelist + deathmatch + the gamedata checkers). The installer mixes the single components. `fleet` is the link to the Auto Tournament platform; it stays idle until you set a `url` in `cfg/ReadyUp/fleet.cfg` (shipped fully commented out), so it is safe on standalone servers.
+Downloads: `ready-up-core`, `ready-up-match`, `ready-up-fleet`, `ready-up-skins`, `ready-up-hello`, `ready-up-midas`, `ready-up-whitelist`, `ready-up-practice`, `ready-up-essentials-plugin`, `ready-up-deathmatch`, `ready-up-addons`, and two bundles: **Essentials** (core + essentials + match + fleet + practice) and **Full** (core + essentials + match + fleet + practice + skins + hello + midas + whitelist + deathmatch + addons + the gamedata checkers). The installer mixes the single components. `fleet` is the link to the Auto Tournament platform; it stays idle until you set a `url` in `cfg/ReadyUp/fleet.cfg` (shipped fully commented out), so it is safe on standalone servers.
 
 ## FAQ
 

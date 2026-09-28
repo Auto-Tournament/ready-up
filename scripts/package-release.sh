@@ -7,7 +7,7 @@
 #
 # <build-dir> holds libserver.so, plugins/match.so, plugins/fleet.so, plugins/skins.so,
 # plugins/hello.so, plugins/midas.so, plugins/whitelist.so, plugins/practice.so, plugins/essentials.so,
-# plugins/deathmatch.so and (optionally) readyup_sigcheck / readyup_hookcheck. Every plugin but
+# plugins/deathmatch.so, plugins/addons.so and (optionally) readyup_sigcheck / readyup_hookcheck. Every plugin but
 # hello ships its plugins/<name>/needs.json as plugins/<name>.needs.json (the core does not load a
 # plugin whose needs this CS2 build does not meet; docs/CS2-COMPAT.md "Plugin needs").
 #
@@ -24,13 +24,16 @@
 #   ready-up-skins-<v>-linuxsteamrt64.zip   plugins/skins.so + engine-surface.skins.json
 #   ready-up-hello-<v>-linuxsteamrt64.zip   plugins/hello.so (example plugin)
 #   ready-up-midas-<v>-linuxsteamrt64.zip   plugins/midas.so + cfg template (fun: gold weapons, off by default)
+#   ready-up-addons-<v>-linuxsteamrt64.zip  plugins/addons.so + engine-surface.addons.json + an all-comments
+#                                            addons.cfg template (Steam Workshop addons; idle until
+#                                            workshop_addons is set)
 #   ready-up-whitelist-<v>-linuxsteamrt64.zip plugins/whitelist.so (only listed players; off by default)
 #   ready-up-practice-<v>-linuxsteamrt64.zip  plugins/practice.so + prac.cfg / practice.cfg templates
 #   ready-up-essentials-plugin-<v>-...zip   plugins/essentials.so (admins, map commands); "essentials" alone is the bundle
 #   ready-up-deathmatch-<v>-linuxsteamrt64.zip plugins/deathmatch.so + deathmatch.cfg template (off until .ru dm ffa|tdm)
 # Bundles (for manual download):
 #   ready-up-essentials-<v>-...zip          core + essentials + match + fleet + practice. The default. NO skins.
-#   ready-up-full-<v>-...zip                core + essentials + match + fleet + practice + skins + hello + midas + whitelist + deathmatch + readyup_sigcheck/hookcheck
+#   ready-up-full-<v>-...zip                core + essentials + match + fleet + practice + skins + hello + midas + whitelist + deathmatch + addons + readyup_sigcheck/hookcheck
 # Plus SHA256SUMS over every zip.
 #
 # Each component ships readyup/manifests/<component>.json ({component, version, files}),
@@ -51,7 +54,7 @@ trap 'rm -rf "$WORK"' EXIT
 EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 SUFFIX="$VERSION-linuxsteamrt64.zip"
 
-for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so plugins/practice.so plugins/essentials.so plugins/deathmatch.so; do
+for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so plugins/practice.so plugins/essentials.so plugins/deathmatch.so plugins/addons.so; do
   [[ -f "$BUILD/$f" ]] || { echo "package-release: missing $BUILD/$f" >&2; exit 1; }
 done
 
@@ -104,7 +107,7 @@ stage_component core "Ready Up core: libserver.so, engine surface, plugin host, 
 match_files=("$BUILD/plugins/match.so:plugins/match.so:755"
   "$ROOT_DIR/plugins/match/needs.json:plugins/match.needs.json")
 for f in "$ROOT_DIR"/cfg/ReadyUp/*.cfg; do
-  case "$(basename "$f")" in fleet.cfg | midas.cfg | prac.cfg | practice.cfg | deathmatch.cfg) continue ;; esac  # the fleet / midas / practice / deathmatch components' own
+  case "$(basename "$f")" in fleet.cfg | midas.cfg | prac.cfg | practice.cfg | deathmatch.cfg | addons.cfg) continue ;; esac  # the fleet / midas / practice / deathmatch / addons components' own
   match_files+=("$f:cfg-templates/ReadyUp/$(basename "$f")")
 done
 stage_component match "Ready-up, scrims, knife round, pauses, practice, match configs, webhooks, demos" "${match_files[@]}"
@@ -138,6 +141,15 @@ stage_component midas "Fun: weapons picked up by chosen players turn gold (off b
   "$BUILD/plugins/midas.so:plugins/midas.so:755" \
   "$ROOT_DIR/plugins/midas/needs.json:plugins/midas.needs.json" \
   "$ROOT_DIR/cfg/ReadyUp/midas.cfg:cfg-templates/ReadyUp/midas.cfg"
+
+# Steam Workshop addons (downloaded, mounted with every map change, their models precached). Idle
+# without workshop_addons: the template is all comments, so it downloads nothing and never reloads
+# the map. Its gamedata fragment ships next to the core's engine-surface.json, like the skins one.
+stage_component addons "Steam Workshop addons for the server (idle until workshop_addons is set in addons.cfg)" \
+  "$BUILD/plugins/addons.so:plugins/addons.so:755" \
+  "$ROOT_DIR/plugins/addons/needs.json:plugins/addons.needs.json" \
+  "$ROOT_DIR/gamedata/engine-surface.addons.json:bin/linuxsteamrt64/engine-surface.addons.json" \
+  "$ROOT_DIR/cfg/ReadyUp/addons.cfg:cfg-templates/ReadyUp/addons.cfg"
 
 # Server basics apart from the match flow: admins (admins.json) and map change / reload / restart.
 stage_component essentials "Server basics: admins (admins.json), map change / reload / restart, default maps per mode" \
@@ -192,13 +204,14 @@ make_zip "ready-up-match-$SUFFIX" match
 make_zip "ready-up-skins-$SUFFIX" skins
 make_zip "ready-up-hello-$SUFFIX" hello
 make_zip "ready-up-midas-$SUFFIX" midas
+make_zip "ready-up-addons-$SUFFIX" addons
 make_zip "ready-up-whitelist-$SUFFIX" whitelist
 make_zip "ready-up-deathmatch-$SUFFIX" deathmatch
 make_zip "ready-up-practice-$SUFFIX" practice
 make_zip "ready-up-essentials-plugin-$SUFFIX" essentials
 make_zip "ready-up-fleet-$SUFFIX" fleet
 make_zip "ready-up-essentials-$SUFFIX" core essentials match fleet practice
-full=(core essentials match fleet practice skins hello midas whitelist deathmatch)
+full=(core essentials match fleet practice skins hello midas whitelist deathmatch addons)
 [[ -d "$WORK/c/tools" ]] && full+=(tools)
 make_zip "ready-up-full-$SUFFIX" "${full[@]}"
 
