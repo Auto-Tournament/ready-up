@@ -134,7 +134,13 @@ std::optional<int> ControllerOffset(const char* field, std::initializer_list<con
 
 struct Offsets {
   bool looked = false;
-  std::optional<int> steamId, teamNum, playerName, score, kills, deaths, assists, mvps, headshots;
+  std::optional<int> steamId, teamNum, playerName, score, mvps;
+  // Scoreboard kills / deaths / assists / headshot kills. CS2 keeps them in the controller's
+  // action tracking services (CCSPlayerController::m_pActionTrackingServices ->
+  // CCSPlayerController_ActionTrackingServices::m_matchStats, a CSMatchStats_t whose base
+  // CSPerRoundStats_t has m_iKills / m_iDeaths / m_iAssists); the controller's own m_iKills /
+  // m_iDeaths / m_iAssists are gone. Missing -> the event-accumulated stats are used.
+  std::optional<int> actionTracking, matchStats, kills, deaths, assists, headshots;
 };
 Offsets& Off() {
   static Offsets o;
@@ -145,15 +151,32 @@ Offsets& Off() {
     o.teamNum = ControllerOffset("m_iTeamNum", {"CCSPlayerController", "CBaseEntity"});
     o.playerName = ControllerOffset("m_iszPlayerName", {"CCSPlayerController", "CBasePlayerController"});
     o.score = ControllerOffset("m_iScore", {"CCSPlayerController"});
-    o.kills = ControllerOffset("m_iKills", {"CCSPlayerController"});
-    o.deaths = ControllerOffset("m_iDeaths", {"CCSPlayerController"});
-    o.assists = ControllerOffset("m_iAssists", {"CCSPlayerController"});
     o.mvps = ControllerOffset("m_iMVPs", {"CCSPlayerController"});
-    for (const char* n : {"m_iHeadshotKills", "m_iHeadShotKills", "m_iMatchStats_HeadshotKills"}) {
-      if ((o.headshots = ControllerOffset(n, {"CCSPlayerController"}))) break;
-    }
+    o.actionTracking = ControllerOffset("m_pActionTrackingServices", {"CCSPlayerController"});
+    o.matchStats = ControllerOffset("m_matchStats", {"CCSPlayerController_ActionTrackingServices"});
+    o.kills = ControllerOffset("m_iKills", {"CSMatchStats_t"});
+    o.deaths = ControllerOffset("m_iDeaths", {"CSMatchStats_t"});
+    o.assists = ControllerOffset("m_iAssists", {"CSMatchStats_t"});
+    o.headshots = ControllerOffset("m_iHeadShotKills", {"CSMatchStats_t"});
   }
   return o;
+}
+
+// The controller's CSMatchStats_t (scoreboard totals for this match), or nullptr. This frame only.
+void* MatchStatsOf(void* controller) {
+  const Offsets& o = Off();
+  if (!controller || !o.actionTracking || !o.matchStats) return nullptr;
+  const auto svc = ReadAt<void*>(controller, *o.actionTracking);
+  if (!svc || !*svc) return nullptr;
+  return static_cast<unsigned char*>(*svc) + *o.matchStats;
+}
+
+// One scoreboard counter from CSMatchStats_t; nullopt when unknown or out of range.
+std::optional<int> MatchStat(void* matchStats, const std::optional<int>& offset) {
+  if (!matchStats || !offset) return std::nullopt;
+  const auto v = ReadAt<int>(matchStats, *offset);
+  if (!v || *v < 0 || *v > 10000) return std::nullopt;
+  return v;
 }
 
 // The player controller of a slot (entity index slot + 1), or nullptr. This frame only.
@@ -366,18 +389,17 @@ void EmitLegacyRoundEndLocked(const WebhookMatchContext& ctx, const MatchStateSn
     if (auto slotOpt = FindRosterSlot(sid)) ctrl = ControllerForSlot(*slotOpt);
     if (ctrl) {
       // Scoreboard netvars (best-effort); event-accumulated stats otherwise.
-      if (o.kills) {
-        if (auto v = ReadAt<int>(ctrl, *o.kills)) st.kills = *v;
-      }
-      if (o.deaths) {
-        if (auto v = ReadAt<int>(ctrl, *o.deaths)) st.deaths = *v;
-      }
-      if (o.assists) {
-        if (auto v = ReadAt<int>(ctrl, *o.assists)) st.assists = *v;
-      }
-      if (o.headshots) {
-        if (auto v = ReadAt<int>(ctrl, *o.headshots)) {
-          if (*v >= 0 && *v <= st.kills) st.headshot_kills = std::max(st.headshot_kills, *v);
+      // Both reset when the match goes live (mp_restartgame / MatchEventsOnMatchStart). A scoreboard
+      // that reads all zeros while the events counted something is not trusted (events win).
+      void* ms = MatchStatsOf(ctrl);
+      const auto sk = MatchStat(ms, o.kills), sd = MatchStat(ms, o.deaths), sa = MatchStat(ms, o.assists);
+      const bool blank = sk.value_or(0) == 0 && sd.value_or(0) == 0 && sa.value_or(0) == 0;
+      if (!blank || (st.kills == 0 && st.deaths == 0 && st.assists == 0)) {
+        if (sk) st.kills = *sk;
+        if (sd) st.deaths = *sd;
+        if (sa) st.assists = *sa;
+        if (auto v = MatchStat(ms, o.headshots)) {
+          if (*v <= st.kills) st.headshot_kills = std::max(st.headshot_kills, *v);
         }
       }
       if (o.mvps) {

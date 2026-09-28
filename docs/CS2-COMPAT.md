@@ -64,7 +64,7 @@ Every plugin (not the `hello` example) declares what it needs from CS2 in
  "api": ["chat_all", "schema_offset", "subscribe_game_event", "..."],
  "surface": ["UTIL_ClientPrintAll", "Host_Say", "CGameEventManager_Init", "..."],
  "schema": ["CBasePlayerController.m_steamID|CCSPlayerController.m_steamID"],
- "schema_optional": ["CCSPlayerController.m_iKills"],
+ "schema_optional": ["CSMatchStats_t.m_iKills"],
  "events": ["round_start", "round_end", "..."]}
 ```
 
