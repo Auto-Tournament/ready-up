@@ -5,19 +5,19 @@
   "patch": "1.41.8.5"
  },
  "readyup": {
-  "version": "0.1.0-dev.5d2f801",
-  "commit": "5d2f80148e33d088a854d711718b8d913b1b6878"
+  "version": "0.1.0-dev.2b5fdf7",
+  "commit": "2b5fdf749d0a2c4782094ca5cd29ca28cab6a331"
  },
  "run": {
-  "id": "36407993388",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/36407993388",
-  "trigger": "nightly",
+  "id": "36430736571",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/36430736571",
+  "trigger": "manual",
   "stage": "live",
-  "state": "fail",
-  "started_at": "2026-09-28T10:09:36Z",
-  "finished_at": "2026-09-28T10:15:06Z"
+  "state": "warn",
+  "started_at": "2026-09-28T13:44:22Z",
+  "finished_at": "2026-09-28T13:55:44Z"
  },
- "overall": "fail",
+ "overall": "warn",
  "components": [
   {
    "id": "core",
@@ -138,7 +138,7 @@
   {
    "id": "match",
    "name": "Match",
-   "status": "fail",
+   "status": "warn",
    "checks": [
     {
      "kind": "signature",
@@ -178,8 +178,8 @@
     {
      "kind": "schema",
      "status": "warn",
-     "passed": 10,
-     "total": 14,
+     "passed": 11,
+     "total": 15,
      "failures": [
       "CCSPlayerController.m_iAssists: not found",
       "CCSPlayerController.m_iDeaths: not found",
@@ -203,13 +203,10 @@
     },
     {
      "kind": "livetest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 2,
      "total": 2,
-     "failures": [
-      "match: bot live test failed (exit 1); see the run",
-      "scrim: bot live test failed (exit 1); see the run"
-     ]
+     "failures": []
     }
    ]
   },
@@ -354,8 +351,8 @@
     {
      "kind": "schema",
      "status": "pass",
-     "passed": 5,
-     "total": 5,
+     "passed": 14,
+     "total": 14,
      "failures": []
     },
     {
@@ -508,5 +505,5 @@
    ]
   }
  ],
- "checked_at": "2026-09-28T10:15:06Z"
+ "checked_at": "2026-09-28T13:55:44Z"
 }
