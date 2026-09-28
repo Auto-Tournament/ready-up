@@ -20,6 +20,9 @@
  *   on_frame          frames counted (simulating or not), shown by hello_status
  *   sv_cheats         observed on the console (RU_CMD_OBSERVE; the engine still runs it)
  *   current_map       shown by hello_status
+ * and the 1.11 ones:
+ *   hello_cvar <name> (console)  reads a cvar with cvar_query and logs the answer
+ *   hello_selftest    (console)  logs the core's latest selftest summary (selftest_summary)
  *
  * Bump HELLO_VERSION, rebuild, `ru plugin reload hello`: the new string shows up
  * without restarting the server.
@@ -91,6 +94,34 @@ static void OnHelloHide(void* user, const ru_command_ctx* ctx) {
 static void OnObserveCheats(void* user, const ru_command_ctx* ctx) {
   (void)user;
   ru_logf(g_api, RU_LOG_INFO, "observed console: %s", ctx->text);
+}
+
+/* v1.11: cvar_query answers on the game thread (value NULL = unknown cvar / no answer). */
+static void OnCvarValue(void* user, const char* name, const char* value) {
+  (void)user;
+  if (value) ru_logf(g_api, RU_LOG_INFO, "cvar %s = \"%s\"", name, value);
+  else ru_logf(g_api, RU_LOG_INFO, "cvar %s: unknown", name);
+}
+
+static void OnCvar(void* user, const ru_command_ctx* ctx) {
+  (void)user;
+  if (ctx->argc < 2) {
+    ru_logf(g_api, RU_LOG_INFO, "usage: hello_cvar <name>");
+    return;
+  }
+  if (!g_api->cvar_query(g_api->self, ctx->argv[1], OnCvarValue, NULL)) {
+    ru_logf(g_api, RU_LOG_INFO, "cvar %s: query refused", ctx->argv[1]);
+  }
+}
+
+/* v1.11: the core's latest selftest as JSON (-1 before the first run). */
+static void OnSelftest(void* user, const ru_command_ctx* ctx) {
+  (void)user;
+  (void)ctx;
+  char buf[1024];
+  const int n = g_api->selftest_summary(g_api->self, buf, sizeof(buf));
+  if (n < 0) ru_logf(g_api, RU_LOG_INFO, "selftest: none yet");
+  else ru_logf(g_api, RU_LOG_INFO, "selftest: %s%s", buf, n >= (int)sizeof(buf) ? " (truncated)" : "");
 }
 
 static void OnFrame(void* user, const ru_tick_info* t) {
@@ -189,6 +220,10 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     api->register_chat_command_ex(api->self, ".hellohide", RU_CMD_HIDE, OnHelloHide, NULL);
     api->register_console_command_ex(api->self, "sv_cheats", RU_CMD_OBSERVE, OnObserveCheats, NULL);
     api->on_frame(api->self, OnFrame, NULL);
+  }
+  if (RU_API_HAS(api, selftest_summary)) {
+    api->register_console_command(api->self, "hello_cvar", OnCvar, NULL);
+    api->register_console_command(api->self, "hello_selftest", OnSelftest, NULL);
   }
   ru_logf(api, RU_LOG_INFO, "loaded " HELLO_VERSION " (core %s, load #%u, greeting \"%s\")", api->core_version, g_loads,
           g_greeting);

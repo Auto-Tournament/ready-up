@@ -369,6 +369,37 @@ TEST(TestCredentialsFile) {
   RmRf(dir);
 }
 
+TEST(TestSelftestPayload) {
+  // The core's selftest_summary JSON (status_feed.cpp NoteSelftest) -> hello.selftest / server.selftest.
+  const std::string core =
+      R"({"pass":false,"passed":40,"total":41,"pending":2,"failures":["fn:Host_Say"],"summary":"1 FAIL","ran_at":1790000000})";
+  CHECK_EQ(SelftestPayload(core), std::string(R"({"pass":false,"passed":40,"total":41,"failures":["fn:Host_Say"]})"));
+  // Another run with the same outcome gives the same payload (no server.selftest resend).
+  CHECK_EQ(SelftestPayload(R"({"ran_at":5,"summary":"x","failures":["fn:Host_Say"],"total":41,"passed":40,"pass":false})"),
+           SelftestPayload(core));
+  CHECK_EQ(SelftestPayload(R"({"pass":true,"passed":3,"total":3})"),
+           std::string(R"({"pass":true,"passed":3,"total":3,"failures":[]})"));
+  CHECK_EQ(SelftestPayload(""), std::string());
+  CHECK_EQ(SelftestPayload("not json"), std::string());
+  CHECK_EQ(SelftestPayload("[1]"), std::string());
+  CHECK_EQ(SelftestPayload(R"({"pass":"yes","passed":1,"total":1})"), std::string());
+  CHECK_EQ(SelftestPayload(R"({"pass":true,"total":1})"), std::string());
+  // Schema limits: at most 256 failures of at most 512 bytes (cut on a UTF-8 boundary), strings only.
+  std::string many = R"({"pass":false,"passed":0,"total":300,"failures":[)";
+  for (int i = 0; i < 300; ++i) many += (i ? "," : "") + std::string("\"f") + std::to_string(i) + "\"";
+  many += R"(,1]})";
+  json::Value v;
+  CHECK(json::Parse(SelftestPayload(many), &v));
+  CHECK_EQ(v.Get("failures")->a.size(), size_t(256));
+  std::string longName(600, 'x');
+  longName.replace(510, 2, "\xc3\xa9");  // a 2-byte character across the 512 byte cut
+  CHECK(json::Parse(SelftestPayload(R"({"pass":false,"passed":0,"total":1,"failures":[")" + longName + "\"]}"), &v));
+  const std::string cut = v.Get("failures")->a[0].s;
+  CHECK(cut.size() <= size_t(512));
+  CHECK(cut.size() >= size_t(510));
+  CHECK((static_cast<unsigned char>(cut.back()) & 0x80) == 0);  // no half character left
+}
+
 // server.config fields fleet.so applies itself (offline timer, status token), and their file.
 TEST(TestServerConfigLocal) {
   ServerConfigLocal c;
@@ -421,6 +452,7 @@ TEST(TestServerConfigLocal) {
 }
 
 int main() {
+  RUN(TestSelftestPayload);
   RUN(TestJsonRoundTrip);
   RUN(TestUlid);
   RUN(TestTypes);

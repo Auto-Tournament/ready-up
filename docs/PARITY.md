@@ -19,8 +19,8 @@ Parity is (done + 0.5 × partial) / rows. Stable is the number of rows marked st
 
 | Section | Rows | Done | Partial | Missing | Parity | Stable |
 |---|---|---|---|---|---|---|
-| 1. Link, enrollment and server setup | 10 | 7 | 0 | 3 | 70.0% | 0 |
-| 2. Per-server settings | 14 | 13 | 1 | 0 | 96.4% | 1 |
+| 1. Link, enrollment and server setup | 9 | 9 | 0 | 0 | 100.0% | 0 |
+| 2. Per-server settings | 14 | 14 | 0 | 0 | 100.0% | 1 |
 | 3. Match load and lifecycle | 13 | 13 | 0 | 0 | 100.0% | 0 |
 | 4. Status | 3 | 3 | 0 | 0 | 100.0% | 1 |
 | 5. Demos | 5 | 5 | 0 | 0 | 100.0% | 0 |
@@ -28,7 +28,7 @@ Parity is (done + 0.5 × partial) / rows. Stable is the number of rows marked st
 | 7. Player-facing and admin features | 27 | 22 | 1 | 4 | 83.3% | 3 |
 | 8. Player stats | 7 | 5 | 2 | 0 | 85.7% | 0 |
 | 9. ME features not previously listed | 12 | 4 | 1 | 7 | 37.5% | 0 |
-| **Total** | **98** | **79** | **5** | **14** | **83.2%** | **5** (5%) |
+| **Total** | **97** | **82** | **4** | **11** | **86.6%** | **5** (5%) |
 
 Stable rows: minimum ready, engine version/status, `.ready`, knife / `.stay` / `.switch`, simulation.
 
@@ -53,7 +53,7 @@ The platform used to send these as RCON commands (`ru_server_id`, `ru_bootstrap_
 | Match report (live match page) | `MatchState` via `state.patch` / `state.snapshot`, cmd `snapshot_now`, and the local `/status` endpoint | done | tested | none | – |
 | `server.config` fields applied (all of FLEET.md §7.5) | Match plugin (`fleetstate::PlanServerConfig`, `OnServerConfig` in `fleet_bridge.cpp`): `hostname_format`, `scrim_knife`, `scrim_when_idle`, `chat_prefix` / `admin_chat_prefix` (server settings `ru_chat_prefix` / `ru_admin_chat_prefix`; the chat prefix goes to the core with ru_api 1.10 `set_core_setting`), `series_end_kick_delay.*`, `demo.path` / `name_format`, `warmup.*`; fleet.so: `offline_pause_minutes`, `status_http.token` (`server-config.json`) | done | tested | none | – |
 | Server drain / undrain | `server.drain` / `server.undrain` in `fleet_bridge.cpp`: availability `draining`, `match.assign` refused as `busy`; in memory only | done | untested | none | – |
-| `server.selftest` / `hello.selftest` | In FLEET.md; `selftest_iface.h` exists, the platform-facing message is not wired | missing | untested | none | S |
+| `server.selftest` / `hello.selftest` | The core's latest selftest (`ru_api` 1.11 `selftest_summary`): `hello.selftest` carries it, `server.selftest` (reliable, proposed schema) goes out when the outcome changes (`fleet_plugin.cpp`) | done | tested | none | – |
 | `server.cs2_update_required` | Steam UpToDateCheck (appid 730) every 30 min on a worker thread, once per required version (`cs2_update_check.h`) | done | tested | none | – |
 
 ## 2. Per-server settings
@@ -69,7 +69,7 @@ These arrived as bootstrap `commands[]` (`ru_<setting> <value>`). Now they are R
 | Whitelist enabled default | Setting `.whitelist`; match `whitelist` / fleet `rules.whitelist` wins | done | tested | none | – |
 | Kick when no match loaded | Server setting, default 0 | done | tested | none | – |
 | Playout enabled default | Setting `.playout`; match `playout` / fleet `rules.playout` wins | done | tested | none | – |
-| Reset cvars on series end | Server setting (default 1). The warmup cvars reset; the match's own `cvars{}` are not put back (`ru_api` has no cvar read) | partial | untested | none | S |
+| Reset cvars on series end | Server setting (default 1). The warmup cvars reset and the match's own `cvars{}` go back to their pre-match values, read at match load with `ru_api` 1.11 `cvar_query` and kept across a reload or restart (`cvar_snapshot.h`) | done | tested | none | – |
 | Tactical pause via `.pause` | Server setting `use_pause_command_for_tactical_pause` (default 0) | done | tested | none | – |
 | Autostart mode | Server setting `scrim_when_idle` (`ru_scrim_when_idle`, default 1; `server.config.scrim_when_idle`): off = an idle server stays idle when players join, until `.ru mode scrim` or a match (`scrim_flow.cpp`) | done | tested | none | – |
 | Hostname format | Setting; `server.config.hostname_format` too. `{TEAM1}` `{TEAM2}` `{MATCH_ID}` `{MAP}` … | done | tested | none | – |
@@ -229,6 +229,5 @@ Rows from the old RCON + webhook contract. Not counted in the summary.
 
 1. Platform side of demo streaming: the `demo.begin` / `demo.chunk` / `demo.end` receiver answering `demo.ack` (FLEET.md §12.2).
 2. Fleet path in CI. In progress.
-3. `reset_cvars_on_series_end` for match `cvars{}` (needs a cvar read in `ru_api`), `server.selftest` (the core does not expose its selftest result to plugins).
-4. Player-facing gaps: `.rcon`.
-5. Practice extras and the lineup library (fragile, L).
+3. Player-facing gaps: `.rcon`.
+4. Practice extras and the lineup library (fragile, L).

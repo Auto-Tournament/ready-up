@@ -4,6 +4,7 @@
 #include "readyup/at_payloads.h"
 #include "readyup/cs2_version.h"
 #include "readyup/config.h"
+#include "readyup/cvar_snapshot.h"
 #include "readyup/http_client.h"
 #include "readyup/logging.h"
 #include "readyup/match_signals.h"
@@ -49,9 +50,12 @@ struct State {
   std::atomic<bool> started{false};
 };
 
+// Never destroyed: SenderThread waits on st.cv, and a function-local static first used after
+// workers::Start() registered its exit handler would be destroyed before that handler joins the
+// sender (exit hung in pthread_cond_destroy when the server quit with the sender running).
 State& St() {
-  static State st;
-  return st;
+  static State* st = new State();
+  return *st;
 }
 
 static std::string JsonEscape(const std::string& s) {
@@ -324,10 +328,16 @@ void WebhookSetBearerToken(std::optional<std::string> token) {
 }
 
 void WebhookSetMatchContext(WebhookMatchContext ctx) {
-  auto& st = St();
-  std::lock_guard<std::mutex> lk(st.mu);
-  st.match = std::move(ctx);
-  st.hbStatus = State::HbStatus::Warmup;
+  const auto cvars = ctx.cvars;
+  {
+    auto& st = St();
+    std::lock_guard<std::mutex> lk(st.mu);
+    st.match = std::move(ctx);
+    st.hbStatus = State::HbStatus::Warmup;
+  }
+  // Read the pre-match values of the config's cvars now, long before go-live sets them
+  // (reset_cvars_on_series_end puts them back; cvar_snapshot.h).
+  cvar_snapshot::CaptureMatchCvars(cvars);
 }
 
 void WebhookClearMatchContext() {

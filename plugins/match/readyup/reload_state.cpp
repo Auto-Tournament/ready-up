@@ -2,6 +2,7 @@
 #include "readyup/reload_state.h"
 
 #include "readyup/config.h"
+#include "readyup/cvar_snapshot.h"
 #include "readyup/demo_recorder.h"
 #include "readyup/fleet_bridge.h"
 #include "readyup/host.h"
@@ -207,6 +208,7 @@ Json Build(const std::vector<std::string>& pendingEvents, size_t firstEvent) {
   wh["heartbeat_url"] = WebhookHeartbeatUrl();
   wh["heartbeat_status"] = WebhookHeartbeatStatusString();
   if (auto ctx = WebhookGetMatchContext()) wh["context"] = ContextToJson(*ctx);
+  j["cvar_snapshot"] = cvar_snapshot::ReloadJson();  // pre-match cvar values (cvar_snapshot.h)
   Json pending = Json::Array();
   for (size_t i = firstEvent; i < pendingEvents.size(); ++i) pending.Push(pendingEvents[i]);
   wh["pending"] = std::move(pending);
@@ -352,6 +354,9 @@ bool ReloadStateRestore() {
   WebhookConfigure(Str(wh, "url"));
   WebhookConfigureHeartbeatUrl(Str(wh, "heartbeat_url"));
   if (const Json* tok = j.Find("match_token")) SetMatchToken(tok->AsString());
+  // Before the context: the names already read (or asked) are not read again, which would now
+  // return the match's own values.
+  if (const Json* cs = j.Find("cvar_snapshot")) cvar_snapshot::RestoreReloadJson(cs->AsString());
   if (const Json* ctx = wh ? wh->Find("context") : nullptr) WebhookSetMatchContext(ContextFromJson(*ctx));
   WebhookSetHeartbeatStatus(Str(wh, "heartbeat_status").c_str());
   if (const Json* p = wh ? wh->Find("pending") : nullptr) {

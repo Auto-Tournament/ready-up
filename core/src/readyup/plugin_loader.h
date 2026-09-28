@@ -125,8 +125,23 @@ void DispatchGameEvent(const char* name, void* ev);
 std::vector<std::string> WantedGameEvents();
 uint64_t WantedGameEventsGeneration();
 
-// Thread-safe. Queues one server log line for subscribe_log_line subscribers.
+// Thread-safe. Queues one server log line for subscribe_log_line subscribers, and answers
+// pending cvar_query calls from it (`<name> = <value>` / `Unknown command '<name>'!`).
 void PostLogLine(const std::string& line);
+
+// ---- API v1.11 ----------------------------------------------------------------------
+
+// selftest_summary's source: the latest selftest as one JSON object, "" before the first run.
+// Any thread. The server build registers status_feed's record (status_feed.cpp); nullptr = none.
+using SelftestJsonProvider = std::string (*)();
+void SetSelftestJsonProvider(SelftestJsonProvider provider);
+
+// cvar_query's line parsing (exposed for tests). A console line answering a query for `name`:
+// 1 = `<name> = <value>` (*value set, without the line end), 0 = `Unknown command '<name>'!`,
+// -1 = unrelated. Case-insensitive on the name (the engine prints it as registered).
+int ParseCvarAnswer(const std::string& line, const std::string& name, std::string* value);
+// A name cvar_query accepts: [A-Za-z0-9_.], 1..63 chars.
+bool ValidCvarName(const std::string& name);
 
 // Thread-safe. Map of the last RU_EVENT_MAP_START ("" before the first).
 std::string CurrentMap();
