@@ -163,6 +163,26 @@ std::set<uint64_t> g_overrideSent;
 // `.midas` trial settings (runtime only; `.midas reset` or a plugin reload goes back to the cfg).
 int g_trialKit = 0;          // > 0: used instead of paint_kit
 std::set<uint32_t> g_modelled;  // weapon handles given a Midas model (model_<classname>)
+
+// A Midas model is drawn with its normal (hd) mesh. The gold paint kit through skins.so may be a
+// legacy one, which switches the weapon to the legacy mesh (m_MeshGroupMask 2, body 1): on the Midas
+// model that put the charm on the wrong attachment. Mesh group mask: m_CBodyComponent ->
+// CBodyComponentSkeletonInstance::m_skeletonInstance -> m_modelState.m_MeshGroupMask.
+void UseNormalMesh(void* w) {
+  const int body = g_api->schema_offset(g_api->self, "CBaseEntity", "m_CBodyComponent");
+  const int skel = g_api->schema_offset(g_api->self, "CBodyComponentSkeletonInstance", "m_skeletonInstance");
+  const int state = g_api->schema_offset(g_api->self, "CSkeletonInstance", "m_modelState");
+  const int mask = g_api->schema_offset(g_api->self, "CModelState", "m_MeshGroupMask");
+  if (body >= 0 && skel >= 0 && state >= 0 && mask >= 0) {
+    void* bc = Rd<void*>(w, body);
+    if (bc) {
+      const uint64_t one = 1;
+      std::memcpy(static_cast<unsigned char*>(bc) + skel + state + mask, &one, sizeof(one));
+    }
+  }
+  if (RU_API_HAS(g_api, entity_set_bodygroup_by_name)) g_api->entity_set_bodygroup_by_name(g_api->self, w, "body", 0);
+  g_api->entity_mark_changed(g_api->self, w);
+}
 bool g_configRead = false;   // midas.cfg read once since load
 int g_lastFileKit = 0;       // paint_kit as last read from midas.cfg
 bool g_refreshHeld = false;  // the finish changed: refresh held weapons after the next sync
@@ -418,6 +438,7 @@ void TintSlot(int slot) {
       if (!model.empty() && RU_API_HAS(g_api, entity_set_model)) {
         if (!g_modelled.count(h) && g_api->entity_set_model(g_api->self, w, model.c_str()) == 1) {
           g_modelled.insert(h);
+          UseNormalMesh(w);
           ru_logf(g_api, RU_LOG_INFO, "model %s on %s of slot %d", model.c_str(), mcn, slot);
         }
         if (g_modelled.count(h)) {

@@ -8,6 +8,7 @@
     "entity_classname",
     "entity_from_handle",
     "entity_mark_changed",
+    "entity_set_bodygroup_by_name",
     "entity_set_model",
     "entity_system_status",
     "on_tick",
@@ -17,10 +18,13 @@
   ],
   "surface": [
     "CBaseEntity_NetworkStateChanged",
+    "CBaseModelEntity_GetModel",
+    "CBaseModelEntity_SetBodygroup",
     "CBaseModelEntity_SetModel",
     "CEntityInstance::NetworkStateChanged",
     "CGameEventManager",
     "CGameEventManager_Init",
+    "CModel_FindBodygroupByName",
     "CSchemaSystem",
     "CSchemaSystemTypeScope",
     "ClientPrint",
@@ -36,7 +40,11 @@
     "CPlayer_WeaponServices.m_hMyWeapons"
   ],
   "schema_optional": [
-    "CBaseModelEntity.m_clrRender"
+    "CBaseEntity.m_CBodyComponent",
+    "CBaseModelEntity.m_clrRender",
+    "CBodyComponentSkeletonInstance.m_skeletonInstance",
+    "CModelState.m_MeshGroupMask",
+    "CSkeletonInstance.m_modelState"
   ],
   "events": [
     "item_equip",

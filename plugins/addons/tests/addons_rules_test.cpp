@@ -35,7 +35,8 @@ int main() {
   CHECK(NextAction(0, false, true) == Action::kNone);  // already asked
   CHECK(NextAction(kItemDownloading, false, false) == Action::kNone);
   CHECK(NextAction(kItemInstalled, false, true) == Action::kMount);
-  CHECK(NextAction(kItemInstalled | kItemNeedsUpdate, false, false) == Action::kMount);
+  CHECK(NextAction(kItemInstalled | kItemNeedsUpdate, false, false) == Action::kDownload);  // update
+  CHECK(NextAction(kItemInstalled | kItemNeedsUpdate, false, true) == Action::kMount);  // asked already
   CHECK(NextAction(kItemInstalled, true, false) == Action::kNone);
   CHECK(NextAction(kItemLegacy | kItemInstalled, false, false) == Action::kRefuse);
 

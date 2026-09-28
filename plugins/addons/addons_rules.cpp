@@ -47,6 +47,7 @@ Action NextAction(uint32_t s, bool mounted, bool downloadAsked) {
   if (s & kItemLegacy) return Action::kRefuse;
   if (s & (kItemDownloading | kItemDownloadPending)) return Action::kNone;
   if (!(s & kItemInstalled)) return downloadAsked ? Action::kNone : Action::kDownload;
+  if ((s & kItemNeedsUpdate) && !downloadAsked) return Action::kDownload;  // a newer version is published
   if (mounted) return Action::kNone;
   return Action::kMount;
 }

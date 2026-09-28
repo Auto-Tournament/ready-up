@@ -311,6 +311,11 @@ void Poll() {
     Item& it = g_items[id];
     const uint32_t st = g_steam.itemState(ugc, id);
     if (st != it.lastState) {
+      // Installed again (a first install or an update): extract again; a no-op for the same version.
+      if ((st & kItemInstalled) && !(st & (kItemDownloading | kItemDownloadPending | kItemNeedsUpdate))) {
+        it.installed = false;
+        it.downloadAsked = false;
+      }
       it.lastState = st;
       ru_logf(g_api, RU_LOG_INFO, "addon %llu: %s", static_cast<unsigned long long>(id), ItemStateText(st).c_str());
     }
