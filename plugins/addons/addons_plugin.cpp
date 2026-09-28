@@ -352,6 +352,9 @@ void Poll(double now) {
       if ((st & kItemInstalled) && !(st & (kItemDownloading | kItemDownloadPending | kItemNeedsUpdate))) {
         it.installed = false;
         it.downloadAsked = false;
+        // An update that lands while the old version is mounted: the new files still need extracting
+        // (kMount) and mount with the next map change. Without this, a mounted addon never re-extracted.
+        it.mounted = false;
       }
       it.lastState = st;
       ru_logf(g_api, RU_LOG_INFO, "addon %llu: %s", static_cast<unsigned long long>(id), ItemStateText(st).c_str());
