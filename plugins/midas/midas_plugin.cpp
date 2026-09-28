@@ -274,10 +274,18 @@ void SyncPaintOverrides(bool clear) {
     return;
   }
   const std::set<uint64_t> want = clear ? std::set<uint64_t>{} : PaintOverrideSet(g_active, g_finish, g_midas, g_best);
+  const bool tags = RU_API_HAS(s, set_player_name_tag) && s->set_player_name_tag;
+  // name_tag (default "Midas Touch"): the name Midas weapons show instead of the paint kit's.
+  const std::string tag = ConfigValue("name_tag").empty() ? std::string("Midas Touch") : ConfigValue("name_tag");
   for (uint64_t sid : g_overrideSent) {
-    if (!want.count(sid)) s->set_player_paint(sid, 0, 0.0f, 0);
+    if (want.count(sid)) continue;
+    s->set_player_paint(sid, 0, 0.0f, 0);
+    if (tags) s->set_player_name_tag(sid, "");
   }
-  for (uint64_t sid : want) s->set_player_paint(sid, g_paintKit, g_paintWear, g_paintSeed);
+  for (uint64_t sid : want) {
+    s->set_player_paint(sid, g_paintKit, g_paintWear, g_paintSeed);
+    if (tags) s->set_player_name_tag(sid, tag == "off" ? "" : tag.c_str());
+  }
   g_overrideSent = want;
 }
 

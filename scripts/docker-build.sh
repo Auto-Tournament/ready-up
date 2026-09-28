@@ -31,7 +31,10 @@ if [[ -f "$ROOT_DIR/.git" ]]; then
   extra_mounts+=(-v "$common_dir:$common_dir:ro")
 fi
 
-docker run --rm \
+# BUILD_DOCKER_ARGS (e.g. "--cpus 3 --cpu-shares 128") and BUILD_JOBS keep a build from starving
+# game servers on the same machine.
+# shellcheck disable=SC2086
+docker run --rm ${BUILD_DOCKER_ARGS:-} \
   --user "$(id -u):$(id -g)" \
   -e HOME=/tmp \
   -v "$ROOT_DIR:/src" "${extra_mounts[@]}" \
@@ -40,7 +43,7 @@ docker run --rm \
   bash -c "
     set -euo pipefail
     cmake -S /src -B '/src/$BUILD_DIR' -DCMAKE_BUILD_TYPE='$BUILD_TYPE'
-    cmake --build '/src/$BUILD_DIR' -j\"\$(nproc)\" ${BUILD_TARGET:+--target '$BUILD_TARGET'}
+    cmake --build '/src/$BUILD_DIR' -j\"${BUILD_JOBS:-\$(nproc)}\" ${BUILD_TARGET:+--target '$BUILD_TARGET'}
   "
 
 if [[ -n "$BUILD_TARGET" ]]; then

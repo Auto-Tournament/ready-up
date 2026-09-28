@@ -133,8 +133,15 @@ int RefreshWeaponsIface(int slot) {
     return 0;
   }
 }
+int SetPlayerNameTagIface(uint64_t steamid64, const char* nameTag) {
+  try {
+    return SetPlayerNameTagExternal(steamid64, nameTag) ? 1 : 0;
+  } catch (...) {
+    return 0;
+  }
+}
 const ru_skins_v1 g_skinsIface = {sizeof(ru_skins_v1), &SkinsActiveIface, &PaintWeaponIface, &SetPlayerPaintIface,
-                                  &RefreshWeaponsIface};
+                                  &RefreshWeaponsIface, &SetPlayerNameTagIface};
 }  // namespace
 
 bool Inert() { return g_inert.load(); }
