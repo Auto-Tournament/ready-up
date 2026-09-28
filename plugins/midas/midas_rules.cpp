@@ -5,6 +5,7 @@
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <vector>
 
 namespace midas {
@@ -128,6 +129,26 @@ bool Paintable(const std::string& classname) {
     if (c == n) return false;
   }
   return true;
+}
+
+bool StatTrakable(const std::string& classname) { return Paintable(classname) && Lower(classname) != "weapon_taser"; }
+
+bool CountsAsKill(int attackerSlot, int victimSlot, int attackerTeam, int victimTeam) {
+  if (attackerSlot < 0 || attackerSlot >= 64 || attackerSlot == victimSlot) return false;
+  const bool known = (attackerTeam == 2 || attackerTeam == 3) && (victimTeam == 2 || victimTeam == 3);
+  return !known || attackerTeam != victimTeam;
+}
+
+int StatTrakKills(bool statsLive, bool statsHavePlayer, int statsKills, int ownKills) {
+  const int k = statsLive && statsHavePlayer ? statsKills : ownKills;
+  return k < 0 ? 0 : k;
+}
+
+float KillEaterBits(int kills) {
+  const uint32_t u = static_cast<uint32_t>(kills < 0 ? 0 : kills);
+  float f = 0.0f;
+  std::memcpy(&f, &u, sizeof(f));
+  return f;
 }
 
 bool ParseBestStat(const std::string& text, BestStat* out) {
