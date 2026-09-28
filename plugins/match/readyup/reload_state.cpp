@@ -56,6 +56,8 @@ Json ContextToJson(const WebhookMatchContext& c) {
   j["num_maps"] = c.num_maps;
   j["team1_name"] = c.team1_name;
   j["team2_name"] = c.team2_name;
+  j["team1_id"] = c.team1_id;
+  j["team2_id"] = c.team2_id;
   j["team1_captain"] = U64(c.team1_captain_steamid64);
   j["team2_captain"] = U64(c.team2_captain_steamid64);
   j["knife_decision_seconds"] = c.knifeDecisionSeconds;
@@ -116,6 +118,8 @@ WebhookMatchContext ContextFromJson(const Json& j) {
   c.num_maps = Int(&j, "num_maps");
   c.team1_name = Str(&j, "team1_name");
   c.team2_name = Str(&j, "team2_name");
+  c.team1_id = Str(&j, "team1_id");
+  c.team2_id = Str(&j, "team2_id");
   c.team1_captain_steamid64 = ToU64(j.Find("team1_captain"));
   c.team2_captain_steamid64 = ToU64(j.Find("team2_captain"));
   c.knifeDecisionSeconds = Int(&j, "knife_decision_seconds", c.knifeDecisionSeconds);

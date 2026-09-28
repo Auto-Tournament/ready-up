@@ -19,6 +19,7 @@
 #include "readyup/round_restore_rules.h"
 #include "readyup/webhook.h"
 
+#include <tuple>
 #include <algorithm>
 #include <atomic>
 #include <optional>
@@ -152,7 +153,7 @@ void SaveProgress() {
   if (!persisted_match_state::GetActiveMatchJson()) return;  // scrims, practice: nothing to recover
   restore::Progress p;
   p.map_number = std::max(1, MatchStateGet().map_number);
-  ModesSeriesWins(&p.series_team1, &p.series_team2);
+  std::tie(p.series_team1, p.series_team2) = ModesGetSeriesWins();
   switch (GetMode()) {
     case ReadyUpMode::MatchLive: {
       p.phase = "live";

@@ -163,6 +163,92 @@ std::set<uint64_t> g_overrideSent;
 // `.midas` trial settings (runtime only; `.midas reset` or a plugin reload goes back to the cfg).
 int g_trialKit = 0;          // > 0: used instead of paint_kit
 std::set<uint32_t> g_modelled;  // weapon handles given a Midas model (model_<classname>)
+
+// A Midas model is drawn with its normal (hd) mesh. The gold paint kit through skins.so may be a
+// legacy one, which switches the weapon to the legacy mesh (m_MeshGroupMask 2, body 1): on the Midas
+// model that put the charm on the wrong attachment. Mesh group mask: m_CBodyComponent ->
+// CBodyComponentSkeletonInstance::m_skeletonInstance -> m_modelState.m_MeshGroupMask.
+// CUtlStringToken of a name: MurmurHash2 of the lower-cased bytes, seed 0x31415926 (Source 2).
+uint32_t StringToken(const std::string& name) {
+  const uint32_t m = 0x5bd1e995;
+  const int r = 24;
+  uint32_t h = 0x31415926u ^ static_cast<uint32_t>(name.size());
+  std::string low = name;
+  for (char& c : low) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  const unsigned char* d = reinterpret_cast<const unsigned char*>(low.data());
+  size_t len = low.size();
+  while (len >= 4) {
+    uint32_t k = static_cast<uint32_t>(d[0]) | static_cast<uint32_t>(d[1]) << 8 | static_cast<uint32_t>(d[2]) << 16 |
+                 static_cast<uint32_t>(d[3]) << 24;
+    k *= m;
+    k ^= k >> r;
+    k *= m;
+    h *= m;
+    h ^= k;
+    d += 4;
+    len -= 4;
+  }
+  switch (len) {
+    case 3: h ^= static_cast<uint32_t>(d[2]) << 16; [[fallthrough]];
+    case 2: h ^= static_cast<uint32_t>(d[1]) << 8; [[fallthrough]];
+    case 1: h ^= d[0]; h *= m;
+  }
+  h ^= h >> 13;
+  h *= m;
+  h ^= h >> 15;
+  return h;
+}
+
+// model_group=<name>: one of the Midas model's material groups (the readyup_midas addon: brushed,
+// matte, painted, silver; empty = its default, polished gold). CSkeletonInstance::m_materialGroup
+// (on 1.41.8.5) holds the group name's string token.
+void UseMaterialGroup(void* w, const std::string& group) {
+  const int body = g_api->schema_offset(g_api->self, "CBaseEntity", "m_CBodyComponent");
+  const int skel = g_api->schema_offset(g_api->self, "CBodyComponentSkeletonInstance", "m_skeletonInstance");
+  const int state = g_api->schema_offset(g_api->self, "CSkeletonInstance", "m_modelState");
+  if (body < 0 || skel < 0 || state < 0) return;
+  void* bc = Rd<void*>(w, body);
+  if (!bc) return;
+  if (group.empty()) return;  // the model's default group; a wrong token would drop every remap
+  const uint32_t token = StringToken(group);
+  // Where m_materialGroup lives differs between builds: look it up once and log where it was found.
+  static int where = -2, off = -1;
+  static const char* const kClasses[] = {"CSkeletonInstance", "CModelState", "CBodyComponentSkeletonInstance",
+                                         "CBaseModelEntity", "CGameSceneNode", "CBodyComponent"};
+  if (where == -2) {
+    where = -1;
+    for (int i = 0; i < 6 && where < 0; ++i) {
+      off = g_api->schema_offset(g_api->self, kClasses[i], "m_materialGroup");
+      if (off >= 0) where = i;
+    }
+    ru_logf(g_api, RU_LOG_INFO, "m_materialGroup: %s", where >= 0 ? kClasses[where] : "not found");
+  }
+  unsigned char* base = nullptr;
+  switch (where) {
+    case 0: base = static_cast<unsigned char*>(bc) + skel; break;
+    case 1: base = static_cast<unsigned char*>(bc) + skel + state; break;
+    case 2: case 5: base = static_cast<unsigned char*>(bc); break;
+    case 3: base = static_cast<unsigned char*>(w); break;
+    default: return;  // CGameSceneNode / not found: not handled
+  }
+  std::memcpy(base + off, &token, sizeof(token));
+}
+
+void UseNormalMesh(void* w) {
+  const int body = g_api->schema_offset(g_api->self, "CBaseEntity", "m_CBodyComponent");
+  const int skel = g_api->schema_offset(g_api->self, "CBodyComponentSkeletonInstance", "m_skeletonInstance");
+  const int state = g_api->schema_offset(g_api->self, "CSkeletonInstance", "m_modelState");
+  const int mask = g_api->schema_offset(g_api->self, "CModelState", "m_MeshGroupMask");
+  if (body >= 0 && skel >= 0 && state >= 0 && mask >= 0) {
+    void* bc = Rd<void*>(w, body);
+    if (bc) {
+      const uint64_t one = 1;
+      std::memcpy(static_cast<unsigned char*>(bc) + skel + state + mask, &one, sizeof(one));
+    }
+  }
+  if (RU_API_HAS(g_api, entity_set_bodygroup_by_name)) g_api->entity_set_bodygroup_by_name(g_api->self, w, "body", 0);
+  g_api->entity_mark_changed(g_api->self, w);
+}
 bool g_configRead = false;   // midas.cfg read once since load
 int g_lastFileKit = 0;       // paint_kit as last read from midas.cfg
 bool g_refreshHeld = false;  // the finish changed: refresh held weapons after the next sync
@@ -188,10 +274,18 @@ void SyncPaintOverrides(bool clear) {
     return;
   }
   const std::set<uint64_t> want = clear ? std::set<uint64_t>{} : PaintOverrideSet(g_active, g_finish, g_midas, g_best);
+  const bool tags = RU_API_HAS(s, set_player_name_tag) && s->set_player_name_tag;
+  // name_tag (default "Midas Touch"): the name Midas weapons show instead of the paint kit's.
+  const std::string tag = ConfigValue("name_tag").empty() ? std::string("Midas Touch") : ConfigValue("name_tag");
   for (uint64_t sid : g_overrideSent) {
-    if (!want.count(sid)) s->set_player_paint(sid, 0, 0.0f, 0);
+    if (want.count(sid)) continue;
+    s->set_player_paint(sid, 0, 0.0f, 0);
+    if (tags) s->set_player_name_tag(sid, "");
   }
-  for (uint64_t sid : want) s->set_player_paint(sid, g_paintKit, g_paintWear, g_paintSeed);
+  for (uint64_t sid : want) {
+    s->set_player_paint(sid, g_paintKit, g_paintWear, g_paintSeed);
+    if (tags) s->set_player_name_tag(sid, tag == "off" ? "" : tag.c_str());
+  }
   g_overrideSent = want;
 }
 
@@ -418,6 +512,8 @@ void TintSlot(int slot) {
       if (!model.empty() && RU_API_HAS(g_api, entity_set_model)) {
         if (!g_modelled.count(h) && g_api->entity_set_model(g_api->self, w, model.c_str()) == 1) {
           g_modelled.insert(h);
+          UseMaterialGroup(w, ConfigValue("model_group"));
+          UseNormalMesh(w);  // also marks the entity changed
           ru_logf(g_api, RU_LOG_INFO, "model %s on %s of slot %d", model.c_str(), mcn, slot);
         }
         if (g_modelled.count(h)) {

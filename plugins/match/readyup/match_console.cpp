@@ -638,6 +638,8 @@ const std::vector<std::string>& MatchConsoleCommands() {
       // match_end.h / demo_recorder.h
       "ru_demo_recording_enabled", "ru_demo_path", "ru_demo_name_format", "ru_demo_upload_url",
       "ru_demo_upload_method", "ru_demo_upload_header", "ru_demo_upload_headers_clear", "ru_demo_upload_attempts",
+      "ru_demo_upload_header_key", "ru_demo_upload_header_value", "get5_demo_upload_header_key",
+      "get5_demo_upload_header_value",
       "ru_demo_status", "ru_series_end_kick_delay_no_demo", "ru_series_end_kick_delay_demo_no_upload",
       "ru_series_end_kick_delay_demo_upload", "ru_match_stats",
       // round_restore.h

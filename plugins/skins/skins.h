@@ -104,6 +104,8 @@ bool PaintWeaponExternal(uint32_t handle, uint64_t steamid64, int paintKit, floa
 bool SetPlayerPaintExternal(uint64_t steamid64, int paintKit, float wear, int seed);
 // refresh_weapons: swap the held weapons of `slot` for new ones (player_give_item).
 bool RefreshWeaponsExternal(int slot);
+// set_player_name_tag: the name tag that goes with set_player_paint (empty clears).
+bool SetPlayerNameTagExternal(uint64_t steamid64, const char* nameTag);
 // `.skins reload`: about a second from now, gloves + agent again and the held weapons repainted
 // with the (re-read) loadout. Game thread.
 void RequestReapply(int slot);

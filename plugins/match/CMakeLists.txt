@@ -8,6 +8,7 @@ set(MATCH_SOURCES
   readyup/admin_call.cpp
   readyup/admin_call_logic.cpp
   readyup/admin_check.cpp
+  readyup/at_payloads.cpp
   readyup/backup_files.cpp
   readyup/card_html.cpp
   readyup/config.cpp

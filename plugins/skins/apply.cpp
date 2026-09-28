@@ -230,6 +230,7 @@ bool ApplyLegacyBody(void* weapon, uint64_t steamid64) {
 
 // set_player_paint (readyup.skins.v1): steamid64 -> the paint every new weapon gets.
 std::unordered_map<uint64_t, WeaponSkinEntry> g_paintOverride;
+std::unordered_map<uint64_t, std::string> g_overrideNameTag;  // set_player_name_tag
 long long g_applied = 0;  // weapons painted / knives swapped this session (for skins_status)
 
 WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late, bool* legacyPending) {
@@ -279,7 +280,10 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
   }
 
   if (ov != g_paintOverride.end()) {
-    WritePaint(weapon, item, steamid64, ov->second);
+    WeaponSkinEntry paint = ov->second;
+    const auto tag = g_overrideNameTag.find(steamid64);
+    if (tag != g_overrideNameTag.end()) paint.nametag = tag->second;
+    WritePaint(weapon, item, steamid64, paint);
     paintUsed = ov->second.paint_id;
     wearUsed = ov->second.wear;
     changed = true;
@@ -670,6 +674,15 @@ bool SetPlayerPaintExternal(uint64_t steamid64, int paintKit, float wear, int se
   e.wear = std::min(1.0f, std::max(0.0f, wear));
   e.seed = std::max(0, seed);
   g_paintOverride[steamid64] = e;
+  return true;
+}
+
+bool SetPlayerNameTagExternal(uint64_t steamid64, const char* nameTag) {
+  if (steamid64 == 0) return false;
+  std::string tag = nameTag ? nameTag : "";
+  if (tag.size() > 40) tag.resize(40);
+  if (tag.empty()) g_overrideNameTag.erase(steamid64);
+  else g_overrideNameTag[steamid64] = tag;
   return true;
 }
 

@@ -57,10 +57,10 @@ CORE_ID = "core"
 RUNTIME_ONLY = ["match", "practice", "essentials", "midas", "whitelist", "deathmatch", "fleet"]
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Plugins whose manifest is checked (needs-check) and used for verdicts. hello is the example.
-NEEDS_PLUGINS = ["match", "practice", "essentials", "midas", "whitelist", "deathmatch", "fleet", "skins"]
+NEEDS_PLUGINS = ["match", "practice", "essentials", "midas", "whitelist", "deathmatch", "fleet", "skins", "addons"]
 NAMES = {"core": "Core", "skins": "Skins", "match": "Match", "practice": "Practice",
          "essentials": "Essentials", "midas": "Midas", "whitelist": "Whitelist", "deathmatch": "Deathmatch",
-         "fleet": "Fleet"}
+         "fleet": "Fleet", "addons": "Addons"}
 # Order of static check kinds inside a component.
 STATIC_KINDS = ["signature", "rtti", "vtable", "hook_site", "layout"]
 TRIGGERS = ("build_change", "surface_change", "nightly", "release", "manual")

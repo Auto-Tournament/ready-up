@@ -67,9 +67,9 @@ P: `utils/pluginRconCommands.ts:184-305`. All of them are `<name> <value>` and m
 | `ru_use_pause_command_for_tactical_pause` | `ConfigConvars.cs` | `.pause` = `mp_pause_match` | partial | When 0, `.pause` calls a tactical timeout (`timeout_ct_start`/`timeout_terrorist_start`). | none | S |
 | `ru_autostart_mode 0\|1\|2` | `ConfigConvars.cs:482` | Scrim flow when idle, no mode switch | partial | Map 0/1/2 to idle / warmup (auto scrim) / other, and publish `warmup` status for an idle server in warmup (AT: `TournamentStatusLogic.cs:44-47`). | none | S |
 | `ru_hostname_format "<fmt>"` (empty = off) | `ConfigConvars.cs:75` | none | missing | Set `hostname` from `{TEAM1}`/`{TEAM2}`/… on load and reset. Needs quoted-value handling (finding 4). | none | S |
-| `ru_demo_path`, `ru_demo_name_format` | `ConfigConvars.cs`, `DemoManagement.cs` | Fixed name `ru_<slug>_m<N>_<map>_<ts>` in the GOTV default dir (RU: `modes.cpp` `StartDemoForMapLocked`) | partial | Apply path and name tokens. | none | S |
+| `ru_demo_path`, `ru_demo_name_format` | `ConfigConvars.cs`, `DemoManagement.cs` | `ru_demo_path` (default `ReadyUp/`) and `ru_demo_name_format` with AT's tokens `{TIME}` `{MATCH_ID}` `{MAP}` `{TEAM1}` `{TEAM2}` (+ `{SLUG}` `{MAP_NUMBER}` …), persisted (RU: `demo_recorder.h`) | done | – | none | S |
 | `ru_series_end_kick_delay_no_demo`, `_demo_no_upload`, `_demo_upload` | `ConfigConvars.cs:164` | Nobody is kicked at series end | missing | Kick all players after the delay that fits the demo outcome. This frees the server for turnover. | none | S |
-| `ru_demo_upload_url` | `ConfigConvars.cs:309` | none | missing | See §5. | none | – |
+| `ru_demo_upload_url` | `ConfigConvars.cs:309` | `ru_demo_upload_url` + `ru_demo_upload_header_key/_value` (persisted) | done | See §5. | none | – |
 
 ## 3. Match load and lifecycle commands
 
@@ -117,8 +117,8 @@ P: `routes/demos.ts:40`; `matchLoadingService.ts:213` sets the URL per match whe
 |---|---|---|---|---|---|---|
 | Recording per map (`tv_enable 1`, `tv_record`, stop at map end) | AT: `DemoManagement.cs` | done (RU: `modes.cpp` `StartDemoForMapLocked` / `StopDemoLocked`) | done | Honour `ru_demo_recording_enabled`, path and name format. | none | S |
 | GOTV must be up before a valve match goes live (Valve rulebook: every map recorded) | – (Ready Up only) | Under the valve ruleset go-live (straight to live, the knife round, `ru match start`, fleet `start`) is refused while no GOTV client is on the map (`CBasePlayerController::m_bIsHLTV`, 15 s after map start); chat + console say so, `tv_enable 1` is set for a map reload, `ru match start force` / fleet `start {force: true}` go live anyway (RU: `esports.cpp` `EsportsGoLiveAllowed`, `ruleset.h` `GotvGoLiveCheck`) | done | Scrims are not gated. | schema read (`m_bIsHLTV`) | S |
-| Upload: `POST ru_demo_upload_url`, `application/octet-stream`, ≤500 MB, headers `ru_demo_upload_header_key/_value` (= `X-Auto-Tournament-Token`) + `Auto-Tournament-FileName`, `-MatchId`, `-MapNumber`, `-RoundNumber` (Get5-* fallback accepted) | AT: `DemoManagement.cs:275-285`, `DemoFileLocator.cs` | **none** | missing | After `tv_stoprecord`, wait for the file to finish (size stable), locate it under `csgo/<demo_path>`, and stream-upload it from a worker thread (libcurl is already linked). **Keep the `Auto-Tournament-*` header names**: the platform owns them. | none | M |
-| Events `demo_recording_start`, `demo_recording_stop`, `demo_upload_start`, `demo_upload_success`, `demo_upload_fail`, `demo_upload_ended` | AT: `Events.cs:207-290` | none | missing | The platform uses these to **turn the server over** after a series. Without them, a server with demo recording on waits out the fallback. Payloads per `Events.cs` (`filename`, `size_mb`, `status`, `reason`, `success`). | none | S |
+| Upload: `POST ru_demo_upload_url`, `application/octet-stream`, ≤500 MB, headers `ru_demo_upload_header_key/_value` (= `X-Auto-Tournament-Token`) + `Auto-Tournament-FileName`, `-MatchId`, `-MapNumber`, `-RoundNumber` (Get5-* fallback accepted) | AT: `DemoManagement.cs:275-285`, `DemoFileLocator.cs` | After the GOTV flush (`tv_delay` + 15 s) `tv_stoprecord`, then on a worker thread: wait until the size is stable, fall back to the newest demo of this match in the demo dirs, stream the file with libcurl (`ru_demo_upload_method` POST/PUT, 3 tries on network errors / 429 / 5xx, resumed after a plugin reload). Headers: `Auto-Tournament-FileName/-MatchId/-MapNumber/-RoundNumber` and `Get5-*`, then `ru_demo_upload_header` entries, then `ru_demo_upload_header_key/_value` (`get5_demo_upload_header_key/_value` aliases) (RU: `demo_recorder.h`, `demo_naming.cpp` `UploadHeaderLines`) | done | `MapNumber` is Ready Up's 1-based map number, like `map_result.map_number` (see the note under §6). | none | M |
+| Events `demo_recording_start`, `demo_recording_stop`, `demo_upload_start`, `demo_upload_success`, `demo_upload_fail`, `demo_upload_ended` | AT: `Events.cs:207-290` | all six, AT payloads (`filename`, `size_mb`, `status`, `reason`, `success`); `demo_upload_ended` follows every success or failure, including `file_not_found` (RU: `at_payloads.h` `DemoEventJsons`, `webhook.cpp` `WebhookEmitDemoEvent`); fleet: `event.demo` | done | Sent with the webhook URL alone: an upload usually ends after the series unloaded. | none | S |
 
 ## 6. Events (webhook payloads)
 
@@ -134,8 +134,8 @@ The contract is `AT: Events.cs` plus `MatchData.cs`. The platform normalizer rea
 | `going_live`, `warmup_ended`, `knife_round_started`, `halftime_started`, `overtime_started`, `side_swap`, `round_started` | map events | same names and fields | done | – | – |
 | `knife_round_ended` | `winner` | `winner` ("team1"/"team2") | done | Check the AT winner type (object vs string) against the normalizer. | S |
 | `side_picked` | `map_name, map_number, side, picked_by, team` | same | done | – | – |
-| `round_end` | `round_number, round_time, reason, winner:{side,team}, team1/team2:{id,name,series_score,score,score_ct,score_t,players[{steamid,name,stats{…full PlayerStats…}}]}` | flat `winner` string, `team1_score`, `team1.players[].stats{kills,deaths,assists,headshot_kills,damage,mvps,score}`, `round_time:0` | partial | Emit the full AT shape: winner object, team scores inside `team1/team2`, `round_time`, and the full stat set (§8). | M |
-| `map_result` | `winner:{side,team}, team1/team2: StatsTeam (with players)` | `map_name, team1_score, team2_score, winner` string, **no players** | partial | Emit the full shape with final player stats. The platform takes final per-map stats from here. | S (after §8) |
+| `round_end` | `round_number, round_time, reason, winner:{side,team}, team1/team2:{id,name,series_score,score,score_ct,score_t,players[{steamid,name,stats{…full PlayerStats…}}]}` | the AT shape from the stats model: `winner:{side,team}` (side as played this round), `team1/team2:{id,name,series_score,score,score_ct,score_t,players[]}` with the full PlayerStats (§8), `round_time` in ms since `round_freeze_end`; plus flat `team1_score/team2_score` (RU: `at_payloads.h` `RoundEndJson`, `match_events.cpp` `EmitRoundEndLocked`). The old MatchZy subset stays only while the stats model is not live. | done | – | M |
+| `map_result` | `winner:{side,team}, team1/team2: StatsTeam (with players)` | the AT shape with the map's final PlayerStats (the AT plugin sent empty `players`), `series_score` after this map; plus `map_name`, `team1_score/team2_score` (RU: `at_payloads.h` `MapResultJson`, `modes.cpp` `FinishMapLocked`) | done | – | S |
 | `series_end` | `winner:{side,team}, team1_series_score, team2_series_score, time_until_restore` | `winner` string | partial | Winner object. Put the kick delay in `time_until_restore`. | S |
 | `player_connect` / `player_disconnect` | `player:{steamid,name,team}` | same | done | – | – |
 | `player_ready` / `player_unready` | `player, team, ready_count_team1/2, total_ready, expected_total` | same | done | – | – |
@@ -149,6 +149,8 @@ The contract is `AT: Events.cs` plus `MatchData.cs`. The platform normalizer rea
 | Ready Up extra: `admin_called` | not in AT | `.admin [message]`: `matchid` (-1 in scrims / no match), `map_number` (0-based), `server_id?`, `call_id`, `player{steamid64,name,team,side}`, `message`, `called_at` (RU: `admin_call.cpp`, docs/ADMINS.md) | extra | The platform notifies admins and resolves the call. | – |
 | Retry queue: AT persists it in the DB, retries every `ru_event_retry_interval` (30 s), gives up after 20 tries | AT: `PublishEvents.cs` | memory queue, exponential backoff 30 s→32 min, 20 tries, **lost on restart** (RU: `webhook.cpp` `SenderThread`) | partial | Persist it (a file is enough). Add `ru_get_pending_events`. | S |
 | Heartbeat | AT: `MatHeartbeat.cs` (`x-auto-tournament-token`) | `ru_heartbeat_url` → `/api/servers/:id/heartbeat` every 5 s | not needed | **The platform has no heartbeat route**: it treats any event as liveness (P: `events/routes.ts:325`). Keep it as an extra, or drop it. | – |
+
+**Open: `map_number` base.** The AT plugin sends `matchConfig.CurrentMapNumber`, which is 0-based, in every event and in the `Auto-Tournament-MapNumber` upload header; the platform treats it as 0-based (`integrations/types.ts`). Every Ready Up webhook event (`going_live`, `round_end`, `map_result`, `demo_*`, …) and the upload header send a 1-based map number (only `admin_called` is 0-based). Ready Up is consistent with itself, so the demo turnover keys (`map_result` ↔ `demo_*`) and `match_map_results.demo_file_path` line up, but map-indexed platform code is off by one. Decide once for all events: switch Ready Up's webhook to 0-based, or have the platform read `ru_` servers as 1-based.
 
 ### Match report (live match page)
 
@@ -204,16 +206,14 @@ The contract is `AT: Events.cs` plus `MatchData.cs`. The platform normalizer rea
 
 AT `PlayerStats` (`MatchData.cs:32-130`): `kills, deaths, assists, flash_assists, team_kills, suicides, damage, utility_damage, enemies_flashed, friendlies_flashed, knife_kills, headshot_kills, rounds_played, bomb_defuses, bomb_plants, 1k–5k, 1v1–1v5, first_kills_t/ct, first_deaths_t/ct, trade_kills, kast, score, mvp`.
 
-Ready Up today (RU: `game_events.cpp` `EmitRoundEndLocked`): `kills, deaths, assists, headshot_kills, damage, mvps, score`. It uses `player_death`/`player_hurt`, and reads kills, deaths, assists, MVPs and score from `CCSPlayerController` schema fields.
+**Done.** Ready Up computes the whole set from standard game events in an engine-free model (RU: `match_stats.h` `StatsAccumulator`, tested in `tests/match_flow_test.cpp`; the AT field mapping is `at_payloads.h` `PlayerStatsJson`):
+- `player_death` (`assister`, `assistedflash`, `headshot`, `weapon`, sides of both players): kills (no team kills or suicides), deaths, assists / `flash_assists`, `team_kills`, `suicides`, `knife_kills`, `first_kills_t/ct` / `first_deaths_t/ct` (the round's first enemy kill), `trade_kills` (an enemy killed within 5 s of him killing a teammate), `1k`–`5k`, `1v1`–`1v5` (last alive against N, round won).
+- `player_hurt`: `damage` capped at the victim's remaining health, no team damage; the HE / molotov / incendiary part is `utility_damage`.
+- `player_blind` with a duration: `enemies_flashed`, `friendlies_flashed`.
+- `bomb_planted` / `bomb_defused`, `round_mvp`: `bomb_plants`, `bomb_defuses`, `mvp`; `score` from `CCSPlayerController::m_iScore` at round end.
+- `round_start` / `round_end`: `rounds_played`, `kast`. The AT plugin always sent `kast: 0`; Ready Up sends KAST in percent of rounds played (0–100), which is how the platform stores and averages it (`player_match_stats.kast`, "KAST percentage").
 
-Missing, and all computable from **standard game events** without new signatures:
-- `player_death` (`assistedflash`, `weapon`, `attackerteam`, victim team): `flash_assists`, `team_kills`, `suicides`, `knife_kills`, `first_kills_*`/`first_deaths_*`, `trade_kills` (kill within 5 s of a teammate's death), multi-kills, clutches (alive counts per team).
-- `player_hurt` with a grenade/molotov `weapon`: `utility_damage`.
-- `player_blind`: `enemies_flashed`, `friendlies_flashed`.
-- `bomb_planted` / `bomb_defused`: plants and defuses.
-- `round_start`/`round_end`: `rounds_played`, `kast` (kill, assist, survived or traded, per round).
-
-Effort **M**, engine **events** (already hooked). The stats must survive `mp_restartgame` and a restore: reset them at going-live, and snapshot them per round so a restore can roll back. Rename `mvps` → `mvp` in the payload (the normalizer accepts both).
+The model resets at going live, survives `ru plugin reload match`, and a round restore rewinds it (`stats::RewindTo`). Not yet: persisting it for a crash / server restart (§7 crash recovery), and an admin's raw `mp_restartgame` during a live map (the model keeps the rounds before it).
 
 ---
 
@@ -236,9 +236,9 @@ Rule: `at_<x>` → `ru_<x>`. `css_*` and `get5_*` names stay as they are. "exist
 | `at_report_endpoint` / `at_report_token` / `at_report_server_id` | `ru_report_endpoint` / `ru_report_token` / `ru_report_server_id` | – |
 | `at_match_report` | `ru_match_report` | `ru match state` (text) |
 | `at_tournament_status` / `_match` / `_next_match` / `_updated` | `ru_tournament_status` / `_match` / `_next_match` / `_updated` | heartbeat `status` |
-| `at_demo_upload_url` / `_header_key` / `_header_value` | `ru_demo_upload_url` / `_header_key` / `_header_value` | – |
-| `at_demo_recording_enabled`, `at_demo_path`, `at_demo_name_format` | `ru_demo_recording_enabled`, `ru_demo_path`, `ru_demo_name_format` | always records |
-| `at_loadbackup` / `at_loadbackup_url` / `at_listbackups` | `ru_loadbackup` / `ru_loadbackup_url` / `ru_listbackups` | `ru_loadbackup`, `ru_listbackups` exist (CS2 `.txt` backups); `_url` missing |
+| `at_demo_upload_url` / `_header_key` / `_header_value` | `ru_demo_upload_url` / `_header_key` / `_header_value` | exists (also `get5_demo_upload_header_key/_value`) |
+| `at_demo_recording_enabled`, `at_demo_path`, `at_demo_name_format` | `ru_demo_recording_enabled`, `ru_demo_path`, `ru_demo_name_format` | exists |
+| `at_loadbackup` / `at_loadbackup_url` / `at_listbackups` | `ru_loadbackup` / `ru_loadbackup_url` / `ru_listbackups` | boot recovery only |
 | `at_remote_backup_url` / `_header_key` / `_header_value` | `ru_remote_backup_url` / … | – |
 | `at_config_scope` | `ru_config_scope` | – |
 | `at_chat_prefix`, `at_admin_chat_prefix` | `ru_chat_prefix`, `ru_admin_chat_prefix` | `readyup.cfg` keys |
@@ -250,7 +250,7 @@ Rule: `at_<x>` → `ru_<x>`. `css_*` and `get5_*` names stay as they are. "exist
 
 Headers: keep **`X-Auto-Tournament-Token`** (sent as the configured `*_header_key`) and **`Auto-Tournament-FileName/MatchId/MapNumber/RoundNumber`** as they are. The platform owns these names. The report push uses `x-auto-tournament-token` (the same header, lowercase).
 
-Match JSON: Ready Up already accepts the wrapper and the raw config, `matchid`, `num_maps`, `maplist`, `map_sides`, `team1/2.{name,players,captain_steamid64}`, `spectators`, `admins`, `cvars`, `maxRounds`, `overtimeMode`, `overtimeSegments` (RU: `match_config_parser.cpp`). It still needs `team1/2.id` (for `series_start`/`round_end` team objects), `team1/2.tag`, `team1/2.series_score`, `players_per_team`, `min_players_to_ready`, `min_spectators_to_ready`, `clinch_series`, `wingman`, `simulation`, `simulation_timescale`, `expected_players_*`, per-match `remote_log_*`, and `team1_t`/`team2_t` in `map_sides`.
+Match JSON: Ready Up already accepts the wrapper and the raw config, `matchid`, `num_maps`, `maplist`, `map_sides`, `team1/2.{id,name,players,captain_steamid64}` (`id` feeds the `round_end` / `map_result` team objects), `spectators`, `admins`, `cvars`, `maxRounds`, `overtimeMode`, `overtimeSegments` (RU: `match_config_parser.cpp`). It still needs `team1/2.tag`, `team1/2.series_score`, `players_per_team`, `min_players_to_ready`, `min_spectators_to_ready`, `clinch_series`, `wingman`, `simulation`, `simulation_timescale`, `expected_players_*`, per-match `remote_log_*`, and `team1_t`/`team2_t` in `map_sides`.
 
 ---
 
@@ -261,17 +261,17 @@ Match JSON: Ready Up already accepts the wrapper and the raw config, `matchid`, 
 1. **Auth and URLs.** `ru_remote_log_url` used verbatim, plus `ru_remote_log_header_key/_value`. `ru_loadmatch_url <url> [hdr val]` with async fetch and AT reply strings. Today every event and config request is rejected (401) or goes to the wrong URL. (S+M)
 2. **Status convars** `ru_tournament_status/_match/_next_match/_updated` with the AT enum (live = `playing`, like AT) and the `"name" = "value"` RCON reply. Allocation depends on them. (S)
 3. **Bootstrap flow**: `ru_server_id`, `ru_bootstrap_token`, `ru_bootstrap_url` (debounced async GET, run and persist `commands[]`), `ru_clear_event_queue`, `ru_report_*`, and accept-and-persist every §2 setting as a known command, so none of them reaches the engine as "Unknown command". (M)
-4. **Event payload shapes**: `winner:{side,team}`, `team1/team2` objects with `score` and `players[].stats`, `series_start` team objects, and `map_result` with final player stats. `server_configured` with the real `server_id`, plus `test_event` (`css_te`) for the connection test. (M)
+4. **Event payload shapes**: ~~`winner:{side,team}`, `team1/team2` objects with `score` and `players[].stats`, and `map_result` with final player stats~~ (done for `round_end` / `map_result`). Still open: `series_start` team objects, the `series_end` winner object, `server_configured` with the real `server_id`, plus `test_event` (`css_te`) for the connection test. (M)
 5. **Lifecycle aliases the allocator calls**: `css_endmatch` and `css_restart` with AT semantics (end/reset, clear the queue), `css_start`, and `css_pause`/`css_unpause`/`css_forcepause`/`css_forceunpause`. Also match load while in postgame: queue it (`queued_match=`) or at least give an unambiguous reply. Today Ready Up silently replaces the running series. (M)
 6. **Ready threshold**: `ru_minimum_ready_required` / `min_players_to_ready`. Today a roster with a substitute never goes live. (S)
-7. **Demo upload + demo events** (`demo_recording_*`, `demo_upload_*`), with the `Auto-Tournament-*` headers, and the series-end kick delays. Server turnover after a series depends on them, and demos are an expected tournament deliverable. (M)
+7. ~~**Demo upload + demo events** (`demo_recording_*`, `demo_upload_*`), with the `Auto-Tournament-*` headers, and the series-end kick delays.~~ Done (§5; the kick delays are `match_end.h`). (M)
 8. **Platform one-liner**: the plugin version check must compare `server_configured.plugin_version` against `Auto-Tournament/ready-up` releases instead of `cs2-plugin`. (platform, S)
 
 ### P1: needed for a tournament run without an admin babysitting it
 
 1. Round restore: `css_restore <n>`, `ru_loadbackup`/`_url`, `ru_listbackups`, the `backup_loaded` event. (M)
 2. Pauses: tactical vs technical, `.tac` timeouts through the built-in `timeout_*_start`, per-team limits and duration (`ru_max_pauses_per_team`, `ru_pause_duration`), `ru_both_teams_unpause_required`, correct `is_tactical`/`pause_time`. (M)
-3. Full player stat set (§8), including KAST, ADR inputs and utility damage, plus a stats snapshot and rollback on restore. (M)
+3. ~~Full player stat set (§8), including KAST, ADR inputs and utility damage, plus a stats snapshot and rollback on restore.~~ Done; crash persistence of the stats is open (§8). (M)
 4. Match report push/pull (`ru_report_endpoint`, `ru_match_report`) for the live match page. (M)
 5. `ru_addplayer`/`ru_removeplayer` (roster substitutions from the web UI). (S)
 6. In-game team names (`mp_teamname_1/2`), and `css_switch`/`css_asay`/`css_map`/`reload_admins`/`css_prac` aliases for the web admin buttons. (S)

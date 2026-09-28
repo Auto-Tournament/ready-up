@@ -64,9 +64,11 @@ struct PendingRound {
   bool start = false;
   int ct = INT_MIN, t = INT_MIN;  // round_start score keys, INT_MIN = absent
   int winner = 0, reason = 0;     // round_end
+  int roundTimeMs = 0;            // round_end: since round_freeze_end (0 = not seen)
 };
 std::mutex g_pendingMu;
 std::deque<PendingRound> g_pending;
+double g_freezeEndAt = 0.0;  // host::NowSeconds() of this round's round_freeze_end (g_pendingMu)
 
 std::atomic<int> g_eventsLive{0};
 
@@ -323,12 +325,10 @@ std::optional<int> FindRosterSlot(uint64_t steamid64) {
   return std::nullopt;
 }
 
-void EmitRoundEndLocked(int csWinnerTeamNum, int reason) {
-  auto ctxOpt = WebhookGetMatchContext();
-  if (!ctxOpt) return;
-  const auto& ctx = *ctxOpt;
-  const auto ms = MatchStateGet();
-
+// round_end in the MatchZy shape with the scoreboard subset (kills, deaths, assists, HS kills,
+// damage, MVPs, score) of every roster player: only when the stats model is not live.
+void EmitLegacyRoundEndLocked(const WebhookMatchContext& ctx, const MatchStateSnapshot& ms, int csWinnerTeamNum,
+                              int reason) {
   auto bestNameForSteam = [&](uint64_t steamid64) -> std::string {
     if (steamid64 == 0) return {};
     auto it = g_stats.find(steamid64);
@@ -397,6 +397,34 @@ void EmitRoundEndLocked(int csWinnerTeamNum, int reason) {
   WebhookEmitRoundEndMatchzy(ms.map_number, ms.round_number > 0 ? ms.round_number : g_roundNumber,
                              /*round_time=*/0, reason, WinnerToTeamString(csWinnerTeamNum), ms.team1_score,
                              ms.team2_score, team1, team2);
+}
+
+void EmitRoundEndLocked(int csWinnerTeamNum, int reason, int roundTimeMs) {
+  auto ctxOpt = WebhookGetMatchContext();
+  if (!ctxOpt) return;
+  const auto& ctx = *ctxOpt;
+  const auto ms = MatchStateGet();
+
+  // The stats model closes the round first: round_end carries the totals including it. Its
+  // team1/team2 score comes from round winners through the current sides (right after halftime;
+  // the log-derived MatchState score is CT/T based), so the map end prefers it.
+  int mapScore1 = ms.team1_score;
+  int mapScore2 = ms.team2_score;
+  const bool statsLive = StatsOnRoundEndLocked(csWinnerTeamNum, reason, &mapScore1, &mapScore2);
+  stats::MapStats snap;
+  if (statsLive) {
+    {
+      std::lock_guard<std::recursive_mutex> slk(stats::Mutex());
+      snap = stats::Current().Snapshot();
+    }
+    // round_end in the AT shape (at_payloads.h): winner {side, team}, team1/team2 with the full
+    // per-player stat set (docs/PARITY.md §6, §8).
+    const auto series = ModesGetSeriesWins();
+    WebhookEmitRoundEndStats(ms.map_number, ms.round_number > 0 ? ms.round_number : g_roundNumber, roundTimeMs,
+                             reason, csWinnerTeamNum, snap, series.first, series.second);
+  } else {
+    EmitLegacyRoundEndLocked(ctx, ms, csWinnerTeamNum, reason);
+  }
 
   // Minimal snapshot for crash/restart recovery.
   persisted_match_state::PersistSnapshot(ms.map_number <= 0 ? 1 : ms.map_number,
@@ -413,23 +441,14 @@ void EmitRoundEndLocked(int csWinnerTeamNum, int reason) {
     backup_files::DiscoverAndPersistNewestBackupFileAsync(prefix);
   }
 
-  // End of map: prefer the stats model's team1/team2 score (engine round winners); fall back to
-  // the log-derived one.
-  int mapScore1 = ms.team1_score;
-  int mapScore2 = ms.team2_score;
-  const bool statsLive = StatsOnRoundEndLocked(csWinnerTeamNum, reason, &mapScore1, &mapScore2);
   if (statsLive && signals::Enabled()) {
     // event.round_end (docs/FLEET.md §8.1, §13): the round's own RoundSummary, queued before the
     // map result OnMatchRoundEnded may trigger.
     std::string rj;
     int roundNo = -1;
-    {
-      std::lock_guard<std::recursive_mutex> slk(stats::Mutex());
-      const stats::MapStats snap = stats::Current().Snapshot();
-      if (!snap.rounds.empty()) {
-        rj = stats::ToJson(snap.rounds.back());
-        roundNo = snap.rounds.back().round_number;
-      }
+    if (!snap.rounds.empty()) {
+      rj = stats::ToJson(snap.rounds.back());
+      roundNo = snap.rounds.back().round_number;
     }
     status::Json round;
     if (!rj.empty() && status::Json::Parse(rj, &round)) {
@@ -544,7 +563,7 @@ void OnRoundEndLocked(const PendingRound& ev) {
     }
     return;
   }
-  EmitRoundEndLocked(ev.winner, ev.reason);
+  EmitRoundEndLocked(ev.winner, ev.reason, ev.roundTimeMs);
 }
 
 void OnPlayerDeathLocked(const ru_game_event* ev) {
@@ -616,7 +635,11 @@ void OnGameEvent(void* /*user*/, const char* name, const ru_game_event* ev) {
   }
   if (std::strcmp(name, "round_start") == 0 || std::strcmp(name, "round_freeze_end") == 0) {
     MatchFeaturesOnGameEvent(name);  // freeze time tracking for pauses (match_features.h)
-    if (name[6] == 'f') return;
+    if (name[6] == 'f') {
+      std::lock_guard<std::mutex> lk(g_pendingMu);
+      g_freezeEndAt = host::NowSeconds();  // round_time of round_end
+      return;
+    }
   }
   if (std::strcmp(name, "round_start") == 0 || std::strcmp(name, "round_end") == 0) {
     PendingRound p;
@@ -630,6 +653,12 @@ void OnGameEvent(void* /*user*/, const char* name, const ru_game_event* ev) {
       p.reason = a->ev_get_int(a->self, ev, "reason", 0);
     }
     std::lock_guard<std::mutex> lk(g_pendingMu);
+    if (p.start) {
+      g_freezeEndAt = 0.0;
+    } else if (g_freezeEndAt > 0.0) {
+      const double ms = (host::NowSeconds() - g_freezeEndAt) * 1000.0;
+      p.roundTimeMs = ms > 0.0 && ms < 3600000.0 ? static_cast<int>(ms) : 0;
+    }
     if (g_pending.size() < 64) g_pending.push_back(p);
     return;
   }

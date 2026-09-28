@@ -330,6 +330,8 @@ status::Json SettingsToJson(const Settings& s) {
   }
   j["upload_headers"] = std::move(h);
   j["upload_attempts"] = s.uploadAttempts;
+  j["header_key"] = s.headerKey;
+  j["header_value"] = s.headerValue;
   return j;
 }
 
@@ -347,6 +349,8 @@ Settings SettingsFromJson(const status::Json* j) {
     }
   }
   if (auto* v = j->Find("upload_attempts")) s.uploadAttempts = static_cast<int>(v->AsInt());
+  if (auto* v = j->Find("header_key")) s.headerKey = v->AsString();
+  if (auto* v = j->Find("header_value")) s.headerValue = v->AsString();
   return s;
 }
 
@@ -450,8 +454,7 @@ void RunUpload(UploadJob job) {
   tv.fileName = ev.fileName;
   tv.roundNumber = job.round;
   const std::string url = ExpandTokens(job.s.uploadUrl, tv);
-  std::vector<std::string> headers;
-  for (const auto& h : job.s.uploadHeaders) headers.push_back(h.first + ": " + ExpandTokens(h.second, tv));
+  const std::vector<std::string> headers = UploadHeaderLines(job.s, tv);
 
   ev.type = DemoEventType::UploadStarted;
   Emit(ev);
@@ -634,6 +637,22 @@ void ClearUploadHeaders() {
 void SetUploadAttempts(int attempts) {
   std::lock_guard<std::mutex> lk(St().mu);
   St().s.uploadAttempts = std::max(1, std::min(10, attempts));
+}
+
+bool SetUploadHeaderKey(const std::string& name) {
+  const std::string n = Trimmed(name);
+  if (n.find_first_of(":\r\n") != std::string::npos) return false;
+  std::lock_guard<std::mutex> lk(St().mu);
+  St().s.headerKey = n;
+  return true;
+}
+
+bool SetUploadHeaderValue(const std::string& value) {
+  const std::string v = Trimmed(value);
+  if (v.find_first_of("\r\n") != std::string::npos) return false;
+  std::lock_guard<std::mutex> lk(St().mu);
+  St().s.headerValue = v;
+  return true;
 }
 
 void ObserveTvDelay(int seconds) {
@@ -825,6 +844,21 @@ bool HandleConsoleLine(const std::vector<std::string>& args) {
     PrintLine("ru_demo_upload_headers_clear: done");
     return true;
   }
+  if (cmd == "ru_demo_upload_header_key" || cmd == "get5_demo_upload_header_key") {
+    if (hasVal && !SetUploadHeaderKey(val)) {
+      PrintLine("ru_demo_upload_header_key: a header name without ':' or line breaks");
+    }
+    const Settings s = Get();
+    Print("ru_demo_upload_header_key = \"%s\"%s\n", s.headerKey.c_str(),
+          !s.headerKey.empty() && s.headerValue.empty() ? " (no value yet: not sent)" : "");
+    return true;
+  }
+  if (cmd == "ru_demo_upload_header_value" || cmd == "get5_demo_upload_header_value") {
+    if (hasVal && !SetUploadHeaderValue(val)) PrintLine("ru_demo_upload_header_value: no line breaks");
+    const Settings s = Get();
+    PrintLine(s.headerValue.empty() ? "ru_demo_upload_header_value: (not set)" : "ru_demo_upload_header_value: set");
+    return true;
+  }
   if (cmd == "ru_demo_upload_attempts") {
     if (hasVal) SetUploadAttempts(std::atoi(val.c_str()));
     Print("ru_demo_upload_attempts = %d\n", Get().uploadAttempts);
@@ -845,8 +879,10 @@ std::vector<std::string> StatusLines() {
                 st.s.path + "\" name_format=\"" + st.s.nameFormat + "\"");
   std::string hdrs;
   for (const auto& h : st.s.uploadHeaders) hdrs += (hdrs.empty() ? "" : ",") + h.first;
+  if (!st.s.headerKey.empty() && !st.s.headerValue.empty()) hdrs += (hdrs.empty() ? "" : ",") + st.s.headerKey;
   out.push_back("demo: upload " + st.s.uploadMethod + " " + (st.s.uploadUrl.empty() ? "(no url)" : "url set") +
-                " attempts=" + std::to_string(st.s.uploadAttempts) + " headers=[" + hdrs + "]");
+                " attempts=" + std::to_string(st.s.uploadAttempts) + " headers=[" + hdrs +
+                "] + Auto-Tournament-* / Get5-* metadata");
   out.push_back(std::string("demo: recording=") + (st.rec.active ? ("yes " + st.rec.relPath) : "no") +
                 " tv_delay_seen=" + std::to_string(st.observedTvDelay));
   if (!st.lastUpload.empty()) out.push_back("demo: last upload: " + st.lastUpload);

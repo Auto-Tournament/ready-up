@@ -314,6 +314,9 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
     const Value* team = cfg->get(key);
     if (!IsObject(team)) return;
     if (auto n = AsString(team->get("name"))) nameOut = *n;
+    std::string& idOut = teamTag == WebhookTeam::Team1 ? ctx.team1_id : ctx.team2_id;
+    if (auto id = AsString(team->get("id"))) idOut = *id;
+    else if (auto idn = AsInt(team->get("id"))) idOut = std::to_string(*idn);
     if (auto f = AsString(team->get("flag"))) {
       (teamTag == WebhookTeam::Team1 ? ctx.team1_flag : ctx.team2_flag) = *f;
     }
