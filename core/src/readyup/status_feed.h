@@ -28,6 +28,11 @@ void StartAtLoad();
 void FrameTick(bool simulating);
 // RunSelftest() reports here (any thread).
 void NoteSelftest(const SelftestResult& r);
+// Runtime token (ru_api set_core_setting "status_http_token", from the platform's server.config
+// status_http.token): 16..200 printable bytes, no spaces, quotes or backslashes; "" = back to
+// readyup.cfg's / the generated one. status.json is rewritten. Game thread. False = refused.
+bool ValidOverrideToken(const std::string& token);
+bool SetTokenOverride(const std::string& token);
 // `ru status_http`: address, token hint, counters.
 std::vector<std::string> StatusLines();
 

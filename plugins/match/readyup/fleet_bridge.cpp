@@ -28,6 +28,7 @@
 #include "readyup/modes.h"
 #include "readyup/pause_state.h"
 #include "readyup/persisted_match_state.h"
+#include "readyup/persisted_settings.h"
 #include "readyup/players.h"
 #include "readyup/round_restore.h"
 #include "readyup/scrim_flow.h"
@@ -39,6 +40,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <mutex>
@@ -1523,9 +1525,10 @@ Result CmdSettingsSet(const Json& args, const std::string& by) {
   return r;
 }
 
-// server.config {rev, settings}: the fields that are server settings here (hostname_format,
-// scrim_knife -> knife_enabled_default, series_end_kick_delay.*); the rest belongs to other parts
-// (chat prefixes, warmup, demo, ...).
+// server.config {rev, settings} (FLEET.md §7.5): fleetstate::PlanServerConfig says what each field
+// sets. Server settings and console settings are saved in state.json like a console change (a
+// later console / chat change wins until the next server.config). offline_pause_minutes and
+// status_http.token are fleet.so's (fleet_plugin.cpp).
 void OnServerConfig(const ru_fleet_msg* m) {
   const Json p = ParsePayload(m);
   const Json* st = p.Find("settings");
@@ -1535,20 +1538,18 @@ void OnServerConfig(const ru_fleet_msg* m) {
   }
   const long long rev = Int(p, "rev", 0);
   const std::string by = "platform:server.config rev " + std::to_string(rev);
+  const fs::ServerConfigPlan plan = fs::PlanServerConfig(*st);
   int n = 0;
-  auto apply = [&](const std::string& name, const Json* v) {
-    std::string text, reply;
-    if (!v || !SettingText(*v, &text)) return;
-    if (match_settings::Set(name, text, by, &reply)) ++n;
-    else Print("fleet: server.config %s: %s\n", name.c_str(), reply.c_str());
-  };
-  apply("hostname_format", st->Find("hostname_format"));
-  apply("knife_enabled_default", st->Find("scrim_knife"));
-  if (const Json* k = st->Find("series_end_kick_delay"); k && k->IsObject()) {
-    apply("series_end_kick_delay_no_demo", k->Find("no_demo"));
-    apply("series_end_kick_delay_demo_no_upload", k->Find("demo_no_upload"));
-    apply("series_end_kick_delay_demo_upload", k->Find("demo_upload"));
+  for (const auto& kv : plan.settings) {
+    std::string reply;
+    if (match_settings::Set(kv.first, kv.second, by, &reply)) ++n;
+    else Print("fleet: server.config %s: %s\n", kv.first.c_str(), reply.c_str());
   }
+  for (const auto& kv : plan.console) {
+    if (persisted_settings::ApplyConsoleSetting(kv.first, kv.second)) ++n;
+    else Print("fleet: server.config %s: value refused\n", kv.first.c_str());
+  }
+  for (const auto& f : plan.skipped) Print("fleet: server.config %s: wrong type, skipped\n", f.c_str());
   Print("fleet: server.config rev %lld: %d setting(s) applied\n", rev, n);
 }
 
@@ -1788,13 +1789,36 @@ void OnDemo(const demo::DemoEvent& e) {
 
 // ---------------------------------------------------------------------------- public
 
+// Demo streaming (FLEET.md §12.2): the GOTV demo of a platform match goes to fleet.so, which
+// streams it while it records. Anything else (no fleet link, not enrolled, a local match, an
+// older fleet.so) returns false and the demo is handled as without a platform.
+static bool StreamDemoBegin(const demo::RecordingInfo& info, const std::string& absPath, const std::string&) {
+  const ru_fleet_v1* f = Fleet();
+  if (!FleetActive(f) || !FLEET_HAS(f, demo_stream_begin) || !f->demo_stream_begin) return false;
+  if (!g_asg.active || info.matchid != static_cast<long long>(fs::NumericMatchId(g_asg.match_id))) return false;
+  Json spec = Json::Object();
+  spec["match_id"] = g_asg.match_id;
+  spec["epoch"] = g_asg.epoch;
+  spec["map_number"] = info.mapNumber;
+  spec["path"] = absPath;
+  spec["started_at"] = static_cast<long long>(std::time(nullptr)) * 1000;
+  return f->demo_stream_begin(spec.Dump().c_str()) == 1;
+}
+
+static void StreamDemoEnd(const std::string& absPath) {
+  const ru_fleet_v1* f = Fleet();
+  if (f && FLEET_HAS(f, demo_stream_end) && f->demo_stream_end) (void)f->demo_stream_end(absPath.c_str());
+}
+
 void Install(const ru_api* api) {
   g_api = api;
   AddMatchFlowListener(&OnFlow);
   demo::AddListener(&OnDemo);
+  demo::SetStreamHooks(demo::StreamHooks{&StreamDemoBegin, &StreamDemoEnd});
 }
 
 void Uninstall() {
+  demo::SetStreamHooks(demo::StreamHooks{});
   const ru_fleet_v1* f = Fleet();
   if (f && f->instance_id() == g_fleetInstance) {
     for (uint64_t id : g_handlerIds) f->unregister_handler(id);

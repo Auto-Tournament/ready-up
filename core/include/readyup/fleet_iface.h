@@ -29,6 +29,9 @@
  * Local pseudo-messages (never on the wire) reach handlers the same way:
  *   "local.connection"      {"state":"online"|"offline"|"rejected"|..., "since":<unix ms>}
  *   "local.offline_timeout" {"offline_s":<n>, "threshold_s":<n>}  once per offline period (D12)
+ *
+ * fleet.so handles "demo.ack" (demo streaming) and part of "server.config" (offline_pause_minutes,
+ * status_http.token) itself; other plugins still get server.config.
  */
 #include <stdint.h>
 
@@ -146,6 +149,20 @@ typedef struct ru_fleet_v1 {
    * -1), so the platform sends admins.set only when its rev differs. 1 = stored, 0 = invalid.
    */
   int (*set_admins_rev)(int64_t rev);
+  /* ---- appended (demo streaming, FLEET.md §12.2) ---- */
+  /*
+   * Game thread. Stream a GOTV demo to the platform while it records: `spec_json` is
+   * {"match_id": str, "epoch": int, "map_number": int, "path": "/abs/path/x.dem", "started_at": unix ms}.
+   * fleet.so tails the file, sends it over the link at the lowest priority, resumes from the
+   * platform's ack after any reconnect / reload / restart, and deletes the local file only after
+   * the platform confirmed the whole file ([fleet] demo_keep_hours later; 0 = never). 1 = fleet.so
+   * streams it (do not HTTP-upload it); 0 = not streamed (standalone, not enrolled, bad spec): keep
+   * doing what you do without a platform. Never blocks.
+   */
+  int (*demo_stream_begin)(const char* spec_json);
+  /* Game thread. The recording of `path` stopped (tv_stoprecord queued after the GOTV flush):
+   * fleet.so sends the rest once the file stops growing, then demo.end. 1 = a known stream. */
+  int (*demo_stream_end)(const char* path);
   /* v1.x: members are appended here. */
 } ru_fleet_v1;
 

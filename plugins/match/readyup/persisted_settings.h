@@ -28,5 +28,10 @@ void CaptureDefaults();
 // stores run's return value in *consumed.
 bool ConsoleSetting(const std::string& line, bool (*run)(const std::string& line), bool* consumed);
 
+// Fleet server.config: sets console setting `key` (the command name, e.g. "ru_demo_path") to
+// `value` through its setter (no console parsing, so HTML with quotes is fine) and saves it like
+// a console change. False for an unknown key or a value the setting refuses.
+bool ApplyConsoleSetting(const std::string& key, const std::string& value);
+
 }  // namespace readyup::persisted_settings
 

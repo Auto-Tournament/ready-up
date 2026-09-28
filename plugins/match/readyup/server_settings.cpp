@@ -50,6 +50,12 @@ const std::vector<SettingInfo>& Table() {
        "kick non-admins while no match is loaded (not in practice)"},
       {"whitelist_enabled_default", Kind::Bool, "1", 0, 1, nullptr, ".whitelist",
        "only the roster, spectators and admins may join a loaded match"},
+      {"scrim_when_idle", Kind::Bool, "1", 0, 1, nullptr, nullptr,
+       "players joining an idle server start a scrim warmup (0: idle until .ru mode scrim or a match)"},
+      {"chat_prefix", Kind::Str, "", 0, 64, nullptr, nullptr,
+       "Ready Up's chat prefix, <Color> tokens (empty = readyup.cfg chat_prefix)"},
+      {"admin_chat_prefix", Kind::Str, "", 0, 64, "admin_prefix", nullptr,
+       "chat name prefix of admins, <Color> tokens (empty = [Admin])"},
   };
   return k;
 }

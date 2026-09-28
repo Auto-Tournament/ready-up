@@ -226,6 +226,9 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
 
   // Wingman (wingman.h) and simulation (simulation_rules.h).
   if (auto w = parseBool(cfg->get("wingman"))) ctx.wingman = *w;
+  // Demo recording / upload for this match (demo_recorder.h); absent = the server's settings.
+  if (auto d = parseBool(cfg->get("demo_record"))) ctx.demo_record = *d ? 1 : 0;
+  if (auto d = parseBool(cfg->get("demo_upload"))) ctx.demo_upload = *d ? 1 : 0;
   if (auto sm = parseBool(cfg->get("simulation"))) ctx.simulation = *sm;
   if (const Value* ts = cfg->get("simulation_timescale")) {
     if (ts->type == Value::Type::Number) {

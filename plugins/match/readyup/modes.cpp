@@ -915,6 +915,8 @@ static void StartDemoForMapLocked(State& st, int mapNumber, const std::string& m
   }
   info.team1 = ctx.team1_name;
   info.team2 = ctx.team2_name;
+  info.record = ctx.demo_record;
+  info.upload = ctx.demo_upload;
   if (demo::StartRecording(info)) {
     st.demoRecording = true;
     st.demoMapNumber = mapNumber;

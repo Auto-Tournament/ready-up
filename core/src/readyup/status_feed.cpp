@@ -52,6 +52,7 @@ std::atomic<bool> g_started{false};
 std::shared_ptr<status::Hub> g_hub;
 status::StatusServer* g_server = nullptr;
 std::string g_bind, g_token, g_discoveryPath, g_hostname, g_startError;
+std::string g_baseToken;  // readyup.cfg's / the generated one (SetTokenOverride("") goes back to it)
 int g_gamePort = 0, g_statusPort = 0;
 long long g_startedAtMs = 0;
 
@@ -374,6 +375,7 @@ void StartAtLoad() {
     if (v > 0 && v < 65536) g_statusPort = static_cast<int>(v);
   }
   g_token = LoadOrCreateToken(cfg.status_http_token, g_discoveryPath);
+  g_baseToken = g_token;
 
   g_hub = std::make_shared<status::Hub>(256);
   status::ServerConfig sc;
@@ -470,6 +472,28 @@ void FrameTick(bool simulating) {
   if (now - g_lastBuild < kBuildInterval) return;
   g_lastBuild = now;
   Build();
+}
+
+bool ValidOverrideToken(const std::string& t) {
+  if (t.empty()) return true;
+  if (t.size() < 16 || t.size() > 200) return false;
+  for (unsigned char c : t) {
+    if (c <= 0x20 || c >= 0x7f || c == '"' || c == '\\' || c == '\'') return false;
+  }
+  return true;
+}
+
+bool SetTokenOverride(const std::string& token) {
+  if (!ValidOverrideToken(token)) return false;
+  if (!g_server || !g_server->Running()) return true;  // endpoint off: nothing to change
+  const std::string next = token.empty() ? g_baseToken : token;
+  if (next == g_token) return true;
+  g_token = next;
+  g_server->SetToken(next);
+  std::string werr;
+  if (!WriteDiscovery(&werr)) Print("status: could not write %s: %s\n", g_discoveryPath.c_str(), werr.c_str());
+  Print("status: token %s (platform server.config)\n", token.empty() ? "back to readyup.cfg / generated" : "replaced");
+  return true;
 }
 
 std::vector<std::string> StatusLines() {

@@ -150,6 +150,10 @@ struct WebhookMatchContext {
   std::unordered_map<uint64_t, std::string> roster_names;
   // `wingman: true`: 2v2 on CS2's wingman mode (wingman.h).
   bool wingman = false;
+  // `demo_record` / `demo_upload` (fleet match.assign rules.demo.record / .upload): -1 = the
+  // server's demo settings (demo_recorder.h), 0 = off, 1 = on for this match.
+  int demo_record = -1;
+  int demo_upload = -1;
   // `simulation: true`: bots play the match (simulation.h); `simulation_timescale` (0.1 .. 4)
   // is host_timescale while a map is live.
   bool simulation = false;

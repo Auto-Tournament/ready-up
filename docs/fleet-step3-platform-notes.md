@@ -111,7 +111,7 @@ Table `match_live_state (match_id, epoch, server_id, live_rev, config_rev, state
 | `event.series_end` | `series.ended` (`forced: true` = admin `end_match`) |
 | `event.rounds_voided {from_round, reason}` | drop stored round stats with `round >= from_round` for that map |
 | `event.match_restored` | failover / restore confirmation |
-| `event.demo` | turnover (`utils/serverTurnover.ts`); upload itself is step 4 |
+| `event.demo` | turnover (`utils/serverTurnover.ts`); the demo itself streams over the link (`demo.*`, FLEET.md §12.2) |
 | `event.forfeit` / `event.gg` | admin notification / result proposal |
 | `event.admin_called {call_id, player, message, called_at}` | a player typed `.admin [message]`: notify admins, resolve on the platform (same fields as the `admin_called` webhook, docs/ADMINS.md) |
 | `event.backup` | backup store (section 7) |
@@ -154,7 +154,7 @@ Match commands (`pause`, `unpause`, `force_ready`, `start`, `restore_round`, `re
 ## 8. Not in Ready Up's step 3 (later steps)
 
 Failover detection and the admin's choice (§11.1, §11.2; the server side of `resume` is done,
-section 11), chunked demo upload (step 4; `event.demo` already flows), `server.config`, `server.drain`, `hello.state` epoch check → `match.unassign {superseded}` (the server
+section 11), the demo stream receiver (FLEET.md §12.2, schemas `messages/demo.{begin,chunk,end,ack}.json`: store chunks at their offset, answer `demo.ack` with the contiguous stored offset, verify size + sha256 on `demo.end`; `event.demo` already flows), `server.config`, `server.drain`, `hello.state` epoch check → `match.unassign {superseded}` (the server
 side is ready: `hello` carries the MatchState with `epoch`), refusing `ru match load` in fleet
 mode.
 

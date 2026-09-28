@@ -218,7 +218,7 @@ Json Build(const std::vector<std::string>& pendingEvents, size_t firstEvent) {
 
   j["modes"] = ModesSnapshotJson();
   Json scrim = Json::Object();
-  scrim["auto"] = ScrimAutoEnabled();
+  scrim["auto"] = ScrimAutoToggle();
   scrim["last_map"] = ScrimLastMap();
   j["scrim"] = std::move(scrim);
 

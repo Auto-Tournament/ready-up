@@ -436,6 +436,12 @@ void ScrimSetAutoEnabled(bool enabled) {
 bool ScrimAutoEnabled() {
   auto& f = F();
   std::lock_guard<std::recursive_mutex> lk(f.mu);
+  return f.autoEnabled && settings::Bool("scrim_when_idle");
+}
+
+bool ScrimAutoToggle() {
+  auto& f = F();
+  std::lock_guard<std::recursive_mutex> lk(f.mu);
   return f.autoEnabled;
 }
 
@@ -502,7 +508,10 @@ void ScrimTick() {
   if (!ctx) {
     f.noHumansSince = {};
     const bool botsOnly = BotsOnlyScrim(c);
-    if (mode == ReadyUpMode::Idle && f.autoEnabled && (c.total > 0 || botsOnly)) {
+    // scrim_when_idle (server setting, fleet server.config): off = idle stays idle until an admin
+    // runs `.ru mode scrim` or a match is loaded.
+    if (mode == ReadyUpMode::Idle && f.autoEnabled && settings::Bool("scrim_when_idle") &&
+        (c.total > 0 || botsOnly)) {
       if (SetModeScrimWarmup()) {
         if (botsOnly) {
           Print("dev_bots_scrim: bots-only scrim warmup (CT %d bot(s), T %d bot(s), no humans).\n", c.devBotsCt,

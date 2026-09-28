@@ -199,6 +199,12 @@ they disappear on unload.
 
 `license` joins the reserved core `ru` subcommands.
 
+### v1.10 (implemented)
+
+| Member | Thread | Purpose |
+|---|---|---|
+| `set_core_setting(self, key, value)` | game | Runtime value of a core readyup.cfg setting that a platform pushes (FLEET.md §7.5 `server.config`): `chat_prefix` (`<Color>` tokens, max 64 bytes) and `status_http_token` (16..200 printable bytes; `status.json` is rewritten). Wins over readyup.cfg until cleared with `""`; not saved by the core (the plugin that set it restores it: match for `chat_prefix`, fleet for the token). Never logs the value |
+
 ### ABI rules
 
 1. **Plain C across the boundary.** No C++ classes, references, STL, `std::string` or

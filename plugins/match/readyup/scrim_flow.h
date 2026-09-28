@@ -65,7 +65,11 @@ void ScrimTick();
 
 // `.ru mode idle` -> false, `.ru mode scrim` / map change -> true.
 void ScrimSetAutoEnabled(bool enabled);
+// The toggle above and the server setting scrim_when_idle (server_settings.h): both on = players
+// joining an idle server start a scrim warmup.
 bool ScrimAutoEnabled();
+// The toggle alone (reload state).
+bool ScrimAutoToggle();
 
 // Seconds left on the all-ready countdown, or -1 when none is running.
 int ScrimCountdownSecondsLeft();

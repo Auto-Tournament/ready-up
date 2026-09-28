@@ -37,7 +37,11 @@ static void TestTable() {
     CHECK(st::ConsoleName(s) == std::string("ru_") + s.name);
     CHECK(st::Find(st::ConsoleName(s)) == &s && st::Find(s.name) == &s);
   }
-  CHECK(st::Table().size() == 9);
+  CHECK(st::Table().size() == 12);
+  // Fleet server.config fields (docs/FLEET.md §7.5) that are server settings.
+  CHECK(std::string(st::Find("scrim_when_idle")->builtin) == "1");
+  CHECK(st::Find("chat_prefix") && st::Find("chat_prefix")->kind == st::Kind::Str);
+  CHECK(st::Find("admin_chat_prefix") && std::string(st::Find("admin_chat_prefix")->cfgKey) == "admin_prefix");
   CHECK(st::Find("RU_Playout_Enabled_Default") != nullptr);
   CHECK(st::Find("playout") == nullptr && st::Find("") == nullptr);
   CHECK(st::FindChat(".playout") == st::Find("playout_enabled_default"));
