@@ -9,20 +9,20 @@
   "commit": "886648a67697e502a2f04e35a8226f022b71fbed"
  },
  "run": {
-  "id": "36447438136",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/36447438136",
-  "trigger": "surface_change",
-  "stage": "static",
-  "state": "warn",
-  "started_at": "2026-09-28T15:57:07Z",
-  "finished_at": "2026-09-28T15:58:21Z"
+  "id": "36447662303",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/36447662303",
+  "trigger": "build_change",
+  "stage": "selftest",
+  "state": "fail",
+  "started_at": "2026-09-28T15:58:53Z",
+  "finished_at": "2026-09-28T16:03:47Z"
  },
- "overall": "warn",
+ "overall": "fail",
  "components": [
   {
    "id": "core",
    "name": "Core",
-   "status": "pass",
+   "status": "warn",
    "checks": [
     {
      "kind": "signature",
@@ -61,17 +61,21 @@
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
-     "failures": []
+     "status": "warn",
+     "passed": 77,
+     "total": 80,
+     "failures": [
+      "schema CCSPlayerController::m_iAssists: not found [stats (else from events)]",
+      "schema CCSPlayerController::m_iDeaths: not found [stats (else from events)]",
+      "schema CCSPlayerController::m_iKills: not found [stats (else from events)]"
+     ]
     }
    ]
   },
   {
    "id": "addons",
    "name": "Addons",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -103,10 +107,12 @@
     },
     {
      "kind": "selftest",
-     "status": "pending",
+     "status": "fail",
      "passed": 0,
-     "total": 0,
-     "failures": []
+     "total": 1,
+     "failures": [
+      "not loaded (not in the plugin host's list)"
+     ]
     }
    ]
   },
@@ -152,15 +158,15 @@
     },
     {
      "kind": "schema",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 33,
      "total": 33,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 4,
      "total": 4,
      "failures": []
     },
@@ -176,7 +182,7 @@
   {
    "id": "match",
    "name": "Match",
-   "status": "pass",
+   "status": "warn",
    "checks": [
     {
      "kind": "signature",
@@ -215,23 +221,28 @@
     },
     {
      "kind": "schema",
-     "status": "pending",
-     "passed": 0,
+     "status": "warn",
+     "passed": 11,
      "total": 15,
-     "failures": []
+     "failures": [
+      "CCSPlayerController.m_iAssists: not found",
+      "CCSPlayerController.m_iDeaths: not found",
+      "CCSPlayerController.m_iHeadshotKills|CCSPlayerController.m_iHeadShotKills|CCSPlayerController.m_iMatchStats_HeadshotKills: not found",
+      "CCSPlayerController.m_iKills: not found"
+     ]
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 13,
      "total": 13,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     },
     {
@@ -285,23 +296,23 @@
     },
     {
      "kind": "schema",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 11,
      "total": 11,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 4,
      "total": 4,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     }
    ]
@@ -383,23 +394,23 @@
     },
     {
      "kind": "schema",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 15,
      "total": 15,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 4,
      "total": 4,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     }
    ]
@@ -481,8 +492,8 @@
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
      "failures": []
     },
@@ -538,5 +549,5 @@
    ]
   }
  ],
- "checked_at": "2026-09-28T15:58:21Z"
+ "checked_at": "2026-09-28T16:03:47Z"
 }
