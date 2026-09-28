@@ -37,6 +37,15 @@
 //   ru_demo_upload_header_value "<value>"   its value ("" clears it); sent once both are set
 //   ru_demo_upload_attempts <1-10>         default 3
 //   ru_demo_status                         print settings, recording and the last upload
+//
+// Fleet mode (docs/FLEET.md §12.2): a demo of a platform-assigned match is streamed to the
+// platform over the fleet link while it records (fleet.so tails the file; fleet_bridge.cpp
+// installs the StreamHooks below). A streamed demo is never HTTP-uploaded. Everything else is
+// unchanged: without a fleet link (or for local matches) demos are recorded, kept and uploaded
+// exactly as above, and nothing here ever deletes a demo (fleet.so deletes only files the
+// platform confirmed it stored in full, after [fleet] demo_keep_hours).
+// Per match: match.assign rules.demo.record / rules.demo.upload (RecordingInfo::record / upload)
+// win over ru_demo_recording_enabled and the upload / stream for that match.
 // `tv_delay N` typed on the console is observed (not consumed) for the flush timing.
 
 #include "readyup/status_snapshot.h"
@@ -92,7 +101,27 @@ struct RecordingInfo {
   std::string mapName;
   std::string team1;
   std::string team2;
+  // The match's own rules.demo (fleet match.assign): -1 = the server's settings, 0 = off, 1 = on.
+  // record: wins over ru_demo_recording_enabled. upload: 0 = no HTTP upload and no stream.
+  int record = -1;
+  int upload = -1;
 };
+
+// Streaming to the platform (FLEET.md §12.2), installed by fleet_bridge.cpp. Game thread.
+//   begin(info, absPath, fileName): a recording started; true = fleet.so streams this file, so
+//                                   it is not HTTP-uploaded (never called when info.upload == 0).
+//   end(absPath):                   the GOTV flush is over and tv_stoprecord is queued.
+struct StreamHooks {
+  std::function<bool(const RecordingInfo& info, const std::string& absPath, const std::string& fileName)> begin;
+  std::function<void(const std::string& absPath)> end;
+};
+void SetStreamHooks(StreamHooks hooks);
+// The recording in progress is streamed to the platform.
+bool CurrentRecordingStreamed();
+
+// Pure (tested): whether a map's demo is HTTP-uploaded: a URL is set and the match did not turn
+// uploads off (matchUpload: -1 = the server's settings, 0 = off, 1 = on).
+bool UploadWanted(const Settings& s, int matchUpload);
 
 // Game thread. Returns false when recording is disabled or commands could not be queued.
 bool StartRecording(const RecordingInfo& info);

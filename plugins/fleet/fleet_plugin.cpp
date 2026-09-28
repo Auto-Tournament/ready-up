@@ -11,11 +11,22 @@
 //   insecure_dev=0                       1 allows http:// / ws:// to loopback and RFC 1918 hosts
 //   ca_file=                             extra CA bundle (private CA)
 //   pin_sha256=                          optional SPKI pin (base64 sha256)
-//   offline_pause_minutes=3              offline timer (D12); 0 disables it
+//   offline_pause_minutes=3              offline timer (D12); 0 disables it (the platform's
+//                                        server.config offline_pause_minutes wins while it sets it)
 //   spool_max_msgs=50000  spool_max_mb=64
+//   demo_keep_hours=24                   streamed demos: delete the local .dem this long after the
+//                                        platform confirmed the whole file; 0 = keep them
+//   demo_chunk_kb=128  demo_window_kb=1024   demo chunk size (4..512) and bytes in flight
 //   enabled=1
 //
-// Files (csgo/readyup/plugins/fleet/): install_id, credentials.json (0600), spool/.
+// Demo streaming (FLEET.md §12.2, fleet_demo.h): the match plugin hands over the GOTV demos of
+// platform matches (demo_stream_begin / _end); a streamer thread tails them and sends demo.chunk
+// on the client's lowest-priority lane, resuming from the platform's demo.ack.
+//
+// Files (csgo/readyup/plugins/fleet/): install_id, credentials.json (0600), spool/, demos.json
+// (0600: the demo streams, so a reload or restart resumes them),
+// server-config.json (0600: server.config offline_pause_minutes and status_http.token, the two
+// fields fleet.so applies itself; the match plugin applies the rest).
 //
 // Commands: `ru fleet status|enroll [url] <code|key>|reconnect` (console / RCON; also plain
 // `fleet ...`), `.fleet status|reconnect` / `.ru fleet ...` (admins, chat).
@@ -25,11 +36,15 @@
 #include "readyup/selftest_iface.h"
 
 #include "fleet_client.h"
+#include "fleet_demo.h"
+#include "fleet_json.h"
 
 #include <unistd.h>
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdarg>
 #include <cstdio>
@@ -39,6 +54,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #ifndef FLEET_VERSION
@@ -66,8 +82,13 @@ struct Settings {
   int offlinePauseMinutes = 3;
   size_t spoolMaxMsgs = 50000;
   uint64_t spoolMaxBytes = 64ull << 20;
+  int demoKeepHours = 24;
+  int demoChunkKb = 128;
+  int demoWindowKb = 1024;
 };
 Settings g_set;
+int g_cfgOfflinePauseMinutes = 3;  // readyup.cfg's; g_set holds the effective value
+fleet::ServerConfigLocal g_serverCfg;  // game thread
 std::string g_dataDir;
 fleet::HelloInfo g_hello;  // game thread
 int64_t g_adminsRev = -1;  // game thread: set_admins_rev
@@ -147,8 +168,12 @@ void LoadSettings() {
   s.caFile = Cfg({"ca_file", "fleet_ca_file"});
   s.pin = Cfg({"pin_sha256", "fleet_pin_sha256"});
   s.offlinePauseMinutes = static_cast<int>(CfgInt({"offline_pause_minutes", "fleet_offline_pause_minutes"}, 3));
+  g_cfgOfflinePauseMinutes = s.offlinePauseMinutes;
   s.spoolMaxMsgs = static_cast<size_t>(std::max(100L, CfgInt({"spool_max_msgs"}, 50000)));
   s.spoolMaxBytes = static_cast<uint64_t>(std::max(1L, CfgInt({"spool_max_mb"}, 64))) << 20;
+  s.demoKeepHours = static_cast<int>(std::max(0L, CfgInt({"demo_keep_hours", "fleet_demo_keep_hours"}, 24)));
+  s.demoChunkKb = static_cast<int>(std::max(4L, std::min(512L, CfgInt({"demo_chunk_kb"}, 128))));
+  s.demoWindowKb = static_cast<int>(std::max(64L, std::min(65536L, CfgInt({"demo_window_kb"}, 1024))));
   g_set = s;
 }
 
@@ -263,8 +288,166 @@ void BuildHello() {
 
 // ---- handlers ------------------------------------------------------------------------------
 
+// ---- demo streaming (fleet_demo.h) ------------------------------------------------------------
+
+std::shared_ptr<fleet::demo::Streams> g_demos;  // set while a client runs; guarded by g_mu
+std::thread g_demoThread;
+std::mutex g_demoMu;
+std::condition_variable g_demoCv;
+bool g_demoStop = false;
+bool g_demoKick = false;
+
+std::shared_ptr<fleet::demo::Streams> Demos() {
+  std::lock_guard<std::mutex> lk(g_mu);
+  return g_demos;
+}
+
+void KickDemos() {
+  {
+    std::lock_guard<std::mutex> lk(g_demoMu);
+    g_demoKick = true;
+  }
+  g_demoCv.notify_all();
+}
+
+// The streamer thread: file I/O and sends, never on the game thread.
+void DemoLoop(std::shared_ptr<fleet::demo::Streams> demos) {
+  demos->Load(fleet::NowMs());
+  fleet::demo::Link link;
+  link.online = [] {
+    auto c = Client();
+    return c && c->Status().state == LinkState::Online;
+  };
+  link.session = [] {
+    auto c = Client();
+    return c ? c->Status().sessions : 0u;
+  };
+  link.send = [](const std::string& type, const std::string& payload, int64_t epoch) {
+    auto c = Client();
+    std::string err;
+    return c && c->Send(type, payload, epoch, false, &err);
+  };
+  link.sendBulk = [](const std::string& type, const std::string& payload, int64_t epoch) {
+    auto c = Client();
+    std::string err;
+    return c && c->SendBulk(type, payload, epoch, &err);
+  };
+  for (;;) {
+    {
+      std::unique_lock<std::mutex> lk(g_demoMu);
+      g_demoCv.wait_for(lk, std::chrono::milliseconds(250), [] { return g_demoStop || g_demoKick; });
+      if (g_demoStop) break;
+      g_demoKick = false;
+    }
+    try {
+      demos->Tick(link, fleet::NowMs());
+    } catch (...) {
+      Log(RU_LOG_ERROR, "fleet: demo streamer: unexpected error");
+    }
+  }
+  demos->Tick(fleet::demo::Link{}, fleet::NowMs());  // applies what is queued, saves (no sends)
+}
+
+void StartDemos() {
+  if (g_demoThread.joinable()) return;  // already streaming for this client
+  fleet::demo::Config dc;
+  dc.chunkBytes = static_cast<int64_t>(g_set.demoChunkKb) * 1024;
+  dc.windowBytes = static_cast<int64_t>(g_set.demoWindowKb) * 1024;
+  dc.keepAfterStoredMs = static_cast<int64_t>(g_set.demoKeepHours) * 3600 * 1000;
+  const ru_api* api = g_api;
+  auto demos = std::make_shared<fleet::demo::Streams>(dc, g_dataDir.empty() ? std::string() : g_dataDir + "/demos.json",
+                                                      [api](int level, const std::string& msg) {
+                                                        if (level == 3 && !api->debug_enabled(api->self)) return;
+                                                        api->log(api->self, level == 3 ? RU_LOG_DEBUG : level, msg.c_str());
+                                                      });
+  {
+    std::lock_guard<std::mutex> lk(g_mu);
+    g_demos = demos;
+  }
+  {
+    std::lock_guard<std::mutex> lk(g_demoMu);
+    g_demoStop = false;
+    g_demoKick = false;
+  }
+  g_demoThread = std::thread(DemoLoop, demos);
+}
+
+void StopDemos() {
+  {
+    std::lock_guard<std::mutex> lk(g_demoMu);
+    g_demoStop = true;
+  }
+  g_demoCv.notify_all();
+  if (g_demoThread.joinable()) g_demoThread.join();
+  std::lock_guard<std::mutex> lk(g_mu);
+  g_demos.reset();
+}
+
+int IfDemoStreamBegin(const char* specJson) {
+  auto demos = Demos();
+  auto c = Client();
+  if (!demos || !c || !specJson || !c->Status().enrolled) return 0;
+  fleet::json::Value v;
+  if (!fleet::json::Parse(specJson, &v) || !v.IsObj()) return 0;
+  fleet::demo::Spec spec;
+  auto str = [&](const char* k) { return v.Get(k) ? v.Get(k)->AsStr() : std::string(); };
+  auto num = [&](const char* k, int64_t d) { return v.Get(k) ? v.Get(k)->AsInt(d) : d; };
+  spec.matchId = str("match_id");
+  spec.epoch = num("epoch", 0);
+  spec.mapNumber = static_cast<int>(num("map_number", 1));
+  spec.path = str("path");
+  spec.startedAtMs = num("started_at", fleet::NowMs());
+  const std::string id = demos->Begin(spec, fleet::NowMs());
+  if (id.empty()) return 0;
+  KickDemos();
+  return 1;
+}
+
+int IfDemoStreamEnd(const char* path) {
+  auto demos = Demos();
+  if (!demos || !path || !*path) return 0;
+  demos->End(path, fleet::NowMs());
+  KickDemos();
+  return 1;
+}
+
+// ---- server.config: the fields fleet.so applies itself (fleet_store.h ServerConfigLocal) ----
+
+// Game thread. The effective offline timer and the core's status token. `why` is logged.
+void ApplyServerConfigLocal(const char* why) {
+  g_set.offlinePauseMinutes =
+      g_serverCfg.offlinePauseMinutes >= 0 ? g_serverCfg.offlinePauseMinutes : g_cfgOfflinePauseMinutes;
+  const char* token = "not set";
+  if (g_api && RU_API_HAS(g_api, set_core_setting) && g_api->set_core_setting) {
+    if (g_api->set_core_setting(g_api->self, "status_http_token", g_serverCfg.statusToken.c_str())) {
+      token = g_serverCfg.statusToken.empty() ? "readyup.cfg / generated" : "from the platform";
+    } else {
+      token = "refused by the core";
+    }
+  } else if (!g_serverCfg.statusToken.empty()) {
+    token = "not applied (core too old: ru_api 1.10 needed)";
+  }
+  Log(RU_LOG_INFO, "fleet: server.config (%s): offline_pause_minutes=%d%s, status token %s", why,
+      g_set.offlinePauseMinutes, g_serverCfg.offlinePauseMinutes >= 0 ? " (platform)" : " (readyup.cfg)", token);
+}
+
+void OnServerConfig(const std::string& payload) {
+  fleet::ServerConfigLocal c;
+  std::string ignored;
+  if (!fleet::ParseServerConfigLocal(payload, &c, &ignored)) return;  // the match plugin logs it
+  if (!ignored.empty()) Log(RU_LOG_WARN, "fleet: server.config: ignored %s (out of range or wrong type)", ignored.c_str());
+  g_serverCfg = c;
+  std::string err;
+  if (!g_dataDir.empty() && !fleet::SaveServerConfigLocal(g_dataDir + "/server-config.json", c, &err)) {
+    Log(RU_LOG_WARN, "fleet: could not save server-config.json: %s", err.c_str());
+  }
+  ApplyServerConfigLocal("platform");
+}
+
 void UpdateHandledTypes() {
   std::set<std::string> types;
+  types.insert("server.config");  // fleet.so applies part of it itself (OnServerConfig)
+  types.insert("demo.ack");       // demo streaming (fleet_demo.h)
   bool all = false;
   for (const auto& h : g_handlers) {
     if (h.type == "*") all = true;
@@ -315,6 +498,13 @@ void DrainTask(void*) {
     m.ts = in.env.ts;
     m.ref = in.env.ref.c_str();
     m.payload_json = in.payloadJson.c_str();
+    if (in.env.type == "server.config") OnServerConfig(in.payloadJson);
+    if (in.env.type == "demo.ack") {
+      if (auto d = Demos()) {
+        d->OnAck(in.payloadJson);
+        KickDemos();
+      }
+    }
     Dispatch(in.env.type, m);
     if (in.reliable) c->MarkProcessed(in.env.seq);
   }
@@ -378,7 +568,9 @@ int IfGetStatus(ru_fleet_status* out) {
   full.spool_msgs = st.spoolMsgs;
   const int64_t ap = AutoPauseInMs(st);
   full.auto_pause_in_s = ap < 0 ? -1 : static_cast<int32_t>((ap + 999) / 1000);
-  full.update_blocked = 0;  // nothing the platform waits for yet (demo uploads come in step 4)
+  // A streamed demo the platform has not confirmed yet (the local file is still the only copy).
+  auto demos = Demos();
+  full.update_blocked = demos && demos->Unfinished() > 0 ? 1 : 0;
   CopyStr(full.server_id, sizeof(full.server_id), st.serverId);
   full.link_state = ToLinkState(st.state);
   full.sessions = st.sessions;
@@ -475,7 +667,7 @@ int IfSetAdminsRev(int64_t rev) {
 const ru_fleet_v1 g_iface = {
     sizeof(ru_fleet_v1), &IfGetStatus,       &IfInstanceId,        &IfConnectionState, &IfSendEvent,
     &IfRegisterHandler,  &IfUnregisterHandler, &IfPublishState,    &IfAddCapability,  &IfSendReply,
-    &IfSendSnapshot,     &IfSetAdminsRev,
+    &IfSendSnapshot,     &IfSetAdminsRev,       &IfDemoStreamBegin, &IfDemoStreamEnd,
 };
 
 // ---- selftest (any thread; see selftest_iface.h) -------------------------------------------
@@ -581,6 +773,7 @@ bool StartClient(const std::string& url) {
     Log(RU_LOG_ERROR, "fleet: cannot start: %s", err.c_str());
     return false;
   }
+  StartDemos();
   return true;
 }
 
@@ -639,6 +832,11 @@ void PrintStatus(void (*out)(void*, const std::string&), void* user, bool brief)
   for (const auto& h : g_handlers) handlers += (handlers.empty() ? "" : ", ") + h.type;
   out(user, "fleet: handlers: " + (handlers.empty() ? std::string("(none)") : handlers) +
                 "; capabilities: " + std::to_string(g_caps.size()));
+  if (auto demos = Demos()) {
+    const auto lines = demos->StatusLines();
+    if (lines.empty()) out(user, "fleet: demo streams: none");
+    for (const auto& l : lines) out(user, l);
+  }
 }
 
 void ConsoleOut(void*, const std::string& line) { g_api->log(g_api->self, RU_LOG_INFO, line.c_str()); }
@@ -808,6 +1006,11 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     g_dataDir = api->data_dir(api->self) ? api->data_dir(api->self) : "";
     while (g_dataDir.size() > 1 && g_dataDir.back() == '/') g_dataDir.pop_back();
     LoadSettings();
+    g_caps.push_back("demo.stream.v1");  // FLEET.md §12.2 (fleet_demo.h)
+    g_serverCfg = fleet::ServerConfigLocal{};
+    if (!g_dataDir.empty() && fleet::LoadServerConfigLocal(g_dataDir + "/server-config.json", &g_serverCfg)) {
+      ApplyServerConfigLocal("saved");
+    }
     BuildHello();
 
     api->register_console_command(api->self, "fleet", &OnConsole, nullptr);
@@ -850,6 +1053,7 @@ READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
       g_configured = false;
       g_startError.clear();
     }
+    StopDemos();       // joins the streamer (it saves the streams)
     if (c) c->Stop();  // joins the network thread (closes the socket with 1000)
     c.reset();
     g_handlers.clear();

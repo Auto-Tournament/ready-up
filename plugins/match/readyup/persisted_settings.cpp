@@ -256,6 +256,20 @@ void Restore() {
   }
 }
 
+bool ApplyConsoleSetting(const std::string& key, const std::string& value) {
+  size_t idx = 0;
+  const ConsoleEntry* e = EntryForCommand(key, &idx);
+  if (!e || key == "ru_demo_upload_header" || key == "ru_demo_upload_headers_clear") return false;
+  if (key == "ru_demo_path") {
+    std::string err;
+    if (!demo::SetPath(value, &err)) return false;
+  } else {
+    e->set(value);
+  }
+  SyncConsoleSetting(idx);
+  return true;
+}
+
 void CaptureDefaults() {
   std::lock_guard<std::mutex> lk(g_defaultsMu);
   g_defaults.clear();

@@ -64,6 +64,18 @@ Differences from the FLEET.md text, decided while implementing:
 - `mapName` also accepts `ws:<id>`; a name of digits / `ws:<id>` / `workshop/<id>[/name]` (or a
   `workshop_id`) is a Steam Workshop map (`host_workshop_map`).
 
+## Demo streaming: proposed here — the platform must adopt them
+
+**Status: proposed — platform must adopt.** FLEET.md §12.2: demos of platform matches stream over
+the link while they record (capability `demo.stream.v1`). Examples: `examples/v1/demo.*.json`.
+
+| File | Direction | Delivery | Answer |
+|---|---|---|---|
+| `messages/demo.begin.json` | server → platform | ephemeral (normal lane) | `demo.ack` (stored offset) |
+| `messages/demo.chunk.json` | server → platform | ephemeral (lowest-priority lane) | `demo.ack` (stored offset, or `gap`) |
+| `messages/demo.end.json` | server → platform | ephemeral (lowest-priority lane, resent every 10 s) | `demo.ack` (`complete: true` or `checksum`) |
+| `messages/demo.ack.json` | platform → server | ephemeral | |
+
 ## D13 (no Postgres): proposed here — the platform must adopt them
 
 **Status: proposed — platform must adopt.** Ready Up dropped Postgres (FLEET.md D13); in fleet mode

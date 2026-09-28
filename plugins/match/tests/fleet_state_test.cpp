@@ -258,6 +258,26 @@ static void TestAssign() {
     plain["rules"] = J(R"({"max_rounds": 24})");
     auto c6 = ParseWebhookMatchContextFromJson(fs::AssignToMatConfig("x", plain, nullptr).Dump(), &err);
     CHECK(c6 && !c6->wingman && !c6->simulation);
+    // rules.demo (demo_recorder.h): absent = the server's settings (-1).
+    CHECK(c6 && c6->demo_record == -1 && c6->demo_upload == -1);
+    CHECK(!fs::AssignToMatConfig("x", plain, nullptr).Find("config")->Find("demo_record"));
+  }
+  {
+    // rules.demo.record / .upload -> demo_record / demo_upload, per match.
+    Json dm = *p.Find("config");
+    dm["rules"] = J(R"({"max_rounds": 24, "demo": {"record": true, "upload": false}})");
+    const Json m = fs::AssignToMatConfig("x", dm, nullptr);
+    const Json& mc = *m.Find("config");
+    CHECK(mc.Find("demo_record") && mc.Find("demo_record")->AsBool());
+    CHECK(mc.Find("demo_upload") && !mc.Find("demo_upload")->AsBool());
+    auto c7 = ParseWebhookMatchContextFromJson(m.Dump(), &err);
+    CHECK(c7 && c7->demo_record == 1 && c7->demo_upload == 0);
+    dm["rules"] = J(R"({"max_rounds": 24, "demo": {"record": false}})");
+    auto c8 = ParseWebhookMatchContextFromJson(fs::AssignToMatConfig("x", dm, nullptr).Dump(), &err);
+    CHECK(c8 && c8->demo_record == 0 && c8->demo_upload == -1);
+    dm["rules"] = J(R"({"max_rounds": 24, "demo": {"record": "yes", "upload": 1}})");  // not booleans: ignored
+    auto c9 = ParseWebhookMatchContextFromJson(fs::AssignToMatConfig("x", dm, nullptr).Dump(), &err);
+    CHECK(c9 && c9->demo_record == -1 && c9->demo_upload == -1);
   }
 
   CHECK(fs::NumericMatchId("12345") == 12345);
@@ -774,6 +794,58 @@ static void TestServerControl() {
   CHECK(!fs::ParseWhitelistSet(J(R"({"enabled": true, "steamids": ["123"]})"), &enabled, &ids, &err));
 }
 
+// server.config settings -> server settings, console settings and the demo upload target.
+static void TestServerConfigPlan() {
+  const Json full = J(R"({
+    "chat_prefix": "<Green>[AT]<Default>", "admin_chat_prefix": "<Red>[Staff]<Default>",
+    "hostname_format": "{TEAM1} vs {TEAM2}",
+    "demo": {"path": "demos/", "name_format": "{MATCH_ID}_{MAP}"},
+    "series_end_kick_delay": {"no_demo": 5, "demo_no_upload": 10, "demo_upload": 60},
+    "offline_pause_minutes": 4, "scrim_when_idle": false, "scrim_knife": true,
+    "warmup": {"message_html": "<b>\"hi\"</b>", "respawn": true, "money": 16000},
+    "status_http": {"token": "0123456789abcdef0123"}
+  })");
+  const fs::ServerConfigPlan plan = fs::PlanServerConfig(full);
+  auto find = [](const std::vector<std::pair<std::string, std::string>>& v, const std::string& k) {
+    for (const auto& kv : v) {
+      if (kv.first == k) return kv.second;
+    }
+    return std::string("<absent>");
+  };
+  CHECK(plan.settings.size() == 8);
+  CHECK_STR(find(plan.settings, "hostname_format"), "{TEAM1} vs {TEAM2}");
+  CHECK_STR(find(plan.settings, "knife_enabled_default"), "1");
+  CHECK_STR(find(plan.settings, "scrim_when_idle"), "0");
+  CHECK_STR(find(plan.settings, "chat_prefix"), "<Green>[AT]<Default>");
+  CHECK_STR(find(plan.settings, "admin_chat_prefix"), "<Red>[Staff]<Default>");
+  CHECK_STR(find(plan.settings, "series_end_kick_delay_no_demo"), "5");
+  CHECK_STR(find(plan.settings, "series_end_kick_delay_demo_no_upload"), "10");
+  CHECK_STR(find(plan.settings, "series_end_kick_delay_demo_upload"), "60");
+  CHECK(plan.console.size() == 5);
+  CHECK_STR(find(plan.console, "ru_demo_path"), "demos/");
+  CHECK_STR(find(plan.console, "ru_demo_name_format"), "{MATCH_ID}_{MAP}");
+  CHECK_STR(find(plan.console, "ru_warmup_message_html"), "<b>\"hi\"</b>");
+  CHECK_STR(find(plan.console, "ru_warmup_respawn"), "1");
+  CHECK_STR(find(plan.console, "ru_warmup_startmoney"), "16000");
+  CHECK(plan.skipped.empty());
+  // fleet.so's fields are not the match plugin's.
+  CHECK_STR(find(plan.settings, "offline_pause_minutes"), "<absent>");
+  CHECK_STR(find(plan.console, "status_http_token"), "<absent>");
+
+  // Absent fields are left alone.
+  const fs::ServerConfigPlan some = fs::PlanServerConfig(J(R"({"scrim_knife": false, "demo": {"path": "x/"}})"));
+  CHECK(some.settings.size() == 1 && some.settings[0].first == "knife_enabled_default" && some.settings[0].second == "0");
+  CHECK(some.console.size() == 1 && some.console[0].first == "ru_demo_path");
+  CHECK(fs::PlanServerConfig(J("{}")).settings.empty());
+  CHECK(fs::PlanServerConfig(J("[]")).settings.empty());
+
+  // Wrong types are skipped and named.
+  const fs::ServerConfigPlan bad =
+      fs::PlanServerConfig(J(R"({"chat_prefix": ["x"], "warmup": {"money": 1.5}, "scrim_when_idle": null})"));
+  CHECK(bad.settings.empty() && bad.console.empty());
+  CHECK(bad.skipped.size() == 2);
+}
+
 int main() {
   TestLiveStream();
   TestFence();
@@ -786,6 +858,7 @@ int main() {
   TestMapNames();
   TestResume();
   TestServerControl();
+  TestServerConfigPlan();
   if (g_failures) {
     std::fprintf(stderr, "fleet_state_test: %d of %d checks FAILED\n", g_failures, g_checks);
     return 1;

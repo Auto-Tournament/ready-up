@@ -6,7 +6,7 @@
 # Without one the plugin is skipped with a warning; the unit tests and the mock platform still build.
 
 # Everything without network I/O: JSON, envelope, backoff, seq/ack, spool, credentials.
-add_library(readyup_fleet_core STATIC fleet_json.cpp fleet_proto.cpp fleet_spool.cpp fleet_store.cpp)
+add_library(readyup_fleet_core STATIC fleet_json.cpp fleet_proto.cpp fleet_spool.cpp fleet_store.cpp fleet_demo.cpp)
 set_target_properties(readyup_fleet_core PROPERTIES POSITION_INDEPENDENT_CODE ON
   CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
 target_include_directories(readyup_fleet_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -16,6 +16,11 @@ add_executable(fleet_unit_test tests/fleet_unit_test.cpp)
 target_link_libraries(fleet_unit_test PRIVATE readyup_fleet_core)
 target_compile_options(fleet_unit_test PRIVATE -Wall -Wextra)
 add_test(NAME fleet_unit COMMAND fleet_unit_test)
+# Demo streaming (fleet_demo.h, FLEET.md §12.2): tailer, ack / resume, backpressure, no network.
+add_executable(fleet_demo_test tests/fleet_demo_test.cpp)
+target_link_libraries(fleet_demo_test PRIVATE readyup_fleet_core)
+target_compile_options(fleet_demo_test PRIVATE -Wall -Wextra)
+add_test(NAME fleet_demo COMMAND fleet_demo_test)
 
 # Mock platform (enroll + WebSocket) for the integration test and for trying fleet.so by hand.
 add_library(readyup_fleet_mock STATIC tests/mock_platform.cpp)

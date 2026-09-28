@@ -40,6 +40,7 @@ struct Recording {
   std::string relPath;   // relative to csgo/, includes ".dem"
   std::string fileName;  // basename
   long long startedEpoch = 0;
+  bool streamed = false;  // fleet.so streams it (StreamHooks): no HTTP upload
 };
 
 struct UploadJob;
@@ -62,6 +63,7 @@ struct State {
   std::vector<Listener> listeners;
   PendingStop stop;
   std::vector<status::Json> interruptedUploads;  // UploadJob as JSON (unload stopped them)
+  StreamHooks hooks;
 };
 
 State& St() {
@@ -299,6 +301,8 @@ status::Json InfoToJson(const RecordingInfo& i) {
   j["map_name"] = i.mapName;
   j["team1"] = i.team1;
   j["team2"] = i.team2;
+  j["record"] = i.record;
+  j["upload"] = i.upload;
   return j;
 }
 
@@ -311,6 +315,8 @@ RecordingInfo InfoFromJson(const status::Json* j) {
   if (auto* v = j->Find("map_name")) i.mapName = v->AsString();
   if (auto* v = j->Find("team1")) i.team1 = v->AsString();
   if (auto* v = j->Find("team2")) i.team2 = v->AsString();
+  if (auto* v = j->Find("record")) i.record = static_cast<int>(v->AsInt());
+  if (auto* v = j->Find("upload")) i.upload = static_cast<int>(v->AsInt());
   return i;
 }
 
@@ -426,6 +432,10 @@ void RunUpload(UploadJob job) {
   ev.fileName = Basename(path);
   ev.path = path;
 
+  if (job.info.upload == 0) {
+    Print("demo: kept on disk (the match turned uploads off: rules.demo.upload false): %s\n", path.c_str());
+    return;
+  }
   if (job.s.uploadUrl.empty()) {
     Print("demo: kept on disk (no ru_demo_upload_url): %s\n", path.c_str());
     return;
@@ -516,6 +526,7 @@ status::Json SnapshotJson() {
   rec["rel_path"] = st.rec.relPath;
   rec["file_name"] = st.rec.fileName;
   rec["started_epoch"] = st.rec.startedEpoch;
+  rec["streamed"] = st.rec.streamed;
   j["recording"] = std::move(rec);
   j["last_upload"] = st.lastUpload;
   if (st.stop.active) {
@@ -548,6 +559,7 @@ void RestoreJson(const status::Json& j) {
       if (auto* v = r->Find("rel_path")) st.rec.relPath = v->AsString();
       if (auto* v = r->Find("file_name")) st.rec.fileName = v->AsString();
       if (auto* v = r->Find("started_epoch")) st.rec.startedEpoch = v->AsInt();
+      if (auto* v = r->Find("streamed")) st.rec.streamed = v->AsBool();
     }
     if (auto* v = j.Find("last_upload")) st.lastUpload = v->AsString();
     if (auto* s = j.Find("pending_stop")) {
@@ -655,6 +667,16 @@ bool SetUploadHeaderValue(const std::string& value) {
   return true;
 }
 
+void SetStreamHooks(StreamHooks hooks) {
+  std::lock_guard<std::mutex> lk(St().mu);
+  St().hooks = std::move(hooks);
+}
+
+bool CurrentRecordingStreamed() {
+  std::lock_guard<std::mutex> lk(St().mu);
+  return St().rec.active && St().rec.streamed;
+}
+
 void ObserveTvDelay(int seconds) {
   std::lock_guard<std::mutex> lk(St().mu);
   St().observedTvDelay = std::max(0, seconds);
@@ -682,7 +704,11 @@ bool StartRecording(const RecordingInfo& info) {
     s = St().s;
     if (St().rec.active) return true;
   }
-  if (!s.recordingEnabled) {
+  if (info.record == 0) {
+    PrintLine("demo: recording off for this match (rules.demo.record false)");
+    return false;
+  }
+  if (!s.recordingEnabled && info.record != 1) {
     PrintLine("demo: recording disabled (ru_demo_recording_enabled 0)");
     return false;
   }
@@ -703,9 +729,17 @@ bool StartRecording(const RecordingInfo& info) {
     PrintLine("demo: command buffer unavailable; recording not started");
     return false;
   }
+  // Fleet: stream it to the platform while it records (never for a match that turned uploads off).
+  StreamHooks hooks;
   {
     std::lock_guard<std::mutex> lk(St().mu);
-    St().rec = Recording{true, info, rel, name, NowEpoch()};
+    hooks = St().hooks;
+  }
+  const bool streamed = info.upload != 0 && hooks.begin && hooks.begin(info, CsgoDir() + "/" + rel, name);
+  if (streamed) Print("demo: %s is streamed to the platform over the fleet link\n", name.c_str());
+  {
+    std::lock_guard<std::mutex> lk(St().mu);
+    St().rec = Recording{true, info, rel, name, NowEpoch(), streamed};
   }
   DemoEvent e;
   e.type = DemoEventType::RecordingStarted;
@@ -741,6 +775,7 @@ bool StopAfterDelayAndUpload(double delaySeconds, int roundNumber, int team1Scor
 void ScheduleStop(double delaySeconds, const Recording& recIn, int roundNumber, int team1Score, int team2Score) {
   ScheduleOnGameThread(delaySeconds, [rec = recIn, roundNumber, team1Score, team2Score]() {
     Settings s;
+    StreamHooks hooks;
     {
       std::lock_guard<std::mutex> lk(St().mu);
       St().stop.active = false;
@@ -748,6 +783,7 @@ void ScheduleStop(double delaySeconds, const Recording& recIn, int roundNumber, 
       if (!St().rec.active || St().rec.relPath != rec.relPath) return;
       St().rec.active = false;
       s = St().s;
+      hooks = St().hooks;
     }
     (void)EnqueueServerCommand("tv_stoprecord");
     DemoEvent e;
@@ -757,6 +793,12 @@ void ScheduleStop(double delaySeconds, const Recording& recIn, int roundNumber, 
     e.fileName = rec.fileName;
     e.path = rec.relPath;
     Emit(e);
+    if (rec.streamed) {
+      // fleet.so sends the rest once the file stops growing; the platform has the demo when it
+      // confirms the whole file (FLEET.md §12.2). No HTTP upload.
+      if (hooks.end) hooks.end(CsgoDir() + "/" + rec.relPath);
+      return;
+    }
     UploadJob job;
     job.info = rec.info;
     job.round = roundNumber;
@@ -772,13 +814,17 @@ void ScheduleStop(double delaySeconds, const Recording& recIn, int roundNumber, 
 
 void StopNowWithoutUpload() {
   Recording rec;
+  StreamHooks hooks;
   {
     std::lock_guard<std::mutex> lk(St().mu);
     if (!St().rec.active) return;
     rec = St().rec;
     St().rec.active = false;
+    hooks = St().hooks;
   }
   (void)EnqueueServerCommand("tv_stoprecord");
+  // A streamed demo is finished as it is (the platform gets what was recorded).
+  if (rec.streamed && hooks.end) hooks.end(CsgoDir() + "/" + rec.relPath);
   DemoEvent e;
   e.type = DemoEventType::RecordingStopped;
   e.matchid = rec.info.matchid;
@@ -884,6 +930,7 @@ std::vector<std::string> StatusLines() {
                 " attempts=" + std::to_string(st.s.uploadAttempts) + " headers=[" + hdrs +
                 "] + Auto-Tournament-* / Get5-* metadata");
   out.push_back(std::string("demo: recording=") + (st.rec.active ? ("yes " + st.rec.relPath) : "no") +
+                (st.rec.active && st.rec.streamed ? " (streamed to the platform)" : "") +
                 " tv_delay_seen=" + std::to_string(st.observedTvDelay));
   if (!st.lastUpload.empty()) out.push_back("demo: last upload: " + st.lastUpload);
   return out;

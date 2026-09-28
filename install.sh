@@ -19,23 +19,31 @@
 #                cfg/ReadyUp/fleet.cfg (or readyup.cfg [fleet]) sets a url
 #
 #   --dir PATH       CS2 server root (contains game/csgo) or a game/csgo directory (default: .)
-#   --version vX.Y.Z install that release instead of the latest
+#   --version vX.Y.Z install that release instead of the latest (also a pre-release such as
+#                    v0.1.0-beta.1; the leading v is optional)
+#   --channel stable|beta
+#                    stable (default): the latest stable release. beta: the newest release,
+#                    pre-releases (vX.Y.Z-beta.N / -rc.N) included. Not with --version
 #   --zip FILE       install from a local zip (a bundle or component zip; repeatable). A
 #                    SHA256SUMS file next to the zip is used to verify it.
 #   --remove NAME    remove an installed component (repeatable; not core)
 #   -y, --yes        no questions: update what is installed (or install essentials)
 #   --accept-license=noncommercial|commercial
 #                    your use of Ready Up (PolyForm Noncommercial 1.0.0; commercial use needs a
-#                    paid license). Asked in a terminal; required for unattended installs
-#                    (--yes, a bundle/component name, no terminal) until a choice is saved in
-#                    game/csgo/readyup/license-acceptance.json
+#                    paid license). Asked in a terminal (answer "I AGREE" to the summary);
+#                    required for unattended installs (--yes, a bundle/component name, no
+#                    terminal) until an answer is saved in game/csgo/cfg/ReadyUp/license.cfg
+#   --license-key ATL1...
+#                    your commercial license key: saved as readyup_license_key in
+#                    game/csgo/cfg/readyup_license.cfg (the file `csm license set` writes)
 #   --uninstall      remove Ready Up: the gameinfo.gi line and its files. Config is kept
 #   --purge          with --uninstall: also delete readyup.cfg, the plugins' JSON data
 #                    (admins, match state, skins loadouts) and cfg/ReadyUp
 #   -h, --help       this text
 #
 # What it touches: game/csgo/readyup/, game/csgo/cfg/ReadyUp/ (only files that are missing;
-# changed templates are written as *.default), and gameinfo.gi / gameinfo_branchspecific.gi
+# changed templates are written as *.default; cfg/ReadyUp/license.cfg holds the license answer),
+# cfg/readyup_license.cfg (only with --license-key), and gameinfo.gi / gameinfo_branchspecific.gi
 # (one "Game csgo/readyup" line after Metamod if present; backup gameinfo.gi.readyup-backup-*).
 # It never uses sudo, stops or starts servers, or touches databases. Needs bash 4+, python3,
 # curl or wget (downloads only), and unzip (else python3 extracts).
@@ -57,6 +65,7 @@ declare -A NOTE=([core]="required" [match]="ready-up, knife, pauses, webhooks"
 
 DIR="."
 VERSION=""
+CHANNEL=""
 ZIPS=()
 WANT=()
 WANT_FULL=0
@@ -66,6 +75,7 @@ YES=0
 UNINSTALL=0
 PURGE=0
 ACCEPT_LICENSE=""
+LICENSE_KEY=""
 LICENSE_URL="https://polyformproject.org/licenses/noncommercial/1.0.0/"
 LICENSE_CONTACT="sivert@autotournament.gg"
 PRICING_URL="https://autotournament.gg/pricing"
@@ -90,6 +100,8 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --dir) DIR="${2:?--dir needs a path}"; shift 2 ;;
     --version) VERSION="${2:?--version needs vX.Y.Z}"; shift 2 ;;
+    --channel=*) CHANNEL="${1#*=}"; shift ;;
+    --channel) CHANNEL="${2:?--channel needs stable or beta}"; shift 2 ;;
     --zip) ZIPS+=("${2:?--zip needs a file}"); shift 2 ;;
     --remove) REMOVE+=("${2:?--remove needs a component}"); shift 2 ;;
     -y | --yes) YES=1; shift ;;
@@ -97,6 +109,8 @@ while [[ $# -gt 0 ]]; do
     --purge) PURGE=1; shift ;;
     --accept-license=*) ACCEPT_LICENSE="${1#*=}"; shift ;;
     --accept-license) ACCEPT_LICENSE="${2:?--accept-license needs noncommercial or commercial}"; shift 2 ;;
+    --license-key=*) LICENSE_KEY="${1#*=}"; shift ;;
+    --license-key) LICENSE_KEY="${2:?--license-key needs a key (ATL1...)}"; shift 2 ;;
     -h | --help)
       if [[ -f "$0" ]]; then usage; else say "See https://github.com/$REPO#install"; fi
       exit 0
@@ -108,6 +122,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ $PURGE -eq 0 || $UNINSTALL -eq 1 ]] || die "--purge only goes with --uninstall"
+case "$CHANNEL" in
+  "" | stable | beta) ;;
+  *) die "--channel must be stable or beta (got: $CHANNEL)" ;;
+esac
+[[ -z "$CHANNEL" || -z "$VERSION" ]] || die "use --version or --channel, not both"
+[[ -z "$VERSION" || "$VERSION" == v* ]] || VERSION="v$VERSION"
 case "$ACCEPT_LICENSE" in
   "" | noncommercial | commercial) ;;
   *) die "--accept-license must be noncommercial or commercial (got: $ACCEPT_LICENSE)" ;;
@@ -282,33 +302,65 @@ if [[ $UNINSTALL -eq 1 ]]; then
 fi
 
 # ---- license ----------------------------------------------------------------------------------
-# Ready Up is PolyForm Noncommercial 1.0.0. Installing or updating needs a recorded choice:
-# asked once in a terminal, or --accept-license=... (required for unattended installs). The
-# choice and when it was made go to readyup/license-acceptance.json. Removing components and
-# uninstalling never ask.
-LICENSE_FILE="$RU/license-acceptance.json"
+# Ready Up is PolyForm Noncommercial 1.0.0; commercial use needs a paid license (and its key).
+# Installing or updating needs a recorded answer: asked once in a terminal (the use, then a summary
+# that has to be answered with "I AGREE"), or --accept-license=... (required for unattended
+# installs). The answer and when it was given go to cfg/ReadyUp/license.cfg
+# (readyup_license_accepted / readyup_license_accepted_at, which the core reads at startup); a key
+# goes to cfg/readyup_license.cfg as readyup_license_key, the file `csm license set` writes and
+# the core already reads. Removing components and uninstalling never ask.
+LICENSE_CFG="$CSGO/cfg/ReadyUp/license.cfg"
+KEY_CFG="$CSGO/cfg/readyup_license.cfg"
+LEGACY_LICENSE_FILE="$RU/license-acceptance.json"  # installers before cfg/ReadyUp/license.cfg
 license_saved() {  # -> the saved choice, or nothing
-  [[ -f "$LICENSE_FILE" ]] || return 0
-  python3 -c 'import json,sys
+  python3 - "$LICENSE_CFG" "$LEGACY_LICENSE_FILE" <<'PY'
+import json, re, sys
+use = ""
 try:
-    c = json.load(open(sys.argv[1])).get("use", "")
-except Exception:
-    c = ""
-print(c if c in ("noncommercial", "commercial") else "")' "$LICENSE_FILE"
-}
-license_save() {  # <noncommercial|commercial> <how>
-  mkdir -p "$RU"
-  python3 - "$LICENSE_FILE" "$1" "$2" <<'PY'
-import json, sys, datetime
-path, use, how = sys.argv[1:]
-json.dump({"use": use,
-           "license": "PolyForm-Noncommercial-1.0.0" if use == "noncommercial" else "commercial (separate paid license)",
-           "accepted_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-           "how": how},
-          open(path + ".tmp", "w"), indent=2)
-open(path + ".tmp", "a").write("\n")
+    for line in open(sys.argv[1], encoding="utf-8", errors="replace"):
+        m = re.match(r'\s*readyup_license_accepted\s+"?([A-Za-z]+)"?\s*(;|//|$)', line)
+        if m:
+            use = m.group(1).lower()  # last one wins, like exec
+except OSError:
+    try:
+        use = json.load(open(sys.argv[2])).get("use", "")
+    except Exception:
+        use = ""
+print(use if use in ("noncommercial", "commercial") else "")
 PY
-  mv -f "$LICENSE_FILE.tmp" "$LICENSE_FILE"
+}
+license_save() {  # <noncommercial|commercial> <how: flag|prompt|earlier>
+  mkdir -p "$(dirname "$LICENSE_CFG")"
+  local now
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  {
+    echo "// Written by the Ready Up installer: how this server uses Ready Up (accepted via: $2)."
+    echo "// noncommercial = PolyForm Noncommercial 1.0.0 ($LICENSE_URL)"
+    echo "// commercial = a separate paid license ($PRICING_URL); its key goes in cfg/readyup_license.cfg"
+    echo "// Run install.sh --accept-license=... to change it. The core reads this file at startup."
+    echo "readyup_license_accepted \"$1\""
+    echo "readyup_license_accepted_at \"$now\""
+  } >"$LICENSE_CFG.tmp"
+  mv -f "$LICENSE_CFG.tmp" "$LICENSE_CFG"
+}
+license_key_ok() {  # <key> : the shape of a key (the core checks the signature)
+  [[ "$1" =~ ^ATL1\.[A-Za-z0-9_.-]+$ && ${#1} -le 4096 ]]
+}
+license_key_save() {  # <key> : set readyup_license_key in cfg/readyup_license.cfg, keep the rest
+  mkdir -p "$(dirname "$KEY_CFG")"
+  python3 - "$KEY_CFG" "$1" <<'PY'
+import os, re, sys
+path, key = sys.argv[1:]
+try:
+    lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
+except OSError:
+    lines = ["// Ready Up license key (install.sh --license-key and `csm license set` write this file;",
+             "// the core reads it at startup and it can be exec'd from server.cfg)."]
+lines = [l for l in lines if not re.match(r"\s*readyup_license_key(\s|$|;)", l)]
+lines.append('readyup_license_key "%s"' % key)
+open(path + ".tmp", "w", encoding="utf-8").write("\n".join(lines) + "\n")
+os.replace(path + ".tmp", path)
+PY
 }
 license_commercial_text() {
   say "Commercial use of Ready Up needs a paid license. Commercial use means anyone earning money"
@@ -318,73 +370,113 @@ license_commercial_text() {
   say "  Pricing: $PRICING_URL"
   say "  Contact: $LICENSE_CONTACT"
 }
+license_key_later_text() {
+  say "Add the key later with: install.sh --license-key ATL1...  (or csm license set, or"
+  say "readyup_license_key \"ATL1...\" in server.cfg). A missing key never blocks anything."
+}
 license_gate() {
   if [[ -n "$ACCEPT_LICENSE" ]]; then
     license_save "$ACCEPT_LICENSE" flag
     if [[ "$ACCEPT_LICENSE" == commercial ]]; then
-      ok "license: commercial use, under your separate paid license (saved in $LICENSE_FILE)"
+      ok "license: commercial use, under your separate paid license (saved in $LICENSE_CFG)"
+      [[ -n "$LICENSE_KEY" ]] || license_key_later_text
     else
-      ok "license: noncommercial use, PolyForm Noncommercial 1.0.0 (saved in $LICENSE_FILE)"
+      ok "license: noncommercial use, PolyForm Noncommercial 1.0.0 (saved in $LICENSE_CFG)"
     fi
     return 0
   fi
   local saved
   saved="$(license_saved)"
   if [[ -n "$saved" ]]; then
-    say "  ${D}license: $saved use (accepted earlier, $LICENSE_FILE)${N}"
+    say "  ${D}license: $saved use (accepted earlier, $LICENSE_CFG)${N}"
+    # Answers from before cfg/ReadyUp/license.cfg (readyup/license-acceptance.json) move there once.
+    [[ -f "$LICENSE_CFG" ]] || license_save "$saved" earlier
     return 0
   fi
   if [[ $YES -eq 1 || ${#WANT[@]} -gt 0 ]] || ! (exec 3<>/dev/tty) 2>/dev/null; then
     die "Ready Up needs a license choice before it installs. For an unattended install, add
        --accept-license=noncommercial (personal / noncommercial use, PolyForm Noncommercial 1.0.0)
-       or --accept-license=commercial (only with a paid commercial license: $PRICING_URL).
-       Or run the installer in a terminal to be asked."
+       or --accept-license=commercial [--license-key ATL1...] (only with a paid commercial
+       license: $PRICING_URL). Or run the installer in a terminal to be asked."
   fi
   exec 3<>/dev/tty
-  local answer
+  local answer use key=""
   {
     say "${B}Ready Up license${N}"
     say "How will you use Ready Up?"
-    say "  1) personal / noncommercial"
-    say "  2) commercial"
+    say "  1) personal / non-commercial (free)"
+    say "  2) commercial (needs a license key: paste it now or add it later)"
   } >&3
   while :; do
     printf 'Choose 1 or 2: ' >&3
     IFS= read -r answer <&3 || answer=""
-    case "$answer" in 1 | 2) break ;; *) say "  please enter 1 or 2" >&3 ;; esac
+    case "$answer" in 1 | 2) break ;; "") say "Nothing was installed." >&3; exit 1 ;; *) say "  please enter 1 or 2" >&3 ;; esac
   done
+  say "" >&3
   if [[ "$answer" == 2 ]]; then
-    { say ""; license_commercial_text; say ""
-      say "Nothing was installed. Once you have a commercial license, run the installer again with"
-      say "--accept-license=commercial."; } >&3
+    use=commercial
+    { license_commercial_text; say ""; } >&3
+    if [[ -n "$LICENSE_KEY" ]]; then
+      say "Using the key from --license-key." >&3
+    else
+      while :; do
+        printf 'Paste your license key (ATL1...), or press enter to add it later: ' >&3
+        IFS= read -r key <&3 || key=""
+        key="${key//[[:space:]]/}"
+        [[ -z "$key" ]] && break
+        license_key_ok "$key" && break
+        say "  that does not look like a Ready Up license key (it starts with ATL1.)" >&3
+      done
+    fi
+    {
+      say ""
+      say "Commercial use of Ready Up is covered by your separate paid license agreement, not by the"
+      say "free license. In short:"
+      say "  - Use it as your paid license allows (servers, events, period); updates are covered until"
+      say "    the date in your key."
+      say "  - Without a paid license, only noncommercial use is allowed (PolyForm Noncommercial 1.0.0)."
+      say "  - The key is checked offline. It never blocks or limits anything; a problem is a console warning."
+      say "  - It comes with no warranty beyond what your license agreement says."
+      say "This is a summary. Pricing and terms: $PRICING_URL · the free license: $LICENSE_URL"
+      say "Full text in LICENSE: https://github.com/$REPO/blob/master/LICENSE"
+      say ""
+    } >&3
+  else
+    use=noncommercial
+    {
+      say "Ready Up is licensed under the PolyForm Noncommercial License 1.0.0. In short:"
+      say "  - You may use, change and share it for noncommercial purposes: your own servers, friends,"
+      say "    a community or club, a school, a charity, or a free event."
+      say "  - Commercial use is not allowed without a separate paid license: a business, a"
+      say "    profit-making event, a paid server operator, or selling it or a service built on it."
+      say "  - Keep the license and the copyright notice when you share it."
+      say "  - It comes with no warranty."
+      say "This is a summary, not the license. Full text: $LICENSE_URL"
+      say "(also in LICENSE: https://github.com/$REPO/blob/master/LICENSE)"
+      say ""
+    } >&3
+  fi
+  printf 'Type I AGREE to accept these terms and continue (anything else stops): ' >&3
+  IFS= read -r answer <&3 || answer=""
+  answer="$(printf '%s' "$answer" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//' | tr '[:lower:]' '[:upper:]')"
+  if [[ "$answer" != "I AGREE" ]]; then
+    say "Nothing was installed." >&3
     exit 1
   fi
-  {
-    say ""
-    say "Ready Up is licensed under the PolyForm Noncommercial License 1.0.0. In short:"
-    say "  - You may use, change and share it for noncommercial purposes: your own servers, friends,"
-    say "    a community or club, a school, a charity, or a free event."
-    say "  - Commercial use is not allowed without a separate paid license: a business, a"
-    say "    profit-making event, a paid server operator, or selling it or a service built on it."
-    say "  - Keep the license and the copyright notice when you share it."
-    say "  - It comes with no warranty."
-    say "This is a summary, not the license. Full text: $LICENSE_URL"
-    say ""
-  } >&3
-  while :; do
-    printf 'Type "yes" to accept these terms for noncommercial use: ' >&3
-    IFS= read -r answer <&3 || answer=""
-    case "$answer" in
-      yes | YES | Yes) break ;;
-      "" | n | no | NO | No) say "Nothing was installed." >&3; exit 1 ;;
-      *) say "  please type yes (or no to stop)" >&3 ;;
-    esac
-  done
-  license_save noncommercial prompt
-  ok "license: noncommercial use accepted (saved in $LICENSE_FILE)"
+  license_save "$use" prompt
+  [[ -n "$key" ]] && LICENSE_KEY="$key"
+  ok "license: $use use accepted (saved in $LICENSE_CFG)"
+  if [[ "$use" == commercial && -z "$LICENSE_KEY" ]]; then license_key_later_text; fi
 }
+if [[ -n "$LICENSE_KEY" ]] && ! license_key_ok "$LICENSE_KEY"; then
+  die "--license-key does not look like a Ready Up license key (it starts with ATL1.)"
+fi
 if [[ ${#REMOVE[@]} -eq 0 || ${#WANT[@]} -gt 0 ]]; then
   license_gate
+fi
+if [[ -n "$LICENSE_KEY" ]]; then
+  license_key_save "$LICENSE_KEY"
+  ok "license key saved in $KEY_CFG (readyup_license_key; the server checks it at startup)"
 fi
 
 # ---- where the files come from ----------------------------------------------------------------
@@ -392,6 +484,7 @@ declare -A AVAIL=()     # component -> version available
 declare -A ASSET_URL=() # component -> download url (release mode)
 declare -A STAGED=()    # component -> staged manifest path
 RELEASE_TAG=""
+RELEASE_PRE=0
 RELEASE_NOTES=""
 SUMS=""
 
@@ -408,6 +501,17 @@ stage_zip() {  # <zip> : extract and register every component manifest inside
     found=1
   done
   [[ $found -eq 1 ]] || die "$zip is not a Ready Up zip (no readyup/manifests/*.json inside)"
+}
+
+newest_release() {  # <releases-list.json> [--tag] : the newest non-draft release as JSON (or its tag)
+  python3 - "$@" <<'PY'
+import json, sys
+rels = [r for r in json.load(open(sys.argv[1])) if isinstance(r, dict) and not r.get("draft")]
+if not rels:
+    sys.exit(1)
+rel = max(rels, key=lambda r: r.get("published_at") or r.get("created_at") or "")
+print(rel.get("tag_name", "") if sys.argv[2:] == ["--tag"] else json.dumps(rel))
+PY
 }
 
 verify_sum() {  # <file> <sums-file> : 0 ok, 1 mismatch, 2 not listed
@@ -440,16 +544,35 @@ elif [[ ${#ZIPS[@]} -gt 0 ]]; then
 else
   if [[ -n "$VERSION" ]]; then
     url="$API/repos/$REPO/releases/tags/$VERSION"
+    fetch "$url" "$WORK/release.json" 2>/dev/null ||
+      die "no release $VERSION at $url (see https://github.com/$REPO/releases)"
+  elif [[ "$CHANNEL" == beta ]]; then
+    # releases/latest never returns a pre-release: take the newest published release from the list.
+    url="$API/repos/$REPO/releases?per_page=30"
+    fetch "$url" "$WORK/releases.json" 2>/dev/null || die "could not list releases at $url"
+    newest_release "$WORK/releases.json" >"$WORK/release.json" ||
+      die "no published release found at $url.
+       There may be no release yet: download the CI artifact zips and use --zip ready-up-essentials-*.zip"
   else
     url="$API/repos/$REPO/releases/latest"
-  fi
-  if ! fetch "$url" "$WORK/release.json" 2>/dev/null; then
-    die "no published release found at $url.
+    if ! fetch "$url" "$WORK/release.json" 2>/dev/null; then
+      # releases/latest is 404 when there are only pre-releases (or nothing at all).
+      pre=""
+      if fetch "$API/repos/$REPO/releases?per_page=30" "$WORK/releases.json" 2>/dev/null; then
+        pre="$(newest_release "$WORK/releases.json" --tag 2>/dev/null || true)"
+      fi
+      if [[ -n "$pre" ]]; then
+        die "there is no stable Ready Up release yet, only pre-releases (newest: $pre).
+       To install a pre-release, run this again with --channel beta (the newest one)
+       or --version $pre (that one). Pre-releases are for testing."
+      fi
+      die "no published release found at $url.
        There may be no release yet: download the CI artifact zips and use --zip ready-up-essentials-*.zip"
+    fi
   fi
   while IFS=$'\t' read -r kind a b; do
     case "$kind" in
-      tag) RELEASE_TAG="$a" ;;
+      tag) RELEASE_TAG="$a"; [[ "$b" == pre ]] && RELEASE_PRE=1 ;;
       asset) ASSET_URL[$a]="$b"; AVAIL[$a]="${RELEASE_TAG#v}" ;;
       sums) SUMS="$b" ;;
     esac
@@ -457,7 +580,7 @@ else
 import json, re, sys
 rel = json.load(open(sys.argv[1]))
 open(sys.argv[2], "w").write(rel.get("body") or "")
-print("tag\t%s\t" % rel.get("tag_name", ""))
+print("tag\t%s\t%s" % (rel.get("tag_name", ""), "pre" if rel.get("prerelease") else ""))
 for a in rel.get("assets", []):
     name, url = a.get("name", ""), a.get("browser_download_url", "")
     if name == "SHA256SUMS":
@@ -472,6 +595,9 @@ PY
   )
   RELEASE_NOTES="$(cat "$WORK/notes.txt")"
   [[ ${#ASSET_URL[@]} -gt 0 ]] || die "release ${RELEASE_TAG:-?} has no ready-up-<component> zips"
+  if [[ $RELEASE_PRE -eq 1 ]]; then
+    warn "$RELEASE_TAG is a pre-release (for testing). Without --channel beta / --version, updates stay on stable releases."
+  fi
   if [[ -n "$SUMS" ]]; then fetch "$SUMS" "$WORK/SHA256SUMS"; fi
 fi
 

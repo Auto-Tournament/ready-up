@@ -301,6 +301,10 @@ bool ChatDebugEnabled() {
 }
 
 std::string AdminPrefix() {
+  // The server setting admin_chat_prefix (runtime: console / chat / fleet server.config; file:
+  // this file's admin_prefix key), else the built-in [Admin].
+  const std::string set = settings::Str("admin_chat_prefix");
+  if (!set.empty()) return ExpandChatColorTokens(set);
   auto c = Cfg();
   return c.admin_prefix.empty() ? DefaultCfg().admin_prefix : c.admin_prefix;
 }

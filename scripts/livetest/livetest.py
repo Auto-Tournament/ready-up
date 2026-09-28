@@ -84,6 +84,10 @@ DEV_SCRIM_RE = re.compile(r"\[ReadyUp\] dev_bots_scrim: ([01]) \(")
 ROUND_END_RE = re.compile(r'Team "(CT|TERRORIST)" triggered "(SFUI_Notice_\w+)" \(CT "(\d+)"\) \(T "(\d+)"\)')
 GAME_OVER_RE = re.compile(r"Game Over: (.*)")
 BOT_SIDE_RE = re.compile(r'"([^"<]+)<\d+><BOT><(CT|TERRORIST)>"')
+# A bot leaving. Its own pattern (not LEFT_RE): the tmux pane can put typed console input such as
+# `bot_kick "Name"` in front of the log line on the same row, and LEFT_RE's name would then start at
+# that first quote.
+BOT_LEFT_RE = re.compile(r'"([^"<]+)<\d+><BOT><[^>]*>" disconnected')
 BOT_SWITCH_RE = re.compile(r'"([^"<]+)<\d+><BOT>" switched from team <(CT|TERRORIST)> to <(CT|TERRORIST)>')
 BOT_QUOTA_RE = re.compile(r'"?bot_quota"?\s*=\s*"?(\d+)')
 CRASH_RE = re.compile(r"\[ReadyUp\] signal=SIG|Segmentation fault|\bAborted\b \(core dumped\)")
@@ -507,8 +511,8 @@ class Facts:
             self.bots_gone.discard(m.group(1))
         if (m := QUOTA_MODE_RE.search(line)) and "[ReadyUp]" not in line and self.bot_quota_mode is None:
             self.bot_quota_mode = m.group(1)
-        if (m := LEFT_RE.search(line)) and m.group("sid") == "BOT":
-            self.bots_gone.add(m.group("name"))
+        if (m := BOT_LEFT_RE.search(line)):
+            self.bots_gone.add(m.group(1))
         for name, side in BOT_SIDE_RE.findall(line):
             hist = self.bot_sides.setdefault(name, [])
             if not hist or hist[-1][1] != side:
@@ -1019,6 +1023,8 @@ class Runner:
         def ct_bots():
             return sorted(n for n, hist in f.bot_sides.items() if hist and hist[-1][1] == "CT" and n not in f.bots_gone)
 
+        kicked_at: dict = {}
+
         def act_kick(key):
             def _act():
                 mark[key] = f.seq
@@ -1031,7 +1037,34 @@ class Runner:
                 log(f"CT bots: {names}")
                 for n in names:
                     self.srv.send(f'bot_kick "{n}"')
+                kicked_at[key] = time.time()
             return _act
+
+        def ct_bots_on_server() -> int:
+            """CT bots in Ready Up's newest state line (ct=<humans>+<bots>), -1 if unknown."""
+            last = f.last_state()
+            try:
+                return int(((last or {}).get("ct") or "").split("+")[1])
+            except (IndexError, ValueError):
+                return -1
+
+        def chk_kicked(key, prefix):
+            """chk_ff, but kicks again every 6 s while a CT bot is still on the server: a bot_kick
+            sent while a bot is just joining (or at a round restart) is sometimes ignored."""
+            base = chk_ff(key, prefix)
+
+            def _c(_f):
+                res = base(_f)
+                if res is not False:
+                    return res
+                if time.time() - kicked_at.get(key, 0) > 6 and ct_bots_on_server() != 0:
+                    names = ct_bots()
+                    log(f"CT bots still on the server ({ct_bots_on_server()}): kicking {names} again")
+                    for n in names:
+                        self.srv.send(f'bot_kick "{n}"')
+                    kicked_at[key] = time.time()
+                return False
+            return _c
         return [
             Step("tech pause (ru match tech team1) -> auto-unpause after 8s", 150,
                  chk_pause("tech1", "technical by team1", "ended (technical pause time is up)"),
@@ -1042,12 +1075,12 @@ class Runner:
             Step("tactical timeout (ru match tac team2) -> ends at freeze end", 150,
                  chk_pause("tac", "tactical timeout by team2", "ended (tactical timeout over)"),
                  send_marked("tac", "ru match tac team2"), pause_detail("tac")),
-            Step("forfeit countdown (CT bots kicked)", 30, chk_ff("ff1", "team1 has nobody connected"),
+            Step("forfeit countdown (CT bots kicked)", 30, chk_kicked("ff1", "team1 has nobody connected"),
                  act_kick("ff1"), ff_detail("ff1")),
             Step("forfeit cancelled (a CT bot back)", 30, chk_ff("ff2", "team1 is back", bad="forfeits map"),
                  send_marked("ff2", "bot_add_ct"), ff_detail("ff2")),
             Step("the CT bot is seen", 20, lambda _f: bool(ct_bots()), None, lambda _f: ", ".join(ct_bots())),
-            Step("forfeit countdown again (kicked)", 30, chk_ff("ff3", "team1 has nobody connected"),
+            Step("forfeit countdown again (kicked)", 30, chk_kicked("ff3", "team1 has nobody connected"),
                  act_kick("ff3"), ff_detail("ff3")),
             Step("forfeit: team1 forfeits after 20s", 60, chk_ff("ff3", "team1 (team_absent) forfeits map"), None,
                  ff_detail("ff3")),

@@ -81,6 +81,8 @@ std::string FormatDemoFileName(const std::string& format, const TokenValues& v) 
   return out;
 }
 
+bool UploadWanted(const Settings& s, int matchUpload) { return !s.uploadUrl.empty() && matchUpload != 0; }
+
 std::vector<std::string> UploadHeaderLines(const Settings& s, const TokenValues& v) {
   std::vector<std::pair<std::string, std::string>> hs;
   auto lower = [](std::string x) {

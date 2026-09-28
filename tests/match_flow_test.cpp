@@ -646,12 +646,22 @@ static void TestUploadHeaders() {
   CHECK(HasLine(hs, "x-auto-tournament-token: tok{SLUG}"));
 }
 
+// Per match (rules.demo.upload): -1 = the server's upload URL, 0 = never, 1 = only with a URL.
+static void TestUploadWanted() {
+  demo::Settings s;
+  s.uploadUrl = "https://at.example/api/demos";
+  CHECK(demo::UploadWanted(s, -1) && demo::UploadWanted(s, 1) && !demo::UploadWanted(s, 0));
+  demo::Settings none;
+  CHECK(!demo::UploadWanted(none, -1) && !demo::UploadWanted(none, 1));
+}
+
 int main() {
   TestAtPlayerStats();
   TestAtRoundEnd();
   TestAtMapResult();
   TestAtDemoEvents();
   TestUploadHeaders();
+  TestUploadWanted();
   TestStatsRound1();
   TestStatsSidesAndGate();
   TestStatsRestore();
