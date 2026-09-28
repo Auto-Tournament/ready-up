@@ -434,6 +434,8 @@ void SwapOutStatTrak(const std::set<uint32_t>& handles, const char* why) {
 
 void SetBest(uint64_t sid, const std::string& why);
 void CheckBestAllowed();
+void ReadCardConfig();
+void UpdateCards();
 
 void RefreshConfig(double now) {
   if (now - g_lastConfig < 5.0) return;

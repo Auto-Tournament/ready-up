@@ -2,7 +2,6 @@
   "schema_version": 1,
   "plugin": "midas",
   "api": [
-    "center_html_release",
     "center_html_to_slot",
     "center_html_to_slot_prio",
     "chat_all",
@@ -16,9 +15,6 @@
     "entity_set_bodygroup_by_name",
     "entity_set_model",
     "entity_system_status",
-    "ev_get_string",
-    "for_each_player",
-    "is_admin",
     "on_tick",
     "register_ru_subcommand",
     "schema_offset",
