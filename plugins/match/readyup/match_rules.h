@@ -37,6 +37,10 @@ struct MatchRules {
   int stop_command_available = -1;  // .stop: both teams restore the start of the current round
   int stop_command_no_damage = -1;  // .stop only while no player damaged an opponent this round
   int stop_vote_seconds = -1;       // the other team has this long to confirm a .stop
+  // After a round restore (round_restore.h): stay paused (1) or go live 3 s later (0). MAT key
+  // pause_after_restore; fleet rules.pause.pause_after_restore; between the match config and
+  // readyup.cfg sits the console setting ru_pause_after_restore.
+  int pause_after_restore = -1;
 };
 
 // gg_threshold as written in a config: a fraction (0.8) or a percent (80). -1 if invalid.

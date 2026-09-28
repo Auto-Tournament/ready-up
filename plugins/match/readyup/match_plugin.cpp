@@ -191,6 +191,7 @@ void OnEvent(void*, const ru_event* e) {
       IdleRefreshOnMapStart(host::NowSeconds());
       EsportsOnMapStart();  // the GOTV client is looked for again
       fleet_bridge::OnMapStart();
+      match_recovery::OnMapStart();  // a recovery changing to the match map continues
     } else if (e->type == RU_EVENT_PLAYER_DISCONNECT) {
       // Ready state must not survive a reconnect.
       if (e->steamid64) ClearReady(e->steamid64);

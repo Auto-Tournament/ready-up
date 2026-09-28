@@ -6,6 +6,7 @@
 #include "readyup/whitelist_iface.h"
 
 #include "readyup/admin_check.h"
+#include "readyup/backup_files.h"
 #include "readyup/demo_recorder.h"
 #include "readyup/engine.h"
 #include "readyup/esports.h"
@@ -26,6 +27,7 @@
 #include "readyup/pause_state.h"
 #include "readyup/persisted_match_state.h"
 #include "readyup/players.h"
+#include "readyup/round_restore.h"
 #include "readyup/scrim_flow.h"
 #include "readyup/webhook.h"
 #include "readyup/workers.h"
@@ -691,15 +693,8 @@ std::string BackupPrefixFor(const std::string& matchId, int mapNumber) {
 }
 std::string BackupPrefix(int mapNumber) { return BackupPrefixFor(g_asg.match_id, mapNumber); }
 
-// Where CS2 writes mp_backup_round_file backups (and reads mp_backup_restore_load_file from): the
-// first Game search path of gameinfo.gi, i.e. csgo/readyup/ on Ready Up servers (observed),
-// csgo/addons/metamod/ when a Metamod line comes first (observed on a csm-managed install), csgo/
-// otherwise. Any thread.
-std::vector<std::string> BackupDirs() {
-  const std::string csgo = GetCsgoDirFromModuleDir();
-  if (csgo.empty()) return {};
-  return {csgo + "/readyup", csgo + "/addons/metamod", csgo};
-}
+// Where CS2 writes and reads its round backups (backup_files.h). Any thread.
+std::vector<std::string> BackupDirs() { return backup_files::BackupDirs(); }
 
 // Worker thread: forwards backup files with `prefix` that were not sent yet.
 void ScanBackups(std::string prefix, int mapNumber, int team1, int team2) {
@@ -889,8 +884,10 @@ Result PrepareResumeBackup(const std::string& matchId, fs::ResumePlan* plan) {
 // The restore itself (cmd restore_round, a resume): loads `file` (mp_backup_restore_load_file,
 // autopaused), voids rounds >= `round` in the stats model, the round counters and the scores
 // (`scoreT1` / `scoreT2` >= 0: the backup's score wins over the stats), pauses and emits
-// rounds_voided + match_restored (`extra` members added to its data).
-void DoRestore(int mapNumber, int round, const std::string& file, const std::string& sha, const std::string& by,
+// rounds_voided + match_restored (`extra` members added to its data), then round_restore.h
+// AfterRestore (backup_loaded webhook, pause_after_restore). True when the match unpauses by
+// itself in 3 s.
+bool DoRestore(int mapNumber, int round, const std::string& file, const std::string& sha, const std::string& by,
                const std::string& reason, const Json& extra, int scoreT1 = -1, int scoreT2 = -1) {
   g_restoring = true;
   MatchEventsIgnoreRoundEndsFor(5.0);  // the reload ends the current round as a draw
@@ -938,6 +935,7 @@ void DoRestore(int mapNumber, int round, const std::string& file, const std::str
   }
   Print("fleet: restored map %d round %d from %s (sha256 %s, %s)\n", mapNumber, round, file.c_str(), sha.c_str(),
         reason.c_str());
+  return round_restore::AfterRestore(mapNumber, round, file, reason);
 }
 
 // ---------------------------------------------------------------------------- loading
@@ -1321,9 +1319,11 @@ Result CmdRestore(const Json& args, const std::string& by) {
     ss << in.rdbuf();
     sha = fs::Sha256Hex(ss.str());
   }
-  DoRestore(mapNumber, round, file, sha, by, "restore", Json::Object());
+  const bool autoUnpause = DoRestore(mapNumber, round, file, sha, by, "restore", Json::Object());
   g_phaseReason = "cmd:restore_round";
-  SendToChat(("Ready Up: round " + std::to_string(round) + " restored by a tournament admin. Unpause when ready.").c_str());
+  SendToChat(("Ready Up: round " + std::to_string(round) + " restored by a tournament admin. " +
+              (autoUnpause ? "Live in 3 seconds." : "Unpause when ready."))
+                 .c_str());
   return Ok();
 }
 
@@ -1904,7 +1904,8 @@ void Tick(double now) {
 
 bool Assigned() { return g_asg.active; }
 
-bool RestoreRoundFromLocalBackup(int round, const std::string& by, const std::string& reason, std::string* err) {
+bool RestoreRoundFromLocalBackup(int round, const std::string& by, const std::string& reason, std::string* err,
+                                 bool* autoUnpause) {
   const auto ctx = WebhookGetMatchContext();
   if (!ctx) {
     if (err) *err = "no match loaded";
@@ -1926,7 +1927,8 @@ bool RestoreRoundFromLocalBackup(int round, const std::string& by, const std::st
   std::ifstream in(dir + "/" + file, std::ios::binary);
   std::ostringstream ss;
   ss << in.rdbuf();
-  DoRestore(mapNumber, round, file, fs::Sha256Hex(ss.str()), by, reason, Json::Object());
+  const bool au = DoRestore(mapNumber, round, file, fs::Sha256Hex(ss.str()), by, reason, Json::Object());
+  if (autoUnpause) *autoUnpause = au;
   if (g_asg.active) g_phaseReason = "vote:" + reason;
   else g_restoring = false;  // only the fleet link reads (and clears) it
   return true;

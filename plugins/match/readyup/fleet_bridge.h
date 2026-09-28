@@ -52,9 +52,12 @@ bool UpdateSafe();
 // Restores the start of `round` on the current map from this server's own CS2 round backup
 // (readyup_backup_<matchid>_map<N>_round<NN>.txt), the way cmd restore_round does: autopaused,
 // rounds >= `round` voided in the stats / round counters, rounds_voided + match_restored. Works
-// for any loaded match (`ru match load` too, not only a platform assignment). `.stop` (votes.cpp).
-// False + *err when there is no such backup.
-bool RestoreRoundFromLocalBackup(int round, const std::string& by, const std::string& reason, std::string* err);
+// for any loaded match (`ru match load` too, not only a platform assignment). `.stop` (votes.cpp),
+// `.restore` / `ru_loadbackup` (round_restore.h, reason "admin"), crash recovery (reason
+// "recovery"). False + *err when there is no such backup. *autoUnpause: pause_after_restore is off
+// and the match goes live again in 3 s (round_restore.h AfterRestore).
+bool RestoreRoundFromLocalBackup(int round, const std::string& by, const std::string& reason, std::string* err,
+                                 bool* autoUnpause = nullptr);
 
 // Plugin reload (reload_state.cpp): assignment, config, fence, live_rev, pause counters, sent
 // backups.

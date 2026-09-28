@@ -15,7 +15,8 @@ void PersistAdminsRefreshSeconds(std::optional<int> seconds);
 // Plugin load: re-apply the persisted settings (reads memory, never blocks).
 void Restore();
 
-// Console settings (ru_warmup_*, ru_cfg_exec_enable, ru_demo_*, ru_series_end_kick_delay_*):
+// Console settings (ru_warmup_*, ru_cfg_exec_enable, ru_demo_*, ru_series_end_kick_delay_*,
+// ru_pause_after_restore):
 // a console / RCON / cfg-file change is saved in state.json (only values that differ from the
 // built-in default) and re-applied by Restore() after a server restart. `<setting> default`
 // drops the saved value and applies the built-in default.

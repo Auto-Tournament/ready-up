@@ -14,6 +14,7 @@
 #include "readyup/config.h"
 #include "readyup/match_events.h"
 #include "readyup/match_features.h"
+#include "readyup/match_recovery.h"
 #include "readyup/match_signals.h"
 #include "readyup/game_timers.h"
 #include "readyup/knife_tracker.h"
@@ -25,6 +26,7 @@
 #include "readyup/mat_admins.h"
 #include "readyup/persisted_match_state.h"
 #include "readyup/players.h"
+#include "readyup/round_restore.h"
 #include "readyup/status_snapshot.h"
 #include "readyup/weapon_cleanup.h"
 #include "readyup/webhook.h"
@@ -501,6 +503,7 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
   ApplyMatchCvarsLocked(ctx);
   if (EnqueueServerCommand("mp_warmup_pausetimer 0")) any = true;
   if (EnqueueServerCommand("mp_warmup_end")) any = true;
+  round_restore::EnableRoundBackups(ctx.matchid, std::max(1, mapNumber));
   if (EnqueueServerCommand("mp_restartgame 1")) any = true;
   st.startTriggered = any;
   st.lastGateCmd = std::chrono::steady_clock::now();
@@ -939,6 +942,7 @@ static void ApplyLiveRulesAndRestartLocked(State& st, const WebhookMatchContext&
       if (EnqueueServerCommand(c)) any = true;
     }
   }
+  round_restore::EnableRoundBackups(ctx.matchid, std::max(1, MatchStateGet().map_number));
   // Start clean (also effectively clears warmup scoreboard noise).
   if (EnqueueServerCommand("mp_restartgame 1")) any = true;
   if (any) {
@@ -988,6 +992,7 @@ static void MaybeGateMatchLocked(State& st) {
     if (!allReady) return;
 
     (void)EnqueueServerCommand("mp_unpause_match");
+    if (PauseStateGet().paused) PauseStateOnUnpaused();  // the restore's autopause
     WebhookSetHeartbeatStatus("live");
     st.mode = ReadyUpMode::MatchLive;
     st.recoveryGate = false;
@@ -995,7 +1000,14 @@ static void MaybeGateMatchLocked(State& st) {
 
     const auto ms = MatchStateGet();
     const int mapNumber = ms.map_number <= 0 ? 1 : ms.map_number;
-    BeginMapStats(*ctxOpt, mapNumber);
+    // match_recovery.h put the map's stats back (live): they continue; else the map starts over.
+    bool statsLive = false;
+    {
+      std::lock_guard<std::recursive_mutex> slk(stats::Mutex());
+      statsLive = stats::Current().Live();
+    }
+    if (!statsLive) BeginMapStats(*ctxOpt, mapNumber);
+    match_recovery::NoteProgress();
     StartDemoForMapLocked(st, mapNumber, ms.current_map);
 
     DebugLine("modes: recovery gate cleared -> mp_unpause_match");
@@ -1215,6 +1227,7 @@ bool ScrimGoLive(int restartSeconds) {
   if (EnqueueServerCommand(LiveCfgExecCommand().c_str())) any = true;
   if (EnqueueServerCommand("mp_warmup_pausetimer 0")) any = true;
   if (EnqueueServerCommand("mp_warmup_end")) any = true;
+  round_restore::EnableRoundBackups(ctxOpt->matchid, std::max(1, MatchStateGet().map_number));
   const std::string restart = "mp_restartgame " + std::to_string(restartSeconds);
   if (EnqueueServerCommand(restart.c_str())) any = true;
   if (any) {
@@ -1293,6 +1306,7 @@ void OnMatchRoundStarted() {
   st.warmupRulesApplied = false;
   st.startTriggered = false;
   readyup::persisted_match_state::PersistLiveFlag(true);
+  match_recovery::NoteProgress();
   WebhookSetHeartbeatStatus("live");
   SendToChat("Ready Up: LIVE! Good luck, have fun.");
   GoLiveCardArm("go-live round start", /*restartPending=*/false);  // "LIVE · GO GO GO" + commands
@@ -1334,6 +1348,7 @@ bool ForceStartMatch(bool force) {
   st.warmupRulesApplied = false;
   st.startTriggered = false;
   readyup::persisted_match_state::PersistLiveFlag(true);
+  match_recovery::NoteProgress();
   WebhookSetHeartbeatStatus("live");
 
   // Emit warmup/live lifecycle events for force-start as well.
@@ -1435,6 +1450,13 @@ void ModesSetSeriesWins(int team1, int team2) {
   std::lock_guard<std::mutex> lk(st.mu);
   st.seriesWinsTeam1 = std::max(0, team1);
   st.seriesWinsTeam2 = std::max(0, team2);
+}
+
+void ModesSeriesWins(int* team1, int* team2) {
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  *team1 = st.seriesWinsTeam1;
+  *team2 = st.seriesWinsTeam2;
 }
 
 void SetRecoveryGate(bool enabled) {
@@ -1620,6 +1642,7 @@ static void FinishMapLocked(State& st, const WebhookMatchContext& ctx, int map_n
   in.nextMap = nextMap;
   if (forfeit) in.seriesWinner = winner;
   (void)MatchEndOnMapComplete(in);
+  match_recovery::NoteProgress();  // map_over + the series score (crash recovery)
 }
 }  // namespace
 

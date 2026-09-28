@@ -193,6 +193,10 @@ bool WebhookUpdateMapSide(int map_number, const char* map_side);
 // optionally rewinding to a specific round number.
 // - round_number == 0 => recover to latest
 void WebhookEmitRecoverRequested(int map_number, int round_number);
+// A round backup was loaded (round_restore.h): Auto Tournament CS2 `backup_loaded`
+// {map_number, round_number, filename}; round_number = rounds played before the restored round
+// (the NN of the backup's file name).
+void WebhookEmitBackupLoaded(int map_number, int round_number, const std::string& filename);
 void WebhookEmitRoundStarted(int map_number, int round_number, int team1_score, int team2_score);
 void WebhookEmitRoundEnd(int map_number, int round_number, int round_time, int reason, const char* winner, int team1_score, int team2_score);
 void WebhookEmitRoundEndWithPlayerStats(int map_number,

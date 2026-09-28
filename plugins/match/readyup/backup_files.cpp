@@ -21,6 +21,12 @@ static bool StartsWith(const std::string& s, const std::string& prefix) {
 
 }  // namespace
 
+std::vector<std::string> BackupDirs() {
+  const std::string csgo = GetCsgoDirFromModuleDir();
+  if (csgo.empty()) return {};
+  return {csgo + "/readyup", csgo + "/addons/metamod", csgo};
+}
+
 std::optional<std::string> FindNewestBackupFileByPrefix(const std::string& prefix) {
   if (prefix.empty()) return std::nullopt;
   const std::string csgoDir = readyup::GetCsgoDirFromModuleDir();

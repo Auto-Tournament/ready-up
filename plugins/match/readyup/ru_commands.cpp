@@ -14,6 +14,8 @@ const std::vector<RuMainCommand>& MatchRuCommands() {
            {"restart", "", "the loaded match back to warmup (everyone readies again)", true},
            {"end", "", "end the loaded match (winner none) and reset the server", true},
            {"recover", "[round]", "ask the platform to recover the match", true},
+           {"restore", "<round>", "play <round> of this map again from its start (also .restore)", true},
+           {"backups", "", "this match's round backups on the server", true},
            {"pause", "", "admin pause", true},
            {"unpause", "", "unpause", true},
            {"tech", "team1|team2", "technical pause for a team (its limits)", true},

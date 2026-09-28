@@ -53,6 +53,8 @@ set(MATCH_SOURCES
   readyup/player_registry.cpp
   readyup/ready_hud.cpp
   readyup/reload_state.cpp
+  readyup/round_restore.cpp
+  readyup/round_restore_rules.cpp
   readyup/ruleset.cpp
   readyup/scrim_flow.cpp
   readyup/vote_logic.cpp
@@ -166,3 +168,14 @@ add_executable(match_live_cards_test tests/live_cards_test.cpp readyup/card_html
 target_include_directories(match_live_cards_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(match_live_cards_test PRIVATE -Wall -Wextra)
 add_test(NAME match_live_cards COMMAND match_live_cards_test)
+
+# Round restore + crash recovery (readyup/round_restore_rules.h): backup file names and the list,
+# `.restore <round>` parsing and refusals, pause_after_restore resolution, the progress record and
+# what a restarted server recovers (ctest `match_restore`).
+add_executable(match_restore_test tests/restore_test.cpp readyup/round_restore_rules.cpp readyup/match_end_logic.cpp
+  readyup/match_rules.cpp readyup/match_stats.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp)
+target_include_directories(match_restore_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs
+  ${CMAKE_SOURCE_DIR}/core/include)
+target_compile_options(match_restore_test PRIVATE -Wall -Wextra)
+add_test(NAME match_restore COMMAND match_restore_test)

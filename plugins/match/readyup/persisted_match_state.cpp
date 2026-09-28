@@ -18,6 +18,7 @@ static constexpr const char* kKeyT1 = "ru_active_team1_score";
 static constexpr const char* kKeyT2 = "ru_active_team2_score";
 static constexpr const char* kKeyBackupPrefix = "ru_active_backup_prefix";
 static constexpr const char* kKeyBackupFile = "ru_active_backup_file";
+static constexpr const char* kKeyProgress = "ru_active_progress";
 
 // Memory at once; the store's writer thread saves (coalesced, so round_end bursts stay cheap).
 static void SetAsync(const char* key, std::optional<std::string> value) {
@@ -39,10 +40,12 @@ void PersistActiveMatchJson(std::string json) {
   SetAsync(kKeyT2, std::string("0"));
   SetAsync(kKeyBackupPrefix, std::nullopt);
   SetAsync(kKeyBackupFile, std::nullopt);
+  SetAsync(kKeyProgress, std::nullopt);
 }
 
 void ClearActiveMatch() {
-  for (const char* k : {kKeyMatchJson, kKeyLive, kKeyMap, kKeyRound, kKeyT1, kKeyT2, kKeyBackupPrefix, kKeyBackupFile}) {
+  for (const char* k : {kKeyMatchJson, kKeyLive, kKeyMap, kKeyRound, kKeyT1, kKeyT2, kKeyBackupPrefix, kKeyBackupFile,
+                        kKeyProgress}) {
     SetAsync(k, std::nullopt);
   }
 }
@@ -67,6 +70,13 @@ void PersistBackupFile(std::string filename) {
   if (filename.empty()) return;
   SetAsync(kKeyBackupFile, std::move(filename));
 }
+
+void PersistProgress(std::string json) {
+  if (json.empty()) return;
+  SetAsync(kKeyProgress, std::move(json));
+}
+
+std::optional<std::string> GetProgressJson() { return GetSync(kKeyProgress); }
 
 std::optional<std::string> GetActiveMatchJson() {
   return GetSync(kKeyMatchJson);

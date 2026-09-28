@@ -20,6 +20,7 @@ MatchRules BuiltinDefaultRules() {
   r.stop_command_available = 0;
   r.stop_command_no_damage = 0;
   r.stop_vote_seconds = 30;
+  r.pause_after_restore = 1;
   return r;
 }
 
@@ -43,6 +44,7 @@ MatchRules ResolveRules(const MatchRules& match, const MatchRules& base) {
   r.stop_command_no_damage =
       pick(match.stop_command_no_damage, base.stop_command_no_damage, d.stop_command_no_damage) ? 1 : 0;
   r.stop_vote_seconds = std::clamp(pick(match.stop_vote_seconds, base.stop_vote_seconds, d.stop_vote_seconds), 5, 300);
+  r.pause_after_restore = pick(match.pause_after_restore, base.pause_after_restore, d.pause_after_restore) ? 1 : 0;
   return r;
 }
 
