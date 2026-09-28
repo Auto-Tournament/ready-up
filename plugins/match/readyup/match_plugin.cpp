@@ -395,6 +395,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "match", RU_SELFTEST_IFACE_VERSION,
                            const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
     MatchStatusInstall();
+    demo::AddListener(&WebhookEmitDemoEvent);  // demo_recording_* / demo_upload_* webhooks
     fleet_bridge::Install(api);
 
     // Players already connected (plugin loaded mid-map / reloaded).

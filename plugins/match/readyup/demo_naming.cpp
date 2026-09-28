@@ -3,7 +3,9 @@
 #include "readyup/match_stats.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
+#include <utility>
 
 // Pure helpers of the demo recorder (no engine or server state): unit-tested by
 // tests/match_flow_test.cpp.
@@ -76,6 +78,40 @@ std::string FormatDemoFileName(const std::string& format, const TokenValues& v) 
   }
   while (!out.empty() && out.front() == '.') out.erase(out.begin());
   if (out.empty()) out = "readyup_demo";
+  return out;
+}
+
+std::vector<std::string> UploadHeaderLines(const Settings& s, const TokenValues& v) {
+  std::vector<std::pair<std::string, std::string>> hs;
+  auto lower = [](std::string x) {
+    for (char& c : x) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return x;
+  };
+  auto set = [&](const std::string& name, const std::string& value) {
+    const std::string key = lower(name);
+    for (auto& h : hs) {
+      if (lower(h.first) == key) {
+        h.second = value;
+        return;
+      }
+    }
+    hs.emplace_back(name, value);
+  };
+  const std::string matchId = std::to_string(v.matchid);
+  const std::string mapNumber = std::to_string(v.mapNumber);
+  const std::string round = std::to_string(v.roundNumber);
+  for (const char* prefix : {"Auto-Tournament-", "Get5-"}) {
+    const std::string p = prefix;
+    set(p + "FileName", v.fileName);
+    set(p + "MatchId", matchId);
+    set(p + "MapNumber", mapNumber);
+    set(p + "RoundNumber", round);
+  }
+  for (const auto& h : s.uploadHeaders) set(h.first, ExpandTokens(h.second, v));
+  if (!s.headerKey.empty() && !s.headerValue.empty()) set(s.headerKey, s.headerValue);
+  std::vector<std::string> out;
+  out.reserve(hs.size());
+  for (const auto& h : hs) out.push_back(h.first + ": " + h.second);
   return out;
 }
 
