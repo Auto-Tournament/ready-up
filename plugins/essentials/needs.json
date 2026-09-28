@@ -16,6 +16,7 @@
     "ClientPrint",
     "ISource2GameClients::ClientCommand",
     "ISource2Server::GameFrame",
+    "Host_Say",
     "LegacyGameEventListener",
     "UTIL_ClientPrintAll"
   ],
