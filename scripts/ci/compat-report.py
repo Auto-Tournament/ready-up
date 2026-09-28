@@ -591,7 +591,9 @@ def dynamic_checks(cid, need, st, has_report):
     loaded = st["loaded"]
     if loaded is not None and cid not in loaded and not any(s == "FAIL" for s, _ in rows):
         rows.append(("FAIL", "not loaded (not in the plugin host's list)"))
-    if not rows and loaded is not None and cid in loaded:
+    # Loaded, and its own lines are only INFO (or none): being loaded is the result. INFO lines alone
+    # would otherwise leave the check pending forever.
+    if loaded is not None and cid in loaded and not any(s in ("OK", "FAIL", "WARN", "PEND") for s, _ in rows):
         rows.append(("OK", "loaded"))
     checks.append(tally("selftest", rows) if rows else pending_check("selftest"))
     return checks

@@ -401,6 +401,19 @@ class CompatReportTest(unittest.TestCase):
         self.assertEqual(doc["overall"], "pass")
         self.assertEqual(cr.badge(doc)["message"], "compatible")
 
+    def test_dynamic_loaded_plugin_with_only_info_lines_passes(self):
+        # a loaded plugin whose selftest lines are all INFO (whitelist "off", deathmatch "off") is
+        # loaded and fine: pass, not pending forever
+        st = self.SELFTEST.replace("3 loaded: essentials, fleet, match", "4 loaded: essentials, fleet, match, whitelist")
+        st = st.replace("[needs]\n", "  INFO whitelist: whitelist                         off, 0 player(s)\n[needs]\n")
+        doc = self.dynamic("selftest", selftest=st)
+        wl = self.check(self.comp(doc, "whitelist"), "selftest")
+        self.assertEqual((wl["status"], wl["passed"], wl["total"]), ("pass", 1, 1))
+        # a plugin that is not loaded still fails, INFO lines or not
+        st = st.replace("4 loaded: essentials, fleet, match, whitelist", "3 loaded: essentials, fleet, match")
+        wl = self.check(self.comp(self.dynamic("selftest", selftest=st), "whitelist"), "selftest")
+        self.assertEqual(wl["status"], "fail")
+
     def test_dynamic_livetest_fail_and_no_verdict(self):
         doc = self.dynamic("live", live=[("match", 1), ("scrim", 2)])
         lt = self.check(self.comp(doc, "match"), "livetest")
