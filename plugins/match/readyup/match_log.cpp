@@ -1,6 +1,7 @@
 // Match half of the old core log_receiver.cpp LifecycleImpl (see match_log.h). The core keeps
 // the log listener / file tail and the normalized plugin events; this is the match policy.
 #include "readyup/match_log.h"
+#include "readyup/match_recovery.h"
 
 #include "readyup/backup_files.h"
 #include "readyup/engine.h"
@@ -243,6 +244,7 @@ void LifecycleLocked(const std::string& line) {
       backup_files::DiscoverAndPersistNewestBackupFileAsync(prefix);
     }
     OnMatchRoundEnded(g_mapNumber, g_team1Score, g_team2Score, g_currentMap);
+    match_recovery::NoteProgress();
     return;
   }
 

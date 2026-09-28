@@ -1,6 +1,7 @@
 // Match half of the old core game_events.cpp (see match_events.h). Engine access goes through
 // ru_api only: event fields via ev_get_*, controllers via entity_by_index / schema_offset.
 #include "readyup/match_events.h"
+#include "readyup/match_recovery.h"
 
 #include "readyup/backup_files.h"
 #include "readyup/engine.h"
@@ -457,6 +458,7 @@ void EmitRoundEndLocked(int csWinnerTeamNum, int reason, int roundTimeMs) {
     }
   }
   OnMatchRoundEnded(ms.map_number, mapScore1, mapScore2, ms.current_map);
+  match_recovery::NoteProgress();  // stats + series score for crash recovery (match_recovery.h)
 }
 
 void OnRoundStartLocked(const PendingRound& ev) {

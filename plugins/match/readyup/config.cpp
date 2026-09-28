@@ -155,6 +155,7 @@ void Apply(ReadyUpCfg* out, const std::string& key, const std::string& val) {
   else if (key == "stop_command_available") out->rules.stop_command_available = ParseBool(val, false) ? 1 : 0;
   else if (key == "stop_command_no_damage") out->rules.stop_command_no_damage = ParseBool(val, false) ? 1 : 0;
   else if (key == "stop_vote_seconds") out->rules.stop_vote_seconds = RuleInt(val);
+  else if (key == "pause_after_restore") out->rules.pause_after_restore = ParseBool(val, true) ? 1 : 0;
   else if (key == "damage_report") out->damage_report = ParseBool(val, out->damage_report);
   else if (key == "ruleset") out->ruleset = Lower(val);
   else if (key == "default_model_ct" || key == "default_model_t") {

@@ -793,6 +793,20 @@ void WebhookEmitRecoverRequested(int map_number, int round_number) {
   EnqueueLocked(st, json);
 }
 
+void WebhookEmitBackupLoaded(int map_number, int round_number, const std::string& filename) {
+  WebhookStartSenderThread();
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  if (!st.match || st.baseUrl.empty()) return;
+  const auto& m = *st.match;
+  const std::string json = std::string("{") + "\"event\":\"backup_loaded\"," +
+                           "\"matchid\":" + std::to_string(m.matchid) + "," +
+                           "\"map_number\":" + std::to_string(std::max(0, map_number)) + "," +
+                           "\"round_number\":" + std::to_string(std::max(0, round_number)) + "," +
+                           "\"filename\":\"" + JsonEscape(filename) + "\"" + "}";
+  EnqueueLocked(st, json);
+}
+
 void WebhookEmitPlayerConnect(const WebhookPlayer& p) {
   WebhookStartSenderThread();
   auto& st = St();

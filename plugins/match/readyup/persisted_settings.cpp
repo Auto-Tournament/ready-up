@@ -8,6 +8,7 @@
 #include "readyup/match_token.h"
 #include "readyup/local_store.h"
 #include "readyup/modes.h"
+#include "readyup/round_restore.h"
 #include "readyup/webhook.h"
 
 #include <algorithm>
@@ -114,6 +115,8 @@ const std::vector<ConsoleEntry>& Entries() {
        [](const std::string& v) { SetSeriesEndKickDelays(-1, std::max(0, PI(v)), -1); }},
       {"ru_series_end_kick_delay_demo_upload", [] { return std::to_string(Kick(2)); },
        [](const std::string& v) { SetSeriesEndKickDelays(-1, -1, std::max(0, PI(v))); }},
+      {"ru_pause_after_restore", [] { return std::to_string(round_restore::ConsolePauseAfterRestore()); },
+       [](const std::string& v) { round_restore::SetConsolePauseAfterRestore(PI(v)); }},
   };
   return k;
 }

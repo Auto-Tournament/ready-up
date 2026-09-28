@@ -19,6 +19,7 @@
 #include "readyup/modes.h"
 #include "readyup/persisted_match_state.h"
 #include "readyup/persisted_settings.h"
+#include "readyup/round_restore.h"
 #include "readyup/webhook.h"
 
 #include <atomic>
@@ -640,7 +641,9 @@ const std::vector<std::string>& MatchConsoleCommands() {
       "ru_demo_upload_header_key", "ru_demo_upload_header_value", "get5_demo_upload_header_key",
       "get5_demo_upload_header_value",
       "ru_demo_status", "ru_series_end_kick_delay_no_demo", "ru_series_end_kick_delay_demo_no_upload",
-      "ru_series_end_kick_delay_demo_upload", "ru_match_stats"};
+      "ru_series_end_kick_delay_demo_upload", "ru_match_stats",
+      // round_restore.h
+      "ru_pause_after_restore", "ru_listbackups", "ru_loadbackup"};
   return k;
 }
 
@@ -662,6 +665,7 @@ bool RunConsoleCommand(const std::string& line) {
   if (HandleWarmupMaxMoneyCommand(line)) return true;
   if (HandleWarmupBuyAnywhereCommand(line)) return true;
   if (HandleWarmupInfiniteAmmoCommand(line)) return true;
+  if (round_restore::HandleConsoleLine(Trim(line))) return true;
   // Demo recording/upload, series-end kick delays, ru_match_stats, tv_delay (match_end.h).
   return MatchFlowHandleConsoleLine(Trim(line));
 }

@@ -101,6 +101,7 @@ Json ContextToJson(const WebhookMatchContext& c) {
   rules["stop_command_available"] = c.rules.stop_command_available;
   rules["stop_command_no_damage"] = c.rules.stop_command_no_damage;
   rules["stop_vote_seconds"] = c.rules.stop_vote_seconds;
+  rules["pause_after_restore"] = c.rules.pause_after_restore;
   j["rules"] = std::move(rules);
   j["ruleset"] = c.ruleset;
   j["overrides"] = c.overrides_json;
@@ -160,6 +161,7 @@ WebhookMatchContext ContextFromJson(const Json& j) {
     c.rules.stop_command_available = Int(r, "stop_command_available", -1);
     c.rules.stop_command_no_damage = Int(r, "stop_command_no_damage", -1);
     c.rules.stop_vote_seconds = Int(r, "stop_vote_seconds", -1);
+    c.rules.pause_after_restore = Int(r, "pause_after_restore", -1);
   }
   c.ruleset = Str(&j, "ruleset");
   c.overrides_json = Str(&j, "overrides");

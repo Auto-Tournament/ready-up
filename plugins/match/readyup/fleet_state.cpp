@@ -414,6 +414,7 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
   if (pause && pause->Find("technical_per_team")) cfg["max_tech_pauses_per_team"] = Int(*pause, "technical_per_team", 0);
   if (pause && pause->Find("technical_seconds")) cfg["tech_pause_max_seconds"] = Int(*pause, "technical_seconds", 0);
   if (pause && !Str(*pause, "unpause").empty()) cfg["both_teams_unpause_required"] = Str(*pause, "unpause") != "caller_team";
+  if (pause && pause->Find("pause_after_restore")) cfg["pause_after_restore"] = Bool(*pause, "pause_after_restore", true);
   if (const Json* ready = Obj(r, "ready")) {
     if (ready->Find("allow_force_ready")) cfg["allow_force_ready"] = Bool(*ready, "allow_force_ready", true);
     if (ready->Find("min_per_team")) cfg["min_players_to_ready"] = Int(*ready, "min_per_team", 0);

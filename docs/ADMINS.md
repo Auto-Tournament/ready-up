@@ -57,6 +57,8 @@ always may. An admin's `.help` points at `.ru help`.
 | `.ru match restart` | admin | the loaded match back to its warmup; everyone readies again |
 | `.ru match end` | admin | ends the loaded match (`series_end` winner none) and resets the server |
 | `.ru match recover [round]` | admin | asks the platform to recover the match (`recover_requested`) |
+| `.ru match restore <round>` | admin | plays `<round>` of the current map again from its start (CS2's round backup); `.restore <round>` in chat. Paused afterwards until both teams `.unpause` (`ru_pause_after_restore 0`: live after 3 s) |
+| `.ru match backups` | admin | the loaded match's round backups on this server (`ru_listbackups` on the console) |
 | `.ru match pause` / `unpause` | admin | admin pause / unpause (`.fp` / `.fup` in chat) |
 | `.ru match tech\|tac team1\|team2` | admin | technical pause / tactical timeout for a team, with its limits |
 | `.ru match side stay\|switch\|ct\|t` | knife winners, admin | knife side pick (`.stay` / `.switch`) |

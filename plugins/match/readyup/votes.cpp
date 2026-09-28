@@ -279,9 +279,16 @@ void VotesStop(uint64_t /*voter*/, WebhookTeam team, const std::string& name) {
   Scores(&s1, &s2);
   const int round = s1 + s2 + 1;
   std::string err;
-  if (!fleet_bridge::RestoreRoundFromLocalBackup(round, "vote", "stop", &err)) {
+  bool autoUnpause = false;
+  if (!fleet_bridge::RestoreRoundFromLocalBackup(round, "vote", "stop", &err, &autoUnpause)) {
     Print("vote: stop: passed, restore of round %d failed: %s\n", round, err.c_str());
     SendToChat(("Ready Up: .stop passed but round " + std::to_string(round) + " cannot be restored (" + err + ").").c_str());
+    return;
+  }
+  if (autoUnpause) {
+    // pause_after_restore 0 (round_restore.h): live again in 3 s.
+    Print("vote: stop: passed -> round %d restored (live in 3 s)\n", round);
+    SendToChat(("Ready Up: both teams agreed: round " + std::to_string(round) + " restored. Live in 3 seconds.").c_str());
     return;
   }
   // The restore autopauses (marked as an admin pause); the players agreed to it, so they unpause
