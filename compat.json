@@ -5,24 +5,24 @@
   "patch": "1.41.8.5"
  },
  "readyup": {
-  "version": "0.1.0-dev.886648a",
-  "commit": "886648a67697e502a2f04e35a8226f022b71fbed"
+  "version": "0.1.0-dev.d817d06",
+  "commit": "d817d06ffa32d0214595e97b994f1eb193f085ae"
  },
  "run": {
-  "id": "36447662303",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/36447662303",
-  "trigger": "build_change",
-  "stage": "selftest",
-  "state": "fail",
-  "started_at": "2026-09-28T15:58:53Z",
-  "finished_at": "2026-09-28T16:03:47Z"
+  "id": "36454835620",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/36454835620",
+  "trigger": "manual",
+  "stage": "live",
+  "state": "pass",
+  "started_at": "2026-09-28T16:58:25Z",
+  "finished_at": "2026-09-28T17:08:16Z"
  },
- "overall": "fail",
+ "overall": "pass",
  "components": [
   {
    "id": "core",
    "name": "Core",
-   "status": "warn",
+   "status": "pass",
    "checks": [
     {
      "kind": "signature",
@@ -61,21 +61,17 @@
     },
     {
      "kind": "selftest",
-     "status": "warn",
-     "passed": 77,
-     "total": 80,
-     "failures": [
-      "schema CCSPlayerController::m_iAssists: not found [stats (else from events)]",
-      "schema CCSPlayerController::m_iDeaths: not found [stats (else from events)]",
-      "schema CCSPlayerController::m_iKills: not found [stats (else from events)]"
-     ]
+     "status": "pass",
+     "passed": 87,
+     "total": 87,
+     "failures": []
     }
    ]
   },
   {
    "id": "addons",
    "name": "Addons",
-   "status": "fail",
+   "status": "pass",
    "checks": [
     {
      "kind": "signature",
@@ -107,12 +103,10 @@
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "failures": []
     }
    ]
   },
@@ -172,9 +166,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     }
    ]
@@ -182,7 +176,7 @@
   {
    "id": "match",
    "name": "Match",
-   "status": "warn",
+   "status": "pass",
    "checks": [
     {
      "kind": "signature",
@@ -221,15 +215,10 @@
     },
     {
      "kind": "schema",
-     "status": "warn",
-     "passed": 11,
-     "total": 15,
-     "failures": [
-      "CCSPlayerController.m_iAssists: not found",
-      "CCSPlayerController.m_iDeaths: not found",
-      "CCSPlayerController.m_iHeadshotKills|CCSPlayerController.m_iHeadShotKills|CCSPlayerController.m_iMatchStats_HeadshotKills: not found",
-      "CCSPlayerController.m_iKills: not found"
-     ]
+     "status": "pass",
+     "passed": 17,
+     "total": 17,
+     "failures": []
     },
     {
      "kind": "event",
@@ -247,9 +236,9 @@
     },
     {
      "kind": "livetest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
      "failures": []
     }
    ]
@@ -352,9 +341,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     }
    ]
@@ -395,15 +384,15 @@
     {
      "kind": "schema",
      "status": "pass",
-     "passed": 15,
-     "total": 15,
+     "passed": 23,
+     "total": 23,
      "failures": []
     },
     {
      "kind": "event",
      "status": "pass",
-     "passed": 4,
-     "total": 4,
+     "passed": 7,
+     "total": 7,
      "failures": []
     },
     {
@@ -443,9 +432,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     }
    ]
@@ -499,9 +488,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     }
    ]
@@ -541,13 +530,13 @@
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     }
    ]
   }
  ],
- "checked_at": "2026-09-28T16:03:47Z"
+ "checked_at": "2026-09-28T17:08:16Z"
 }
