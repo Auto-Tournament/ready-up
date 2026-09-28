@@ -2162,7 +2162,9 @@ void OnNativeWarmupStarted(const char* source) {
   const ReadyUpMode m = st.mode;
   const bool emulated = (m == ReadyUpMode::Idle || m == ReadyUpMode::ScrimWarmup || m == ReadyUpMode::MatchWarmup ||
                          m == ReadyUpMode::MatchKnife);
-  if (!emulated) {
+  // Practice has no warmup either. After a map change or a restart, CS2 starts its warmup after
+  // prac.cfg (and its mp_warmup_end) already ran, so practice sat in CS2's warmup until `.prac`.
+  if (!emulated && m != ReadyUpMode::Practice) {
     Debug("warmup: CS2 warmup started (%s) in mode=%s; left alone\n", source ? source : "?", ModeToString(m));
     return;
   }
@@ -2178,8 +2180,9 @@ void OnNativeWarmupStarted(const char* source) {
     if (EnqueueServerCommand(c)) any = true;
   }
   if (any) st.lastNativeWarmupEnd = now;
-  Print("warmup: CS2 warmup started (%s) in mode=%s; ending it (Ready Up emulates warmup)%s\n",
-        source ? source : "?", ModeToString(m), any ? "" : " - command buffer not ready");
+  Print("warmup: CS2 warmup started (%s) in mode=%s; ending it (%s)%s\n", source ? source : "?", ModeToString(m),
+        m == ReadyUpMode::Practice ? "practice has no warmup" : "Ready Up emulates warmup",
+        any ? "" : " - command buffer not ready");
 }
 
 void Tick() {
@@ -2220,7 +2223,7 @@ void Tick() {
       ResetKnifeStateForMapLocked(st, /*mapNumber=*/ms.map_number <= 0 ? 1 : ms.map_number);
       // Baseline: CS2's own warmup stays off (Ready Up emulates it). If CS2
       // starts it anyway, OnNativeWarmupStarted ends it.
-      if (st.mode != ReadyUpMode::Practice && st.mode != ReadyUpMode::External) {
+      if (st.mode != ReadyUpMode::External) {
         (void)EnqueueServerCommand("mp_warmup_pausetimer 0");
         (void)EnqueueServerCommand("mp_warmuptime 0");
       }
