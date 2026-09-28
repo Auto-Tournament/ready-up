@@ -5,6 +5,7 @@
 #include "readyup/client_print.h"
 #include "readyup/config.h"
 #include "readyup/features.h"
+#include "readyup/license_status.h"
 #include "readyup/logging.h"
 #include "readyup/plugin_loader.h"
 #include "readyup/ru_help_text.h"
@@ -130,6 +131,7 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
   if (parts.size() == 1) {
     DebugLine("ru: cmd=.ru (version)");
     SendToChat((std::string("Ready Up ") + BuildVersion()).c_str());
+    if (const std::string lic = license::PlayerLineIfShown(); !lic.empty()) SendToChat(lic.c_str());
     return;
   }
 
@@ -166,6 +168,15 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
 
   if (cmd == "version") {
     replyPrivate(std::string("Ready Up ") + BuildVersion());
+    if (const std::string lic = license::PlayerLineIfShown(); !lic.empty()) replyPrivate(lic);
+    return;
+  }
+
+  if (cmd == "license") {
+    // The key's status (license id, warnings): admins only. Players never see "unlicensed";
+    // with readyup_show_license 1 they get "Licensed to ..." from .help and .ru version.
+    if (!requireAdmin()) return;
+    for (const auto& l : license::StatusLines()) replyPrivate(l);
     return;
   }
 
@@ -219,6 +230,7 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
       return;
     }
     SendToChat("Ready Up: cfg reloaded.");
+    license::LogOnReload();
     return;
   }
 

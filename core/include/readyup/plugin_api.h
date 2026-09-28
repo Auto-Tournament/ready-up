@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 8
+#define READYUP_PLUGIN_API_VERSION_MINOR 9
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -466,7 +466,7 @@ typedef struct ru_api {
    * A subcommand of `ru`: `ru <name> ...` on the server console / RCON and `.ru <name> ...` in
    * chat both call fn. argv[0] is "ru" (console) or ".ru" (chat), argv[1] is the subcommand.
    * name is [a-z0-9_-]; the core's own subcommands (help, plugin, version, selftest, sigtest,
-   * reload, status_http) and another plugin's are refused. Chat senders are not checked: use
+   * reload, status_http, license) and another plugin's are refused. Chat senders are not checked: use
    * is_admin. ctx->slot is the sender's slot when known.
    */
   ru_handle (*register_ru_subcommand)(ru_plugin* self, const char* name, ru_command_fn fn, void* user);
@@ -585,7 +585,16 @@ typedef struct ru_api {
    * 1 = installed, 0 = refused (reason in the log). */
   int (*hook_vtable)(ru_plugin* self, const char* key, const void* object, void* replacement, void** original);
 
-  /* v1.9+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.9 ============================================================
+   * Appended in 1.9. Require 1.9 in ru_plugin_info.api_version, or check RU_API_HAS().
+   */
+  /* The player-facing license line, "Licensed to <licensee>", when `readyup_show_license 1` is set
+   * and the server's Auto Tournament license key is valid and names a licensee. Returns its length
+   * (truncated to len-1 in buf), or -1 when there is nothing to show (the default; also without a
+   * key). Informational only: the core never blocks anything over a license. Any thread. */
+  int (*license_player_line)(ru_plugin* self, char* buf, uint32_t len);
+
+  /* v1.10+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

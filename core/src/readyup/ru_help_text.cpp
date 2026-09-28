@@ -6,7 +6,7 @@
 namespace readyup {
 
 const std::vector<std::string>& CoreRuMainCommands() {
-  static const std::vector<std::string> k = {"plugin", "reload", "selftest", "version", "help"};
+  static const std::vector<std::string> k = {"plugin", "reload", "selftest", "version", "license", "help"};
   return k;
 }
 
@@ -16,6 +16,7 @@ std::vector<std::string> RuMainHelpLines(const std::vector<std::string>& pluginM
       {"reload", "reload readyup.cfg"},
       {"selftest", "engine / plugin check, PASS or FAIL"},
       {"version", "the Ready Up build"},
+      {"license", "commercial license key status"},
   };
   std::map<std::string, std::string> all;  // name -> description, sorted
   for (const auto& kv : kCore) all[kv.first] = kv.second;
@@ -43,6 +44,10 @@ std::vector<std::string> CoreRuSubHelpLines(const std::string& main) {
   if (main == "reload") return {".ru reload: reload readyup.cfg; plugins re-read their settings (admin)"};
   if (main == "selftest") return {".ru selftest: engine surface, hooks, features, plugins; PASS/FAIL (admin)"};
   if (main == "version") return {".ru version: the Ready Up build"};
+  if (main == "license") {
+    return {".ru license: the license key's status, never blocks anything (admin; console: ru license)",
+            "server.cfg: readyup_license_key \"ATL1...\" (csm license set writes it), readyup_show_license 0|1"};
+  }
   if (main == "help") return {".ru help: main commands", ".ru help <command>: its subcommands"};
   return {};
 }

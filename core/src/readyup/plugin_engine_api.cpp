@@ -9,6 +9,7 @@
 #include "readyup/center_html.h"
 #include "readyup/center_panel_owner.h"
 #include "readyup/features.h"
+#include "readyup/license_status.h"
 #include "readyup/plugin_loader.h"
 #include "readyup/round_termination_hook.h"
 #include "readyup/schema.h"
@@ -19,6 +20,7 @@
 #include "readyup/plugin_api.h"
 #include "readyup/plugin_hooks.h"
 
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -308,6 +310,14 @@ int ApiWorkshopDownloadProgress(ru_plugin* self, uint64_t id, uint64_t* download
   return steam_ugc::DownloadProgress(id, downloaded, total) ? 1 : 0;
 }
 
+int ApiLicensePlayerLine(ru_plugin* self, char* buf, uint32_t len) {
+  if (!self) return -1;
+  const std::string line = license::PlayerLineIfShown();
+  if (line.empty()) return -1;
+  if (buf && len > 0) std::snprintf(buf, len, "%s", line.c_str());
+  return static_cast<int>(line.size());
+}
+
 }  // namespace
 
 void detail::FillEngineApi(ru_api* a) {
@@ -347,6 +357,7 @@ void detail::FillEngineApi(ru_api* a) {
   a->surface_function = &ApiSurfaceFunction;                      // v1.8
   a->hook_function = &ApiHookFunction;
   a->hook_vtable = &ApiHookVtable;
+  a->license_player_line = &ApiLicensePlayerLine;                 // v1.9
 }
 
 }  // namespace readyup::plugins

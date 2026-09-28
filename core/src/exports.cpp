@@ -6,6 +6,7 @@
 #include "readyup/crash_handler.h"
 #include "readyup/disabled.h"
 #include "readyup/engine_surface.h"
+#include "readyup/license_status.h"
 #include "readyup/selftest.h"
 #include "readyup/game_events.h"
 #include "readyup/game_frame_hook.h"
@@ -151,6 +152,7 @@ __attribute__((constructor)) static void readyup_ctor() {
   }
   readyup::PrintLine("libserver.so loaded.");
   readyup::LogLicenseNotice();
+  readyup::license::LogAtLoad();  // informational only: never blocks anything
 
   // One Ready Up per process. A second copy (two csgo/readyup-style lines, or a copy chained
   // behind another) would install every hook twice; it stays inert and only forwards the

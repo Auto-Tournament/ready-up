@@ -96,6 +96,7 @@ std::optional<int> GameEventsSlotForSteam(unsigned long long steamid64) {
 static std::string g_csgoDir;
 static std::string g_moduleDir;
 static std::string g_lastCenterAll;  // essentials: the workshop download bar
+static bool g_showLicense = false;    // core: readyup_show_license 1, valid key
 std::string GetCsgoDirFromModuleDir() { return g_csgoDir; }
 std::string GetThisModuleDir() { return g_moduleDir; }
 bool IsCoreChatCommand(const std::string& t) { return t == ".ru"; }
@@ -200,6 +201,10 @@ void FillEngineApi(ru_api* a) {
     const std::string n = name;
     if (n == "events_live" || n == "fn:UTIL_ClientPrintAll") return 0;
     return 1;  // match_flow, knife, ready_hud, welcome_html, pauses, ...
+  };
+  a->license_player_line = [](ru_plugin*, char* buf, uint32_t len) {
+    if (!readyup::g_showLicense) return -1;
+    return std::snprintf(buf, len, "%s", "Licensed to Example LAN AS");
   };
 }
 }  // namespace readyup::plugins::detail
@@ -462,6 +467,13 @@ int main(int argc, char** argv) {
     rp::Frame(true);
     Check(Sent("changelevel de_other"), "admin: .ru map change de_other -> changelevel");
     Check(Chatted("Ready Up admin: .ru help"), "admin: .help points at .ru help");
+    Check(!Chatted("Licensed to"), ".help: no license line by default");
+    readyup::g_showLicense = true;
+    ClearLog();
+    rp::TryDispatchChat(76561198000000001ull, "alice", ".help", 2);
+    rp::Frame(true);
+    Check(Chatted("Licensed to Example LAN AS"), ".help: readyup_show_license 1 adds \"Licensed to <licensee>\"");
+    readyup::g_showLicense = false;
     rp::TryDispatchRu(true, 0, "Console", "ru admins remove 76561198000000001");
     rp::Frame(true);
   }

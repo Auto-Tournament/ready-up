@@ -168,7 +168,7 @@ appended struct fields); bookkeeping members in `plugin_loader.cpp`, `feature_st
 | `log_untagged(self, level, msg)` | any | `[ReadyUp] <msg>` without the `plugin[name]: ` tag, for log formats tools already parse (`state:`, `knife:`) |
 | `register_chat_command_ex(self, name, flags, fn, user)` | game | chat command with `RU_CMD_HIDE`: the core swallows the sender's line in its ClientCommand hook, before the engine prints it |
 | `register_console_command_ex(self, name, flags, fn, user)` | game | console command with `RU_CMD_OBSERVE`: the plugin sees the line, the engine still runs it (e.g. `tv_delay 5`). Observers never conflict |
-| `register_ru_subcommand(self, name, fn, user)` | game | `ru <name> ...` (console / RCON) and `.ru <name> ...` (chat) both reach fn; argv[0] is `ru` / `.ru`. The core's subcommands (`help`, `plugin`, `version`, `selftest`, `sigtest`, `reload`, `status_http`) are reserved |
+| `register_ru_subcommand(self, name, fn, user)` | game | `ru <name> ...` (console / RCON) and `.ru <name> ...` (chat) both reach fn; argv[0] is `ru` / `.ru`. The core's subcommands (`help`, `plugin`, `version`, `selftest`, `sigtest`, `reload`, `status_http`, and `license` since 1.9) are reserved |
 | `on_frame(self, fn, user)` | game | every GameFrame, simulating or not (`ru_tick_info.simulating`), after `on_tick`. For timers that must fire while the server does not simulate |
 | `feature_state(self, name)` | game | 1 on / 0 pending / -1 off for a core feature (`knife`, `ready_hud`, ...) or dependency (`fn:X`, `cmdbuf`, `loglistener`, `eventmgr`, ...), plus `events_live` (engine events drive the round lifecycle) |
 | `current_map(self)` | game | the map of the last `RU_EVENT_MAP_START`, e.g. for a plugin that loads mid-map |
@@ -190,6 +190,14 @@ Plugin lines in `ru selftest` are not an API member: a plugin publishes the
 `plugins/hello` (still requiring 1.0) now also registers `ru hello`, a hidden `.hellohide`, an
 `sv_cheats` observer and an `on_frame` counter; the host test checks each one, including that
 they disappear on unload.
+
+### v1.9 (implemented)
+
+| Member | Thread | Purpose |
+|---|---|---|
+| `license_player_line(self, buf, len)` | any | `Licensed to <licensee>` when `readyup_show_license 1` is set and the server's license key is valid and names a licensee; -1 otherwise (the default). The match plugin adds it to `.help`. Informational only |
+
+`license` joins the reserved core `ru` subcommands.
 
 ### ABI rules
 
