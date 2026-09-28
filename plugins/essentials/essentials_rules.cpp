@@ -301,7 +301,7 @@ MapMatch ResolveMapName(const std::string& rawQuery, const std::vector<std::stri
     }
     if (starts.size() > 1) {  // the shortest of those, if it is one of them
       std::sort(starts.begin(), starts.end(), [&](size_t a, size_t b) { return maps[a].size() < maps[b].size(); });
-      if (maps[starts[0]].size() < maps[starts[1]].size()) starts.resize(1);
+      if (maps[starts[0]].size() < maps[starts[1]].size()) starts.erase(starts.begin() + 1, starts.end());
     }
     if (!starts.empty()) return pick(starts);
     if (!idx.empty()) return pick(idx);
