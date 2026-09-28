@@ -17,4 +17,6 @@ Ready Up is part of [Auto Tournament](https://github.com/Auto-Tournament). Docs 
 3. Keep engine-facing changes in `gamedata/engine-surface.json`, each with an identity anchor. See [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md).
 4. Open a pull request against `master` and describe how you tested it.
 
+Releases (stable and beta) are cut by maintainers with `./release.sh`; see [docs/RELEASING.md](../docs/RELEASING.md).
+
 By contributing you agree that your contribution is licensed under the [PolyForm Noncommercial License 1.0.0](../LICENSE).

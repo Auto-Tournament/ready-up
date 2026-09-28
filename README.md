@@ -51,9 +51,11 @@ Ready Up runs on Linux dedicated servers (`linuxsteamrt64`). From your server ro
 curl -fsSL https://raw.githubusercontent.com/Auto-Tournament/ready-up/master/install.sh | bash
 ```
 
-It first asks how you will use Ready Up: personal / noncommercial (you type `yes` to accept the
-[license](#license)) or commercial (you need a paid license first, see [Commercial use](#commercial-use)).
-The choice is saved in `game/csgo/readyup/license-acceptance.json`, so updates don't ask again.
+It first asks how you will use Ready Up: personal / non-commercial (free, the [license](#license))
+or commercial (needs a paid license, see [Commercial use](#commercial-use); paste your key now or
+add it later). Then it shows a short summary of the terms and you type `I AGREE` to go on; anything
+else stops without installing. The answer is saved in `game/csgo/cfg/ReadyUp/license.cfg`
+(`readyup_license_accepted`), so updates don't ask again ([INSTALL.md](docs/INSTALL.md#license)).
 
 In a terminal it then shows the components with the installed and latest version. Move with ↑/↓, toggle with space, confirm with enter:
 
@@ -78,18 +80,22 @@ It downloads the ticked components from the latest release (checking `SHA256SUMS
 **Scripts and panels (no questions):**
 
 Unattended installs have to state the license choice once with
-`--accept-license=noncommercial` or `--accept-license=commercial`, or they stop with an error:
+`--accept-license=noncommercial` or `--accept-license=commercial [--license-key ATL1...]`, or they
+stop with an error:
 
 ```bash
 curl -fsSL .../install.sh | bash -s -- essentials --accept-license=noncommercial   # core + essentials + match + fleet + practice (the default)
 curl -fsSL .../install.sh | bash -s -- full --accept-license=noncommercial         # + skins + hello + midas + whitelist
+curl -fsSL .../install.sh | bash -s -- essentials --accept-license=commercial --license-key ATL1...
 bash install.sh --yes                                    # update whatever is installed
 bash install.sh --remove skins                           # or --remove fleet, --remove hello
 bash install.sh --uninstall [--purge]                    # --purge also deletes your config
 bash install.sh --zip ready-up-essentials-<v>-linuxsteamrt64.zip essentials   # offline / CI artifact
 ```
 
-Other options: `--dir /path/to/cs2`, `--version vX.Y.Z`. It needs bash, python3, curl or wget, and unzip (python3 is used if unzip is missing). It never uses sudo, never stops or starts the server, and never touches your data files.
+Other options: `--dir /path/to/cs2`, `--version vX.Y.Z`, `--channel beta` (pre-releases such as
+`v0.1.0-beta.1` are opt-in: the default is the latest stable release; see
+[INSTALL.md](docs/INSTALL.md#beta-channel-pre-releases)). It needs bash, python3, curl or wget, and unzip (python3 is used if unzip is missing). It never uses sudo, never stops or starts the server, and never touches your data files.
 
 CS2 updates rewrite `gameinfo.gi`: run the installer again after each one (it only re-adds the line).
 
@@ -255,6 +261,7 @@ Full docs are at **[docs.autotournament.gg](https://docs.autotournament.gg)**. I
 - [Deathmatch (FFA / TDM)](docs/DEATHMATCH.md)
 - [Esports mode (Valve ruleset) spec](docs/ESPORTS-MODE.md)
 - [Development and debugging](docs/DEVELOPMENT.md)
+- [Releasing (stable and beta)](docs/RELEASING.md)
 - [Testing with Auto Tournament](docs/TESTING_WITH_MAT.md)
 
 ## Contributing
@@ -274,7 +281,9 @@ Ready Up (a business, a profit-making event or tournament, a paid server operato
 Ready Up or a service built on it), you need a paid commercial license before you install it.
 See [pricing](https://autotournament.gg/pricing) or email
 [sivert@autotournament.gg](mailto:sivert@autotournament.gg). Then install with
-`--accept-license=commercial`. The server prints a one-line license notice at every start.
+`--accept-license=commercial --license-key ATL1...` (or answer "commercial" in the installer). The
+server prints a one-line license notice at every start, and a notice when no license answer is
+recorded (`readyup_license_accepted`); neither ever blocks anything.
 
 **License key.** A paid license comes with a key (`ATL1...`). Put it in `server.cfg` (or let
 [CS2 Server Manager](https://github.com/Auto-Tournament/cs2-server-manager) do it: `csm license set`
