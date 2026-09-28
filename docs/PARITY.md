@@ -27,8 +27,8 @@ Parity is (done + 0.5 × partial) / rows. Stable is the number of rows marked st
 | 6. Events and reports | 7 | 7 | 0 | 0 | 100.0% | 0 |
 | 7. Player-facing and admin features | 27 | 22 | 1 | 4 | 83.3% | 3 |
 | 8. Player stats | 7 | 5 | 2 | 0 | 85.7% | 0 |
-| 9. ME features not previously listed | 12 | 4 | 1 | 7 | 37.5% | 0 |
-| **Total** | **97** | **75** | **8** | **14** | **81.4%** | **5** (5%) |
+| 9. ME features not previously listed | 15 | 10 | 1 | 4 | 70.0% | 0 |
+| **Total** | **100** | **81** | **8** | **11** | **85.0%** | **5** (5%) |
 
 Stable rows: minimum ready, engine version/status, `.ready`, knife / `.stay` / `.switch`, simulation.
 
@@ -185,11 +185,14 @@ Features of the previous (ME) plugin that the first version of this file did not
 
 | Feature | How (fleet message / Ready Up command) | Status | Stability | Engine | Effort |
 |---|---|---|---|---|---|
-| Practice `.last`, `.throwidx`, `.throw*`, typed `.rethrow{smoke,flash,nade,molotov,decoy}`, `.delay` | Only a server-wide `.rethrow` exists | missing | untested | fragile | M |
+| Practice grenade history: `.last`, `.back N`, `.lastindex`, `.delay`, `.throw` (alias of `.rethrow`) | Per-player history from `grenade_thrown` (position, eye angles, kind; ME numbering, max 100). `.delay` makes `.rethrow` wait. `practice_tools.h` | done | tested | events | – |
+| Per-player rethrow: `.throwidx N` / `.throwindex`, typed `.rethrow{smoke,flash,nade,grenade,molotov,decoy}` / `.throw{...}` | The history is checked and ME's messages kept, then the reply says it is not available. Needs grenade projectile creation (ME: `C*Projectile::Create` signatures, flash via CreateEntityByName) in a practice engine-surface fragment with verified anchors. `.rethrow` stays the server-wide `sv_rethrow_last_grenade` | missing | untested | fragile | M |
 | Lineup library: `.savenade`, `.loadnade`, `.listnades`, `.importnade`, `.deletenade`, `.globalnades` | Not built. CS2 cannot set another player's view | missing | untested | fragile | L |
-| `.bestspawn` / `.worstspawn` (+ct/t), `.showspawns` / `.hidespawns` | `.spawn` / `.ctspawn` / `.tspawn N` exist | missing | untested | fragile | M |
-| `.impacts`, `.traj` / `.pip`, `.solid`, `.break`, `.fas` / `.watchme`, `.timer` | Mostly cvar toggles | missing | untested | none | S |
-| `.dry` / `.dryrun` | Not built | missing | untested | none | M |
+| `.bestspawn` / `.worstspawn`, `.bestctspawn` / `.worstctspawn`, `.besttspawn` / `.worsttspawn` | Teleport to the closest / farthest competitive spawn (lowest priority) of the team (`entity_set_abs_origin`) | done | tested | schema read/write | – |
+| `.showspawns` / `.hidespawns` | Registered; the reply gives the spawn counts and points at `.spawn N`. Markers need beam entities (entity creation), which `ru_api` does not have | missing | untested | fragile | M |
+| `.impacts`, `.traj` / `.pip`, `.solid`, `.break`, `.timer` | ME cvar toggles (`sv_showimpacts`, `sv_grenade_trajectory_prac_pipreview`, `mp_solid_teammates` 1/2) tracked from prac.cfg's values (`ru_api` has no cvar read); `.break` removes `func_breakable(_surf)` and damageable `prop_dynamic` with health > 0 (`entity_remove`, no break effect); `.timer` stopwatch in the center panel. Private replies | done | tested | schema read/write | – |
+| `.fas` / `.watchme` (everyone else to spectators) | Not built | missing | untested | none | S |
+| `.dry` / `.dryrun` | Admin, practice only: `bot_kick`, ME's dry-run defaults (+ optional `cfg/ReadyUp/dryrun.cfg`), `mp_restartgame`; the round's end (or `.dryrun` / `.prac` again) brings prac.cfg back. `readyup.practice.v1` `dry_run` lets the match plugin stop suppressing that round's end. Also `ru practice dryrun` | done | tested | events | – |
 | `.noblind` | Done as `.noflash` | done | tested | none | – |
 | `.spec` | Moves the player to spectators unless they are on a loaded match's roster (they would be put back) | done | untested | none | – |
 | `.rk` alias | Alias of `.roundknife` (admins) | done | tested | none | – |
@@ -233,4 +236,4 @@ Rows from the old RCON + webhook contract. Not counted in the summary.
 4. Fleet path in CI. In progress.
 5. `reset_cvars_on_series_end` for match `cvars{}` (needs a cvar read in `ru_api`), `server.selftest` (the core does not expose its selftest result to plugins).
 6. Player-facing gaps: `.rcon`.
-7. Practice extras and the lineup library (fragile, L).
+7. Practice: per-player rethrow (projectile creation), `.showspawns` (entity creation), `.fas` / `.watchme`, the lineup library (fragile, L).

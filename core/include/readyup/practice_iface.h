@@ -27,6 +27,9 @@ typedef struct ru_practice_v1 {
   int (*set_active)(int on, const char** why);
   /* One chat line with the practice commands. Static string. */
   const char* (*help)(void);
+  /* Appended (check RU_API_HAS): 1 while a `.dryrun` round is under way. The match plugin lets
+   * that round end (practice otherwise suppresses round termination). */
+  int (*dry_run)(void);
 } ru_practice_v1;
 
 #ifdef __cplusplus

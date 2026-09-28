@@ -18,8 +18,18 @@ std::string Trim(const std::string& s) {
 }  // namespace
 
 bool IsToolCommand(const std::string& cmd) {
-  static const std::set<std::string> k = {".rethrow", ".rt",   ".savepos", ".loadpos", ".back",  ".clear",
-                                          ".noflash", ".god", ".spawn",   ".ctspawn", ".tspawn"};
+  static const std::set<std::string> k = {
+      ".rethrow", ".rt", ".throw", ".savepos", ".loadpos", ".back", ".clear", ".noflash", ".god", ".spawn", ".ctspawn",
+      ".tspawn",
+      // ME extras: grenade history
+      ".last", ".lastindex", ".throwidx", ".throwindex", ".delay", ".throwsmoke", ".rethrowsmoke", ".throwflash",
+      ".rethrowflash", ".throwgrenade", ".rethrowgrenade", ".thrownade", ".rethrownade", ".throwmolotov",
+      ".rethrowmolotov", ".throwdecoy", ".rethrowdecoy",
+      // toggles
+      ".impacts", ".traj", ".pip", ".solid", ".break", ".timer",
+      // spawns
+      ".bestspawn", ".worstspawn", ".bestctspawn", ".worstctspawn", ".besttspawn", ".worsttspawn", ".showspawns",
+      ".hidespawns"};
   return k.count(Lower(cmd)) != 0;
 }
 
@@ -49,8 +59,9 @@ bool ParseBool(const std::string& text, bool def) {
 }
 
 const char* HelpLine() {
-  return "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back | .spawn/.ctspawn/.tspawn N | "
-         ".rethrow .clear .noflash .god | .prac to leave";
+  return "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N "
+         ".bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | "
+         ".dryrun | .prac to leave";
 }
 
 }  // namespace practice
