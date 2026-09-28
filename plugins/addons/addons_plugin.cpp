@@ -19,6 +19,7 @@
 #include "addons_rules.h"
 #include "addons_vpk.h"
 
+#include "readyup/map_names.h"
 #include "readyup/plugin_api.h"
 #include "readyup/selftest_iface.h"
 
@@ -108,6 +109,11 @@ std::vector<uint64_t> g_ids;  // from addons.cfg, in order
 std::map<uint64_t, Item> g_items;
 double g_lastConfig = -1e9, g_lastPoll = -1e9;
 std::string g_hookStatus = "not installed";
+// The map loaded while the server started loads before plugins: no addons, no precache (ERROR models).
+// Until a map change has gone through the hook, reload the current map once, while no human is on.
+bool g_mapChangeSeen = false;
+bool g_bootReloadDone = false;
+double g_loadedAt = -1;
 
 std::string ConfigValue(const char* key) {
   char buf[1024] = {};
@@ -136,6 +142,7 @@ std::string MergedAddons(const char* current) {
 }
 
 void DetourSetPending(void* mgr, void* request) {
+  g_mapChangeSeen = true;
   if (g_api && request && ResolveTier0()) {
     char** addons = reinterpret_cast<char**>(static_cast<unsigned char*>(request) + kRequestAddons);
     const std::string merged = MergedAddons(*addons);
@@ -368,6 +375,34 @@ void Poll(double now) {
   }
 }
 
+int HumanCount() {
+  int n = 0;
+  g_api->for_each_player(
+      g_api->self,
+      [](void* user, const ru_player* p) -> int {
+        if (p && !p->is_bot) ++*static_cast<int*>(user);
+        return 1;
+      },
+      &n);
+  return n;
+}
+
+void MaybeBootReload(double now) {
+  if (g_mapChangeSeen || g_bootReloadDone || g_origSetPending == nullptr) return;
+  if (g_loadedAt < 0) g_loadedAt = now;
+  if (now - g_loadedAt < 3.0) return;
+  bool any = false;
+  for (const auto& kv : g_items) any = any || kv.second.installed;
+  if (!any || HumanCount() > 0) return;
+  const char* cur = g_api->current_map(g_api->self);
+  const std::string entry = readyup::mapnames::ReloadEntry(cur ? cur : "");
+  const std::string cmd = entry.empty() ? std::string() : readyup::mapnames::LoadCommand(entry);
+  if (cmd.empty()) return;
+  g_bootReloadDone = true;
+  ru_logf(g_api, RU_LOG_INFO, "reloading %s once so its addons are mounted and precached (%s)", cur ? cur : "?", cmd.c_str());
+  g_api->server_command(g_api->self, cmd.c_str());
+}
+
 void OnTick(void*, const ru_tick_info* t) {
   if (t->now - g_lastConfig >= 5.0) {
     g_lastConfig = t->now;
@@ -386,6 +421,7 @@ void OnTick(void*, const ru_tick_info* t) {
   if (t->now - g_lastPoll >= 2.0 && !g_ids.empty()) {
     g_lastPoll = t->now;
     Poll(t->now);
+    MaybeBootReload(t->now);
   }
 }
 
@@ -450,6 +486,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   while (!g_root.empty() && g_root.back() == '/') g_root.pop_back();
   for (int up = 0; up < 2 && g_root.rfind('/') != std::string::npos; ++up) g_root.erase(g_root.rfind('/'));
   g_origSetPending = nullptr;
+  g_mapChangeSeen = g_bootReloadDone = false;
+  g_loadedAt = -1;
   g_origManifest = nullptr;
   g_precache.clear();
   InstallHook();
