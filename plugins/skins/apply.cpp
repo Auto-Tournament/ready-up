@@ -368,7 +368,7 @@ bool DisabledByEnv() {  // READYUP_DISABLE_SKINS=1: keep the plugin loaded but i
 
 // ---- refresh held weapons (player_give_item) --------------------------------------------------
 // A paint written after a weapon was networked keeps the old look on clients. So `.skins reload`
-// and the midas `.midas` trials swap the held weapons for new ones: note them, remove them, and
+// and midas (a new finish, a player given Midas) swap the held weapons for new ones: note them, remove them, and
 // give fresh ones two ticks later (after the removal), which ProcessPlayer paints on first sight.
 // Clip and reserve ammo carry over; the weapon in hand is given last. Grenades, C4 and weapons
 // another player owned first are left alone.

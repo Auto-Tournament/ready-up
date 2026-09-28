@@ -150,6 +150,100 @@ int main() {
   CHECK(PaintOverrideSet(true, Finish::kTint, paintIds, 76561198000000009ull).empty());
   CHECK(PaintOverrideSet(false, Finish::kAuto, paintIds, 76561198000000009ull).empty());
 
+  // Who is Midas: midas_steamids + given + the best player.
+  {
+    const uint64_t A = 76561198000000001ull, B = 76561198000000002ull, C = 76561198000000003ull,
+                   D = 76561198000000004ull;
+    const std::set<uint64_t> cfg = {A}, given = {A, B};
+    CHECK(MidasReasons(true, cfg, given, C, A) == (kWhyConfig | kWhyGiven));
+    CHECK(MidasReasons(true, cfg, given, C, B) == kWhyGiven);
+    CHECK(MidasReasons(true, cfg, given, C, C) == kWhyBest);
+    CHECK(MidasReasons(true, cfg, given, C, D) == 0);
+    CHECK(MidasReasons(false, cfg, given, C, A) == 0);         // inactive: nobody
+    CHECK(MidasReasons(true, {0ull}, {0ull}, 0, 0) == 0);        // SteamID64 0 never
+    CHECK(EffectiveMidas(true, cfg, given, C) == (std::set<uint64_t>{A, B, C}));
+    CHECK(EffectiveMidas(true, cfg, given, 0) == (std::set<uint64_t>{A, B}));
+    CHECK(EffectiveMidas(true, {0ull}, {}, 0).empty());
+    CHECK(EffectiveMidas(false, cfg, given, C).empty());
+    CHECK(DescribeReasons(kWhyConfig | kWhyGiven | kWhyBest) == "midas_steamids, given by an admin, best player");
+    CHECK(DescribeReasons(kWhyBest) == "best player" && DescribeReasons(0).empty());
+    // Taking a given Midas who is also on midas_steamids: still Midas (config).
+    std::set<uint64_t> g = given;
+    CHECK(!ToggleGiven(&g, A) && !g.count(A));
+    CHECK(MidasReasons(true, cfg, g, 0, A) == kWhyConfig);
+    CHECK(ToggleGiven(&g, D) && g.count(D));
+    CHECK(!ToggleGiven(&g, D) && !g.count(D));
+    // given.txt round trip; junk and comments skipped.
+    CHECK(ParseGivenFile(FormatGivenFile(given)) == given);
+    CHECK(ParseGivenFile("# c\n\n 76561198000000002 \r\nnope\n76561198000000003") == (std::set<uint64_t>{B, C}));
+    CHECK(ParseGivenFile("").empty());
+  }
+
+  // Player names (.ru midas give <player>).
+  {
+    const std::vector<std::string> names = {"Sivert", "sivertbot", "s1mple", "ZywOo", "Big Snax", "snaxx", "donk"};
+    CHECK(ResolvePlayerName("Sivert", names).index == 0);
+    CHECK(ResolvePlayerName("sivert", names).index == 0);        // case-insensitive exact beats the prefix
+    CHECK(ResolvePlayerName("  zywoo ", names).index == 3);
+    CHECK(ResolvePlayerName("siv", names).index == 0);           // prefix: the shortest
+    CHECK(ResolvePlayerName("s1", names).index == 2);
+    CHECK(ResolvePlayerName("wOo", names).index == 3);           // substring
+    CHECK(ResolvePlayerName("snax", names).index == 5);          // prefix of "snaxx" first
+    CHECK(ResolvePlayerName("nax", names).index == 5);           // substring: shortest ("snaxx" < "big snax")
+    CHECK(ResolvePlayerName("dnk", names).index == 6);           // edit distance 1
+    CHECK(ResolvePlayerName("zzzzzz", names).index == -1 && ResolvePlayerName("zzzzzz", names).ambiguous.empty());
+    CHECK(ResolvePlayerName("", names).index == -1);
+    CHECK(ResolvePlayerName("x", {}).index == -1);
+    // A word inside the name beats a mid-word match, even a shorter name.
+    const std::vector<std::string> words = {"xx Bob", "abob"};
+    CHECK(ResolvePlayerName("bob", words).index == 0);
+    // Ties: nothing picked, the candidates listed.
+    const std::vector<std::string> twins = {"alpha", "alpho", "beta"};
+    PlayerMatch m = ResolvePlayerName("alp", twins);
+    CHECK(m.index == -1 && m.ambiguous.size() == 2 && m.ambiguous[0] == 0 && m.ambiguous[1] == 1);
+    m = ResolvePlayerName("alphu", twins);                         // edit distance 1 to both
+    CHECK(m.index == -1 && m.ambiguous.size() == 2);
+    const std::vector<std::string> same = {"Player", "Player"};
+    m = ResolvePlayerName("Player", same);
+    CHECK(m.index == -1 && m.ambiguous.size() == 2);
+    m = ResolvePlayerName("player", std::vector<std::string>{"Player", "PLAYER"});
+    CHECK(m.index == -1 && m.ambiguous.size() == 2);
+    CHECK(ResolvePlayerName("PLAYER", std::vector<std::string>{"Player", "PLAYER"}).index == 1);  // exact as typed
+  }
+
+  // Thrown / planted equipment -> the item it stands for.
+  CHECK(EquipmentItemFor("hegrenade_projectile", false).defindex == 44);
+  CHECK(EquipmentItemFor("flashbang_projectile", false).defindex == 43);
+  CHECK(EquipmentItemFor("smokegrenade_projectile", false).defindex == 45);
+  CHECK(EquipmentItemFor("decoy_projectile", false).defindex == 47);
+  CHECK(EquipmentItemFor("molotov_projectile", false).defindex == 46);
+  CHECK(EquipmentItemFor("molotov_projectile", true).defindex == 48 &&
+        std::strcmp(EquipmentItemFor("molotov_projectile", true).classname, "weapon_incgrenade") == 0);
+  CHECK(EquipmentItemFor("planted_c4", false).defindex == 49);
+  CHECK(EquipmentItemFor("weapon_ak47", false).defindex == 0 && EquipmentItemFor("inferno", false).defindex == 0);
+
+  // Cards.
+  {
+    CHECK(FillCard("{stat} {value}: {name}! {x} {stat}", "ADR", "112", "Bob") == "ADR 112: Bob! {x} ADR");
+    CHECK(FillCard("", "a", "b", "c").empty() && FillCard("{", "a", "b", "c") == "{");
+    CHECK(CardName("<b>Evil</b>\x01") == "bEvil/b");
+    CHECK(CardName(std::string(40, 'x')).size() == 32);
+    CHECK(CardName(std::string(31, 'x') + "\xc3\xa9") == std::string(31, 'x'));  // no half UTF-8 char
+    const CardTexts t;
+    const std::string best = GainCardHtml(t, kWhyBest | kWhyGiven, "ADR", "112");
+    CHECK(best.find("Blessed by Midas") != std::string::npos && best.find("#FFD700") != std::string::npos);
+    CHECK(best.find("best player on the server (ADR 112). Everything you touch turns to gold.") != std::string::npos);
+    CHECK(GainCardHtml(t, kWhyGiven | kWhyConfig, "", "").find("An admin has blessed you") != std::string::npos);
+    CHECK(GainCardHtml(t, kWhyConfig, "", "").find("You have the Midas touch.") != std::string::npos);
+    const std::string lost = LostCardHtml(t, "<Big> Snax");
+    CHECK(lost.find("The Midas touch has left you.") != std::string::npos && lost.find("It passed to Big Snax.") != std::string::npos);
+    CHECK(LostCardHtml(t, "").find("passed") == std::string::npos);
+    CHECK(best.find("<i>") == std::string::npos && best.find("&") == std::string::npos);
+    CardTexts custom;
+    custom.best = "Top {stat}: {value}";
+    CHECK(GainCardHtml(custom, kWhyBest, "kills", "31").find("Top kills: 31") != std::string::npos);
+  }
+
   std::printf("midas_rules_test: %s\n", g_failures ? "FAIL" : "PASS");
   return g_failures ? 1 : 0;
 }

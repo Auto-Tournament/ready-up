@@ -115,4 +115,72 @@ bool PickNow(BestWhen when, int roundsPlayed, int minRounds, int half, int lastP
 // and a best "score" of nothing (no kill and no damage), give 0: nobody.
 uint64_t PickBest(const std::vector<PlayerTotals>& players, BestStat stat, uint64_t current);
 
+// ---- who is Midas: midas_steamids + given (`.ru midas give`) + the best player ----------------
+
+// Why a player is Midas (bits). 0 = not Midas.
+enum MidasWhy : unsigned { kWhyConfig = 1u, kWhyGiven = 2u, kWhyBest = 4u };
+// The reasons `sid` is Midas: on midas_steamids, given by an admin, the best-player Midas (`best`,
+// 0 = none). Nothing while inactive or for SteamID64 0.
+unsigned MidasReasons(bool active, const std::set<uint64_t>& config, const std::set<uint64_t>& given, uint64_t best,
+                      uint64_t sid);
+// Everyone who is Midas (active): config + given + best; never 0.
+std::set<uint64_t> EffectiveMidas(bool active, const std::set<uint64_t>& config, const std::set<uint64_t>& given,
+                                  uint64_t best);
+// "midas_steamids, given by an admin, best player" (the set bits, in that order; "" for 0).
+std::string DescribeReasons(unsigned why);
+
+// `.ru midas give`: toggles `sid` in the given set. True = added, false = it was given, now removed.
+bool ToggleGiven(std::set<uint64_t>* given, uint64_t sid);
+
+// plugins/midas/given.txt: one SteamID64 per line ('#' comments and anything else skipped).
+std::set<uint64_t> ParseGivenFile(const std::string& text);
+std::string FormatGivenFile(const std::set<uint64_t>& given);
+
+// Player name lookup for admin commands (`.ru midas give <player>`), like the essentials plugin's
+// map-name resolver: 1. exact, 2. case-insensitive exact, 3. case-insensitive prefix (several: the
+// shortest name if it is the only one that short), 4. substring (>= 2 chars; names where a word
+// starts with it first, then the shortest likewise), 5. the smallest edit distance if it is at most
+// max(1, len/3) and not shared. `index` is the match in `names` (-1 = none); a tie leaves index -1
+// and lists the tied candidates (at most 5) in `ambiguous`.
+struct PlayerMatch {
+  int index = -1;
+  std::vector<int> ambiguous;
+};
+PlayerMatch ResolvePlayerName(const std::string& query, const std::vector<std::string>& names);
+
+// ---- gold equipment in flight / planted ----------------------------------------------------------
+
+// The item a thrown projectile / planted bomb stands for, by its classname: its item definition
+// index (models.txt is keyed by it) and the weapon classname (model_<classname> in midas.cfg).
+// molotov_projectile is shared by the molotov (46) and the incendiary (48): `incendiary` picks.
+// 0 / "" for anything else.
+struct EquipmentItem {
+  int defindex = 0;
+  const char* classname = "";
+};
+EquipmentItem EquipmentItemFor(const std::string& entityClass, bool incendiary);
+
+// ---- cards: center HTML to a player who gains / loses Midas (`cards=1`, default) ------------------
+
+// midas.cfg card_title / card_best / card_given / card_config / card_lost / card_passed (empty =
+// the default). Placeholders: {stat} ("ADR" / "kills"), {value} (the number), {name} (who it passed to).
+struct CardTexts {
+  std::string title = "Blessed by Midas";
+  std::string best = "You're the best player on the server ({stat} {value}). Everything you touch turns to gold.";
+  std::string given = "An admin has blessed you with the Midas touch.";
+  std::string config = "You have the Midas touch.";
+  std::string lost = "The Midas touch has left you.";
+  std::string passed = "It passed to {name}.";
+};
+
+// A player name for center HTML: without '<', '>' (markup) and control characters, at most 32 bytes.
+std::string CardName(const std::string& name);
+// {stat}, {value} and {name} filled in (each as often as it appears; unknown {...} stay).
+std::string FillCard(const std::string& text, const std::string& stat, const std::string& value, const std::string& name);
+// The card for a player who became Midas (`why`: MidasReasons bits; the best-player wording wins,
+// then given, then midas_steamids): the gold title, the reason line under it.
+std::string GainCardHtml(const CardTexts& t, unsigned why, const std::string& stat, const std::string& value);
+// The card for a player who is no longer Midas; `passedTo` (a name, "" = nobody) adds card_passed.
+std::string LostCardHtml(const CardTexts& t, const std::string& passedTo);
+
 }  // namespace midas
