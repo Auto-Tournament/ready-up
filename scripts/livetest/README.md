@@ -85,6 +85,8 @@ The match flow up to `match_live` with rules in the match config (`max_tech_paus
 | cancel | `bot_add_ct` | `forfeit: team1 is back` |
 | forfeit | the CT bots kicked again, 20 s | `forfeit: team1 (team_absent) forfeits map 1`, then postgame and idle |
 
+A `bot_kick` sent right after a bot joined (or at a round restart) is sometimes ignored, so both
+countdown steps kick again every 6 s while Ready Up's `state:` line still shows a CT bot.
 Cleanup also restores `bot_join_team any`, `mp_autoteambalance 1` and the old `bot_quota_mode`.
 
 ### Esports mode (`--ruleset valve`)
