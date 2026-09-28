@@ -5,24 +5,24 @@
   "patch": "1.41.8.5"
  },
  "readyup": {
-  "version": "0.1.0-dev.2b5fdf7",
-  "commit": "2b5fdf749d0a2c4782094ca5cd29ca28cab6a331"
+  "version": "0.1.0-dev.886648a",
+  "commit": "886648a67697e502a2f04e35a8226f022b71fbed"
  },
  "run": {
-  "id": "36430736571",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/36430736571",
-  "trigger": "manual",
-  "stage": "live",
+  "id": "36447438136",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/36447438136",
+  "trigger": "surface_change",
+  "stage": "static",
   "state": "warn",
-  "started_at": "2026-09-28T13:44:22Z",
-  "finished_at": "2026-09-28T13:55:44Z"
+  "started_at": "2026-09-28T15:57:07Z",
+  "finished_at": "2026-09-28T15:58:21Z"
  },
  "overall": "warn",
  "components": [
   {
    "id": "core",
    "name": "Core",
-   "status": "warn",
+   "status": "pass",
    "checks": [
     {
      "kind": "signature",
@@ -61,14 +61,52 @@
     },
     {
      "kind": "selftest",
-     "status": "warn",
-     "passed": 77,
-     "total": 80,
-     "failures": [
-      "schema CCSPlayerController::m_iAssists: not found [stats (else from events)]",
-      "schema CCSPlayerController::m_iDeaths: not found [stats (else from events)]",
-      "schema CCSPlayerController::m_iKills: not found [stats (else from events)]"
-     ]
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "addons",
+   "name": "Addons",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "signature",
+     "status": "pass",
+     "passed": 3,
+     "total": 3,
+     "failures": []
+    },
+    {
+     "kind": "vtable",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "hook_site",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "layout",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
     }
    ]
   },
@@ -114,15 +152,15 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 33,
+     "status": "pending",
+     "passed": 0,
      "total": 33,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 4,
+     "status": "pending",
+     "passed": 0,
      "total": 4,
      "failures": []
     },
@@ -138,7 +176,7 @@
   {
    "id": "match",
    "name": "Match",
-   "status": "warn",
+   "status": "pass",
    "checks": [
     {
      "kind": "signature",
@@ -177,35 +215,30 @@
     },
     {
      "kind": "schema",
-     "status": "warn",
-     "passed": 11,
+     "status": "pending",
+     "passed": 0,
      "total": 15,
-     "failures": [
-      "CCSPlayerController.m_iAssists: not found",
-      "CCSPlayerController.m_iDeaths: not found",
-      "CCSPlayerController.m_iHeadshotKills|CCSPlayerController.m_iHeadShotKills|CCSPlayerController.m_iMatchStats_HeadshotKills: not found",
-      "CCSPlayerController.m_iKills: not found"
-     ]
+     "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 13,
+     "status": "pending",
+     "passed": 0,
      "total": 13,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     },
     {
      "kind": "livetest",
-     "status": "pass",
-     "passed": 2,
-     "total": 2,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -252,23 +285,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 11,
+     "status": "pending",
+     "passed": 0,
      "total": 11,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 4,
+     "status": "pending",
+     "passed": 0,
      "total": 4,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -323,8 +356,8 @@
     {
      "kind": "signature",
      "status": "pass",
-     "passed": 7,
-     "total": 7,
+     "passed": 11,
+     "total": 11,
      "failures": []
     },
     {
@@ -350,23 +383,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 14,
-     "total": 14,
+     "status": "pending",
+     "passed": 0,
+     "total": 15,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 4,
+     "status": "pending",
+     "passed": 0,
      "total": 4,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -448,8 +481,8 @@
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 1,
+     "status": "pending",
+     "passed": 0,
      "total": 1,
      "failures": []
     },
@@ -505,5 +538,5 @@
    ]
   }
  ],
- "checked_at": "2026-09-28T13:55:44Z"
+ "checked_at": "2026-09-28T15:58:21Z"
 }
