@@ -18,6 +18,12 @@ Match flow (default, all driven from the server console, no human needed):
   postgame    mode=postgame (match still loaded) after the final round
   idle        Ready Up clears the match: mode=idle match=none
 
+Simulation (--simulation): the same match flow, but the match config has `simulation: true` and a
+roster of --bots-per-side players per team, and Ready Up brings the bots itself (simulation.h): one
+bot per roster player, each plays as its player (`simulation: bot X<N> plays <name>`), readies up by
+itself; `--timescale` goes into the config as `simulation_timescale`. Ready Up removes the bots when
+the match is gone.
+
 Scrim flow (--scrim): selftest, reset, `ru_dev_bots_scrim 1` (core dev flag), bots
 only -> scrim_warmup -> countdown -> scrim created -> knife -> pick -> match_live.
 The flag goes back to `cfg` in cleanup.
@@ -71,7 +77,9 @@ KNIFE_START_RE = re.compile(r"\[ReadyUp\] knife: starting knife round")
 KNIFE_RUN_RE = re.compile(r"\[ReadyUp\] knife: round started")
 KNIFE_WIN_RE = re.compile(r"\[ReadyUp\] knife: winner=(\S+) \((team\d)\)(.*)")
 KNIFE_PICK_RE = re.compile(r"\[ReadyUp\] knife: side picked by (.+?): (\S+) \((.*?)\) -> (\S+);")
-KNIFE_SHORT_RE = re.compile(r"\[ReadyUp\] knife: dev flag on and no humans on CT/T - knife round time (\S+) min")
+KNIFE_SHORT_RE = re.compile(
+    r"\[ReadyUp\] knife: (?:dev flag on|simulation) and no humans on CT/T - knife round time (\S+) min")
+SIM_PLAYS_RE = re.compile(r"\[ReadyUp\] simulation: bot (.*?)<(-?\d+)> plays (.+?) \((\d+), team(\d)\)")
 DEV_SCRIM_RE = re.compile(r"\[ReadyUp\] dev_bots_scrim: ([01]) \(")
 ROUND_END_RE = re.compile(r'Team "(CT|TERRORIST)" triggered "(SFUI_Notice_\w+)" \(CT "(\d+)"\) \(T "(\d+)"\)')
 GAME_OVER_RE = re.compile(r"Game Over: (.*)")
@@ -285,7 +293,12 @@ def serve_match_json(bind: str, doc: dict) -> tuple[http.server.HTTPServer, int]
     return srv, srv.server_address[1]
 
 
-def match_doc(map_name: str, max_rounds: int, forfeit: bool = False) -> dict:
+def sim_roster(team: int, per_side: int) -> dict:
+    """--simulation: made-up roster players (individual-account SteamID64 format), per team."""
+    return {str(76561198990000000 + team * 100 + i): f"Sim{'AB'[team - 1]}{i}" for i in range(1, per_side + 1)}
+
+
+def match_doc(map_name: str, max_rounds: int, forfeit: bool = False, simulation: Optional[dict] = None) -> dict:
     matchid = int(time.time() * 1000)
     doc = {
         "id": matchid,
@@ -317,6 +330,13 @@ def match_doc(map_name: str, max_rounds: int, forfeit: bool = False) -> dict:
             },
         },
     }
+    if simulation:
+        # Ready Up adds one bot per roster player and readies them up (simulation.h).
+        cfg = doc["config"]
+        cfg["simulation"] = True
+        cfg["simulation_timescale"] = simulation["timescale"]
+        cfg["team1"]["players"] = sim_roster(1, simulation["per_side"])
+        cfg["team2"]["players"] = sim_roster(2, simulation["per_side"])
     if forfeit:
         cfg = doc["config"]
         # Rules under test (match_rules.h): 1 technical pause per team, 8 s auto-unpause,
@@ -372,6 +392,7 @@ class Facts:
     armed: bool = False  # scrim mode: a scrim may go live (there is no match-load line)
     dev_scrim: Optional[tuple] = None  # (seq, "0"|"1") reply to ru_dev_bots_scrim
     knife_short: Optional[str] = None  # dev-flag knife round time (min)
+    sim_plays: dict = field(default_factory=dict)  # roster steamid64 -> (seq, bot name) (--simulation)
     our_matchid: Optional[str] = None  # set once our match loaded
     teamnames: dict = field(default_factory=dict)  # "1"/"2" -> (seq, value)
     pauses: list = field(default_factory=list)  # (seq, text) `pause:` lines
@@ -440,6 +461,10 @@ class Facts:
             self.teamnames[m.group(1)] = (s, m.group(2).strip())
         if (m := KNIFE_SHORT_RE.search(line)):
             self.knife_short = m.group(1)
+            return
+        if (m := SIM_PLAYS_RE.search(line)):
+            if m.group(4) != "0":
+                self.sim_plays[m.group(4)] = (s, m.group(1))
             return
         if (m := SELFTEST_RE.search(line)) and s > self.selftest_after and not self.selftest:
             self.selftest = (m.group(1), m.group(2).strip(), line.strip())
@@ -712,7 +737,8 @@ class Runner:
             map_name = a.map or cur.get("map") or "de_dust2"
             if map_name == "?":
                 map_name = "de_dust2"
-            doc = match_doc(map_name, a.max_rounds, forfeit=a.forfeit)
+            sim = {"per_side": a.bots_per_side, "timescale": a.timescale} if a.simulation else None
+            doc = match_doc(map_name, a.max_rounds, forfeit=a.forfeit, simulation=sim)
             self.http, port = serve_match_json(a.http_bind, doc)
             url = f"http://{a.http_host}:{port}/match.json"
             log(f"serving match {doc['config']['matchid']} on {url} (map {map_name})")
@@ -730,6 +756,9 @@ class Runner:
             return True
 
         def act_bots():
+            if a.simulation:
+                log("simulation: Ready Up adds the bots itself")
+                return
             # The match load kicks bots and sets bot_quota 0; bring 2 per side back.
             time.sleep(0.3)
             self.srv.send("bot_join_after_player 0")  # bots join without a human on the server (empty CI server)
@@ -756,7 +785,15 @@ class Runner:
             return side_ok(fl.get("ct")) and side_ok(fl.get("t"))
 
         def chk_bots(_f):
+            if a.simulation and len(f.sim_plays) < 2 * a.bots_per_side:
+                return False  # every roster player needs its bot
             return any(bots_ok(fl) for _, fl, _ in f.states_since(since("load")))
+
+        def bots_detail(f_):
+            d = next((f"ct={fl.get('ct')} t={fl.get('t')}" for _, fl, _ in reversed(f_.states)), "")
+            if a.simulation:
+                d += f"; simulation: {len(f_.sim_plays)}/{2 * a.bots_per_side} roster players have a bot"
+            return d
 
         def chk_countdown(_f):
             return ("SKIP: scrim-only; the match flow goes straight to the knife round. "
@@ -792,6 +829,8 @@ class Runner:
             return f.live_seq > 0
 
         def act_timescale():
+            if a.simulation:
+                return  # simulation_timescale in the match config; Ready Up applies it while live
             if a.timescale and a.timescale != 1:
                 self.srv.send("sv_cheats 1")
                 self.srv.send(f"host_timescale {a.timescale}")
@@ -914,9 +953,9 @@ class Runner:
             Step("reset (idle, no match)", 30, chk_reset, act_reset),
             Step("match load (ru match load)", 30, chk_load, act_load,
                  lambda f_: f"matchid={f_.loaded[1]} slug={f_.loaded[2]}" if f_.loaded else ""),
-            Step("warmup (match_warmup)", 20, chk_warmup, act_bots, lambda f_: getattr(f_, "warmup_note", "")),
-            Step(f"bots (>= {a.bots_per_side} per side, no humans)", 60, chk_bots, None,
-                 lambda f_: next((f"ct={fl.get('ct')} t={fl.get('t')}" for _, fl, _ in reversed(f_.states)), "")),
+            Step("warmup (match_warmup)", 60 if a.simulation else 20, chk_warmup, act_bots,
+                 lambda f_: getattr(f_, "warmup_note", "")),
+            Step(f"bots (>= {a.bots_per_side} per side, no humans)", 60, chk_bots, None, bots_detail),
             Step("countdown", 1, chk_countdown),
         ] + knife_steps + [teamname_step]
         if a.forfeit:
@@ -1273,6 +1312,8 @@ class Runner:
                 self.srv.send("sv_cheats 0")
             if self.touched:
                 self.srv.send("ru mode idle")    # clears the match context + persisted match
+                if self.a.simulation:
+                    self.pump(2.0)  # Ready Up removes its simulation bots first (bot_quota 0 + bot_kick)
                 if self.flag_set:
                     # Before `ru mode scrim`: with the flag on, the restored bots would start a scrim.
                     self.srv.send("ru_dev_bots_scrim cfg")
@@ -1399,7 +1440,10 @@ def parse_args(argv=None):
     p.add_argument("--side", choices=["auto", "stay", "switch"], default=env("LIVETEST_SIDE", "auto"),
                    help="knife pick: auto = bots-only timeout (stay); stay/switch = `ru match side ...` from console")
     p.add_argument("--timescale", type=float, default=float(env("LIVETEST_TIMESCALE", "1")),
-                   help="host_timescale during match_live only (needs sv_cheats 1; reverted after)")
+                   help="host_timescale during match_live only (needs sv_cheats 1; reverted after); "
+                        "with --simulation the match config's simulation_timescale")
+    p.add_argument("--simulation", action="store_true", default=env("LIVETEST_SIMULATION", "0") == "1",
+                   help="match config with simulation: true and a roster; Ready Up adds and readies the bots")
     p.add_argument("--round-timeout", type=float, default=float(env("LIVETEST_ROUND_TIMEOUT", "200")))
     p.add_argument("--total-timeout", type=float, default=float(env("LIVETEST_TOTAL_TIMEOUT", "1500")))
     p.add_argument("--wait-session", type=float, default=float(env("LIVETEST_WAIT_SESSION", "300")),
@@ -1415,6 +1459,8 @@ def parse_args(argv=None):
         p.error("--ruleset valve runs its own flow; not with --scrim or --forfeit")
     if a.forfeit and a.scrim:
         p.error("--forfeit and --scrim cannot be combined")
+    if a.simulation and (a.scrim or a.forfeit or a.ruleset == "valve"):
+        p.error("--simulation runs the default match flow only (no --scrim, --forfeit or --ruleset valve)")
     return a
 
 

@@ -6,8 +6,9 @@ name: CS2 dynamic check
 #   selftest : READYUP_SELFTEST_AND_QUIT=1 -> readyup_selftest.txt -> per-plugin results: plugin
 #              selftest lines, disabled plugins, and every plugin's schema / game event needs
 #              (plugins/<name>/needs.json) confirmed on the running build
-#   live     : scripts/livetest (bots only: a match, then a scrim) -> the `match` component's
-#              livetest check (exit 2 = no verdict, stays pending)
+#   live     : scripts/livetest (bots only: a simulated match (`simulation: true`, Ready Up adds
+#              the bots), then a scrim) -> the `match` component's livetest check (exit 2 = no
+#              verdict, stays pending)
 #
 # Each stage updates compat.json (stage selftest, then live), POSTs it to COMPAT_INGEST_URL like
 # the static watch does, and commits compat.json + badge.json to the `cs2-build` branch.
@@ -279,10 +280,12 @@ jobs:
           # the runtime environment. Running the cs2 binary directly skips that.
           # sv_hibernate_when_empty 0: an empty server stops simulating, so the selftest
           # (which waits for a simulating GameFrame) and plugin loading never happen.
+          # +log on: the game log lines (players, bots, rounds) Ready Up and the live test read;
+          # csm's server.cfg turns it on for every real server.
           # The console streams into this log as it happens (line buffered) and into a file.
           READYUP_SELFTEST_AND_QUIT=1 READYUP_SELFTEST_FILE="$OUT/readyup_selftest.txt" READYUP_SELFTEST_TIMEOUT=300 \
             stdbuf -oL -eL timeout 900 "$CS2_CI_DIR/game/cs2.sh" -dedicated -console -usercon -port "$CS2_CI_PORT" \
-            +sv_lan 1 +sv_hibernate_when_empty 0 +game_type 0 +game_mode 1 +map de_dust2 2>&1 \
+            +sv_lan 1 +sv_hibernate_when_empty 0 +log on +game_type 0 +game_mode 1 +map de_dust2 2>&1 \
             | stdbuf -oL tee "$OUT/selftest-console.log"
           rc=${PIPESTATUS[0]}
           echo "server exit code $rc"
@@ -314,12 +317,13 @@ jobs:
         if: env.LIVETEST == 'true' && steps.selftest.outputs.overall != 'fail'
         run: |
           # A throwaway target for scripts/livetest: run.sh starts the CI server in tmux, the
-          # console is piped into console.log (--boot).
+          # console is piped into console.log (--boot). +log on as in the selftest boot: without it
+          # there are no round / bot log lines (the knife winner, round ends, bots' sides).
           t="$OUT/livetest-target"
           mkdir -p "$t"
           cat > "$t/run.sh" <<EOF
           #!/usr/bin/env bash
-          exec "$CS2_CI_DIR/game/cs2.sh" -dedicated -console -usercon -port "$CS2_CI_PORT" +sv_lan 1 +sv_hibernate_when_empty 0 +game_type 0 +game_mode 1 +map de_dust2
+          exec "$CS2_CI_DIR/game/cs2.sh" -dedicated -console -usercon -port "$CS2_CI_PORT" +sv_lan 1 +sv_hibernate_when_empty 0 +log on +game_type 0 +game_mode 1 +map de_dust2
           EOF
           chmod +x "$t/run.sh"
           session="ru-ci-${GITHUB_RUN_ID}"
@@ -330,6 +334,8 @@ jobs:
             set +e
             extra=()
             [ "$mode" = scrim ] && extra+=(--scrim)
+            # The match is a simulation (match config `simulation: true`): Ready Up adds the bots.
+            [ "$mode" = match ] && extra+=(--simulation)
             # COMPAT_STEP_EVENTS: the live test reports its own steps under live-<mode>.
             COMPAT_STEP_EVENTS=1 COMPAT_STEP_PARENT="live-$mode" \
               scripts/livetest/run.sh --ssh '' --target "$t" --session "$session" --boot --wait-session 1 --out "$OUT/livetest-$mode" "${extra[@]}"

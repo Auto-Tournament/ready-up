@@ -25,6 +25,7 @@
 #include "readyup/warmup_money.h"
 #include "readyup/weapon_cleanup.h"
 #include "readyup/local_store.h"
+#include "readyup/simulation.h"
 #include "readyup/logging.h"
 #include "readyup/match_console.h"
 #include "readyup/match_events.h"
@@ -180,6 +181,7 @@ void OnTick(void*, const ru_tick_info* t) {
     MatchEventsTick();
     if (FeatureEnabled(Feature::MatchFlow)) {
       Tick();
+      SimulationTick(t->now);  // simulation mode: bots in/out, simulated ready, timescale (simulation.h)
       ScrimTick();  // scrim flow + `state:` log; outside Tick() (which holds the modes mutex)
       MatchFeaturesTick();  // tactical timeout end, technical auto-unpause, forfeit timer
       DamageReportTick();       // damage reports built at round_end (damage_report.h)
@@ -208,6 +210,9 @@ void OnEvent(void*, const ru_event* e) {
       EsportsOnMapStart();  // the GOTV client is looked for again
       fleet_bridge::OnMapStart();
       match_recovery::OnMapStart();  // a recovery changing to the match map continues
+      SimulationOnMapStart(host::NowSeconds());  // the bots start over on the new map
+    } else if (e->type == RU_EVENT_ROUND_START) {
+      SimulationOnRoundStart();  // host_timescale again while a simulated map is live
     } else if (e->type == RU_EVENT_PLAYER_DISCONNECT) {
       // Ready state must not survive a reconnect.
       if (e->steamid64) ClearReady(e->steamid64);

@@ -30,9 +30,11 @@
 #include "readyup/persisted_match_state.h"
 #include "readyup/players.h"
 #include "readyup/round_restore.h"
+#include "readyup/simulation.h"
 #include "readyup/status_snapshot.h"
 #include "readyup/weapon_cleanup.h"
 #include "readyup/webhook.h"
+#include "readyup/wingman.h"
 
 #include <atomic>
 #include <chrono>
@@ -112,6 +114,9 @@ struct State {
   // An external mode was on since the last match load: it may have changed game_type /
   // game_mode (the deathmatch plugin does), so the next match load puts competitive back.
   bool externalTouchedGameMode = false;
+  // A wingman match load switched CS2 to game_mode 2: back to competitive once the server is idle
+  // (it takes effect on the next map load).
+  bool wingmanGameMode = false;
 
   // Practice mode rules.
   bool practiceRulesApplied = false;
@@ -251,12 +256,14 @@ static bool AnyHumanOnCtOrT() {
 static void ApplyKnifeRulesLocked(State& st) {
   bool any = false;
   if (EnqueueServerCommand("exec ReadyUp/knife.cfg")) any = true;
-  // Dev flags only (dev_bots_ready / dev_bots_scrim) with nobody human on CT/T: bots do
-  // not knife each other, so the round would run knife.cfg's full 1:55 to a time-out.
+  // Dev flags (dev_bots_ready / dev_bots_scrim) or a simulated match with nobody human on CT/T:
+  // bots do not knife each other, so the round would run knife.cfg's full 1:55 to a time-out.
   // Cut it to 30s. live.cfg (and match cvars) set the real round time before going live.
-  if ((DevBotsReadyEnabled() || DevBotsScrimEnabled()) && !AnyHumanOnCtOrT()) {
+  const bool simulated = SimulationActive();
+  if ((DevBotsReadyEnabled() || DevBotsScrimEnabled() || simulated) && !AnyHumanOnCtOrT()) {
     EnqueueAfterCfg({"mp_roundtime 0.5", "mp_roundtime_defuse 0.5", "mp_roundtime_hostage 0.5"});
-    PrintLine("knife: dev flag on and no humans on CT/T - knife round time 0.5 min (bots do not knife).");
+    PrintLine(simulated ? "knife: simulation and no humans on CT/T - knife round time 0.5 min (bots do not knife)."
+                        : "knife: dev flag on and no humans on CT/T - knife round time 0.5 min (bots do not knife).");
   }
   const char* cmds[] = {
       "mp_warmup_pausetimer 0",
@@ -648,6 +655,8 @@ static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContex
   for (const auto& s : ListSlotIdentities()) {
     if (s.steamid64 != 0) connected.insert(s.steamid64);
   }
+  // Simulation: the roster players bots play as are there.
+  SimulationAddConnected(&connected);
 
   // Each team has min_players_to_ready ready (0 = a full team: players_per_team, else 5), and every
   // connected player a full team needs is ready; a connected substitute beyond it does not hold
@@ -1271,6 +1280,7 @@ void OnMatchLoaded() {
     st.externalTouchedGameMode = false;
     Print("modes: an external mode was on; game_type 0 / game_mode 1 (competitive) for the match\n");
   }
+  if (const auto ctx = WebhookGetMatchContext(); ctx && ctx->wingman) st.wingmanGameMode = true;
   st.mode = ReadyUpMode::MatchWarmup;
   st.externalName.clear();
   st.idleCfgExecuted = false;
@@ -2228,6 +2238,11 @@ void Tick() {
   }
 
   if (st.mode == ReadyUpMode::Idle) {
+    if (st.wingmanGameMode && !WebhookGetMatchContext()) {
+      for (const auto& c : wingman::GameModeCommands(false)) (void)EnqueueServerCommand(c.c_str());
+      st.wingmanGameMode = false;
+      PrintLine("modes: wingman match over; game_type 0 / game_mode 1 (competitive) from the next map load");
+    }
     if (st.cfgExecEnabled && !st.idleCfgExecuted) {
       if (EnqueueServerCommand("exec ReadyUp/idle.cfg")) {
         st.idleCfgExecuted = true;
@@ -2294,6 +2309,7 @@ status::Json ModesSnapshotJson() {
   j["mode"] = static_cast<int>(st.mode);
   j["external_name"] = st.externalName;
   j["external_touched_game_mode"] = st.externalTouchedGameMode;
+  j["wingman_game_mode"] = st.wingmanGameMode;
   j["warmup_enabled"] = st.warmupEnabled;
   j["warmup_html"] = st.warmupHtml;
   j["warmup_html_custom"] = st.warmupHtmlCustom;
@@ -2368,6 +2384,7 @@ void ModesRestoreJson(const status::Json& j) {
   st.mode = static_cast<ReadyUpMode>(mode);
   s(&j, "external_name", st.externalName);
   b(&j, "external_touched_game_mode", st.externalTouchedGameMode);
+  b(&j, "wingman_game_mode", st.wingmanGameMode);
   b(&j, "warmup_enabled", st.warmupEnabled);
   s(&j, "warmup_html", st.warmupHtml);
   b(&j, "warmup_html_custom", st.warmupHtmlCustom);

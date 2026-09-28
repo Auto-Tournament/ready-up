@@ -247,6 +247,19 @@ static void TestAssign() {
     CHECK(c4 && c4->players_per_team == 0);
   }
 
+  {
+    // Wingman and simulation (wingman.h, simulation.h): rules.wingman, rules.simulation.timescale.
+    Json ws = *p.Find("config");
+    ws["rules"] = J(R"({"max_rounds": 16, "wingman": true, "simulation": {"timescale": 2}})");
+    auto c5 = ParseWebhookMatchContextFromJson(fs::AssignToMatConfig("x", ws, nullptr).Dump(), &err);
+    CHECK(c5 && c5->wingman && c5->simulation && c5->simulation_timescale == 2.0 && c5->maxRounds == 16);
+    CHECK(c5 && c5->roster_names[76561198000000011ull] == "b1");
+    Json plain = *p.Find("config");
+    plain["rules"] = J(R"({"max_rounds": 24})");
+    auto c6 = ParseWebhookMatchContextFromJson(fs::AssignToMatConfig("x", plain, nullptr).Dump(), &err);
+    CHECK(c6 && !c6->wingman && !c6->simulation);
+  }
+
   CHECK(fs::NumericMatchId("12345") == 12345);
   CHECK(fs::NumericMatchId("abc") != 0 && fs::NumericMatchId("abc") < (1ull << 52));
   CHECK(fs::NumericMatchId("abc") == fs::NumericMatchId("abc"));

@@ -47,7 +47,8 @@ inline bool IsDevBotId(uint64_t id) {
   return (id & 0xFFFF000000000000ull) == kDevBotIdBase;
 }
 
-// Records/updates a bot seen in a log header. team < 0 keeps the previous team.
+// Records/updates a bot seen in a log header or a player_team event (game_events.cpp).
+// team < 0 keeps the previous team, an empty name the previous name.
 void ObserveBot(int userid, const std::string& name, int team);
 void ForgetBot(int userid);
 void ClearBots();

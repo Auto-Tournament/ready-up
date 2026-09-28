@@ -34,6 +34,13 @@ Your manual match must include (at minimum):
   - `damageTiebreak`: `true|false` (when enabled, Ready Up can resolve ties by total roster-team damage)
   - `damageTiebreakSuddenDeath`: `true|false` (when enabled and damage is tied, keep playing until a team leads)
   - `maxOvertimes`: `0..N` (max overtime blocks; each block is `2*overtimeSegments` rounds). Use `0` to disallow full overtime blocks while still allowing sudden-death if enabled.
+- **Optional (game mode / bots)**:
+  - `wingman`: `true` for 2v2 on CS2's wingman mode: `game_type 0` / `game_mode 2` before the map
+    load, go-live execs `ReadyUp/live_wingman.cfg` (MR8; `maxRounds` defaults to 16 and
+    `overtimeSegments` to 2 when not set). Not with `"ruleset": "valve"`.
+  - `simulation`: `true` and Ready Up plays the match with bots, one per roster player (they play as
+    those players in stats and events, and ready up by themselves); `simulation_timescale`
+    (`0.1`..`4`, default 1) is `host_timescale` while a map is live. For platform end-to-end tests.
 - `cvars`: include at least a couple you can verify later, e.g.:
   - `mp_maxrounds`
   - `mp_overtime_enable`

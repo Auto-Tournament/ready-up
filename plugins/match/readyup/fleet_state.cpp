@@ -416,6 +416,14 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
   }
   if (const Json* k = Obj(r, "knife")) cfg["knifeDecisionSeconds"] = Int(*k, "side_pick_seconds", 60);
   cfg["clinch_series"] = Bool(r, "clinch_series", true);
+  // Wingman (wingman.h) and simulation (simulation.h): rules.wingman, rules.simulation.timescale.
+  if (Bool(r, "wingman", false)) cfg["wingman"] = true;
+  if (const Json* sm = Obj(r, "simulation")) {
+    cfg["simulation"] = true;
+    if (const Json* ts = sm->Find("timescale"); ts && (ts->type() == Json::Type::Double || ts->type() == Json::Type::Int)) {
+      cfg["simulation_timescale"] = ts->type() == Json::Type::Int ? static_cast<double>(ts->AsInt()) : ts->AsDouble();
+    }
+  }
   // Ruleset + overrides (ruleset.h; validated in ValidateAssign).
   if (const Json* rs = r.Find("ruleset")) cfg["ruleset"] = *rs;
   if (const Json* ov = r.Find("overrides")) cfg["overrides"] = *ov;

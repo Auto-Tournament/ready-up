@@ -2,8 +2,10 @@
 
 #include "readyup/minijson.h"
 #include "readyup/ruleset.h"
+#include "readyup/simulation_rules.h"
 #include "readyup/status_snapshot.h"
 #include "readyup/steamid.h"
+#include "readyup/wingman.h"
 
 #include <algorithm>
 #include <cmath>
@@ -33,6 +35,14 @@ bool ApplyRulesetToContext(const std::string& json, WebhookMatchContext* ctx, st
       return fail("ruleset must be \"default\" or \"valve\"");
     }
     ctx->ruleset = RulesetName(rs);
+  }
+  // Wingman is 2v2; the valve ruleset is 5v5 CS Major rules. A match that asks for both is
+  // refused; readyup.cfg's valve preset gives way to the default ruleset for a wingman match.
+  if (ctx->wingman && rs == Ruleset::Valve) {
+    if (cfg->Find("ruleset")) return fail("wingman needs ruleset \"default\" (the valve ruleset is 5v5)");
+    rs = Ruleset::Default;
+    ctx->ruleset = RulesetName(rs);
+    ctx->ruleset_notes.push_back("wingman: ruleset default for this match (readyup.cfg sets valve, which is 5v5)");
   }
   RuleMap overrides;
   if (const Json* o = cfg->Find("overrides")) {
@@ -207,9 +217,30 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
     else ctx.overtime_enabled = false;
   }
 
+  bool overtimeSegmentsExplicit = false;
   if (auto seg = parsePositiveInt(cfg->get("overtimeSegments"))) {
     // keep within a sane range; MatchZy commonly uses 3.
     ctx.overtimeSegments = std::max(1, std::min(60, *seg));
+    overtimeSegmentsExplicit = true;
+  }
+
+  // Wingman (wingman.h) and simulation (simulation_rules.h).
+  if (auto w = parseBool(cfg->get("wingman"))) ctx.wingman = *w;
+  if (auto sm = parseBool(cfg->get("simulation"))) ctx.simulation = *sm;
+  if (const Value* ts = cfg->get("simulation_timescale")) {
+    if (ts->type == Value::Type::Number) {
+      ctx.simulation_timescale = sim::ClampTimescale(ts->num);
+    } else if (auto tss = AsString(ts)) {
+      try {
+        ctx.simulation_timescale = sim::ClampTimescale(std::stod(*tss));
+      } catch (...) {
+      }
+    }
+  }
+  if (ctx.wingman) {
+    // live_wingman.cfg's MR8 / MR2 overtime unless the config says otherwise.
+    if (!maxRoundsExplicit) ctx.maxRounds = wingman::kMaxRounds;
+    if (!overtimeSegmentsExplicit) ctx.overtimeSegments = wingman::kOvertimeHalf;
   }
 
   // Tie-break configuration.
@@ -258,6 +289,8 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
   ruleBool("pause_after_restore", &ctx.rules.pause_after_restore);
   // Server settings the match may set for itself (server_settings.h).
   if (auto n = parseNonNegativeInt(cfg->get("players_per_team"))) ctx.players_per_team = std::min(*n, 32);
+  // Wingman is 2v2: a full team (ready gate, simulation bots) is 2 unless the config says otherwise.
+  if (ctx.wingman && ctx.players_per_team == 0) ctx.players_per_team = wingman::kPlayersPerTeam;
   ruleBool("playout", &ctx.playout);
   ruleBool("whitelist", &ctx.whitelist);
   ruleBool("autoready", &ctx.autoready);
@@ -357,6 +390,7 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
       const uint64_t sid = ParseSteamId64Loose(kv.first);
       if (!sid) continue;
       ctx.roster_team[sid] = teamTag;
+      if (kv.second.type == Value::Type::String && !kv.second.str.empty()) ctx.roster_names[sid] = kv.second.str;
     }
   };
 
