@@ -3,7 +3,9 @@
 // best-player rule (who, when, where). ctest `midas_rules`.
 #include "midas_rules.h"
 
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 
 using namespace midas;
 
@@ -62,6 +64,29 @@ int main() {
   CHECK(Paintable("weapon_knife") && Paintable("weapon_knife_t") && Paintable("weapon_bayonet"));
   CHECK(!Paintable("weapon_c4") && !Paintable("weapon_hegrenade") && !Paintable("weapon_flashbang"));
   CHECK(!Paintable("weapon_healthshot") && !Paintable("prop_physics") && !Paintable(""));
+
+  // StatTrak: guns and knives, not the Zeus / grenades / C4.
+  CHECK(StatTrakable("weapon_ak47") && StatTrakable("weapon_knife") && StatTrakable("weapon_knife_t"));
+  CHECK(!StatTrakable("weapon_taser") && !StatTrakable("weapon_hegrenade") && !StatTrakable("weapon_c4") && !StatTrakable(""));
+  CHECK(CountsAsKill(0, 1, 2, 3) && CountsAsKill(5, 6, 0, 3));  // unknown team counts
+  CHECK(!CountsAsKill(-1, 1, 2, 3) && !CountsAsKill(1, 1, 2, 3) && !CountsAsKill(0, 1, 3, 3) && !CountsAsKill(64, 1, 2, 3));
+  CHECK(StatTrakKills(true, true, 12, 30) == 12);   // the match plugin's stats when they list the player
+  CHECK(StatTrakKills(true, false, 0, 7) == 7);     // not listed (e.g. a bot): own count
+  CHECK(StatTrakKills(false, true, 12, 3) == 3);    // not recording (warmup, practice): own count
+  CHECK(StatTrakKills(false, false, 0, -2) == 0);
+  {
+    const float f0 = KillEaterBits(0), f17 = KillEaterBits(17), fneg = KillEaterBits(-5);
+    uint32_t u0 = 1, u17 = 0, uneg = 1;
+    std::memcpy(&u0, &f0, 4);
+    std::memcpy(&u17, &f17, 4);
+    std::memcpy(&uneg, &fneg, 4);
+    CHECK(u0 == 0 && u17 == 17 && uneg == 0);
+    // econ_attr_set_by_name takes a double and narrows it back to float: the bits survive.
+    const float back = static_cast<float>(static_cast<double>(f17));
+    uint32_t ub = 0;
+    std::memcpy(&ub, &back, 4);
+    CHECK(ub == 17);
+  }
 
   // Best player: parsing.
   BestStat bs = BestStat::kKills;

@@ -63,6 +63,23 @@ constexpr int kGoldPaintKit = 1025;
 // other extras (healthshot, shield, ...) keep the tint: they have no paint kits to show.
 bool Paintable(const std::string& classname);
 
+// ---- StatTrak (`stattrak=1`): the Midas player's kills on this map on their Midas weapons ------
+
+// Weapons that show a StatTrak counter: the paintable ones (guns and knives), not the Zeus.
+bool StatTrakable(const std::string& classname);
+
+// A player_death that counts as a kill for the StatTrak counter (like the match plugin's stats):
+// a real attacker slot, not a suicide, not a team kill (teams 2 / 3; unknown teams count).
+bool CountsAsKill(int attackerSlot, int victimSlot, int attackerTeam, int victimTeam);
+
+// The counter: the match plugin's kills while its stats record this map and list the player,
+// else Midas's own count of player_death kills since the map started.
+int StatTrakKills(bool statsLive, bool statsHavePlayer, int statsKills, int ownKills);
+
+// "kill eater" is an integer attribute stored in the attribute's float bits (as skins.so writes
+// it): the float whose bits are `kills` (negative -> 0).
+float KillEaterBits(int kills);
+
 // ---- best player ("the best player becomes Midas") -----------------------------------------
 
 // `best_player_stat`: "adr" (default) or "kills". `best_player_when`: "round" (default: every

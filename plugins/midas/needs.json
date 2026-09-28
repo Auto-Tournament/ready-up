@@ -44,12 +44,18 @@
   "schema_optional": [
     "CAttributeContainer.m_Item",
     "CBaseEntity.m_CBodyComponent",
+    "CBaseEntity.m_iTeamNum",
     "CBaseModelEntity.m_clrRender",
     "CBodyComponentSkeletonInstance.m_skeletonInstance",
     "CEconEntity.m_AttributeManager",
+    "CEconEntity.m_nFallbackStatTrak",
     "CEconItemView.m_AttributeList",
     "CEconItemView.m_NetworkedDynamicAttributes",
+    "CEconItemView.m_iAccountID",
     "CEconItemView.m_iItemDefinitionIndex",
+    "CEconItemView.m_iItemID",
+    "CEconItemView.m_iItemIDHigh",
+    "CEconItemView.m_iItemIDLow",
     "CModelState.m_MeshGroupMask",
     "CSkeletonInstance.m_materialGroup",
     "CSkeletonInstance.m_modelState"
@@ -57,6 +63,7 @@
   "events": [
     "item_equip",
     "item_pickup",
+    "player_death",
     "player_spawn",
     "round_start"
   ]

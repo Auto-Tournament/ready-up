@@ -13,6 +13,10 @@
 // `best_player_min_rounds` are played, or at each new half: `best_player_when`). Scrims only
 // unless best_player_in_matches=1.
 //
+// StatTrak (`stattrak=1`, default): the Midas weapons a Midas player holds (guns and knives) show
+// a StatTrak counter = the player's kills on this map (the match plugin's stats while they record,
+// else Midas's own player_death count since the map started), rewritten when it changes.
+//
 //   cfg/ReadyUp/midas.cfg (or readyup.cfg [midas]), re-read every 5 s: see that file.
 //
 // Never active under the valve ruleset (the match plugin's ruleset, else readyup.cfg's): going
@@ -30,6 +34,7 @@
 #include <cstdio>
 #include <cctype>
 #include <cstring>
+#include <iterator>
 #include <map>
 #include <sstream>
 #include <fstream>
@@ -53,6 +58,7 @@ struct Offsets {
   int pawn_weaponServices = -1;  // CBasePlayerPawn::m_pWeaponServices (ptr)
   int ws_myWeapons = -1;         // CPlayer_WeaponServices::m_hMyWeapons (CNetworkUtlVectorBase<CHandle>)
   int clrRender = -1;            // CBaseModelEntity::m_clrRender (Color: r, g, b, a bytes)
+  int teamNum = -1;              // CBaseEntity::m_iTeamNum (optional: team kills don't count for StatTrak)
   bool Ok() const {
     return ctrl_playerPawn >= 0 && ctrl_steamId >= 0 && pawn_weaponServices >= 0 && ws_myWeapons >= 0 && clrRender >= 0;
   }
@@ -81,6 +87,12 @@ uint64_t g_best = 0;                // the best player's SteamID64 while they ar
 std::string g_bestLine;             // why (selftest)
 int g_lastPickHalf = 0;             // best_player_when=half: the half the last pick was for
 int g_pickIn = 0;                   // ticks until the pick after a round start (0 = none pending)
+// StatTrak (`stattrak`, default 1): Midas weapons count the Midas player's kills on this map.
+bool g_stattrakOn = true;
+bool g_debugBots = false;           // debug_midas_bots=1 with debug on (dev): bots are Midas too
+std::map<uint64_t, int> g_ownKills; // player_death kills since the map started (KillKey)
+std::map<uint32_t, int> g_stattrak; // weapon handle -> the count written on it
+int g_stattrakDue[65] = {};         // ticks until a slot's counter is refreshed after a kill
 
 std::string ConfigValue(const char* key) {
   char buf[512] = {};
@@ -96,6 +108,7 @@ void ResolveOffsets() {
   g_off.pawn_weaponServices = F("CBasePlayerPawn", "m_pWeaponServices");
   g_off.ws_myWeapons = F("CPlayer_WeaponServices", "m_hMyWeapons");
   g_off.clrRender = F("CBaseModelEntity", "m_clrRender");
+  g_off.teamNum = F("CBaseEntity", "m_iTeamNum");
   g_off.resolved = true;
   if (!g_off.Ok()) {
     ru_logf(g_api, RU_LOG_WARN, "schema fields missing (m_clrRender=%d, weapons=%d/%d); no tint", g_off.clrRender,
@@ -128,10 +141,17 @@ const ru_skins_v1* Skins() {
 }
 
 bool IsMidas(uint64_t sid) { return ShouldTint(g_active, g_midas, sid) || (g_active && sid != 0 && sid == g_best); }
+// A player slot is Midas: its SteamID64, or (debug_midas_bots, dev) any bot (SteamID64 0).
+bool IsMidasSlot(uint64_t sid) { return IsMidas(sid) || (g_active && g_debugBots && sid == 0); }
+
+void SwapOutStatTrak(const std::set<uint32_t>& handles, const char* why);
 
 // Puts one weapon back: white, and handed back to skins.so if it painted it. True if it was ours.
+// Its StatTrak counter can't be taken off (the core has no attribute remove): callers swap the
+// weapons that had one for new ones (SwapOutStatTrak).
 bool RestoreWeapon(uint32_t h, const ru_skins_v1* skins) {
   bool ours = false;
+  if (g_stattrak.erase(h)) ours = true;
   void* w = g_api->entity_from_handle(g_api->self, h);
   if (g_tinted.erase(h)) {
     ours = true;
@@ -144,18 +164,25 @@ bool RestoreWeapon(uint32_t h, const ru_skins_v1* skins) {
   return ours;
 }
 
-void RestoreAll(const char* why) {
-  if (g_tinted.empty() && g_painted.empty()) return;
+// swapStatTrak: weapons that carry a Midas StatTrak counter are swapped for new ones (skins.so
+// refresh_weapons); not when the caller swaps Midas players' weapons itself (finish changed).
+void RestoreAll(const char* why, bool swapStatTrak = true) {
+  if (g_tinted.empty() && g_painted.empty() && g_stattrak.empty()) return;
   int n = 0;
+  std::set<uint32_t> counted;
+  for (const auto& kv : g_stattrak) counted.insert(kv.first);
   if (g_off.Ok() && g_api->entity_system_status(g_api->self) == RU_ENTSYS_OK) {
     const ru_skins_v1* skins = Skins();
     std::set<uint32_t> all = g_tinted;
     all.insert(g_painted.begin(), g_painted.end());
+    all.insert(counted.begin(), counted.end());
     for (uint32_t h : all) n += RestoreWeapon(h, skins) ? 1 : 0;
+    if (swapStatTrak) SwapOutStatTrak(counted, why);
   }
   ru_logf(g_api, RU_LOG_INFO, "restored %d weapon(s) to their normal look (%s)", n, why);
   g_tinted.clear();
   g_painted.clear();
+  g_stattrak.clear();
 }
 
 // skins.so's set_player_paint: Midas players' new weapons get the gold paint kit when they are
@@ -375,6 +402,29 @@ uint64_t ForHeldWeapons(int slot, Fn&& fn) {
   return sid;
 }
 
+// Weapons that lost their Midas StatTrak counter: the "kill eater" attribute can't be removed
+// through ru_api, so every player holding one gets their weapons swapped for new ones (skins.so
+// refresh_weapons: removed now, given back two ticks later with their ammo). Without skins.so the
+// counter stays (frozen) until the weapon is replaced; logged.
+void SwapOutStatTrak(const std::set<uint32_t>& handles, const char* why) {
+  if (handles.empty() || !g_off.Ok() || g_api->entity_system_status(g_api->self) != RU_ENTSYS_OK) return;
+  const ru_skins_v1* s = Skins();
+  const bool canSwap = s && RU_API_HAS(s, refresh_weapons) && s->refresh_weapons;
+  int swapped = 0, stuck = 0, held = 0;
+  for (int slot = 0; slot < 64; ++slot) {
+    int n = 0;
+    ForHeldWeapons(slot, [&](uint32_t h, void*) { n += handles.count(h) ? 1 : 0; });
+    if (n == 0) continue;
+    held += n;
+    if (canSwap && s->refresh_weapons(slot) == 1) ++swapped;
+    else ++stuck;
+  }
+  if (swapped || stuck) {
+    ru_logf(g_api, stuck ? RU_LOG_WARN : RU_LOG_INFO, "stattrak off %d held weapon(s) (%s): %d player(s) get new weapons%s",
+            held, why, swapped, stuck ? ", the counter stays on the others' (no skins.so refresh_weapons)" : "");
+  }
+}
+
 void SetBest(uint64_t sid, const std::string& why);
 void CheckBestAllowed();
 
@@ -415,10 +465,30 @@ void RefreshConfig(double now) {
     g_paintKit = kit;
     g_paintWear = wear;
     g_paintSeed = seed;
-    RestoreAll("finish changed");  // no-op on the first read
+    RestoreAll("finish changed", false);  // no-op on the first read; Midas weapons are swapped below
     g_refreshHeld = g_configRead;   // midas.cfg saved: swap Midas players' held weapons for new ones
     ru_logf(g_api, RU_LOG_INFO, "finish %s, paint kit %d (wear %.2f, seed %d)", finish == Finish::kTint ? "tint" : "auto",
             kit, static_cast<double>(wear), seed);
+    for (int& p : g_pending) p = 16;
+  }
+  // StatTrak counter on Midas weapons (default on). Switched off: the weapons that have one are swapped.
+  const bool stattrak = ParseBool(ConfigValue("stattrak"), true);
+  if (stattrak != g_stattrakOn) {
+    g_stattrakOn = stattrak;
+    ru_logf(g_api, RU_LOG_INFO, "stattrak %s", stattrak ? "on" : "off");
+    if (!stattrak) {
+      std::set<uint32_t> counted;
+      for (const auto& kv : g_stattrak) counted.insert(kv.first);
+      g_stattrak.clear();
+      SwapOutStatTrak(counted, "stattrak=0");
+    } else {
+      for (int& p : g_pending) p = 16;
+    }
+  }
+  const bool debugBots = ParseBool(ConfigValue("debug_midas_bots"), false) && g_api->debug_enabled(g_api->self);
+  if (debugBots != g_debugBots) {
+    g_debugBots = debugBots;
+    ru_logf(g_api, RU_LOG_INFO, "debug_midas_bots: bots are %sMidas", debugBots ? "" : "no longer ");
     for (int& p : g_pending) p = 16;
   }
   // Best player.
@@ -516,7 +586,12 @@ void SetBest(uint64_t sid, const std::string& why) {
     const int slot = g_api->slot_for_steamid(g_api->self, old);
     if (slot >= 0 && slot < 64) {
       const ru_skins_v1* skins = Skins();
-      ForHeldWeapons(slot, [&](uint32_t h, void*) { RestoreWeapon(h, skins); });
+      std::set<uint32_t> counted;
+      ForHeldWeapons(slot, [&](uint32_t h, void*) {
+        if (g_stattrak.count(h)) counted.insert(h);
+        RestoreWeapon(h, skins);
+      });
+      SwapOutStatTrak(counted, "no longer Midas");
     }
   }
   if (sid == 0) {
@@ -558,13 +633,134 @@ void PickBestPlayer() {
   SetBest(best, why);
 }
 
+// ---- StatTrak ---------------------------------------------------------------------------------
+
+// g_ownKills key: the SteamID64; bots (0) by slot.
+uint64_t KillKey(int slot, uint64_t sid) { return sid ? sid : (1ull << 63) | static_cast<uint64_t>(slot); }
+
+// The player's kills on this map: the match plugin's stats while they record and list the player,
+// else the player_death count since the map started.
+int KillsOf(int slot, uint64_t sid) {
+  const auto own = g_ownKills.find(KillKey(slot, sid));
+  bool live = false, listed = false;
+  int statsKills = 0;
+  if (sid != 0) {
+    if (const ru_match_v1* m = Match()) {
+      ru_match_map_info info{};
+      std::vector<PlayerTotals> all;
+      if (MapInfo(m, &info, &all) && info.live) {
+        live = true;
+        for (const auto& p : all) {
+          if (p.steamid64 != sid) continue;
+          listed = true;
+          statsKills = p.kills;
+        }
+      }
+    }
+  }
+  return StatTrakKills(live, listed, statsKills, own == g_ownKills.end() ? 0 : own->second);
+}
+
+uint64_t g_nextItemId = 0x4D1DA5000000ull;  // made-up item IDs for weapons that have none
+
+// Writes the counter on one weapon: "kill eater" (the count in the float's bits) and "kill eater
+// score type" 0 (kills) in both attribute lists of its CEconItemView, as skins.so writes a
+// loadout's StatTrak, plus CEconEntity::m_nFallbackStatTrak. An item without an ID (a stock weapon
+// skins.so never painted) gets a made-up one, as skins.so gives every weapon it paints: clients
+// read an item's networked attributes only when it has one. Then marks the entity changed so a
+// weapon clients already have is sent again with the new count.
+bool WriteStatTrak(void* w, uint64_t owner, int kills) {
+  if (!RU_API_HAS(g_api, econ_attr_set_by_name)) return false;
+  auto F = [](const char* c, const char* f) { return g_api->schema_offset(g_api->self, c, f); };
+  const int mgr = F("CEconEntity", "m_AttributeManager");
+  const int item = F("CAttributeContainer", "m_Item");
+  const int dyn = F("CEconItemView", "m_NetworkedDynamicAttributes");
+  const int lst = F("CEconItemView", "m_AttributeList");
+  if (mgr < 0 || item < 0 || (dyn < 0 && lst < 0)) return false;
+  unsigned char* view = static_cast<unsigned char*>(w) + mgr + item;
+  const int idOff = F("CEconItemView", "m_iItemID");
+  const int idLow = F("CEconItemView", "m_iItemIDLow");
+  const int idHigh = F("CEconItemView", "m_iItemIDHigh");
+  const int account = F("CEconItemView", "m_iAccountID");
+  if (idOff >= 0 && idLow >= 0 && idHigh >= 0 && Rd<uint64_t>(view, idOff) == 0) {
+    const uint64_t id = ++g_nextItemId;
+    const uint32_t lo = static_cast<uint32_t>(id & 0xFFFFFFFFu), hi = static_cast<uint32_t>(id >> 32);
+    std::memcpy(view + idOff, &id, sizeof(id));
+    std::memcpy(view + idLow, &lo, sizeof(lo));
+    std::memcpy(view + idHigh, &hi, sizeof(hi));
+    if (account >= 0 && owner != 0) {
+      const uint32_t acc = static_cast<uint32_t>(owner & 0xFFFFFFFFu);
+      std::memcpy(view + account, &acc, sizeof(acc));
+    }
+  }
+  bool ok = false;
+  for (int off : {dyn, lst}) {
+    if (off < 0) continue;
+    ok = g_api->econ_attr_set_by_name(g_api->self, view + off, "kill eater", KillEaterBits(kills)) == 1 || ok;
+    g_api->econ_attr_set_by_name(g_api->self, view + off, "kill eater score type", 0.0);
+  }
+  const int fb = F("CEconEntity", "m_nFallbackStatTrak");
+  if (fb >= 0) {
+    const int32_t v = kills < 0 ? 0 : kills;
+    std::memcpy(static_cast<unsigned char*>(w) + fb, &v, sizeof(v));
+  }
+  g_api->entity_mark_changed(g_api->self, w);
+  return ok;
+}
+
+// Puts the Midas player's map kills on the Midas weapons they hold (the ones Midas gilded; guns and
+// knives). Only writes when the count changed.
+void ApplyStatTrak(int slot) {
+  if (!g_stattrakOn || !g_active || !g_off.Ok()) return;
+  void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
+  if (!ctrl) return;
+  const uint64_t sid = Rd<uint64_t>(ctrl, g_off.ctrl_steamId);
+  if (!IsMidasSlot(sid)) return;
+  if (g_stattrak.size() > 256) {  // weapons removed since (dead players' drops, round ends)
+    for (auto it = g_stattrak.begin(); it != g_stattrak.end();) {
+      it = g_api->entity_from_handle(g_api->self, it->first) ? std::next(it) : g_stattrak.erase(it);
+    }
+  }
+  int kills = -1;  // looked up once, when a weapon needs it
+  ForHeldWeapons(slot, [&](uint32_t h, void* w) {
+    if (!g_tinted.count(h) && !g_painted.count(h) && !g_modelled.count(h)) return;  // not gilded (yet)
+    const char* cn = g_api->entity_classname(g_api->self, w);
+    if (!cn || !StatTrakable(cn)) return;
+    if (kills < 0) kills = KillsOf(slot, sid);
+    const auto it = g_stattrak.find(h);
+    if (it != g_stattrak.end() && it->second == kills) return;
+    if (WriteStatTrak(w, sid, kills)) {
+      g_stattrak[h] = kills;
+      if (g_api->debug_enabled(g_api->self)) ru_logf(g_api, RU_LOG_DEBUG, "stattrak %d on %s of slot %d", kills, cn, slot);
+    }
+  });
+}
+
+// player_death: the attacker's own count; their counter is refreshed two ticks later (after the
+// match plugin has counted the kill too).
+void OnPlayerDeath(void*, const char*, const ru_game_event* ev) {
+  if (!g_off.Ok()) return;
+  const int attacker = g_api->ev_get_player_slot(g_api->self, ev, "attacker");
+  const int victim = g_api->ev_get_player_slot(g_api->self, ev, "userid");
+  if (attacker < 0 || attacker >= 64) return;
+  void* actrl = g_api->entity_by_index(g_api->self, attacker + 1);
+  void* vctrl = victim >= 0 && victim < 64 ? g_api->entity_by_index(g_api->self, victim + 1) : nullptr;
+  if (!actrl) return;
+  const int at = g_off.teamNum >= 0 ? Rd<uint8_t>(actrl, g_off.teamNum) : 0;
+  const int vt = g_off.teamNum >= 0 && vctrl ? Rd<uint8_t>(vctrl, g_off.teamNum) : 0;
+  if (!CountsAsKill(attacker, victim, at, vt)) return;
+  ++g_ownKills[KillKey(attacker, Rd<uint64_t>(actrl, g_off.ctrl_steamId))];
+  if (g_stattrakOn) g_stattrakDue[attacker] = 2;
+}
+
 // Gilds the weapons a Midas player holds now: the paint kit through skins.so where it can,
 // else the tint.
 void TintSlot(int slot) {
   void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
-  if (!ctrl || !IsMidas(Rd<uint64_t>(ctrl, g_off.ctrl_steamId))) return;
+  if (!ctrl || !IsMidasSlot(Rd<uint64_t>(ctrl, g_off.ctrl_steamId))) return;
   const ru_skins_v1* skins = g_finish == Finish::kAuto ? Skins() : nullptr;
-  const bool paint = skins && skins->active() == 1;
+  // debug_midas_bots: bots (no SteamID64, no loadout) only get the tint / model.
+  const bool paint = skins && skins->active() == 1 && Rd<uint64_t>(ctrl, g_off.ctrl_steamId) != 0;
   // Painted weapons get the tint on top only with `.midas tint`.
   auto paintTint = [&](uint32_t h, void* w) {
     if (g_tintPainted) {
@@ -624,6 +820,7 @@ void TintSlot(int slot) {
       if (g_api->debug_enabled(g_api->self)) ru_logf(g_api, RU_LOG_DEBUG, "tinted %s of slot %d", cn ? cn : "?", slot);
     }
   });
+  ApplyStatTrak(slot);
 }
 
 // `.midas`: try paint kits live (admins, or a Midas player). A finish only shows on a weapon
@@ -711,8 +908,9 @@ void OnTick(void*, const ru_tick_info* t) {
   RefreshConfig(t->now);
   ResolveOffsets();
   if (g_pickIn > 0 && --g_pickIn == 0 && g_active && g_bestOn) PickBestPlayer();
-  if (!g_active || !g_off.Ok() || (g_midas.empty() && g_best == 0)) return;
+  if (!g_active || !g_off.Ok() || (g_midas.empty() && g_best == 0 && !g_debugBots)) return;
   for (int s = 0; s < 64; ++s) {
+    if (g_stattrakDue[s] > 0 && --g_stattrakDue[s] == 0) ApplyStatTrak(s);
     if (g_pending[s] <= 0) continue;
     // Right after the event and a few ticks later (the weapon entity can show up a tick late).
     if (g_pending[s] == 16 || g_pending[s] == 12 || g_pending[s] == 4 || g_pending[s] == 1) TintSlot(s);
@@ -733,6 +931,9 @@ void OnMap(void*, const ru_event*) {
   // New map: new entities; old handles mean nothing. New stats: no best player yet.
   g_tinted.clear();
   g_painted.clear();
+  g_stattrak.clear();
+  g_ownKills.clear();  // StatTrak counts this map's kills
+  for (int& d : g_stattrakDue) d = 0;
   g_best = 0;
   g_bestLine.clear();
   g_lastPickHalf = 0;
@@ -756,6 +957,9 @@ void RunSelftest(ru_selftest_add_fn add, void* ctx) {
                     g_bestWhen == BestWhen::kHalf ? "half" : "round", g_best ? g_bestLine.c_str() : "nobody yet");
       add(ctx, "INFO", "midas best", line);
     }
+    std::snprintf(line, sizeof(line), "stattrak %s: %zu weapon(s) counting%s", g_stattrakOn ? "on" : "off",
+                  g_stattrak.size(), g_debugBots ? " (debug_midas_bots)" : "");
+    add(ctx, "INFO", "midas stattrak", line);
   }
   if (g_off.resolved) {
     std::snprintf(line, sizeof(line), "CBaseModelEntity::m_clrRender offset %d", g_off.clrRender);
@@ -792,6 +996,11 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_tinted.clear();
   g_painted.clear();
   g_overrideSent.clear();
+  g_stattrakOn = true;
+  g_debugBots = false;
+  g_stattrak.clear();
+  g_ownKills.clear();
+  for (int& d : g_stattrakDue) d = 0;
   g_modelByDef.clear();
   g_modelsPath = api->data_dir(api->self) ? std::string(api->data_dir(api->self)) + "/models.txt" : std::string();
   g_trialKit = 0;
@@ -814,6 +1023,9 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   api->subscribe(api->self, RU_EVENT_MAP_START, OnMap, nullptr);
   for (const char* e : {"item_pickup", "item_equip", "player_spawn"}) {
     if (!api->subscribe_game_event(api->self, e, OnItemEvent, nullptr)) ru_logf(api, RU_LOG_WARN, "could not subscribe to %s", e);
+  }
+  if (!api->subscribe_game_event(api->self, "player_death", OnPlayerDeath, nullptr)) {
+    ru_logf(api, RU_LOG_WARN, "could not subscribe to player_death (StatTrak counts only the match plugin's stats)");
   }
   if (RU_API_HAS(api, register_chat_command)) api->register_chat_command(api->self, ".midas", OnMidasChat, nullptr);
   if (!api->subscribe_game_event(api->self, "round_start", OnRoundStart, nullptr)) {
