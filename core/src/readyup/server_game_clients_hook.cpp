@@ -134,12 +134,14 @@ static void Hook_ClientCommand(void* thisptr, CPlayerSlot slot, const void* args
   if (!plugins::PluginChatPrefixFor(ident->steamid64, &prefix) || prefix.empty()) {
     return g_origClientCommand(thisptr, slot, args);
   }
+  // Team chat stays with the engine: the relay below reaches every player, so a prefixed
+  // say_team (a captain's or an admin's) leaked to the other team. Without the prefix, but private.
+  if (isTeamOnly) return g_origClientCommand(thisptr, slot, args);
   if (HasPrefixAlready(ident->name, prefix) || msg.empty()) return g_origClientCommand(thisptr, slot, args);
   std::string line;
   line.reserve(prefix.size() + ident->name.size() + msg.size() + 32);
   line += prefix;
   line += " ";
-  if (isTeamOnly) line += "[TEAM] ";
   line += ident->name;
   line += ": ";
   line += msg;
