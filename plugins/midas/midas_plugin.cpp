@@ -234,6 +234,23 @@ void UseMaterialGroup(void* w, const std::string& group) {
   std::memcpy(base + off, &token, sizeof(token));
 }
 
+// A charm can't be placed on a Midas model: CS2 positions charms from the model's compiled
+// KeychainMarkup, which the public Workshop Tools can't build, so it floated with the viewmodel.
+// keep_charm=0 (default) clears the player's charm on Midas-model weapons: "keychain slot 0 id" = 0
+// in both attribute lists of the weapon's CEconItemView.
+void RemoveCharm(void* w) {
+  if (!RU_API_HAS(g_api, econ_attr_set_by_name)) return;
+  const int mgr = g_api->schema_offset(g_api->self, "CEconEntity", "m_AttributeManager");
+  const int item = g_api->schema_offset(g_api->self, "CAttributeContainer", "m_Item");
+  const int dyn = g_api->schema_offset(g_api->self, "CEconItemView", "m_NetworkedDynamicAttributes");
+  const int lst = g_api->schema_offset(g_api->self, "CEconItemView", "m_AttributeList");
+  if (mgr < 0 || item < 0) return;
+  unsigned char* view = static_cast<unsigned char*>(w) + mgr + item;
+  for (int off : {dyn, lst}) {
+    if (off >= 0) g_api->econ_attr_set_by_name(g_api->self, view + off, "keychain slot 0 id", 0.0);
+  }
+}
+
 void UseNormalMesh(void* w) {
   const int body = g_api->schema_offset(g_api->self, "CBaseEntity", "m_CBodyComponent");
   const int skel = g_api->schema_offset(g_api->self, "CBodyComponentSkeletonInstance", "m_skeletonInstance");
@@ -513,6 +530,7 @@ void TintSlot(int slot) {
         if (!g_modelled.count(h) && g_api->entity_set_model(g_api->self, w, model.c_str()) == 1) {
           g_modelled.insert(h);
           UseMaterialGroup(w, ConfigValue("model_group"));
+          if (!ParseBool(ConfigValue("keep_charm"), false)) RemoveCharm(w);
           UseNormalMesh(w);  // also marks the entity changed
           ru_logf(g_api, RU_LOG_INFO, "model %s on %s of slot %d", model.c_str(), mcn, slot);
         }
