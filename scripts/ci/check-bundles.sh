@@ -10,6 +10,9 @@
 #     (the link stays idle until configured); the fleet zip has no match.so
 #   - match / essentials / full contain plugins/match.so (+ the cfg/ReadyUp templates); the core
 #     zip does not, and its libserver.so has no match flow in it (it must run without match.so)
+#   - addons / full contain plugins/addons.so + engine-surface.addons.json + an all-comments
+#     addons.cfg template (no workshop_addons: nothing downloaded, no map reload); core /
+#     essentials do not, and match does not ship addons.cfg
 #
 #   scripts/ci/check-bundles.sh <dist-dir> <version>
 set -euo pipefail
@@ -119,6 +122,21 @@ has_skins() {  # <bundle>
   done
 }
 
+has_addons() {  # <bundle>
+  local dir="$WORK/$1"
+  for f in readyup/plugins/addons.so readyup/plugins/addons.needs.json \
+    readyup/bin/linuxsteamrt64/engine-surface.addons.json readyup/cfg-templates/ReadyUp/addons.cfg; do
+    if [[ -f "$dir/$f" ]]; then ok "$1 has $f"; else bad "$1 lacks $f"; fi
+  done
+  # Inert by default: no active (uncommented) setting, so no workshop_addons to download.
+  local tpl="$dir/readyup/cfg-templates/ReadyUp/addons.cfg"
+  if [[ -f "$tpl" ]] && grep -Ev '^[[:space:]]*(//|#|$)' "$tpl" | grep -q .; then
+    bad "$1: addons.cfg template has active settings (addons must stay idle by default)"
+  else
+    ok "$1: addons.cfg template is all comments"
+  fi
+}
+
 has_notices() {  # <bundle> -- every zip carrying the core component ships the license +
                  # BSD-3-Clause/GPLv2 third-party notices required by the vendored
                  # third_party/distorm and third_party/funchook.
@@ -135,6 +153,7 @@ if [[ -e "$WORK/fleet/readyup/plugins/match.so" ]]; then bad "fleet contains mat
 echo "essentials:"; no_skins essentials; check_manifests "$WORK/essentials" core essentials match fleet practice; has_match essentials; has_fleet essentials; has_notices essentials
 echo "hello:";      no_skins hello;      check_manifests "$WORK/hello" hello
 echo "midas:";      no_skins midas;      check_manifests "$WORK/midas" midas
+echo "addons:";     no_skins addons;     check_manifests "$WORK/addons" addons; has_addons addons
 echo "whitelist:";  no_skins whitelist;  check_manifests "$WORK/whitelist" whitelist
 echo "practice:";   no_skins practice;   check_manifests "$WORK/practice" practice
 echo "deathmatch:"; no_skins deathmatch; check_manifests "$WORK/deathmatch" deathmatch
@@ -143,11 +162,13 @@ if [[ -e "$WORK/essentials/readyup/plugins/practice.so" ]]; then ok "essentials 
 for b in core essentials; do
   if [[ -e "$WORK/$b/readyup/plugins/midas.so" ]]; then bad "$b contains midas.so"; else ok "$b: no midas.so"; fi
   if [[ -e "$WORK/$b/readyup/plugins/deathmatch.so" ]]; then bad "$b contains deathmatch.so"; else ok "$b: no deathmatch.so"; fi
+  if [[ -e "$WORK/$b/readyup/plugins/addons.so" ]]; then bad "$b contains addons.so"; else ok "$b: no addons.so"; fi
 done
 if [[ -e "$WORK/match/readyup/cfg-templates/ReadyUp/deathmatch.cfg" ]]; then bad "match ships deathmatch.cfg"; else ok "match: no deathmatch.cfg"; fi
+if [[ -e "$WORK/match/readyup/cfg-templates/ReadyUp/addons.cfg" ]]; then bad "match ships addons.cfg"; else ok "match: no addons.cfg"; fi
 echo "skins:";      has_skins skins;     check_manifests "$WORK/skins" skins
-echo "full:";       has_skins full; has_match full; has_fleet full; has_notices full
-full_components=(core essentials match fleet practice skins hello midas whitelist deathmatch)
+echo "full:";       has_skins full; has_match full; has_fleet full; has_notices full; has_addons full
+full_components=(core essentials match fleet practice skins hello midas whitelist deathmatch addons)
 for f in readyup/plugins/deathmatch.so readyup/cfg-templates/ReadyUp/deathmatch.cfg; do
   if [[ -f "$WORK/full/$f" ]]; then ok "full has $f"; else bad "full lacks $f"; fi
 done

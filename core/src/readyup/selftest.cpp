@@ -99,9 +99,13 @@ constexpr FieldUse kSchemaFields[] = {
     {"CBaseModelEntity", "m_clrRender", false, "midas (gold tint)"},
     // plugins/match (match_events.cpp).
     {"CCSPlayerController", "m_iszPlayerName", false, "stats (bot names)"},
-    {"CCSPlayerController", "m_iKills", false, "stats (else from events)"},
-    {"CCSPlayerController", "m_iDeaths", false, "stats (else from events)"},
-    {"CCSPlayerController", "m_iAssists", false, "stats (else from events)"},
+    // Scoreboard K / D / A / HS: controller -> action tracking services -> m_matchStats.
+    {"CCSPlayerController", "m_pActionTrackingServices", false, "stats (else from events)"},
+    {"CCSPlayerController_ActionTrackingServices", "m_matchStats", false, "stats (else from events)"},
+    {"CSMatchStats_t", "m_iKills", false, "stats (else from events)"},
+    {"CSMatchStats_t", "m_iDeaths", false, "stats (else from events)"},
+    {"CSMatchStats_t", "m_iAssists", false, "stats (else from events)"},
+    {"CSMatchStats_t", "m_iHeadShotKills", false, "stats (else from events)"},
     {"CCSPlayerController", "m_iMVPs", false, "stats"},
     {"CCSPlayerController", "m_iScore", false, "stats"},
 };

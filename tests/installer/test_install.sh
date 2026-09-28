@@ -151,6 +151,15 @@ check "deathmatch.cfg seeded, all comments (defaults)" idle_cfg "$CS/cfg/ReadyUp
 run --dir "$S" --remove deathmatch >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove deathmatch exited non-zero"; }
 check "deathmatch.so removed" test ! -e "$CS/readyup/plugins/deathmatch.so"
 
+echo "== add addons from the full zip (idle until workshop_addons is set), then remove it"
+run --dir "$S" --zip "$FULL" addons >"$T/out" 2>&1 || { cat "$T/out"; fail "addons install exited non-zero"; }
+check "addons.so installed" test -x "$CS/readyup/plugins/addons.so"
+check "addons gamedata next to the core" test -f "$CS/readyup/bin/linuxsteamrt64/engine-surface.addons.json"
+check "addons.cfg seeded, all comments (no workshop_addons)" idle_cfg "$CS/cfg/ReadyUp/addons.cfg"
+run --dir "$S" --remove addons >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove addons exited non-zero"; }
+check "addons.so removed" test ! -e "$CS/readyup/plugins/addons.so"
+check "addons gamedata removed" test ! -e "$CS/readyup/bin/linuxsteamrt64/engine-surface.addons.json"
+
 echo "== remove fleet (its data dir and user fleet.cfg stay), add it back from the fleet zip"
 mkdir -p "$CS/readyup/plugins/fleet" && echo '{}' >"$CS/readyup/plugins/fleet/credentials.json"
 echo "url = https://t.example.com" >>"$CS/cfg/ReadyUp/fleet.cfg"
@@ -183,8 +192,8 @@ make_server "$S4" 0
 run --dir "$S4" --zip "$FULL" --accept-license=noncommercial full >"$T/out" 2>&1 || { cat "$T/out"; fail "full install exited non-zero"; }
 # (+ tools: the offline gamedata checkers, when the build had them)
 check "installed.json is every component" \
-  test "$(installed "$S4" | sed "s/ tools / /; s/ tools$//")" = "core deathmatch essentials fleet hello match midas practice skins whitelist"
-for so in match fleet practice essentials skins hello midas whitelist deathmatch; do
+  test "$(installed "$S4" | sed "s/ tools / /; s/ tools$//")" = "addons core deathmatch essentials fleet hello match midas practice skins whitelist"
+for so in match fleet practice essentials skins hello midas whitelist deathmatch addons; do
   check "full: $so.so installed" test -x "$S4/game/csgo/readyup/plugins/$so.so"
 done
 

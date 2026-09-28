@@ -64,7 +64,7 @@ Every plugin (not the `hello` example) declares what it needs from CS2 in
  "api": ["chat_all", "schema_offset", "subscribe_game_event", "..."],
  "surface": ["UTIL_ClientPrintAll", "Host_Say", "CGameEventManager_Init", "..."],
  "schema": ["CBasePlayerController.m_steamID|CCSPlayerController.m_steamID"],
- "schema_optional": ["CCSPlayerController.m_iKills"],
+ "schema_optional": ["CSMatchStats_t.m_iKills"],
  "events": ["round_start", "round_end", "..."]}
 ```
 
@@ -265,7 +265,8 @@ job waits in the queue until one is.
      with `READYUP_SELFTEST_AND_QUIT=1` (no GSLT, never `sv_setsteamaccount`) and turn
      `readyup_selftest.txt` into the `selftest` stage: core lines -> `core`, `<plugin>: ...` lines,
      `WARN <plugin>: disabled` and a plugin missing from the loaded list -> that plugin's
-     `selftest`, the `[plugin needs]` lines -> its `schema` / `event` checks;
+     `selftest` (a loaded plugin whose own lines are all `INFO` passes as loaded), the
+     `[plugin needs]` lines -> its `schema` / `event` checks;
    - `scripts/livetest/run.sh --ssh '' --target <tmp> --boot` twice (match, then `--scrim`) on
      the same install -> `match`'s `livetest` check (exit 2 = no verdict: stays pending);
    - POST each stage to `COMPAT_INGEST_URL` and commit compat.json + badge.json to `cs2-build`

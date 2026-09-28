@@ -53,15 +53,17 @@
     "CBaseEntity.m_hOwnerEntity",
     "CBasePlayerController.m_bIsHLTV",
     "CBasePlayerController.m_iszPlayerName|CCSPlayerController.m_iszPlayerName",
-    "CCSPlayerController.m_iAssists",
     "CCSPlayerController.m_iCoachingTeam",
-    "CCSPlayerController.m_iDeaths",
-    "CCSPlayerController.m_iHeadshotKills|CCSPlayerController.m_iHeadShotKills|CCSPlayerController.m_iMatchStats_HeadshotKills",
-    "CCSPlayerController.m_iKills",
     "CCSPlayerController.m_iMVPs",
     "CCSPlayerController.m_iScore",
+    "CCSPlayerController.m_pActionTrackingServices",
     "CCSPlayerController.m_pInGameMoneyServices",
-    "CCSPlayerController_InGameMoneyServices.m_iAccount"
+    "CCSPlayerController_ActionTrackingServices.m_matchStats",
+    "CCSPlayerController_InGameMoneyServices.m_iAccount",
+    "CSMatchStats_t.m_iAssists",
+    "CSMatchStats_t.m_iDeaths",
+    "CSMatchStats_t.m_iHeadShotKills",
+    "CSMatchStats_t.m_iKills"
   ],
   "events": [
     "bomb_defused",
