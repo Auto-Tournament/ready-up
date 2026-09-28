@@ -60,6 +60,11 @@ Choices made where this document leaves room:
 - `state.snapshot` is sent ephemerally (only while online): after a `reset` resume, on
   `state.request`. A spooled snapshot would be stale by the time it is replayed.
 - `hello.selftest` is left out (it is optional) until the core exposes its selftest result to plugins.
+- `server.drain` / `server.undrain` (match plugin): drain is held in memory (a restart clears it); while
+  set the availability reads `draining` (a `server.availability` with reason `drain` is sent) and
+  `match.assign` is refused with `busy`; the running series finishes. `server.cs2_update_required`
+  is sent once per new required version (Steam UpToDateCheck, every 30 min). `server.selftest` is not
+  sent (same reason as `hello.selftest`).
 - `hello.versions.plugins` lists only `fleet` for now (match is still compiled into the core).
 - Unknown reliable types get `error {code: "unknown_type"}` (ephemeral, `ref` = the message id)
   and are acked. Out-of-order reliable messages are dropped unacked (the platform replays them).

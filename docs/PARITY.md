@@ -53,9 +53,9 @@ The platform used to send these as RCON commands (`ru_server_id`, `ru_bootstrap_
 | Match report (live match page) | `MatchState` via `state.patch` / `state.snapshot`, cmd `snapshot_now`, and the local `/status` endpoint | done | tested | none | – |
 | `server.config` fields applied: `hostname_format`, `scrim_knife`, `series_end_kick_delay.*` | `OnServerConfig` in `plugins/match/readyup/fleet_bridge.cpp` | done | tested | none | – |
 | `server.config` fields applied: `chat_prefix`, `admin_chat_prefix`, `warmup`, `demo`, `offline_pause_minutes`, `status_http` | Accepted, not applied (the code comment says they belong to other parts). In progress | partial | untested | none | S |
-| Server drain / undrain | `server.drain` / `server.undrain` (FLEET.md); not handled by `fleet_bridge.cpp` yet | missing | untested | none | S |
+| Server drain / undrain | `server.drain` / `server.undrain` in `fleet_bridge.cpp`: availability `draining`, `match.assign` refused as `busy`; in memory only | done | untested | none | – |
 | `server.selftest` / `hello.selftest` | In FLEET.md; `selftest_iface.h` exists, the platform-facing message is not wired | missing | untested | none | S |
-| `server.cs2_update_required` | Not emitted. The CS2 build is already in `hello` versions | missing | untested | none | S |
+| `server.cs2_update_required` | Steam UpToDateCheck (appid 730) every 30 min on a worker thread, once per required version (`cs2_update_check.h`) | done | tested | none | – |
 
 ## 2. Per-server settings
 
@@ -158,11 +158,11 @@ The platform normalizer converts the fleet payloads; the AT webhook shapes stay 
 | Simulation mode | `simulation.h`; `scripts/livetest --simulation` (CI) | done | stable | none | – |
 | Damage report | Native: `damage_report.h`, `damage_ledger.h`, `damage_votes_test` | done | tested | events | – |
 | Practice: `.prac`, `.bot`, `.boost`, `.spawn`, `.savepos`, `.rethrow`, `.god`, `.clear`, `.noflash` | `plugins/practice` | done | tested | none | – |
-| Practice `.match` | Not in the practice plugin | missing | untested | none | S |
-| `.ruversion` for players | `.ru` is admin-only since PR #90, so there is no player-facing version command | partial | untested | none | S |
-| `.map` / `.reloadmap` aliases | Chat aliases missing (cmd `change_map` exists over the link) | missing | untested | none | S |
+| Practice `.match` | `.match` = `.exitprac` while practice is on (admins) | done | untested | none | – |
+| `.ruversion` for players | Public alias of `.ru version` | done | untested | none | – |
+| `.map` / `.reloadmap` aliases | essentials: `.map <name, workshop id or link> [force]`, `.reloadmap [force]` (admins) | done | untested | none | – |
 | `.rcon` | Missing; the platform uses cmd `exec` | missing | untested | none | S |
-| Min spectators to ready (`min_spectators_to_ready`) | Not implemented | missing | untested | none | S |
+| Min spectators to ready (`min_spectators_to_ready`) | Match spectators type `.ready`; that many are needed before go-live | done | tested | none | – |
 | Skins | Ready Up extra, not in the default release | done | tested | none | – |
 
 ## 8. Player stats
@@ -191,8 +191,8 @@ Features of the previous (ME) plugin that the first version of this file did not
 | `.impacts`, `.traj` / `.pip`, `.solid`, `.break`, `.fas` / `.watchme`, `.timer` | Mostly cvar toggles | missing | untested | none | S |
 | `.dry` / `.dryrun` | Not built | missing | untested | none | M |
 | `.noblind` | Done as `.noflash` | done | tested | none | – |
-| `.spec` | Not built | missing | untested | none | S |
-| `.rk` alias | Not built | missing | untested | none | S |
+| `.spec` | Moves the player to spectators unless they are on a loaded match's roster (they would be put back) | done | untested | none | – |
+| `.rk` alias | Alias of `.roundknife` (admins) | done | tested | none | – |
 | Warmup settings (`at_warmup_*`) | Done as `ru_warmup_*` (`match_console.cpp`) | done | tested | none | – |
 | Chat reminders | Done differently: ready HUD, go-live cards | done | tested | none | – |
 | Admins URL etc. (`at_admins_url`) | Done as `ru_*` | done | tested | none | – |
@@ -231,6 +231,6 @@ Rows from the old RCON + webhook contract. Not counted in the summary.
 2. `server.config` fields: chat prefixes, warmup, demo, `offline_pause_minutes`, `status_http`. In progress.
 3. `autostart_mode` (`scrim_when_idle`). In progress.
 4. Fleet path in CI. In progress.
-5. `reset_cvars_on_series_end` for match `cvars{}` (needs a cvar read in `ru_api`), `server.cs2_update_required`, `server.drain` / `undrain`, `server.selftest`.
-6. Player-facing gaps: `.ruversion`, `.map` / `.reloadmap`, `.rcon`, practice `.match`, `min_spectators_to_ready`.
+5. `reset_cvars_on_series_end` for match `cvars{}` (needs a cvar read in `ru_api`), `server.selftest` (the core does not expose its selftest result to plugins).
+6. Player-facing gaps: `.rcon`.
 7. Practice extras and the lineup library (fragile, L).

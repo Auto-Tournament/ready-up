@@ -625,6 +625,13 @@ void OnExitPracChat(void*, const ru_command_ctx* c) {
   ChatAll("Ready Up: " + reply);
 }
 
+// `.match` (Get5 / MatchZy name for leaving practice): the same as `.exitprac` while practice is on,
+// silent otherwise so a player typing it outside practice is not told off.
+void OnMatchChat(void*, const ru_command_ctx* c) {
+  if (!IsActive()) return;
+  OnExitPracChat(nullptr, c);
+}
+
 // `ru practice on|off|status` and `ru practice as <slot> <.command> [args]`.
 void OnRu(void*, const ru_command_ctx* c) {
   const std::string sub = c->argc >= 3 && c->argv[2] ? Lower(c->argv[2]) : "";
@@ -859,7 +866,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   (void)api->stash_get(api->self, "standalone_active", &g_standaloneActive, sizeof(g_standaloneActive));
   if (!api->register_chat_command(api->self, ".prac", &OnPracChat, nullptr) ||
       !api->register_chat_command(api->self, ".tactics", &OnPracChat, nullptr) ||
-      !api->register_chat_command(api->self, ".exitprac", &OnExitPracChat, nullptr)) {
+      !api->register_chat_command(api->self, ".exitprac", &OnExitPracChat, nullptr) ||
+      !api->register_chat_command(api->self, ".match", &OnMatchChat, nullptr)) {
     ru_logf(api, RU_LOG_WARN, "could not register .prac (another plugin owns it)");
   }
   for (const char* c : {".rethrow", ".rt", ".savepos", ".loadpos", ".back", ".clear", ".noflash", ".god", ".spawn",

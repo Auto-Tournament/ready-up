@@ -96,7 +96,8 @@ static bool ShouldProcess(uint64_t steamid64, const std::string& playerName, con
 namespace readyup {
 
 // Only `.ru` is the core's; player commands (.r, .pause, ...) belong to plugins (readyup-match).
-bool IsCoreChatCommand(const std::string& firstToken) { return firstToken == ".ru"; }
+// `.ruversion` is the core's too: a player command, the same as `.ru version`.
+bool IsCoreChatCommand(const std::string& firstToken) { return firstToken == ".ru" || firstToken == ".ruversion"; }
 
 void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const std::string& text, int slot) {
   const std::string t = Trim(text);
@@ -120,7 +121,8 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
     DebugLine("ru: ignored (no parts)");
     return;
   }
-  const std::string& first = parts[0];
+  if (Lower(parts[0]) == ".ruversion") parts = {".ru", "version"};  // alias of `.ru version`
+  const std::string first = parts[0];
 
   // Commands owned by a loaded plugin (never `.ru`). The plugin callback runs on the next
   // GameFrame, with the sender's slot when the ClientCommand hook saw the line.

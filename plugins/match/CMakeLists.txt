@@ -15,6 +15,7 @@ set(MATCH_SOURCES
   readyup/coach.cpp
   readyup/coach_rules.cpp
   readyup/config.cpp
+  readyup/cs2_update_check.cpp
   readyup/cs2_version.cpp
   readyup/damage_ledger.cpp
   readyup/damage_report.cpp
@@ -126,6 +127,13 @@ target_include_directories(match_fleet_state_test PRIVATE ${CMAKE_CURRENT_SOURCE
   ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(match_fleet_state_test PRIVATE -Wall -Wextra)
 add_test(NAME match_fleet_state COMMAND match_fleet_state_test)
+
+# CS2 build check (Steam UpToDateCheck parsing, report-once rule; ctest `match_cs2_update`).
+add_executable(match_cs2_update_test tests/cs2_update_check_test.cpp readyup/cs2_update_check.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp)
+target_include_directories(match_cs2_update_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
+target_compile_options(match_cs2_update_test PRIVATE -Wall -Wextra)
+add_test(NAME match_cs2_update COMMAND match_cs2_update_test)
 
 # Pause limits / unpause rule / auto-unpause countdown, .forceready threshold, team name
 # sanitizing, the team-left forfeit timer, warmup money and the warmup weapon cleanup (its cvars

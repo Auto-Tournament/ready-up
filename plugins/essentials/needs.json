@@ -7,6 +7,7 @@
     "chat_all",
     "chat_to_slot",
     "on_tick",
+    "register_chat_command",
     "register_ru_subcommand"
   ],
   "surface": [
@@ -15,6 +16,7 @@
     "ClientPrint",
     "ISource2GameClients::ClientCommand",
     "ISource2Server::GameFrame",
+    "Host_Say",
     "LegacyGameEventListener",
     "UTIL_ClientPrintAll"
   ],

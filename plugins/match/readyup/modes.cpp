@@ -648,6 +648,15 @@ static void EnforceWhitelistLocked(State& st) {
 }
 
 static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContext& ctx) {
+  // min_spectators_to_ready: that many of the match's spectators (casters) typed .ready.
+  if (const int needSpec = EffectiveRules().min_spectators_to_ready; needSpec > 0) {
+    int readySpec = 0;
+    for (const uint64_t sid : ctx.spectators) {
+      auto it = st.ready.find(sid);
+      if (it != st.ready.end() && it->second) ++readySpec;
+    }
+    if (!SpectatorsReadyToGoLive(needSpec, readySpec)) return false;
+  }
   if (ctx.roster_team.empty()) return true;
 
   // Build connected set from observed slots.
