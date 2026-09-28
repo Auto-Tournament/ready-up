@@ -101,6 +101,40 @@ int main() {
   }
   CHECK(MapChangePanelHtml("de_<x>", false).find("Changing map to de_&lt;x&gt;") != std::string::npos);
   CHECK(MapChangePanelHtml("m", true).find("Reloading m") != std::string::npos);
+  // `.ru map change <name>`: what the admin meant.
+  const std::vector<std::string> maps = {"de_mirage", "de_dust2", "de_inferno", "de_nuke", "cs_office", "cs_italy",
+                                         "ar_shoots", "de_ancient", "de_anubis", "de_train"};
+  CHECK(ResolveMapName("de_mirage", maps).name == "de_mirage");
+  CHECK(ResolveMapName("mirage", maps).name == "de_mirage");
+  CHECK(ResolveMapName("MIRAGE", maps).name == "de_mirage");
+  CHECK(ResolveMapName("office", maps).name == "cs_office");
+  CHECK(ResolveMapName("dust", maps).name == "de_dust2");
+  CHECK(ResolveMapName("dust2", maps).name == "de_dust2");
+  CHECK(ResolveMapName("mirag", maps).name == "de_mirage");
+  CHECK(ResolveMapName("miarge", maps).name == "de_mirage");
+  CHECK(ResolveMapName("infenro", maps).name == "de_inferno");
+  CHECK(ResolveMapName("an", maps).name.empty());  // too short to guess
+  {
+    const MapMatch m = ResolveMapName("anc", maps);
+    CHECK(m.name == "de_ancient");
+  }
+  {
+    const MapMatch m = ResolveMapName("anu", maps);
+    CHECK(m.name == "de_anubis");
+  }
+  {
+    const MapMatch m = ResolveMapName("i", maps);  // too short: nothing
+    CHECK(m.name.empty());
+  }
+  {
+    const MapMatch m = ResolveMapName("it", maps);  // nuke / italy / ... : no clear guess
+    CHECK(m.name.empty());
+  }
+  CHECK(ResolveMapName("zzzzzzzz", maps).name.empty());
+  CHECK(ResolveMapName("mirag", {"de_mirage", "de_mirage_night"}).name == "de_mirage");  // shortest start wins
+  CHECK(ResolveMapName("mirage_n", {"de_mirage", "de_mirage_night"}).name == "de_mirage_night");
+  CHECK(ResolveMapName("mirage", {}).name.empty());
+
   std::printf("essentials_rules_test: %s\n", g_failures ? "FAIL" : "PASS");
   return g_failures ? 1 : 0;
 }

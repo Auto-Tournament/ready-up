@@ -27,6 +27,7 @@
 // through readyup.essentials.v1 (default_map, plus load_map: a map change with the download bar);
 // the deathmatch plugin loads its mode's default map with them. The platform is meant to push the
 // file over the fleet link later.
+#include <dirent.h>
 #include "essentials_rules.h"
 
 #include "readyup/essentials_iface.h"
@@ -302,6 +303,58 @@ void OnMapDefaults(const ru_command_ctx* c, const std::string& sub, const std::v
   Reply(c, "default map " + args[0] + ": " + Shown(e));
 }
 
+// Maps this server has: csgo/maps/<name>.vpk and the community maps in csgo_community_addons/<name>/.
+std::string g_csgoDir;  // .../game/csgo
+std::vector<std::string> ServerMaps() {
+  std::vector<std::string> out;
+  auto scan = [&](const std::string& dir, bool dirs) {
+    DIR* d = opendir(dir.c_str());
+    if (!d) return;
+    while (const dirent* e = readdir(d)) {
+      std::string n = e->d_name;
+      if (n.empty() || n[0] == '.') continue;
+      if (!dirs) {
+        if (n.size() <= 4 || n.compare(n.size() - 4, 4, ".vpk") != 0) continue;
+        n.resize(n.size() - 4);
+      } else if (e->d_type != DT_DIR && e->d_type != DT_UNKNOWN) {
+        continue;
+      }
+      const size_t u = n.find('_');
+      const bool vanity = n.size() > 7 && n.compare(n.size() - 7, 7, "_vanity") == 0;  // menu backgrounds
+      if ((u == 2 || u == 3) && !vanity) out.push_back(n);  // de_ cs_ ar_ ...: playable maps
+    }
+    closedir(d);
+  };
+  scan(g_csgoDir + "/maps", false);
+  scan(g_csgoDir + "/../csgo_community_addons", true);
+  std::sort(out.begin(), out.end());
+  out.erase(std::unique(out.begin(), out.end()), out.end());
+  return out;
+}
+
+// A plain name (not a workshop id or link) -> the server's map it means ("mirage" -> de_mirage).
+bool ResolveMapArg(const ru_command_ctx* c, std::string* arg) {
+  const std::string& a = *arg;
+  const bool plain = !a.empty() && a.find('/') == std::string::npos && a.find("steamcommunity") == std::string::npos &&
+                     a.find_first_not_of("0123456789") != std::string::npos;
+  if (!plain) return true;
+  const std::vector<std::string> maps = ServerMaps();
+  if (maps.empty()) return true;  // can't tell: let the engine try the name as typed
+  const MapMatch m = ResolveMapName(a, maps);
+  if (!m.name.empty()) {
+    *arg = m.name;
+    return true;
+  }
+  if (!m.ambiguous.empty()) {
+    std::string l;
+    for (const auto& n : m.ambiguous) l += (l.empty() ? "" : ", ") + n;
+    Reply(c, "\"" + a.substr(0, 32) + "\" could be: " + l + ". Be more specific.");
+  } else {
+    Reply(c, "no map like \"" + a.substr(0, 32) + "\" on this server (a workshop id or link works too)");
+  }
+  return false;
+}
+
 void OnMap(const ru_command_ctx* c, const std::string& sub, std::vector<std::string> args) {
   if (sub.empty() || sub == "help") {
     for (const char* l : {".ru map change <name|workshop id|link> [force]: change map (admin)",
@@ -331,6 +384,7 @@ void OnMap(const ru_command_ctx* c, const std::string& sub, std::vector<std::str
   std::string entry;
   if (sub == "change") {
     if (args.size() != 1) return Reply(c, "usage: .ru map change <name|workshop id> [force]");
+    if (!ResolveMapArg(c, &args[0])) return;  // "mirage" -> de_mirage; asks when unsure
     entry = MapArgToEntry(args[0]);  // a pasted Workshop link works too
     if (!readyup::mapnames::ValidEntry(entry)) {
       return Reply(c, "\"" + args[0].substr(0, 64) + "\" is not a map name, workshop id or workshop link");
@@ -461,6 +515,9 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, register_ru_subcommand)) return 1;
   g_api = api;
   const char* dir = api->data_dir(api->self);
+  g_csgoDir = dir ? std::string(dir) : std::string();  // csgo/readyup/plugins/essentials
+  while (!g_csgoDir.empty() && g_csgoDir.back() == '/') g_csgoDir.pop_back();
+  for (int up = 0; up < 3 && g_csgoDir.rfind('/') != std::string::npos; ++up) g_csgoDir.erase(g_csgoDir.rfind('/'));
   const std::string dataDir = dir && *dir ? dir : ".";
   g_path = dataDir + "/admins.json";
   g_mtime = -1;

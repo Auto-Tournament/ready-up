@@ -232,4 +232,99 @@ std::string DownloadPanelHtml(const std::string& name, uint64_t downloaded, uint
   return h;
 }
 
+namespace {
+
+std::string Lowered(std::string s) {
+  for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  return s;
+}
+
+// "de_mirage" -> "mirage" (a leading "<2-3 letters>_").
+std::string StripPrefix(const std::string& m) {
+  const size_t u = m.find('_');
+  return (u == 2 || u == 3) ? m.substr(u + 1) : m;
+}
+
+size_t EditDistance(const std::string& a, const std::string& b) {
+  std::vector<size_t> row(b.size() + 1);
+  for (size_t j = 0; j <= b.size(); ++j) row[j] = j;
+  for (size_t i = 1; i <= a.size(); ++i) {
+    size_t diag = row[0];
+    row[0] = i;
+    for (size_t j = 1; j <= b.size(); ++j) {
+      const size_t up = row[j];
+      row[j] = std::min({row[j] + 1, row[j - 1] + 1, diag + (a[i - 1] == b[j - 1] ? 0 : 1)});
+      diag = up;
+    }
+  }
+  return row[b.size()];
+}
+
+}  // namespace
+
+MapMatch ResolveMapName(const std::string& rawQuery, const std::vector<std::string>& rawMaps) {
+  MapMatch out;
+  const std::string q = Lowered(rawQuery);
+  if (q.empty() || rawMaps.empty()) return out;
+  std::vector<std::string> maps;
+  for (const auto& m : rawMaps) maps.push_back(Lowered(m));
+  auto pick = [&](const std::vector<size_t>& idx) {
+    if (idx.size() == 1) out.name = rawMaps[idx[0]];
+    else
+      for (size_t k = 0; k < idx.size() && k < 5; ++k) out.ambiguous.push_back(rawMaps[idx[k]]);
+    return out;
+  };
+  // 1. exact
+  for (size_t i = 0; i < maps.size(); ++i) {
+    if (maps[i] == q) return pick(std::vector<size_t>(1, i));
+  }
+  // 2. a standard prefix added: de_ first (the usual meaning), then any other
+  for (const char* pre : {"de_", "cs_", "ar_", "dz_", "gd_", "aim_", "fy_", "awp_"}) {
+    for (size_t i = 0; i < maps.size(); ++i) {
+      if (maps[i] == pre + q) return pick(std::vector<size_t>(1, i));
+    }
+  }
+  std::vector<size_t> idx;
+  for (size_t i = 0; i < maps.size(); ++i) {
+    if (StripPrefix(maps[i]) == StripPrefix(q)) idx.push_back(i);
+  }
+  if (!idx.empty()) return pick(idx);
+  // 3. contained in exactly one map (or ambiguous)
+  if (q.size() >= 3) {
+    for (size_t i = 0; i < maps.size(); ++i) {
+      if (maps[i].find(q) != std::string::npos) idx.push_back(i);
+    }
+    // Several: the ones whose name (without prefix) starts with it win ("mirag": de_mirage over de_mirage_x).
+    std::vector<size_t> starts;
+    for (size_t i : idx) {
+      if (StripPrefix(maps[i]).compare(0, q.size(), q) == 0) starts.push_back(i);
+    }
+    if (starts.size() > 1) {  // the shortest of those, if it is one of them
+      std::sort(starts.begin(), starts.end(), [&](size_t a, size_t b) { return maps[a].size() < maps[b].size(); });
+      if (maps[starts[0]].size() < maps[starts[1]].size()) starts.resize(1);
+    }
+    if (!starts.empty()) return pick(starts);
+    if (!idx.empty()) return pick(idx);
+  }
+  // 4. closest by edit distance on the names without prefix, if clearly the best
+  const std::string qs = StripPrefix(q);
+  size_t best = std::string::npos, second = std::string::npos;
+  std::vector<size_t> bestIdx;
+  for (size_t i = 0; i < maps.size(); ++i) {
+    const size_t d = EditDistance(qs, StripPrefix(maps[i]));
+    if (d < best) {
+      second = best;
+      best = d;
+      bestIdx.assign(1, i);
+    } else if (d == best) {
+      bestIdx.push_back(i);
+    } else if (d < second) {
+      second = d;
+    }
+  }
+  const size_t limit = std::max<size_t>(1, qs.size() / 3);  // mirag, miarge: 1-2 edits
+  if (best <= limit) return pick(bestIdx);
+  return out;
+}
+
 }  // namespace essentials
