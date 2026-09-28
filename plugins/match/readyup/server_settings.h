@@ -12,6 +12,11 @@
 //   hostname_format "<fmt>"               str   ""       hostname while a match is loaded ({TEAM1} {TEAM2} ...)
 //   kick_when_no_match_loaded 0|1         bool  0        non-admins are kicked while no match is loaded
 //   whitelist_enabled_default 0|1         bool  1        only roster / spectators / admins may join a match
+//   scrim_when_idle 0|1                   bool  1        players joining an idle server start a scrim warmup
+//   chat_prefix "<text>"                  str   ""       Ready Up's chat prefix (<Color> tokens); pushed to the
+//                                                        core (ru_api set_core_setting) when set at runtime,
+//                                                        empty = the core's readyup.cfg chat_prefix
+//   admin_chat_prefix "<text>"            str   ""       admins' chat name prefix (<Color> tokens), empty = [Admin]
 //
 // Where a value comes from (first one set wins):
 //   1. the runtime value: console / RCON `ru_<setting> <value>`, chat `.ru settings set <setting>
@@ -19,7 +24,7 @@
 //      fleet `cmd settings.set` / `server.config`; saved in state.json and restored after a restart,
 //      `ru_<setting> default` clears it,
 //   2. readyup.cfg / match.cfg: a key of the same name (or its legacy key: `min_players_to_ready`,
-//      `scrim_knife`),
+//      `scrim_knife`, `admin_prefix`),
 //   3. the built-in default above.
 // Per-match values (match config `playout`, `whitelist`, `autoready`, `min_players_to_ready`,
 // fleet `rules.*`) win over all three for that match. `ru_pause_after_restore` is the round

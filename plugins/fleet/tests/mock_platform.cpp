@@ -1,5 +1,6 @@
 #include "mock_platform.h"
 
+#include "fleet_demo.h"
 #include "fleet_proto.h"
 
 #include <arpa/inet.h>
@@ -374,6 +375,13 @@ void Platform::ServeWs(int fd, int conn) {
       SendEnvelope(fd, "pong", "{\"t\":" + t + "}", 0, env.Get("id") ? env.Get("id")->AsStr() : "");
       continue;
     }
+    if (type == "demo.begin" || type == "demo.chunk" || type == "demo.end") {
+      if (p && demoAnswer) {
+        const fleet::json::Value* ep = env.Get("epoch");
+        HandleDemo(fd, type, *p, ep ? ep->AsInt(0) : 0, env.Get("id") ? env.Get("id")->AsStr() : "");
+      }
+      continue;
+    }
     if (seq > 0) {
       bool ack = false;
       {
@@ -436,6 +444,126 @@ void Platform::DropCurrent() {
 void Platform::SetPlatformRxSeq(const std::string& streamId, int64_t seq) {
   std::lock_guard<std::mutex> lk(mu_);
   rxByStream_[streamId] = seq;
+}
+
+namespace {
+
+bool Base64Decode(const std::string& in, std::string* out) {
+  auto val = [](char c) -> int {
+    if (c >= 'A' && c <= 'Z') return c - 'A';
+    if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+    if (c >= '0' && c <= '9') return c - '0' + 52;
+    if (c == '+') return 62;
+    if (c == '/') return 63;
+    return -1;
+  };
+  if (in.size() % 4 != 0) return false;
+  out->clear();
+  for (size_t i = 0; i < in.size(); i += 4) {
+    int v[4];
+    int pad = 0;
+    for (int k = 0; k < 4; ++k) {
+      if (in[i + k] == '=') {
+        v[k] = 0;
+        ++pad;
+      } else if ((v[k] = val(in[i + k])) < 0 || pad) {
+        return false;
+      }
+    }
+    const uint32_t n = (uint32_t(v[0]) << 18) | (uint32_t(v[1]) << 12) | (uint32_t(v[2]) << 6) | uint32_t(v[3]);
+    out->push_back(char((n >> 16) & 0xFF));
+    if (pad < 2) out->push_back(char((n >> 8) & 0xFF));
+    if (pad < 1) out->push_back(char(n & 0xFF));
+  }
+  return true;
+}
+
+}  // namespace
+
+void Platform::HandleDemo(int fd, const std::string& type, const fleet::json::Value& p, int64_t epoch,
+                          const std::string& ref) {
+  const std::string id = p.Get("demo_id") ? p.Get("demo_id")->AsStr() : "";
+  std::string answer;
+  auto ack = [&](int64_t offset, bool complete, const char* error) {
+    answer = "{\"demo_id\":\"" + id + "\",\"offset\":" + std::to_string(offset);
+    if (complete) answer += ",\"complete\":true";
+    if (error) answer += std::string(",\"error\":{\"code\":\"") + error + "\"}";
+    answer += "}";
+  };
+  {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto it = demos_.find(id);
+    if (type == "demo.begin") {
+      Demo& d = demos_[id];
+      if (p.Get("restart") && p.Get("restart")->AsBool()) {
+        d.data.clear();
+        d.stored = 0;
+        d.complete = false;
+      }
+      d.file = p.Get("file") ? p.Get("file")->AsStr() : "";
+      d.matchId = p.Get("match_id") ? p.Get("match_id")->AsStr() : "";
+      d.chunkSize = p.Get("chunk_size") ? p.Get("chunk_size")->AsInt(0) : 0;
+      d.epoch = epoch;
+      ++d.begins;
+      ack(d.stored, d.complete, nullptr);
+    } else if (it == demos_.end()) {
+      ack(0, false, "unknown_demo");
+    } else if (type == "demo.chunk") {
+      Demo& d = it->second;
+      const int64_t off = p.Get("offset") ? p.Get("offset")->AsInt(-1) : -1;
+      const int64_t size = p.Get("size") ? p.Get("size")->AsInt(0) : 0;
+      std::string bytes;
+      if (off < 0 || off > d.stored) {
+        ack(d.stored, false, "gap");
+      } else if (!Base64Decode(p.Get("data") ? p.Get("data")->AsStr() : "", &bytes) ||
+                 static_cast<int64_t>(bytes.size()) != size) {
+        ack(d.stored, false, "gap");
+      } else {
+        if (static_cast<int64_t>(d.data.size()) < off + size) d.data.resize(static_cast<size_t>(off + size));
+        std::memcpy(&d.data[static_cast<size_t>(off)], bytes.data(), bytes.size());
+        d.stored = std::max(d.stored, off + size);
+        ++d.chunks;
+        d.chunkBytes += size;
+        ack(d.stored, false, nullptr);
+      }
+    } else {  // demo.end
+      Demo& d = it->second;
+      ++d.ends;
+      const int64_t size = p.Get("size") ? p.Get("size")->AsInt(-1) : -1;
+      const std::string want = p.Get("sha256") ? p.Get("sha256")->AsStr() : "";
+      if (d.complete && size == d.stored) {
+        ack(d.stored, true, nullptr);
+      } else if (size < 0 || d.stored < size) {
+        ack(d.stored, false, nullptr);
+      } else {
+        d.data.resize(static_cast<size_t>(size));
+        d.stored = size;
+        if (demoCorruptEnd.exchange(false) && !d.data.empty()) d.data[0] = char(d.data[0] ^ 0x5A);
+        fleet::demo::Sha256 sha;
+        sha.Update(d.data.data(), d.data.size());
+        if (sha.HexDigest() == want) {
+          d.complete = true;
+          ack(size, true, nullptr);
+        } else {
+          d.data.clear();
+          d.stored = 0;
+          ack(0, false, "checksum");
+        }
+      }
+    }
+  }
+  cv_.notify_all();
+  SendEnvelope(fd, "demo.ack", answer, 0, ref);
+}
+
+std::map<std::string, Demo> Platform::Demos() {
+  std::lock_guard<std::mutex> lk(mu_);
+  return demos_;
+}
+
+void Platform::ForgetDemos() {
+  std::lock_guard<std::mutex> lk(mu_);
+  demos_.clear();
 }
 
 std::vector<Received> Platform::Messages() {

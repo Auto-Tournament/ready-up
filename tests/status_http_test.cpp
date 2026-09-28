@@ -521,6 +521,25 @@ static void TestServerAuthAndLimits() {
   CHECK(!s3.Start(&err));
 }
 
+// The token pushed by the platform (server.config status_http.token -> SetToken) replaces the
+// old one for the next request.
+static void TestServerTokenSwap() {
+  auto hub = std::make_shared<Hub>();
+  hub->Submit(Inputs("warmup", 0));
+  ServerConfig cfg = TestCfg();
+  cfg.trustLoopback = false;
+  StatusServer srv(cfg, hub);
+  std::string err;
+  CHECK(srv.Start(&err));
+  const int port = srv.BoundPort();
+  CHECK(Contains(Get(port, "/status?token=rst_0123456789abcdef0123"), "HTTP/1.1 200"));
+  srv.SetToken("platform_token_0123456789");
+  CHECK_STR(srv.Token(), "platform_token_0123456789");
+  CHECK(Contains(Get(port, "/status?token=rst_0123456789abcdef0123"), "HTTP/1.1 401"));
+  CHECK(Contains(Get(port, "/status?token=platform_token_0123456789"), "HTTP/1.1 200"));
+  srv.Stop();
+}
+
 static void TestServerStream() {
   auto hub = std::make_shared<Hub>(256);
   hub->Submit(Inputs("warmup", 0));
@@ -628,6 +647,7 @@ int main() {
   TestHub();
   TestServerBasics();
   TestServerAuthAndLimits();
+  TestServerTokenSwap();
   TestServerStream();
   TestSlowStreamDropped();
   if (g_failures) {

@@ -34,8 +34,12 @@ bool DebugEnabled();
 bool BannerEnabled();
 bool ChatDebugEnabled();
 
-// Chat prefix (may include CS2 chat color control bytes).
+// Chat prefix (may include CS2 chat color control bytes): the runtime one, else readyup.cfg's.
 std::string ChatPrefix();
+// Runtime chat prefix (ru_api set_core_setting "chat_prefix", pushed by the platform): <Color>
+// tokens like readyup.cfg, at most 64 bytes, no control bytes. "" = back to readyup.cfg. Kept
+// across `ru reload`, not saved. False when refused.
+bool SetChatPrefixOverride(const std::string& tokenText);
 bool ConsumeRuChat();
 
 // Reloads `readyup.cfg` from disk (best-effort).

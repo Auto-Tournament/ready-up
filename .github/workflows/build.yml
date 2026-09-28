@@ -6,7 +6,8 @@ name: Build
 # ready-up-{core,match,fleet,practice,essentials-plugin,skins,hello,midas,whitelist,deathmatch,addons}-<version>-linuxsteamrt64.zip
 # (components), ready-up-{essentials,full}-<version>-linuxsteamrt64.zip (bundles) + SHA256SUMS.
 # The installer job then tests install.sh against those zips. Tags v* additionally publish a
-# GitHub release with the same files.
+# GitHub release with the same files: vX.Y.Z is marked latest, vX.Y.Z-beta.N / -rc.N are
+# published as pre-releases (never latest; install.sh --channel beta picks them up).
 
 on:
   push:
@@ -46,6 +47,11 @@ jobs:
           file_version="$(tr -d ' \t\r\n' < VERSION)"
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             version="${GITHUB_REF_NAME#v}"
+            # Stable X.Y.Z or a pre-release X.Y.Z-beta.N / X.Y.Z-rc.N (release.sh, docs/RELEASING.md).
+            if ! echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-(beta|rc)\.[1-9][0-9]*)?$'; then
+              echo "::error::tag $GITHUB_REF_NAME is not vX.Y.Z, vX.Y.Z-beta.N or vX.Y.Z-rc.N"
+              exit 1
+            fi
             if [ "$version" != "$file_version" ]; then
               echo "::error::tag $GITHUB_REF_NAME does not match VERSION ($file_version)"
               exit 1
@@ -56,8 +62,8 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Version: $version"
           # License coverage is by version line: the release date of this version's x.y.0
-          # (core/src/readyup/license.h). A tag x.y.z takes the date of tag vx.y.0; the first
-          # x.y.0 build, and dev builds, use today.
+          # (core/src/readyup/license.h). A tag x.y.z (or x.y.z-beta.N) takes the date of tag
+          # vx.y.0; the first x.y.0 build, its pre-releases, and dev builds use today.
           line_date=""
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             zero="v$(echo "$version" | cut -d. -f1-2).0"
@@ -251,9 +257,17 @@ jobs:
           path: artifact
 
       - name: shellcheck
-        run: shellcheck install.sh scripts/package-release.sh scripts/ci/check-bundles.sh tests/installer/test_install.sh
+        run: shellcheck install.sh release.sh scripts/package-release.sh scripts/ci/check-bundles.sh scripts/ci/release-notes.sh tests/installer/test_install.sh
 
-      - name: install.sh end-to-end (fake server trees, Metamod, rerun, pickers, release mode, uninstall)
+      - name: release notes from the built zips
+        run: |
+          scripts/ci/release-notes.sh "v${{ needs.build.outputs.version }}" artifact/dist-info/cs2-build.env artifact/dist > notes.md
+          cat notes.md >> "$GITHUB_STEP_SUMMARY"
+          for z in artifact/dist/ready-up-*.zip; do
+            grep -qF "$(basename "$z")" notes.md || { echo "::error::notes miss $(basename "$z")"; exit 1; }
+          done
+
+      - name: install.sh end-to-end (fake server trees, Metamod, rerun, pickers, release mode, beta channel, uninstall)
         run: tests/installer/test_install.sh artifact/dist
 
   release:
@@ -282,13 +296,20 @@ jobs:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
           files=(artifact/dist/ready-up-*-"${VERSION}"-linuxsteamrt64.zip artifact/dist/SHA256SUMS)
-          scripts/ci/release-notes.sh "$TAG" artifact/dist-info/cs2-build.env > notes.md
+          scripts/ci/release-notes.sh "$TAG" artifact/dist-info/cs2-build.env artifact/dist > notes.md
+          # A version with a suffix (0.1.0-beta.1, 0.1.0-rc.1) is a pre-release: never "latest",
+          # so install.sh's default and anything reading releases/latest keep the last stable one.
+          case "$VERSION" in
+            *-*) kind=(--prerelease) edit_kind=(--prerelease) ;;
+            *) kind=(--latest) edit_kind=(--prerelease=false --latest) ;;
+          esac
+          echo "Release $TAG: ${kind[*]}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "${files[@]}" --clobber
-            gh release edit "$TAG" --notes-file notes.md
+            gh release edit "$TAG" --notes-file notes.md "${edit_kind[@]}"
           else
             gh release create "$TAG" "${files[@]}" \
-              --title "Ready Up $TAG" --notes-file notes.md --verify-tag --latest
+              --title "Ready Up $TAG" --notes-file notes.md --verify-tag "${kind[@]}"
           fi
 
       - name: Announce on Discord

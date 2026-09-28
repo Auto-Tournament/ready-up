@@ -8,9 +8,11 @@
 # config kept (+ *.default when a template changes), fleet in essentials (idle template), removing
 # and re-adding fleet (its data dir kept), adding skins from the full zip, removing
 # it, the numbered-prompt and arrow-key pickers through a pty (`script`), uninstall, --purge,
-# the license choice (--accept-license, saved choice, the prompt through a pty), migrating an
-# older core + match install (practice and essentials come with the next update), the full
-# bundle by name, and release mode (ready-up-essentials-plugin-* is the essentials component).
+# the license choice (--accept-license, --license-key, saved choice, an older
+# license-acceptance.json, the prompt + "I AGREE" through a pty), migrating an older core + match
+# install (practice and essentials come with the next update), the full bundle by name, release
+# mode (ready-up-essentials-plugin-* is the essentials component) and the beta channel
+# (--channel beta, --version for a pre-release, the message when only pre-releases exist).
 set -euo pipefail
 
 DIST="$(cd "${1:?usage: $0 <dist-dir>}" && pwd)"
@@ -44,8 +46,21 @@ line_of() { grep -nE "^[[:space:]]*Game[[:space:]]+$2[[:space:]]*$" "$1" | cut -
 count_ru() { grep -cE '^[[:space:]]*Game[[:space:]]+csgo/readyup[[:space:]]*$' "$1" || true; }
 installed() { python3 -c 'import json,sys; print(" ".join(sorted(json.load(open(sys.argv[1]))["components"])))' "$1/game/csgo/readyup/installed.json"; }
 run() { bash "$INSTALL" "$@" </dev/null; }
-lic() { python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["use"], d["how"], d["accepted_at"][-1])' "$1/game/csgo/readyup/license-acceptance.json"; }
+# "<use> <how> <last char of accepted_at>" from cfg/ReadyUp/license.cfg (install.sh's answer).
+lic() {
+  python3 - "$1/game/csgo/cfg/ReadyUp/license.cfg" <<'PY'
+import re, sys
+text = open(sys.argv[1]).read()
+use = re.search(r'^readyup_license_accepted "([a-z]+)"$', text, re.M).group(1)
+at = re.search(r'^readyup_license_accepted_at "([^"]+)"$', text, re.M).group(1)
+how = re.search(r"accepted via: ([a-z]+)", text).group(1)
+print(use, how, at[-1])
+PY
+}
+key_of() { sed -n 's/^readyup_license_key "\(.*\)"$/\1/p' "$1/game/csgo/cfg/readyup_license.cfg"; }
+TEST_KEY="ATL1.eyJ2IjoxfQ.c2lnbmF0dXJl"
 # The file exists and has no active `key = value` line (only comments / blank lines).
+not_in() { ! grep -q "$1" "$2"; }
 idle_cfg() { [[ -f "$1" ]] && ! grep -Ev '^[[:space:]]*(//|#|$)' "$1" | grep -q .; }
 
 echo "== license: unattended install without a choice is refused, nothing installed"
@@ -64,7 +79,30 @@ else
 fi
 echo "== license: --accept-license=commercial is recorded"
 run --dir "$S" --zip "$ESS" --accept-license=commercial essentials >"$T/out" 2>&1 || { cat "$T/out"; fail "commercial install exited non-zero"; }
-check "license-acceptance.json: commercial, flag, UTC time" test "$(lic "$S")" = "commercial flag Z"
+check "license.cfg: commercial, flag, UTC time" test "$(lic "$S")" = "commercial flag Z"
+check "commercial without a key says how to add it later" grep -q "license-key" "$T/out"
+check "no key file without --license-key" test ! -e "$S/game/csgo/cfg/readyup_license.cfg"
+echo "== license: --license-key goes to cfg/readyup_license.cfg (csm's file), other lines kept"
+printf '// csm header\nreadyup_show_license 1\nreadyup_license_key "ATL1.old"\n' >"$S/game/csgo/cfg/readyup_license.cfg"
+run --dir "$S" --zip "$ESS" --accept-license=commercial --license-key "$TEST_KEY" essentials >"$T/out" 2>&1 ||
+  { cat "$T/out"; fail "install with --license-key exited non-zero"; }
+check "key saved as readyup_license_key" test "$(key_of "$S")" = "$TEST_KEY"
+check "old key line replaced, one key line" test "$(grep -c '^readyup_license_key' "$S/game/csgo/cfg/readyup_license.cfg")" = 1
+check "other lines in readyup_license.cfg kept" grep -q '^readyup_show_license 1' "$S/game/csgo/cfg/readyup_license.cfg"
+check "the key is not printed" not_in "c2lnbmF0dXJl" "$T/out"
+if run --dir "$S" --zip "$ESS" --accept-license=commercial --license-key 'not a key' essentials >"$T/out" 2>&1; then
+  fail "a malformed --license-key was accepted"
+else
+  check "malformed --license-key refused" grep -q "does not look like a Ready Up license key" "$T/out"
+fi
+echo "== license: an answer saved by an older installer (readyup/license-acceptance.json) still counts"
+S5="$T/server-legacy-license"
+make_server "$S5" 0
+mkdir -p "$S5/game/csgo/readyup"
+echo '{"use": "noncommercial", "accepted_at": "2026-09-01T00:00:00Z", "how": "prompt"}' >"$S5/game/csgo/readyup/license-acceptance.json"
+run --dir "$S5" --zip "$ESS" -y >"$T/out" 2>&1 || { cat "$T/out"; fail "install with a legacy license answer exited non-zero"; }
+check "legacy answer used" grep -q "license: noncommercial use (accepted earlier" "$T/out"
+check "legacy answer moved to license.cfg" test "$(lic "$S5")" = "noncommercial earlier Z"
 
 for mm in 0 1; do
   S="$T/server-mm$mm"
@@ -72,7 +110,7 @@ for mm in 0 1; do
   CS="$S/game/csgo"
   echo "== fresh essentials install (metamod=$mm)"
   run --dir "$S" --zip "$ESS" --accept-license=noncommercial essentials >"$T/out" 2>&1 || { cat "$T/out"; fail "install exited non-zero"; continue; }
-  check "license-acceptance.json: noncommercial, flag, UTC time" test "$(lic "$S")" = "noncommercial flag Z"
+  check "license.cfg: noncommercial, flag, UTC time" test "$(lic "$S")" = "noncommercial flag Z"
   check "core libserver.so installed" test -x "$CS/readyup/bin/linuxsteamrt64/libserver.so"
   check "match.so installed" test -x "$CS/readyup/plugins/match.so"
   check "engine-surface.json installed" test -f "$CS/readyup/bin/linuxsteamrt64/engine-surface.json"
@@ -208,19 +246,35 @@ if command -v script >/dev/null 2>&1; then
   check "arrow picker removed skins" test ! -e "$CS/readyup/plugins/skins.so"
   check "arrow picker kept core" test -f "$CS/readyup/bin/linuxsteamrt64/libserver.so"
 
-  echo "== license prompt through a pty: commercial stops, noncommercial needs \"yes\""
+  echo "== license prompt through a pty: the use, then \"I AGREE\" (anything else installs nothing)"
   S2="$T/server-prompt"
   make_server "$S2" 0
-  printf '2\n' | script -qec "TERM=dumb bash '$INSTALL' --dir '$S2' --zip '$ESS'" /dev/null >"$T/out" 2>&1 || true
-  check "commercial answer names the contact" grep -q "sivert@autotournament.gg" "$T/out"
-  check "commercial answer installs nothing" test ! -e "$S2/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
-  check "commercial answer saves nothing" test ! -e "$S2/game/csgo/readyup/license-acceptance.json"
-  printf '1\nno\n' | script -qec "TERM=dumb bash '$INSTALL' --dir '$S2' --zip '$ESS'" /dev/null >"$T/out" 2>&1 || true
-  check "noncommercial without yes installs nothing" test ! -e "$S2/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
+  printf '1\nyes\n' | script -qec "TERM=dumb bash '$INSTALL' --dir '$S2' --zip '$ESS'" /dev/null >"$T/out" 2>&1 || true
+  check "\"yes\" is not I AGREE: nothing installed" test ! -e "$S2/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
+  check "declined prompt saves nothing" test ! -e "$S2/game/csgo/cfg/ReadyUp/license.cfg"
   check "the summary links the license" grep -q "polyformproject.org/licenses/noncommercial" "$T/out"
-  printf '1\nyes\n\ny\n' | script -qec "TERM=dumb bash '$INSTALL' --dir '$S2' --zip '$ESS'" /dev/null >"$T/out" 2>&1 || true
-  check "noncommercial + yes installs" test -f "$S2/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
-  check "license-acceptance.json: noncommercial, prompt" test "$(lic "$S2")" = "noncommercial prompt Z"
+  check "the prompt asks for I AGREE" grep -q "Type I AGREE" "$T/out"
+  printf '\n' | script -qec "TERM=dumb bash '$INSTALL' --dir '$S2' --zip '$ESS'" /dev/null >"$T/out" 2>&1 || true
+  check "no answer installs nothing" test ! -e "$S2/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
+  printf '1\ni agree\n\ny\n' | script -qec "TERM=dumb bash '$INSTALL' --dir '$S2' --zip '$ESS'" /dev/null >"$T/out" 2>&1 || true
+  check "noncommercial + i agree (any case) installs" test -f "$S2/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
+  check "license.cfg: noncommercial, prompt" test "$(lic "$S2")" = "noncommercial prompt Z"
+
+  echo "== license prompt through a pty: commercial, key pasted"
+  S6="$T/server-prompt-commercial"
+  make_server "$S6" 0
+  printf '2\nnot-a-key\n%s\nI AGREE\n\ny\n' "$TEST_KEY" | script -qec "TERM=dumb bash '$INSTALL' --dir '$S6' --zip '$ESS'" /dev/null >"$T/out" 2>&1 || true
+  check "commercial answer names the contact" grep -q "sivert@autotournament.gg" "$T/out"
+  check "a malformed pasted key is asked again" grep -q "does not look like a Ready Up license key" "$T/out"
+  check "commercial + I AGREE installs" test -f "$S6/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
+  check "license.cfg: commercial, prompt" test "$(lic "$S6")" = "commercial prompt Z"
+  check "pasted key saved" test "$(key_of "$S6")" = "$TEST_KEY"
+  S7="$T/server-prompt-commercial-later"
+  make_server "$S7" 0
+  printf '2\n\nI AGREE\n\ny\n' | script -qec "TERM=dumb bash '$INSTALL' --dir '$S7' --zip '$ESS'" /dev/null >"$T/out" 2>&1 || true
+  check "commercial, key later: installs" test -f "$S7/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
+  check "commercial, key later: no key file" test ! -e "$S7/game/csgo/cfg/readyup_license.cfg"
+  check "commercial, key later: says how to add it" grep -q "license-key" "$T/out"
 
   echo "== answering n changes nothing"
   printf '\ny\n' >/dev/null
@@ -266,6 +320,64 @@ PY
   READYUP_API="http://127.0.0.1:$PORT" READYUP_REPO=test/ready-up run --dir "$S" -y >"$T/out" 2>&1 ||
     { cat "$T/out"; fail "release-mode update exited non-zero"; }
   check "update shows old → new" grep -q "core 0.0.1 → " "$T/out"
+
+  echo "== beta channel: only pre-releases published (test/ready-up-beta)"
+  # Same zips, served as a pre-release tagged v<version>-beta.1 (the tag is what the installer
+  # asks for; the files keep their names). releases/latest does not exist, like on GitHub when
+  # there is no stable release; the list has an older stable-looking draft that must be ignored.
+  mkdir -p "$W/repos/test/ready-up-beta/releases/tags"
+  python3 - "$W" "$PORT" "$DIST" <<'PY'
+import json, os, re, sys
+www, port, dist = sys.argv[1], sys.argv[2], sys.argv[3]
+names = sorted(f for f in os.listdir(dist) if f.endswith(".zip") or f == "SHA256SUMS")
+ver = next(re.match(r"ready-up-core-(.*)-linuxsteamrt64\.zip", n).group(1) for n in names if n.startswith("ready-up-core-"))
+assets = [{"name": n, "browser_download_url": "http://127.0.0.1:%s/%s" % (port, n)} for n in names]
+beta = {"tag_name": "v%s-beta.1" % ver, "prerelease": True, "draft": False, "published_at": "2026-09-29T10:00:00Z",
+        "body": "Beta notes line 1", "assets": assets}
+old = {"tag_name": "v0.0.1-beta.1", "prerelease": True, "draft": False, "published_at": "2026-01-01T00:00:00Z",
+       "body": "old", "assets": []}
+draft = {"tag_name": "v9.9.9", "prerelease": False, "draft": True, "published_at": None, "body": "draft", "assets": []}
+base = os.path.join(www, "repos/test/ready-up-beta/releases")
+# GET .../releases?per_page=30: http.server redirects the directory to .../releases/ and serves index.html.
+json.dump([old, beta, draft], open(os.path.join(base, "index.html"), "w"))
+json.dump(beta, open(os.path.join(base, "tags", beta["tag_name"]), "w"))
+open(os.path.join(www, "beta-tag"), "w").write(beta["tag_name"])
+PY
+  BETA_TAG="$(cat "$W/beta-tag")"
+  beta_run() { READYUP_API="http://127.0.0.1:$PORT" READYUP_REPO=test/ready-up-beta run "$@"; }
+  S="$T/server-beta"
+  make_server "$S" 0
+  if beta_run --dir "$S" --accept-license=noncommercial essentials >"$T/out" 2>&1; then
+    fail "default channel installed a pre-release"
+  else
+    check "no stable release: points to --channel beta" grep -q -- "--channel beta" "$T/out"
+    check "no stable release: names the newest pre-release for --version" grep -q -- "--version $BETA_TAG" "$T/out"
+    check "no stable release: nothing installed" test ! -e "$S/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
+  fi
+  beta_run --dir "$S" --accept-license=noncommercial --channel beta essentials >"$T/out" 2>&1 ||
+    { cat "$T/out"; fail "--channel beta install exited non-zero"; }
+  check "--channel beta installed core" test -f "$S/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
+  check "--channel beta took the newest pre-release" grep -q "Release notes ($BETA_TAG)" "$T/out"
+  check "--channel beta warns it is a pre-release" grep -q "is a pre-release" "$T/out"
+  S="$T/server-beta-version"
+  make_server "$S" 0
+  beta_run --dir "$S" --accept-license=noncommercial --version "${BETA_TAG#v}" essentials >"$T/out" 2>&1 ||
+    { cat "$T/out"; fail "--version <pre-release> install exited non-zero"; }
+  check "--version without v installs the pre-release" grep -q "Release notes ($BETA_TAG)" "$T/out"
+  if beta_run --dir "$S" --version "$BETA_TAG" --channel beta -y >"$T/out" 2>&1; then
+    fail "--version with --channel accepted"
+  else
+    check "--version and --channel together refused" grep -q "not both" "$T/out"
+  fi
+  if beta_run --dir "$S" --channel nightly -y >"$T/out" 2>&1; then
+    fail "--channel nightly accepted"
+  else
+    check "unknown channel refused" grep -q "must be stable or beta" "$T/out"
+  fi
+  # A repo with a stable release: --channel beta still picks the newest (here the stable one is newest).
+  READYUP_API="http://127.0.0.1:$PORT" READYUP_REPO=test/ready-up run --dir "$S" --channel stable -y >"$T/out" 2>&1 ||
+    { cat "$T/out"; fail "--channel stable update exited non-zero"; }
+  check "--channel stable uses releases/latest" grep -q "Test release notes line 1" "$T/out"
   echo "tampered" >>"$W/$(basename "$ESS" | sed 's/essentials/core/')"
   if READYUP_API="http://127.0.0.1:$PORT" READYUP_REPO=test/ready-up run --dir "$S" core >"$T/out" 2>&1; then
     fail "a zip that does not match SHA256SUMS was installed"

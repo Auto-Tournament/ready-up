@@ -20,6 +20,8 @@ struct CfgState {
   std::mutex mu;
   ReadyUpCfg cfg;
   bool loaded = false;
+  // Runtime chat prefix (SetChatPrefixOverride; expanded); survives ReloadCfg.
+  std::string chatPrefixOverride;
 };
 
 CfgState& State() {
@@ -223,7 +225,23 @@ bool ChatDebugEnabled() {
   return !(v[0] == '0' || v[0] == 'n' || v[0] == 'N' || v[0] == 'f' || v[0] == 'F');
 }
 
+bool SetChatPrefixOverride(const std::string& tokenText) {
+  if (tokenText.size() > 64) return false;
+  for (unsigned char ch : tokenText) {
+    if (ch < 0x20 || ch == 0x7f) return false;
+  }
+  auto& st = State();
+  std::lock_guard<std::mutex> lock(st.mu);
+  st.chatPrefixOverride = tokenText.empty() ? std::string() : ExpandChatColorTokens(tokenText);
+  return true;
+}
+
 std::string ChatPrefix() {
+  {
+    auto& st = State();
+    std::lock_guard<std::mutex> lock(st.mu);
+    if (!st.chatPrefixOverride.empty()) return st.chatPrefixOverride;
+  }
   auto c = Cfg();
   if (c.chat_prefix.empty()) c.chat_prefix = DefaultCfg().chat_prefix;
   return c.chat_prefix;

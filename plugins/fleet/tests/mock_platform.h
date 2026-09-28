@@ -26,6 +26,18 @@ struct Received {
   const fleet::json::Value* payload() const { return env.Get("payload"); }
 };
 
+// A demo received over demo.begin / demo.chunk / demo.end (FLEET.md §12.2).
+struct Demo {
+  std::string file, matchId;
+  int64_t chunkSize = 0;
+  std::string data;       // the bytes stored so far
+  int64_t stored = 0;     // contiguous from 0
+  bool complete = false;  // demo.end matched
+  int begins = 0, ends = 0, chunks = 0;
+  int64_t chunkBytes = 0;  // decoded chunk bytes received (resends included)
+  int64_t epoch = 0;
+};
+
 class Platform {
  public:
   Platform() = default;
@@ -45,6 +57,9 @@ class Platform {
   std::atomic<int> heartbeatTimeoutMs{30000};
   std::atomic<bool> forgetStreams{false}; // pretend we never saw any stream (resume -> reset)
   std::atomic<int> rejectUpgradeStatus{0};// e.g. 401: refuse the WS upgrade
+  // Demo streaming (the platform side of FLEET.md §12.2, as demo.*.json describe it).
+  std::atomic<bool> demoAnswer{true};      // false: never answer demo.* (the server must keep its file)
+  std::atomic<bool> demoCorruptEnd{false}; // corrupt the stored copy before the next demo.end check (once)
 
   // ---- controls ----
   // Sends a platform -> server message on the current connection. reliable = gets a seq.
@@ -65,6 +80,8 @@ class Platform {
   std::string lastAuthHeader();
   int64_t platformRxSeq(const std::string& streamId);
   int64_t lastAckFromServer() const { return lastAckFromServer_.load(); }
+  std::map<std::string, Demo> Demos();
+  void ForgetDemos();  // the platform "loses" every demo (-> unknown_demo)
   // Waits until pred() is true or timeoutMs passes. Returns pred().
   bool WaitFor(const std::function<bool()>& pred, int timeoutMs);
 
@@ -78,6 +95,8 @@ class Platform {
   bool WriteFrame(int fd, int opcode, const std::string& payload);
   bool SendEnvelope(int fd, const std::string& type, const std::string& payloadJson, int64_t seq,
                     const std::string& ref);
+  void HandleDemo(int fd, const std::string& type, const fleet::json::Value& payload, int64_t epoch,
+                  const std::string& ref);
 
   int listenFd_ = -1;
   int port_ = 0;
@@ -89,6 +108,7 @@ class Platform {
   std::condition_variable cv_;
   std::vector<Received> msgs_;
   std::map<std::string, int64_t> rxByStream_;  // highest contiguous server seq per stream
+  std::map<std::string, Demo> demos_;
   std::string currentStream_;
   int currentFd_ = -1;
   int64_t txSeq_ = 0;  // platform -> server

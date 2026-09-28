@@ -109,6 +109,16 @@ struct StatusServer::Impl {
   Impl(double rate, double burst) : limiter(rate, burst, 1024) {}
 };
 
+void StatusServer::SetToken(const std::string& token) {
+  std::lock_guard<std::mutex> lk(tokenMu_);
+  cfg_.token = token;
+}
+
+std::string StatusServer::Token() const {
+  std::lock_guard<std::mutex> lk(tokenMu_);
+  return cfg_.token;
+}
+
 StatusServer::StatusServer(ServerConfig cfg, std::shared_ptr<Hub> hub)
     : cfg_(std::move(cfg)), hub_(std::move(hub)), impl_(new Impl(cfg_.ratePerSec, cfg_.rateBurst)) {}
 
@@ -320,7 +330,8 @@ void StatusServer::Run() {
     // Auth: loopback peers are trusted; everyone else needs the token.
     if (!(cfg_.trustLoopback && c.loopback)) {
       const std::string tok = ExtractToken(req);
-      if (cfg_.token.empty() || !TokenEquals(tok, cfg_.token)) {
+      const std::string want = Token();
+      if (want.empty() || !TokenEquals(tok, want)) {
         counters_.unauthorized.fetch_add(1, std::memory_order_relaxed);
         respond(c, 401, "application/json", jsonErr("token required"), head,
                 {{"WWW-Authenticate", "Bearer realm=\"readyup-status\""}});
