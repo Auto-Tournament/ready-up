@@ -97,6 +97,7 @@ bool ResolveTier0() {
 // ---- State -------------------------------------------------------------------------------------
 struct Item {
   bool downloadAsked = false;
+  double askedAt = 0;  // when the download was requested (retried after 30 s without progress)
   bool installed = false;
   bool mounted = false;  // attached to a map change (the engine logs "Mounting addon '<id>'")
   bool refused = false;
@@ -315,7 +316,7 @@ bool ExtractAddon(void* ugc, uint64_t id) {
 }
 
 // ---- Polling -----------------------------------------------------------------------------------
-void Poll() {
+void Poll(double now) {
   void* ugc = Ugc();
   if (!ugc) return;  // not logged on yet: next poll
   for (uint64_t id : g_ids) {
@@ -330,9 +331,14 @@ void Poll() {
       it.lastState = st;
       ru_logf(g_api, RU_LOG_INFO, "addon %llu: %s", static_cast<unsigned long long>(id), ItemStateText(st).c_str());
     }
+    // A freshly published item can take a while before Steam serves it: ask again when nothing happened.
+    if (it.downloadAsked && !(st & (kItemInstalled | kItemDownloading | kItemDownloadPending)) && now - it.askedAt > 30.0) {
+      it.downloadAsked = false;
+    }
     switch (NextAction(st, it.mounted, it.downloadAsked)) {
       case Action::kDownload:
         it.downloadAsked = g_steam.download(ugc, id, true);
+        it.askedAt = now;
         ru_logf(g_api, it.downloadAsked ? RU_LOG_INFO : RU_LOG_WARN, "addon %llu: download %s",
                 static_cast<unsigned long long>(id), it.downloadAsked ? "requested" : "refused by Steam");
         break;
@@ -379,7 +385,7 @@ void OnTick(void*, const ru_tick_info* t) {
   }
   if (t->now - g_lastPoll >= 2.0 && !g_ids.empty()) {
     g_lastPoll = t->now;
-    Poll();
+    Poll(t->now);
   }
 }
 
