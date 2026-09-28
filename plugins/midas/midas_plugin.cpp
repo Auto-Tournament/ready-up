@@ -30,6 +30,9 @@
 #include <cstdio>
 #include <cctype>
 #include <cstring>
+#include <map>
+#include <sstream>
+#include <fstream>
 #include <set>
 #include <string>
 #include <vector>
@@ -163,6 +166,50 @@ std::set<uint64_t> g_overrideSent;
 // `.midas` trial settings (runtime only; `.midas reset` or a plugin reload goes back to the cfg).
 int g_trialKit = 0;          // > 0: used instead of paint_kit
 std::set<uint32_t> g_modelled;  // weapon handles given a Midas model (model_<classname>)
+
+// plugins/midas/models.txt (the readyup_midas addon's midas_models.txt): "<defindex> <classname> <model>"
+// per line. Items sharing a classname (M4A4 / M4A1-S, USP-S / P2000, knives, ...) are told apart by
+// the item definition index. Re-read with the config.
+std::map<int, std::string> g_modelByDef;
+std::string g_modelsPath;
+void LoadModelList() {
+  std::map<int, std::string> m;
+  std::ifstream f(g_modelsPath);
+  std::string line;
+  while (std::getline(f, line)) {
+    std::istringstream ss(line);
+    int def = 0;
+    std::string cls, model;
+    if (line.empty() || line[0] == '#' || !(ss >> def >> cls >> model) || def <= 0) continue;
+    m[def] = model;
+  }
+  if (m != g_modelByDef) {
+    g_modelByDef = std::move(m);
+    ru_logf(g_api, RU_LOG_INFO, "models.txt: %zu weapon model(s)", g_modelByDef.size());
+  }
+}
+
+int ItemDefIndex(void* w) {
+  const int mgr = g_api->schema_offset(g_api->self, "CEconEntity", "m_AttributeManager");
+  const int item = g_api->schema_offset(g_api->self, "CAttributeContainer", "m_Item");
+  const int def = g_api->schema_offset(g_api->self, "CEconItemView", "m_iItemDefinitionIndex");
+  if (mgr < 0 || item < 0 || def < 0) return 0;
+  uint16_t v = 0;
+  std::memcpy(&v, static_cast<unsigned char*>(w) + mgr + item + def, sizeof(v));
+  return v;
+}
+
+// model_def_<n> (midas.cfg) > models.txt > model_<classname> (midas.cfg).
+std::string ModelFor(void* w, const char* classname) {
+  const int def = ItemDefIndex(w);
+  if (def > 0) {
+    const std::string byCfg = ConfigValue(("model_def_" + std::to_string(def)).c_str());
+    if (!byCfg.empty()) return byCfg;
+    const auto it = g_modelByDef.find(def);
+    if (it != g_modelByDef.end()) return it->second;
+  }
+  return ConfigValue((std::string("model_") + classname).c_str());
+}
 
 // A Midas model is drawn with its normal (hd) mesh. The gold paint kit through skins.so may be a
 // legacy one, which switches the weapon to the legacy mesh (m_MeshGroupMask 2, body 1): on the Midas
@@ -334,6 +381,7 @@ void RefreshConfig(double now) {
   if (now - g_lastConfig < 5.0) return;
   g_lastConfig = now;
   g_enabled = ParseBool(ConfigValue("enabled"), false);
+  LoadModelList();
   int bad = 0;
   const std::string ids = ConfigValue("midas_steamids");
   auto list = ParseSteamIds(ids, &bad);
@@ -353,7 +401,9 @@ void RefreshConfig(double now) {
   Finish finish = Finish::kAuto;
   const std::string fs = ConfigValue("finish");
   if (!fs.empty() && !ParseFinish(fs, &finish)) ru_logf(g_api, RU_LOG_WARN, "finish \"%s\" is not auto|tint; using auto", fs.c_str());
-  const int fileKit = ParseInt(ConfigValue("paint_kit"), kGoldPaintKit, 1, 100000);
+  // paint_kit=skin: the player's own skin stays under a Midas model (its mesh, legacy or new, follows).
+  const std::string pk = ConfigValue("paint_kit");
+  const int fileKit = pk == "skin" ? -1 : ParseInt(pk, kGoldPaintKit, 1, 100000);
   if (g_configRead && fileKit != g_lastFileKit) g_trialKit = 0;  // a saved paint_kit wins over .midas
   g_lastFileKit = fileKit;
   const int kit = g_trialKit > 0 ? g_trialKit : fileKit;
@@ -525,13 +575,15 @@ void TintSlot(int slot) {
   ForHeldWeapons(slot, [&](uint32_t h, void* w) {
     // model_<classname>=<vmdl>: a Midas model (readyup_midas addon: white metal, tinted by `color`).
     if (const char* mcn = g_api->entity_classname(g_api->self, w)) {
-      const std::string model = ConfigValue((std::string("model_") + mcn).c_str());
+      const std::string model = ModelFor(w, mcn);
       if (!model.empty() && RU_API_HAS(g_api, entity_set_model)) {
         if (!g_modelled.count(h) && g_api->entity_set_model(g_api->self, w, model.c_str()) == 1) {
           g_modelled.insert(h);
           UseMaterialGroup(w, ConfigValue("model_group"));
           if (!ParseBool(ConfigValue("keep_charm"), false)) RemoveCharm(w);
-          UseNormalMesh(w);  // also marks the entity changed
+          // paint_kit=skin: the player's own skin decides the mesh (legacy or new), as in normal CS2.
+          if (g_paintKit < 0) g_api->entity_mark_changed(g_api->self, w);
+          else UseNormalMesh(w);  // also marks the entity changed
           ru_logf(g_api, RU_LOG_INFO, "model %s on %s of slot %d", model.c_str(), mcn, slot);
         }
         if (g_modelled.count(h)) {
@@ -733,6 +785,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_tinted.clear();
   g_painted.clear();
   g_overrideSent.clear();
+  g_modelByDef.clear();
+  g_modelsPath = api->data_dir(api->self) ? std::string(api->data_dir(api->self)) + "/models.txt" : std::string();
   g_trialKit = 0;
   g_modelled.clear();
   g_tintPainted = false;

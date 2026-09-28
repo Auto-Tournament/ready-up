@@ -173,6 +173,8 @@ void InstallHook() {
   }
 }
 
+std::string g_root;  // csgo/readyup
+
 // ---- Precache: the map's resource manifest ------------------------------------------------------
 // Detour of CGameRulesGameSystem::OnBuildGameSessionManifest (IGameSystem slot 7; engine-surface
 // entry CGameRulesGameSystem_BuildGameSessionManifest): after the game's own resources, add the
@@ -192,7 +194,24 @@ bool IsAddResourceThunk(const void* fn) {
 
 void DetourManifest(void* self, const void* msg) {
   g_origManifest(self, msg);
-  if (!g_api || !msg || g_precache.empty()) return;
+  if (!g_api || !msg) return;
+  // precache=auto (or empty): every model the extracted addons contain, plus any explicit paths.
+  std::vector<std::string> list;
+  bool autoModels = g_precache.empty();
+  for (const std::string& p : g_precache) {
+    if (p == "auto") autoModels = true;
+    else list.push_back(p);
+  }
+  if (autoModels) {
+    for (uint64_t id : g_ids) {
+      std::ifstream f(g_root + "/plugins/addons/extracted_" + std::to_string(id) + ".txt");
+      std::string line;
+      while (std::getline(f, line)) {
+        if (line.size() > 7 && line.compare(line.size() - 7, 7, ".vmdl_c") == 0) list.push_back(line.substr(0, line.size() - 2));
+      }
+    }
+  }
+  if (list.empty()) return;
   void* manifest = *static_cast<void* const*>(msg);
   if (!manifest) return;
   void** vt = *static_cast<void***>(manifest);
@@ -202,9 +221,9 @@ void DetourManifest(void* self, const void* msg) {
     return;
   }
   auto add = reinterpret_cast<AddResourceFn>(vt[0]);
-  for (const std::string& path : g_precache) add(manifest, path.c_str());
-  g_precacheStatus = "ok (" + std::to_string(g_precache.size()) + " resource(s) with the last map load)";
-  ru_logf(g_api, RU_LOG_INFO, "precache: added %zu resource(s) to the map's manifest", g_precache.size());
+  for (const std::string& path : list) add(manifest, path.c_str());
+  g_precacheStatus = "ok (" + std::to_string(list.size()) + " resource(s) with the last map load)";
+  ru_logf(g_api, RU_LOG_INFO, "precache: added %zu resource(s) to the map's manifest", list.size());
 }
 
 void InstallPrecacheHook() {
@@ -240,7 +259,6 @@ std::vector<std::string> SplitList(const std::string& text) {
 // Ready Up's own `Game csgo/readyup` line in gameinfo.gi is a GAME search path: the addon's content
 // files (models/, materials/, ...) are copied there as loose files once per addon version (the
 // install timestamp, kept in plugins/addons/extracted_<id>.txt with the file list).
-std::string g_root;  // csgo/readyup
 
 std::string ReadAll(const std::string& path) {
   std::ifstream f(path, std::ios::binary);
