@@ -256,15 +256,24 @@ bool ExtractAddon(void* ugc, uint64_t id) {
   char folder[1024] = {};
   uint64_t size = 0;
   uint32_t stamp = 0;
-  if (!g_steam.installInfo(ugc, id, &size, folder, sizeof(folder), &stamp)) {
+  if (!g_steam.installInfo(ugc, id, &size, folder, sizeof(folder), &stamp)) {  // stamp: logged only
     ru_logf(g_api, RU_LOG_WARN, "addon %llu: no install info from Steam", static_cast<unsigned long long>(id));
     return false;
   }
-  const std::string marker = g_root + "/plugins/addons/extracted_" + std::to_string(id) + ".txt";
-  const std::string wantHead = "stamp " + std::to_string(stamp) + "\n";
-  if (ReadAll(marker).compare(0, wantHead.size(), wantHead) == 0) return true;  // this version is out already
-
   const std::string base = std::string(folder) + "/" + std::to_string(id);
+  // The version on disk: size + mtime of the archives. Steam's install timestamp can be newer than
+  // the files while an update is still being fetched, so it doesn't say which files are there.
+  std::string version;
+  for (const char* suffix : {"_dir.vpk", ".vpk", "_000.vpk"}) {
+    struct stat st {};
+    if (stat((base + suffix).c_str(), &st) == 0) {
+      version += std::string(suffix) + ":" + std::to_string(st.st_size) + ":" + std::to_string(st.st_mtime) + " ";
+    }
+  }
+  const std::string marker = g_root + "/plugins/addons/extracted_" + std::to_string(id) + ".txt";
+  const std::string wantHead = "files " + version + "\n";
+  if (ReadAll(marker).compare(0, wantHead.size(), wantHead) == 0) return true;  // these files are out already
+
   std::string dirBytes = ReadAll(base + "_dir.vpk");
   if (dirBytes.empty()) dirBytes = ReadAll(base + ".vpk");  // single-file (older) addons
   VpkDir dir;
@@ -300,8 +309,8 @@ bool ExtractAddon(void* ugc, uint64_t id) {
     ++files;
   }
   std::ofstream(marker, std::ios::trunc) << list;
-  ru_logf(g_api, RU_LOG_INFO, "addon %llu: %d content file(s) into csgo/readyup for the server", static_cast<unsigned long long>(id),
-          files);
+  ru_logf(g_api, RU_LOG_INFO, "addon %llu: %d content file(s) into csgo/readyup for the server (steam version %u)",
+          static_cast<unsigned long long>(id), files, stamp);
   return true;
 }
 
@@ -341,6 +350,9 @@ void Poll() {
       case Action::kNone:
         break;
     }
+    // New files on disk (an update that finished after the state change): extract them. Cheap when
+    // nothing changed (a few stat() calls and one small file read).
+    if (it.installed && (st & kItemInstalled) && !(st & (kItemDownloading | kItemDownloadPending))) ExtractAddon(ugc, id);
     // A dedicated server's Steam does not refresh "needs update" on its own: ask once per plugin load
     // and map change; Steam downloads only if a newer version is published.
     if ((st & kItemInstalled) && !(st & (kItemDownloading | kItemDownloadPending)) && !it.updateChecked) {
