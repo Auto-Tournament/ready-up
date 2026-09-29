@@ -25,10 +25,10 @@ Parity is (done + 0.5 × partial) / rows. Stable is the number of rows marked st
 | 4. Status | 3 | 3 | 0 | 0 | 100.0% | 1 |
 | 5. Demos | 5 | 5 | 0 | 0 | 100.0% | 0 |
 | 6. Events and reports | 7 | 7 | 0 | 0 | 100.0% | 0 |
-| 7. Player-facing and admin features | 27 | 22 | 1 | 4 | 83.3% | 3 |
-| 8. Player stats | 7 | 5 | 2 | 0 | 85.7% | 0 |
-| 9. ME features not previously listed | 15 | 10 | 2 | 3 | 73.3% | 0 |
-| **Total** | **100** | **88** | **5** | **7** | **90.5%** | **5** (5%) |
+| 7. Player-facing and admin features | 27 | 27 | 0 | 0 | 100.0% | 3 |
+| 8. Player stats | 7 | 7 | 0 | 0 | 100.0% | 0 |
+| 9. ME features not previously listed | 16 | 12 | 2 | 2 | 81.2% | 0 |
+| **Total** | **101** | **97** | **2** | **2** | **97.0%** | **5** (5%) |
 
 Stable rows: minimum ready, engine version/status, `.ready`, knife / `.stay` / `.switch`, simulation.
 
@@ -159,9 +159,9 @@ The platform normalizer converts the fleet payloads; the AT webhook shapes stay 
 | Damage report | Native: `damage_report.h`, `damage_ledger.h`, `damage_votes_test` | done | tested | events | – |
 | Practice: `.prac`, `.bot`, `.boost`, `.spawn`, `.savepos`, `.rethrow`, `.god`, `.clear`, `.noflash` | `plugins/practice` | done | tested | none | – |
 | Practice `.match` | `.match` = `.exitprac` while practice is on (admins) | done | untested | none | – |
-| `.ruversion` for players | Public alias of `.ru version` | done | untested | none | – |
+| `.ruversion` for players | Public aliases of `.ru version`: `.ruversion`, `.version` (ME's chat name); console `ru_version` (`CoreChatAliasToRu` / `CoreConsoleAliasToRu`, `ru_help_test`) | done | tested | none | – |
 | `.map` / `.reloadmap` aliases | essentials: `.map <name, workshop id or link> [force]`, `.reloadmap [force]` (admins) | done | untested | none | – |
-| `.rcon` | Missing; the platform uses cmd `exec` | missing | untested | none | S |
+| `.rcon` | essentials: `.rcon <command>` for `admins.json` admins only (the server's own "root" list; not match or platform admins, who have the platform's root-only cmd `exec`), logged with who ran it; refuses `quit` / `exit` / `_restart` / `restart` / `killserver` / `shutdown`, `sv_setsteamaccount`, `rcon_password`, `rcon`, `readyup_license_key`, `alias` and the fleet link's commands in any `;` part (`RconRefusal`, `essentials_rules` test). ME's reply "Command sent successfully!" | done | tested | none | – |
 | Min spectators to ready (`min_spectators_to_ready`) | Match spectators type `.ready`; that many are needed before go-live | done | tested | none | – |
 | Skins | Ready Up extra, not in the default release | done | tested | none | – |
 
@@ -176,8 +176,8 @@ The whole AT `PlayerStats` set is computed in `match_stats.h` (tested in `tests/
 | Flashes, plants, defuses, MVP, score | `player_blind`, `bomb_*`, `round_mvp`, `m_iScore` | done | tested | events | – |
 | 1k–5k, 1vN, first kills / deaths, trades, KAST | `StatsAccumulator`; KAST as percent | done | tested | events | – |
 | Stats rewind on round restore, continue after a crash | `stats::RewindTo`, `match_recovery.*` | done | tested | none | – |
-| Match stats as one JSON line (`get_match_stats`) | `ru_match_stats` exists; the JSON shape is not verified against a consumer | partial | untested | none | S |
-| Reload config (`at_reload_config`) | No equivalent found; unverified | partial | untested | none | S |
+| Match stats as one JSON line (`get_match_stats`) | `ru_match_stats [matchid]`: one console line `match_stats {...}` with the current map's stats in the round_end / map_result team shape (`team1` / `team2` with `players[{steamid, name, stats}]`, AT `PlayerStats` incl. `kast` %), which is what the platform parses (`matchEventHandler.ts` reads `stats.kills`, `damage`, `rounds_played`, `kast`, `mvp`, ...); the platform itself never called `get_match_stats` (it takes stats from the events). ME's per-match DB dump `{match, maps, players}` has no Ready Up equivalent (no database, D13): another match id gets ME's "No stats found" (`at::MatchStatsJson`, `match_flow_test`) | done | tested | none | – |
+| Reload config (`at_reload_config`) | `.ru reload` / `ru reload` re-reads readyup.cfg (plugins re-read their own settings files when they change); aliases `ru_reload_config` (console) and `.reload_config` (chat, admin) like ME's `matchzy_reload_config` / `.reload_config`. Ready Up has no `config.cfg` to exec: its settings are readyup.cfg + `state.json` | done | tested | none | – |
 
 ## 9. ME features not previously listed
 
@@ -200,7 +200,7 @@ Features of the previous (ME) plugin that the first version of this file did not
 | Warmup settings (`at_warmup_*`) | Done as `ru_warmup_*` (`match_console.cpp`) | done | tested | none | – |
 | Chat reminders | Done differently: ready HUD, go-live cards | done | tested | none | – |
 | Admins URL etc. (`at_admins_url`) | Done as `ru_*` | done | tested | none | – |
-| `at_version` | Partial: see `.ruversion` in §7 | partial | untested | none | S |
+| `at_version` | `ru_version` on the console, `.version` / `.ruversion` in chat (= `ru version`: "Ready Up <build>"); see `.ruversion` in §7 | done | tested | none | – |
 
 ## Not needed (fleet replaces)
 
@@ -233,5 +233,4 @@ Rows from the old RCON + webhook contract. Not counted in the summary.
 
 1. Platform side of demo streaming: the `demo.begin` / `demo.chunk` / `demo.end` receiver answering `demo.ack` (FLEET.md §12.2).
 2. Fleet path in CI. In progress.
-3. Player-facing gaps: `.rcon`.
-4. Practice: per-player rethrow (grenade_spawn is in; the history needs the launch velocity), `.showspawns` (entity creation), `.fas` / `.watchme`, the lineup library view angle and grenade slot on `.loadnade` (fragile).
+3. Practice: per-player rethrow (grenade_spawn is in; the history needs the launch velocity), `.showspawns` (entity creation), `.fas` / `.watchme`, the lineup library view angle and grenade slot on `.loadnade` (fragile).
