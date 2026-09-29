@@ -19,6 +19,7 @@ struct Credentials {
   std::string url;    // platform base URL it was enrolled against
   std::string installId;
   int64_t enrolledAt = 0;
+  bool insecure = false;  // enrolled with `ru fleet enroll ... --insecure` (plain http/ws allowed)
 
   bool Valid() const { return !serverId.empty() && !token.empty(); }
 };

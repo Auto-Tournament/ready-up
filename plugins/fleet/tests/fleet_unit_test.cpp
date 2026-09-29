@@ -197,14 +197,25 @@ TEST(TestUrls) {
            std::string("http://127.0.0.1:8080/api/fleet/enroll"));
   CHECK(CheckUrlAllowed("https://at.example.com", false).empty());
   CHECK(CheckUrlAllowed("wss://at.example.com/api/fleet/ws", false).empty());
-  CHECK(!CheckUrlAllowed("http://127.0.0.1:3000", false).empty());  // needs insecure_dev
+  CHECK(!CheckUrlAllowed("http://127.0.0.1:3000", false).empty());  // needs insecure
+  CHECK(CheckUrlAllowed("http://203.0.113.7:3069", false).find("--insecure") != std::string::npos);
   CHECK(CheckUrlAllowed("http://127.0.0.1:3000", true).empty());
   CHECK(CheckUrlAllowed("ws://192.168.1.20:3000", true).empty());
   CHECK(CheckUrlAllowed("ws://[::1]:3000", true).empty());
   CHECK(CheckUrlAllowed("http://localhost:3000", true).empty());
-  CHECK(!CheckUrlAllowed("http://8.8.8.8", true).empty());          // public host: never plain
-  CHECK(!CheckUrlAllowed("http://172.32.0.1", true).empty());       // outside 172.16/12
-  CHECK(CheckUrlAllowed("http://172.31.255.1", true).empty());
+  CHECK(CheckUrlAllowed("http://203.0.113.7:3069", true).empty());  // public host: explicit opt-in
+  CHECK(CheckUrlAllowed("ws://203.0.113.7:3069/api/fleet/ws", true).empty());
+  CHECK(IsPrivateHostUrl("http://172.31.255.1") && !IsPrivateHostUrl("http://172.32.0.1"));
+  // https enroll, ws:// answer for the same host: wss:// at the enroll host.
+  CHECK_EQ(UpgradeSameHostWs("https://cs.example.com", "ws://cs.example.com/api/fleet/ws"),
+           std::string("wss://cs.example.com/api/fleet/ws"));
+  CHECK_EQ(UpgradeSameHostWs("https://cs.example.com/", "ws://CS.example.com:80/api/fleet/ws"),
+           std::string("wss://cs.example.com/api/fleet/ws"));
+  CHECK_EQ(UpgradeSameHostWs("https://cs.example.com:8443", "ws://cs.example.com:8443/api/fleet/ws"),
+           std::string("wss://cs.example.com:8443/api/fleet/ws"));
+  CHECK(UpgradeSameHostWs("https://cs.example.com", "ws://cs.example.com:3069/api/fleet/ws").empty());
+  CHECK(UpgradeSameHostWs("https://cs.example.com", "ws://other.example.com/api/fleet/ws").empty());
+  CHECK(UpgradeSameHostWs("http://cs.example.com", "ws://cs.example.com/api/fleet/ws").empty());
   CHECK(!CheckUrlAllowed("ftp://x", true).empty());
 }
 

@@ -8,7 +8,8 @@
 //   url=https://tournament.example.com   platform base URL; unset = standalone (the plugin idles)
 //   enroll_code=RUE-XXXX-XXXX-XXXX-XXXX  one-time code from the UI (Add server)
 //   enroll_key=rfk_...                   fleet enrollment key (csm / containers), reusable
-//   insecure_dev=0                       1 allows http:// / ws:// to loopback and RFC 1918 hosts
+//   insecure=0                           1 allows plain http:// / ws:// to any host (the token travels
+//                                        unencrypted; prefer https). Old name: insecure_dev
 //   ca_file=                             extra CA bundle (private CA)
 //   pin_sha256=                          optional SPKI pin (base64 sha256)
 //   offline_pause_minutes=3              offline timer (D12); 0 disables it (the platform's
@@ -32,7 +33,7 @@
 // server-config.json (0600: server.config offline_pause_minutes and status_http.token, the two
 // fields fleet.so applies itself; the match plugin applies the rest).
 //
-// Commands: `ru fleet status|enroll [url] <code|key>|reconnect` (console / RCON; also plain
+// Commands: `ru fleet status|enroll [url] <code|key> [--insecure]|reconnect` (console / RCON; also plain
 // `fleet ...`), `.fleet status|reconnect` / `.ru fleet ...` (admins, chat).
 #include "readyup/fleet_iface.h"
 #include "readyup/plugin_api.h"
@@ -172,7 +173,7 @@ void LoadSettings() {
   s.url = Cfg({"url", "fleet_url"});
   s.code = Cfg({"enroll_code", "fleet_enroll_code", "code"});
   s.key = Cfg({"enroll_key", "fleet_enroll_key", "key"});
-  s.insecureDev = CfgBool({"insecure_dev", "fleet_insecure_dev"}, false);
+  s.insecureDev = CfgBool({"insecure", "fleet_insecure", "insecure_dev", "fleet_insecure_dev"}, false);
   s.caFile = Cfg({"ca_file", "fleet_ca_file"});
   s.pin = Cfg({"pin_sha256", "fleet_pin_sha256"});
   s.publicAddr = Cfg({"public_addr", "fleet_public_addr"});
@@ -892,8 +893,14 @@ void ChatOut(void* user, const std::string& line) {
   if (slot < 0 || !g_api->chat_to_slot(g_api->self, slot, line.c_str())) g_api->chat_all(g_api->self, line.c_str(), 0);
 }
 
-void Enroll(const std::vector<std::string>& args) {
-  // fleet enroll [url] <code|key>
+void Enroll(const std::vector<std::string>& rawArgs) {
+  // fleet enroll [url] <code|key> [--insecure]
+  std::vector<std::string> args;
+  bool insecure = false;
+  for (const auto& a : rawArgs) {
+    if (a == "--insecure") insecure = true;
+    else args.push_back(a);
+  }
   std::string url, secret;
   if (args.size() == 1) {
     secret = args[0];
@@ -901,7 +908,7 @@ void Enroll(const std::vector<std::string>& args) {
     url = args[0];
     secret = args[1];
   } else {
-    Log(RU_LOG_INFO, "usage: ru fleet enroll [url] <code|key>");
+    Log(RU_LOG_INFO, "usage: ru fleet enroll [url] <code|key> [--insecure]");
     return;
   }
   if (url.empty()) {
@@ -912,9 +919,12 @@ void Enroll(const std::vector<std::string>& args) {
     Log(RU_LOG_WARN, "fleet: no platform url: set url in the [fleet] section or use `ru fleet enroll <url> <code>`");
     return;
   }
-  if (const std::string why = fleet::CheckUrlAllowed(url, g_set.insecureDev); !why.empty()) {
+  if (const std::string why = fleet::CheckUrlAllowed(url, g_set.insecureDev || insecure); !why.empty()) {
     Log(RU_LOG_WARN, "fleet: %s", why.c_str());
     return;
+  }
+  if (insecure && url.rfind("http://", 0) == 0) {
+    Log(RU_LOG_WARN, "fleet: --insecure: the token travels unencrypted to %s; prefer https://", url.c_str());
   }
   auto c = Client();
   if (!c) {
@@ -922,7 +932,7 @@ void Enroll(const std::vector<std::string>& args) {
     c = Client();
   }
   Log(RU_LOG_INFO, "fleet: enrolling at %s ...", url.c_str());
-  c->RequestEnroll(url, secret);
+  c->RequestEnroll(url, secret, insecure);
 }
 
 void OnConsole(void*, const ru_command_ctx* ctx) {
@@ -942,7 +952,7 @@ void OnConsole(void*, const ru_command_ctx* ctx) {
         Log(RU_LOG_INFO, "fleet: standalone, nothing to reconnect");
       }
     } else {
-      Log(RU_LOG_INFO, "usage: ru fleet status | enroll [url] <code|key> | reconnect");
+      Log(RU_LOG_INFO, "usage: ru fleet status | enroll [url] <code|key> [--insecure] | reconnect");
     }
   } catch (const std::exception& e) {
     Log(RU_LOG_ERROR, "fleet: command failed: %s", e.what());
