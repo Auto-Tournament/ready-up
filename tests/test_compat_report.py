@@ -80,9 +80,11 @@ class CompatReportTest(unittest.TestCase):
         if plugins_dir is None:
             plugins_dir = self.tmp / "no-plugins"
             plugins_dir.mkdir(exist_ok=True)
-        rc = cr.main(["result", "--raw-dir", str(self.raw(**kw)), "--gamedata", str(self.gamedata),
-                      "--build-env", str(FIX / "cs2-build.env"), "--out-dir", str(out),
-                      "--plugins-dir", str(plugins_dir)] + RUN)
+        # A tag build sets GITHUB_REF_TYPE=tag, which drops the "-dev.<sha>" suffix.
+        with mock.patch.dict(os.environ, {"GITHUB_REF_TYPE": ""}):
+            rc = cr.main(["result", "--raw-dir", str(self.raw(**kw)), "--gamedata", str(self.gamedata),
+                          "--build-env", str(FIX / "cs2-build.env"), "--out-dir", str(out),
+                          "--plugins-dir", str(plugins_dir)] + RUN)
         self.assertEqual(rc, 0)
         doc = json.loads((out / "compat.json").read_text())
         assert_contract(self, doc)
