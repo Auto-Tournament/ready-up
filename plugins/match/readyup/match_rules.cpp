@@ -117,6 +117,13 @@ bool TeamReadyToGoLive(int rosterSize, int connected, int ready, int minPlayers,
   return ready >= TeamReadyNeeded(rosterSize, connected, minPlayers, playersPerTeam);
 }
 
+ReadyTally TeamReadyTally(int rosterSize, int ready, int playersPerTeam) {
+  ReadyTally t;
+  t.total = FullTeamSize(rosterSize, playersPerTeam);
+  t.ready = std::min(std::max(0, ready), t.total);
+  return t;
+}
+
 bool SpectatorsReadyToGoLive(int required, int readySpectators) { return required <= 0 || readySpectators >= required; }
 
 bool SpecCommandAllowed(bool onLoadedMatchRoster) { return !onLoadedMatchRoster; }

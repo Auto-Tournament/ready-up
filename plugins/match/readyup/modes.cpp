@@ -558,8 +558,9 @@ static void MaybeShowWarmupUiLocked(State& st) {
     st.matchLoadedChatSent = true;
   }
 
-  // Counts for banner tokens.
-  const int rosterTotal = static_cast<int>(ctx->roster_team.size());
+  // Counts for banner tokens: per team, ready players up to a full team over the full team, so
+  // substitutes never count toward the players the match waits for (match_rules.h TeamReadyTally).
+  int rosterTotal = 0;
   int rosterReady = 0;
   int rosterConnected = 0;
   {
@@ -567,12 +568,20 @@ static void MaybeShowWarmupUiLocked(State& st) {
     for (const auto& s : ListSlotIdentities()) {
       if (s.steamid64 != 0) connected.insert(s.steamid64);
     }
+    int teamRoster[2] = {0, 0}, teamReady[2] = {0, 0};
     for (const auto& kv : ctx->roster_team) {
       const uint64_t sid = kv.first;
       if (sid == 0) continue;
+      const int t = kv.second == WebhookTeam::Team2 ? 1 : 0;
+      ++teamRoster[t];
       if (connected.find(sid) != connected.end()) rosterConnected++;
       auto it = st.ready.find(sid);
-      if (it != st.ready.end() && it->second) rosterReady++;
+      if (it != st.ready.end() && it->second) ++teamReady[t];
+    }
+    for (int t = 0; t < 2; ++t) {
+      const ReadyTally tally = TeamReadyTally(teamRoster[t], teamReady[t], ctx->players_per_team);
+      rosterTotal += tally.total;
+      rosterReady += tally.ready;
     }
   }
 
@@ -587,6 +596,7 @@ static void MaybeShowWarmupUiLocked(State& st) {
     for (const auto& kv : ctx->roster_team) {
       const uint64_t sid = kv.first;
       if (sid == 0) continue;
+      if (ctx->substitutes.count(sid)) continue;  // nobody waits for a substitute
       const bool ready = (st.ready.find(sid) != st.ready.end() && st.ready[sid]);
       if (ready) continue;
       std::string name;

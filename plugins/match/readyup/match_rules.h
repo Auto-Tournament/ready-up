@@ -93,6 +93,16 @@ int ForceReadyRequired(int rosterSize, int minPlayers, int playersPerTeam = 0);
 bool TeamReadyToGoLive(int rosterSize, int connected, int ready, int minPlayers, int playersPerTeam = 0);
 int TeamReadyNeeded(int rosterSize, int connected, int minPlayers, int playersPerTeam = 0);
 
+// The "x/y ready" count players and the platform see, for one team: ready roster players up to a
+// full team over the full team (FullTeamSize). Substitutes never raise the total (MatchZy Enhanced:
+// only players_per_team per team take a slot and ready up), and a ready substitute standing in for a
+// missing starter still counts, so a 5-player team with 1 substitute reads 5/5, not 5/6.
+struct ReadyTally {
+  int ready = 0;
+  int total = 0;
+};
+ReadyTally TeamReadyTally(int rosterSize, int ready, int playersPerTeam = 0);
+
 // Spectators of the match config (casters) who typed .ready: `required` (min_spectators_to_ready)
 // of them are needed before go-live. 0 (the default) never holds the match up.
 bool SpectatorsReadyToGoLive(int required, int readySpectators);

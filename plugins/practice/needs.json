@@ -64,6 +64,7 @@
     "CBaseEntity.m_iHealth",
     "CBaseEntity.m_vecAbsVelocity",
     "CBaseGrenade.m_hThrower",
+    "CBasePlayerController.m_iConnected|CCSPlayerController.m_iConnected",
     "CBasePlayerPawn.m_pItemServices",
     "CCSPlayerController.m_pInGameMoneyServices",
     "CCSPlayerController_InGameMoneyServices.m_iAccount",

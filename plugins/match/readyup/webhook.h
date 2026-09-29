@@ -114,6 +114,10 @@ struct WebhookMatchContext {
 
   // SteamID64 -> team mapping derived from match config.
   std::unordered_map<uint64_t, WebhookTeam> roster_team;
+  // Roster players who are substitutes (fleet role "sub"; MAT team1/team2 `substitutes`
+  // {steamid64: name} or [steamid64]). Also in roster_team (whitelisted, may stand in), but never part
+  // of the full team the ready gate and the ready count wait for (players_per_team).
+  std::unordered_set<uint64_t> substitutes;
 
   // Optional team flags (2-letter country codes, `mp_teamflag_N`); team tags are shown by name.
   std::string team1_flag;

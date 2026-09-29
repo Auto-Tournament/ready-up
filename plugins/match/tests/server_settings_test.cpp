@@ -188,6 +188,20 @@ static void TestReadyGate() {
   CHECK(TeamReadyToGoLive(3, 3, 2, 0, 2) && !TeamReadyToGoLive(3, 3, 1, 0, 2));
   // Empty roster (a side with nobody on the roster): never blocks.
   CHECK(TeamReadyToGoLive(0, 0, 0, 0, 0));
+  // The ready count (M1 play-test: 5 + 1 substitute read 10/11): a substitute never raises the
+  // total, and a ready substitute standing in for a starter counts up to the full team.
+  {
+    const ReadyTally t = TeamReadyTally(6, 5, 5);
+    CHECK(t.ready == 5 && t.total == 5);
+    const ReadyTally all = TeamReadyTally(6, 6, 5);  // everyone ready, substitute too
+    CHECK(all.ready == 5 && all.total == 5);
+    const ReadyTally some = TeamReadyTally(6, 3, 5);
+    CHECK(some.ready == 3 && some.total == 5);
+    const ReadyTally small = TeamReadyTally(2, 1, 0);  // a 2-player test roster: 1/2
+    CHECK(small.ready == 1 && small.total == 2);
+    const ReadyTally none = TeamReadyTally(0, 0, 0);
+    CHECK(none.ready == 0 && none.total == 0);
+  }
 }
 
 static void TestPlayout() {

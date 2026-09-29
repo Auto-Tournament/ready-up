@@ -388,6 +388,25 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
         }
       }
     }
+    // substitutes: {steamid64: name} or [steamid64]. On the roster (whitelisted, may stand in), never
+    // part of the full team (players_per_team below).
+    if (const Value* subs = team->get("substitutes")) {
+      auto add = [&](uint64_t sid, const std::string& name) {
+        if (!sid) return;
+        ctx.substitutes.insert(sid);
+        ctx.roster_team[sid] = teamTag;
+        if (!name.empty()) ctx.roster_names[sid] = name;
+      };
+      if (IsObject(subs)) {
+        for (const auto& kv : subs->obj) {
+          add(ParseSteamId64Loose(kv.first), kv.second.type == Value::Type::String ? kv.second.str : std::string());
+        }
+      } else if (subs->type == Value::Type::Array) {
+        for (const auto& v : subs->arr) {
+          if (v.type == Value::Type::String) add(ParseSteamId64Loose(v.str), std::string());
+        }
+      }
+    }
     const Value* players = team->get("players");
     if (!IsObject(players)) return;
     for (const auto& kv : players->obj) {
@@ -400,6 +419,16 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
 
   readTeam("team1", ctx.team1_name, WebhookTeam::Team1);
   readTeam("team2", ctx.team2_name, WebhookTeam::Team2);
+  // A config with substitutes and no players_per_team: a full team is the starters (the larger
+  // side), so the substitutes never count toward the players who must ready up.
+  if (!ctx.substitutes.empty() && ctx.players_per_team == 0) {
+    int starters[2] = {0, 0};
+    for (const auto& kv : ctx.roster_team) {
+      if (ctx.substitutes.count(kv.first)) continue;
+      ++starters[kv.second == WebhookTeam::Team2 ? 1 : 0];
+    }
+    ctx.players_per_team = std::min(32, std::max(starters[0], starters[1]));
+  }
 
   // coaches (array of SteamID64 values): spectators unless the ruleset keeps them out.
   if (const Value* coaches = cfg->get("coaches"); coaches && coaches->type == Value::Type::Array) {
