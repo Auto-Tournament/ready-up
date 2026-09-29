@@ -19,6 +19,7 @@ static constexpr const char* kKeyT2 = "ru_active_team2_score";
 static constexpr const char* kKeyBackupPrefix = "ru_active_backup_prefix";
 static constexpr const char* kKeyBackupFile = "ru_active_backup_file";
 static constexpr const char* kKeyProgress = "ru_active_progress";
+static constexpr const char* kKeyCvarSnapshot = "ru_active_cvar_snapshot";
 
 // Memory at once; the store's writer thread saves (coalesced, so round_end bursts stay cheap).
 static void SetAsync(const char* key, std::optional<std::string> value) {
@@ -77,6 +78,13 @@ void PersistProgress(std::string json) {
 }
 
 std::optional<std::string> GetProgressJson() { return GetSync(kKeyProgress); }
+
+void PersistCvarSnapshot(std::string json) {
+  if (json.empty()) SetAsync(kKeyCvarSnapshot, std::nullopt);
+  else SetAsync(kKeyCvarSnapshot, std::move(json));
+}
+
+std::optional<std::string> GetCvarSnapshotJson() { return GetSync(kKeyCvarSnapshot); }
 
 std::optional<std::string> GetActiveMatchJson() {
   return GetSync(kKeyMatchJson);

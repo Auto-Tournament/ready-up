@@ -87,6 +87,15 @@ void FillEngineApi(ru_api* a) {
 
 namespace rp = readyup::plugins;
 
+// Fake core selftest record for selftest_summary (status_feed.cpp keeps the real one).
+static std::mutex g_selftestMu;
+static std::string g_selftestJson =
+    R"({"pass":true,"passed":58,"total":58,"failures":[],"summary":"58 OK","ran_at":1})";
+static std::string CoreSelftestJson() {
+  std::lock_guard<std::mutex> lk(g_selftestMu);
+  return g_selftestJson;
+}
+
 static int g_failed = 0;
 static void Check(bool ok, const char* what) {
   std::printf("%s %s\n", ok ? "PASS" : "FAIL", what);
@@ -171,6 +180,8 @@ int main(int argc, char** argv) {
                  platform.BaseUrl().c_str());
     std::fclose(cfg);
   }
+  // The core's latest selftest (ru_api 1.11 selftest_summary), as status_feed.cpp records it.
+  rp::SetSelftestJsonProvider(&CoreSelftestJson);
   ClearLog();
   rp::HandlePluginCommand({"reload", "fleet"}, false);
   rp::Frame(false);
@@ -184,6 +195,30 @@ int main(int argc, char** argv) {
   const auto hellos = platform.MessagesOfType("hello");
   Check(!hellos.empty() && hellos[0].payload()->Get("versions")->Get("plugins")->Get("fleet") != nullptr,
         "hello carries the plugin versions");
+  {
+    const auto* st = hellos.empty() ? nullptr : hellos[0].payload()->Get("selftest");
+    Check(st && st->Get("pass") && st->Get("pass")->AsBool() && st->Get("passed")->AsInt() == 58 &&
+              st->Get("total")->AsInt() == 58 && st->Get("failures")->IsArr() && !st->Get("summary") &&
+              !st->Get("ran_at"),
+          "hello.selftest: the core's latest selftest (pass, passed, total, failures only)");
+    Check(FramesUntil([&] { return platform.MessagesOfType("server.selftest").size() == 1; }, 8000),
+          "server.selftest sent once for the first result");
+    std::lock_guard<std::mutex> lk(g_selftestMu);
+    g_selftestJson = R"({"pass":false,"passed":57,"total":58,"failures":["fn:Host_Say"],"summary":"1 FAIL","ran_at":2})";
+  }
+  Check(FramesUntil([&] { return platform.MessagesOfType("server.selftest").size() >= 2; }, 8000),
+        "server.selftest sent again when the outcome changed");
+  {
+    const auto msgs = platform.MessagesOfType("server.selftest");
+    const auto* p = msgs.size() >= 2 ? msgs[1].payload() : nullptr;
+    Check(p && !p->Get("pass")->AsBool() && p->Get("passed")->AsInt() == 57 && p->Get("failures")->a.size() == 1 &&
+              p->Get("failures")->a[0].AsStr() == "fn:Host_Say" && msgs[1].env.Get("seq") != nullptr,
+          "server.selftest: failing outcome, reliable (has a seq)");
+    std::lock_guard<std::mutex> lk(g_selftestMu);
+    g_selftestJson = R"({"pass":false,"passed":57,"total":58,"failures":["fn:Host_Say"],"summary":"1 FAIL","ran_at":3})";
+  }
+  FramesUntil([] { return false; }, 6000);
+  Check(platform.MessagesOfType("server.selftest").size() == 2, "a re-run with the same outcome sends nothing");
   checks = rp::RunPluginSelftests();
   const auto* enrolled = FindCheck(checks, "enrolled");
   const auto* connected = FindCheck(checks, "connected");

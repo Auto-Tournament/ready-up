@@ -291,7 +291,7 @@ def all_component_ids(files):
 # Engine-facing ru_api members -> the engine-surface entries (gamedata/engine-surface*.json:
 # function, hook, rtti, vtable or layout name) the core needs to serve them
 # (core/src/readyup/plugin_engine_api.cpp, plugin_loader.cpp). Members not listed here touch no
-# engine surface (config, stash, interfaces, logging, ...).
+# engine surface (config, stash, interfaces, logging, cvar_query, selftest_summary, ...).
 _CONSOLE = ["ISource2GameClients::ClientCommand", "CCommand"]
 _FRAME = ["ISource2Server::GameFrame"]
 _HTML = ["LegacyGameEventListener", "CServerSideClient_GameEventLegacyProxy"]

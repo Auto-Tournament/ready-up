@@ -62,12 +62,15 @@ Choices made where this document leaves room:
 
 - `state.snapshot` is sent ephemerally (only while online): after a `reset` resume, on
   `state.request`. A spooled snapshot would be stale by the time it is replayed.
-- `hello.selftest` is left out (it is optional) until the core exposes its selftest result to plugins.
+- `hello.selftest` is the core's latest selftest (`ru_api` 1.11 `selftest_summary`: the automatic one 15 s
+  after the first map, `ru selftest`, or `/selftest?run=1`), reduced to `{pass, passed, total, failures}`;
+  left out before the first selftest ran. fleet.so reads it every 5 s; when the outcome changes (not
+  on a re-run with the same outcome) hello carries the new one and `server.selftest` (reliable, same
+  object, schema proposed in `plugins/fleet/protocol/v1/messages/server.selftest.json`) goes out.
 - `server.drain` / `server.undrain` (match plugin): drain is held in memory (a restart clears it); while
   set the availability reads `draining` (a `server.availability` with reason `drain` is sent) and
   `match.assign` is refused with `busy`; the running series finishes. `server.cs2_update_required`
-  is sent once per new required version (Steam UpToDateCheck, every 30 min). `server.selftest` is not
-  sent (same reason as `hello.selftest`).
+  is sent once per new required version (Steam UpToDateCheck, every 30 min).
 - `hello.versions.plugins` lists only `fleet` for now (match is still compiled into the core).
 - Unknown reliable types get `error {code: "unknown_type"}` (ephemeral, `ref` = the message id)
   and are acked. Out-of-order reliable messages are dropped unacked (the platform replays them).
@@ -444,7 +447,7 @@ Every WebSocket message is one UTF-8 JSON text frame (max 1 MiB).
   "required": ["v", "type", "id", "ts", "payload"],
   "properties": {
     "v":       { "const": 1 },
-    "type":    { "type": "string", "pattern": "^[a-z]+(\\.[a-z_]+)*$", "description": "single-word types (hello, ping, ack, error) have no dot" },
+    "type":    { "type": "string", "pattern": "^[a-z]+(\\.[a-z0-9_]+)*$", "description": "single-word types (hello, ping, ack, error) have no dot" },
     "id":      { "type": "string", "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$", "description": "ULID, unique per message" },
     "seq":     { "type": "integer", "minimum": 1, "description": "present on reliable messages only" },
     "ack":     { "type": "integer", "minimum": 0, "description": "highest contiguous peer seq received" },
@@ -828,7 +831,7 @@ applies `patch` when `rev == stored_rev + 1`; on a gap it sends `state.request`.
 | `error` | `{ code, message, fatal }` | any | alert admins |
 
 Server-level: `server.availability {availability, reason}` (a `ServerReset` from `match_end.h`
-→ `available`), `server.cs2_update_required {required_build}`, `server.selftest {pass, failures}`.
+→ `available`), `server.cs2_update_required {required_build}`, `server.selftest {pass, passed, total, failures}` (on every change of the outcome).
 
 ### 8.2 Snapshot
 

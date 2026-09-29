@@ -509,5 +509,33 @@ std::string CheckUrlAllowed(const std::string& url, bool insecureDev) {
   return "unsupported URL scheme (want https:// or wss://)";
 }
 
+std::string SelftestPayload(const std::string& coreJson) {
+  json::Value v;
+  if (coreJson.empty() || !json::Parse(coreJson, &v) || !v.IsObj()) return {};
+  const json::Value* pass = v.Get("pass");
+  const json::Value* passed = v.Get("passed");
+  const json::Value* total = v.Get("total");
+  if (!pass || pass->t != json::Value::T::Bool || !passed || !passed->IsNum() || !total || !total->IsNum()) return {};
+  json::Value out = json::Value::Object();
+  out.Set("pass", json::Value::Bool(pass->b));
+  out.Set("passed", json::Value::Int(std::max<int64_t>(0, passed->AsInt())));
+  out.Set("total", json::Value::Int(std::max<int64_t>(0, total->AsInt())));
+  json::Value failures = json::Value::Array();
+  if (const json::Value* f = v.Get("failures"); f && f->IsArr()) {
+    for (const auto& e : f->a) {
+      if (failures.a.size() >= 256) break;
+      if (!e.IsStr()) continue;
+      std::string s = e.s;
+      if (s.size() > 512) {
+        s.resize(512);
+        while (!s.empty() && (static_cast<unsigned char>(s.back()) & 0xC0) == 0x80) s.pop_back();  // whole UTF-8
+        if (!s.empty() && (static_cast<unsigned char>(s.back()) & 0x80) != 0) s.pop_back();
+      }
+      failures.Push(json::Value::Str(std::move(s)));
+    }
+  }
+  out.Set("failures", std::move(failures));
+  return json::Dump(out);
+}
 
 }  // namespace fleet

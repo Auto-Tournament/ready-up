@@ -20,6 +20,11 @@ void PersistSnapshot(int map_number, int round_number, int team1_score, int team
 void PersistProgress(std::string json);
 std::optional<std::string> GetProgressJson();
 
+// Pre-match values of the match config's cvars (cvar_snapshot.h), "" = none. Kept apart from the
+// per-match keys: a second match loaded over the first keeps the original values.
+void PersistCvarSnapshot(std::string json);
+std::optional<std::string> GetCvarSnapshotJson();
+
 // Persist current backup prefix and last-known backup file name.
 void PersistBackupPrefix(std::string prefix);
 void PersistBackupFile(std::string filename);

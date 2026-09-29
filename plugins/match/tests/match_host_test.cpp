@@ -576,6 +576,7 @@ int main(int argc, char** argv) {
       "{\"id\":4242,\"slug\":\"hosttest\",\"config\":{\"matchid\":4242,\"num_maps\":1,\"maplist\":[\"de_test\"],"
       "\"map_sides\":[\"team1_ct\"],\"maxRounds\":24,\"overtimeMode\":\"disabled\","
       "\"max_tech_pauses_per_team\":2,\"tech_pause_max_seconds\":45,\"forfeit_after_seconds\":0,"
+      "\"cvars\":{\"mp_freezetime\":7,\"sv_talk_enemy_dead\":1,\"mp_nope_cvar\":3},"
       "\"team1\":{\"name\":\"Alpha\",\"players\":{\"76561198000000001\":\"alice\"}},"
       "\"team2\":{\"name\":\"Bravo\",\"players\":{\"76561198000000002\":\"bob\"}}}}";
   std::thread http;
@@ -588,6 +589,15 @@ int main(int argc, char** argv) {
   rp::Frame(true);
   http.join();
   Check(Logged("match context set: matchid=4242 slug=hosttest"), "match loaded");
+  // reset_cvars_on_series_end: the pre-match values of cvars{} are read at load (ru_api cvar_query:
+  // the bare name goes to the console, the core answers from the `name = value` line).
+  Check(FramesUntil([] { return Sent("mp_freezetime") && Sent("sv_talk_enemy_dead") && Sent("mp_nope_cvar"); }, 2000),
+        "match load reads every cvars{} name before go-live");
+  Check(!Sent("mp_freezetime 7"), "the match value is not set at load");
+  rp::PostLogLine("mp_freezetime = 15\n");
+  rp::PostLogLine("sv_talk_enemy_dead = 0\n");
+  rp::PostLogLine("Unknown command 'mp_nope_cvar'!\n");
+  rp::Frame(true);
   if (withPractice) {
     rp::TryDispatchRu(true, 0, "Console", "ru practice on");
     rp::Frame(true);
@@ -604,9 +614,11 @@ int main(int argc, char** argv) {
   rp::Frame(true);
   Check(Has(Summary(), "\"ready\":{\"ready\":1,\"total\":2}"), "bob ready (1/2)");
   ClearLog();
+  ClearCmds();
   rp::HandlePluginCommand({"reload", "match"}, false);
   rp::Frame(true);
   Check(Logged("restored the previous image's state (mode=match_warmup match=hosttest"), "match restored after reload");
+  Check(!Sent("mp_freezetime") && !Sent("mp_nope_cvar"), "reload: the cvar snapshot came along, nothing read again");
   const std::string s = Summary();
   Check(Has(s, "\"match_id\":\"4242\"") && Has(s, "\"slug\":\"hosttest\"") && Has(s, "\"ready\":{\"ready\":1,\"total\":2}"),
         "loaded match + ready states survive the reload");
@@ -723,6 +735,9 @@ int main(int argc, char** argv) {
     Check(!Has(st, "ru_warmup_respawn"), "state.json: settings left at their default are not stored");
     Check(Has(st, "\"ru_pause_after_restore\"") && Has(st, "\"ru_active_match_json\""),
           "state.json: ru_pause_after_restore and the loaded match (crash recovery)");
+    // Values only (the unknown mp_nope_cvar has none), as a JSON string inside state.json.
+    Check(Has(st, R"("ru_active_cvar_snapshot": "{\"values\":{\"mp_freezetime\":\"15\",\"sv_talk_enemy_dead\":\"0\"}}")"),
+          "state.json: the pre-match cvar values (a restart mid-series still restores them)");
     Check(Has(st, "\"ru_whitelist_enabled_default\"") && Has(st, "\"ru_hostname_format\"") &&
               !Has(st, "ru_playout_enabled_default") && !Has(st, "ru_minimum_ready_required"),
           "state.json: server settings saved; `default` and refused values not");
@@ -735,6 +750,21 @@ int main(int argc, char** argv) {
   rp::Frame(true);
   Check(Logged("plugin: loaded match") && Logged("match=hosttest"), "load after unload restores the match");
   Check(Logged("restored 2 server setting(s) from state.json"), "server settings restored from state.json");
+
+  std::puts("-- match end puts the match config's cvars back (reset_cvars_on_series_end 1)");
+  ClearLog();
+  ClearCmds();
+  rp::TryDispatchRu(true, 0, "Console", "ru match end");
+  Check(FramesUntil([] { return Sent("mp_restartgame 1"); }, 2000), "ru match end resets the server");
+  Check(Sent("mp_freezetime \"15\"") && Sent("sv_talk_enemy_dead \"0\"") && !Sent("mp_nope_cvar \"\""),
+        "the values read before the match are restored (the unknown cvar is not)");
+  Check(SentAt("mp_freezetime \"15\"") > SentAt("mp_respawn_on_death_ct 0") &&
+            SentAt("mp_freezetime \"15\"") < SentAt("mp_restartgame 1"),
+        "after the fixed warmup resets, before the restart");
+  ClearCmds();
+  rp::TryDispatchRu(true, 0, "Console", "ru match end");
+  rp::Frame(true);
+  Check(!Sent("mp_freezetime \"15\""), "restored once: the snapshot is cleared");
 
   // Return with match.so still loaded and its workers running, like a server `quit` (the core never
   // unloads plugins): the plugin's exit handler must join them before its statics are destroyed,
