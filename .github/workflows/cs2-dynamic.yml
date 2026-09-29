@@ -21,7 +21,10 @@ name: CS2 dynamic check
 # finished while it is still going; the live test adds its own steps under Live: match / scrim / fleet
 # (COMPAT_STEP_EVENTS=1). A failed POST is a warning, never a failure.
 #
-# Runs on the runner labelled `readyup-live` (set up with `csm ci setup`; docs/CS2-COMPAT.md). It
+# Runs on the runner labelled `readyup-live` (set up with `csm ci setup`; docs/CS2-COMPAT.md). The
+# CI server is a csm instance (CS2_CI_INSTANCE: the shared CS2 install, the bundle built into a
+# layer of the instance's own, everything that touches it run through `csm instance exec`) or a
+# CS2 install of its own (CS2_CI_DIR alone). It
 # is OFF until the repo variable CS2_DYNAMIC_ENABLED is `true`; with it on and no runner
 # registered, the `live` job just waits in the queue. Triggers are schedule / workflow_dispatch /
 # workflow_run only: never pull_request (a PR must not run code on the runner). The server runs
@@ -199,24 +202,45 @@ jobs:
       # the list (`none` = every live test required).
       LIVETEST_ADVISORY: ${{ vars.CS2_LIVETEST_ADVISORY || 'fleet forfeit' }}
     steps:
-      - name: Runner settings (CS2_CI_DIR, CS2_CI_PORT from `csm ci setup`)
+      - name: Runner settings (CS2_CI_DIR, CS2_CI_PORT, CS2_CI_INSTANCE from `csm ci setup`)
         run: |
-          # csm ci setup writes both into the runner's .env; see docs/CS2-COMPAT.md.
+          # csm ci setup writes them into the runner's .env; see docs/CS2-COMPAT.md.
           if [ -z "${CS2_CI_DIR:-}" ] || [ -z "${CS2_CI_PORT:-}" ]; then
             echo "::error::CS2_CI_DIR and CS2_CI_PORT must be set in the runner's .env (csm ci setup does this; manual setup: docs/CS2-COMPAT.md)"
-            exit 1
-          fi
-          if [ ! -d "$CS2_CI_DIR/game/csgo" ]; then
-            echo "::error::CS2_CI_DIR=$CS2_CI_DIR has no game/csgo (not a CS2 dedicated server install)"
-            exit 1
-          fi
-          if [ ! -x "$CS2_CI_DIR/game/cs2.sh" ]; then
-            echo "::error::$CS2_CI_DIR/game/cs2.sh is missing (the server is started through Valve's launcher, as csm does)"
             exit 1
           fi
           case "$CS2_CI_PORT" in ''|*[!0-9]*) echo "::error::CS2_CI_PORT=$CS2_CI_PORT is not a port"; exit 1 ;; esac
           OUT="$RUNNER_TEMP/cs2-dynamic"
           echo "OUT=$OUT" >> "$GITHUB_ENV"
+          # CI_EXEC runs a command where the CI install is visible: on a csm instance inside
+          # `csm instance exec N` (its view exists only there), else as is. CI_CSM is csm.
+          ci_exec=()
+          if [ -n "${CS2_CI_INSTANCE:-}" ]; then
+            case "$CS2_CI_INSTANCE" in *[!0-9]*) echo "::error::CS2_CI_INSTANCE=$CS2_CI_INSTANCE is not an instance number"; exit 1 ;; esac
+            csm="${CS2_CI_CSM:-csm}"
+            if ! command -v "$csm" >/dev/null; then
+              echo "::error::csm ($csm) not found: CS2_CI_CSM in the runner's .env names it (csm ci setup --instance N writes it)"
+              exit 1
+            fi
+            ci_exec=("$csm" instance exec "$CS2_CI_INSTANCE" --)
+            {
+              echo "CI_CSM=$csm"
+              echo "CI_EXEC=${ci_exec[*]}"
+              # The CI server (and the live tests) at a lower CPU priority than the host's servers.
+              echo "CSM_INSTANCE_NICE=10"
+            } >> "$GITHUB_ENV"
+            echo "CS2 instance $CS2_CI_INSTANCE (view $CS2_CI_DIR), port $CS2_CI_PORT, csm $csm"
+          else
+            echo "CI_EXEC=" >> "$GITHUB_ENV"
+          fi
+          if ! "${ci_exec[@]}" test -d "$CS2_CI_DIR/game/csgo"; then
+            echo "::error::CS2_CI_DIR=$CS2_CI_DIR has no game/csgo (not a CS2 dedicated server install)"
+            exit 1
+          fi
+          if ! "${ci_exec[@]}" test -x "$CS2_CI_DIR/game/cs2.sh"; then
+            echo "::error::$CS2_CI_DIR/game/cs2.sh is missing (the server is started through Valve's launcher, as csm does)"
+            exit 1
+          fi
           # compat-report.py step (and scripts/livetest with COMPAT_STEP_EVENTS=1) read these;
           # current.json is always the last compat.json of this run.
           {
@@ -248,6 +272,24 @@ jobs:
 
       - name: Update CS2 (steamcmd, anonymous; a delta when current)
         run: |
+          if [ -n "$CI_EXEC" ]; then
+            # A csm instance runs csm's shared CS2 game version: csm updates it for every
+            # instance (csm monitor, csm instance update-game), never this job.
+            echo "::notice::CS2 is csm's shared game version of instance $CS2_CI_INSTANCE; csm keeps it updated"
+            acf="$($CI_EXEC cat "$CS2_CI_DIR/steamapps/appmanifest_730.acf" 2>/dev/null || true)"
+            inf="$($CI_EXEC cat "$CS2_CI_DIR/game/csgo/steam.inf" 2>/dev/null || true)"
+            buildid="$(printf '%s\n' "$acf" | sed -n 's/.*"buildid"[[:space:]]*"\([0-9]*\)".*/\1/p' | head -1)"
+            patch="$(printf '%s\n' "$inf" | sed -n 's/^PatchVersion=//p' | tr -d '\r' | head -1)"
+            printf 'BUILDID=%s\nPATCH_VERSION=%s\n' "$buildid" "$patch" > "$OUT/cs2-build.env"
+            if [ -f "$OUT/static.json" ]; then
+              want="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("cs2", {}).get("buildid", ""))' "$OUT/static.json" 2>/dev/null || true)"
+              if [ -n "$want" ] && [ -n "$buildid" ] && [ "$want" != "$buildid" ]; then
+                echo "::warning::the static verdict is for CS2 build $want, the instance runs $buildid (csm has not updated its game version yet)"
+              fi
+            fi
+            echo "CS2 build ${buildid:-?} (patch ${patch:-?})" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           steamcmd="$(command -v steamcmd || true)"
           [ -n "$steamcmd" ] || for c in "$HOME/steamcmd/steamcmd.sh" "$HOME/.steam/steamcmd/steamcmd.sh" /usr/games/steamcmd; do
             [ -x "$c" ] && steamcmd="$c" && break
@@ -274,7 +316,16 @@ jobs:
       - name: Install the Full bundle
         run: |
           zip="$(find "$OUT/dist" -name 'ready-up-full-*-linuxsteamrt64.zip' | head -1)"
-          bash install.sh --dir "$CS2_CI_DIR" --zip "$zip" --yes --accept-license=noncommercial full
+          if [ -n "$CI_EXEC" ]; then
+            # The instance starts empty (reset: nothing from the last run) on a layer of its own
+            # with this bundle: layers/current and the host's other instances never see it, and
+            # the last run's layer is removed.
+            "$CI_CSM" instance reset "$CS2_CI_INSTANCE"
+            "$CI_CSM" instance layer build --for "$CS2_CI_INSTANCE" --zip "$zip" --installer install.sh \
+              --bundle full --accept-license noncommercial
+          else
+            bash install.sh --dir "$CS2_CI_DIR" --zip "$zip" --yes --accept-license=noncommercial full
+          fi
           python3 scripts/ci/compat-report.py step --updates '[{"id":"install","status":"pass"},{"id":"selftest","status":"running"}]' || true
 
       - name: 'Stage selftest: boot, READYUP_SELFTEST_AND_QUIT'
@@ -289,8 +340,9 @@ jobs:
           # +log on: the game log lines (players, bots, rounds) Ready Up and the live test read;
           # csm's server.cfg turns it on for every real server.
           # The console streams into this log as it happens (line buffered) and into a file.
+          # $CI_EXEC: on a csm instance, in its view (csm instance exec).
           READYUP_SELFTEST_AND_QUIT=1 READYUP_SELFTEST_FILE="$OUT/readyup_selftest.txt" READYUP_SELFTEST_TIMEOUT=300 \
-            stdbuf -oL -eL timeout 900 "$CS2_CI_DIR/game/cs2.sh" -dedicated -console -usercon -port "$CS2_CI_PORT" \
+            stdbuf -oL -eL timeout 900 $CI_EXEC "$CS2_CI_DIR/game/cs2.sh" -dedicated -console -usercon -port "$CS2_CI_PORT" \
             +sv_lan 1 +sv_hibernate_when_empty 0 +log on +game_type 0 +game_mode 1 +map de_dust2 2>&1 \
             | stdbuf -oL tee "$OUT/selftest-console.log"
           rc=${PIPESTATUS[0]}
@@ -322,59 +374,15 @@ jobs:
         id: live
         if: env.LIVETEST == 'true' && steps.selftest.outputs.overall != 'fail'
         run: |
-          # A throwaway target for scripts/livetest: run.sh starts the CI server in tmux, the
-          # console is piped into console.log (--boot). +log on as in the selftest boot: without it
-          # there are no round / bot log lines (the knife winner, round ends, bots' sides).
-          t="$OUT/livetest-target"
-          mkdir -p "$t"
-          cat > "$t/run.sh" <<EOF
-          #!/usr/bin/env bash
-          exec "$CS2_CI_DIR/game/cs2.sh" -dedicated -console -usercon -port "$CS2_CI_PORT" +sv_lan 1 +sv_hibernate_when_empty 0 +log on +game_type 0 +game_mode 1 +map de_dust2
-          EOF
-          chmod +x "$t/run.sh"
-          session="ru-ci-${GITHUB_RUN_ID}"
-          echo "session=$session" >> "$GITHUB_OUTPUT"
+          # scripts/ci/cs2-live-stage.sh runs the four live tests on one CI server (a tmux server
+          # of its own, in $OUT/tmux); on a csm instance all of it inside `csm instance exec`.
+          echo "started=1" >> "$GITHUB_OUTPUT"
+          # (csm instance exec starts in the instance's view: the script by its full path)
+          $CI_EXEC bash "$GITHUB_WORKSPACE/scripts/ci/cs2-live-stage.sh"
           results=()
-          # match + scrim are required. fleet (scripts/livetest/fleet_livetest.py: a mock platform
-          # on loopback drives the fleet link) and forfeit (pauses + team-left forfeit) are newer:
-          # while listed in LIVETEST_ADVISORY a failure keeps their livetest check pending instead
-          # of failing the component (docs/CS2-COMPAT.md). Not here: --ruleset valve, which needs
-          # GOTV (tv_enable 1 + a tv_port) on the CI server.
-          for mode in match scrim fleet forfeit; do
-            python3 scripts/ci/compat-report.py step --id "live-$mode" --status running || true
-            set +e
-            extra=()
-            # COMPAT_STEP_EVENTS: the live test reports its own steps under live-<mode>; forfeit
-            # does not (a run has at most 100 steps; its result is on live-forfeit).
-            events=1
-            case $mode in
-              match) extra+=(--simulation) ;;  # match config `simulation: true`: Ready Up adds the bots
-              scrim) extra+=(--scrim) ;;
-              forfeit) extra+=(--forfeit); events=0 ;;
-            esac
-            if [ "$mode" = fleet ]; then
-              # fleet.cfg + fleet.so's data dir are in the install ($CS2_CI_DIR), the console in $t;
-              # the test moves both aside afterwards and reloads fleet.so standalone.
-              COMPAT_STEP_EVENTS=1 COMPAT_STEP_PARENT="live-$mode" \
-                python3 -u scripts/livetest/fleet_livetest.py --ssh '' --target "$t" --game-dir "$CS2_CI_DIR" \
-                  --session "$session" --boot --wait-session 1 --mock local --out "$OUT/livetest-$mode"
-            else
-              COMPAT_STEP_EVENTS=$events COMPAT_STEP_PARENT="live-$mode" \
-                scripts/livetest/run.sh --ssh '' --target "$t" --session "$session" --boot --wait-session 1 --out "$OUT/livetest-$mode" "${extra[@]}"
-            fi
-            rc=$?
-            set -e
-            advisory=""
-            case " $LIVETEST_ADVISORY " in *" $mode "*) advisory=" (advisory: not required yet)" ;; esac
-            echo "livetest $mode: exit $rc$advisory" | tee -a "$GITHUB_STEP_SUMMARY"
-            results+=(--livetest "$mode=$rc")
-            case $rc in
-              0) python3 scripts/ci/compat-report.py step --id "live-$mode" --status pass || true ;;
-              2) python3 scripts/ci/compat-report.py step --id "live-$mode" --status skip --detail "no verdict (exit 2: server busy, unavailable or restarted)" || true ;;
-              *) python3 scripts/ci/compat-report.py step --id "live-$mode" --status fail --detail "live test failed (exit $rc)$advisory" || true ;;
-            esac
-          done
-          tmux kill-session -t "$session" 2>/dev/null || true
+          while IFS= read -r r; do
+            [ -n "$r" ] && results+=(--livetest "$r")
+          done < "$OUT/live-results.txt"
           python3 scripts/ci/compat-report.py dynamic --stage live --base "$OUT/selftest/compat.json" \
             --selftest "$OUT/readyup_selftest.txt" --build-env "$OUT/cs2-build.env" --out-dir "$OUT/live" \
             --trigger "$TRIGGER" --started-at "$STARTED_AT" "${results[@]}" --livetest-advisory "$LIVETEST_ADVISORY"
@@ -405,8 +413,13 @@ jobs:
           exit 1
 
       - name: Stop the live-test server
-        if: always() && steps.live.outputs.session != ''
-        run: tmux kill-session -t "${{ steps.live.outputs.session }}" 2>/dev/null || true
+        if: always() && steps.live.outputs.started != ''
+        run: |
+          # The live stage's own tmux server (cs2-live-stage.sh kills it; this is for a cancelled
+          # or timed-out run). Inside a csm instance it runs as uid 0, hence tmux-*.
+          for sock in "$OUT"/tmux/tmux-*/default; do
+            [ -S "$sock" ] && tmux -S "$sock" kill-server 2>/dev/null || true
+          done
 
       - name: 'Progress event: no_verdict'
         if: failure() && steps.selftest.outputs.overall == ''
