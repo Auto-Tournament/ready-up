@@ -269,6 +269,35 @@ class CompatReportTest(unittest.TestCase):
         sig = next(k for k in comps["practice"]["checks"] if k["kind"] == "signature")
         self.assertTrue(sig["failures"][0].startswith("CHEGrenadeProjectile_Create:"))
 
+    def test_practice_engine_fragment_is_practice_and_never_a_hard_need(self):
+        """ru_api 1.13 (player_change_team, player_teleport, entity_create / entity_spawn): the four
+        functions and two vtable slots are the practice fragment's, the core's feature table names
+        exactly those entries, every function has anchors, and no plugin lists them in "surface"."""
+        files = cr.surface_files(str(ROOT / "gamedata"))
+        owner, _ = cr.ownership(files)
+        spec = (ROOT / "core" / "src" / "readyup" / "practice_engine_spec.h").read_text()
+        fns = {"CCSPlayerController_ChangeTeam", "CCSPlayerPawn_Teleport", "UTIL_CreateEntityByName",
+               "CBaseEntity_DispatchSpawn"}
+        slots = {"CCSPlayerController::ChangeTeam", "CCSPlayerPawn::Teleport"}
+        for k in fns | slots:
+            self.assertIn('"%s"' % k, spec, k)
+        frag = json.loads((ROOT / "gamedata" / "engine-surface.practice.json").read_text())
+        for k in fns:
+            self.assertEqual(owner.get(("signature", k)), "practice", k)
+            fn = frag["functions"][k]
+            self.assertFalse(fn["required"], k)
+            self.assertNotIn("hook", fn, k)
+            self.assertGreaterEqual(len(fn["anchors"]), 2, k)
+        for k in slots:
+            vt = frag["vtable_indices"][k]
+            self.assertIn(vt["function"], fns, k)
+            self.assertIn(vt["class"], frag["rtti"], k)
+        for m in ("engine_feature_available", "player_change_team", "player_teleport", "entity_create", "entity_spawn"):
+            self.assertIn(m, cr.API_SURFACE)
+            self.assertFalse(fns & set(cr.API_SURFACE[m]), m)
+        for pid, need in cr.load_needs(str(ROOT / "plugins")).items():
+            self.assertFalse((fns | slots) & set(need.get("surface") or []), pid)
+
     # ---- plugin needs (plugins/<id>/needs.json) ------------------------------------------------
 
     def test_plugin_static_verdicts_from_needs(self):

@@ -67,6 +67,7 @@ add_library(server_shim SHARED
   libs/readyup/steamid.cpp
   core/src/readyup/entity.cpp
   core/src/readyup/grenades.cpp
+  core/src/readyup/practice_engine.cpp
   core/src/readyup/plugin_loader.cpp
   core/src/readyup/plugin_needs.cpp
   core/src/readyup/plugin_needs_engine.cpp
@@ -407,6 +408,13 @@ add_executable(readyup_grenade_spec_test tests/grenade_spec_test.cpp)
 target_include_directories(readyup_grenade_spec_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(readyup_grenade_spec_test PRIVATE -Wall -Wextra)
 add_test(NAME grenade_spec COMMAND readyup_grenade_spec_test)
+
+# ru_api 1.13 (player_change_team, player_teleport, entity_create / entity_spawn) feature table and
+# request checks (core/src/readyup/practice_engine_spec.h).
+add_executable(readyup_practice_engine_spec_test tests/practice_engine_spec_test.cpp)
+target_include_directories(readyup_practice_engine_spec_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/core/include)
+target_compile_options(readyup_practice_engine_spec_test PRIVATE -Wall -Wextra)
+add_test(NAME practice_engine_spec COMMAND readyup_practice_engine_spec_test)
 
 # One center panel per player (core/src/readyup/center_panel_owner.h).
 add_executable(readyup_center_panel_owner_test tests/center_panel_owner_test.cpp core/src/readyup/center_panel_owner.cpp)

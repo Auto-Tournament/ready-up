@@ -52,12 +52,15 @@
 //   .timer                start / stop a stopwatch shown in your center panel
 //   .bestspawn / .worstspawn, .bestctspawn / .worstctspawn, .besttspawn / .worsttspawn
 //                         to the competitive spawn (lowest priority) closest to / farthest from you
-//   .showspawns / .hidespawns   not available: markers need entity creation (beams); they list the
-//                         spawn counts and point at .spawn N instead
+//   .showspawns / .hidespawns   a vertical beam on every competitive spawn (CT blue, T orange), like
+//                         ME: ru_api 1.13 entity_create "beam" + entity_spawn; .hidespawns removes them
+//   .fas / .watchme       everyone else (humans) to the spectators: ru_api 1.13 player_change_team
 //   .savenade / .sn <name> [description]   save where you stand and look as a lineup of this map
 //                         (yours, or the global ones while .globalnades is on); the reply has its code
-//   .loadnade / .ln <name>   to your lineup with the nearest name (then a global one); the view
-//                         angle cannot be set, so the reply has the setang to type
+//   .loadnade / .ln <name>   to your lineup with the nearest name (then a global one), looking where
+//                         you looked (ru_api 1.13 player_teleport; without it the reply has the setang
+//                         to type). ME also switched to the grenade (client `slotN`); a server cannot
+//                         send client commands, so the reply names the grenade instead
 //   .listnades / .lin [filter], .deletenade / .delnade / .dn <name>, .importnade / .in <code>
 //                         ("<name> x y z pitch yaw roll", the code .savenade prints)
 //   .globalnades          admin: .savenade / .deletenade use the global lineups (owner "default")
@@ -71,7 +74,9 @@
 //
 // CS2 1.41.8.4: setpos, setpos_player, setang, ent_setpos, ent_fire and bot_place need a client of
 // their own, so from the server console they do nothing. Moves use ru_api entity_set_abs_origin
-// (v1.3, engine surface CBaseEntity_SetAbsOrigin). View angles cannot be set for another player.
+// (v1.3, engine surface CBaseEntity_SetAbsOrigin); the view angles of .loadnade / .last / .back N /
+// .loadpos use player_teleport (1.13, CCSPlayerPawn::Teleport from the practice gamedata) when the
+// build has it.
 //
 // With the match plugin (readyup.match.v1 set_practice) the match flow owns the mode ("practice"
 // in ru_mode, no scrim warmup) and refuses while a match is loaded; without it this plugin keeps
@@ -182,6 +187,9 @@ struct Offsets {
   int spawnEnabled = -1;   // SpawnPoint::m_bEnabled
   int spawnPriority = -1;  // SpawnPoint::m_iPriority
   int health = -1;         // CBaseEntity::m_iHealth (.break)
+  int beamWidth = -1;      // CBeam::m_fWidth (.showspawns)
+  int beamEnd = -1;        // CBeam::m_vecEndPos
+  int renderColor = -1;    // CBaseModelEntity::m_clrRender
   // Grenade projectiles (per-player rethrow): who threw it and how it left the hand.
   int thrower = -1;      // CBaseGrenade::m_hThrower (the pawn)
   int initPos = -1;      // CBaseCSGrenadeProjectile::m_vInitialPosition
@@ -216,6 +224,9 @@ const Offsets& Off() {
   o.spawnEnabled = FirstOffset({"SpawnPoint", "CInfoPlayerCounterterrorist"}, "m_bEnabled");
   o.spawnPriority = FirstOffset({"SpawnPoint", "CInfoPlayerCounterterrorist"}, "m_iPriority");
   o.health = FirstOffset({"CBaseEntity"}, "m_iHealth");
+  o.beamWidth = FirstOffset({"CBeam"}, "m_fWidth");
+  o.beamEnd = FirstOffset({"CBeam"}, "m_vecEndPos");
+  o.renderColor = FirstOffset({"CBaseModelEntity"}, "m_clrRender");
   o.thrower = FirstOffset({"CBaseGrenade"}, "m_hThrower");
   o.initPos = FirstOffset({"CBaseCSGrenadeProjectile"}, "m_vInitialPosition");
   o.initVel = FirstOffset({"CBaseCSGrenadeProjectile"}, "m_vInitialVelocity");
@@ -358,6 +369,8 @@ std::unordered_set<int> g_god;                            // slots (m_bTakesDama
 bool g_buddhaOff = false;                                 // .god fallback toggled buddha off
 bool g_touched = false;                                   // any of the above set this session
 std::unordered_map<uint64_t, ThrowHistory> g_throws;      // player id -> grenade history (ME numbering)
+std::vector<uint32_t> g_spawnBeams;                       // .showspawns beams (entity handles)
+void RemoveSpawnBeams();                                  // .hidespawns; also on leaving practice
 
 struct DelayedCmd {
   double due = 0;
@@ -446,6 +459,8 @@ void ClearState(bool restorePawns) {
   g_toggles = Toggles{};
   g_dryRun = false;
   g_dryArmed = false;
+  if (restorePawns) RemoveSpawnBeams();  // the entities of this map; a new map has none
+  g_spawnBeams.clear();
 }
 
 // ---- mode ---------------------------------------------------------------------------------------
@@ -573,10 +588,27 @@ std::string Lower(std::string s) {
   return s;
 }
 
-bool TeleportRemembering(int slot, uint64_t id, const Vec3& to) {
+// ru_api 1.13 feature check ("change_team", "teleport", "entity_create"): the practice gamedata
+// verified on this CS2 build.
+bool EngineFeature(const char* f) {
+  return RU_API_HAS(g_api, engine_feature_available) && g_api->engine_feature_available &&
+         g_api->engine_feature_available(g_api->self, f) == 1;
+}
+
+bool g_viewSet = false;  // the last TeleportRemembering also set the view (AngleHint says nothing)
+
+// With `ang` (pitch yaw roll) and ru_api 1.13 player_teleport: moved there looking that way and
+// stopped (ME's Teleport(pos, angle, zero velocity)). Otherwise only moved (entity_set_abs_origin).
+bool TeleportRemembering(int slot, uint64_t id, const Vec3& to, const Vec3f* ang = nullptr) {
   Spot here;
   const bool had = SpotOfSlot(slot, &here);
-  if (!Teleport(slot, to)) return false;
+  g_viewSet = false;
+  bool moved = false;
+  if (ang && std::isfinite(ang->x) && std::isfinite(ang->y) && EngineFeature("teleport")) {
+    const float xyz[3] = {to.x, to.y, to.z}, pyr[3] = {ang->x, ang->y, 0.f}, still[3] = {0.f, 0.f, 0.f};
+    moved = g_viewSet = g_api->player_teleport(g_api->self, slot, xyz, pyr, still) == 1;
+  }
+  if (!moved && !Teleport(slot, to)) return false;
   if (had) g_beforeTeleport[id] = here;
   g_touched = true;
   return true;
@@ -589,9 +621,10 @@ std::string ToolsRefusal() {
   return {};
 }
 
-// CS2 cannot set another player's view from the server: tell them the setang to type (sv_cheats is
-// on in practice).
+// Without player_teleport (a build where the practice gamedata did not verify) the server cannot set
+// the view: tell them the setang to type (sv_cheats is on in practice).
 std::string AngleHint(const Vec3f& a) {
+  if (g_viewSet) return ".";
   if (!std::isfinite(a.x) || !std::isfinite(a.y) || (a.x == 0 && a.y == 0)) return ".";
   char buf[96];
   std::snprintf(buf, sizeof(buf), " (view: setang %.2f %.2f 0 in your console).", a.x, a.y);
@@ -833,7 +866,7 @@ bool RunHistoryTool(int slot, uint64_t steamid64, uint64_t id, const std::string
   if (cmd == ".last") {
     const Throw* t = h ? h->Last() : nullptr;
     if (!t) return Reply(slot, steamid64, "You have not thrown any nade yet!"), true;
-    if (!TeleportRemembering(slot, id, Vec3{t->pos.x, t->pos.y, t->pos.z})) return Reply(slot, steamid64, kNoTeleport), true;
+    if (!TeleportRemembering(slot, id, Vec3{t->pos.x, t->pos.y, t->pos.z}, &t->ang)) return Reply(slot, steamid64, kNoTeleport), true;
     Reply(slot, steamid64, "Teleported to your last grenade throw" + AngleHint(t->ang));
     return true;
   }
@@ -988,15 +1021,94 @@ std::vector<SpawnPt> CompetitiveSpawns(int team) {
   return out;
 }
 
-// .bestspawn .worstspawn (+ct / t) .showspawns .hidespawns. True when `cmd` was one of them.
-bool RunSpawnTool(int slot, uint64_t steamid64, uint64_t id, const std::string& cmd) {
-  if (cmd == ".showspawns" || cmd == ".hidespawns") {
-    const size_t ct = ListSpawns(3).size(), t = ListSpawns(2).size();
-    Reply(slot, steamid64, "spawn markers are not available on Ready Up yet (they need entity creation). This map has " +
-                               std::to_string(ct) + " CT and " + std::to_string(t) +
-                               " T spawns: .ctspawn N / .tspawn N / .bestspawn go there.");
+void RemoveSpawnBeams() {
+  if (!g_spawnBeams.empty() && RU_API_HAS(g_api, entity_remove) && g_api->entity_remove) {
+    for (uint32_t h : g_spawnBeams) {
+      if (void* e = g_api->entity_from_handle(g_api->self, h)) (void)g_api->entity_remove(g_api->self, e);
+    }
+  }
+  g_spawnBeams.clear();
+}
+
+struct Rgba {
+  uint8_t r, g, b, a;
+};
+
+// ME's ShowSpawnBeam: a 5 wide beam from the spawn point 100 units up, "dying" life state (so it is
+// not a live entity for anything that counts them), in the team's color.
+bool SpawnBeam(const Vec3& at, Rgba color) {
+  const Offsets& o = Off();
+  if (o.beamWidth < 0 || o.beamEnd < 0 || o.renderColor < 0 || o.lifeState < 0) return false;
+  void* beam = g_api->entity_create(g_api->self, "beam");
+  if (!beam) return false;
+  Wr<uint8_t>(beam, o.lifeState, 1);
+  Wr<float>(beam, o.beamWidth, 5.f);
+  Wr<Rgba>(beam, o.renderColor, color);
+  Wr<Vec3>(beam, o.beamEnd, Vec3{at.x, at.y, at.z + 100.f});
+  const float xyz[3] = {at.x, at.y, at.z};
+  (void)g_api->entity_set_abs_origin(g_api->self, beam, xyz);
+  if (g_api->entity_spawn(g_api->self, beam) != 1) {
+    (void)g_api->entity_remove(g_api->self, beam);
+    return false;
+  }
+  g_spawnBeams.push_back(g_api->entity_handle_of(g_api->self, beam));
+  return true;
+}
+
+// .showspawns / .hidespawns (ME). True when `cmd` was one of them.
+bool RunSpawnMarkers(int slot, uint64_t steamid64, const std::string& cmd) {
+  if (cmd != ".showspawns" && cmd != ".hidespawns") return false;
+  const bool had = !g_spawnBeams.empty();
+  RemoveSpawnBeams();
+  if (cmd == ".hidespawns") return Reply(slot, steamid64, had ? "Spawn markers hidden." : "No spawn markers shown."), true;
+  const auto ct = CompetitiveSpawns(3), t = CompetitiveSpawns(2);
+  if (!EngineFeature("entity_create")) {
+    Reply(slot, steamid64, "spawn markers are not available on this CS2 build (entity creation did not verify). This map has " +
+                               std::to_string(ct.size()) + " CT and " + std::to_string(t.size()) +
+                               " competitive T spawns: .ctspawn N / .tspawn N / .bestspawn go there.");
     return true;
   }
+  int n = 0;
+  for (const auto& s : ct) n += SpawnBeam(s.pos, Rgba{0, 0, 255, 255}) ? 1 : 0;
+  for (const auto& s : t) n += SpawnBeam(s.pos, Rgba{255, 165, 0, 255}) ? 1 : 0;
+  g_touched = true;
+  Log("practice: .showspawns: %d beams (%zu CT, %zu T spawns)", n, ct.size(), t.size());
+  if (n == 0) return Reply(slot, steamid64, "could not place spawn markers (see the server log)."), true;
+  Reply(slot, steamid64, "Showing " + std::to_string(ct.size()) + " CT (blue) and " + std::to_string(t.size()) +
+                             " T (orange) spawns. .hidespawns hides them.");
+  return true;
+}
+
+// .fas / .watchme (ME): every other human to the spectators (bots stay, like ME).
+bool RunWatchMe(int slot, uint64_t steamid64, const std::string& cmd) {
+  if (cmd != ".fas" && cmd != ".watchme") return false;
+  if (!EngineFeature("change_team")) {
+    return Reply(slot, steamid64, "moving players is not available on this CS2 build (team change did not verify)."), true;
+  }
+  struct Ctx {
+    int self;
+    std::vector<int> slots;
+  } c{slot, {}};
+  g_api->for_each_player(
+      g_api->self,
+      [](void* u, const ru_player* p) -> int {
+        auto* c = static_cast<Ctx*>(u);
+        if (!p->is_bot && p->slot >= 0 && p->slot != c->self && p->team != RU_TEAM_SPECTATOR) c->slots.push_back(p->slot);
+        return 1;
+      },
+      &c);
+  int moved = 0;
+  for (int s : c.slots) moved += g_api->player_change_team(g_api->self, s, RU_TEAM_SPECTATOR) == 1 ? 1 : 0;
+  Log("practice: %s by slot %d: %d of %zu players to the spectators", cmd.c_str(), slot, moved, c.slots.size());
+  Reply(slot, steamid64, moved ? "Moved " + std::to_string(moved) + " player" + (moved == 1 ? "" : "s") + " to the spectators."
+                               : "Nobody else to move.");
+  return true;
+}
+
+// .bestspawn .worstspawn (+ct / t). True when `cmd` was one of them.
+bool RunSpawnTool(int slot, uint64_t steamid64, uint64_t id, const std::string& cmd) {
+  if (RunSpawnMarkers(slot, steamid64, cmd)) return true;
+  if (RunWatchMe(slot, steamid64, cmd)) return true;
   const bool best = cmd.rfind(".best", 0) == 0;
   if (!best && cmd.rfind(".worst", 0) != 0) return false;
   const std::string rest = cmd.substr(best ? 5 : 6);
@@ -1167,9 +1279,11 @@ bool RunLineupTool(int slot, uint64_t steamid64, uint64_t id, const std::string&
     const Lineup* l = book.Load(mine, JoinFrom(args, 1), &from);
     if (!l) return Reply(slot, steamid64, "Nade " + arg1 + " not found!"), true;
     const Lineup copy = *l;
-    if (!TeleportRemembering(slot, id, Vec3{copy.pos.x, copy.pos.y, copy.pos.z})) return Reply(slot, steamid64, kNoTeleport), true;
+    if (!TeleportRemembering(slot, id, Vec3{copy.pos.x, copy.pos.y, copy.pos.z}, &copy.ang)) {
+      return Reply(slot, steamid64, kNoTeleport), true;
+    }
     Reply(slot, steamid64, "Lineup " + copy.name + " loaded successfully" + (copy.kind.empty() ? "" : " [" + copy.kind + "]") +
-                               AngleHint(copy.ang));
+                               AngleHint(copy.ang) + (copy.kind.empty() ? "" : " Take your " + copy.kind + "."));
     if (!copy.desc.empty()) Reply(slot, steamid64, "Description: " + copy.desc);
     return true;
   }
@@ -1255,8 +1369,10 @@ void RunTool(int slot, uint64_t steamid64, const std::vector<std::string>& args)
                    "no saved position \"" + name + "\"" + (have.empty() ? " (.savepos [name] first)." : " (saved: " + have + ")."));
     }
     const Spot s = pit->second[name];
-    if (!TeleportRemembering(slot, id, s.pos)) return Reply(slot, steamid64, kNoTeleport);
-    return Reply(slot, steamid64, "loaded position \"" + name + "\" (" + Fmt(s.pos) + "; view angle not restored).");
+    const Vec3f view{s.ang.x, s.ang.y, s.ang.z};
+    if (!TeleportRemembering(slot, id, s.pos, &view)) return Reply(slot, steamid64, kNoTeleport);
+    return Reply(slot, steamid64, "loaded position \"" + name + "\" (" + Fmt(s.pos) +
+                                      (g_viewSet ? ")." : "; view angle not restored)."));
   }
   if (cmd == ".back" && args.size() > 1) {
     // ME: .back N = to throw N of your grenade history.
@@ -1269,7 +1385,7 @@ void RunTool(int slot, uint64_t steamid64, const std::vector<std::string>& args)
     if (!h || h->Count() == 0) return Reply(slot, steamid64, "You have not thrown any nade yet!");
     const Throw* t = h->At(n);
     if (!t) return Reply(slot, steamid64, "Your grenade history only goes from 1 to " + std::to_string(h->Count()) + "!");
-    if (!TeleportRemembering(slot, id, Vec3{t->pos.x, t->pos.y, t->pos.z})) return Reply(slot, steamid64, kNoTeleport);
+    if (!TeleportRemembering(slot, id, Vec3{t->pos.x, t->pos.y, t->pos.z}, &t->ang)) return Reply(slot, steamid64, kNoTeleport);
     return Reply(slot, steamid64, "Teleported to grenade of history position: " + std::to_string(n) + "/" +
                                       std::to_string(h->Count()) + AngleHint(t->ang));
   }
@@ -1787,6 +1903,9 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
         // lineup library
         ".savenade", ".sn", ".loadnade", ".ln", ".listnades", ".lin", ".deletenade", ".delnade", ".dn", ".importnade",
         ".in"}) {
+    if (!api->register_chat_command(api->self, c, &OnToolChat, nullptr)) ru_logf(api, RU_LOG_WARN, "could not register %s", c);
+  }
+  for (const char* c : {".fas", ".watchme"}) {  // ME: everyone else to the spectators (ru_api 1.13)
     if (!api->register_chat_command(api->self, c, &OnToolChat, nullptr)) ru_logf(api, RU_LOG_WARN, "could not register %s", c);
   }
   if (!api->register_chat_command(api->self, ".globalnades", &OnGlobalNadesChat, nullptr)) {

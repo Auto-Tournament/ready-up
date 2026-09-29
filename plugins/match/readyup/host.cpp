@@ -226,6 +226,12 @@ bool EnqueueServerCommand(const char* text) {
   return true;
 }
 
+bool MoveSlotToSpectators(int slot) {
+  const ru_api* a = host::Api();
+  if (!a || !host::OnGameThread() || slot < 0 || !RU_API_HAS(a, player_change_team) || !a->player_change_team) return false;
+  return a->player_change_team(a->self, slot, RU_TEAM_SPECTATOR) == 1;
+}
+
 const char* FeatureName(Feature f) {
   switch (f) {
     case Feature::ChatCommands: return "chat_commands";

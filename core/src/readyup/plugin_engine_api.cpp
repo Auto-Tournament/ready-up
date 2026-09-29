@@ -14,6 +14,7 @@
 #include "readyup/logging.h"
 #include "readyup/license_status.h"
 #include "readyup/plugin_loader.h"
+#include "readyup/practice_engine.h"
 #include "readyup/round_termination_hook.h"
 #include "readyup/schema.h"
 #include "readyup/sdk/igameevents.h"
@@ -374,6 +375,45 @@ void* ApiGrenadeSpawn(ru_plugin* self, const ru_grenade_spawn* spec) {
   return ent ? ent : refuse(why);
 }
 
+// ---- v1.13 --------------------------------------------------------------------------
+
+int ApiEngineFeatureAvailable(ru_plugin* self, const char* feature) {
+  if (!CheckGameThread(self, "engine_feature_available")) return 0;
+  return practice_engine::Available(feature) ? 1 : 0;
+}
+
+int ApiPlayerChangeTeam(ru_plugin* self, int slot, int team) {
+  if (!CheckGameThread(self, "player_change_team")) return 0;
+  std::string why;
+  if (practice_engine::ChangeTeam(slot, team, &why)) return 1;
+  Print("plugin[%s]: player_change_team(%d, %d) refused: %s\n", detail::PluginNameOf(self), slot, team, why.c_str());
+  return 0;
+}
+
+int ApiPlayerTeleport(ru_plugin* self, int slot, const float* origin, const float* angles, const float* velocity) {
+  if (!CheckGameThread(self, "player_teleport")) return 0;
+  std::string why;
+  if (practice_engine::Teleport(slot, origin, angles, velocity, &why)) return 1;
+  Print("plugin[%s]: player_teleport(%d) refused: %s\n", detail::PluginNameOf(self), slot, why.c_str());
+  return 0;
+}
+
+void* ApiEntityCreate(ru_plugin* self, const char* classname) {
+  if (!CheckGameThread(self, "entity_create")) return nullptr;
+  std::string why;
+  if (void* e = practice_engine::Create(classname, &why)) return e;
+  Print("plugin[%s]: entity_create refused: %s\n", detail::PluginNameOf(self), why.c_str());
+  return nullptr;
+}
+
+int ApiEntitySpawn(ru_plugin* self, void* ent) {
+  if (!CheckGameThread(self, "entity_spawn")) return 0;
+  std::string why;
+  if (practice_engine::Spawn(ent, &why)) return 1;
+  Print("plugin[%s]: entity_spawn refused: %s\n", detail::PluginNameOf(self), why.c_str());
+  return 0;
+}
+
 }  // namespace
 
 void detail::FillEngineApi(ru_api* a) {
@@ -417,6 +457,11 @@ void detail::FillEngineApi(ru_api* a) {
   a->set_core_setting = &ApiSetCoreSetting;                       // v1.10
   a->grenade_spawn = &ApiGrenadeSpawn;                            // v1.12
   a->grenade_spawn_available = &ApiGrenadeSpawnAvailable;
+  a->engine_feature_available = &ApiEngineFeatureAvailable;       // v1.13
+  a->player_change_team = &ApiPlayerChangeTeam;
+  a->player_teleport = &ApiPlayerTeleport;
+  a->entity_create = &ApiEntityCreate;
+  a->entity_spawn = &ApiEntitySpawn;
 }
 
 }  // namespace readyup::plugins

@@ -253,7 +253,7 @@ grenade type off (`grenade_spawn_available` 0), it never disables a plugin. With
 
 Not in 1.12: a fuse / detonate-time override (throw later instead: schedule the call from
 `on_tick`), and player view angles (standing a player where a grenade was thrown from is
-`entity_set_abs_origin` on the pawn; turning their view is not possible yet). Users:
+`entity_set_abs_origin` on the pawn; 1.13 `player_teleport` also turns their view). Users:
 `.scen` replays (`plugins/practice/practice_scenarios.cpp` `SpawnGrenade`) throw each recorded
 grenade from its recorded spawn point and velocity, the practice rethrows (`.rethrow`, `.throwidx`,
 `.rethrowsmoke`, ...) throw a player's own grenade again from the launch read off its projectile
@@ -273,6 +273,39 @@ if (!RU_API_HAS(api, grenade_spawn_available) || !api->grenade_spawn_available(a
   /* refused: the reason is in the server log */
 }
 ```
+
+### v1.13 (implemented)
+
+Team changes, pawn teleports with view angles, and creating entities. Engine side in
+`core/src/readyup/practice_engine.cpp` (feature table and request checks in
+`practice_engine_spec.h`, unit-tested by `tests/practice_engine_spec_test.cpp`), members in
+`plugin_engine_api.cpp`.
+
+| Member | Thread | Purpose |
+|---|---|---|
+| `engine_feature_available(self, feature)` | game | 1 if `feature` works on this build: `"change_team"`, `"teleport"`, `"entity_create"` (create + spawn). Check it first and tell the player "not available on this CS2 build" |
+| `player_change_team(self, slot, team)` | game | The player (bots too) joins `RU_TEAM_SPECTATOR` / `_T` / `_CT` through `CCSPlayerController::ChangeTeam`, what `jointeam` ends in (a live player on a team dies). 1 = done |
+| `player_teleport(self, slot, origin, angles, velocity)` | game | `CCSPlayerPawn::Teleport` on the slot's live pawn: position, **view angles** (pitch / yaw / roll: how a plugin sets where a player looks) and velocity; a NULL part is left alone. Refused: bad slot, dead, non-finite / off-map values (±32768), pitch outside -90..90, speed components ≥ 10000 |
+| `entity_create(self, classname)` | game | `UTIL_CreateEntityByName`: a new entity (`[a-z0-9_]`, not players / controllers / game rules / world), not spawned yet. Write its fields (`schema_offset`, `entity_set_abs_origin`), then `entity_spawn` it; remove it with `entity_remove` |
+| `entity_spawn(self, entity)` | game | `CBaseEntity::DispatchSpawn(entity, NULL)` for an entity from `entity_create` (its handle must round-trip; not index 0..64) |
+
+The four functions are in the practice gamedata fragment next to the grenade factories, each with
+two anchors: `ChangeTeam` has `string_ref` `CSForceTeamThink` and `callee_string` `player_team`
+(the event it fires); `UTIL_CreateEntityByName` / `DispatchSpawn` have `caller_string`s of the
+entities their callers create (`chicken`, `info_deathmatch_spawn`, `info_hostage_rescue_zone_hint`);
+`CCSPlayerPawn::Teleport` has no string of its own, so it has two `mov_disp` field reads. The two
+virtuals are also `vtable_indices` entries (`CCSPlayerController::ChangeTeam` [104],
+`CCSPlayerPawn::Teleport` [164], the slots CounterStrikeSharp uses), with `rtti` entries for both
+classes: the RTTI-located vtable's slot must equal the verified function, and before every call the
+controller's / pawn's vptr must be that vtable. As with grenades nothing here is a plugin's hard
+need (`API_SURFACE` maps the members to the entity system only): a break turns that feature off
+(`engine_feature_available` 0) and fails the `practice` component in compat-report. Verified on
+CS2 1.41.8.4 and 1.41.8.5 (`readyup_sigcheck`).
+
+Users: practice `.fas` / `.watchme` (everyone else to the spectators), `.showspawns` /
+`.hidespawns` (a `beam` per competitive spawn: `m_fWidth`, `m_vecEndPos`, `m_clrRender`,
+`m_lifeState` written before `entity_spawn`), the view angle of `.loadnade`, `.last`, `.back N`
+and `.loadpos`; match `.spec`.
 
 ### ABI rules
 

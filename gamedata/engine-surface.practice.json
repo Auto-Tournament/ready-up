@@ -3,7 +3,7 @@
     "game_version": "1.41.8.5",
     "steam_buildid": 25537370,
     "binary": "game/csgo/bin/linuxsteamrt64/libserver.so",
-    "notes": "Owned by readyup-practice (ships only in the practice component, next to the core's engine-surface.json). The grenade projectile factories behind ru_api grenade_spawn (API 1.12). Each Create is what CS2's own point_script SpawnGrenadeProjectile() calls (the caller_string anchor), with the same arguments: (const Vector* origin, const QAngle* angles, const Vector* velocity, const Vector* angular_velocity, CBaseEntity* thrower_pawn_or_null, int item_def_index); smoke takes a 7th int (team), HE gets 3.0f in xmm0 like the script call. The signatures cover the prologue's argument moves, so a changed ABI stops matching. None is in any plugin's needs.json \"surface\": a break turns off grenade spawning only (grenade_spawn_available() = 0), never the practice plugin. Check with build/readyup_sigcheck <libserver.so> gamedata/engine-surface.json gamedata/engine-surface.practice.json."
+    "notes": "Owned by readyup-practice (ships only in the practice component, next to the core's engine-surface.json). The grenade projectile factories behind ru_api grenade_spawn (API 1.12), and the team change / pawn teleport / entity create + spawn behind player_change_team, player_teleport, entity_create and entity_spawn (API 1.13). Each grenade Create is what CS2's own point_script SpawnGrenadeProjectile() calls (the caller_string anchor), with the same arguments: (const Vector* origin, const QAngle* angles, const Vector* velocity, const Vector* angular_velocity, CBaseEntity* thrower_pawn_or_null, int item_def_index); smoke takes a 7th int (team), HE gets 3.0f in xmm0 like the script call. The signatures cover the prologue's argument moves, so a changed ABI stops matching. The two virtuals (ChangeTeam, CCSPlayerPawn::Teleport) are also checked against their vtable slot (vtable_indices, class located by RTTI) and each call checks the object's vptr. None is in any plugin's needs.json \"surface\": a break turns off only that API (engine_feature_available() = 0), never the practice plugin. Check with build/readyup_sigcheck <libserver.so> gamedata/engine-surface.json gamedata/engine-surface.practice.json."
   },
   "functions": {
     "CSmokeGrenadeProjectile_Create": {
@@ -56,6 +56,70 @@
         { "type": "string_ref", "string": "decoy_projectile", "window": 64 },
         { "type": "caller_string", "string": "SpawnGrenadeProjectile", "window": 768 }
       ]
+    },
+    "UTIL_CreateEntityByName": {
+      "library": "server",
+      "linux": "48 8D 05 ? ? ? ? 55 48 89 FA 41 89 F0 48 89 E5 48 83 EC 08 41 B9 FF FF FF FF 31 C9 BE FF FF FF FF",
+      "required": false,
+      "description": "UTIL_CreateEntityByName(const char* classname, int forceEntityIndex = -1) -> CEntityInstance*: CGameEntitySystem::CreateEntityByName on the entity system global (lea of g_pGameEntitySystem, the same global UTIL_Remove reads). The entity is created, not spawned. Called (not hooked) by ru_api entity_create (practice .showspawns beams). Same signature as CounterStrikeSharp's.",
+      "anchors": [
+        { "type": "caller_string", "string": "chicken", "window": 96 },
+        { "type": "caller_string", "string": "info_deathmatch_spawn", "window": 16 }
+      ]
+    },
+    "CBaseEntity_DispatchSpawn": {
+      "library": "server",
+      "linux": "48 85 FF 74 ? 55 48 89 E5 41 55 41 54 49 89 FC 53 48 89 F3 48 83 EC 18 48 85 F6 74 ? 4C 8D 2D ? ? ? ?",
+      "required": false,
+      "description": "CBaseEntity::DispatchSpawn(CBaseEntity* entity, CEntityKeyValues* keyValues_or_null): spawns an entity made by UTIL_CreateEntityByName (null entity = no-op; null key values = an empty set). Called (not hooked) by ru_api entity_spawn. Its callers spawn the entities they just created by name (the anchors). Same signature as CounterStrikeSharp's.",
+      "anchors": [
+        { "type": "caller_string", "string": "info_deathmatch_spawn", "window": 64 },
+        { "type": "caller_string", "string": "info_hostage_rescue_zone_hint", "window": 96 }
+      ]
+    },
+    "CCSPlayerController_ChangeTeam": {
+      "library": "server",
+      "linux": "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 81 EC 78 01 00 00 44 0F B6 B7 24 06 00 00 44 39 F6",
+      "required": false,
+      "description": "CCSPlayerController::ChangeTeam(this, int team) (vtable_indices CCSPlayerController::ChangeTeam): what jointeam ends in; team 1 = spectators, 2 = T, 3 = CT. It fires player_team (callee anchor) and schedules CSForceTeamThink. Called (not hooked) by ru_api player_change_team (practice .fas / .watchme, match .spec).",
+      "anchors": [
+        { "type": "string_ref", "string": "CSForceTeamThink", "window": 1408 },
+        { "type": "callee_string", "string": "player_team", "window": 160, "callee_window": 96 }
+      ]
+    },
+    "CCSPlayerPawn_Teleport": {
+      "library": "server",
+      "linux": "55 48 89 E5 41 57 41 56 41 55 49 89 F5 41 54 49 89 D4 53 48 89 FB 48 83 EC 48 E8 ? ? ? ? 4D 85 ED",
+      "required": false,
+      "description": "CCSPlayerPawn::Teleport(this, const Vector* origin, const QAngle* angles, const Vector* velocity) (vtable_indices CCSPlayerPawn::Teleport, CBaseEntity::Teleport's slot): calls the base Teleport with the same arguments first, then keeps the new view angles (a null pointer leaves that part alone). What CounterStrikeSharp's Teleport and ME's .spawn / lineups call to set a player's view. Called (not hooked) by ru_api player_teleport. No string of its own: identity is the unique signature, its CCSPlayerPawn field reads (mov_disp) and the vtable slot check.",
+      "anchors": [
+        { "type": "mov_disp", "disp": 3960, "window": 96 },
+        { "type": "mov_disp", "disp": 3760, "window": 224 }
+      ]
+    }
+  },
+  "vtable_indices": {
+    "CCSPlayerController::ChangeTeam": {
+      "linux": 104,
+      "class": "CCSPlayerController",
+      "function": "CCSPlayerController_ChangeTeam",
+      "note": "CBaseEntity::ChangeTeam's slot (CounterStrikeSharp CCSPlayerController_ChangeTeam offset 104). Checked (slot == the verified function, and the controller's vptr == this vtable) before every call."
+    },
+    "CCSPlayerPawn::Teleport": {
+      "linux": 164,
+      "class": "CCSPlayerPawn",
+      "function": "CCSPlayerPawn_Teleport",
+      "note": "CBaseEntity::Teleport's slot (CounterStrikeSharp CBaseEntity_Teleport offset 164). Checked (slot == the verified function, and the pawn's vptr == this vtable) before every call."
+    }
+  },
+  "rtti": {
+    "CCSPlayerController": {
+      "typeinfo_name": "19CCSPlayerController",
+      "note": "Locates the controller vtable for the ChangeTeam slot check."
+    },
+    "CCSPlayerPawn": {
+      "typeinfo_name": "13CCSPlayerPawn",
+      "note": "Locates the pawn vtable for the Teleport slot check."
     }
   }
 }
