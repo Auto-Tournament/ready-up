@@ -160,7 +160,7 @@ echo "practice:";   no_skins practice;   check_manifests "$WORK/practice" practi
 echo "deathmatch:"; no_skins deathmatch; check_manifests "$WORK/deathmatch" deathmatch
 echo "essentials-plugin:"; no_skins essentials-plugin; check_manifests "$WORK/essentials-plugin" essentials
 if [[ -e "$WORK/essentials/readyup/plugins/practice.so" ]]; then ok "essentials has practice.so"; else bad "essentials lacks practice.so"; fi
-for b in practice essentials full; do  # its gamedata fragment (grenade spawning) ships with it
+for b in practice essentials; do  # its gamedata fragment (grenade spawning) ships with it; full is checked below
   if [[ -f "$WORK/$b/readyup/bin/linuxsteamrt64/engine-surface.practice.json" ]]; then ok "$b has engine-surface.practice.json"; else bad "$b lacks engine-surface.practice.json"; fi
 done
 if [[ -e "$WORK/core/readyup/bin/linuxsteamrt64/engine-surface.practice.json" ]]; then bad "core ships engine-surface.practice.json"; else ok "core: no practice gamedata"; fi
@@ -174,7 +174,7 @@ if [[ -e "$WORK/match/readyup/cfg-templates/ReadyUp/addons.cfg" ]]; then bad "ma
 echo "skins:";      has_skins skins;     check_manifests "$WORK/skins" skins
 echo "full:";       has_skins full; has_match full; has_fleet full; has_notices full; has_addons full
 full_components=(core essentials match fleet practice skins hello midas whitelist deathmatch addons)
-for f in readyup/plugins/deathmatch.so readyup/cfg-templates/ReadyUp/deathmatch.cfg; do
+for f in readyup/plugins/deathmatch.so readyup/cfg-templates/ReadyUp/deathmatch.cfg readyup/bin/linuxsteamrt64/engine-surface.practice.json; do
   if [[ -f "$WORK/full/$f" ]]; then ok "full has $f"; else bad "full lacks $f"; fi
 done
 [[ -f "$WORK/full/readyup/manifests/tools.json" ]] && full_components+=(tools)
