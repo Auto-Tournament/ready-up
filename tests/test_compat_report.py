@@ -236,6 +236,39 @@ class CompatReportTest(unittest.TestCase):
         for c in comps:
             self.assertIn(c["status"], ("pass", "pending"))
 
+    def test_grenade_fragment_is_practice_and_never_a_hard_need(self):
+        """ru_api grenade_spawn (1.12): its Create functions are the practice fragment's, the core's
+        type table names exactly those entries, and no plugin lists them in "surface" (a CS2 update
+        that breaks one must turn grenade spawning off, not disable a plugin)."""
+        files = cr.surface_files(str(ROOT / "gamedata"))
+        owner, _ = cr.ownership(files)
+        spec = (ROOT / "core" / "src" / "readyup" / "grenade_spec.h").read_text()
+        keys = set(__import__("re").findall(r'"(C\w+Projectile_Create)"', spec))
+        self.assertEqual(len(keys), 5)
+        for k in keys:
+            self.assertEqual(owner.get(("signature", k)), "practice", k)
+        frag = json.loads((ROOT / "gamedata" / "engine-surface.practice.json").read_text())
+        for k in keys:
+            fn = frag["functions"][k]
+            self.assertFalse(fn["required"], k)
+            self.assertNotIn("hook", fn, k)
+            types = [a["type"] for a in fn["anchors"]]
+            self.assertIn("string_ref", types, k)
+            self.assertIn({"type": "caller_string", "string": "SpawnGrenadeProjectile", "window": 768}, fn["anchors"], k)
+        self.assertEqual(cr.API_SURFACE["grenade_spawn"], [])
+        self.assertEqual(cr.API_SURFACE["grenade_spawn_available"], [])
+        for pid, need in cr.load_needs(str(ROOT / "plugins")).items():
+            self.assertFalse(keys & set(need.get("surface") or []), pid)
+        # A broken grenade signature fails the practice component (with the entry named), not core.
+        rows = ["OK   %-45s optional matches=1 rva=0x1  ok" % n for (kind, n) in sorted(owner) if kind == "signature"]
+        rows = [r.replace("OK   CHEGrenadeProjectile_Create", "FAIL CHEGrenadeProjectile_Create")
+                .replace("matches=1", "matches=0") if "CHEGrenadeProjectile_Create" in r else r for r in rows]
+        comps = {c["id"]: c for c in cr.build_components("\n".join(rows), "", 1, 0, files)}
+        self.assertEqual(comps["practice"]["status"], "fail")
+        self.assertEqual(comps["core"]["status"], "pass")
+        sig = next(k for k in comps["practice"]["checks"] if k["kind"] == "signature")
+        self.assertTrue(sig["failures"][0].startswith("CHEGrenadeProjectile_Create:"))
+
     # ---- plugin needs (plugins/<id>/needs.json) ------------------------------------------------
 
     def test_plugin_static_verdicts_from_needs(self):

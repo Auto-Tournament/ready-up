@@ -23,14 +23,23 @@
  * and the 1.11 ones:
  *   hello_cvar <name> (console)  reads a cvar with cvar_query and logs the answer
  *   hello_selftest    (console)  logs the core's latest selftest summary (selftest_summary)
+ * and the 1.12 ones:
+ *   hello_nade <type> <slot> [speed]  (console)  throws a grenade from that player's eyes
+ *                                                (grenade_spawn / grenade_spawn_available)
  *
  * Bump HELLO_VERSION, rebuild, `ru plugin reload hello`: the new string shows up
  * without restarting the server.
  */
 #include "readyup/plugin_api.h"
 
+#include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 #ifndef HELLO_VERSION
 #define HELLO_VERSION "1.2.0"
@@ -122,6 +131,73 @@ static void OnSelftest(void* user, const ru_command_ctx* ctx) {
   const int n = g_api->selftest_summary(g_api->self, buf, sizeof(buf));
   if (n < 0) ru_logf(g_api, RU_LOG_INFO, "selftest: none yet");
   else ru_logf(g_api, RU_LOG_INFO, "selftest: %s%s", buf, n >= (int)sizeof(buf) ? " (truncated)" : "");
+}
+
+/* v1.12: `hello_nade <type 1..6> <slot> [speed]` throws a grenade (RU_GRENADE_*) from the
+ * player's eyes the way they look, with them as the thrower. A dev tool for grenade_spawn. */
+static int SchemaOff(const char* cls, const char* alt, const char* field) {
+  int off = g_api->schema_offset(g_api->self, cls, field);
+  if (off < 0 && alt) off = g_api->schema_offset(g_api->self, alt, field);
+  return off;
+}
+
+static void OnNade(void* user, const ru_command_ctx* ctx) {
+  (void)user;
+  const ru_api* a = g_api;
+  if (ctx->argc < 3) {
+    ru_logf(a, RU_LOG_INFO, "usage: hello_nade <type 1=smoke 2=flash 3=he 4=molotov 5=incendiary 6=decoy> <slot> [speed]");
+    return;
+  }
+  const uint32_t type = (uint32_t)atoi(ctx->argv[1]);
+  const int slot = atoi(ctx->argv[2]);
+  const float speed = ctx->argc > 3 ? (float)atof(ctx->argv[3]) : 700.f;
+  if (!a->grenade_spawn_available(a->self, type)) {
+    ru_logf(a, RU_LOG_INFO, "nade: type %u not available on this CS2 build", type);
+    return;
+  }
+  const int offPawn = SchemaOff("CCSPlayerController", NULL, "m_hPlayerPawn");
+  const int offBody = SchemaOff("CBaseEntity", NULL, "m_CBodyComponent");
+  const int offNode = SchemaOff("CBodyComponent", NULL, "m_pSceneNode");
+  const int offOrigin = SchemaOff("CGameSceneNode", NULL, "m_vecAbsOrigin");
+  const int offEyes = SchemaOff("CCSPlayerPawn", "CCSPlayerPawnBase", "m_angEyeAngles");
+  void* ctrl = a->entity_by_index(a->self, slot + 1);
+  if (!ctrl || offPawn < 0 || offBody < 0 || offNode < 0 || offOrigin < 0 || offEyes < 0) {
+    ru_logf(a, RU_LOG_INFO, "nade: slot %d has no controller (or schema missing)", slot);
+    return;
+  }
+  uint32_t pawnHandle;
+  memcpy(&pawnHandle, (const char*)ctrl + offPawn, sizeof(pawnHandle));
+  const char* pawn = (const char*)a->entity_from_handle(a->self, pawnHandle);
+  const char* body = pawn ? *(const char* const*)(pawn + offBody) : NULL;
+  const char* node = body ? *(const char* const*)(body + offNode) : NULL;
+  if (!node) {
+    ru_logf(a, RU_LOG_INFO, "nade: slot %d has no pawn", slot);
+    return;
+  }
+  float pos[3], eyes[3];
+  memcpy(pos, node + offOrigin, sizeof(pos));
+  memcpy(eyes, pawn + offEyes, sizeof(eyes));
+  const double p = eyes[0] * M_PI / 180.0, y = eyes[1] * M_PI / 180.0;
+  const float fwd[3] = {(float)(cos(p) * cos(y)), (float)(cos(p) * sin(y)), (float)-sin(p)};
+  ru_grenade_spawn s;
+  memset(&s, 0, sizeof(s));
+  s.struct_size = sizeof(s);
+  s.type = type;
+  for (int i = 0; i < 3; ++i) {
+    s.origin[i] = pos[i] + fwd[i] * 16.f;
+    s.velocity[i] = fwd[i] * speed;
+    s.angles[i] = 0.f;
+  }
+  s.origin[2] += 64.f; /* eye height */
+  s.angular_velocity[0] = 600.f;
+  s.owner_slot = slot;
+  void* ent = a->grenade_spawn(a->self, &s);
+  if (!ent) {
+    ru_logf(a, RU_LOG_INFO, "nade: spawn failed (see the grenade_spawn line above)");
+    return;
+  }
+  ru_logf(a, RU_LOG_INFO, "nade: %s from slot %d at %.0f %.0f %.0f vel %.0f %.0f %.0f", a->entity_classname(a->self, ent),
+          slot, s.origin[0], s.origin[1], s.origin[2], s.velocity[0], s.velocity[1], s.velocity[2]);
 }
 
 static void OnFrame(void* user, const ru_tick_info* t) {
@@ -225,6 +301,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     api->register_console_command(api->self, "hello_cvar", OnCvar, NULL);
     api->register_console_command(api->self, "hello_selftest", OnSelftest, NULL);
   }
+  if (RU_API_HAS(api, grenade_spawn_available)) api->register_console_command(api->self, "hello_nade", OnNade, NULL);
   ru_logf(api, RU_LOG_INFO, "loaded " HELLO_VERSION " (core %s, load #%u, greeting \"%s\")", api->core_version, g_loads,
           g_greeting);
   return 0;

@@ -10,6 +10,8 @@
 #include "readyup/center_panel_owner.h"
 #include "readyup/config.h"
 #include "readyup/features.h"
+#include "readyup/grenades.h"
+#include "readyup/logging.h"
 #include "readyup/license_status.h"
 #include "readyup/plugin_loader.h"
 #include "readyup/round_termination_hook.h"
@@ -331,6 +333,47 @@ int ApiSetCoreSetting(ru_plugin* self, const char* key, const char* value) {
   return 0;
 }
 
+// ---- v1.12 --------------------------------------------------------------------------
+
+int ApiGrenadeSpawnAvailable(ru_plugin* self, uint32_t type) {
+  if (!CheckGameThread(self, "grenade_spawn_available")) return 0;
+  return grenades::Available(type) ? 1 : 0;
+}
+
+void* ApiGrenadeSpawn(ru_plugin* self, const ru_grenade_spawn* spec) {
+  if (!CheckGameThread(self, "grenade_spawn")) return nullptr;
+  auto refuse = [&](const std::string& why) -> void* {
+    Print("plugin[%s]: grenade_spawn refused: %s\n", detail::PluginNameOf(self), why.c_str());
+    return nullptr;
+  };
+  if (!spec || spec->struct_size < offsetof(ru_grenade_spawn, owner_slot) + sizeof(spec->owner_slot)) {
+    return refuse("spec missing or struct_size too small");
+  }
+  grenades::SpawnRequest req;
+  req.type = spec->type;
+  req.origin = spec->origin;
+  req.angles = spec->angles;
+  req.velocity = spec->velocity;
+  req.ang_velocity = spec->angular_velocity;
+  if (spec->owner_slot >= 0) {
+    // The thrower is the player's pawn (what CS2's own SpawnGrenadeProjectile takes); the team
+    // comes from it too. A slot without a pawn is refused rather than silently ownerless.
+    const auto pawnOff = SchemaFindOffset("server", "CCSPlayerController", "m_hPlayerPawn");
+    const auto teamOff = SchemaFindOffset("server", "CBaseEntity", "m_iTeamNum");
+    void* ctrl = spec->owner_slot < 64 ? entity::EntityByIndex(spec->owner_slot + 1) : nullptr;
+    if (!ctrl || !pawnOff || !teamOff) return refuse("owner_slot " + std::to_string(spec->owner_slot) + " is not a player");
+    uint32_t pawnHandle = 0;
+    std::memcpy(&pawnHandle, static_cast<const char*>(ctrl) + *pawnOff, sizeof(pawnHandle));
+    void* pawn = entity::EntityFromHandle(pawnHandle);
+    if (!pawn) return refuse("owner_slot " + std::to_string(spec->owner_slot) + " has no pawn");
+    req.owner_pawn = pawn;
+    req.team = static_cast<const unsigned char*>(pawn)[*teamOff];
+  }
+  std::string why;
+  void* ent = grenades::Spawn(req, &why);
+  return ent ? ent : refuse(why);
+}
+
 }  // namespace
 
 void detail::FillEngineApi(ru_api* a) {
@@ -372,6 +415,8 @@ void detail::FillEngineApi(ru_api* a) {
   a->hook_vtable = &ApiHookVtable;
   a->license_player_line = &ApiLicensePlayerLine;                 // v1.9
   a->set_core_setting = &ApiSetCoreSetting;                       // v1.10
+  a->grenade_spawn = &ApiGrenadeSpawn;                            // v1.12
+  a->grenade_spawn_available = &ApiGrenadeSpawnAvailable;
 }
 
 }  // namespace readyup::plugins

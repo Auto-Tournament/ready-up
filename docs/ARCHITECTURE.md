@@ -222,6 +222,56 @@ plugin uses `cvar_query` for `reset_cvars_on_series_end` (`plugins/match/readyup
 fleet.so uses `selftest_summary` for `hello.selftest` / `server.selftest`, and `plugins/hello`
 shows both (`hello_cvar <name>`, `hello_selftest`).
 
+### v1.12 (implemented)
+
+Grenade projectiles. Engine side in `core/src/readyup/grenades.cpp` (type table and request checks
+in `grenade_spec.h`, unit-tested by `tests/grenade_spec_test.cpp`), members in `plugin_engine_api.cpp`.
+
+| Member | Thread | Purpose |
+|---|---|---|
+| `grenade_spawn(self, spec)` | game | Spawns one projectile from a `ru_grenade_spawn` and returns the entity (NULL + a log line on refusal). `spec`: `struct_size`, `type` (`RU_GRENADE_SMOKE/FLASH/HE/MOLOTOV/INCENDIARY/DECOY`), `origin[3]`, `angles[3]`, `velocity[3]` (units/s), `angular_velocity[3]` (passed on; CS2 ignores it today), `owner_slot` (-1 = no thrower). The thrower is that player's pawn: kills, damage and blinds are credited to it and the projectile takes its team. Refused: unknown type, non-finite or off-map origin (±32768), speed components ≥ 10000, an `owner_slot` without a pawn, no map, or the type unavailable |
+| `grenade_spawn_available(self, type)` | game | 1 if `grenade_spawn` can spawn `type` on this build. Check it first and tell the player "not available on this CS2 build" |
+
+How it works: CS2's own projectile factories, `CSmokeGrenadeProjectile::Create`,
+`CFlashbangProjectile::Create`, `CHEGrenadeProjectile::Create`, `CMolotovProjectile::Create`
+(molotov item 46 and incendiary 48) and `CDecoyProjectile::Create`, called exactly the way CS2's
+point_script `SpawnGrenadeProjectile()` calls them: `(origin, angles, velocity, angular velocity,
+thrower pawn, item definition index)`, plus the team for smoke. The projectile then behaves like a
+thrown one: it flies and bounces, HE / flash go off after their fuse, smoke / decoy once they stop,
+molotov / incendiary on landing, and the game fires the usual `*_detonate`, `inferno_startburn`,
+`player_blind` and `player_hurt` events with the thrower as `userid` / `attacker`.
+
+The signatures live in the practice gamedata fragment (`gamedata/engine-surface.practice.json`,
+shipped with `practice.so` next to the core's `engine-surface.json`). Each must match exactly once
+and pass two anchors: `string_ref` of its projectile classname, and `caller_string`
+`SpawnGrenadeProjectile` (a call from the script binding). The signatures cover the prologue's
+argument moves, so a changed calling convention stops matching instead of being called wrongly.
+None of them is in a plugin's `needs.json` `"surface"` (`API_SURFACE` maps both members to `[]`):
+a CS2 update that breaks one fails the `practice` component in compat-report and turns that
+grenade type off (`grenade_spawn_available` 0), it never disables a plugin. Without the fragment
+(a server without the practice component) every type is unavailable.
+
+Not in 1.12: a fuse / detonate-time override (throw later instead: schedule the call from
+`on_tick`), and player view angles (standing a player where a grenade was thrown from is
+`entity_set_abs_origin` on the pawn; turning their view is not possible yet). Users:
+`.scen` replays (`plugins/practice/practice_scenarios.cpp` `SpawnGrenade`) throw each recorded
+grenade from its recorded spawn point and velocity, and `plugins/hello` has
+`hello_nade <type> <slot> [speed]` (throws from that player's eyes the way they look).
+
+```c
+ru_grenade_spawn s = {0};
+s.struct_size = sizeof(s);
+s.type = RU_GRENADE_SMOKE;
+s.origin[0] = x; s.origin[1] = y; s.origin[2] = z;  /* where the projectile starts */
+s.velocity[0] = vx; s.velocity[1] = vy; s.velocity[2] = vz;
+s.owner_slot = slot;                                /* or -1 */
+if (!RU_API_HAS(api, grenade_spawn_available) || !api->grenade_spawn_available(api->self, s.type)) {
+  /* "not available on this CS2 build" */
+} else if (!api->grenade_spawn(api->self, &s)) {
+  /* refused: the reason is in the server log */
+}
+```
+
 ### ABI rules
 
 1. **Plain C across the boundary.** No C++ classes, references, STL, `std::string` or
