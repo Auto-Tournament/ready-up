@@ -264,7 +264,7 @@ The core reads `debug`, `banner`, `chat_prefix`, `chat_debug`, `consume_ru_chat`
 `status_http_*` keys. The match plugin (`match.so`) reads its keys (`welcome`, `ready_hud`,
 `hud_*`, `admin_prefix`, `captain_prefix_*`, `consume_ready_chat`, `dev_bots_*`, the
 [match server settings](#match-server-settings),
-`knife_pick_seconds`, `idle_map_refresh_hours`, `warmup_money`, `warmup_weapon_cleanup`) from the same place, or from a `[match]` section of this file, or from
+`knife_pick_seconds`, `idle_map_refresh_hours`, `backup_keep_hours`, `demo_keep_hours`, `warmup_money`, `warmup_weapon_cleanup`) from the same place, or from a `[match]` section of this file, or from
 `game/csgo/cfg/ReadyUp/match.cfg` (later ones win). It re-reads them by itself when one of those
 files changes.
 
@@ -278,6 +278,23 @@ rate stays fine (most likely float precision in the engine clock). A map load fi
   and the server has been on the same map for that many hours, Ready Up loads the same map again
   (a workshop map by its id). It logs `idle-refresh: ...` and tries again at most every 10 minutes
   if the map does not change.
+
+### File retention
+
+Round backups (`readyup_backup_<matchid>_map<N>_round<NN>.txt`, CS2's `mp_backup_round_file`),
+resume copies (`readyup_resume_...`) and GOTV demos would otherwise pile up forever. At plugin
+load and every map start the match plugin deletes, on a worker thread:
+
+- `backup_keep_hours=72` (default; `0` = keep forever): backup / resume files in the backup dirs
+  (`csgo/readyup/`, `csgo/addons/metamod/`, `csgo/`) last written more than that many hours ago.
+- `demo_keep_hours=24` (default; `0` = keep forever): `.dem` files in the demo dir (`ru_demo_path`
+  under the write path, and under `csgo/`) last written more than that many hours ago.
+
+Files of the loaded match (and of the match a restarted server recovers) and the demo being
+recorded are never deleted. It logs `retention: deleted N round backups (72 h) and M demos (24 h)`
+when it deleted something. With a fleet link, fleet.so deletes a streamed demo itself once the
+platform stored it (`[fleet] demo_keep_hours`, [FLEET.md](FLEET.md)); while a streamed demo is not
+confirmed by the platform yet, the sweep deletes no demos at all.
 
 ### Prefix keys
 

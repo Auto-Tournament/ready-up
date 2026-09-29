@@ -48,6 +48,9 @@ std::string FleetServerId();
 bool CurrentState(status::Json* out);
 // False while a demo of the assignment still uploads or the series is not over (FLEET.md §17).
 bool UpdateSafe();
+// fleet.so has a streamed demo the platform has not confirmed yet (ru_fleet_status update_blocked):
+// the local file is the only copy, so the retention sweep (retention.h) leaves demos alone. Game thread.
+bool DemosUnconfirmed();
 
 // Restores the start of `round` on the current map from this server's own CS2 round backup
 // (readyup_backup_<matchid>_map<N>_round<NN>.txt), the way cmd restore_round does: autopaused,

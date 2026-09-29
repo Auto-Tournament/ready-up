@@ -279,6 +279,15 @@ std::string ServerId() {
   return st.server_id;
 }
 
+bool UpdateBlocked() {
+  const ru_fleet_v1* f = Fleet();
+  if (!f) return false;
+  ru_fleet_status st{};
+  st.struct_size = sizeof(st);
+  if (f->get_status(&st) != 1) return false;
+  return st.update_blocked != 0;
+}
+
 // Humans connected right now.
 void KickHumans(const std::string& message, bool (*keep)(uint64_t)) {
   for (const auto& h : ListHumans()) {
@@ -2110,6 +2119,8 @@ bool UpdateSafe() {
   if (!g_asg.active) return true;
   return g_serverReset;
 }
+
+bool DemosUnconfirmed() { return UpdateBlocked(); }
 
 Json SnapshotJson() {
   Json j = Json::Object();

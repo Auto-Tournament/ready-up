@@ -61,6 +61,8 @@ set(MATCH_SOURCES
   readyup/player_registry.cpp
   readyup/ready_hud.cpp
   readyup/reload_state.cpp
+  readyup/retention.cpp
+  readyup/retention_rules.cpp
   readyup/round_restore.cpp
   readyup/round_restore_rules.cpp
   readyup/ruleset.cpp
@@ -243,3 +245,11 @@ add_executable(match_cvar_snapshot_test tests/cvar_snapshot_test.cpp readyup/cva
 target_include_directories(match_cvar_snapshot_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(match_cvar_snapshot_test PRIVATE -Wall -Wextra)
 add_test(NAME match_cvar_snapshot COMMAND match_cvar_snapshot_test)
+
+# File retention (readyup/retention_rules.h): which old round backups, resume files and demos the
+# sweep deletes (names, backup_keep_hours / demo_keep_hours, the loaded match, the recording)
+# (ctest `match_retention`).
+add_executable(match_retention_test tests/retention_test.cpp readyup/retention_rules.cpp)
+target_include_directories(match_retention_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(match_retention_test PRIVATE -Wall -Wextra)
+add_test(NAME match_retention COMMAND match_retention_test)

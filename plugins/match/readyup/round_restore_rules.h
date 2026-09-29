@@ -31,7 +31,8 @@ struct BackupInfo {
   long long size = 0;
 };
 
-// A CS2 round backup of match `matchid`: readyup_backup_<matchid>_map<N>_round<NN>.txt. Fills
+// A CS2 round backup of match `matchid`: readyup_backup_<matchid>_map<N>__round<NN>.txt (what CS2
+// writes for the BackupPrefix above: it adds "_round<NN>.txt") or ..._map<N>_round<NN>.txt. Fills
 // map_number and round (NN + 1). False for anything else (another match, a temp file, a path).
 bool ParseBackupFileName(const std::string& file, uint64_t matchid, BackupInfo* out);
 

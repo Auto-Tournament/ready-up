@@ -43,9 +43,14 @@ bool ParseBackupFileName(const std::string& file, uint64_t matchid, BackupInfo* 
   const std::string head = "readyup_backup_" + std::to_string(static_cast<unsigned long long>(matchid)) + "_map";
   if (file.size() <= head.size() + 4 || file.compare(0, head.size(), head) != 0) return false;
   if (file.compare(file.size() - 4, 4, ".txt") != 0) return false;
-  const size_t mapEnd = file.find("_round", head.size());
-  if (mapEnd == std::string::npos || !AllDigits(file, head.size(), mapEnd) || mapEnd - head.size() > 3) return false;
-  const size_t roundStart = mapEnd + 6;
+  const size_t roundTag = file.find("_round", head.size());
+  if (roundTag == std::string::npos) return false;
+  // CS2 appends "_round<NN>.txt" to mp_backup_round_file, and BackupPrefix already ends with '_':
+  // current builds write "..._map1__round03.txt"; "..._map1_round03.txt" is accepted too.
+  size_t mapEnd = roundTag;
+  if (mapEnd > head.size() && file[mapEnd - 1] == '_') --mapEnd;
+  if (!AllDigits(file, head.size(), mapEnd) || mapEnd - head.size() > 3) return false;
+  const size_t roundStart = roundTag + 6;
   const size_t roundEnd = file.size() - 4;
   if (!AllDigits(file, roundStart, roundEnd) || roundEnd - roundStart > 3) return false;
   const int map = std::atoi(file.substr(head.size(), mapEnd - head.size()).c_str());

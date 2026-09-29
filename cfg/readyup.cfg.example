@@ -85,6 +85,13 @@ admin_prefix=<DarkRed>[Admin]<Default>
 # motion; a map load fixes it. Loading a match always changes map, also onto the current one.
 # idle_map_refresh_hours=12
 
+# File retention, checked at plugin load and every map start: round backups / resume files
+# (readyup_backup_* / readyup_resume_*) and GOTV demos (*.dem in ru_demo_path) last written more
+# than this many hours ago are deleted. The loaded match's files and the demo being recorded are
+# always kept. 0 = keep forever. (fleet.so's [fleet] demo_keep_hours is its own, for streamed demos.)
+# backup_keep_hours=72
+# demo_keep_hours=24
+
 # Ruleset for loaded matches (docs/ESPORTS-MODE.md): default (ReadyUp/live.cfg, MatchZy-style) |
 # valve (Valve's CS Major rules: ReadyUp/esports_live.cfg, no knife rounds, skins plugin inert).
 # A match config's "ruleset" (and its "overrides") wins. Scrims use this one.
