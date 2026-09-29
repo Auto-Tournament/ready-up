@@ -27,7 +27,8 @@
 //
 // Console / RCON settings:
 //   ru_demo_recording_enabled 0|1          default 1
-//   ru_demo_path <dir/>                    relative to csgo/, ends with '/', default "ReadyUp/"
+//   ru_demo_path <dir/>                    relative to the write path (csgo/readyup/ on a Ready Up
+//                                          install, else csgo/), ends with '/', default "ReadyUp/"
 //   ru_demo_name_format "<fmt>"            default "{TIME}_{MATCH_ID}_{MAP}_{TEAM1}_vs_{TEAM2}"
 //   ru_demo_upload_url <url>|clear         empty = keep demos on disk only
 //   ru_demo_upload_method POST|PUT         default POST

@@ -5,6 +5,7 @@
 #include "readyup/match_console.h"
 
 #include "readyup/config.h"
+#include "readyup/demo_recorder.h"
 #include "readyup/engine.h"
 #include "readyup/esports.h"
 #include "readyup/http_client.h"
@@ -561,6 +562,13 @@ void ApplyLoadedMatch(const WebhookMatchContext& loaded, const std::string& conf
     ls.mapNumber = firstMapNumber;
     MatchLogRestore(ls);
     MatchStateSetMap(firstMapNumber, MatchStateGet().current_map);
+  }
+  // GOTV only records when tv_enable was 1 when the map loaded (the recorder's own tv_enable 1 at
+  // go-live comes too late: "Only TV Master can record demos instantly", no file). Turn it on
+  // before the match's first map load when this match records (rules.demo.record, else
+  // ru_demo_recording_enabled). Later maps load with it still on.
+  if (ctx.demo_record == 1 || (ctx.demo_record != 0 && demo::Get().recordingEnabled)) {
+    (void)EnqueueServerCommand("tv_enable 1");
   }
   if (idx < ctx.maplist.size()) {
     // CS2 reads game_type / game_mode at the map load: competitive, or wingman (wingman.h).
