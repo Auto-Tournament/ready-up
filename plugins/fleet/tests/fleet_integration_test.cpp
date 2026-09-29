@@ -506,17 +506,17 @@ TEST(TestRejections) {
     p.Stop();
   }
   {
-    // Plain ws:// to a public host is refused before any network I/O.
+    // Plain http:// without the explicit insecure opt-in is refused before any network I/O.
     ClientConfig cfg;
     cfg.url = "http://8.8.8.8:1";
-    cfg.insecureDev = true;
+    cfg.insecureDev = false;
     cfg.dataDir = TempDir();
     cfg.enrollCode = "RUE-AAAA-BBBB-CCCC";
     Client c(cfg);
     std::string err;
     CHECK(c.Start(&err));
     CHECK(WaitState(c, LinkState::Rejected, 2000));
-    CHECK(c.Status().lastError.find("loopback") != std::string::npos);
+    CHECK(c.Status().lastError.find("--insecure") != std::string::npos);
     c.Stop();
   }
 }
