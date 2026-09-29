@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <initializer_list>
 #include <map>
 #include <random>
 #include <string>
@@ -102,6 +103,16 @@ std::string JoinUrl(const std::string& base, const std::string& path, bool ws);
 bool IsPrivateHostUrl(const std::string& url);
 // ยง4.4 scheme check. Empty = allowed, otherwise the reason.
 std::string CheckUrlAllowed(const std::string& url, bool insecureDev);
+
+// hello.host.public_addr (FLEET.md ง6.1): where players connect. `raw` is "host", "host:port",
+// "[v6]" or "[v6]:port" (quotes and blanks trimmed); a missing port becomes `gamePort`. "" when
+// raw is empty, not an address (bad characters, port out of range) or a wildcard (0.0.0.0, ::).
+std::string NormalizePublicAddr(std::string_view raw, int gamePort);
+// The address hello reports: `configured` (fleet.cfg public_addr) when it normalizes, else the
+// first `detected` value (+ip / -ip / net_public_adr) that normalizes and is not loopback.
+// "" = leave public_addr out (the platform then uses the connection's peer address).
+std::string PickPublicAddr(std::string_view configured, std::initializer_list<std::string_view> detected,
+                           int gamePort);
 
 // hello.selftest / server.selftest payload from the core's selftest_summary JSON (ru_api 1.11):
 // {"pass","passed","total","failures"} in that order (the schema's fields; failures capped at 256

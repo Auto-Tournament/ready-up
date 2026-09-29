@@ -17,6 +17,10 @@
 //   demo_keep_hours=24                   streamed demos: delete the local .dem this long after the
 //                                        platform confirmed the whole file; 0 = keep them
 //   demo_chunk_kb=128  demo_window_kb=1024   demo chunk size (4..512) and bytes in flight
+//   public_addr=                         host[:port] players connect to (hello.host.public_addr);
+//                                        unset = +net_public_adr / +ip / -ip from the command line,
+//                                        else the net_public_adr / ip cvars, else left out (the
+//                                        platform then uses the link's peer address)
 //   enabled=1
 //
 // Demo streaming (FLEET.md §12.2, fleet_demo.h): the match plugin hands over the GOTV demos of
@@ -77,7 +81,7 @@ std::atomic<uint64_t> g_instanceId{0};
 
 struct Settings {
   bool enabled = true;
-  std::string url, code, key, caFile, pin;
+  std::string url, code, key, caFile, pin, publicAddr;
   bool insecureDev = false;
   int offlinePauseMinutes = 3;
   size_t spoolMaxMsgs = 50000;
@@ -171,6 +175,7 @@ void LoadSettings() {
   s.insecureDev = CfgBool({"insecure_dev", "fleet_insecure_dev"}, false);
   s.caFile = Cfg({"ca_file", "fleet_ca_file"});
   s.pin = Cfg({"pin_sha256", "fleet_pin_sha256"});
+  s.publicAddr = Cfg({"public_addr", "fleet_public_addr"});
   s.offlinePauseMinutes = static_cast<int>(CfgInt({"offline_pause_minutes", "fleet_offline_pause_minutes"}, 3));
   g_cfgOfflinePauseMinutes = s.offlinePauseMinutes;
   s.spoolMaxMsgs = static_cast<size_t>(std::max(100L, CfgInt({"spool_max_msgs"}, 50000)));
@@ -208,10 +213,17 @@ void ReadSteamInf(int64_t* build, std::string* patch) {
   }
 }
 
-void ReadPorts(int* gamePort, int* tvPort) {
-  *gamePort = 27015;
+struct LaunchArgs {
+  int gamePort = 27015;
+  int tvPort = 0;
+  std::string ip;            // -ip / +ip
+  std::string netPublicAdr;  // +net_public_adr
+};
+
+LaunchArgs ReadLaunchArgs() {
+  LaunchArgs out;
   std::string cmd;
-  if (!fleet::ReadFile("/proc/self/cmdline", &cmd, 1 << 16)) return;
+  if (!fleet::ReadFile("/proc/self/cmdline", &cmd, 1 << 16)) return out;
   std::vector<std::string> args;
   size_t s = 0;
   for (size_t i = 0; i <= cmd.size(); ++i) {
@@ -221,9 +233,12 @@ void ReadPorts(int* gamePort, int* tvPort) {
     }
   }
   for (size_t i = 0; i + 1 < args.size(); ++i) {
-    if (args[i] == "-port" || args[i] == "+hostport") *gamePort = std::atoi(args[i + 1].c_str());
-    if (args[i] == "+tv_port" || args[i] == "-tv_port") *tvPort = std::atoi(args[i + 1].c_str());
+    if (args[i] == "-port" || args[i] == "+hostport") out.gamePort = std::atoi(args[i + 1].c_str());
+    if (args[i] == "+tv_port" || args[i] == "-tv_port") out.tvPort = std::atoi(args[i + 1].c_str());
+    if (args[i] == "-ip" || args[i] == "+ip") out.ip = args[i + 1];
+    if (args[i] == "+net_public_adr" || args[i] == "-net_public_adr") out.netPublicAdr = args[i + 1];
   }
+  return out;
 }
 
 std::string BootId() {
@@ -295,7 +310,10 @@ void BuildHello() {
   ReadSteamInf(&h.cs2Build, &h.cs2Patch);
   char host[256] = {0};
   if (gethostname(host, sizeof(host) - 1) == 0) h.hostname = host;
-  ReadPorts(&h.gamePort, &h.tvPort);
+  const LaunchArgs la = ReadLaunchArgs();
+  h.gamePort = la.gamePort;
+  h.tvPort = la.tvPort;
+  h.publicAddr = fleet::PickPublicAddr(g_set.publicAddr, {la.netPublicAdr, la.ip}, h.gamePort);
   h.capabilities = g_caps;
   h.bootId = BootId();
   h.startedMs = ProcessStartMs();
@@ -835,6 +853,9 @@ void PrintStatus(void (*out)(void*, const std::string&), void* user, bool brief)
                 static_cast<long long>(st.rxSeq), st.spoolMsgs, static_cast<unsigned long long>(st.spoolBytes),
                 st.spoolDropped ? (", " + std::to_string(st.spoolDropped) + " dropped").c_str() : "");
   out(user, buf);
+  out(user, "fleet: public_addr " +
+                (g_hello.publicAddr.empty() ? std::string("(not sent: the platform uses the link's peer address)")
+                                            : g_hello.publicAddr));
   if (st.state != LinkState::Online && st.nextAttemptMs > 0) {
     const int64_t in = std::max<int64_t>(0, st.nextAttemptMs - fleet::NowMs());
     std::snprintf(buf, sizeof(buf), "fleet: next attempt in %lld.%lld s (`ru fleet reconnect` to go now)",
@@ -981,6 +1002,57 @@ void PollSelftest(fleet::Client& c) {
   Log(RU_LOG_DEBUG, "fleet: server.selftest %s", now.c_str());
 }
 
+// hello.host.public_addr from the net_public_adr / ip cvars, for a server that sets them in a cfg
+// rather than on the command line (ru_api 1.11 cvar_query). Asked once, ~10 s after the link
+// starts; an address learned after hello went out reconnects once so the platform stores it.
+enum class AddrQuery { Idle, Waiting, Pending, Done };
+AddrQuery g_addrQuery = AddrQuery::Idle;
+double g_addrQueryAt = 0.0;
+
+void OnAddrCvar(void* user, const char* name, const char* value) {
+  try {
+    const bool last = user != nullptr;  // user = "ip was the last one asked"
+    const std::string addr = value ? fleet::PickPublicAddr({}, {value}, g_hello.gamePort) : std::string();
+    if (addr.empty()) {
+      if (!last && RU_API_HAS(g_api, cvar_query) && g_api->cvar_query &&
+          g_api->cvar_query(g_api->self, "ip", &OnAddrCvar, reinterpret_cast<void*>(1)) == 1) {
+        return;
+      }
+      g_addrQuery = AddrQuery::Done;
+      return;
+    }
+    g_addrQuery = AddrQuery::Done;
+    if (addr == g_hello.publicAddr) return;
+    g_hello.publicAddr = addr;
+    Log(RU_LOG_INFO, "fleet: public_addr %s (from the %s cvar)", addr.c_str(), name ? name : "?");
+    if (auto c = Client()) {
+      c->SetHelloInfo(g_hello);
+      if (c->Status().state == LinkState::Online) c->RequestReconnect();  // hello carries it
+    }
+  } catch (...) {
+  }
+}
+
+void MaybeQueryAddr(double now) {
+  if (g_addrQuery == AddrQuery::Done || g_addrQuery == AddrQuery::Pending) return;
+  if (!g_set.publicAddr.empty() || !g_hello.publicAddr.empty() || !RU_API_HAS(g_api, cvar_query) ||
+      !g_api->cvar_query) {
+    g_addrQuery = AddrQuery::Done;
+    return;
+  }
+  if (g_addrQuery == AddrQuery::Idle) {
+    g_addrQuery = AddrQuery::Waiting;
+    g_addrQueryAt = now + 10.0;
+    return;
+  }
+  if (now < g_addrQueryAt) return;
+  if (g_api->cvar_query(g_api->self, "net_public_adr", &OnAddrCvar, nullptr) == 1) {
+    g_addrQuery = AddrQuery::Pending;
+  } else {
+    g_addrQueryAt = now + 10.0;  // no command buffer yet: try again
+  }
+}
+
 void OnTick(void*, const ru_tick_info* t) {
   try {
     if (g_lastTickNow > 0.0) {
@@ -1001,6 +1073,7 @@ void OnTick(void*, const ru_tick_info* t) {
       p99 = v[k];
     }
     c->UpdateHealth(CountPlayers(), p99);
+    MaybeQueryAddr(t->now);
     if (t->now - g_lastSelftestPoll >= 5.0) {
       g_lastSelftestPoll = t->now;
       PollSelftest(*c);
@@ -1049,6 +1122,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     g_frameMs.clear();
     g_lastTickNow = g_lastHousekeeping = g_lastSelftestPoll = 0.0;
     g_offlineFiredFor = -1;
+    g_addrQuery = AddrQuery::Idle;
     g_selftestSent.clear();
     {
       // What the previous image already told the platform (`ru plugin reload fleet`).

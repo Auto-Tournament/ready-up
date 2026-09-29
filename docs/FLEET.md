@@ -45,7 +45,7 @@ Config is the `[fleet]` section of `readyup.cfg` (or `csgo/cfg/ReadyUp/fleet.cfg
 `config_get`: `url`, `enroll_code`, `enroll_key`, `insecure_dev`, `ca_file`, `pin_sha256`,
 `offline_pause_minutes` (default 3, 0 = off; the platform's `server.config` value wins),
 `spool_max_msgs`, `spool_max_mb`, `demo_keep_hours` (24; 0 = keep streamed demos), `demo_chunk_kb`
-(128), `demo_window_kb` (1024), `enabled`.
+(128), `demo_window_kb` (1024), `public_addr` (the connect address, §6.1), `enabled`.
 The `fleet_`-prefixed names used in this document (`fleet_url`, ...) are accepted too. No `url`
 and no `credentials.json` = standalone: the plugin loads, logs one line and stays idle.
 
@@ -509,6 +509,25 @@ welcome {
   assignment: { match_id: string, epoch: number } | null
 }
 ```
+
+#### Connect address (`host.public_addr`)
+
+`host.public_addr` is the address players use for `connect`: `"host:port"` (IPv6 as
+`"[addr]:port"`). `hostname` is the machine's name (`gethostname`) and often does not resolve
+for players, so the platform must not use it as the connect host. fleet.so fills
+`public_addr` from, in order:
+
+1. `public_addr=` in `[fleet]` (fleet.cfg); a bare host gets the game port.
+2. `+net_public_adr`, then `+ip` / `-ip` on the command line.
+3. The `net_public_adr`, then `ip` cvar (ru_api 1.11 `cvar_query`, ~10 s after start). An
+   address learned this way after `hello` went out reconnects the link once, so the next
+   `hello` carries it.
+
+Wildcards (`0.0.0.0`, `::`) are skipped, and so is loopback from steps 2 and 3. With nothing
+left, `public_addr` is left out. The platform then picks the connect host in this order: the
+admin's override on the link, `public_addr`, the WebSocket peer address (after its trusted
+proxy hops). It updates the linked `cs2_servers` host when a later `hello` reports a new
+`public_addr`, unless an admin set the address by hand.
 
 If `hello.state.epoch` is lower than the platform's for that match, the platform follows up
 with `match.unassign {reason: "superseded"}` (§11.4). A second connection with the same

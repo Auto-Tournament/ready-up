@@ -126,6 +126,12 @@ int main() {
   }));
   CHECK(broken("hello.plugins_disabled.json", [](Value* p) { p->Set("plugins_disabled", Value::Str("skins")); }));
 
+  // hello.host.public_addr (fleet.cfg public_addr / +ip / net_public_adr): optional string.
+  CHECK(broken("hello.public_addr.json", [](Value* p) { p->Get("host")->Set("public_addr", Value::Int(27055)); }));
+  CHECK(broken("hello.public_addr.json", [](Value* p) {
+    p->Get("host")->Set("public_addr", Value::Str(std::string(256, 'a')));
+  }));
+
   // hello.selftest / server.selftest (core selftest_summary, ru_api 1.11): all four fields, typed.
   CHECK(broken("hello.selftest.json", [](Value* p) { p->Get("selftest")->Set("pass", Value::Str("yes")); }));
   CHECK(broken("hello.selftest.json", [](Value* p) { p->Set("selftest", Value::Object()); }));
