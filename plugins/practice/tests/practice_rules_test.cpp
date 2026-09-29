@@ -136,6 +136,8 @@ int main() {
                         ".importnade", ".in"}) {
     CHECK(IsToolCommand(c));
   }
+  // .fas / .watchme are tools too, so `ru practice as <slot> .fas` runs them (bot tests).
+  CHECK(IsToolCommand(".fas") && IsToolCommand(".watchme") && !IsBotCommand(".fas"));
   CHECK(ValidLineupName("mid_window-1.a") && !ValidLineupName("") && !ValidLineupName("a b") &&
         !ValidLineupName("../x/y") && !ValidLineupName(std::string(33, 'a')));
   CHECK(MapFileStem("de_Dust2") == "de_dust2" && MapFileStem("workshop/123/de x") == "workshop_123_de_x");

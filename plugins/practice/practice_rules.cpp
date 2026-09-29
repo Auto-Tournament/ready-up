@@ -30,6 +30,8 @@ bool IsToolCommand(const std::string& cmd) {
       // spawns
       ".bestspawn", ".worstspawn", ".bestctspawn", ".worstctspawn", ".besttspawn", ".worsttspawn", ".showspawns",
       ".hidespawns",
+      // everyone else to the spectators (ru_api 1.13)
+      ".fas", ".watchme",
       // lineup library
       ".savenade", ".sn", ".loadnade", ".ln", ".listnades", ".lin", ".deletenade", ".delnade", ".dn", ".importnade",
       ".in"};
