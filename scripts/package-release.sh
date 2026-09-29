@@ -28,7 +28,8 @@
 #                                            addons.cfg template (Steam Workshop addons; idle until
 #                                            workshop_addons is set)
 #   ready-up-whitelist-<v>-linuxsteamrt64.zip plugins/whitelist.so (only listed players; off by default)
-#   ready-up-practice-<v>-linuxsteamrt64.zip  plugins/practice.so + prac.cfg / practice.cfg templates
+#   ready-up-practice-<v>-linuxsteamrt64.zip  plugins/practice.so + engine-surface.practice.json + prac.cfg /
+#                                            practice.cfg templates + tools/scenario/ru_scenario.py + seed scenarios
 #   ready-up-essentials-plugin-<v>-...zip   plugins/essentials.so (admins, map commands); "essentials" alone is the bundle
 #   ready-up-deathmatch-<v>-linuxsteamrt64.zip plugins/deathmatch.so + deathmatch.cfg template (off until .ru dm ffa|tdm)
 # Bundles (for manual download):
@@ -157,12 +158,23 @@ stage_component essentials "Server basics: admins (admins.json), map change / re
   "$ROOT_DIR/plugins/essentials/needs.json:plugins/essentials.needs.json"
 
 # Practice mode + tools (.prac, .savepos, .rethrow, .bot, ...): its own plugin, so a server can
-# run it without the match flow. Ships prac.cfg (the cvars it execs) and its settings template.
-stage_component practice "Practice mode and tools (.prac, .savepos/.loadpos, .spawn, .rethrow, .bot)" \
-  "$BUILD/plugins/practice.so:plugins/practice.so:755" \
-  "$ROOT_DIR/plugins/practice/needs.json:plugins/practice.needs.json" \
-  "$ROOT_DIR/cfg/ReadyUp/prac.cfg:cfg-templates/ReadyUp/prac.cfg" \
+# run it without the match flow. Ships prac.cfg (the cvars it execs) and its settings template, its
+# gamedata fragment (engine-surface.practice.json: the grenade projectile factories behind ru_api
+# grenade_spawn, next to the core's engine-surface.json like the skins / addons ones), the
+# scenario converter (tools/scenario/ru_scenario.py, `ru scenario convert`) and the seed scenarios
+# (plugins/practice/scenarios/*.json: derived data with attribution, docs/SCENARIOS.md). Scenarios
+# admins add to that folder are not in the manifest, so updates never touch them.
+practice_files=("$BUILD/plugins/practice.so:plugins/practice.so:755"
+  "$ROOT_DIR/plugins/practice/needs.json:plugins/practice.needs.json"
+  "$ROOT_DIR/gamedata/engine-surface.practice.json:bin/linuxsteamrt64/engine-surface.practice.json"
+  "$ROOT_DIR/cfg/ReadyUp/prac.cfg:cfg-templates/ReadyUp/prac.cfg"
   "$ROOT_DIR/cfg/ReadyUp/practice.cfg:cfg-templates/ReadyUp/practice.cfg"
+  "$ROOT_DIR/tools/scenario/ru_scenario.py:tools/scenario/ru_scenario.py:755")
+for f in "$ROOT_DIR"/plugins/practice/scenarios/*.json; do
+  [[ -f "$f" ]] && practice_files+=("$f:plugins/practice/scenarios/$(basename "$f")")
+done
+stage_component practice "Practice mode and tools (.prac, .savepos/.loadpos, .spawn, .rethrow, .bot, .scen replays)" \
+  "${practice_files[@]}"
 
 stage_component whitelist "Only listed players may stay on the server (off until ru whitelist on)" \
   "$BUILD/plugins/whitelist.so:plugins/whitelist.so:755" \

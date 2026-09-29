@@ -66,6 +66,7 @@ add_library(server_shim SHARED
   core/src/readyup/slot_registry.cpp
   libs/readyup/steamid.cpp
   core/src/readyup/entity.cpp
+  core/src/readyup/grenades.cpp
   core/src/readyup/plugin_loader.cpp
   core/src/readyup/plugin_needs.cpp
   core/src/readyup/plugin_needs_engine.cpp
@@ -325,6 +326,7 @@ set_target_properties(readyup_plugin_hello_reload_test PROPERTIES
   OUTPUT_NAME "hello"
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/test")
 target_compile_definitions(readyup_plugin_hello_reload_test PRIVATE HELLO_VERSION="1.0.1-reloaded")
+target_link_libraries(readyup_plugin_hello_reload_test PRIVATE m)  # hello_nade (cos/sin)
 
 add_executable(readyup_plugin_host_test tools/plugin_host_test.cpp core/src/readyup/plugin_loader.cpp core/src/readyup/perf_stats.cpp
   core/src/readyup/plugin_state.cpp core/src/readyup/plugin_needs.cpp libs/readyup/minijson.cpp)
@@ -399,6 +401,12 @@ add_executable(readyup_perf_stats_test tests/perf_stats_test.cpp core/src/readyu
 target_include_directories(readyup_perf_stats_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
 target_compile_options(readyup_perf_stats_test PRIVATE -Wall -Wextra)
 add_test(NAME perf_stats COMMAND readyup_perf_stats_test)
+
+# ru_api grenade_spawn type table and request checks (core/src/readyup/grenade_spec.h).
+add_executable(readyup_grenade_spec_test tests/grenade_spec_test.cpp)
+target_include_directories(readyup_grenade_spec_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/core/include)
+target_compile_options(readyup_grenade_spec_test PRIVATE -Wall -Wextra)
+add_test(NAME grenade_spec COMMAND readyup_grenade_spec_test)
 
 # One center panel per player (core/src/readyup/center_panel_owner.h).
 add_executable(readyup_center_panel_owner_test tests/center_panel_owner_test.cpp core/src/readyup/center_panel_owner.cpp)

@@ -95,6 +95,8 @@ void FillEngineApi(ru_api* a) {
   a->ev_get_string = [](ru_plugin*, const ru_game_event* ev, const char*, const char*) { return Fake(ev)->weapon; };
   a->ev_get_int = [](ru_plugin*, const ru_game_event* ev, const char*, int) { return Fake(ev)->headshot; };
   a->feature_state = [](ru_plugin*, const char* name) { return std::string(name) == "events_live" ? 1 : -1; };
+  // v1.12: no engine here, so no grenade type is available (hello_nade must say so, not crash).
+  a->grenade_spawn_available = [](ru_plugin*, uint32_t) { return 0; };
 }
 }  // namespace readyup::plugins::detail
 
@@ -287,9 +289,14 @@ int main(int argc, char** argv) {
         "selftest_summary returns the core's JSON");
   rp::SetSelftestJsonProvider(nullptr);
 
+  std::puts("-- v1.12: grenade_spawn_available (hello_nade)");
+  rp::TryDispatchConsole("hello_nade 3 0");
+  rp::Frame(false);
+  Check(Logged("nade: type 3 not available on this CS2 build"), "an unavailable grenade type is reported, nothing spawned");
+
   std::puts("-- list");
   rp::HandlePluginCommand({"list"}, false);
-  Check(Logged("hello 1.2.0 (api 1.0) cmds=7 ticks=2 subs=3"), "list shows the plugin and its registrations");
+  Check(Logged("hello 1.2.0 (api 1.0) cmds=8 ticks=2 subs=3"), "list shows the plugin and its registrations");
 
   std::puts("-- hot reload with a rebuilt hello.so");
   if (!CopyFile(argv[2], so)) return 2;

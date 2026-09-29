@@ -1,0 +1,61 @@
+{
+  "_meta": {
+    "game_version": "1.41.8.5",
+    "steam_buildid": 25537370,
+    "binary": "game/csgo/bin/linuxsteamrt64/libserver.so",
+    "notes": "Owned by readyup-practice (ships only in the practice component, next to the core's engine-surface.json). The grenade projectile factories behind ru_api grenade_spawn (API 1.12). Each Create is what CS2's own point_script SpawnGrenadeProjectile() calls (the caller_string anchor), with the same arguments: (const Vector* origin, const QAngle* angles, const Vector* velocity, const Vector* angular_velocity, CBaseEntity* thrower_pawn_or_null, int item_def_index); smoke takes a 7th int (team), HE gets 3.0f in xmm0 like the script call. The signatures cover the prologue's argument moves, so a changed ABI stops matching. None is in any plugin's needs.json \"surface\": a break turns off grenade spawning only (grenade_spawn_available() = 0), never the practice plugin. Check with build/readyup_sigcheck <libserver.so> gamedata/engine-surface.json gamedata/engine-surface.practice.json."
+  },
+  "functions": {
+    "CSmokeGrenadeProjectile_Create": {
+      "library": "server",
+      "linux": "55 4C 89 C1 48 89 E5 41 57 49 89 FF 41 56 45 89 CE 41 55 4D 89 C5 41 54 53 48 81 EC ? ? ? ? 48 89 95 ? ? ? ? 48 89 F2",
+      "required": false,
+      "description": "CSmokeGrenadeProjectile::Create(origin, angles, velocity, angVelocity, thrower, itemDefIndex, team) -> CSmokeGrenadeProjectile*. Called (not hooked) by ru_api grenade_spawn. Item 45.",
+      "anchors": [
+        { "type": "string_ref", "string": "smokegrenade_projectile", "window": 96 },
+        { "type": "caller_string", "string": "SpawnGrenadeProjectile", "window": 768 }
+      ]
+    },
+    "CFlashbangProjectile_Create": {
+      "library": "server",
+      "linux": "55 4C 89 C1 48 89 E5 41 57 45 89 CF 41 56 49 89 FE 41 55 49 89 D5 48 89 F2 48 89 FE 41 54 48 8D 3D ? ? ? ? 4D 89 C4 53 48 83 EC 08",
+      "required": false,
+      "description": "CFlashbangProjectile::Create(origin, angles, velocity, angVelocity, thrower, itemDefIndex) -> CFlashbangProjectile*. Called (not hooked) by ru_api grenade_spawn. Item 43. Same prologue as the decoy's except the frame size (sub rsp, 8).",
+      "anchors": [
+        { "type": "string_ref", "string": "flashbang_projectile", "window": 64 },
+        { "type": "caller_string", "string": "SpawnGrenadeProjectile", "window": 768 }
+      ]
+    },
+    "CHEGrenadeProjectile_Create": {
+      "library": "server",
+      "linux": "55 4C 89 C1 48 89 E5 41 57 49 89 FF 41 56 49 89 D6 48 89 F2 48 89 FE 41 55 48 8D 3D ? ? ? ? 4D 89 C5 41 54 45 89 CC",
+      "required": false,
+      "description": "CHEGrenadeProjectile::Create(origin, angles, velocity, angVelocity, thrower, itemDefIndex) -> CHEGrenadeProjectile*. Called (not hooked) by ru_api grenade_spawn. Item 44.",
+      "anchors": [
+        { "type": "string_ref", "string": "hegrenade_projectile", "window": 64 },
+        { "type": "caller_string", "string": "SpawnGrenadeProjectile", "window": 768 }
+      ]
+    },
+    "CMolotovProjectile_Create": {
+      "library": "server",
+      "linux": "55 48 8D 05 ? ? ? ? 48 89 E5 41 57 41 56 41 55 41 54 49 89 FC 53 48 81 EC ? ? ? ? 4C 8D 35 ? ? ? ? 48 89 85 ? ? ? ?",
+      "required": false,
+      "description": "CMolotovProjectile::Create(origin, angles, velocity, angVelocity, thrower, itemDefIndex) -> CMolotovProjectile*. Called (not hooked) by ru_api grenade_spawn. Item 46 = molotov, 48 = incendiary (the script calls it with both). Builds the entity from keyvalues (classname / item_definition_index / origin / angles / owner) through the entity spawner.",
+      "anchors": [
+        { "type": "string_ref", "string": "molotov_projectile", "window": 512 },
+        { "type": "string_ref", "string": "IncGrenade.Throw.Loop", "window": 3360 },
+        { "type": "caller_string", "string": "SpawnGrenadeProjectile", "window": 768 }
+      ]
+    },
+    "CDecoyProjectile_Create": {
+      "library": "server",
+      "linux": "55 4C 89 C1 48 89 E5 41 57 45 89 CF 41 56 49 89 FE 41 55 49 89 D5 48 89 F2 48 89 FE 41 54 48 8D 3D ? ? ? ? 4D 89 C4 53 48 83 EC 48",
+      "required": false,
+      "description": "CDecoyProjectile::Create(origin, angles, velocity, angVelocity, thrower, itemDefIndex) -> CDecoyProjectile*. Called (not hooked) by ru_api grenade_spawn. Item 47.",
+      "anchors": [
+        { "type": "string_ref", "string": "decoy_projectile", "window": 64 },
+        { "type": "caller_string", "string": "SpawnGrenadeProjectile", "window": 768 }
+      ]
+    }
+  }
+}

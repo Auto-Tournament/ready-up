@@ -28,6 +28,7 @@
 //   .bot .cbot .boost ... a bot on the other team, moved to where you stand once it spawns
 //   .nobots               bot_kick
 //   .spawn N / .ctspawn N / .tspawn N   to spawn point N (1-based) of your / the CT / the T team
+//   .scen ...             scenarios: replay a recorded pro round with bots (practice_scenarios.h)
 //
 // ME (Auto Tournament plugin) extras, same names and messages; replies go to the caller only:
 //   .last                 to where you threw your last grenade; .back N: to throw N of your history
@@ -76,6 +77,7 @@
 #include "practice_feedback.h"
 #include "practice_lineups.h"
 #include "practice_rules.h"
+#include "practice_scenarios.h"
 #include "practice_tools.h"
 
 #include "readyup/json_store.h"
@@ -1461,6 +1463,7 @@ void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   add(ctx, "INFO", "practice", d.c_str());
   add(ctx, RU_API_HAS(g_api, entity_set_abs_origin) && g_api->entity_set_abs_origin ? "OK" : "WARN", "practice teleport",
       "ru_api entity_set_abs_origin (.loadpos / .spawn / bot placement)");
+  scenarios::Selftest(add, ctx);
 }
 const ru_selftest_iface_v1 g_selftestIface = {sizeof(ru_selftest_iface_v1), &RunSelftest};
 
@@ -1532,6 +1535,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   api->provide_interface(api->self, RU_PRACTICE_IFACE_NAME, RU_PRACTICE_IFACE_VERSION, const_cast<ru_practice_v1*>(&g_iface));
   api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "practice", RU_SELFTEST_IFACE_VERSION,
                          const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
+  scenarios::Load(api, {[] { return IsActive(); }, [] { return ToolsRefusal(); }});
   ru_logf(api, RU_LOG_INFO, "loaded " PRACTICE_VERSION);
   return 0;
 }
@@ -1539,6 +1543,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
 READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
   // Hot reload keeps a standalone practice mode on; toggles are restored on the pawns.
   g_api->stash_put(g_api->self, "standalone_active", &g_standaloneActive, sizeof(g_standaloneActive));
+  scenarios::Unload();
   ClearState(/*restorePawns=*/true);
   if (g_lineupWriter) {  // pending lineup files are written first
     g_lineupWriter->Stop();

@@ -54,8 +54,9 @@ SCHEMA = 1
 # Components with an engine-surface file. The base file is the core; every
 # engine-surface.<id>.json fragment is its plugin's own component.
 CORE_ID = "core"
-# Plugins without an engine-surface fragment, in display order. Each one's static verdict comes
-# from its plugins/<id>/needs.json: the engine-surface entries its ru_api calls need.
+# Plugins whose static verdict comes from their plugins/<id>/needs.json (the engine-surface entries
+# its ru_api calls need), in display order. practice also owns a fragment
+# (engine-surface.practice.json), whose entries count for it too.
 RUNTIME_ONLY = ["match", "practice", "essentials", "midas", "whitelist", "deathmatch", "fleet"]
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Plugins whose manifest is checked (needs-check) and used for verdicts. hello is the example.
@@ -332,6 +333,11 @@ API_SURFACE = {
     "surface_function": [],
     "hook_function": [],
     "hook_vtable": [],
+    # 1.12: the grenade Create functions live in the practice fragment (engine-surface.practice.json),
+    # so the practice component's static check covers them. They are deliberately nobody's hard
+    # need: a break turns grenade spawning off (grenade_spawn_available = 0), never a whole plugin.
+    "grenade_spawn": [],
+    "grenade_spawn_available": [],
     "set_round_termination_suppressed": ["CCSGameRules_TerminateRound"],
 }
 NEEDS_KEYS = ("schema_version", "plugin", "api", "surface", "schema", "schema_optional", "events")
