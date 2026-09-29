@@ -101,8 +101,13 @@ std::string Redact(std::string_view s);
 std::string JoinUrl(const std::string& base, const std::string& path, bool ws);
 // True if the URL's host is loopback, RFC 1918, link-local or "localhost".
 bool IsPrivateHostUrl(const std::string& url);
-// §4.4 scheme check. Empty = allowed, otherwise the reason.
-std::string CheckUrlAllowed(const std::string& url, bool insecureDev);
+// §4.4 scheme check. Empty = allowed, otherwise the reason. `insecure` (explicit opt-in:
+// fleet.cfg insecure = 1 or `ru fleet enroll ... --insecure`) allows http:// / ws:// to any host.
+std::string CheckUrlAllowed(const std::string& url, bool insecure);
+// The platform answered ws://host/... to an enrollment over https://host: behind a TLS proxy that
+// does not pass X-Forwarded-Proto it thinks it is plain http. Returns wss:// at the enroll host
+// (same host, and the same, default or no port), else "".
+std::string UpgradeSameHostWs(const std::string& base, const std::string& wsUrl);
 
 // hello.host.public_addr (FLEET.md �6.1): where players connect. `raw` is "host", "host:port",
 // "[v6]" or "[v6]:port" (quotes and blanks trimmed); a missing port becomes `gamePort`. "" when

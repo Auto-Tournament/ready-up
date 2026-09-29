@@ -116,6 +116,7 @@ bool LoadCredentials(const std::string& path, Credentials* out, std::string* err
   c.url = v.Get("url") ? v.Get("url")->AsStr() : "";
   c.installId = v.Get("install_id") ? v.Get("install_id")->AsStr() : "";
   c.enrolledAt = v.Get("enrolled_at") ? v.Get("enrolled_at")->AsInt(0) : 0;
+  c.insecure = v.Get("insecure") ? v.Get("insecure")->AsBool(false) : false;
   if (!c.Valid()) {
     if (err) *err = "credentials file lacks server_id/token";
     return false;
@@ -135,6 +136,7 @@ bool SaveCredentials(const std::string& path, const Credentials& c, std::string*
   v.Set("url", json::Value::Str(c.url));
   v.Set("install_id", json::Value::Str(c.installId));
   v.Set("enrolled_at", json::Value::Int(c.enrolledAt));
+  if (c.insecure) v.Set("insecure", json::Value::Bool(true));
   return WriteFileAtomic(path, json::Dump(v) + "\n", 0600, err);
 }
 

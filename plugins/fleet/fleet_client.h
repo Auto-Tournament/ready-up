@@ -33,7 +33,7 @@ struct ClientConfig {
   std::string url;         // platform base URL, e.g. https://tournament.example.com
   std::string enrollCode;  // one-time code (RUE-...)
   std::string enrollKey;   // fleet enrollment key (rfk_...), reusable
-  bool insecureDev = false;  // allow ws:// / http:// to loopback and RFC 1918 hosts
+  bool insecureDev = false;  // fleet.cfg insecure: allow plain ws:// / http:// (any host; token unencrypted)
   std::string caFile;        // extra CA bundle (private CA)
   std::string pinSha256;     // SPKI pin, base64 sha256 (CURLOPT_PINNEDPUBLICKEY "sha256//...")
   std::string dataDir;       // credentials.json, install_id, spool/
@@ -130,7 +130,8 @@ class Client {
   // Drop the current connection (if any) and connect again now, without backoff.
   void RequestReconnect();
   // Enroll now with a code (RUE-...) or key (rfk_...); `url` empty keeps the configured one.
-  void RequestEnroll(const std::string& url, const std::string& secret);
+  // insecure: `ru fleet enroll ... --insecure`; allows plain http/ws and is kept in credentials.json.
+  void RequestEnroll(const std::string& url, const std::string& secret, bool insecure = false);
 
   // Queue an outbound message. Reliable ones get a seq and are spooled by the network thread.
   // `ref`: the id of the message this answers (cmd.result), empty = none.
@@ -198,6 +199,8 @@ class Client {
   // *epoch (optional) = the published state's epoch (0 = none).
   std::string BuildSnapshot(const char* reason, const std::string& extraJson = {}, int64_t* epoch = nullptr);
   std::string WsUrl() const;
+  // Plain http/ws allowed: fleet.cfg insecure, or an explicit --insecure enrollment.
+  bool Insecure() const { return cfg_.insecureDev || insecure_; }
   void Log(int level, const std::string& msg) const;
 
   ClientConfig cfg_;
@@ -221,6 +224,7 @@ class Client {
   bool enrollRequested_ = false;
 
   std::atomic<bool> stop_{false};
+  std::atomic<bool> insecure_{false};
   std::atomic<bool> reconnect_{false};
   std::atomic<bool> holdOut_{false};
   int wakeFd_[2] = {-1, -1};

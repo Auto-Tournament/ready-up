@@ -145,6 +145,7 @@ bool Client::Start(std::string* err) {
   {
     std::lock_guard<std::mutex> lk(mu_);
     if (haveCreds_) creds_ = c;
+    if (haveCreds_ && c.insecure) insecure_ = true;
     status_.url = cfg_.url;
     status_.installId = installId_;
     status_.serverId = haveCreds_ ? c.serverId : "";
@@ -191,7 +192,8 @@ void Client::RequestReconnect() {
   Wake();
 }
 
-void Client::RequestEnroll(const std::string& url, const std::string& secret) {
+void Client::RequestEnroll(const std::string& url, const std::string& secret, bool insecure) {
+  if (insecure) insecure_ = true;
   {
     std::lock_guard<std::mutex> lk(mu_);
     pendingEnrollUrl_ = url;
@@ -415,7 +417,7 @@ bool Client::DoEnroll(const std::string& secret, const std::string& urlOverride,
     *fatal = true;
     return false;
   }
-  if (const std::string why = CheckUrlAllowed(base, cfg_.insecureDev); !why.empty()) {
+  if (const std::string why = CheckUrlAllowed(base, Insecure()); !why.empty()) {
     act->what = why;
     *fatal = true;
     return false;
@@ -518,12 +520,17 @@ bool Client::DoEnroll(const std::string& secret, const std::string& urlOverride,
   cr.url = base;
   cr.installId = installId_;
   cr.enrolledAt = NowMs();
+  cr.insecure = insecure_;
   if (!cr.Valid()) {
     act->what = "enrollment response lacks server_id/token";
     return false;
   }
-  if (!cr.wsUrl.empty() && !CheckUrlAllowed(cr.wsUrl, cfg_.insecureDev).empty()) {
-    Log(1, "fleet: ignoring ws_url " + cr.wsUrl + " from the platform (" + CheckUrlAllowed(cr.wsUrl, cfg_.insecureDev) +
+  if (const std::string up = UpgradeSameHostWs(base, cr.wsUrl); !up.empty()) {
+    Log(2, "fleet: the platform answered ws_url " + cr.wsUrl + "; using " + up + ", since it was reached over https");
+    cr.wsUrl = up;
+  }
+  if (!cr.wsUrl.empty() && !CheckUrlAllowed(cr.wsUrl, Insecure()).empty()) {
+    Log(1, "fleet: ignoring ws_url " + cr.wsUrl + " from the platform (" + CheckUrlAllowed(cr.wsUrl, Insecure()) +
                ")");
     cr.wsUrl.clear();
   }
@@ -772,7 +779,7 @@ Client::SessionResult Client::RunSession() {
     ++status_.connectAttempts;
   }
   const std::string url = WsUrl();
-  if (const std::string why = CheckUrlAllowed(url, cfg_.insecureDev); !why.empty()) {
+  if (const std::string why = CheckUrlAllowed(url, Insecure()); !why.empty()) {
     res.end = SessionEnd::NetError;
     res.action.what = why;
     res.action.capMs = 10 * 60 * 1000;

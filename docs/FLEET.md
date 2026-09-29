@@ -415,8 +415,11 @@ endpoint (§12), nothing else.
 
 ### 4.4 Transport security
 
-- `wss://` and `https://` only. `ws://`/`http://` only with `fleet_insecure_dev 1` **and** a
-  loopback or RFC 1918 host.
+- `wss://` and `https://` by default. `ws://`/`http://` (any host) only with an explicit opt-in:
+  `insecure 1` in fleet.cfg (old name `insecure_dev`) or `ru fleet enroll <url> <code> --insecure`
+  (kept in credentials.json). The token then travels unencrypted.
+- An enrollment over `https://` that gets `ws_url` `ws://` for the same host (a TLS proxy that does
+  not pass X-Forwarded-Proto) uses `wss://` at that host instead.
 - Certificate verification always on; CA bundle from the OS, `fleet_ca_file` for private CAs,
   optional SPKI pin `fleet_pin_sha256`.
 - The token goes in the `Authorization: Bearer` header only, never in URLs or message bodies.
@@ -1323,7 +1326,7 @@ standalone plugin. Postgres is gone in both modes (D13):
 | Events | optional `ru_webhook_url` (existing sender, no platform contract) |
 | Status | `/status`, `/stream` (§17), `ru match state` |
 
-Dev platform: the normal platform in dev mode. `fleet_insecure_dev 1` allows `ws://localhost`,
+Dev platform: the normal platform in dev mode. `insecure 1` allows `ws://localhost`,
 and the platform's `fake` integration tests can drive a fake fleet client that speaks the protocol.
 
 ## 17. Local status endpoint

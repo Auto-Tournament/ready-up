@@ -478,6 +478,29 @@ std::string HostOf(const std::string& url) {
   return auth;
 }
 
+// host[:port] of a URL, without user info.
+std::string AuthorityOf(const std::string& url) {
+  size_t p = url.find("://");
+  if (p == std::string::npos) return {};
+  p += 3;
+  const size_t end = url.find_first_of("/?#", p);
+  std::string auth = url.substr(p, end == std::string::npos ? std::string::npos : end - p);
+  const size_t at = auth.rfind('@');
+  if (at != std::string::npos) auth = auth.substr(at + 1);
+  return auth;
+}
+
+std::string PortOf(const std::string& url) {
+  const std::string auth = AuthorityOf(url);
+  size_t from = 0;
+  if (!auth.empty() && auth[0] == '[') {
+    from = auth.find(']');
+    if (from == std::string::npos) return {};
+  }
+  const size_t colon = auth.find(':', from);
+  return colon == std::string::npos ? std::string() : auth.substr(colon + 1);
+}
+
 }  // namespace
 
 bool IsPrivateHostUrl(const std::string& url) {
@@ -499,15 +522,29 @@ bool IsPrivateHostUrl(const std::string& url) {
   return false;
 }
 
-std::string CheckUrlAllowed(const std::string& url, bool insecureDev) {
+std::string CheckUrlAllowed(const std::string& url, bool insecure) {
   const std::string s = SchemeOf(url);
   if (s == "https" || s == "wss") return {};
   if (s == "http" || s == "ws") {
-    if (!insecureDev) return "plain " + s + ":// needs insecure_dev 1 (and a loopback/private host)";
-    if (!IsPrivateHostUrl(url)) return "plain " + s + ":// is only allowed to loopback or RFC 1918 hosts";
+    if (!insecure) {
+      return "plain " + s + ":// is refused: use " + (s == "http" ? "https" : "wss") +
+             "://, or opt in with `insecure = 1` in fleet.cfg or `ru fleet enroll <url> <code> --insecure` "
+             "(the token then travels unencrypted)";
+    }
     return {};
   }
   return "unsupported URL scheme (want https:// or wss://)";
+}
+
+std::string UpgradeSameHostWs(const std::string& base, const std::string& wsUrl) {
+  if (SchemeOf(base) != "https" || SchemeOf(wsUrl) != "ws") return {};
+  const std::string host = HostOf(base);
+  if (host.empty() || host != HostOf(wsUrl)) return {};
+  const std::string bp = PortOf(base), wp = PortOf(wsUrl);
+  if (!(wp.empty() || wp == "80" || wp == bp || (wp == "443" && bp.empty()))) return {};
+  const size_t p = wsUrl.find("://") + 3;
+  const size_t end = wsUrl.find_first_of("/?#", p);
+  return "wss://" + AuthorityOf(base) + (end == std::string::npos ? std::string() : wsUrl.substr(end));
 }
 
 std::string SelftestPayload(const std::string& coreJson) {
