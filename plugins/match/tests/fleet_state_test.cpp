@@ -6,6 +6,7 @@
 #include "readyup/fleet_state.h"
 #include "readyup/map_names.h"
 #include "readyup/match_config_parser.h"
+#include "readyup/match_rules.h"
 #include "readyup/match_stats.h"
 
 #include <cstdio>
@@ -225,6 +226,8 @@ static void TestAssign() {
   // Server settings the match sets (server_settings.h): a team with a substitute gives the team size
   // (1 starter each here), rules.whitelist / rules.ready.autoready; playout left out stays unset.
   CHECK(ctx->players_per_team == 1);
+  // The substitute is named as one (ready count, live state role).
+  CHECK(ctx->substitutes.size() == 1 && ctx->substitutes.count(76561198000000002ull) == 1);
   CHECK(ctx->whitelist == 1 && ctx->autoready == 0 && ctx->playout == -1);
   {
     Json po = *p.Find("config");
@@ -846,8 +849,47 @@ static void TestServerConfigPlan() {
   CHECK(bad.skipped.size() == 2);
 }
 
+// M1 play-test: a sub added to a 5v5 by match.update counted toward the ready total (10/11).
+static void TestSubstitutes() {
+  std::string err;
+  Json cfg = J(R"({
+    "num_maps": 1, "maps": [{"number":1,"name":"de_mirage","sides":"knife"}],
+    "team1": {"name":"A","players":[{"steamid64":"76561198000000001","name":"a1"},{"steamid64":"76561198000000002","name":"a2"},
+      {"steamid64":"76561198000000003","name":"a3"},{"steamid64":"76561198000000004","name":"a4"},{"steamid64":"76561198000000005","name":"a5"}]},
+    "team2": {"name":"B","players":[{"steamid64":"76561198000000011","name":"b1"},{"steamid64":"76561198000000012","name":"b2"},
+      {"steamid64":"76561198000000013","name":"b3"},{"steamid64":"76561198000000014","name":"b4"},{"steamid64":"76561198000000015","name":"b5"}]},
+    "password": "pw", "rules": {"max_rounds": 24}
+  })");
+  auto before = ParseWebhookMatchContextFromJson(fs::AssignToMatConfig("m", cfg, nullptr).Dump(), &err);
+  CHECK(before && before->substitutes.empty() && before->players_per_team == 0);
+  bool pw = false;
+  CHECK(fs::ApplyUpdateOps(&cfg, J(R"([{"op":"add_player","team":"team1","steamid64":"76561198000000006","name":"sub1","role":"sub"}])"),
+                           &err, &pw));
+  auto after = ParseWebhookMatchContextFromJson(fs::AssignToMatConfig("m", cfg, nullptr).Dump(), &err);
+  CHECK(after.has_value());
+  if (!after) return;
+  CHECK(after->roster_team.size() == 11);  // on the roster (whitelisted, may stand in)
+  CHECK(after->substitutes.size() == 1 && after->substitutes.count(76561198000000006ull) == 1);
+  CHECK(after->players_per_team == 5);
+  int roster[2] = {0, 0};
+  for (const auto& kv : after->roster_team) ++roster[kv.second == WebhookTeam::Team2 ? 1 : 0];
+  const ReadyTally t1 = TeamReadyTally(roster[0], 5, after->players_per_team);
+  const ReadyTally t2 = TeamReadyTally(roster[1], 5, after->players_per_team);
+  CHECK(t1.ready + t2.ready == 10 && t1.total + t2.total == 10);  // 10/10, not 10/11
+
+  // A MAT config naming substitutes without players_per_team: a full team is the starters.
+  auto mat = ParseWebhookMatchContextFromJson(R"({"matchid": 7, "num_maps": 1, "maplist": ["de_mirage"],
+    "team1": {"name":"A","players":{"76561198000000001":"a1","76561198000000002":"a2"},"substitutes":{"76561198000000003":"s1"}},
+    "team2": {"name":"B","players":{"76561198000000011":"b1","76561198000000012":"b2"}}})", &err);
+  CHECK(mat.has_value());
+  if (!mat) return;
+  CHECK(mat->substitutes.count(76561198000000003ull) == 1 && mat->roster_team.count(76561198000000003ull) == 1);
+  CHECK(mat->players_per_team == 2);
+}
+
 int main() {
   TestLiveStream();
+  TestSubstitutes();
   TestFence();
   TestAssign();
   TestUpdateOps();

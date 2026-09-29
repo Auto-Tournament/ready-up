@@ -8,6 +8,7 @@
 #include "readyup/logging.h"
 #include "readyup/match_events.h"
 #include "readyup/match_features.h"
+#include "readyup/match_rules.h"
 #include "readyup/match_state.h"
 #include "readyup/modes.h"
 #include "readyup/player_registry.h"
@@ -63,6 +64,7 @@ struct Board {
   int botsT = 0;
   int ready = 0;
   int total = 0;
+  bool tallied = false;  // ready/total set per team (match); else counted from entries (scrim)
   bool scrim = false;
   std::string note;  // e.g. "need players on both CT and T" (empty when none)
 };
@@ -180,6 +182,7 @@ static Board BuildBoard(ReadyUpMode mode, const std::optional<WebhookMatchContex
     }
     std::unordered_set<uint64_t> connected;
     for (const auto& h : humans) connected.insert(h.steamid64);
+    int teamRoster[2] = {0, 0}, teamReady[2] = {0, 0};
     for (const auto& kv : ctx->roster_team) {
       if (kv.first == 0) continue;
       Entry e;
@@ -189,8 +192,17 @@ static Board BuildBoard(ReadyUpMode mode, const std::optional<WebhookMatchContex
       e.name = NameOf(kv.first, names);
       e.ready = IsReady(kv.first);
       e.connected = connected.count(kv.first) != 0;
+      ++teamRoster[t1 ? 0 : 1];
+      if (e.ready) ++teamReady[t1 ? 0 : 1];
       b.entries.push_back(std::move(e));
     }
+    // Substitutes never raise the total (match_rules.h TeamReadyTally): 5 + 1 sub reads x/5.
+    for (int t = 0; t < 2; ++t) {
+      const ReadyTally tally = TeamReadyTally(teamRoster[t], teamReady[t], ctx->players_per_team);
+      b.ready += tally.ready;
+      b.total += tally.total;
+    }
+    b.tallied = true;
     if (DevBotsReadyEnabled()) {
       for (const auto& bot : ListBots()) {
         if (bot.team == 3) b.botsCt++;
@@ -200,9 +212,11 @@ static Board BuildBoard(ReadyUpMode mode, const std::optional<WebhookMatchContex
   }
   std::sort(b.entries.begin(), b.entries.end(),
             [](const Entry& x, const Entry& y) { return x.name < y.name; });
-  for (const auto& e : b.entries) {
-    b.total++;
-    if (e.ready) b.ready++;
+  if (!b.tallied) {
+    for (const auto& e : b.entries) {
+      b.total++;
+      if (e.ready) b.ready++;
+    }
   }
   return b;
 }

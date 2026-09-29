@@ -197,6 +197,7 @@ struct Offsets {
   int isInc = -1;        // CMolotovProjectile::m_bIsIncGrenade
   int absVelocity = -1;  // CBaseEntity::m_vecAbsVelocity (fallback for m_vInitialVelocity)
   int absRotation = -1;  // CGameSceneNode::m_angAbsRotation
+  int ctrlConnected = -1;  // CBasePlayerController::m_iConnected (PlayerConnectedState)
 };
 Offsets g_off;
 
@@ -233,6 +234,7 @@ const Offsets& Off() {
   o.isInc = FirstOffset({"CMolotovProjectile"}, "m_bIsIncGrenade");
   o.absVelocity = FirstOffset({"CBaseEntity"}, "m_vecAbsVelocity");
   o.absRotation = FirstOffset({"CGameSceneNode"}, "m_angAbsRotation");
+  o.ctrlConnected = FirstOffset({"CBasePlayerController", "CCSPlayerController"}, "m_iConnected");
   Log("practice: schema pawn=%d body=%d node=%d origin=%d life=%d eyes=%d flash=%d/%d takesdamage=%d spawn=%d/%d "
       "nade thrower=%d initial=%d/%d inc=%d",
       o.ctrlPawn, o.bodyComponent, o.sceneNode, o.absOrigin, o.lifeState, o.eyeAngles, o.flashAlpha, o.flashDuration,
@@ -320,8 +322,23 @@ std::string Fmt(const Vec3& p) {
 
 // ---- players --------------------------------------------------------------------------------------
 
-// A player by slot (humans: engine slot; bots: their log <N>, which is the slot in CS2).
+// What the engine has in player slot `slot` (practice_rules.h SlotEngineState).
+practice::SlotEngineState EngineSlotState(int slot) {
+  if (slot < 0) return practice::SlotEngineState::kEmpty;
+  if (g_api->entity_system_status(g_api->self) != RU_ENTSYS_OK) return practice::SlotEngineState::kUnknown;
+  const Offsets& o = Off();
+  void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
+  const char* cls = ctrl ? g_api->entity_classname(g_api->self, ctrl) : nullptr;
+  const bool isController = cls && std::strcmp(cls, "cs_player_controller") == 0;
+  return practice::SlotStateFrom(true, isController, isController && o.ctrlConnected >= 0,
+                                 isController && o.ctrlConnected >= 0 ? Rd<int>(ctrl, o.ctrlConnected) : 0);
+}
+
+// A connected player by slot (humans: engine slot; bots: their log <N>, which is the slot in CS2).
+// The core's registry can still list a player that left (a kicked bot); the engine has the last
+// word (EngineSlotState), so a stale entry is never picked.
 bool PlayerBySlot(int slot, ru_player* out) {
+  if (!practice::SlotEntryUsable(EngineSlotState(slot))) return false;
   struct Ctx {
     int slot;
     ru_player* out;
@@ -332,6 +349,7 @@ bool PlayerBySlot(int slot, ru_player* out) {
       [](void* u, const ru_player* p) -> int {
         auto* c = static_cast<Ctx*>(u);
         if ((p->slot >= 0 ? p->slot : p->userid) != c->slot) return 1;
+        if (!p->connected) return 1;
         std::memcpy(c->out, p, std::min<size_t>(sizeof(ru_player), p->struct_size));
         c->found = true;
         return 0;

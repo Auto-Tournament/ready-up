@@ -668,6 +668,11 @@ AssignTeam { id: string, name: string, tag?: string, flag?: string, captain?: u6
              players: Array<{ steamid64: u64s, name: string, role?: "player" | "sub" | "coach" }> }
 ```
 
+A `sub` is on the roster (whitelisted, may stand in for a starter) but never counts toward the
+players who must ready up: a full team is the team's `player`s (`players_per_team`), and the ready
+count (`MatchState.ready`, the ready HUD, chat) reads 10/10 for a 5v5 with a substitute, not 10/11.
+`MatchState` reports the substitute with `role: "sub"`.
+
 `rules` replaces today's `maxRounds`, `overtimeMode`, `knifeDecisionSeconds` and the per-match
 `at_*` cvars with typed fields:
 

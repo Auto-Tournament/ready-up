@@ -358,6 +358,7 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
     if (!Str(*src, "flag").empty()) t["flag"] = Str(*src, "flag");
     Json players = Json::Object();
     Json teamCoaches = Json::Object();
+    Json teamSubs = Json::Object();
     long long teamStarters = 0;
     if (const Json* ps = Arr(*src, "players")) {
       for (const auto& p : ps->Items()) {
@@ -371,13 +372,20 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
           teamCoaches[sid] = Str(p, "name");
         }
         else players[sid] = Str(p, "name");
-        if (role == "sub") subs = true;
-        else if (role != "coach") ++teamStarters;
+        if (role == "sub") {
+          subs = true;
+          teamSubs[sid] = Str(p, "name");
+        } else if (role != "coach") {
+          ++teamStarters;
+        }
       }
     }
     starters = std::max(starters, teamStarters);
     t["players"] = std::move(players);
     if (!teamCoaches.Members().empty()) t["coaches"] = std::move(teamCoaches);
+    // Substitutes stay in `players` (whitelisted, may stand in) and are named here, so the ready
+    // count and the live state know them (match_config_parser.cpp `substitutes`).
+    if (!teamSubs.Members().empty()) t["substitutes"] = std::move(teamSubs);
     if (!Str(*src, "captain").empty()) t["captain_steamid64"] = Str(*src, "captain");
     return t;
   };

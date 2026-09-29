@@ -8,6 +8,7 @@
 #include "readyup/esports.h"
 #include "readyup/fleet_bridge.h"
 #include "readyup/match_end.h"
+#include "readyup/match_rules.h"
 #include "readyup/match_state.h"
 #include "readyup/match_stats.h"
 #include "readyup/modes.h"
@@ -176,10 +177,19 @@ void Collect(Json* sOut, Json* stOut, bool* safeOut) {
 
   int ready = 0, readyTotal = 0;
   if (ctx) {
+    // Per team, ready players up to a full team over the full team: substitutes never count toward
+    // the players the match waits for (match_rules.h TeamReadyTally).
+    int teamRoster[2] = {0, 0}, teamReady[2] = {0, 0};
     for (const auto& kv : ctx->roster_team) {
       if (!kv.first) continue;
-      ++readyTotal;
-      if (IsReady(kv.first)) ++ready;
+      const int t = kv.second == WebhookTeam::Team2 ? 1 : 0;
+      ++teamRoster[t];
+      if (IsReady(kv.first)) ++teamReady[t];
+    }
+    for (int t = 0; t < 2; ++t) {
+      const ReadyTally tally = TeamReadyTally(teamRoster[t], teamReady[t], ctx->players_per_team);
+      ready += tally.ready;
+      readyTotal += tally.total;
     }
   } else {
     for (const auto& h : humans) {
@@ -347,7 +357,7 @@ void Collect(Json* sOut, Json* stOut, bool* safeOut) {
           if (o != seen.end()) nm = o->second;
         }
         pj["name"] = nm;
-        pj["role"] = "player";
+        pj["role"] = ctx->substitutes.count(kv.first) ? "sub" : "player";
         pj["connected"] = h != humanBy.end();
         pj["ready"] = IsReady(kv.first);
         pl[std::to_string(kv.first)] = std::move(pj);
@@ -376,7 +386,7 @@ void Collect(Json* sOut, Json* stOut, bool* safeOut) {
       else if (kv.second == WebhookTeam::Team2) ++c2;
     }
     Json rj = Json::Object();
-    rj["required_per_team"] = std::max(c1, c2);
+    rj["required_per_team"] = std::max(FullTeamSize(c1, ctx->players_per_team), FullTeamSize(c2, ctx->players_per_team));
     rj["ready"] = ready;
     rj["total"] = readyTotal;
     st["ready"] = std::move(rj);

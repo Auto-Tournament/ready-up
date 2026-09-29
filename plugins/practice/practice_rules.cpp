@@ -63,6 +63,17 @@ bool ParseBool(const std::string& text, bool def) {
   return def;
 }
 
+SlotEngineState SlotStateFrom(bool entitySystemReady, bool hasController, bool connectedKnown, int connectedState) {
+  if (!entitySystemReady) return SlotEngineState::kUnknown;
+  if (!hasController) return SlotEngineState::kEmpty;
+  if (!connectedKnown) return SlotEngineState::kConnected;
+  return connectedState == 0 ? SlotEngineState::kConnected : SlotEngineState::kGone;
+}
+
+bool SlotEntryUsable(SlotEngineState state) {
+  return state == SlotEngineState::kUnknown || state == SlotEngineState::kConnected;
+}
+
 const char* HelpLine() {
   return "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N "
          ".bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | "

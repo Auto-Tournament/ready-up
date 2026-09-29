@@ -138,6 +138,16 @@ int main() {
   }
   // .fas / .watchme are tools too, so `ru practice as <slot> .fas` runs them (bot tests).
   CHECK(IsToolCommand(".fas") && IsToolCommand(".watchme") && !IsBotCommand(".fas"));
+  // `ru practice as N` (M1 play-test): a registry entry the engine no longer has (a kicked bot still
+  // listed) is never picked; only a connected controller in that slot counts.
+  CHECK(SlotEntryUsable(SlotStateFrom(true, true, true, 0)));                        // connected
+  CHECK(!SlotEntryUsable(SlotStateFrom(true, false, false, 0)));                     // no controller
+  CHECK(!SlotEntryUsable(SlotStateFrom(true, true, true, 4)));                       // disconnected
+  CHECK(!SlotEntryUsable(SlotStateFrom(true, true, true, 3)));                       // disconnecting
+  CHECK(!SlotEntryUsable(SlotStateFrom(true, true, true, 1)));                       // still connecting
+  CHECK(SlotEntryUsable(SlotStateFrom(true, true, false, 4)));                       // field unknown: controller counts
+  CHECK(SlotEntryUsable(SlotStateFrom(false, false, false, 0)));                     // entity system not ready
+  CHECK(SlotStateFrom(true, false, true, 0) == SlotEngineState::kEmpty);
   CHECK(ValidLineupName("mid_window-1.a") && !ValidLineupName("") && !ValidLineupName("a b") &&
         !ValidLineupName("../x/y") && !ValidLineupName(std::string(33, 'a')));
   CHECK(MapFileStem("de_Dust2") == "de_dust2" && MapFileStem("workshop/123/de x") == "workshop_123_de_x");
