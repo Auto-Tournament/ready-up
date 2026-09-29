@@ -22,6 +22,7 @@
 #include "readyup/match_events.h"
 #include "readyup/match_features.h"
 #include "readyup/match_log.h"
+#include "readyup/match_recovery.h"
 #include "readyup/match_settings.h"
 #include "readyup/match_signals.h"
 #include "readyup/match_state.h"
@@ -1222,6 +1223,34 @@ void OnUpdate(const ru_fleet_msg* m) {
         ops->Items().size());
 }
 
+// After a restart the link holds no assignment, but the match plugin runs (or is about to recover,
+// match_recovery.h) its own copy of a match from state.json. A match.unassign for that match means
+// the platform ended it or moved it to another server while this one was down (failover:
+// `superseded`): drop the copy, so this server does not play on with a match that goes on
+// elsewhere. True when there was a copy.
+bool DropRecoveredCopy(const std::string& mid, long long epoch, const std::string& reason) {
+  bool running = false, saved = false;
+  if (LocalMatchIs(mid)) {
+    WebhookClearMatchContext();
+    (void)EndMatchResetServer();  // stops its demo and clears the match in state.json
+    running = true;
+  } else if (const auto json = persisted_match_state::GetActiveMatchJson()) {
+    std::string err;
+    const auto ctx = ParseWebhookMatchContextFromJson(*json, &err);
+    if (ctx && ctx->matchid == fs::NumericMatchId(mid)) {
+      persisted_match_state::ClearActiveMatch();  // not recovered yet: now there is nothing to recover
+      saved = true;
+    }
+  }
+  if (!running && !saved) return false;
+  match_recovery::Cancel();
+  g_fence.Retire(mid, epoch);
+  SetPassword("");
+  Print("fleet: match %s epoch %lld was unassigned (%s) while this server was down; dropped the copy %s\n",
+        mid.c_str(), epoch, reason.c_str(), running ? "it recovered after the restart" : "it would have recovered");
+  return true;
+}
+
 void OnUnassign(const ru_fleet_msg* m) {
   const Json p = ParsePayload(m);
   const std::string ref = m->id ? m->id : "";
@@ -1233,6 +1262,13 @@ void OnUnassign(const ru_fleet_msg* m) {
   }
   const fs::Verdict v = g_fence.CheckScoped(g_asg, mid, epoch);
   if (v != fs::Verdict::Ok) {
+    if (!g_asg.active && v == fs::Verdict::NotAssigned && epoch > 0 &&
+        DropRecoveredCopy(mid, epoch, Str(p, "reason", "ended"))) {
+      Reply(ref, epoch, Ok());
+      PublishState(Json());
+      SendSnapshot("request", false);
+      return;
+    }
     Reply(ref, epoch, Rejected(fs::VerdictCode(v), "match.unassign for a match / epoch this server does not run"));
     return;
   }
