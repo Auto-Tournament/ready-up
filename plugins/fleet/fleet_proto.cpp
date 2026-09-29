@@ -10,6 +10,7 @@
 #include <cctype>
 #include <cerrno>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace fleet {
@@ -536,6 +537,70 @@ std::string SelftestPayload(const std::string& coreJson) {
   }
   out.Set("failures", std::move(failures));
   return json::Dump(out);
+}
+
+std::string NormalizePublicAddr(std::string_view raw, int gamePort) {
+  size_t b = 0, e = raw.size();
+  auto junk = [](char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '"' || c == '\''; };
+  while (b < e && junk(raw[b])) ++b;
+  while (e > b && junk(raw[e - 1])) --e;
+  const std::string_view s = raw.substr(b, e - b);
+  if (s.empty() || s.size() > 253) return {};
+  for (char c : s) {
+    if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '.' || c == '-' || c == ':' || c == '[' || c == ']'))
+      return {};
+  }
+  std::string_view host, port;
+  bool v6 = false;
+  if (s.front() == '[') {
+    const size_t close = s.find(']');
+    if (close == std::string_view::npos) return {};
+    host = s.substr(1, close - 1);
+    const std::string_view rest = s.substr(close + 1);
+    if (!rest.empty()) {
+      if (rest.front() != ':') return {};
+      port = rest.substr(1);
+    }
+    v6 = true;
+  } else {
+    if (s.find_first_of("[]") != std::string_view::npos) return {};
+    const size_t colons = static_cast<size_t>(std::count(s.begin(), s.end(), ':'));
+    if (colons == 0) {
+      host = s;
+    } else if (colons == 1) {
+      const size_t c = s.find(':');
+      host = s.substr(0, c);
+      port = s.substr(c + 1);
+    } else {
+      host = s;  // a bare IPv6 address
+      v6 = true;
+    }
+  }
+  if (host.empty()) return {};
+  if (v6 && host.find_first_not_of("0123456789abcdefABCDEF:.") != std::string_view::npos) return {};
+  if (!v6 && host.find(':') != std::string_view::npos) return {};
+  if (host == "0.0.0.0" || host == "::" || host == "0") return {};
+  long p = gamePort;
+  if (!port.empty() || (s.back() == ':')) {
+    if (port.empty() || port.size() > 5 || port.find_first_not_of("0123456789") != std::string_view::npos) return {};
+    p = std::strtol(std::string(port).c_str(), nullptr, 10);
+  }
+  if (p < 1 || p > 65535) return {};
+  std::string out = v6 ? "[" + std::string(host) + "]" : std::string(host);
+  return out + ":" + std::to_string(p);
+}
+
+std::string PickPublicAddr(std::string_view configured, std::initializer_list<std::string_view> detected,
+                           int gamePort) {
+  const std::string c = NormalizePublicAddr(configured, gamePort);
+  if (!c.empty()) return c;
+  for (std::string_view d : detected) {
+    const std::string a = NormalizePublicAddr(d, gamePort);
+    if (a.empty()) continue;
+    if (a.rfind("127.", 0) == 0 || a.rfind("localhost:", 0) == 0 || a.rfind("[::1]:", 0) == 0) continue;
+    return a;
+  }
+  return {};
 }
 
 }  // namespace fleet

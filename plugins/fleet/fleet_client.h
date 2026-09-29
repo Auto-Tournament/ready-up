@@ -61,6 +61,8 @@ struct HelloInfo {
   std::string hostname;
   int gamePort = 0;
   int tvPort = 0;
+  // hello.host.public_addr: "host:port" players connect to (PickPublicAddr); "" = left out.
+  std::string publicAddr;
   std::vector<std::string> capabilities;
   std::string bootId;
   std::string stateJson = "null";  // MatchState or null
