@@ -16,6 +16,7 @@
     "entity_system_status",
     "on_frame",
     "on_tick",
+    "player_change_team",
     "register_chat_command_ex",
     "register_console_command",
     "register_console_command_ex",

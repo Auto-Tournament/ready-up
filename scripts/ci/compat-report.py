@@ -338,6 +338,14 @@ API_SURFACE = {
     # need: a break turns grenade spawning off (grenade_spawn_available = 0), never a whole plugin.
     "grenade_spawn": [],
     "grenade_spawn_available": [],
+    # 1.13: ChangeTeam / CCSPlayerPawn::Teleport / CreateEntityByName / DispatchSpawn live in the
+    # practice fragment too (same rule: a break turns that feature off, engine_feature_available = 0).
+    # The core finds the controller / pawn / entity through the entity system.
+    "engine_feature_available": [],
+    "player_change_team": _ENTSYS,
+    "player_teleport": _ENTSYS,
+    "entity_create": _ENTSYS,
+    "entity_spawn": _ENTSYS,
     "set_round_termination_suppressed": ["CCSGameRules_TerminateRound"],
 }
 NEEDS_KEYS = ("schema_version", "plugin", "api", "surface", "schema", "schema_optional", "events")

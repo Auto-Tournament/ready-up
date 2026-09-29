@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 12
+#define READYUP_PLUGIN_API_VERSION_MINOR 13
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -674,7 +674,7 @@ typedef struct ru_api {
    * The projectile behaves like a thrown one (bounces, fuse, detonation, smoke / fire / flash,
    * damage credit to owner_slot). There is no fuse override: to throw after a delay, call
    * grenade_spawn later (on_tick). To stand a player where the grenade was thrown from, use
-   * entity_set_abs_origin on the pawn (view angles are not in the API yet).
+   * entity_set_abs_origin on the pawn, or player_teleport (1.13) for the view angles too.
    */
   /* Spawns one projectile. Returns the new entity (like player_give_item), or NULL: bad spec
    * (unknown type, non-finite / off-map origin, absurd velocity), no map, or the type is
@@ -683,7 +683,37 @@ typedef struct ru_api {
   /* 1 if grenade_spawn can spawn `type` (RU_GRENADE_*) on this build, else 0. Game thread. */
   int (*grenade_spawn_available)(ru_plugin* self, uint32_t type);
 
-  /* v1.13+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.13 ===========================================================
+   * Appended in 1.13. Require 1.13 in ru_plugin_info.api_version, or check RU_API_HAS().
+   *
+   * Team changes, pawn teleports with view angles, and creating entities, through CS2's own
+   * functions. Like grenade_spawn their signatures live in the practice gamedata fragment
+   * (engine-surface.practice.json, shipped with practice.so): without it, or when a CS2 update
+   * breaks one, that feature is unavailable. Check engine_feature_available and tell the player
+   * ("not available on this CS2 build"). A refused call logs why.
+   */
+  /* 1 if `feature` works on this build: "change_team" (player_change_team), "teleport"
+   * (player_teleport), "entity_create" (entity_create + entity_spawn). 0 otherwise. Game thread. */
+  int (*engine_feature_available)(ru_plugin* self, const char* feature);
+  /* The player in `slot` joins `team` (RU_TEAM_SPECTATOR / _T / _CT) through
+   * CCSPlayerController::ChangeTeam, what `jointeam` ends in (a live player on a team dies).
+   * Bots too. 1 = done, 0 = refused (bad slot / team) or unavailable. Game thread. */
+  int (*player_change_team)(ru_plugin* self, int slot, int team);
+  /* Teleports the live pawn of `slot` through CCSPlayerPawn::Teleport: origin[3] (world
+   * position), angles[3] (view pitch / yaw / roll: this is how a plugin sets where a player looks)
+   * and velocity[3]. A NULL part is left alone (not all three). 1 = done, 0 = refused (bad slot,
+   * dead, non-finite / off-map values, pitch outside -90..90) or unavailable. Game thread. */
+  int (*player_teleport)(ru_plugin* self, int slot, const float* origin, const float* angles, const float* velocity);
+  /* A new entity of `classname` ([a-z0-9_], e.g. "beam", "prop_dynamic"; not players or game
+   * rules) through UTIL_CreateEntityByName. It is not spawned yet: write its fields (schema_offset,
+   * entity_set_abs_origin), then entity_spawn it. NULL = refused or unavailable. Remove it with
+   * entity_remove. Game thread. */
+  void* (*entity_create)(ru_plugin* self, const char* classname);
+  /* CBaseEntity::DispatchSpawn for an entity from entity_create (no key values). 1 = spawned,
+   * 0 = refused (not a live entity, a controller) or unavailable. Game thread. */
+  int (*entity_spawn)(ru_plugin* self, void* entity);
+
+  /* v1.14+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

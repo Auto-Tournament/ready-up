@@ -263,7 +263,9 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
         if (id.steamid64 == steamid64) s = id.slot;
       }
     }
-    if (s < 0 || !ForceJoinTeamForSlot(s, 1)) return ReplyTo(slot, "could not move you to spectators");
+    if (s < 0 || !MoveSlotToSpectators(s)) {
+      return ReplyTo(slot, "could not move you to spectators (team change is not available on this CS2 build): use the team menu");
+    }
     return;
   }
 
