@@ -267,7 +267,9 @@ bool SpawnGrenade(sc::GrenadeType type, const sc::V3& pos, const sc::V3& vel, in
   s.origin[0] = pos.x, s.origin[1] = pos.y, s.origin[2] = pos.z;
   s.velocity[0] = vel.x, s.velocity[1] = vel.y, s.velocity[2] = vel.z;
   s.owner_slot = ownerSlot;
-  return g_api->grenade_spawn(g_api->self, &s) != nullptr;
+  void* ent = g_api->grenade_spawn(g_api->self, &s);
+  if (ent && g_host.spawned) g_host.spawned(ent);
+  return ent != nullptr;
 }
 
 // ---- scenario library ---------------------------------------------------------------------------

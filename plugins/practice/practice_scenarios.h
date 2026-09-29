@@ -28,6 +28,7 @@ namespace practice::scenarios {
 struct Host {
   bool (*active)();          // practice mode is on
   std::string (*refusal)();  // "" when practice tools may run, else why not
+  void (*spawned)(void* projectile);  // a grenade the replay threw: not a player's throw (history)
 };
 
 // From readyup_plugin_load / readyup_plugin_unload. Registers its own commands, tick and events.
