@@ -43,9 +43,12 @@ std::vector<std::string> CoreRuSubHelpLines(const std::string& main) {
             ".ru plugin enable|disable <name>: load / unload it and keep it that way after a restart",
             ".ru plugin perf [reset]: time each plugin takes per server frame (console: ru perf)"};
   }
-  if (main == "reload") return {".ru reload: reload readyup.cfg; plugins re-read their settings (admin)"};
+  if (main == "reload") {
+    return {".ru reload: reload readyup.cfg; plugins re-read their settings (admin; also .reload_config, console "
+            "ru_reload_config)"};
+  }
   if (main == "selftest") return {".ru selftest: engine surface, hooks, features, plugins; PASS/FAIL (admin)"};
-  if (main == "version") return {".ru version: the Ready Up build"};
+  if (main == "version") return {".ru version: the Ready Up build (also .ruversion / .version, console ru_version)"};
   if (main == "license") {
     return {".ru license: the license key's status, never blocks anything (admin; console: ru license)",
             "server.cfg: readyup_license_key \"ATL1...\" (csm license set writes it), readyup_show_license 0|1"};
@@ -65,6 +68,24 @@ std::string Lower(std::string s) {
   for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   return s;
 }
+
+}  // namespace
+
+std::string CoreChatAliasToRu(const std::string& firstToken) {
+  const std::string t = Lower(firstToken);
+  if (t == ".ruversion" || t == ".version") return "version";
+  if (t == ".reload_config") return "reload";
+  return {};
+}
+
+std::string CoreConsoleAliasToRu(const std::string& firstToken) {
+  const std::string t = Lower(firstToken);
+  if (t == "ru_version") return "version";
+  if (t == "ru_reload_config") return "reload";
+  return {};
+}
+
+namespace {
 
 // Plugin `.ru <main> <sub>` commands meant for every player (the plugin answers them; its admin
 // subcommands stay admin-only). Add one here only for a command players have no other way to run.
