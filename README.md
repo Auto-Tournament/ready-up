@@ -52,7 +52,7 @@ curl -fsSL https://raw.githubusercontent.com/Auto-Tournament/ready-up/master/ins
 ```
 
 It first asks how you will use Ready Up: personal / non-commercial (free, the [license](#license))
-or commercial (needs a paid license, see [Commercial use](#commercial-use); paste your key now or
+or commercial (you need a license, see [Commercial use](#commercial-use); paste your key now or
 add it later). Then it shows a short summary of the terms and you type `I AGREE` to go on; anything
 else stops without installing. The answer is saved in `game/csgo/cfg/ReadyUp/license.cfg`
 (`readyup_license_accepted`), so updates don't ask again ([INSTALL.md](docs/INSTALL.md#license)).

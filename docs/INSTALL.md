@@ -34,7 +34,7 @@ version no longer ships and how unticking a component removes it.
 Before it installs anything, the installer asks once:
 
 1. **How will you use Ready Up?** `1` personal / non-commercial (free, PolyForm Noncommercial
-   1.0.0) or `2` commercial (needs a paid license, see the [README](../README.md#commercial-use)).
+   1.0.0) or `2` commercial (you need a license, see the [README](../README.md#commercial-use)).
    With `2` you can paste your license key (`ATL1...`) now or press enter to add it later.
 2. **A short summary of the terms**, with links to the license text and pricing. Type
    `I AGREE` (any case) to continue; anything else stops without installing.
