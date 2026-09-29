@@ -521,21 +521,23 @@ void OnRoundStartLocked(const PendingRound& ev) {
     const int regHalf = maxRounds / 2;
     if (sum == regHalf && g_lastHalfStartTotal != sum) emitHalfStart = true;
 
-    // Overtime boundaries.
-    if (otEnabled && sum >= maxRounds && team1Score == team2Score) {
+    // Overtime boundaries. CS2 does not swap sides when an overtime starts (each team keeps the
+    // side it ended the previous half on); it swaps at each overtime's own halftime, whatever the
+    // score is then. Seen on a live server (M1 play-test, MR8 + MR6 OT): swapping at the OT start
+    // and skipping the OT halftime (score not tied) credited rounds to the wrong team, so the map
+    // never ended for Ready Up while CS2 had ended it.
+    if (otEnabled && sum >= maxRounds) {
       const int roundsPastReg = sum - maxRounds;
       const int blockSize = 2 * seg;
       if (blockSize > 0) {
         const int block = roundsPastReg / blockSize;  // 0-based OT index
         const int offset = roundsPastReg % blockSize;
         overtimeNumber = block + 1;
-        if (offset == 0) {
+        if (offset == 0 && team1Score == team2Score) {
           if (overtimeNumber > g_lastOvertimeNumber) {
             emitOvertimeStart = true;
             g_lastOvertimeNumber = overtimeNumber;
           }
-          // OT start is a half start too (swap + halftime_started).
-          if (g_lastHalfStartTotal != sum) emitHalfStart = true;
         } else if (offset == seg) {
           if (g_lastHalfStartTotal != sum) emitHalfStart = true;
         }
