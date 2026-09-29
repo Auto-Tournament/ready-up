@@ -192,6 +192,11 @@ void OnMapStart() {
   ScheduleOnGameThread(2.0, [] { Step(); });
 }
 
+void Cancel() {
+  g_pending = false;
+  g_changeRequested = false;
+}
+
 void NoteProgress() {
   if (g_saveQueued.exchange(true)) return;
   ScheduleOnGameThread(0, [] { SaveProgress(); });

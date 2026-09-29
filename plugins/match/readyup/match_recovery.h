@@ -27,5 +27,8 @@ void TryRecoverAsync();
 void OnMapStart();
 // Any thread: save the progress record on the next frame (coalesced).
 void NoteProgress();
+// Game thread: a recovery still waiting for the match map stops (the match was dropped: the
+// platform ended it or moved it to another server, fleet_bridge.cpp DropRecoveredCopy).
+void Cancel();
 
 }  // namespace readyup::match_recovery
