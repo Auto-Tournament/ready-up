@@ -13,6 +13,8 @@
     "entity_remove",
     "entity_set_abs_origin",
     "entity_system_status",
+    "grenade_spawn",
+    "grenade_spawn_available",
     "on_tick",
     "player_give_item",
     "post_to_game_thread",

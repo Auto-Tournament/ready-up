@@ -9,8 +9,8 @@
 //            health, armor, helmet, defuser, money and items as recorded at the start; smokes and fires
 //            already up at the start are dropped where they landed.
 //   replay   every tick each scripted bot is moved along its recorded path (entity_set_abs_origin +
-//            m_angEyeAngles). Grenades are scheduled at their recorded tick but not thrown yet (ru_api has
-//            no grenade spawn; see SpawnGrenade). Recorded deaths kill the bot (bot_kill) unless the
+//            m_angEyeAngles). Grenades are thrown at their recorded tick from their recorded spawn point
+//            and velocity (ru_api grenade_spawn, 1.12; see SpawnGrenade). Recorded deaths kill the bot (bot_kill) unless the
 //            player's pro was the killer. Bomb events go to chat.
 //   handoff  a bot the player is spotted by (the player pawn's m_entitySpottedState mask, what the radar
 //            uses) or that the player hurts stops following its path. The first handoff turns the bot AI
@@ -246,10 +246,29 @@ bool PlayerBySlot(int slot, PlayerInfo* out) {
 
 // ---- grenades ----------------------------------------------------------------------------------------
 
-// ru_api has no way to create a grenade projectile yet (a grenade-spawn member is planned for API
-// 1.12). Until then the schedule runs and every grenade is counted and logged, but not thrown; the
-// scenario files already carry what the spawn needs (spawn point, velocity, landing spot and tick).
-bool SpawnGrenade(sc::GrenadeType, const sc::V3&, const sc::V3&, void*) { return false; }
+// ru_api grenade_spawn (1.12): the projectile starts at `pos` with `vel`, thrown by the pawn of
+// `ownerSlot` (-1: nobody). A core older than 1.12, or a CS2 build where that grenade's gamedata did
+// not verify (grenade_spawn_available), throws nothing: the grenade is counted as skipped and logged.
+bool SpawnGrenade(sc::GrenadeType type, const sc::V3& pos, const sc::V3& vel, int ownerSlot) {
+  if (!RU_API_HAS(g_api, grenade_spawn_available) || !g_api->grenade_spawn) return false;
+  uint32_t t = 0;
+  switch (type) {
+    case sc::GrenadeType::kSmoke: t = RU_GRENADE_SMOKE; break;
+    case sc::GrenadeType::kFlash: t = RU_GRENADE_FLASH; break;
+    case sc::GrenadeType::kHe: t = RU_GRENADE_HE; break;
+    case sc::GrenadeType::kMolotov: t = RU_GRENADE_MOLOTOV; break;
+    case sc::GrenadeType::kIncendiary: t = RU_GRENADE_INCENDIARY; break;
+    case sc::GrenadeType::kDecoy: t = RU_GRENADE_DECOY; break;
+  }
+  if (!t || !g_api->grenade_spawn_available(g_api->self, t)) return false;
+  ru_grenade_spawn s{};
+  s.struct_size = sizeof(s);
+  s.type = t;
+  s.origin[0] = pos.x, s.origin[1] = pos.y, s.origin[2] = pos.z;
+  s.velocity[0] = vel.x, s.velocity[1] = vel.y, s.velocity[2] = vel.z;
+  s.owner_slot = ownerSlot;
+  return g_api->grenade_spawn(g_api->self, &s) != nullptr;
+}
 
 // ---- scenario library ---------------------------------------------------------------------------
 
@@ -490,16 +509,17 @@ void PlaceAt(int slot, int player, bool bot) {
 }
 
 // Thrower for a grenade of `player`: their bot, else a live bot of the same team, else nobody.
-void* ThrowerFor(int player) {
+// Returns that bot's slot, or -1.
+int ThrowerFor(int player) {
   if (Actor* a = ActorForPlayer(player); a && !a->dead) {
-    if (void* pawn = PawnForSlot(a->slot); Alive(pawn)) return pawn;
+    if (Alive(PawnForSlot(a->slot))) return a->slot;
   }
   const int team = g_run.sc->players[static_cast<size_t>(player)].team;
   for (const auto& a : g_run.actors) {
     if (a.dead || g_run.sc->players[static_cast<size_t>(a.player)].team != team) continue;
-    if (void* pawn = PawnForSlot(a.slot); Alive(pawn)) return pawn;
+    if (Alive(PawnForSlot(a.slot))) return a.slot;
   }
-  return nullptr;
+  return -1;
 }
 
 double EffectSeconds(sc::GrenadeType t) {
@@ -517,7 +537,7 @@ void ThrowGrenade(const sc::Grenade& g, bool atLanding) {
   const bool ok = SpawnGrenade(g.type, atLanding ? g.land : g.pos, atLanding ? zero : g.vel, ThrowerFor(g.player));
   (ok ? g_run.nadesSpawned : g_run.nadesSkipped)++;
   if (!ok) {
-    Log("practice: scenario %s %s by %s (not thrown: no grenade spawn in this build)", sc::Clock(g.t, g_run.sc->tickrate).c_str(),
+    Log("practice: scenario %s %s by %s (not thrown: grenade spawn not available on this CS2 build)", sc::Clock(g.t, g_run.sc->tickrate).c_str(),
         sc::GrenadeName(g.type), PlayerName(g.player).c_str());
   }
 }

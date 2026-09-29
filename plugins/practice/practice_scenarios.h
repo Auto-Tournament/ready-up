@@ -15,8 +15,8 @@
 //                                                  that is on the server)
 //
 // Only in practice mode, never under the valve ruleset. Scenario files: <data_dir>/scenarios/*.json
-// (csgo/readyup/plugins/practice/scenarios/). Grenades are scheduled but not thrown yet: ru_api has
-// no grenade spawn (planned for API 1.12).
+// (csgo/readyup/plugins/practice/scenarios/). Grenades are thrown with ru_api grenade_spawn (1.12);
+// without it (older core, or that grenade's gamedata did not verify) they are logged and skipped.
 
 #include "readyup/plugin_api.h"
 #include "readyup/selftest_iface.h"

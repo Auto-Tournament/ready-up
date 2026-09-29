@@ -122,6 +122,7 @@ for mm in 0 1; do
   check "fleet.so installed" test -x "$CS/readyup/plugins/fleet.so"
   check "fleet.cfg seeded, all comments (fleet stays idle)" idle_cfg "$CS/cfg/ReadyUp/fleet.cfg"
   check "practice.so installed (essentials)" test -x "$CS/readyup/plugins/practice.so"
+  check "practice gamedata next to the core (grenade spawning)" test -f "$CS/readyup/bin/linuxsteamrt64/engine-surface.practice.json"
   check "essentials.so installed (essentials bundle)" test -x "$CS/readyup/plugins/essentials.so"
   check "prac.cfg seeded by the practice component" test -f "$CS/cfg/ReadyUp/prac.cfg"
   check "practice.cfg seeded, all comments (always off)" idle_cfg "$CS/cfg/ReadyUp/practice.cfg"

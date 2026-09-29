@@ -67,13 +67,14 @@ is reloaded.
 
 ### What is approximate in v1
 
-- **Grenades are not thrown yet.** The scenario files have everything a throw needs: spawn point,
-  launch velocity, landing spot and time. The replay schedules each grenade and logs it
-  (`practice: scenario 0:24 smoke by apEX (not thrown ...)`), but it cannot throw it. ru_api has
-  no way to create grenade projectiles yet; a grenade-spawn member is planned for API 1.12. Once it
-  exists, `SpawnGrenade` in `plugins/practice/practice_scenarios.cpp` is the only function that
-  needs to change. Utility that is already out at the start (smokes and fires) will then be placed
-  where it landed.
+- **Grenades are re-thrown, not re-aimed.** Each grenade is spawned at its recorded tick from its
+  recorded spawn point with its recorded velocity (ru_api `grenade_spawn`, API 1.12), thrown by the
+  pro's bot (else a live bot of the same team, else nobody), so it flies, bounces and detonates like
+  the original and damage is credited to that bot. The bot does not do a throw animation. Utility
+  that is already out at the start (smokes, fires, decoys) is dropped where it landed. On a CS2
+  build where a grenade type's gamedata does not verify (or without the practice gamedata
+  `engine-surface.practice.json`) that grenade is skipped and logged
+  (`practice: scenario 0:24 smoke by apEX (not thrown: grenade spawn not available ...)`).
 - **The bomb is not planted.** Plants, defuses and explosions only go to chat.
 - **Bots are moved, not steered.** A scripted bot is teleported along its path every tick, with
   its speed set so the legs animate. It does not crouch, jump, reload or switch weapons as the pro

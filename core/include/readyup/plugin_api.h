@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 11
+#define READYUP_PLUGIN_API_VERSION_MINOR 12
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -222,6 +222,33 @@ enum {
   RU_ENTSYS_OK = 1,
   RU_ENTSYS_FAILED = 2
 };
+
+/* ---- v1.12: grenade projectiles --------------------------------------------- */
+
+/* grenade_spawn types (the CS2 item definition index the core passes is in brackets). */
+enum {
+  RU_GRENADE_SMOKE = 1,      /* smokegrenade_projectile [45] */
+  RU_GRENADE_FLASH = 2,      /* flashbang_projectile [43] */
+  RU_GRENADE_HE = 3,         /* hegrenade_projectile [44] */
+  RU_GRENADE_MOLOTOV = 4,    /* molotov_projectile [46] */
+  RU_GRENADE_INCENDIARY = 5, /* molotov_projectile [48]: the incendiary grenade */
+  RU_GRENADE_DECOY = 6       /* decoy_projectile [47] */
+};
+
+/*
+ * One projectile for grenade_spawn. Set struct_size = sizeof(ru_grenade_spawn); fields may be
+ * appended in later minors (the core reads only what struct_size covers).
+ */
+typedef struct ru_grenade_spawn {
+  uint32_t struct_size;
+  uint32_t type;               /* RU_GRENADE_* */
+  float origin[3];             /* where the projectile starts (world units) */
+  float angles[3];             /* its model's pitch / yaw / roll */
+  float velocity[3];           /* initial velocity (units/s); what grenade_thrown-time velocity was */
+  float angular_velocity[3];   /* passed through like the game's own throw (CS2 1.41.8.5 ignores it) */
+  int owner_slot;              /* thrower: a player slot whose pawn gets the kills / damage credit and
+                                  whose team the projectile takes; -1 = no thrower (team 0) */
+} ru_grenade_spawn;
 
 /* ---- v1.1: admins ---------------------------------------------------------- */
 
@@ -636,7 +663,27 @@ typedef struct ru_api {
    * when no selftest has run yet. Any thread. */
   int (*selftest_summary)(ru_plugin* self, char* buf, uint32_t len);
 
-  /* v1.12+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.12 ===========================================================
+   * Appended in 1.12. Require 1.12 in ru_plugin_info.api_version, or check RU_API_HAS().
+   *
+   * Grenade projectiles through CS2's own projectile factories (CSmokeGrenadeProjectile::Create
+   * etc., what the game's point_script SpawnGrenadeProjectile uses). Their signatures live in the
+   * practice gamedata fragment (engine-surface.practice.json, shipped with practice.so), so
+   * without it, or when a CS2 update breaks one, that type is simply unavailable: check
+   * grenade_spawn_available and tell the player ("not available on this CS2 build").
+   * The projectile behaves like a thrown one (bounces, fuse, detonation, smoke / fire / flash,
+   * damage credit to owner_slot). There is no fuse override: to throw after a delay, call
+   * grenade_spawn later (on_tick). To stand a player where the grenade was thrown from, use
+   * entity_set_abs_origin on the pawn (view angles are not in the API yet).
+   */
+  /* Spawns one projectile. Returns the new entity (like player_give_item), or NULL: bad spec
+   * (unknown type, non-finite / off-map origin, absurd velocity), no map, or the type is
+   * unavailable. The reason is logged. Game thread. */
+  void* (*grenade_spawn)(ru_plugin* self, const ru_grenade_spawn* spec);
+  /* 1 if grenade_spawn can spawn `type` (RU_GRENADE_*) on this build, else 0. Game thread. */
+  int (*grenade_spawn_available)(ru_plugin* self, uint32_t type);
+
+  /* v1.13+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */
