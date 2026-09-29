@@ -498,6 +498,11 @@ hello {
   selftest?: { pass: boolean, passed: number, total: number, failures: string[] }   // optional
   plugins_disabled?: { name: string, reason: string }[]   // plugins the core did not load: needs.json
                                                           // not met on this CS2 build (CS2-COMPAT.md)
+  plugins_state?: { installed: string[], disabled: string[] }  // installed = the .so files in
+                                                          // csgo/readyup/plugins; disabled = plugins.json
+                                                          // (ru plugin disable / cmd plugins.set). Read at
+                                                          // every hello; the platform re-sends its plugin
+                                                          // choice when this differs
 }
 
 // platform → server, ephemeral
@@ -749,7 +754,7 @@ Every command gets exactly one `cmd.result`.
 | `swap_teams` | `{}` | `mp_swapteams` + keep team1/team2 mapping |
 | `kick` | `{ steamid64, message? }` | |
 | `say` | `{ text, as_admin?: boolean }` | max 190 bytes, control chars stripped |
-| `plugins.set` | `{ enable?: string[], disable?: string[] }` | the core's `ru plugin enable\|disable <name>` for each: loaded / unloaded and remembered across restarts (`csgo/readyup/plugins/plugins.json`). Plugin names `[a-z0-9_-]`, at most 16 per list; `match` and `fleet` cannot be disabled over the link. For server profiles ("practice server": practice + skins + whitelist; "official": no practice / skins / midas) |
+| `plugins.set` | `{ enable?: string[], disable?: string[] }` | the core's `ru plugin enable\|disable <name>` for each: loaded / unloaded and remembered across restarts (`csgo/readyup/plugins/plugins.json`). Plugin names `[a-z0-9_-]`, at most 16 per list; `match` and `fleet` cannot be disabled over the link. Enabling a plugin that is not installed is remembered but loads nothing (the core logs the failed load); hello `plugins_state` shows what is installed. For server profiles ("practice server": practice + skins + whitelist; "official": no practice / skins / midas) |
 | `practice.set` | `{ on: boolean }` | practice mode on / off through the practice plugin (prac.cfg + respawn, or back to idle); `rejected unsupported` without practice.so, `rejected bad_phase` while a match is loaded |
 | `whitelist.set` | `{ enabled: boolean, steamids?: string[] }` | replaces the whitelist plugin's list and on/off (saved in `plugins/whitelist/whitelist.json`); `rejected unsupported` without whitelist.so. At most 1000 SteamID64 strings |
 | `settings.set` | `{ settings?: { [setting]: boolean \| number \| string } }` | server settings of the match plugin (`playout_enabled_default`, `minimum_ready_required`, `hostname_format`, `series_end_kick_delay_*`, ...; docs/INSTALL.md "Match server settings"), the same values `ru_<setting>` and `.ru settings set` change, saved across restarts. All or none: one bad name or value is `rejected bad_args` and nothing changes. `cmd.result.output`: every setting after the change (so `{}` reads them) |

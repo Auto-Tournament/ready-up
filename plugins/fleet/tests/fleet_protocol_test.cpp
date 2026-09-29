@@ -126,6 +126,13 @@ int main() {
   }));
   CHECK(broken("hello.plugins_disabled.json", [](Value* p) { p->Set("plugins_disabled", Value::Str("skins")); }));
 
+  // hello.plugins_state (installed .so files, plugins.json disabled): both lists, plugin names.
+  CHECK(broken("hello.plugins_state.json", [](Value* p) { p->Get("plugins_state")->Set("installed", Value::Str("match")); }));
+  CHECK(broken("hello.plugins_state.json", [](Value* p) {
+    p->Get("plugins_state")->Get("disabled")->a[0] = Value::Str("../skins");
+  }));
+  CHECK(broken("hello.plugins_state.json", [](Value* p) { p->Get("plugins_state")->Set("extra", Value::Int(1)); }));
+
   // hello.host.public_addr (fleet.cfg public_addr / +ip / net_public_adr): optional string.
   CHECK(broken("hello.public_addr.json", [](Value* p) { p->Get("host")->Set("public_addr", Value::Int(27055)); }));
   CHECK(broken("hello.public_addr.json", [](Value* p) {

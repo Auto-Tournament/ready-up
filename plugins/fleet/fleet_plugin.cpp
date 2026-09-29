@@ -319,6 +319,10 @@ void BuildHello() {
   h.startedMs = ProcessStartMs();
   h.adminsRev = g_adminsRev;
   h.pluginsDisabled = PluginsDisabled();
+  // data_dir = .../csgo/readyup/plugins/fleet: its parent holds the plugins and plugins.json.
+  if (const size_t slash = g_dataDir.find_last_of('/'); slash != std::string::npos && slash > 0) {
+    h.pluginsDir = g_dataDir.substr(0, slash);
+  }
   h.selftestJson = CoreSelftest();
   h.stateJson.clear();     // keep whatever publish_state set
   h.availability.clear();

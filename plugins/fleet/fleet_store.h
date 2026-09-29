@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace fleet {
 
@@ -50,5 +51,16 @@ bool SaveServerConfigLocal(const std::string& path, const ServerConfigLocal& c, 
 
 // Reads <dir>/install_id or creates it (26-char ULID). Empty on failure.
 std::string LoadOrCreateInstallId(const std::string& dir, std::string* err);
+
+// hello.plugins_state: the Ready Up plugins on this server, read from `pluginsDir`
+// (csgo/readyup/plugins). installed = its *.so files by name; disabled = plugins.json "disabled",
+// what the core's `ru plugin enable|disable` (and cmd plugins.set) remembers across restarts. A
+// disabled name need not be installed. Names outside [a-z0-9_-]{1,32} are skipped; both lists
+// are sorted and at most 64 long. False when the directory cannot be read.
+struct PluginsState {
+  std::vector<std::string> installed;
+  std::vector<std::string> disabled;
+};
+bool ReadPluginsState(const std::string& pluginsDir, PluginsState* out);
 
 }  // namespace fleet
