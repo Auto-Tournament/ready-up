@@ -1317,6 +1317,7 @@ bool GoLiveTriggered() {
 void OnMatchLoaded() {
   MatchEndCancelPending();
   ClearMapStats();
+  PauseStateOnUnpaused();  // a new match never starts as paused (the last one's pause, if any)
   PauseStateResetUsage();
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
@@ -1491,6 +1492,10 @@ bool EndMatchResetServer() {
   StopDemoLocked(st);
   MatchEndCancelPending();
   ClearMapStats();
+  // A pause belongs to its match (an admin pause, a failover resume's pause): the next match on
+  // this server must not start as paused.
+  PauseStateOnUnpaused();
+  PauseStateResetUsage();
 
   // Put server back into a neutral state regardless of match context.
   const bool ok = ResetServerRulesAndRestartLocked(st);

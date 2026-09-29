@@ -823,6 +823,33 @@ int main(int argc, char** argv) {
       rp::TryDispatchRu(true, 0, "Console", "ru mode idle");
       rp::Frame(true);
     }
+
+    // A pause belongs to its match (an admin pause, a failover resume's pause): ending the match
+    // while paused must not leave the next match on this server starting as paused.
+    std::puts("-- a pause does not outlive its match");
+    ClearLog();
+    Check(loadMatch(++id), "pause: match loaded");
+    rp::TryDispatchRu(true, 0, "Console", "ru match start force");
+    rp::Frame(true);
+    rp::TryDispatchRu(true, 0, "Console", "ru match pause");
+    rp::Frame(true);
+    rp::TryDispatchRu(true, 0, "Console", "ru match pause");
+    rp::Frame(true);
+    Check(Logged("match is already paused"), "pause: the match is paused");
+    rp::TryDispatchRu(true, 0, "Console", "ru match end");
+    rp::Frame(true);
+    ClearLog();
+    ClearCmds();
+    Check(loadMatch(++id), "pause: next match loaded");
+    rp::TryDispatchRu(true, 0, "Console", "ru match start force");
+    rp::Frame(true);
+    rp::TryDispatchRu(true, 0, "Console", "ru match pause");
+    rp::Frame(true);
+    Check(!Logged("match is already paused") && Sent("mp_pause_match"), "pause: the next match starts unpaused");
+    rp::TryDispatchRu(true, 0, "Console", "ru match end");
+    rp::Frame(true);
+    rp::TryDispatchRu(true, 0, "Console", "ru mode idle");
+    rp::Frame(true);
   }
 
   // Return with match.so still loaded and its workers running, like a server `quit` (the core never
