@@ -36,6 +36,8 @@
 #include "readyup/weapon_cleanup.h"
 #include "readyup/webhook.h"
 #include "readyup/wingman.h"
+#include "readyup/host.h"
+#include "readyup/practice_iface.h"
 
 #include <atomic>
 #include <chrono>
@@ -47,6 +49,17 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+
+namespace {
+// readyup.practice.v1 dry_run: a .dryrun round is under way (the practice plugin).
+bool PracticeDryRun() {
+  const ru_api* a = readyup::host::Api();
+  if (!a) return false;
+  const auto* p = static_cast<const ru_practice_v1*>(a->get_interface(a->self, RU_PRACTICE_IFACE_NAME, 1));
+  return p && RU_API_HAS(p, dry_run) && p->dry_run && p->dry_run() == 1;
+}
+}  // namespace
 
 namespace readyup {
 namespace {
@@ -2305,8 +2318,9 @@ void Tick() {
   MaybeShowWarmupUiLocked(st);
   EnforceWhitelistLocked(st);
 
-  const bool suppressRoundEnd =
+  bool suppressRoundEnd =
       (!st.cfgExecEnabled) && ((st.mode == ReadyUpMode::Practice) || (st.mode == ReadyUpMode::MatchWarmup));
+  const bool practiceMode = st.mode == ReadyUpMode::Practice;
   if (DebugEnabled()) {
     const int cur = suppressRoundEnd ? 1 : 0;
     const int prev = s_lastSuppress.exchange(cur);
@@ -2315,6 +2329,8 @@ void Tick() {
     }
   }
   lk.unlock();
+  // A practice dry run (practice plugin .dryrun) plays one normal round: its end must go through.
+  if (suppressRoundEnd && practiceMode && PracticeDryRun()) suppressRoundEnd = false;
   SetRoundTerminationSuppressed(suppressRoundEnd);
 }
 

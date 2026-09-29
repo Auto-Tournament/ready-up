@@ -1,9 +1,11 @@
 // Offline tests for plugins/practice/practice_rules.h. ctest `practice_rules`.
 #include "practice_feedback.h"
 #include "practice_rules.h"
+#include "practice_tools.h"
 
 #include <cstdio>
 #include <string>
+#include <vector>
 
 using namespace practice;
 
@@ -60,6 +62,54 @@ int main() {
   CHECK(lines.size() == 2 && lines[0] == "HE by Simpert: 98 total (Bot Adam -57, Bot Ben -41)");
   CHECK(lines.size() == 2 && lines[1] == "Fire by Simpert: 16 total (Bot Adam -16)");
   CHECK(gd.Flush(20.0, 1.0).empty());
+
+  // ME extras (practice_tools.h).
+  for (const char* c : {".throw", ".last", ".lastindex", ".throwidx", ".throwindex", ".delay", ".rethrowsmoke", ".throwdecoy",
+                        ".impacts", ".traj", ".pip", ".solid", ".break", ".timer", ".bestspawn", ".worsttspawn",
+                        ".bestctspawn", ".showspawns", ".hidespawns"}) {
+    CHECK(IsToolCommand(c) && !IsBotCommand(c));
+  }
+  CHECK(!IsToolCommand(".dryrun"));  // admin command, not a tool
+  CHECK(GrenadeKind("smokegrenade") == "smoke" && GrenadeKind("weapon_flashbang") == "flash");
+  CHECK(GrenadeKind("hegrenade") == "hegrenade" && GrenadeKind("incgrenade") == "molotov");
+  CHECK(GrenadeKind("molotov") == "molotov" && GrenadeKind("decoy") == "decoy" && GrenadeKind("ak47").empty());
+  CHECK(TypedRethrowKind(".rethrowsmoke") == "smoke" && TypedRethrowKind(".throwflash") == "flash");
+  CHECK(TypedRethrowKind(".thrownade") == "hegrenade" && TypedRethrowKind(".rethrowgrenade") == "hegrenade");
+  CHECK(TypedRethrowKind(".throwmolotov") == "molotov" && TypedRethrowKind(".RETHROWDECOY") == "decoy");
+  CHECK(TypedRethrowKind(".rethrow").empty() && TypedRethrowKind(".throwidx").empty() && TypedRethrowKind(".last").empty());
+
+  ThrowHistory hist(3);
+  CHECK(hist.Count() == 0 && !hist.Last() && !hist.At(1));
+  for (int i = 1; i <= 4; ++i) {
+    Throw t;
+    t.pos.x = static_cast<float>(i);
+    t.kind = i % 2 ? "smoke" : "flash";
+    hist.Add(t);
+  }
+  CHECK(hist.Count() == 3);                       // capped: throw 1 dropped
+  CHECK(hist.At(1) && hist.At(1)->pos.x == 2.f);  // oldest first
+  CHECK(hist.At(3) && hist.At(3)->pos.x == 4.f && !hist.At(4) && !hist.At(0));
+  CHECK(hist.LastOfKind("smoke") && hist.LastOfKind("smoke")->pos.x == 3.f);
+  CHECK(!hist.LastOfKind("decoy"));
+  hist.Last()->delay = 1.5f;
+  CHECK(hist.At(3)->delay == 1.5f);
+
+  int n = 0;
+  CHECK(ParsePositiveInt("3", &n) && n == 3);
+  CHECK(!ParsePositiveInt("0", &n) && !ParsePositiveInt("-1", &n) && !ParsePositiveInt("2x", &n) && !ParsePositiveInt("", &n));
+  float d = 0;
+  CHECK(ParseDelaySeconds("1.25", &d) && d == 1.25f);
+  CHECK(!ParseDelaySeconds("0", &d) && !ParseDelaySeconds("-2", &d) && !ParseDelaySeconds("abc", &d) &&
+        !ParseDelaySeconds("61", &d) && !ParseDelaySeconds("nan", &d));
+
+  const std::vector<Vec3f> pts = {{0, 0, 0}, {100, 0, 0}, {-500, 0, 0}};
+  CHECK(ClosestIndex(pts, {90, 0, 0}) == 1 && FarthestIndex(pts, {90, 0, 0}) == 2);
+  CHECK(ClosestIndex({}, {0, 0, 0}) == -1 && FarthestIndex({}, {0, 0, 0}) == -1);
+
+  CHECK(NextSolidValue(0) == 2 && NextSolidValue(1) == 2 && NextSolidValue(2) == 1);
+  CHECK(FormatTimerSeconds(12.345) == "12.35" || FormatTimerSeconds(12.345) == "12.34");
+  CHECK(FormatTimerSeconds(-1) == "0.00");
+
   std::printf("practice_rules_test: %s\n", g_failures ? "FAIL" : "PASS");
   return g_failures ? 1 : 0;
 }

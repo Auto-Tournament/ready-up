@@ -7,7 +7,8 @@
 
 namespace practice {
 
-// .rethrow .rt .savepos .loadpos .back .clear .noflash .god .spawn .ctspawn .tspawn
+// .rethrow .rt .savepos .loadpos .back .clear .noflash .god .spawn .ctspawn .tspawn and the ME extras
+// (.last .throwidx .delay .rethrowsmoke ... .solid .impacts .traj .break .timer .bestspawn ...)
 bool IsToolCommand(const std::string& cmd);
 // .bot .cbot .crouchbot .boost .crouchboost .nobots
 bool IsBotCommand(const std::string& cmd);

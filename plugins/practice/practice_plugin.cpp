@@ -6,6 +6,7 @@
 //                           ReadyUp/idle.cfg and everyone respawns without it.
 //   ru practice on|off|status   the same from the console / `.ru practice ...` (admin)
 //   ru practice as <slot> <.command> [args]   console only: run a tool as that player (bot tests)
+//   ru practice dryrun      the same as .dryrun (admin)
 //   cfg/ReadyUp/practice.cfg (or readyup.cfg [practice]):
 //     always=0              1 = dedicated practice server: practice is switched on at load and on
 //                           every map, whenever nothing blocks it
@@ -28,6 +29,33 @@
 //   .nobots               bot_kick
 //   .spawn N / .ctspawn N / .tspawn N   to spawn point N (1-based) of your / the CT / the T team
 //
+// ME (Auto Tournament plugin) extras, same names and messages; replies go to the caller only:
+//   .last                 to where you threw your last grenade; .back N: to throw N of your history
+//   .lastindex            how many grenades you have thrown (your history is numbered 1..N, max 100)
+//   .delay <s>            delay for your last grenade: .rethrow waits that long first
+//   .throw                alias of .rethrow
+//   .throwidx N / .throwindex N, .rethrow{smoke,flash,nade,grenade,molotov,decoy} / .throw{...}:
+//                         check your history, then say per-player rethrow is not available (it needs
+//                         grenade projectile creation, which Ready Up does not have; .rethrow is
+//                         the server-wide sv_rethrow_last_grenade)
+//   .impacts              toggle sv_showimpacts (prac.cfg: 1)
+//   .traj / .pip          toggle sv_grenade_trajectory_prac_pipreview (prac.cfg: true)
+//   .solid                mp_solid_teammates 0/1 -> 2, else -> 1 (prac.cfg: 2)
+//   .break                removes every func_breakable / func_breakable_surf and every prop_dynamic
+//                         with health > 0 that takes damage (Mirage's vents and windows): ME fired
+//                         the Break input, which the server console cannot (ent_fire needs a
+//                         client), so they vanish without the break effect. ru_api entity_remove (v1.5)
+//   .timer                start / stop a stopwatch shown in your center panel
+//   .bestspawn / .worstspawn, .bestctspawn / .worstctspawn, .besttspawn / .worsttspawn
+//                         to the competitive spawn (lowest priority) closest to / farthest from you
+//   .showspawns / .hidespawns   not available: markers need entity creation (beams); they list the
+//                         spawn counts and point at .spawn N instead
+//   .dry / .dryrun        admin, practice only: one round with normal rules (ME defaults: money,
+//                         freeze time, round time, no infinite ammo / cheats / buddha; then
+//                         cfg/ReadyUp/dryrun.cfg if it exists, for overrides) after bot_kick and
+//                         mp_restartgame. When that round ends, or on .dryrun / .prac again,
+//                         prac.cfg comes back. Tools keep working; the feedback lines are off.
+//
 // CS2 1.41.8.4: setpos, setpos_player, setang, ent_setpos, ent_fire and bot_place need a client of
 // their own, so from the server console they do nothing. Moves use ru_api entity_set_abs_origin
 // (v1.3, engine surface CBaseEntity_SetAbsOrigin). View angles cannot be set for another player.
@@ -38,6 +66,7 @@
 // to it). Log lines: `practice: ...`.
 #include "practice_feedback.h"
 #include "practice_rules.h"
+#include "practice_tools.h"
 
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
@@ -131,6 +160,7 @@ struct Offsets {
   int takesDamage = -1;    // CBaseEntity::m_bTakesDamage
   int spawnEnabled = -1;   // SpawnPoint::m_bEnabled
   int spawnPriority = -1;  // SpawnPoint::m_iPriority
+  int health = -1;         // CBaseEntity::m_iHealth (.break)
 };
 Offsets g_off;
 
@@ -157,6 +187,7 @@ const Offsets& Off() {
   o.takesDamage = FirstOffset({"CBaseEntity"}, "m_bTakesDamage");
   o.spawnEnabled = FirstOffset({"SpawnPoint", "CInfoPlayerCounterterrorist"}, "m_bEnabled");
   o.spawnPriority = FirstOffset({"SpawnPoint", "CInfoPlayerCounterterrorist"}, "m_iPriority");
+  o.health = FirstOffset({"CBaseEntity"}, "m_iHealth");
   Log("practice: schema pawn=%d body=%d node=%d origin=%d life=%d eyes=%d flash=%d/%d takesdamage=%d spawn=%d/%d",
       o.ctrlPawn, o.bodyComponent, o.sceneNode, o.absOrigin, o.lifeState, o.eyeAngles, o.flashAlpha, o.flashDuration,
       o.takesDamage, o.spawnEnabled, o.spawnPriority);
@@ -291,6 +322,31 @@ std::unordered_set<int> g_noflash;                        // slots
 std::unordered_set<int> g_god;                            // slots (m_bTakesDamage false)
 bool g_buddhaOff = false;                                 // .god fallback toggled buddha off
 bool g_touched = false;                                   // any of the above set this session
+std::unordered_map<uint64_t, ThrowHistory> g_throws;      // player id -> grenade history (ME numbering)
+
+struct DelayedCmd {
+  double due = 0;
+  std::string cmd;
+};
+std::vector<DelayedCmd> g_delayed;  // .delay'd .rethrow
+
+struct StopWatch {
+  uint64_t id = 0;
+  double start = 0;
+  double nextDraw = 0;
+};
+std::unordered_map<int, StopWatch> g_timers;  // slot -> .timer
+
+// Server-wide toggles (ru_api cannot read a cvar): the values prac.cfg sets, flipped by the commands.
+struct Toggles {
+  bool impacts = true;  // sv_showimpacts 1
+  bool traj = true;     // sv_grenade_trajectory_prac_pipreview true
+  int solid = 2;        // mp_solid_teammates 2
+};
+Toggles g_toggles;
+
+bool g_dryRun = false;    // .dryrun round under way
+bool g_dryArmed = false;  // its freeze time ended: the next round_end ends it
 
 struct PendingBot {
   int callerSlot = -1;
@@ -305,6 +361,7 @@ GrenadeDamage g_grenadeDamage;  // HE / fire damage summed per throw (feedback)
 uint64_t PlayerId(int slot, uint64_t steamid64) { return steamid64 ? steamid64 : 0xB0B0000000000000ull | static_cast<uint32_t>(slot); }
 
 void Cmd(const char* c) { g_api->server_command(g_api->self, c); }
+void Cmd(const std::string& c) { Cmd(c.c_str()); }
 void ChatAll(const std::string& msg) { g_api->chat_all(g_api->self, msg.c_str(), 0); }
 
 void Reply(int slot, uint64_t steamid64, const std::string& msg) {
@@ -334,6 +391,12 @@ void ClearState(bool restorePawns) {
   g_grenadeDamage.Clear();
   g_buddhaOff = false;
   g_touched = false;
+  g_throws.clear();
+  g_delayed.clear();
+  g_timers.clear();
+  g_toggles = Toggles{};
+  g_dryRun = false;
+  g_dryArmed = false;
 }
 
 // ---- mode ---------------------------------------------------------------------------------------
@@ -351,6 +414,8 @@ bool Enter(const char** why) {
     g_standaloneActive = true;
   }
   g_manualOff = false;
+  g_toggles = Toggles{};
+  g_dryRun = g_dryArmed = false;
   Cmd("exec ReadyUp/prac.cfg");
   // Respawn everyone so they get prac.cfg's grenade set and weapons now, not on their next death.
   Cmd("mp_restartgame 1");
@@ -366,6 +431,63 @@ void Leave() {
   Cmd("mp_restartgame 1");
   ClearState(/*restorePawns=*/true);
   Log("practice: off");
+}
+
+// ---- .dryrun (ME) ------------------------------------------------------------------------------
+
+// ME's defaults when no dryrun.cfg exists (ExecUnpracCommands + ExecDryRunCFG), without the
+// match-only keys (halftime, overtime, timeouts, backups): one round with normal rules.
+constexpr const char* kDryRunCvars[] = {
+    // sv_cheats last: sv_infinite_ammo and buddha are cheat cvars.
+    "sv_grenade_trajectory_prac_pipreview false; sv_grenade_trajectory_prac_trailtime 0; sv_showimpacts 0; "
+    "sv_infinite_ammo 0; buddha 0; mp_teammates_are_enemies false; sv_cheats false",
+    "mp_ct_default_grenades \"\"; mp_t_default_grenades \"\"; mp_ct_default_primary \"\"; mp_t_default_primary \"\"; "
+    "mp_ct_default_secondary weapon_hkp2000; mp_t_default_secondary weapon_glock",
+    "mp_death_drop_defuser 1; mp_death_drop_taser 1; mp_drop_knife_enable 0; mp_death_drop_grenade 2; mp_death_drop_gun 1; "
+    "ammo_grenade_limit_default 1; ammo_grenade_limit_flashbang 2; ammo_grenade_limit_total 4; mp_defuser_allocation 0; "
+    "mp_free_armor 0",
+    "mp_buy_anywhere 0; mp_buytime 20; mp_freezetime 6; mp_roundtime 1.92; mp_roundtime_defuse 1.92; "
+    "mp_roundtime_hostage 1.92; mp_startmoney 16000; mp_maxmoney 16000; mp_afterroundmoney 0",
+    "mp_respawn_on_death_ct 0; mp_respawn_on_death_t 0; mp_solid_teammates 1; mp_ignore_round_win_conditions 0; "
+    "mp_round_restart_delay 5; mp_c4timer 40; mp_give_player_c4 1; mp_friendlyfire 1; mp_forcecamera 1",
+};
+
+void StartDryRun() {
+  // ME: bots kicked, bot placement and noflash dropped. God mode goes too (a normal round).
+  Cmd("bot_kick");
+  g_pendingBots.clear();
+  const Offsets& o = Off();
+  for (int s : g_god) {
+    if (void* pawn = PawnForSlot(s); pawn && o.takesDamage >= 0) Wr<bool>(pawn, o.takesDamage, true);
+  }
+  for (int s : g_noflash) {
+    if (void* pawn = PawnForSlot(s); pawn && o.flashAlpha >= 0) {
+      Wr<float>(pawn, o.flashAlpha, 255.f);
+      g_api->entity_mark_changed(g_api->self, pawn);
+    }
+  }
+  g_god.clear();
+  g_noflash.clear();
+  g_buddhaOff = false;
+  g_delayed.clear();
+  for (const char* c : kDryRunCvars) Cmd(c);
+  Cmd("exec ReadyUp/dryrun.cfg");  // optional overrides; a missing file only logs a console line
+  Cmd("mp_restartgame 1");
+  g_dryRun = true;
+  g_dryArmed = false;
+  g_touched = true;
+  Log("practice: dry run started");
+  ChatAll("Ready Up: dry run: one round with normal money, freeze time and round time. .dryrun or .prac goes back to "
+          "practice.");
+}
+
+void EndDryRun(const char* why) {
+  g_dryRun = g_dryArmed = false;
+  g_toggles = Toggles{};
+  Cmd("exec ReadyUp/prac.cfg");
+  Cmd("mp_restartgame 1");
+  Log("practice: dry run over (%s)", why);
+  ChatAll(std::string("Ready Up: ") + why + ": back to practice.");
 }
 
 // ---- tools --------------------------------------------------------------------------------------
@@ -418,16 +540,231 @@ std::string ToolsRefusal() {
   return {};
 }
 
+// CS2 cannot set another player's view from the server: tell them the setang to type (sv_cheats is
+// on in practice).
+std::string AngleHint(const Vec3f& a) {
+  if (!std::isfinite(a.x) || !std::isfinite(a.y) || (a.x == 0 && a.y == 0)) return ".";
+  char buf[96];
+  std::snprintf(buf, sizeof(buf), " (view: setang %.2f %.2f 0 in your console).", a.x, a.y);
+  return buf;
+}
+
+constexpr const char* kNoPerPlayerThrow =
+    "per-player rethrow is not available on Ready Up yet (it needs grenade projectile creation). "
+    ".rethrow rethrows the last grenade thrown on the server.";
+
+// .last .lastindex .delay .throwidx and the typed rethrows. True when `cmd` was one of them.
+bool RunHistoryTool(int slot, uint64_t steamid64, uint64_t id, const std::string& cmd,
+                    const std::vector<std::string>& args) {
+  ThrowHistory* h = g_throws.count(id) ? &g_throws[id] : nullptr;
+  const size_t count = h ? h->Count() : 0;
+  if (cmd == ".last") {
+    const Throw* t = h ? h->Last() : nullptr;
+    if (!t) return Reply(slot, steamid64, "You have not thrown any nade yet!"), true;
+    if (!TeleportRemembering(slot, id, Vec3{t->pos.x, t->pos.y, t->pos.z})) return Reply(slot, steamid64, kNoTeleport), true;
+    Reply(slot, steamid64, "Teleported to your last grenade throw" + AngleHint(t->ang));
+    return true;
+  }
+  if (cmd == ".lastindex") {
+    if (!count) return Reply(slot, steamid64, "You have not thrown any nade yet!"), true;
+    Reply(slot, steamid64, "Index of last thrown grenade: " + std::to_string(count));
+    return true;
+  }
+  if (cmd == ".delay") {
+    float secs = 0;
+    if (args.size() < 2) return Reply(slot, steamid64, "Usage: .delay <delay_in_seconds>"), true;
+    if (!ParseDelaySeconds(args[1], &secs)) {
+      return Reply(slot, steamid64, "Usage: .delay <delay_in_seconds> (more than 0, at most 60)"), true;
+    }
+    if (!count) return Reply(slot, steamid64, "You have not thrown any nade yet!"), true;
+    h->Last()->delay = secs;
+    char buf[128];
+    std::snprintf(buf, sizeof(buf), "Delay of %.2fs set for grenade of index: %zu.", secs, count);
+    Reply(slot, steamid64, buf);
+    return true;
+  }
+  if (cmd == ".throwidx" || cmd == ".throwindex") {
+    if (args.size() < 2) {
+      Reply(slot, steamid64,
+            "Usage: .throwindex <number> (You've thrown " + std::to_string(count) + " grenades till now)");
+      return true;
+    }
+    for (size_t i = 1; i < args.size(); ++i) {
+      int n = 0;
+      if (!ParsePositiveInt(args[i], &n)) {
+        Reply(slot, steamid64, args[i] + " is not a valid non-negative number for .throwindex command.");
+        continue;
+      }
+      if (!count) return Reply(slot, steamid64, "You have not thrown any nade yet!"), true;
+      if (!h->At(n)) {
+        Reply(slot, steamid64, "Your grenade history only goes from 1 to " + std::to_string(count) + "!");
+        continue;
+      }
+      Reply(slot, steamid64, kNoPerPlayerThrow);
+      return true;
+    }
+    return true;
+  }
+  if (const std::string kind = TypedRethrowKind(cmd); !kind.empty()) {
+    if (!h || !h->LastOfKind(kind)) return Reply(slot, steamid64, "You have not thrown any " + kind + " yet!"), true;
+    Reply(slot, steamid64, kNoPerPlayerThrow);
+    return true;
+  }
+  return false;
+}
+
+// .impacts .traj/.pip .solid .break .timer. True when `cmd` was one of them.
+bool RunToggleTool(int slot, uint64_t steamid64, const std::string& cmd) {
+  if (cmd == ".impacts") {
+    g_toggles.impacts = !g_toggles.impacts;
+    Cmd(g_toggles.impacts ? "sv_showimpacts 1" : "sv_showimpacts 0");
+    g_touched = true;
+    Reply(slot, steamid64, std::string("sv_showimpacts is now set to ") + (g_toggles.impacts ? "1" : "0"));
+    return true;
+  }
+  if (cmd == ".traj" || cmd == ".pip") {
+    g_toggles.traj = !g_toggles.traj;
+    Cmd(g_toggles.traj ? "sv_grenade_trajectory_prac_pipreview true" : "sv_grenade_trajectory_prac_pipreview false");
+    g_touched = true;
+    Reply(slot, steamid64,
+          std::string("sv_grenade_trajectory_prac_pipreview is now set to ") + (g_toggles.traj ? "true" : "false"));
+    return true;
+  }
+  if (cmd == ".solid") {
+    g_toggles.solid = NextSolidValue(g_toggles.solid);
+    Cmd("mp_solid_teammates " + std::to_string(g_toggles.solid));
+    g_touched = true;
+    Reply(slot, steamid64, "mp_solid_teammates is now set to " + std::to_string(g_toggles.solid));
+    return true;
+  }
+  if (cmd == ".break") {
+    if (!RU_API_HAS(g_api, entity_remove) || !g_api->entity_remove) {
+      return Reply(slot, steamid64, "cannot break anything: entity removal is unavailable on this server build."), true;
+    }
+    // func_breakable(_surf), and the prop_dynamic ones a Break input would break: health > 0 and
+    // taking damage (Mirage's vents and windows; decorative props have health 0).
+    const Offsets& o = Off();
+    int n = 0;
+    for (int i = 65; i < 32768; ++i) {
+      void* e = g_api->entity_by_index(g_api->self, i);
+      if (!e) continue;
+      const char* cls = g_api->entity_classname(g_api->self, e);
+      if (!cls) continue;
+      bool breakable = std::strcmp(cls, "func_breakable") == 0 || std::strcmp(cls, "func_breakable_surf") == 0;
+      if (!breakable && std::strcmp(cls, "prop_dynamic") == 0 && o.health >= 0 && o.takesDamage >= 0) {
+        breakable = Rd<int32_t>(e, o.health) > 0 && Rd<bool>(e, o.takesDamage);
+      }
+      if (breakable) n += g_api->entity_remove(g_api->self, e) == 1 ? 1 : 0;
+    }
+    Log("practice: .break removed %d entities", n);
+    Reply(slot, steamid64, n ? "Broke " + std::to_string(n) + " breakables (windows, vents, ...)." : "Nothing left to break.");
+    return true;
+  }
+  if (cmd == ".timer") {
+    const uint64_t id = PlayerId(slot, steamid64);
+    auto it = g_timers.find(slot);
+    if (it != g_timers.end() && it->second.id == id) {
+      const std::string res = FormatTimerSeconds(Now() - it->second.start);
+      g_timers.erase(it);
+      if (steamid64) {
+        const std::string html = "<font color='#ffffff'>Timer: " + res + "s</font>";
+        if (RU_API_HAS(g_api, center_html_to_slot_prio) && g_api->center_html_to_slot_prio) {
+          (void)g_api->center_html_to_slot_prio(g_api->self, slot, html.c_str(), 3, RU_HTML_PRIO_NOTICE);
+        }
+      }
+      Reply(slot, steamid64, "Timer stopped! Result: " + res + "s");
+      return true;
+    }
+    g_timers[slot] = StopWatch{id, Now(), 0};
+    g_touched = true;
+    Reply(slot, steamid64, "Timer started! Use .timer to stop it.");
+    return true;
+  }
+  return false;
+}
+
+// The .timer panels, ~10 times a second (ME: every 0.1 s).
+void DrawTimers(double now) {
+  if (g_timers.empty() || !RU_API_HAS(g_api, center_html_to_slot_prio) || !g_api->center_html_to_slot_prio) return;
+  for (auto it = g_timers.begin(); it != g_timers.end();) {
+    ru_player p{};
+    p.struct_size = sizeof(p);
+    if (!PlayerBySlot(it->first, &p) || PlayerId(it->first, p.is_bot ? 0 : p.steamid64) != it->second.id) {
+      it = g_timers.erase(it);  // left, or the slot is someone else now
+      continue;
+    }
+    if (now >= it->second.nextDraw && !p.is_bot) {
+      it->second.nextDraw = now + 0.1;
+      const std::string html = "<font color='#ffffff'>Timer: " + FormatTimerSeconds(Now() - it->second.start) + "s</font>";
+      (void)g_api->center_html_to_slot_prio(g_api->self, it->first, html.c_str(), 1, RU_HTML_PRIO_NOTICE);
+    }
+    ++it;
+  }
+}
+
+// The competitive spawns of `team` (ME: the lowest priority among the enabled ones).
+std::vector<SpawnPt> CompetitiveSpawns(int team) {
+  auto all = ListSpawns(team);
+  if (all.empty()) return all;
+  const int minPrio = all.front().priority;  // ListSpawns sorts by priority
+  std::vector<SpawnPt> out;
+  for (const auto& s : all) {
+    if (s.priority == minPrio) out.push_back(s);
+  }
+  return out;
+}
+
+// .bestspawn .worstspawn (+ct / t) .showspawns .hidespawns. True when `cmd` was one of them.
+bool RunSpawnTool(int slot, uint64_t steamid64, uint64_t id, const std::string& cmd) {
+  if (cmd == ".showspawns" || cmd == ".hidespawns") {
+    const size_t ct = ListSpawns(3).size(), t = ListSpawns(2).size();
+    Reply(slot, steamid64, "spawn markers are not available on Ready Up yet (they need entity creation). This map has " +
+                               std::to_string(ct) + " CT and " + std::to_string(t) +
+                               " T spawns: .ctspawn N / .tspawn N / .bestspawn go there.");
+    return true;
+  }
+  const bool best = cmd.rfind(".best", 0) == 0;
+  if (!best && cmd.rfind(".worst", 0) != 0) return false;
+  const std::string rest = cmd.substr(best ? 5 : 6);
+  if (rest != "spawn" && rest != "ctspawn" && rest != "tspawn") return false;
+  const int team = rest == "ctspawn" ? 3 : rest == "tspawn" ? 2 : TeamOfSlot(slot);
+  if (team != 2 && team != 3) return Reply(slot, steamid64, "join CT or T first (or use .bestctspawn / .besttspawn)."), true;
+  const char* side = team == 3 ? "CT" : "T";
+  Spot here;
+  if (!SpotOfSlot(slot, &here)) return Reply(slot, steamid64, "cannot read your position (are you alive?)."), true;
+  const auto spawns = CompetitiveSpawns(team);
+  if (spawns.empty()) return Reply(slot, steamid64, std::string("no ") + side + " spawn points found on this map."), true;
+  std::vector<Vec3f> pts;
+  for (const auto& s : spawns) pts.push_back({s.pos.x, s.pos.y, s.pos.z});
+  const Vec3f from{here.pos.x, here.pos.y, here.pos.z};
+  const int i = best ? ClosestIndex(pts, from) : FarthestIndex(pts, from);
+  const Vec3 to = spawns[static_cast<size_t>(i)].pos;
+  if (!TeleportRemembering(slot, id, to)) return Reply(slot, steamid64, kNoTeleport), true;
+  Reply(slot, steamid64, std::string(best ? "closest " : "farthest ") + side + " spawn (" + std::to_string(i + 1) + "/" +
+                             std::to_string(spawns.size()) + ", " + Fmt(to) + ").");
+  return true;
+}
+
 void RunTool(int slot, uint64_t steamid64, const std::vector<std::string>& args) {
   const std::string cmd = Lower(args[0]);
   if (const std::string why = ToolsRefusal(); !why.empty()) return Reply(slot, steamid64, cmd + " " + why);
   const uint64_t id = PlayerId(slot, steamid64);
   const std::string name = args.size() > 1 ? args[1].substr(0, 32) : std::string("default");
 
-  if (cmd == ".rethrow" || cmd == ".rt") {
+  if (cmd == ".rethrow" || cmd == ".rt" || cmd == ".throw") {
+    float delay = 0;
+    if (auto h = g_throws.find(id); h != g_throws.end() && h->second.Last()) delay = h->second.Last()->delay;
+    if (delay > 0) {
+      g_delayed.push_back({Now() + delay, "sv_rethrow_last_grenade"});
+      g_touched = true;
+      return Reply(slot, steamid64, "rethrowing the last grenade thrown on the server in " + FormatTimerSeconds(delay) + " s.");
+    }
     Cmd("sv_rethrow_last_grenade");
     return Reply(slot, steamid64, "rethrowing the last grenade thrown on the server.");
   }
+  if (RunHistoryTool(slot, steamid64, id, cmd, args)) return;
+  if (RunToggleTool(slot, steamid64, cmd)) return;
+  if (RunSpawnTool(slot, steamid64, id, cmd)) return;
   if (cmd == ".clear") {
     // ent_remove_all works from the server console; ent_fire needs a client of its own there.
     for (const char* c : {"ent_remove_all smokegrenade_projectile", "ent_remove_all molotov_projectile",
@@ -456,6 +793,21 @@ void RunTool(int slot, uint64_t steamid64, const std::vector<std::string>& args)
     const Spot s = pit->second[name];
     if (!TeleportRemembering(slot, id, s.pos)) return Reply(slot, steamid64, kNoTeleport);
     return Reply(slot, steamid64, "loaded position \"" + name + "\" (" + Fmt(s.pos) + "; view angle not restored).");
+  }
+  if (cmd == ".back" && args.size() > 1) {
+    // ME: .back N = to throw N of your grenade history.
+    int n = 0;
+    if (!ParsePositiveInt(args[1], &n)) {
+      return Reply(slot, steamid64,
+                   "Invalid value for .back command. Please specify a valid non-negative number. Usage: .back <number>");
+    }
+    const ThrowHistory* h = g_throws.count(id) ? &g_throws[id] : nullptr;
+    if (!h || h->Count() == 0) return Reply(slot, steamid64, "You have not thrown any nade yet!");
+    const Throw* t = h->At(n);
+    if (!t) return Reply(slot, steamid64, "Your grenade history only goes from 1 to " + std::to_string(h->Count()) + "!");
+    if (!TeleportRemembering(slot, id, Vec3{t->pos.x, t->pos.y, t->pos.z})) return Reply(slot, steamid64, kNoTeleport);
+    return Reply(slot, steamid64, "Teleported to grenade of history position: " + std::to_string(n) + "/" +
+                                      std::to_string(h->Count()) + AngleHint(t->ang));
   }
   if (cmd == ".back") {
     const Spot* s = nullptr;
@@ -608,9 +960,23 @@ void OnPracChat(void*, const ru_command_ctx* c) {
     if (slot >= 0) g_api->chat_to_slot(g_api->self, slot, " \x04[ReadyUp]\x01 not authorized");
     return;
   }
+  if (g_dryRun && IsActive()) return EndDryRun("dry run stopped");  // ME: .prac during a dry run = practice again
   std::string reply;
   (void)Toggle(!IsActive(), &reply);
   ChatAll("Ready Up: " + reply);
+}
+
+// `.dry` / `.dryrun` (ME, admin): a normal round inside practice; again = back to practice.
+void OnDryChat(void*, const ru_command_ctx* c) {
+  const int slot = SenderSlot(c);
+  auto reply = [&](const std::string& m) {
+    if (slot >= 0) g_api->chat_to_slot(g_api->self, slot, (" \x04[ReadyUp]\x01 " + m).c_str());
+  };
+  if (g_api->is_admin(g_api->self, c->steamid64) != 1) return reply("not authorized");
+  if (!IsActive()) return reply("Dryrun can only be started in practice mode!");
+  if (!ToolsAllowed(true, Ruleset())) return reply("not available under the valve ruleset.");
+  if (g_dryRun) return EndDryRun("dry run stopped");
+  StartDryRun();
 }
 
 // `.exitprac` (MatchZy name): practice off, never on (`.prac` toggles).
@@ -641,13 +1007,14 @@ void OnRu(void*, const ru_command_ctx* c) {
   };
   if (sub.empty() || sub == "help") {
     for (const char* l : {".ru practice on|off: practice mode (admin; also .prac)", ".ru practice status",
+                          ".ru practice dryrun: a dry run round, or back to practice (admin; also .dryrun)",
                           "ru practice as <slot> <.command>: run a practice tool as that player (console)"}) {
       reply(l);
     }
     return;
   }
   if (sub == "status") {
-    reply(std::string("practice ") + (IsActive() ? "on" : "off") +
+    reply(std::string("practice ") + (IsActive() ? (g_dryRun ? "on (dry run)" : "on") : "off") +
           (MatchOwnsMode() ? " (match plugin mode)" : " (standalone)") + ", always=" + (AlwaysOn() ? "1" : "0"));
     return;
   }
@@ -656,6 +1023,15 @@ void OnRu(void*, const ru_command_ctx* c) {
     std::string r;
     (void)Toggle(sub == "on", &r);
     return reply(r);
+  }
+  if (sub == "dryrun") {
+    if (!IsActive()) return reply("Dryrun can only be started in practice mode!");
+    if (g_dryRun) {
+      EndDryRun("dry run stopped");
+      return reply("dry run stopped.");
+    }
+    StartDryRun();
+    return reply("dry run started.");
   }
   if (sub == "as") {
     if (!c->is_console) return reply(".ru practice as is console / RCON only.");
@@ -689,7 +1065,7 @@ bool FeedbackOn() {
     char b[16] = {};
     on = g_api->config_get(g_api->self, "feedback", b, sizeof(b)) <= 0 || ParseBool(b, true);
   }
-  return on && ToolsAllowed(true, Ruleset());
+  return on && !g_dryRun && ToolsAllowed(true, Ruleset());
 }
 
 std::string NameOfSlot(int slot) {
@@ -734,7 +1110,18 @@ void OnGameEvent(void*, const char* evName, const ru_game_event* ev) {
     if (!SpotOfSlot(slot, &s)) return;
     ru_player p{};
     p.struct_size = sizeof(p);
-    g_lastThrow[PlayerId(slot, PlayerBySlot(slot, &p) ? p.steamid64 : 0)] = s;
+    const uint64_t id = PlayerId(slot, PlayerBySlot(slot, &p) && !p.is_bot ? p.steamid64 : 0);
+    g_lastThrow[id] = s;
+    Throw t;
+    t.pos = {s.pos.x, s.pos.y, s.pos.z};
+    t.ang = {s.ang.x, s.ang.y, s.ang.z};
+    t.kind = GrenadeKind(a->ev_get_string(a->self, ev, "weapon", ""));
+    g_throws[id].Add(t);
+    g_touched = true;
+  } else if (std::strcmp(evName, "round_freeze_end") == 0) {
+    if (g_dryRun) g_dryArmed = true;
+  } else if (std::strcmp(evName, "round_end") == 0) {
+    if (g_dryRun && g_dryArmed) EndDryRun("the dry run round is over");
   } else if (std::strcmp(evName, "player_hurt") == 0) {
     if (FeedbackOn()) FeedbackHurt(ev);
   } else if (std::strcmp(evName, "player_blind") == 0) {
@@ -788,6 +1175,20 @@ void OnTick(void*, const ru_tick_info* t) {
     return;
   }
   for (const auto& l : g_grenadeDamage.Flush(t->now, 1.0)) ChatAll(l);
+  if (!g_delayed.empty()) {
+    const double now = Now();
+    std::vector<std::string> due;
+    for (auto it = g_delayed.begin(); it != g_delayed.end();) {
+      if (now >= it->due) {
+        due.push_back(it->cmd);
+        it = g_delayed.erase(it);
+      } else {
+        ++it;
+      }
+    }
+    for (const auto& c : due) Cmd(c.c_str());
+  }
+  DrawTimers(Now());
   if (g_pendingBots.empty()) return;
   const auto bots = BotUserids();
   for (auto it = g_pendingBots.begin(); it != g_pendingBots.end();) {
@@ -826,7 +1227,8 @@ int IfaceSetActive(int on, const char** why) {
   return ok ? 1 : 0;
 }
 const char* IfaceHelp() { return HelpLine(); }
-const ru_practice_v1 g_iface = {sizeof(ru_practice_v1), &IfaceActive, &IfaceSetActive, &IfaceHelp};
+int IfaceDryRun() { return IsActive() && g_dryRun ? 1 : 0; }
+const ru_practice_v1 g_iface = {sizeof(ru_practice_v1), &IfaceActive, &IfaceSetActive, &IfaceHelp, &IfaceDryRun};
 
 void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   std::string d = std::string(IsActive() ? "on" : "off") + (MatchOwnsMode() ? " (match plugin mode)" : " (standalone)");
@@ -870,12 +1272,22 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
       !api->register_chat_command(api->self, ".match", &OnMatchChat, nullptr)) {
     ru_logf(api, RU_LOG_WARN, "could not register .prac (another plugin owns it)");
   }
-  for (const char* c : {".rethrow", ".rt", ".savepos", ".loadpos", ".back", ".clear", ".noflash", ".god", ".spawn",
-                        ".ctspawn", ".tspawn", ".bot", ".cbot", ".crouchbot", ".boost", ".crouchboost", ".nobots"}) {
+  for (const char* c :
+       {".rethrow", ".rt", ".throw", ".savepos", ".loadpos", ".back", ".clear", ".noflash", ".god", ".spawn", ".ctspawn",
+        ".tspawn", ".bot", ".cbot", ".crouchbot", ".boost", ".crouchboost", ".nobots",
+        // ME extras
+        ".last", ".lastindex", ".throwidx", ".throwindex", ".delay", ".throwsmoke", ".rethrowsmoke", ".throwflash",
+        ".rethrowflash", ".throwgrenade", ".rethrowgrenade", ".thrownade", ".rethrownade", ".throwmolotov",
+        ".rethrowmolotov", ".throwdecoy", ".rethrowdecoy", ".impacts", ".traj", ".pip", ".solid", ".break", ".timer",
+        ".bestspawn", ".worstspawn", ".bestctspawn", ".worstctspawn", ".besttspawn", ".worsttspawn", ".showspawns",
+        ".hidespawns"}) {
     if (!api->register_chat_command(api->self, c, &OnToolChat, nullptr)) ru_logf(api, RU_LOG_WARN, "could not register %s", c);
   }
+  for (const char* c : {".dry", ".dryrun"}) {
+    if (!api->register_chat_command(api->self, c, &OnDryChat, nullptr)) ru_logf(api, RU_LOG_WARN, "could not register %s", c);
+  }
   api->register_ru_subcommand(api->self, "practice", &OnRu, nullptr);
-  for (const char* e : {"grenade_thrown", "player_blind", "player_spawn", "player_hurt"}) {
+  for (const char* e : {"grenade_thrown", "player_blind", "player_spawn", "player_hurt", "round_freeze_end", "round_end"}) {
     if (!api->subscribe_game_event(api->self, e, &OnGameEvent, nullptr)) ru_logf(api, RU_LOG_WARN, "could not subscribe to %s", e);
   }
   api->subscribe(api->self, RU_EVENT_MAP_START, &OnMapStart, nullptr);
