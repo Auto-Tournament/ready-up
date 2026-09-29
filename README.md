@@ -33,7 +33,7 @@ CI checks the file against every new CS2 build, usually within minutes of the up
 - Ready-up flow for scrims and pickups: `.r` / `.ur`, a countdown, then the match goes live on its own
 - Match configs loaded from the Auto Tournament platform, with a roster whitelist and team locks
 - Pauses (`.pause` / `.unpause`) and captain forfeit
-- Practice mode (its own plugin): `.prac`, `.savepos`/`.loadpos`, `.spawn N`, `.rethrow`, `.bot`, `.noflash`, `.god`; a dedicated practice server with `always=1`
+- Practice mode (its own plugin): `.prac`, `.savepos`/`.loadpos`, `.spawn N`, `.rethrow`, `.bot`, `.noflash`, `.god`; a dedicated practice server with `always=1`; `.scen` replays a recorded pro round with bots ([docs/SCENARIOS.md](docs/SCENARIOS.md))
 - Steam Workshop addons (its own plugin, Full bundle): the server downloads the addons listed in `cfg/ReadyUp/addons.cfg` (`workshop_addons=`) and mounts them with every map change; idle until you list one (`ru addons` shows their state)
 - Deathmatch (its own plugin, Full bundle): free for all or team deathmatch with a kill / time limit, a live leaderboard, headshot only and weapon rounds (`.ru dm ffa|tdm [map]`)
 - Admins, settings, crash recovery and skins loadouts in small JSON files, no database (`ru admins add|remove|list`); in fleet mode admins and loadouts come from the platform
@@ -165,7 +165,7 @@ Server basics kept apart from the match flow, so every kind of server has them: 
 
 <br />
 
-`.prac` (admin) switches practice on or off: `cfg/ReadyUp/prac.cfg` (cheats, a full grenade set, infinite ammo) and everyone respawns with it. Tools: `.savepos`/`.loadpos [name]`, `.back`, `.spawn N` / `.ctspawn N` / `.tspawn N`, `.rethrow`, `.clear`, `.noflash`, `.god`, `.bot`/`.cbot`/`.boost`, `.nobots`. Runs with the match plugin (which then shows practice as its mode and refuses it while a match is loaded) or without it: `always=1` in `cfg/ReadyUp/practice.cfg` makes a dedicated practice server. Never active under the valve ruleset. In both bundles.
+`.prac` (admin) switches practice on or off: `cfg/ReadyUp/prac.cfg` (cheats, a full grenade set, infinite ammo) and everyone respawns with it. Tools: `.savepos`/`.loadpos [name]`, `.back`, `.spawn N` / `.ctspawn N` / `.tspawn N`, `.rethrow`, `.clear`, `.noflash`, `.god`, `.bot`/`.cbot`/`.boost`, `.nobots`. Scenarios: `.scen load <id> [player] [start]` puts you where a pro stood in a recorded round while bots replay the other nine ([docs/SCENARIOS.md](docs/SCENARIOS.md); converter in `tools/scenario/`). Runs with the match plugin (which then shows practice as its mode and refuses it while a match is loaded) or without it: `always=1` in `cfg/ReadyUp/practice.cfg` makes a dedicated practice server. Never active under the valve ruleset. In both bundles.
 
 </details>
 
