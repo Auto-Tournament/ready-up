@@ -1173,6 +1173,7 @@ const char* GetModeString() {
 void SetModeIdle() {
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
+  StopDemoLocked(st);  // a dropped match must not leave its demo recording
   if (st.mode == ReadyUpMode::Practice) {
     // reset will happen from Tick (server thread), but we can mark it here.
     st.practiceResetPending = true;
@@ -1198,6 +1199,7 @@ bool SetModeExternal(const std::string& name) {
   if (st.mode != ReadyUpMode::Idle && st.mode != ReadyUpMode::ScrimWarmup && st.mode != ReadyUpMode::External) {
     return false;
   }
+  StopDemoLocked(st);
   st.mode = ReadyUpMode::External;
   st.externalName = name;
   st.externalTouchedGameMode = true;
@@ -1225,6 +1227,7 @@ std::string ExternalModeName() {
 void SetModePractice() {
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
+  StopDemoLocked(st);
   st.mode = ReadyUpMode::Practice;
   st.externalName.clear();
   st.idleCfgExecuted = false;

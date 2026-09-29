@@ -710,13 +710,22 @@ int TvDelaySeconds() {
 
 // ------------------------------------------------------------------------------ lifecycle
 
+static bool StopActiveNow();
+
 bool StartRecording(const RecordingInfo& info) {
   Settings s;
   {
     std::lock_guard<std::mutex> lk(St().mu);
     s = St().s;
-    if (St().rec.active) return true;
+    const Recording& cur = St().rec;
+    // The same map of the same match is already recording (and not waiting for its flush).
+    if (cur.active && !St().stop.active && cur.info.matchid == info.matchid && cur.info.mapNumber == info.mapNumber) {
+      return true;
+    }
   }
+  // Anything else still recording is stale (a dropped match, a map change): end it, then start a
+  // new file, so the new map is never recorded into the old one's demo.
+  if (StopActiveNow()) Print("demo: a recording was still active at start; ended it, starting a new demo\n");
   if (info.record == 0) {
     PrintLine("demo: recording off for this match (rules.demo.record false)");
     return false;
@@ -810,59 +819,19 @@ bool StopAfterDelayAndUpload(double delaySeconds, int roundNumber, int team1Scor
   return true;
 }
 
-void ScheduleStop(double delaySeconds, const Recording& recIn, int roundNumber, int team1Score, int team2Score) {
-  ScheduleOnGameThread(delaySeconds, [rec = recIn, roundNumber, team1Score, team2Score]() {
-    Settings s;
-    StreamHooks hooks;
-    {
-      std::lock_guard<std::mutex> lk(St().mu);
-      St().stop.active = false;
-      // A newer recording (next map) is not ours to stop.
-      if (!St().rec.active || St().rec.relPath != rec.relPath) return;
-      St().rec.active = false;
-      s = St().s;
-      hooks = St().hooks;
-    }
-    (void)EnqueueServerCommand("tv_stoprecord");
-    DemoEvent e;
-    e.type = DemoEventType::RecordingStopped;
-    e.matchid = rec.info.matchid;
-    e.mapNumber = rec.info.mapNumber;
-    e.fileName = rec.fileName;
-    e.path = rec.relPath;
-    Emit(e);
-    if (rec.streamed) {
-      // fleet.so sends the rest once the file stops growing; the platform has the demo when it
-      // confirms the whole file (FLEET.md §12.2). No HTTP upload.
-      if (hooks.end) hooks.end(WriteDir() + "/" + rec.relPath);
-      return;
-    }
-    UploadJob job;
-    job.info = rec.info;
-    job.round = roundNumber;
-    job.team1Score = team1Score;
-    job.team2Score = team2Score;
-    job.expectedPath = WriteDir() + "/" + rec.relPath;
-    job.demoDir = WriteDir() + "/" + s.path;
-    job.startedEpoch = rec.startedEpoch;
-    job.s = s;
-    StartUpload(std::move(job));
-  });
-}
-
-void StopNowWithoutUpload() {
-  Recording rec;
+// Ends `rec` (the caller has marked it inactive): tv_stoprecord, the stopped event, then the stream
+// end (fleet) or the HTTP upload. upload = false for a match that was dropped mid-map: the partial
+// demo is still ended cleanly (and handed to fleet.so, which finishes the stream), it is just not
+// HTTP-uploaded.
+static void FinishRecording(const Recording& rec, bool upload, int roundNumber, int team1Score, int team2Score) {
+  Settings s;
   StreamHooks hooks;
   {
     std::lock_guard<std::mutex> lk(St().mu);
-    if (!St().rec.active) return;
-    rec = St().rec;
-    St().rec.active = false;
+    s = St().s;
     hooks = St().hooks;
   }
   (void)EnqueueServerCommand("tv_stoprecord");
-  // A streamed demo is finished as it is (the platform gets what was recorded).
-  if (rec.streamed && hooks.end) hooks.end(WriteDir() + "/" + rec.relPath);
   DemoEvent e;
   e.type = DemoEventType::RecordingStopped;
   e.matchid = rec.info.matchid;
@@ -870,6 +839,64 @@ void StopNowWithoutUpload() {
   e.fileName = rec.fileName;
   e.path = rec.relPath;
   Emit(e);
+  if (rec.streamed) {
+    // fleet.so sends the rest once the file stops growing; the platform has the demo when it
+    // confirms the whole file (FLEET.md 12.2). No HTTP upload.
+    if (hooks.end) hooks.end(WriteDir() + "/" + rec.relPath);
+    return;
+  }
+  if (!upload) return;
+  UploadJob job;
+  job.info = rec.info;
+  job.round = roundNumber;
+  job.team1Score = team1Score;
+  job.team2Score = team2Score;
+  job.expectedPath = WriteDir() + "/" + rec.relPath;
+  job.demoDir = WriteDir() + "/" + s.path;
+  job.startedEpoch = rec.startedEpoch;
+  job.s = s;
+  StartUpload(std::move(job));
+}
+
+void ScheduleStop(double delaySeconds, const Recording& recIn, int roundNumber, int team1Score, int team2Score) {
+  ScheduleOnGameThread(delaySeconds, [rec = recIn, roundNumber, team1Score, team2Score]() {
+    {
+      std::lock_guard<std::mutex> lk(St().mu);
+      St().stop.active = false;
+      // A newer recording (next map) is not ours to stop.
+      if (!St().rec.active || St().rec.relPath != rec.relPath) return;
+      St().rec.active = false;
+    }
+    FinishRecording(rec, true, roundNumber, team1Score, team2Score);
+  });
+}
+
+// Stops the recording in progress now. A map that already ended (waiting for its GOTV flush) is
+// finished and uploaded as planned; anything else is a match that was dropped: ended cleanly,
+// not uploaded. Returns false if nothing was recording.
+static bool StopActiveNow() {
+  Recording rec;
+  PendingStop pend;
+  {
+    std::lock_guard<std::mutex> lk(St().mu);
+    if (!St().rec.active) return false;
+    rec = St().rec;
+    pend = St().stop;
+    St().rec.active = false;
+    St().stop.active = false;
+  }
+  const bool flushPending = pend.active && pend.relPath == rec.relPath;
+  FinishRecording(rec, flushPending, flushPending ? pend.round : 0, flushPending ? pend.team1Score : 0,
+                  flushPending ? pend.team2Score : 0);
+  return true;
+}
+
+void StopNowWithoutUpload() { (void)StopActiveNow(); }
+
+void OnMapStart() {
+  // A level change ends GOTV's recording; the state must not outlive it, or the next match's map
+  // would find a "recording in progress" and never start its own demo.
+  if (StopActiveNow()) Print("demo: map change; the recording in progress was ended\n");
 }
 
 void AddListener(Listener fn) {
