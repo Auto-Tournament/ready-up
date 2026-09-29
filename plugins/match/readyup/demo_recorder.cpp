@@ -88,6 +88,19 @@ std::string CsgoDir() {
   return d;
 }
 
+// Where CS2 writes a relative tv_record path: under the first `Game` search path. A Ready Up
+// install puts `Game csgo/readyup` first (scripts/patch_gameinfo.py), so "ReadyUp/x.dem" lands in
+// csgo/readyup/ReadyUp/, not csgo/ReadyUp/ (CS2 does not create the folder: "CDemoFile::Open:
+// couldn't open file ... for writing"). Without that folder: csgo/.
+std::string WriteDir() {
+  const std::string csgo = CsgoDir();
+  if (csgo.empty()) return csgo;
+  struct stat sb {};
+  const std::string ru = csgo + "/readyup";
+  if (stat(ru.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)) return ru;
+  return csgo;
+}
+
 void MkdirP(const std::string& dir) {
   std::string cur;
   for (size_t i = 0; i < dir.size(); ++i) {
@@ -412,7 +425,7 @@ void RunUpload(UploadJob job) {
   if (!StatFile(path, nullptr, nullptr)) {
     std::vector<DemoCandidate> files;
     std::vector<std::string> seen;
-    for (const auto& d : {DirName(job.expectedPath), job.demoDir, CsgoDir()}) {
+    for (const auto& d : {DirName(job.expectedPath), job.demoDir, CsgoDir() + "/" + job.s.path, CsgoDir()}) {
       if (d.empty() || std::find(seen.begin(), seen.end(), d) != seen.end()) continue;
       seen.push_back(d);
       auto l = ListDemos(d);
@@ -722,7 +735,8 @@ bool StartRecording(const RecordingInfo& info) {
   tv.team2 = info.team2;
   const std::string name = FormatDemoFileName(s.nameFormat, tv) + ".dem";
   const std::string rel = s.path + name;
-  MkdirP(CsgoDir() + "/" + s.path);
+  MkdirP(WriteDir() + "/" + s.path);
+  if (WriteDir() != CsgoDir()) MkdirP(CsgoDir() + "/" + s.path);
   bool ok = EnqueueServerCommand("tv_enable 1");
   ok = EnqueueServerCommand(("tv_record \"" + rel + "\"").c_str()) && ok;
   if (!ok) {
@@ -735,7 +749,7 @@ bool StartRecording(const RecordingInfo& info) {
     std::lock_guard<std::mutex> lk(St().mu);
     hooks = St().hooks;
   }
-  const bool streamed = info.upload != 0 && hooks.begin && hooks.begin(info, CsgoDir() + "/" + rel, name);
+  const bool streamed = info.upload != 0 && hooks.begin && hooks.begin(info, WriteDir() + "/" + rel, name);
   if (streamed) Print("demo: %s is streamed to the platform over the fleet link\n", name.c_str());
   {
     std::lock_guard<std::mutex> lk(St().mu);
@@ -796,7 +810,7 @@ void ScheduleStop(double delaySeconds, const Recording& recIn, int roundNumber, 
     if (rec.streamed) {
       // fleet.so sends the rest once the file stops growing; the platform has the demo when it
       // confirms the whole file (FLEET.md §12.2). No HTTP upload.
-      if (hooks.end) hooks.end(CsgoDir() + "/" + rec.relPath);
+      if (hooks.end) hooks.end(WriteDir() + "/" + rec.relPath);
       return;
     }
     UploadJob job;
@@ -804,8 +818,8 @@ void ScheduleStop(double delaySeconds, const Recording& recIn, int roundNumber, 
     job.round = roundNumber;
     job.team1Score = team1Score;
     job.team2Score = team2Score;
-    job.expectedPath = CsgoDir() + "/" + rec.relPath;
-    job.demoDir = CsgoDir() + "/" + s.path;
+    job.expectedPath = WriteDir() + "/" + rec.relPath;
+    job.demoDir = WriteDir() + "/" + s.path;
     job.startedEpoch = rec.startedEpoch;
     job.s = s;
     StartUpload(std::move(job));
@@ -824,7 +838,7 @@ void StopNowWithoutUpload() {
   }
   (void)EnqueueServerCommand("tv_stoprecord");
   // A streamed demo is finished as it is (the platform gets what was recorded).
-  if (rec.streamed && hooks.end) hooks.end(CsgoDir() + "/" + rec.relPath);
+  if (rec.streamed && hooks.end) hooks.end(WriteDir() + "/" + rec.relPath);
   DemoEvent e;
   e.type = DemoEventType::RecordingStopped;
   e.matchid = rec.info.matchid;
