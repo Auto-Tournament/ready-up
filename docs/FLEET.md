@@ -1175,7 +1175,9 @@ The contract (schemas `plugins/fleet/protocol/v1/messages/demo.*.json`, examples
 6. **Deletion.** Only a demo the platform confirmed with `complete: true` is deleted, and only
    `[fleet] demo_keep_hours` (default 24) later; `demo_keep_hours=0` keeps every file. A demo the
    platform never confirms (silent, refused, failed) is kept forever. While any streamed demo is
-   unconfirmed, `get_status().update_blocked` is 1 (the local file is the only copy).
+   unconfirmed, `get_status().update_blocked` is 1 (the local file is the only copy), and the
+   match plugin's retention sweep (readyup.cfg `demo_keep_hours`, INSTALL.md "File retention")
+   deletes no demos.
 
 A streamed demo is never HTTP-uploaded. `event.demo` still reports `recording_started` /
 `recording_stopped`; the platform knows the upload finished when it answers `complete: true`.

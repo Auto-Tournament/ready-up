@@ -770,6 +770,30 @@ bool IsRecording() {
   return St().rec.active;
 }
 
+std::vector<std::string> DemoDirs() {
+  std::string path;
+  {
+    std::lock_guard<std::mutex> lk(St().mu);
+    path = St().s.path;
+  }
+  while (!path.empty() && path.back() == '/') path.pop_back();
+  std::vector<std::string> out;
+  for (const std::string& base : {WriteDir(), CsgoDir()}) {
+    if (base.empty()) continue;
+    const std::string dir = path.empty() ? base : base + "/" + path;
+    if (std::find(out.begin(), out.end(), dir) == out.end()) out.push_back(dir);
+  }
+  return out;
+}
+
+std::vector<std::string> ActiveDemoFiles() {
+  std::lock_guard<std::mutex> lk(St().mu);
+  std::vector<std::string> out;
+  if (St().rec.active) out.push_back(St().rec.fileName);
+  if (St().stop.active) out.push_back(Basename(St().stop.relPath));
+  return out;
+}
+
 bool StopAfterDelayAndUpload(double delaySeconds, int roundNumber, int team1Score, int team2Score) {
   Recording rec;
   {

@@ -43,8 +43,10 @@
 // platform over the fleet link while it records (fleet.so tails the file; fleet_bridge.cpp
 // installs the StreamHooks below). A streamed demo is never HTTP-uploaded. Everything else is
 // unchanged: without a fleet link (or for local matches) demos are recorded, kept and uploaded
-// exactly as above, and nothing here ever deletes a demo (fleet.so deletes only files the
-// platform confirmed it stored in full, after [fleet] demo_keep_hours).
+// exactly as above. fleet.so deletes a streamed file only after the platform confirmed it stored it
+// in full, after [fleet] demo_keep_hours. Separately, the retention sweep (retention.h) deletes any
+// .dem in DemoDirs() last written more than readyup.cfg demo_keep_hours ago (default 24, 0 = keep),
+// except the recording in progress (ActiveDemoFiles) and the loaded match's demos.
 // Per match: match.assign rules.demo.record / rules.demo.upload (RecordingInfo::record / upload)
 // win over ru_demo_recording_enabled and the upload / stream for that match.
 // `tv_delay N` typed on the console is observed (not consumed) for the flush timing.
@@ -127,6 +129,11 @@ bool UploadWanted(const Settings& s, int matchUpload);
 // Game thread. Returns false when recording is disabled or commands could not be queued.
 bool StartRecording(const RecordingInfo& info);
 bool IsRecording();
+// Retention (retention.h). Any thread. The dirs demos are recorded into: <write path>/<ru_demo_path>
+// and csgo/<ru_demo_path> (absolute, no trailing '/'). The file names that must never be deleted:
+// the recording in progress and the one waiting for its GOTV flush.
+std::vector<std::string> DemoDirs();
+std::vector<std::string> ActiveDemoFiles();
 // Game thread. Stops after `delaySeconds` (the GOTV flush), then uploads when a URL is set.
 // Returns false if nothing was recording.
 bool StopAfterDelayAndUpload(double delaySeconds, int roundNumber, int team1Score, int team2Score);

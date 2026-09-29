@@ -148,6 +148,10 @@ void Apply(ReadyUpCfg* out, const std::string& key, const std::string& val) {
     const int h = RuleInt(val);  // 0 = off; anything unreadable keeps the default
     if (h >= 0) out->idle_map_refresh_hours = std::min(h, 720);
   }
+  else if (key == "backup_keep_hours" || key == "demo_keep_hours") {
+    const int h = RuleInt(val);  // 0 = keep forever; anything unreadable keeps the default
+    if (h >= 0) (key == "backup_keep_hours" ? out->backup_keep_hours : out->demo_keep_hours) = std::min(h, 87600);
+  }
   // Rules: 0 is a real value (unlimited / off), so no ParseInt here.
   else if (key == "max_tech_pauses_per_team") out->rules.tech_pauses_per_team = RuleInt(val);
   else if (key == "tech_pause_max_seconds") out->rules.tech_pause_max_seconds = RuleInt(val);

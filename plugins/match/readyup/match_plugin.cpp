@@ -42,6 +42,7 @@
 #include "readyup/players.h"
 #include "readyup/ready_hud.h"
 #include "readyup/reload_state.h"
+#include "readyup/retention.h"
 #include "readyup/scrim_flow.h"
 #include "readyup/votes.h"
 #include "readyup/webhook.h"
@@ -207,6 +208,7 @@ void OnEvent(void*, const ru_event* e) {
   Guard("event", [&] {
     if (e->type == RU_EVENT_MAP_START) {
       IdleRefreshOnMapStart(host::NowSeconds());
+      retention::SweepAsync();  // old round backups and demos (retention.h)
       EsportsOnMapStart();  // the GOTV client is looked for again
       fleet_bridge::OnMapStart();
       match_recovery::OnMapStart();  // a recovery changing to the match map continues
@@ -388,6 +390,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     }
     (void)ReloadCfg(nullptr);
     match_settings::Install();  // server settings saved in state.json (server_settings.h)
+    retention::SweepAsync();    // old round backups and demos (retention.h); again at every map start
 
     // Commands: player chat, `ru <sub>` / `.ru <sub>`, console settings, `tv_delay` observer.
     RegisterReadyCommands();
