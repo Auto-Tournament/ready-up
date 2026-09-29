@@ -66,7 +66,7 @@ admin_prefix=<DarkRed>[Admin]<Default>
 # playout_enabled_default=0            play every round, no clinch
 # autoready_enabled=0                  roster players are ready when they join their team
 # knife_enabled_default=1              knife round for scrims and maps without a side (old key: scrim_knife)
-# reset_cvars_on_series_end=1          reset the warmup cvars when a series ends
+# reset_cvars_on_series_end=1          reset the warmup cvars and the match cvars{} when a series ends
 # use_pause_command_for_tactical_pause=0   .pause / .p call a tactical timeout
 # hostname_format=                     e.g. "{TEAM1} vs {TEAM2}" while a match is loaded (empty = off)
 # kick_when_no_match_loaded=0          kick non-admins while no match is loaded

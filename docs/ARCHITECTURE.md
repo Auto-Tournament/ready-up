@@ -205,6 +205,23 @@ they disappear on unload.
 |---|---|---|
 | `set_core_setting(self, key, value)` | game | Runtime value of a core readyup.cfg setting that a platform pushes (FLEET.md §7.5 `server.config`): `chat_prefix` (`<Color>` tokens, max 64 bytes) and `status_http_token` (16..200 printable bytes; `status.json` is rewritten). Wins over readyup.cfg until cleared with `""`; not saved by the core (the plugin that set it restores it: match for `chat_prefix`, fleet for the token). Never logs the value |
 
+### v1.11 (implemented)
+
+Both members live in `plugin_loader.cpp` and touch no engine surface of their own (not in
+`needs.json` `"api"` or `compat-report.py` `API_SURFACE`).
+
+| Member | Thread | Purpose |
+|---|---|---|
+| `cvar_query(self, name, fn, user)` | game | Reads a cvar's current value. The core queues the bare name as a console command (what typing it in the console does) and answers from the `<name> = <value>` line the engine prints, seen by the logging listener; `Unknown command '<name>'!` or no answer within 3 s gives value NULL. fn runs on the game thread (normally the next frame). A query queued before a `<name> <value>` command reads the value before it. Needs `cmdbuf` and `loglistener` (`feature_state`); name is `[A-Za-z0-9_.]`, at most 256 pending |
+| `selftest_summary(self, buf, len)` | any | The latest core selftest as JSON (`pass`, `passed`, `total`, `pending`, `failures`, `summary`, `ran_at`), the object the status endpoint shows; -1 before the first run |
+
+Why asynchronous: a synchronous read needs `ICvar::FindConVar` / `GetConVarData` (vtable slots in
+libtier0 plus the `ConVarData` value layout), new engine surface that moves with CS2 updates. The
+console answer uses the command buffer and log listener the core depends on already. The match
+plugin uses `cvar_query` for `reset_cvars_on_series_end` (`plugins/match/readyup/cvar_snapshot.h`),
+fleet.so uses `selftest_summary` for `hello.selftest` / `server.selftest`, and `plugins/hello`
+shows both (`hello_cvar <name>`, `hello_selftest`).
+
 ### ABI rules
 
 1. **Plain C across the boundary.** No C++ classes, references, STL, `std::string` or

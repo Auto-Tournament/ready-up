@@ -70,7 +70,7 @@ int main() {
   for (const char* t : {"match.assign", "match.update", "match.unassign", "cmd", "cmd.result", "state.snapshot",
                         "state.patch", "state.request", "server.availability", "event.round_end", "event.map_result",
                         "event.backup", "event.phase", "event.pause", "event.demo", "event.series_end", "admins.set",
-                        "server.drain", "server.undrain", "server.cs2_update_required", "skins.loadout", "skins.invalidate", "skins.stattrak", "event.admin_called"}) {
+                        "server.drain", "server.undrain", "server.cs2_update_required", "server.selftest", "skins.loadout", "skins.invalidate", "skins.stattrak", "event.admin_called"}) {
     CHECK(set.Has(kBase + "messages/" + t + ".json"));
   }
 
@@ -125,6 +125,13 @@ int main() {
     p->Get("plugins_disabled")->a[0] = Value::Object();
   }));
   CHECK(broken("hello.plugins_disabled.json", [](Value* p) { p->Set("plugins_disabled", Value::Str("skins")); }));
+
+  // hello.selftest / server.selftest (core selftest_summary, ru_api 1.11): all four fields, typed.
+  CHECK(broken("hello.selftest.json", [](Value* p) { p->Get("selftest")->Set("pass", Value::Str("yes")); }));
+  CHECK(broken("hello.selftest.json", [](Value* p) { p->Set("selftest", Value::Object()); }));
+  CHECK(broken("server.selftest.json", [](Value* p) { p->Set("passed", Value::Int(-1)); }));
+  CHECK(broken("server.selftest.json", [](Value* p) { p->Get("failures")->Push(Value::Int(3)); }));
+  CHECK(broken("server.selftest.json", [](Value* p) { *p = Value::Object(); }));
   CHECK(broken("event.admin_called.json", [](Value* p) {
     p->Get("data")->Get("player")->Set("team", Value::Str("coach"));
   }));

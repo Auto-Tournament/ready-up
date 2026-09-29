@@ -14,6 +14,7 @@
 #include "readyup/golive_card.h"
 #include "readyup/welcome.h"
 #include "readyup/config.h"
+#include "readyup/cvar_snapshot.h"
 #include "readyup/match_events.h"
 #include "readyup/match_features.h"
 #include "readyup/match_recovery.h"
@@ -879,6 +880,9 @@ static void AppendTeamNameCmds(std::vector<std::string>* cmds) {
 }
 
 static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx) {
+  // Normally read at match load already; this catches names added later (match.update) or a read
+  // that could not go out then. The reads are queued now, the cvars below only after the cfg.
+  cvar_snapshot::CaptureMatchCvars(ctx.cvars);
   std::vector<std::string> cmds;
   AppendTeamNameCmds(&cmds);
   // Playout (match_settings.h): the engine must not end the map at the clinch either. A match
@@ -998,7 +1002,7 @@ static void ApplyLiveRulesAndRestartLocked(State& st, const WebhookMatchContext&
 
 static bool ResetServerRulesAndRestartLocked(State& st) {
   // Revert any warmup/practice-esque cvars and restart.
-  const char* cmds[] = {
+  std::vector<std::string> cmds = {
       "mp_respawn_on_death_ct 0",
       "mp_respawn_on_death_t 0",
       "mp_ignore_round_win_conditions 0",
@@ -1010,12 +1014,20 @@ static bool ResetServerRulesAndRestartLocked(State& st) {
       "mp_teamname_2 \"\"",
       "mp_teamflag_1 \"\"",
       "mp_teamflag_2 \"\"",
-      "mp_restartgame 1",
   };
+  // The match config's own cvars{} go back to their pre-match values (cvar_snapshot.h), after the
+  // fixed resets so a config that set one of those gets its original back too.
+  // reset_cvars_on_series_end 0: the match values stay and the snapshot is dropped.
+  if (match_settings::ResetCvarsOnSeriesEnd()) {
+    for (auto& c : cvar_snapshot::TakeRestoreCommands()) cmds.push_back(std::move(c));
+  } else {
+    cvar_snapshot::Discard();
+  }
+  cmds.emplace_back("mp_restartgame 1");
 
   bool any = false;
-  for (const char* c : cmds) {
-    if (EnqueueServerCommand(c)) any = true;
+  for (const auto& c : cmds) {
+    if (EnqueueServerCommand(c.c_str())) any = true;
   }
   (void)st;
   return any;
@@ -1751,6 +1763,7 @@ static void ResetToIdleAfterSeriesLocked(State& st) {
     (void)ResetServerRulesAndRestartLocked(st);
   } else {
     Print("match: series over; cvars kept (ru_reset_cvars_on_series_end 0)\n");
+    cvar_snapshot::Discard();  // the match values are the server's values from now on
     for (const char* c : {"mp_teamname_1 \"\"", "mp_teamname_2 \"\"", "mp_teamflag_1 \"\"", "mp_teamflag_2 \"\"",
                           "mp_restartgame 1"}) {
       (void)EnqueueServerCommand(c);
