@@ -58,6 +58,8 @@ It refuses a dirty tree, a malformed version and a tag that already exists local
    uploads the files again and fixes the pre-release / latest flag.
 6. **Discord** announcement when `DISCORD_WEBHOOK_URL` is set.
 
+Release notes go in the GitHub release (edit it after CI publishes to curate the generated notes); the [docs changelog](https://docs.autotournament.gg/reference/changelog/ready-up) is generated from them, and [CHANGELOG.md](../CHANGELOG.md) only links there.
+
 ## After a beta
 
 - Testers install or update with `--channel beta` (newest release including pre-releases) or pin
