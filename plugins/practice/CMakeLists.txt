@@ -3,6 +3,7 @@
 readyup_add_plugin(practice practice_plugin.cpp practice_rules.cpp practice_feedback.cpp practice_tools.cpp
   practice_scenarios.cpp scenario.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp)
 target_include_directories(readyup_plugin_practice PRIVATE ${CMAKE_SOURCE_DIR}/libs)
+target_link_libraries(readyup_plugin_practice PRIVATE pthread)  # ru scenario convert worker
 target_compile_definitions(readyup_plugin_practice PRIVATE PRACTICE_VERSION="${READYUP_SEMVER}")
 
 # Tool / bot commands, when they may run, always=1 (practice_rules.h; ctest `practice_rules`).
