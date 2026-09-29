@@ -51,6 +51,15 @@
 //                         to the competitive spawn (lowest priority) closest to / farthest from you
 //   .showspawns / .hidespawns   not available: markers need entity creation (beams); they list the
 //                         spawn counts and point at .spawn N instead
+//   .savenade / .sn <name> [description]   save where you stand and look as a lineup of this map
+//                         (yours, or the global ones while .globalnades is on); the reply has its code
+//   .loadnade / .ln <name>   to your lineup with the nearest name (then a global one); the view
+//                         angle cannot be set, so the reply has the setang to type
+//   .listnades / .lin [filter], .deletenade / .delnade / .dn <name>, .importnade / .in <code>
+//                         ("<name> x y z pitch yaw roll", the code .savenade prints)
+//   .globalnades          admin: .savenade / .deletenade use the global lineups (owner "default")
+//   Lineups live in <plugin data dir>/lineups/<map>.json (practice_lineups.h), read on first use
+//   per map and written after every change by a writer thread (joined on unload).
 //   .dry / .dryrun        admin, practice only: one round with normal rules (ME defaults: money,
 //                         freeze time, round time, no infinite ammo / cheats / buddha; then
 //                         cfg/ReadyUp/dryrun.cfg if it exists, for overrides) after bot_kick and
@@ -66,9 +75,12 @@
 // the flag itself. It publishes readyup.practice.v1 (the match plugin hands `.ru mode practice`
 // to it). Log lines: `practice: ...`.
 #include "practice_feedback.h"
+#include "practice_lineups.h"
 #include "practice_rules.h"
 #include "practice_scenarios.h"
 #include "practice_tools.h"
+
+#include "readyup/json_store.h"
 
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
@@ -78,6 +90,10 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <condition_variable>
+#include <deque>
+#include <mutex>
+#include <thread>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -747,6 +763,198 @@ bool RunSpawnTool(int slot, uint64_t steamid64, uint64_t id, const std::string& 
   return true;
 }
 
+// ---- lineup library (ME .savenade ...; practice_lineups.h) -----------------------------------------
+
+LineupBook g_lineups;
+std::string g_lineupsMap;    // map whose file g_lineups holds ("" = not read yet)
+bool g_globalNades = false;  // .globalnades (admin): save / delete the global lineups
+
+std::string LineupsDir() {
+  const char* d = g_api->data_dir(g_api->self);
+  return std::string(d ? d : ".") + "/lineups";
+}
+
+std::string CurrentMap() {
+  const char* m = RU_API_HAS(g_api, current_map) && g_api->current_map ? g_api->current_map(g_api->self) : nullptr;
+  return m && *m ? m : "unknown";
+}
+
+std::string LineupsPath(const std::string& map) { return LineupsDir() + "/" + MapFileStem(map) + ".json"; }
+
+// The book of the current map, read on first use per map.
+LineupBook& Lineups() {
+  const std::string map = CurrentMap();
+  if (g_lineupsMap == map) return g_lineups;
+  g_lineupsMap = map;
+  g_lineups = LineupBook{};
+  readyup::json_store::Json doc;
+  std::string note;
+  const auto r = readyup::json_store::Load(LineupsPath(map), 1, &doc, &note);
+  if (r == readyup::json_store::LoadResult::Ok) {
+    int skipped = 0;
+    g_lineups.FromJson(doc, &skipped);
+    Log("practice: lineups: %zu on %s%s", g_lineups.Count(), map.c_str(),
+        skipped ? (" (" + std::to_string(skipped) + " malformed entries skipped)").c_str() : "");
+  } else if (r == readyup::json_store::LoadResult::Corrupt) {
+    Log("practice: lineups: %s", note.c_str());
+  }
+  return g_lineups;
+}
+
+// Lineup files are written off the game thread (json_store fsyncs the file and the directory,
+// which took 150 ms once on the test box): one writer thread, files in the order they changed.
+class LineupWriter {
+ public:
+  void Start() {
+    stop_ = false;
+    thread_ = std::thread([this] { Run(); });
+  }
+  // Writes what is queued, then joins (unload: the thread must be gone before the image closes).
+  void Stop() {
+    {
+      std::lock_guard<std::mutex> lk(mu_);
+      stop_ = true;
+    }
+    cv_.notify_all();
+    if (thread_.joinable()) thread_.join();
+  }
+  void Queue(std::string dir, std::string path, readyup::json_store::Json doc) {
+    {
+      std::lock_guard<std::mutex> lk(mu_);
+      queue_.push_back(Job{std::move(dir), std::move(path), std::move(doc)});
+    }
+    cv_.notify_all();
+  }
+
+ private:
+  struct Job {
+    std::string dir, path;
+    readyup::json_store::Json doc;
+  };
+  void Run() {
+    for (;;) {
+      Job job;
+      {
+        std::unique_lock<std::mutex> lk(mu_);
+        cv_.wait(lk, [this] { return stop_ || !queue_.empty(); });
+        if (queue_.empty()) return;  // stop_ and drained
+        job = std::move(queue_.front());
+        queue_.pop_front();
+      }
+      std::string err;
+      if (!readyup::json_store::MakeDirs(job.dir, &err) || !readyup::json_store::Save(job.path, job.doc, 1, &err)) {
+        Log("practice: lineups: cannot write %s: %s", job.path.c_str(), err.c_str());
+      }
+    }
+  }
+  std::thread thread_;
+  std::mutex mu_;
+  std::condition_variable cv_;
+  std::deque<Job> queue_;
+  bool stop_ = false;
+};
+// Created at load and deleted at unload after Stop(). A process that exits without unloading the
+// plugin never runs its destructor: destroying a condition variable the thread still waits on
+// blocks forever in glibc (the process would hang on exit).
+LineupWriter* g_lineupWriter = nullptr;
+
+void SaveLineups() {
+  if (g_lineupWriter) g_lineupWriter->Queue(LineupsDir(), LineupsPath(g_lineupsMap), g_lineups.ToJson());
+}
+
+// ME keys lineups by SteamID64; bots (ru practice as) by their pseudo id.
+std::string OwnerKey(uint64_t id) { return std::to_string(id); }
+
+std::string JoinFrom(const std::vector<std::string>& args, size_t from) {
+  std::string out;
+  for (size_t i = from; i < args.size(); ++i) out += (out.empty() ? "" : " ") + args[i];
+  return out;
+}
+
+// True when `cmd` was a lineup command.
+bool RunLineupTool(int slot, uint64_t steamid64, uint64_t id, const std::string& cmd,
+                   const std::vector<std::string>& args) {
+  const bool save = cmd == ".savenade" || cmd == ".sn";
+  const bool load = cmd == ".loadnade" || cmd == ".ln";
+  const bool list = cmd == ".listnades" || cmd == ".lin";
+  const bool del = cmd == ".deletenade" || cmd == ".delnade" || cmd == ".dn";
+  const bool imp = cmd == ".importnade" || cmd == ".in";
+  if (!save && !load && !list && !del && !imp) return false;
+  LineupBook& book = Lineups();
+  const std::string mine = OwnerKey(id);
+  const std::string arg1 = args.size() > 1 ? args[1] : std::string();
+  constexpr const char* kBadName = "lineup names are 1-32 letters, digits, _ - or .";
+
+  if (save) {
+    if (arg1.empty()) return Reply(slot, steamid64, "Usage: .savenade <name> [description]"), true;
+    if (!ValidLineupName(arg1)) return Reply(slot, steamid64, kBadName), true;
+    Spot s;
+    if (!SpotOfSlot(slot, &s)) return Reply(slot, steamid64, "cannot read your position (are you alive?)."), true;
+    Lineup l;
+    l.name = arg1;
+    l.pos = {s.pos.x, s.pos.y, s.pos.z};
+    l.ang = {s.ang.x, s.ang.y, s.ang.z};
+    if (auto h = g_throws.find(id); h != g_throws.end() && h->second.Last()) l.kind = h->second.Last()->kind;
+    l.desc = JoinFrom(args, 2).substr(0, 128);
+    const std::string owner = g_globalNades ? std::string(kGlobalOwner) : mine;
+    if (!book.Add(owner, l)) {
+      return Reply(slot, steamid64, "Lineup already exists! Please use a different name or use .delnade <nade>"), true;
+    }
+    SaveLineups();
+    Reply(slot, steamid64, "Lineup " + l.name + " saved successfully!" + (g_globalNades ? " (global)" : "") +
+                               " Code: " + ExportCode(l));
+    return true;
+  }
+  if (load) {
+    if (arg1.empty()) return Reply(slot, steamid64, "Nade not found! Usage: .loadnade <name>"), true;
+    std::string from;
+    const Lineup* l = book.Load(mine, JoinFrom(args, 1), &from);
+    if (!l) return Reply(slot, steamid64, "Nade " + arg1 + " not found!"), true;
+    const Lineup copy = *l;
+    if (!TeleportRemembering(slot, id, Vec3{copy.pos.x, copy.pos.y, copy.pos.z})) return Reply(slot, steamid64, kNoTeleport), true;
+    Reply(slot, steamid64, "Lineup " + copy.name + " loaded successfully" + (copy.kind.empty() ? "" : " [" + copy.kind + "]") +
+                               AngleHint(copy.ang));
+    if (!copy.desc.empty()) Reply(slot, steamid64, "Description: " + copy.desc);
+    return true;
+  }
+  if (list) {
+    const std::string filter = arg1;
+    Reply(slot, steamid64, "-----All Saved Lineups for " + g_lineupsMap + "-----");
+    int shown = 0;
+    for (const std::string& owner : {std::string(kGlobalOwner), mine}) {
+      for (const Lineup* l : book.List(owner, filter)) {
+        if (++shown > 40) break;
+        Reply(slot, steamid64, "[" + (l->kind.empty() ? std::string("?") : l->kind) + "] .loadnade " + l->name +
+                                   (owner == kGlobalOwner ? " (global)" : ""));
+      }
+    }
+    if (shown == 0) Reply(slot, steamid64, "No saved lineups" + (filter.empty() ? "" : " matching \"" + filter + "\"") + ".");
+    if (shown > 40) Reply(slot, steamid64, "... more; add a filter: .listnades <filter>");
+    return true;
+  }
+  if (del) {
+    if (arg1.empty()) return Reply(slot, steamid64, "Usage: .delnade <name>"), true;
+    const std::string owner = g_globalNades ? std::string(kGlobalOwner) : mine;
+    if (!book.Remove(owner, arg1)) return Reply(slot, steamid64, "Lineup " + arg1 + " not found!"), true;
+    SaveLineups();
+    Reply(slot, steamid64, "Lineup " + arg1 + " deleted successfully.");
+    return true;
+  }
+  // .importnade <name> x y z pitch yaw roll (ME: always into the caller's own lineups)
+  if (arg1.empty()) return Reply(slot, steamid64, "Usage: .importnade <code>"), true;
+  Lineup l;
+  if (!ParseImportCode(JoinFrom(args, 1), &l.name, &l.pos, &l.ang)) {
+    return Reply(slot, steamid64, "Invalid code format. Please provide a valid code with name, pos, and ang."), true;
+  }
+  if (!book.Add(mine, l)) {
+    return Reply(slot, steamid64, "Lineup " + l.name + " already exists! Please use a different name or use .delnade <nade>"),
+           true;
+  }
+  SaveLineups();
+  Reply(slot, steamid64, "Lineup " + l.name + " imported and saved successfully.");
+  return true;
+}
+
 void RunTool(int slot, uint64_t steamid64, const std::vector<std::string>& args) {
   const std::string cmd = Lower(args[0]);
   if (const std::string why = ToolsRefusal(); !why.empty()) return Reply(slot, steamid64, cmd + " " + why);
@@ -767,6 +975,7 @@ void RunTool(int slot, uint64_t steamid64, const std::vector<std::string>& args)
   if (RunHistoryTool(slot, steamid64, id, cmd, args)) return;
   if (RunToggleTool(slot, steamid64, cmd)) return;
   if (RunSpawnTool(slot, steamid64, id, cmd)) return;
+  if (RunLineupTool(slot, steamid64, id, cmd, args)) return;
   if (cmd == ".clear") {
     // ent_remove_all works from the server console; ent_fire needs a client of its own there.
     for (const char* c : {"ent_remove_all smokegrenade_projectile", "ent_remove_all molotov_projectile",
@@ -979,6 +1188,23 @@ void OnDryChat(void*, const ru_command_ctx* c) {
   if (!ToolsAllowed(true, Ruleset())) return reply("not available under the valve ruleset.");
   if (g_dryRun) return EndDryRun("dry run stopped");
   StartDryRun();
+}
+
+// `.globalnades` (ME, admin): .savenade / .deletenade work on the global lineups.
+void OnGlobalNadesChat(void*, const ru_command_ctx* c) {
+  const int slot = SenderSlot(c);
+  if (g_api->is_admin(g_api->self, c->steamid64) != 1) {
+    if (slot >= 0) g_api->chat_to_slot(g_api->self, slot, " \x04[ReadyUp]\x01 not authorized");
+    return;
+  }
+  g_globalNades = !g_globalNades;
+  Log("practice: .globalnades %s", g_globalNades ? "on" : "off");
+  if (slot >= 0) {
+    g_api->chat_to_slot(g_api->self, slot,
+                        (std::string(" \x04[ReadyUp]\x01 Saving/Loading Lineups Globally is now ") +
+                         (g_globalNades ? "Enabled" : "Disabled") + "!")
+                            .c_str());
+  }
 }
 
 // `.exitprac` (MatchZy name): practice off, never on (`.prac` toggles).
@@ -1268,6 +1494,11 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_nextAlwaysCheck = 0;
   g_manualOff = false;
   g_standaloneActive = false;
+  g_lineups = LineupBook{};
+  g_lineupsMap.clear();
+  g_globalNades = false;
+  g_lineupWriter = new LineupWriter;
+  g_lineupWriter->Start();
   (void)api->stash_get(api->self, "standalone_active", &g_standaloneActive, sizeof(g_standaloneActive));
   if (!api->register_chat_command(api->self, ".prac", &OnPracChat, nullptr) ||
       !api->register_chat_command(api->self, ".tactics", &OnPracChat, nullptr) ||
@@ -1283,8 +1514,14 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
         ".rethrowflash", ".throwgrenade", ".rethrowgrenade", ".thrownade", ".rethrownade", ".throwmolotov",
         ".rethrowmolotov", ".throwdecoy", ".rethrowdecoy", ".impacts", ".traj", ".pip", ".solid", ".break", ".timer",
         ".bestspawn", ".worstspawn", ".bestctspawn", ".worstctspawn", ".besttspawn", ".worsttspawn", ".showspawns",
-        ".hidespawns"}) {
+        ".hidespawns",
+        // lineup library
+        ".savenade", ".sn", ".loadnade", ".ln", ".listnades", ".lin", ".deletenade", ".delnade", ".dn", ".importnade",
+        ".in"}) {
     if (!api->register_chat_command(api->self, c, &OnToolChat, nullptr)) ru_logf(api, RU_LOG_WARN, "could not register %s", c);
+  }
+  if (!api->register_chat_command(api->self, ".globalnades", &OnGlobalNadesChat, nullptr)) {
+    ru_logf(api, RU_LOG_WARN, "could not register .globalnades");
   }
   for (const char* c : {".dry", ".dryrun"}) {
     if (!api->register_chat_command(api->self, c, &OnDryChat, nullptr)) ru_logf(api, RU_LOG_WARN, "could not register %s", c);
@@ -1308,6 +1545,11 @@ READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
   g_api->stash_put(g_api->self, "standalone_active", &g_standaloneActive, sizeof(g_standaloneActive));
   scenarios::Unload();
   ClearState(/*restorePawns=*/true);
+  if (g_lineupWriter) {  // pending lineup files are written first
+    g_lineupWriter->Stop();
+    delete g_lineupWriter;
+    g_lineupWriter = nullptr;
+  }
   ru_logf(g_api, RU_LOG_INFO, "unloaded");
   g_api = nullptr;
 }

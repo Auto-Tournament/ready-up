@@ -1,5 +1,6 @@
 // Offline tests for plugins/practice/practice_rules.h. ctest `practice_rules`.
 #include "practice_feedback.h"
+#include "practice_lineups.h"
 #include "practice_rules.h"
 #include "practice_tools.h"
 
@@ -109,6 +110,67 @@ int main() {
   CHECK(NextSolidValue(0) == 2 && NextSolidValue(1) == 2 && NextSolidValue(2) == 1);
   CHECK(FormatTimerSeconds(12.345) == "12.35" || FormatTimerSeconds(12.345) == "12.34");
   CHECK(FormatTimerSeconds(-1) == "0.00");
+
+  // Lineup library (practice_lineups.h).
+  for (const char* c : {".savenade", ".sn", ".loadnade", ".ln", ".listnades", ".lin", ".deletenade", ".delnade", ".dn",
+                        ".importnade", ".in"}) {
+    CHECK(IsToolCommand(c));
+  }
+  CHECK(ValidLineupName("mid_window-1.a") && !ValidLineupName("") && !ValidLineupName("a b") &&
+        !ValidLineupName("../x/y") && !ValidLineupName(std::string(33, 'a')));
+  CHECK(MapFileStem("de_Dust2") == "de_dust2" && MapFileStem("workshop/123/de x") == "workshop_123_de_x");
+
+  CHECK(NearestName("xbox", {"window", "xbox_smoke", "ct"}) == "xbox_smoke");
+  CHECK(NearestName("CT", {"window", "ct", "ctx"}) == "ct");       // exact, case-insensitive
+  CHECK(NearestName("w", {"a_site", "window", "wall"}) == "window");  // one letter: first starting with it
+  CHECK(NearestName("zzz", {"window"}).empty() && NearestName("", {"a"}).empty() && NearestName("a", {}).empty());
+  CHECK(NearestName("nothingthere", {"window"}).empty());  // one shared bigram (0.125) is no match
+  CHECK(NearestName("win", {"window", "xbox"}) == "window");
+  CHECK(DiceCoefficient("night", "nacht") > 0.2 && DiceCoefficient("night", "nacht") < 0.3);
+
+  std::string nm;
+  Vec3f p, a;
+  CHECK(ParseImportCode("window -1234.5 200 -10.25 5.5 90 0", &nm, &p, &a) && nm == "window" && p.x == -1234.5f &&
+        p.z == -10.25f && a.y == 90.f);
+  CHECK(ParseImportCode("xbox 1, 2, 3 4, 5, 6", &nm, &p, &a) && p.y == 2.f && a.x == 4.f);  // ME codes with commas
+  CHECK(!ParseImportCode("window 1 2 3 4 5", &nm, &p, &a) && !ParseImportCode("window 1 2 3 4 5 x", &nm, &p, &a) &&
+        !ParseImportCode("bad/name 1 2 3 4 5 6", &nm, &p, &a) && !ParseImportCode("far 99999 0 0 0 0 0", &nm, &p, &a));
+
+  LineupBook book;
+  Lineup win;
+  win.name = "window";
+  win.pos = {-1234.5f, 200.f, -10.25f};
+  win.ang = {5.5f, 90.f, 0.f};
+  win.kind = "smoke";
+  win.desc = "jump throw";
+  CHECK(ExportCode(win) == "window -1234.50 200.00 -10.25 5.50 90.00 0.00");
+  CHECK(book.Add("7656", win) && !book.Add("7656", win));  // ME: use .delnade first
+  Lineup glob = win;
+  glob.name = "xbox";
+  CHECK(book.Add(kGlobalOwner, glob));
+  CHECK(book.Count() == 2 && book.Find("7656", "window") && !book.Find("7656", "xbox"));
+  std::string from;
+  CHECK(book.Load("7656", "win", &from) && from == "7656");           // own first
+  CHECK(book.Load("7656", "xbo", &from) && from == kGlobalOwner);     // then global
+  CHECK(book.Load("other", "window", &from) == nullptr);              // someone else's is not theirs
+  CHECK(book.List("7656", "").size() == 1 && book.List("7656", "WIN").size() == 1 && book.List("7656", "zz").empty());
+
+  // JSON round trip, and malformed entries skipped.
+  const readyup::status::Json doc = book.ToJson();
+  LineupBook back;
+  int skipped = -1;
+  back.FromJson(doc, &skipped);
+  CHECK(skipped == 0 && back.Count() == 2);
+  const Lineup* w = back.Find("7656", "window");
+  CHECK(w && w->kind == "smoke" && w->desc == "jump throw" && w->pos.x == -1234.5f && w->ang.y == 90.f);
+  readyup::status::Json bad;
+  CHECK(readyup::status::Json::Parse(
+      R"({"version":1,"lineups":{"1":{"ok":{"pos":[1,2,3],"ang":[0,0,0]},"nopos":{"ang":[0,0,0]},)"
+      R"("short":{"pos":[1,2],"ang":[0,0,0]},"bad name":{"pos":[1,2,3],"ang":[0,0,0]}},"2":[]}})",
+      &bad));
+  back.FromJson(bad, &skipped);
+  CHECK(back.Count() == 1 && back.Find("1", "ok") && skipped == 4);
+  CHECK(book.Remove("7656", "window") && !book.Remove("7656", "window") && book.Count() == 1);
 
   std::printf("practice_rules_test: %s\n", g_failures ? "FAIL" : "PASS");
   return g_failures ? 1 : 0;
