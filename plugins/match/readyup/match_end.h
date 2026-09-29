@@ -29,7 +29,7 @@
 //   ru_series_end_kick_delay_no_demo <s>        default 5
 //   ru_series_end_kick_delay_demo_no_upload <s> default 10
 //   ru_series_end_kick_delay_demo_upload <s>    default 60
-//   ru_match_stats                              current map stats as one JSON line
+//   ru_match_stats [matchid]                    current map stats as one JSON line (at_payloads.h)
 // plus the demo settings in demo_recorder.h.
 
 #include "readyup/match_stats.h"

@@ -13,6 +13,11 @@
 // While the server downloads a Workshop map (host_workshop_map), everyone sees a progress bar in
 // the center panel, resent ~10x a second (core API 1.4 workshop_download_progress).
 //
+//   .rcon <command>                          a server console command; admins.json admins only (not
+//                                            match or platform admins), logged; refuses quit / exit /
+//                                            _restart, sv_setsteamaccount, rcon_password, alias, ...
+//                                            (essentials_rules.h RconRefusal)
+//
 // Chat: `.ru admins ...`, `.ru map ...`. Map commands are refused during a knife round or a live
 // map (the match plugin's mode) unless `force` is added.
 //
@@ -424,6 +429,39 @@ void OnMapChat(void*, const ru_command_ctx* c) {
   OnMap(c, "change", args);
 }
 
+// `.rcon <command>` (the old plugin's css_rcon / .rcon): runs a server console command. Only for
+// the server's own admins (admins.json, the "root" list): not a match config's admins and not the
+// platform's fleet-wide list (the platform has root-only cmd exec for that). RconRefusal refuses
+// what stops the server, sets a GSLT or touches credentials. Logged with who ran it.
+void OnRconChat(void*, const ru_command_ctx* c) {
+  if (!c->is_console) {
+    bool root;
+    {
+      std::lock_guard<std::mutex> lk(g_mu);
+      root = IsAdmin(g_admins, c->steamid64);
+    }
+    if (!root) {
+      ru_logf(g_api, RU_LOG_INFO, "rcon refused for %s (%llu): not in admins.json", c->name ? c->name : "?",
+              static_cast<unsigned long long>(c->steamid64));
+      return Reply(c, "not authorized: .rcon is for this server's admins (admins.json)");
+    }
+  }
+  const std::string text = c->text ? c->text : "";
+  const size_t sp = text.find_first_of(" \t");
+  std::string command = sp == std::string::npos ? std::string() : text.substr(sp + 1);
+  command.erase(0, std::min(command.size(), command.find_first_not_of(" \t")));
+  const std::string why = RconRefusal(command);
+  const std::string who = c->is_console ? std::string("Console")
+                                        : std::string(c->name ? c->name : "?") + " (" + std::to_string(c->steamid64) + ")";
+  if (!why.empty()) {
+    if (!command.empty()) ru_logf(g_api, RU_LOG_WARN, "rcon by %s refused (%s): %s", who.c_str(), why.c_str(), command.c_str());
+    return Reply(c, why);
+  }
+  ru_logf(g_api, RU_LOG_INFO, "rcon by %s: %s", who.c_str(), command.c_str());
+  if (g_api->server_command(g_api->self, command.c_str()) != 1) return Reply(c, "server commands are unavailable yet");
+  Reply(c, "Command sent successfully!");
+}
+
 void OnMapStart(void*, const ru_event* e) {
   g_dl = Download{};  // downloaded (or cached) and loaded
   if (e && e->map && *e->map) readyup::mapnames::NoteMapLoaded(e->map);  // binds a workshop id to its map
@@ -548,6 +586,9 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     if (!api->register_chat_command(api->self, m, &OnMapChat, nullptr)) {
       ru_logf(api, RU_LOG_WARN, "could not register `%s` (another plugin owns it)", m);
     }
+  }
+  if (!api->register_chat_command(api->self, ".rcon", &OnRconChat, nullptr)) {
+    ru_logf(api, RU_LOG_WARN, "could not register `.rcon` (another plugin owns it)");
   }
   api->set_admin_provider(api->self, &Provider, nullptr);
   api->subscribe(api->self, RU_EVENT_MAP_START, &OnMapStart, nullptr);

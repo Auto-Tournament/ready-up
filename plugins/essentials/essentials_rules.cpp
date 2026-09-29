@@ -26,6 +26,35 @@ uint64_t ParseSteamId64(const std::string& s) {
   return std::strtoull(s.c_str(), nullptr, 10);
 }
 
+std::string RconRefusal(const std::string& command) {
+  if (command.find_first_not_of(" \t") == std::string::npos) return "usage: .rcon <command>";
+  if (command.size() > 512) return "the command is longer than 512 bytes";
+  for (unsigned char c : command) {
+    if (c == '\n' || c == '\r' || c == '\0') return "one line only";
+  }
+  static const char* const kRefused[] = {"quit", "exit", "_restart", "restart", "killserver", "shutdown",
+                                         "sv_setsteamaccount", "rcon_password", "rcon", "readyup_license_key",
+                                         "alias"};
+  size_t start = 0;
+  while (start <= command.size()) {
+    size_t end = command.find(';', start);
+    if (end == std::string::npos) end = command.size();
+    const std::string part = Lower(command.substr(start, end - start));
+    start = end + 1;
+    const size_t b = part.find_first_not_of(" \t\"");
+    if (b == std::string::npos) continue;
+    const size_t e = part.find_first_of(" \t\"", b);
+    const std::string word = part.substr(b, e == std::string::npos ? std::string::npos : e - b);
+    for (const char* r : kRefused) {
+      if (word == r) return "`" + word + "` is not allowed over .rcon";
+    }
+    if (word == "fleet" || word.rfind("ru_fleet", 0) == 0 || (word == "ru" && part.find("fleet") != std::string::npos)) {
+      return "the fleet link's own commands are not allowed over .rcon";
+    }
+  }
+  return {};
+}
+
 std::vector<Admin> ParseAdmins(const std::string& json, bool* ok) {
   std::vector<Admin> out;
   if (ok) *ok = true;

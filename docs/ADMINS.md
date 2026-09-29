@@ -94,9 +94,10 @@ everything else (`.r`, `.pause`, `.stay` / `.switch`, `.settings`, `.coach`, `.a
 | `.ru midas` / `.ru midas give\|take <player>` | admin | midas plugin: who is Midas and why (midas_steamids, given, best player); give Midas to a player (again: takes it back) / take a given Midas back (`<player>`: part of the name or a SteamID64; kept in `plugins/midas/given.txt`) |
 | `.ru plugin list\|load\|unload\|reload <name>` | admin | plugins (core); load / unload last until a restart |
 | `.ru plugin enable\|disable <name>` | admin | load / unload a plugin and keep it that way after a restart (`csgo/readyup/plugins/plugins.json`) |
-| `.ru reload` | admin | reloads `readyup.cfg` (core) |
+| `.ru reload` | admin | reloads `readyup.cfg` (core); also `.reload_config`, and `ru_reload_config` on the console (the old plugin's `matchzy_reload_config` / `at_reload_config`) |
 | `.ru selftest` | admin | core |
-| `.ru` / `.ru version` / `.ru help` / `.ru list` | everyone | core: the build / the commands you can use |
+| `.ru` / `.ru version` / `.ru help` / `.ru list` | everyone | core: the build / the commands you can use. `.ruversion` / `.version` = `.ru version`; `ru_version` on the console (the old plugin's `matchzy_version` / `at_version`) |
+| `.rcon <command>` | `admins.json` admins | essentials plugin: runs a server console command (the old plugin's `.rcon` / `css_rcon`). Only the server's own admins (`admins.json`), not a match config's admins or the platform's list (the platform has root-only cmd `exec`). Logged with who ran it. Refused: `quit`, `exit`, `_restart`, `restart`, `killserver`, `shutdown`, `sv_setsteamaccount`, `rcon_password`, `rcon`, `readyup_license_key`, `alias` and the fleet link's commands, in any `;`-separated part |
 
 Chat shortcuts (admins; each one runs the `.ru` command it stands for, with the same checks):
 

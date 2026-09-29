@@ -83,6 +83,14 @@ int main() {
   CHECK(RuPublicHelpLines({}).size() == 4);  // no deathmatch plugin: no dm line
   CHECK(!CoreRuSubHelpLines("list").empty());
 
+  // The old plugin's names (MatchZy Enhanced / AT: .version, matchzy_version, at_reload_config).
+  CHECK(CoreChatAliasToRu(".ruversion") == "version" && CoreChatAliasToRu(".Version") == "version");
+  CHECK(CoreChatAliasToRu(".reload_config") == "reload");
+  CHECK(CoreChatAliasToRu(".ru").empty() && CoreChatAliasToRu(".versions").empty() && CoreChatAliasToRu("").empty());
+  CHECK(CoreConsoleAliasToRu("ru_version") == "version" && CoreConsoleAliasToRu("RU_RELOAD_CONFIG") == "reload");
+  CHECK(CoreConsoleAliasToRu("ru").empty() && CoreConsoleAliasToRu(".version").empty());
+  CHECK(Has(CoreRuSubHelpLines("version")[0], "ru_version") && Has(CoreRuSubHelpLines("reload")[0], "ru_reload_config"));
+
   std::printf("ru_help_test: %s\n", g_failures ? "FAIL" : "PASS");
   return g_failures ? 1 : 0;
 }

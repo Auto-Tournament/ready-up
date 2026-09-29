@@ -544,6 +544,39 @@ static void TestAtMapResult() {
   CHECK(v4 && AtPlayerCount(*v4, "team1") == 0 && Num(&*v4, {"team1", "score"}) == 13);
 }
 
+// ru_match_stats: the round_end / map_result team blocks, so the platform's stats parsing
+// (matchEventHandler: team1.players[].steamid + stats.kills / damage / rounds_played / kast / mvp)
+// reads it unchanged.
+static void TestAtMatchStats() {
+  auto st = PlayedRound1();
+  at::MatchStatsLine m;
+  m.matchid = 42;
+  m.map_number = 2;
+  m.map_name = "de_mirage";
+  m.team1 = {"7", "Alpha", 1};
+  m.team2 = {"8", "Bravo", 0};
+  m.stats = st.Snapshot();
+  const auto v = ParseJson(at::MatchStatsJson(m));
+  CHECK(v.has_value());
+  if (!v) return;
+  CHECK_STR(Text(&*v, {"event"}), std::string("match_stats"));
+  CHECK_EQ(Num(&*v, {"matchid"}), 42);
+  CHECK_EQ(Num(&*v, {"map_number"}), 2);
+  CHECK_STR(Text(&*v, {"map_name"}), std::string("de_mirage"));
+  CHECK_EQ(Num(&*v, {"round_number"}), 1);
+  CHECK_STR(Text(&*v, {"team1", "name"}), std::string("Alpha"));
+  CHECK_EQ(Num(&*v, {"team1", "series_score"}), 1);
+  CHECK_EQ(Num(&*v, {"team1", "score"}) + Num(&*v, {"team2", "score"}), 1);  // one round played
+  CHECK_EQ(Num(&*v, {"team1_score"}), Num(&*v, {"team1", "score"}));
+  const Value* a2 = AtPlayer(*v, "team1", A2);
+  CHECK(a2 && Num(a2, {"stats", "deaths"}) == 1 && Num(a2, {"stats", "rounds_played"}) == 1 &&
+        Num(a2, {"stats", "kast"}) == 100);
+  // No match loaded / nothing recorded: still one valid object, empty player lists.
+  const auto e = ParseJson(at::MatchStatsJson(at::MatchStatsLine{}));
+  CHECK(e && Num(&*e, {"matchid"}) == 0 && Num(&*e, {"round_number"}) == 0 && AtPlayerCount(*e, "team1") == 0 &&
+        Text(&*e, {"live"}) == "<false>");
+}
+
 static void TestAtDemoEvents() {
   demo::DemoEvent e;
   e.matchid = 42;
@@ -659,6 +692,7 @@ int main() {
   TestAtPlayerStats();
   TestAtRoundEnd();
   TestAtMapResult();
+  TestAtMatchStats();
   TestAtDemoEvents();
   TestUploadHeaders();
   TestUploadWanted();

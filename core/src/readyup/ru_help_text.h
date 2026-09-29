@@ -24,6 +24,15 @@ std::vector<std::string> CoreRuSubHelpLines(const std::string& main);
 // The reply to `.ru <unknown>`.
 std::string RuUnknownCommandReply(const std::string& cmd);
 
+// Old plugin (MatchZy Enhanced / Auto Tournament CS2) names the core answers as one of its own
+// `.ru <sub>` commands; "" for anything else (any case):
+//   chat     .ruversion, .version  -> version   (public, like `.ru version`)
+//            .reload_config        -> reload    (admin, like `.ru reload`)
+//   console  ru_version            -> version   (was matchzy_version / at_version)
+//            ru_reload_config      -> reload    (was matchzy_reload_config / at_reload_config)
+std::string CoreChatAliasToRu(const std::string& firstToken);
+std::string CoreConsoleAliasToRu(const std::string& firstToken);
+
 // ---- who may run `.ru ...` ---------------------------------------------------------------------
 // Every `.ru <sub>` a player sends is admin-only (default deny), checked by the core router before
 // the core or a plugin sees it; the server console / RCON always may. Open to every player:

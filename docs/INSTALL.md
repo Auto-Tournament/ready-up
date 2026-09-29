@@ -169,7 +169,8 @@ match plugin loads after a server restart:
   `ru_series_end_kick_delay_demo_upload`
 
 Not saved: `ru_dev_bots_scrim` (debug only; `ru_dev_bots_scrim cfg` goes back to readyup.cfg) and
-the read-only `ru_demo_status` / `ru_match_stats`.
+the read-only `ru_demo_status` / `ru_match_stats [matchid]` (one console line `match_stats {...}`: the
+current map's stats in the round_end / map_result team shape, `plugins/match/readyup/at_payloads.h`).
 
 How the value is chosen, lowest to highest:
 

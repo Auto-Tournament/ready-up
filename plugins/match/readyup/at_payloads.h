@@ -68,6 +68,23 @@ struct MapResult {
 };
 std::string MapResultJson(const MapResult& m);
 
+// `ru_match_stats` (the old plugin's get_match_stats; one console line "match_stats {...}"): the
+// current map's stats so far, in the shape the platform already reads from round_end / map_result
+// (team1 / team2 = StatsTeamJson, per-player AT PlayerStats), so any consumer of those events can
+// read it too:
+//   {"event":"match_stats","matchid","map_number","map_name","round_number","live",
+//    "team1":{...},"team2":{...},"team1_score","team2_score"}
+// Scores are the stats model's (round winners through the sides). matchid 0 = no match loaded
+// (a scrim's stats; team ids / names empty).
+struct MatchStatsLine {
+  long long matchid = 0;
+  int map_number = 1;
+  std::string map_name;
+  TeamInfo team1, team2;  // series score so far
+  stats::MapStats stats;
+};
+std::string MatchStatsJson(const MatchStatsLine& m);
+
 // The AT demo events for one DemoEvent (AT Events.cs, `filename`, `size_mb`, `status`, `reason`,
 // `success`):
 //   RecordingStarted -> demo_recording_start     RecordingStopped -> demo_recording_stop
