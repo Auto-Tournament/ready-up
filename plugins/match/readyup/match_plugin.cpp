@@ -210,6 +210,7 @@ void OnEvent(void*, const ru_event* e) {
       IdleRefreshOnMapStart(host::NowSeconds());
       retention::SweepAsync();  // old round backups and demos (retention.h)
       EsportsOnMapStart();  // the GOTV client is looked for again
+      demo::OnMapStart();  // GOTV's recording ended with the level change
       fleet_bridge::OnMapStart();
       match_recovery::OnMapStart();  // a recovery changing to the match map continues
       SimulationOnMapStart(host::NowSeconds());  // the bots start over on the new map

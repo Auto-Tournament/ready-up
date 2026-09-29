@@ -137,8 +137,15 @@ std::vector<std::string> ActiveDemoFiles();
 // Game thread. Stops after `delaySeconds` (the GOTV flush), then uploads when a URL is set.
 // Returns false if nothing was recording.
 bool StopAfterDelayAndUpload(double delaySeconds, int roundNumber, int team1Score, int team2Score);
-// Game thread. Stops now, no upload (restart / admin end).
+// Game thread. Stops now, no upload (restart / admin end / match dropped): the partial demo is ended
+// cleanly and handed to the stream (fleet) as it is. A map already waiting for its GOTV flush is
+// finished and uploaded as planned.
 void StopNowWithoutUpload();
+// Game thread. A map started (RU_EVENT_MAP_START): GOTV's recording ended with the level change, so
+// a recording still marked active is ended (tv_stoprecord, stopped event, stream end).
+void OnMapStart();
+// Also: StartRecording ends a stale recording (other match / map, or waiting for its flush) first,
+// so a new map always gets its own file.
 
 // ---------------------------------------------------------------------------- events
 

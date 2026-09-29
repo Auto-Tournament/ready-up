@@ -269,6 +269,14 @@ static int SentAt(const std::string& cmd) {
   }
   return -1;
 }
+static int CountPrefix(const std::string& prefix) {
+  std::lock_guard<std::mutex> lk(g_logMu);
+  int n = 0;
+  for (const auto& c : g_cmds) {
+    if (c.compare(0, prefix.size(), prefix) == 0) ++n;
+  }
+  return n;
+}
 static void ClearCmds() {
   std::lock_guard<std::mutex> lk(g_logMu);
   g_cmds.clear();
@@ -765,6 +773,57 @@ int main(int argc, char** argv) {
   rp::TryDispatchRu(true, 0, "Console", "ru match end");
   rp::Frame(true);
   Check(!Sent("mp_freezetime \"15\""), "restored once: the snapshot is cleared");
+
+  std::puts("-- demo: every way out of a match stops the recording, the next match records its own file");
+  {
+    const auto loadMatch = [&](int id) {
+      const std::string b =
+          "{\"id\":" + std::to_string(id) + ",\"slug\":\"demotest\",\"config\":{\"matchid\":" + std::to_string(id) +
+          ",\"num_maps\":1,\"maplist\":[\"de_test\"],\"map_sides\":[\"team1_ct\"],\"maxRounds\":24,"
+          "\"overtimeMode\":\"disabled\",\"cvars\":{},"
+          "\"team1\":{\"name\":\"Alpha\",\"players\":{\"76561198000000001\":\"alice\"}},"
+          "\"team2\":{\"name\":\"Bravo\",\"players\":{\"76561198000000002\":\"bob\"}}}}";
+      std::thread h;
+      const int pt = ServeOnce(b, &h);
+      rp::TryDispatchRu(true, 0, "Console", "ru match load http://127.0.0.1:" + std::to_string(pt) + "/m.json");
+      rp::Frame(true);
+      h.join();
+      return FramesUntil([] { return Has(Summary(), "\"ru_mode\":\"match_warmup\""); }, 2000);
+    };
+    // Each way out: the command that drops the match, and the mode it leaves.
+    const char* exits[] = {"ru mode idle", "ru match end"};
+    int id = 5000;
+    for (const char* exitCmd : exits) {
+      ClearCmds();
+      Check(loadMatch(++id), (std::string(exitCmd) + ": match loaded").c_str());
+      rp::TryDispatchRu(true, 0, "Console", "ru match start force");
+      rp::Frame(true);
+      Check(CountPrefix("tv_record \"") == 1, (std::string(exitCmd) + ": the map's demo started").c_str());
+      rp::TryDispatchRu(true, 0, "Console", "ru match start force");
+      rp::Frame(true);
+      Check(CountPrefix("tv_record \"") == 1, (std::string(exitCmd) + ": starting again does not start a second file").c_str());
+      Check(CountPrefix("tv_stoprecord") == 0, (std::string(exitCmd) + ": still recording before the exit").c_str());
+      rp::TryDispatchRu(true, 0, "Console", exitCmd);
+      rp::Frame(true);
+      Check(CountPrefix("tv_stoprecord") == 1, (std::string(exitCmd) + ": the recording was stopped").c_str());
+      // The next match starts its own demo, not a leftover one.
+      ClearCmds();
+      rp::TryDispatchRu(true, 0, "Console", "ru mode idle");
+      rp::Frame(true);
+      rp::TryDispatchRu(true, 0, "Console", "ru match end");
+      rp::Frame(true);
+      ClearCmds();
+      Check(loadMatch(++id), (std::string(exitCmd) + ": next match loaded").c_str());
+      rp::TryDispatchRu(true, 0, "Console", "ru match start force");
+      rp::Frame(true);
+      Check(CountPrefix("tv_record \"") == 1, (std::string(exitCmd) + ": the next match records its own demo").c_str());
+      rp::TryDispatchRu(true, 0, "Console", "ru match end");
+      rp::Frame(true);
+      Check(CountPrefix("tv_stoprecord") == 1, (std::string(exitCmd) + ": and that one is stopped too").c_str());
+      rp::TryDispatchRu(true, 0, "Console", "ru mode idle");
+      rp::Frame(true);
+    }
+  }
 
   // Return with match.so still loaded and its workers running, like a server `quit` (the core never
   // unloads plugins): the plugin's exit handler must join them before its statics are destroyed,
