@@ -1622,7 +1622,9 @@ static std::optional<const char*> DetermineMapWinnerIfComplete(const WebhookMatc
 
   // Overtime enabled: first team to reach tieStart + seg + 1 wins the OT block.
   if (team1Score != team2Score) {
-    const int blockIndex = roundsPastReg / blockSize;  // 0-based OT index
+    // 0-based OT index of the round that just ended: the last round of a block (roundsPastReg ==
+    // blockSize, e.g. 16-14 in MR12 + MR3 OT) still belongs to that block, not the next one.
+    const int blockIndex = roundsPastReg > 0 ? (roundsPastReg - 1) / blockSize : 0;
     const int tieStart = (maxRounds / 2) + (blockIndex * seg);
     const int winTargetOt = tieStart + seg + 1;
     if (team1Score >= winTargetOt) return "team1";
