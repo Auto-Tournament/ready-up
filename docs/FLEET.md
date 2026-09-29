@@ -1489,7 +1489,7 @@ The host channel reuses the server channel's transport rules: envelope (§5, `v`
 
 ### 18.1 Host enrollment and identity
 
-- The same two paths as servers (§4.1): a one-time code from **Settings → Hosts → Add host**
+- The same two paths as servers (§4.1): a one-time code from **Servers → Machines → Add machine**
   (`csm fleet enroll <url> <code>`), or the fleet enrollment key (`csm fleet enroll <url> --key
   <rfk_…>`) for scripted installs. The install wizard offers it.
 - `POST /api/fleet/enroll` with `{ kind: "host", code | key, machine_id, hostname, os, csm_version }`
@@ -1576,7 +1576,7 @@ sequenceDiagram
     participant API as Platform
     participant CSM as csm (host agent)
     participant RU as Ready Up server-2
-    Adm->>API: Settings → Hosts → Add host
+    Adm->>API: Servers → Machines → Add machine
     API-->>Adm: code RUE-…
     Adm->>CSM: csm fleet enroll <url> <code>
     CSM->>API: POST /api/fleet/enroll {kind:host, code, machine_id}
