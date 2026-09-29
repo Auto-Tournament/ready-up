@@ -264,17 +264,29 @@ repo variable `CS2_DYNAMIC_ENABLED` is `true`. With it on and no runner register
 job waits in the queue until one is.
 
 1. `build` (GitHub-hosted, sniper SDK): the Full bundle of the current default branch.
-2. `live` (`runs-on: [self-hosted, readyup-live]`, environment `cs2-dynamic`):
-   - `steamcmd +force_install_dir $CS2_CI_DIR +login anonymous +app_update 730` (a delta when
+2. `live` (`runs-on: [self-hosted, readyup-live]`, environment `cs2-dynamic`). The CI server
+   is a csm instance (`CS2_CI_INSTANCE` in the runner's `.env`, the default of
+   `csm ci setup --instance N`) or a CS2 install of its own (`CS2_CI_DIR` alone):
+   - CS2: on an instance, csm's shared game version (csm keeps it updated; the job records its
+     build and warns when it is not the build of the static verdict). On an install of its own,
+     `steamcmd +force_install_dir $CS2_CI_DIR +login anonymous +app_update 730` (a delta when
      current; skipped with a notice when steamcmd is not on the runner and csm keeps it updated);
-   - `install.sh --dir $CS2_CI_DIR --zip ready-up-full-*.zip --yes --accept-license=noncommercial full`;
+   - on an instance, `csm instance reset N` (nothing left from the last run) and
+     `csm instance layer build --for N --zip ready-up-full-*.zip --installer install.sh --bundle full
+     --accept-license noncommercial`: a Ready Up layer of the instance's own that
+     `layers/current` and the host's other instances never see (the last run's is removed).
+     On an install of its own,
+     `install.sh --dir $CS2_CI_DIR --zip ready-up-full-*.zip --yes --accept-license=noncommercial full`;
+   - everything that touches the install runs through `$CI_EXEC`: `csm instance exec N --` on an
+     instance (its view, `$CS2_CI_DIR`, exists only in that namespace), nothing otherwise;
    - boot `game/bin/linuxsteamrt64/cs2 -dedicated -port $CS2_CI_PORT +sv_lan 1 +map de_dust2`
      with `READYUP_SELFTEST_AND_QUIT=1` (no GSLT, never `sv_setsteamaccount`) and turn
      `readyup_selftest.txt` into the `selftest` stage: core lines -> `core`, `<plugin>: ...` lines,
      `WARN <plugin>: disabled` and a plugin missing from the loaded list -> that plugin's
      `selftest` (a loaded plugin whose own lines are all `INFO` passes as loaded), the
      `[plugin needs]` lines -> its `schema` / `event` checks;
-   - the live tests, one after the other on the same install and server (each is its own
+   - the live tests (`scripts/ci/cs2-live-stage.sh`, all of it in one `$CI_EXEC` with a tmux
+     server of its own), one after the other on the same install and server (each is its own
      `--livetest NAME=RC` entry of `compat-report.py dynamic`, so each shows on the page):
 
      | Entry | Runs | Check |
@@ -311,13 +323,17 @@ Recommended: on the CS2 box, as the `cs2` user (never root), with a registration
 Settings -> Actions -> Runners -> New self-hosted runner:
 
 ```sh
-csm ci setup --token <registration token>
+csm ci setup --instance 9 --token <registration token>
 ```
 
-It installs a dedicated CS2 server copy for CI (kept updated by csm), registers the runner with
-the label `readyup-live`, and writes `CS2_CI_DIR` (the install root, containing `game/`) and
-`CS2_CI_PORT` (default 27095) into the runner's `.env`. The workflow fails with a clear message
-when either is missing.
+It makes csm instance 9 the CI server (port 27095, no copy of CS2: the host's shared install;
+the instance is private, so it is not one of the host's servers), registers the runner with the
+label `readyup-live`, and writes `CS2_CI_INSTANCE`, `CS2_CI_DIR` (the instance's view,
+containing `game/`), `CS2_CI_PORT` and `CS2_CI_CSM` (the csm that has `instance exec`) into the
+runner's `.env`. Without `--instance` it installs a CS2 copy of its own for CI (about 70 GB) and
+writes only `CS2_CI_DIR` and `CS2_CI_PORT`. The workflow fails with a clear message when
+`CS2_CI_DIR` or `CS2_CI_PORT` is missing. `csm ci status` shows the runner, the instance, its
+current CI layer and the disk it uses.
 
 Manual fallback (same result, as a dedicated non-root user; about 60 GB of disk for CS2 plus the
 runner):
