@@ -45,7 +45,7 @@ dynamic stages can confirm.
 |---|---|---|
 | `core` | every entry of `engine-surface.json` (signature, rtti, vtable, hook_site, layout) | `selftest`: the core's own `ru selftest` lines |
 | `skins` | `engine-surface.skins.json` + the core entries in `plugins/skins/needs.json` | `schema`, `event`, `selftest` |
-| `practice` | `engine-surface.practice.json` (the grenade projectile factories behind ru_api `grenade_spawn`) + the core entries in `plugins/practice/needs.json` | `schema`, `event`, `selftest` |
+| `practice` | `engine-surface.practice.json` (the grenade projectile factories behind ru_api `grenade_spawn`; `ChangeTeam`, `CCSPlayerPawn::Teleport`, `UTIL_CreateEntityByName` and `DispatchSpawn` behind the 1.13 members) + the core entries in `plugins/practice/needs.json` | `schema`, `event`, `selftest` |
 | `match`, `essentials`, `midas`, `whitelist`, `deathmatch`, `fleet` | the engine-surface entries in `plugins/<id>/needs.json` | `schema`, `event` (when it needs any), `selftest`; `match` and `fleet` also `livetest` |
 
 A new `engine-surface.<id>.json` fragment automatically becomes its own component `<id>`. A
