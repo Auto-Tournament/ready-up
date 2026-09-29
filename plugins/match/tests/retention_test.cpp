@@ -31,6 +31,9 @@ int main() {
   uint64_t id = 0;
   CHECK(ParseRetainedBackupName("readyup_backup_42_map1_round07.txt", &id) && id == 42);
   CHECK(ParseRetainedBackupName("readyup_resume_9001_map3_round12.txt", &id) && id == 9001);
+  CHECK(ParseRetainedBackupName("readyup_backup_4242_map1__round03.txt", &id) && id == 4242);  // CS2's real name
+  CHECK(ParseRetainedBackupName("readyup_resume_77_map2__round00.txt", &id) && id == 77);
+  CHECK(!ParseRetainedBackupName("readyup_backup_42_map1___round03.txt", &id));
   CHECK(!ParseRetainedBackupName("backup_round07.txt", &id));                    // CS2's default name
   CHECK(!ParseRetainedBackupName(".readyup_backup_42_map1_round07.txt.tmp", &id));  // resume temp file
   CHECK(!ParseRetainedBackupName("readyup_backup_42_map1_round07.txt.bak", &id));
@@ -56,6 +59,8 @@ int main() {
   const std::vector<FileEntry> backups = {
       {"readyup_backup_1_map1_round03.txt", now - 100 * H},  // old, other match: deleted
       {"readyup_resume_1_map2_round00.txt", now - 100 * H},  // old resume copy: deleted
+      {"readyup_backup_3_map1__round05.txt", now - 100 * H}, // old, CS2's double underscore: deleted
+      {"readyup_backup_7_map2__round05.txt", now - 500 * H}, // the loaded match: kept
       {"readyup_backup_2_map1_round03.txt", now - 10 * H},   // young: kept
       {"readyup_backup_7_map1_round03.txt", now - 500 * H},  // the loaded match: kept
       {"readyup_resume_8_map1_round03.txt", now - 500 * H},  // the recovered match: kept
@@ -63,15 +68,16 @@ int main() {
       {"gamestate.txt", now - 500 * H},
   };
   auto del = BackupsToDelete(backups, now, 72, {7, 8});
-  CHECK(del.size() == 2);
+  CHECK(del.size() == 3);
   CHECK(Has(del, "readyup_backup_1_map1_round03.txt"));
   CHECK(Has(del, "readyup_resume_1_map2_round00.txt"));
+  CHECK(Has(del, "readyup_backup_3_map1__round05.txt"));
   CHECK(BackupsToDelete(backups, now, 0, {7}).empty());
   // No match loaded: old files of any match go.
-  CHECK(BackupsToDelete(backups, now, 72, {}).size() == 4);
+  CHECK(BackupsToDelete(backups, now, 72, {}).size() == 6);
   // A protected id of 0 (no match) protects nothing special.
-  CHECK(BackupsToDelete(backups, now, 72, {0}).size() == 4);
-  CHECK(BackupsToDelete(backups, now, 1, {7, 8}).size() == 3);
+  CHECK(BackupsToDelete(backups, now, 72, {0}).size() == 6);
+  CHECK(BackupsToDelete(backups, now, 1, {7, 8}).size() == 4);
 
   // ---- demos
   const std::vector<FileEntry> demos = {

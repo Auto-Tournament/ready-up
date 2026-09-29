@@ -24,7 +24,8 @@ struct FileEntry {
   long long mtime = 0;  // epoch seconds
 };
 
-// readyup_backup_<id>_map<N>_round<NN>.txt or readyup_resume_<id>_map<N>_round<NN>.txt: sets *matchid.
+// readyup_backup_<id>_map<N>_round<NN>.txt or readyup_resume_<id>_map<N>_round<NN>.txt, also with
+// "__round" (what CS2 writes for mp_backup_round_file "..._map<N>_"): sets *matchid.
 // False for anything else (CS2's own backup_round*.txt, temp files, other names).
 bool ParseRetainedBackupName(const std::string& name, uint64_t* matchid);
 

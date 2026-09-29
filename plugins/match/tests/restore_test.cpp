@@ -34,6 +34,13 @@ static void TestFileNames() {
   CHECK(b.map_number == 2 && b.round == 8 && b.file == "readyup_backup_4242_map2_round07.txt");
   CHECK(ParseBackupFileName("readyup_backup_4242_map1_round00.txt", 4242, &b) && b.round == 1);
   CHECK(ParseBackupFileName("readyup_backup_4242_map1_round123.txt", 4242, &b) && b.round == 124);
+  // What CS2 writes for BackupPrefix ("..._map1_" + "_round03.txt"): a double underscore.
+  CHECK(ParseBackupFileName("readyup_backup_4242_map1__round03.txt", 4242, &b));
+  CHECK(b.map_number == 1 && b.round == 4 && b.file == "readyup_backup_4242_map1__round03.txt");
+  CHECK(ParseBackupFileName("readyup_backup_4242_map2__round00.txt", 4242, &b) && b.map_number == 2 && b.round == 1);
+  CHECK(ParseBackupFileName(BackupPrefix(4242, 3) + "_round11.txt", 4242, &b) && b.map_number == 3 && b.round == 12);
+  CHECK(!ParseBackupFileName("readyup_backup_4242_map1___round03.txt", 4242, &b));
+  CHECK(!ParseBackupFileName("readyup_backup_4242_map__round03.txt", 4242, &b));
   // Another match (also one whose id starts the same), not a backup, a path, a temp file.
   CHECK(!ParseBackupFileName("readyup_backup_42_map1_round03.txt", 4242, &b));
   CHECK(!ParseBackupFileName("readyup_backup_42420_map1_round03.txt", 4242, &b));

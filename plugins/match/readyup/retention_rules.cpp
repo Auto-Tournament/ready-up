@@ -47,6 +47,7 @@ bool ParseRetainedBackupName(const std::string& name, uint64_t* matchid) {
   uint64_t id = 0;
   if (!Digits(name, &pos, &id)) return false;
   if (!Literal(name, &pos, "_map") || !Digits(name, &pos, nullptr)) return false;
+  if (name.compare(pos, 7, "__round") == 0) ++pos;  // CS2 writes "..._map1__round03.txt" (BackupPrefix ends with '_')
   if (!Literal(name, &pos, "_round") || !Digits(name, &pos, nullptr)) return false;
   if (!Literal(name, &pos, ".txt") || pos != name.size()) return false;
   if (matchid) *matchid = id;
