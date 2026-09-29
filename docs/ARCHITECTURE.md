@@ -255,7 +255,9 @@ Not in 1.12: a fuse / detonate-time override (throw later instead: schedule the 
 `on_tick`), and player view angles (standing a player where a grenade was thrown from is
 `entity_set_abs_origin` on the pawn; 1.13 `player_teleport` also turns their view). Users:
 `.scen` replays (`plugins/practice/practice_scenarios.cpp` `SpawnGrenade`) throw each recorded
-grenade from its recorded spawn point and velocity, and `plugins/hello` has
+grenade from its recorded spawn point and velocity, the practice rethrows (`.rethrow`, `.throwidx`,
+`.rethrowsmoke`, ...) throw a player's own grenade again from the launch read off its projectile
+(`m_vInitialPosition` / `m_vInitialVelocity`, `practice_plugin.cpp` `ScanProjectiles`), and `plugins/hello` has
 `hello_nade <type> <slot> [speed]` (throws from that player's eyes the way they look).
 
 ```c

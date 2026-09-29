@@ -27,8 +27,8 @@ Parity is (done + 0.5 × partial) / rows. Stable is the number of rows marked st
 | 6. Events and reports | 7 | 7 | 0 | 0 | 100.0% | 0 |
 | 7. Player-facing and admin features | 27 | 27 | 0 | 0 | 100.0% | 3 |
 | 8. Player stats | 7 | 7 | 0 | 0 | 100.0% | 0 |
-| 9. ME features not previously listed | 16 | 15 | 1 | 0 | 96.9% | 0 |
-| **Total** | **101** | **100** | **1** | **0** | **99.5%** | **5** (5%) |
+| 9. ME features not previously listed | 16 | 16 | 0 | 0 | 100.0% | 0 |
+| **Total** | **101** | **101** | **0** | **0** | **100.0%** | **5** (5%) |
 
 Stable rows: minimum ready, engine version/status, `.ready`, knife / `.stay` / `.switch`, simulation.
 
@@ -185,8 +185,8 @@ Features of the previous (ME) plugin that the first version of this file did not
 
 | Feature | How (fleet message / Ready Up command) | Status | Stability | Engine | Effort |
 |---|---|---|---|---|---|
-| Practice grenade history: `.last`, `.back N`, `.lastindex`, `.delay`, `.throw` (alias of `.rethrow`) | Per-player history from `grenade_thrown` (position, eye angles, kind; ME numbering, max 100). `.delay` makes `.rethrow` wait. `practice_tools.h` | done | tested | events | – |
-| Per-player rethrow: `.throwidx N` / `.throwindex`, typed `.rethrow{smoke,flash,nade,grenade,molotov,decoy}` / `.throw{...}` | The history is checked and ME's messages kept, then the reply says it is not available. Projectile creation is in: ru_api `grenade_spawn` (1.12, row below). Still needed: the projectile's launch position and velocity in the history (`grenade_thrown` has neither), then the commands call `grenade_spawn`. `.rethrow` stays the server-wide `sv_rethrow_last_grenade` | partial | untested | fragile | S |
+| Practice grenade history: `.last`, `.back N`, `.lastindex`, `.delay`, `.throw` (alias of `.rethrow`) | Per-player history from `grenade_thrown` (position, eye angles, kind; ME numbering, max 100) plus each throw's launch from its projectile (row below). `.delay` makes every rethrow of that grenade wait. `practice_tools.h` | done | tested | events | – |
+| Per-player rethrow: `.rethrow` / `.rt` / `.throw`, `.throwidx N [M ...]` / `.throwindex`, typed `.rethrow{smoke,flash,nade,grenade,molotov,decoy}` / `.throw{...}` | Your own grenade again, from where it left your hand with the same velocity, you as the thrower (damage, blinds, team), after its `.delay`: ru_api `grenade_spawn` (1.12, row below). The launch comes from the projectile, not `grenade_thrown` (which has neither): a scan every 8th tick (every tick for 8 ticks after a throw) reads `m_vInitialPosition` / `m_vInitialVelocity` of each player-owned `*_projectile` (`m_hThrower`) and fills that player's pending history entry; a projectile nobody threw (a bot's `hello_nade`) gets an entry of its own, the plugin's own rethrows and `.scen` replays none. `.throwidx` throws every index given; ME's messages. `.rethrow` falls back to the server-wide `sv_rethrow_last_grenade` when the launch was not seen or the type cannot be spawned on this build. No engine surface beyond 1.12, schema reads only. In-game: bot throws rethrown from the recorded point with the recorded velocity (read back from the new projectile), thrower credited | done | tested | schema read/write | – |
 | Grenade projectile spawning (engine side of per-player rethrow and scenario replays) | ru_api `grenade_spawn` / `grenade_spawn_available` (1.12): smoke, flash, HE, molotov, incendiary, decoy with position, velocity and thrower (damage / blind credit, team). The five `C*Projectile::Create` functions (what CS2's own point_script `SpawnGrenadeProjectile` calls; flash included, ME used CreateEntityByName) are the practice gamedata fragment `engine-surface.practice.json`, each verified with anchors (its classname + that call site). A CS2 update that breaks one fails the practice component in compat-report and turns only that type off. `.scen` replays throw their recorded utility with it | done | tested | fragile | – |
 | Lineup library: `.savenade` / `.sn`, `.loadnade` / `.ln`, `.listnades` / `.lin`, `.importnade` / `.in`, `.deletenade` / `.delnade` / `.dn`, `.globalnades` | Per map in `<plugin data dir>/lineups/<map>.json` (owner = SteamID64 or `default` for the global ones, like ME's savednades.json; written by a writer thread). Position, eye angles, grenade kind (of your last throw), description; ME's nearest-name load (Dice, with a 0.25 floor) and import code. `.loadnade` puts you there looking the saved way (ru_api 1.13 `player_teleport`, `CCSPlayerPawn::Teleport` from the practice gamedata; without it the reply gives the `setang`). One difference: ME also switched to the grenade with a client `slotN` command, which a server cannot send; the reply says which grenade to take. `practice_lineups.h` | done | tested | fragile | – |
 | `.bestspawn` / `.worstspawn`, `.bestctspawn` / `.worstctspawn`, `.besttspawn` / `.worsttspawn` | Teleport to the closest / farthest competitive spawn (lowest priority) of the team (`entity_set_abs_origin`) | done | tested | schema read/write | – |
@@ -233,5 +233,4 @@ Rows from the old RCON + webhook contract. Not counted in the summary.
 
 1. Platform side of demo streaming: the `demo.begin` / `demo.chunk` / `demo.end` receiver answering `demo.ack` (FLEET.md §12.2).
 2. Fleet path in CI. In progress.
-3. Practice: per-player rethrow (grenade_spawn is in; the history needs the launch velocity).
-4. In-game checks of the ru_api 1.13 users: `.fas` / `.watchme`, `.spec`, `.showspawns` beams, `.loadnade` / `.last` view angles.
+3. In-game checks of the ru_api 1.13 users: `.fas` / `.watchme`, `.spec`, `.showspawns` beams, `.loadnade` / `.last` view angles.

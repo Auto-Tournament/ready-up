@@ -56,11 +56,14 @@
     "CGameSceneNode.m_vecAbsOrigin"
   ],
   "schema_optional": [
+    "CBaseCSGrenadeProjectile.m_vInitialPosition",
+    "CBaseCSGrenadeProjectile.m_vInitialVelocity",
     "CBaseEntity.m_iHealth",
     "CBaseEntity.m_bTakesDamage",
     "CBaseEntity.m_hOwnerEntity",
     "CBaseEntity.m_iHealth",
     "CBaseEntity.m_vecAbsVelocity",
+    "CBaseGrenade.m_hThrower",
     "CBasePlayerPawn.m_pItemServices",
     "CCSPlayerController.m_pInGameMoneyServices",
     "CCSPlayerController_InGameMoneyServices.m_iAccount",
@@ -70,6 +73,8 @@
     "CCSPlayerPawn.m_flFlashMaxAlpha|CCSPlayerPawnBase.m_flFlashMaxAlpha",
     "CCSPlayer_ItemServices.m_bHasDefuser",
     "CCSPlayer_ItemServices.m_bHasHelmet",
+    "CGameSceneNode.m_angAbsRotation",
+    "CMolotovProjectile.m_bIsIncGrenade",
     "CInfoPlayerCounterterrorist.m_bEnabled|SpawnPoint.m_bEnabled",
     "CInfoPlayerCounterterrorist.m_iPriority|SpawnPoint.m_iPriority",
     "EntitySpottedState_t.m_bSpottedByMask",

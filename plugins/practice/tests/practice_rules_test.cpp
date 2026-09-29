@@ -95,6 +95,26 @@ int main() {
   hist.Last()->delay = 1.5f;
   CHECK(hist.At(3)->delay == 1.5f);
 
+  // Projectiles and the grenade_thrown entry they belong to.
+  CHECK(ProjectileKind("smokegrenade_projectile") == "smoke" && ProjectileKind("flashbang_projectile") == "flash");
+  CHECK(ProjectileKind("hegrenade_projectile") == "hegrenade" && ProjectileKind("molotov_projectile") == "molotov");
+  CHECK(ProjectileKind("decoy_projectile") == "decoy" && ProjectileKind("inferno").empty() &&
+        ProjectileKind("weapon_smokegrenade").empty());
+  ThrowHistory lh;
+  for (int i = 0; i < 3; ++i) {
+    Throw t;
+    t.kind = i == 1 ? "flash" : "smoke";
+    t.at = 10.0 + i;  // smoke at 10, flash at 11, smoke at 12
+    lh.Add(t);
+  }
+  CHECK(lh.AwaitingLaunch("smoke", 11.5) == lh.At(3));  // only the newest smoke is in the window
+  CHECK(lh.AwaitingLaunch("smoke", 9.0) == lh.At(1));   // both are: the oldest one first
+  lh.AwaitingLaunch("smoke", 9.0)->launch.set = true;
+  CHECK(lh.AwaitingLaunch("smoke", 9.0) == lh.At(3));   // then the next
+  lh.AwaitingLaunch("smoke", 9.0)->launch.set = true;
+  CHECK(!lh.AwaitingLaunch("smoke", 0.0));
+  CHECK(lh.AwaitingLaunch("flash", 11.0) == lh.At(2) && !lh.AwaitingLaunch("decoy", 0.0));
+
   int n = 0;
   CHECK(ParsePositiveInt("3", &n) && n == 3);
   CHECK(!ParsePositiveInt("0", &n) && !ParsePositiveInt("-1", &n) && !ParsePositiveInt("2x", &n) && !ParsePositiveInt("", &n));

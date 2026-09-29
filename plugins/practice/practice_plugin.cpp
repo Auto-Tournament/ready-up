@@ -16,8 +16,11 @@
 // summed per throw ("HE by Y: 98 total (A -57, B -41)").
 //
 // Tools (only in practice mode, never under the valve ruleset, docs/ESPORTS-MODE.md):
-//   .rethrow / .rt        sv_rethrow_last_grenade: the last grenade thrown on the SERVER (CS2 has
-//                         no per-player variant; with several players it rethrows whoever threw last)
+//   .rethrow / .rt        your own last grenade again, from where it left your hand with the same
+//                         velocity, you as the thrower (ru_api grenade_spawn, 1.12). Its launch is
+//                         read from the projectile (m_vInitialPosition / m_vInitialVelocity, see
+//                         ScanProjectiles). Falls back to the server-wide sv_rethrow_last_grenade
+//                         when the launch was not recorded or that grenade type cannot be spawned
 //   .savepos [name]       remember your position (pawn scene node origin), per map
 //   .loadpos [name]       move back to it
 //   .back                 back to where you threw your last grenade (grenade_thrown), else to
@@ -33,12 +36,12 @@
 // ME (Auto Tournament plugin) extras, same names and messages; replies go to the caller only:
 //   .last                 to where you threw your last grenade; .back N: to throw N of your history
 //   .lastindex            how many grenades you have thrown (your history is numbered 1..N, max 100)
-//   .delay <s>            delay for your last grenade: .rethrow waits that long first
+//   .delay <s>            delay for your last grenade: every rethrow of it waits that long first
 //   .throw                alias of .rethrow
-//   .throwidx N / .throwindex N, .rethrow{smoke,flash,nade,grenade,molotov,decoy} / .throw{...}:
-//                         check your history, then say per-player rethrow is not available (it needs
-//                         grenade projectile creation, which Ready Up does not have; .rethrow is
-//                         the server-wide sv_rethrow_last_grenade)
+//   .throwidx N [M ...] / .throwindex   rethrow throw N (M, ...) of your history, each after its .delay
+//   .rethrow{smoke,flash,nade,grenade,molotov,decoy} / .throw{...}   your last grenade of that kind
+//   Your history counts your throws (grenade_thrown) and projectiles you own that nobody threw
+//   (a bot's hello_nade); the plugin's own rethrows and .scen replays are not added to it.
 //   .impacts              toggle sv_showimpacts (prac.cfg: 1)
 //   .traj / .pip          toggle sv_grenade_trajectory_prac_pipreview (prac.cfg: true)
 //   .solid                mp_solid_teammates 0/1 -> 2, else -> 1 (prac.cfg: 2)
@@ -187,6 +190,13 @@ struct Offsets {
   int beamWidth = -1;      // CBeam::m_fWidth (.showspawns)
   int beamEnd = -1;        // CBeam::m_vecEndPos
   int renderColor = -1;    // CBaseModelEntity::m_clrRender
+  // Grenade projectiles (per-player rethrow): who threw it and how it left the hand.
+  int thrower = -1;      // CBaseGrenade::m_hThrower (the pawn)
+  int initPos = -1;      // CBaseCSGrenadeProjectile::m_vInitialPosition
+  int initVel = -1;      // CBaseCSGrenadeProjectile::m_vInitialVelocity
+  int isInc = -1;        // CMolotovProjectile::m_bIsIncGrenade
+  int absVelocity = -1;  // CBaseEntity::m_vecAbsVelocity (fallback for m_vInitialVelocity)
+  int absRotation = -1;  // CGameSceneNode::m_angAbsRotation
 };
 Offsets g_off;
 
@@ -217,9 +227,16 @@ const Offsets& Off() {
   o.beamWidth = FirstOffset({"CBeam"}, "m_fWidth");
   o.beamEnd = FirstOffset({"CBeam"}, "m_vecEndPos");
   o.renderColor = FirstOffset({"CBaseModelEntity"}, "m_clrRender");
-  Log("practice: schema pawn=%d body=%d node=%d origin=%d life=%d eyes=%d flash=%d/%d takesdamage=%d spawn=%d/%d",
+  o.thrower = FirstOffset({"CBaseGrenade"}, "m_hThrower");
+  o.initPos = FirstOffset({"CBaseCSGrenadeProjectile"}, "m_vInitialPosition");
+  o.initVel = FirstOffset({"CBaseCSGrenadeProjectile"}, "m_vInitialVelocity");
+  o.isInc = FirstOffset({"CMolotovProjectile"}, "m_bIsIncGrenade");
+  o.absVelocity = FirstOffset({"CBaseEntity"}, "m_vecAbsVelocity");
+  o.absRotation = FirstOffset({"CGameSceneNode"}, "m_angAbsRotation");
+  Log("practice: schema pawn=%d body=%d node=%d origin=%d life=%d eyes=%d flash=%d/%d takesdamage=%d spawn=%d/%d "
+      "nade thrower=%d initial=%d/%d inc=%d",
       o.ctrlPawn, o.bodyComponent, o.sceneNode, o.absOrigin, o.lifeState, o.eyeAngles, o.flashAlpha, o.flashDuration,
-      o.takesDamage, o.spawnEnabled, o.spawnPriority);
+      o.takesDamage, o.spawnEnabled, o.spawnPriority, o.thrower, o.initPos, o.initVel, o.isInc);
   return o;
 }
 
@@ -357,9 +374,19 @@ void RemoveSpawnBeams();                                  // .hidespawns; also o
 
 struct DelayedCmd {
   double due = 0;
-  std::string cmd;
+  std::string cmd;  // a console command, or "" = rethrow `nade` with `slot` as the thrower
+  Throw nade;
+  int slot = -1;
 };
-std::vector<DelayedCmd> g_delayed;  // .delay'd .rethrow
+std::vector<DelayedCmd> g_delayed;  // .delay'd rethrows
+
+// Projectiles already looked at (CHandles): recorded into a history, or spawned by this plugin.
+std::unordered_set<uint32_t> g_projSeen;
+std::unordered_map<uint32_t, Launch> g_projOurs;  // debug=1: our rethrows, logged against what they got
+int g_projHigh = 0;              // highest entity index seen by a scan this map (the next scan goes +2048)
+int g_scanBurst = 0;             // ticks left of every-tick scanning after grenade_thrown
+unsigned g_scanTick = 0;         // otherwise every 8th tick
+double g_serverRethrowUntil = 0; // sv_rethrow_last_grenade's projectile is not a new throw
 
 struct StopWatch {
   uint64_t id = 0;
@@ -424,6 +451,10 @@ void ClearState(bool restorePawns) {
   g_touched = false;
   g_throws.clear();
   g_delayed.clear();
+  g_projSeen.clear();
+  g_projOurs.clear();
+  g_scanBurst = 0;
+  g_serverRethrowUntil = 0;
   g_timers.clear();
   g_toggles = Toggles{};
   g_dryRun = false;
@@ -600,9 +631,232 @@ std::string AngleHint(const Vec3f& a) {
   return buf;
 }
 
-constexpr const char* kNoPerPlayerThrow =
-    "per-player rethrow is not available on Ready Up yet (it needs grenade projectile creation). "
-    ".rethrow rethrows the last grenade thrown on the server.";
+// ---- per-player rethrow ---------------------------------------------------------------------------
+
+uint32_t SpawnTypeOf(const Throw& t) {
+  if (t.kind == "smoke") return RU_GRENADE_SMOKE;
+  if (t.kind == "flash") return RU_GRENADE_FLASH;
+  if (t.kind == "hegrenade") return RU_GRENADE_HE;
+  if (t.kind == "molotov") return t.launch.incendiary ? RU_GRENADE_INCENDIARY : RU_GRENADE_MOLOTOV;
+  if (t.kind == "decoy") return RU_GRENADE_DECOY;
+  return 0;
+}
+
+std::string KindName(const Throw& t) {
+  if (t.kind == "hegrenade") return "HE grenade";
+  if (t.kind == "molotov" && t.launch.incendiary) return "incendiary";
+  return t.kind;
+}
+
+// "" when `t` can be thrown again, else why not.
+std::string RethrowRefusal(const Throw& t) {
+  if (!t.launch.set) return "its launch was not recorded (the projectile was not seen)";
+  const uint32_t type = SpawnTypeOf(t);
+  if (!type || !RU_API_HAS(g_api, grenade_spawn_available) || !g_api->grenade_spawn ||
+      !g_api->grenade_spawn_available(g_api->self, type)) {
+    return std::string(t.kind == "molotov" && t.launch.incendiary ? "spawning an " : "spawning a ") + KindName(t) +
+           " is not available on this CS2 build";
+  }
+  return {};
+}
+
+// Throws `t` again from its recorded launch, `slot` as the thrower (kills, damage, blinds and the
+// team are theirs; nobody's when they have no pawn any more). True when the projectile exists.
+bool SpawnThrow(const Throw& t, int slot) {
+  if (!RethrowRefusal(t).empty()) return false;
+  ru_grenade_spawn s{};
+  s.struct_size = sizeof(s);
+  s.type = SpawnTypeOf(t);
+  const Launch& l = t.launch;
+  s.origin[0] = l.origin.x, s.origin[1] = l.origin.y, s.origin[2] = l.origin.z;
+  s.velocity[0] = l.velocity.x, s.velocity[1] = l.velocity.y, s.velocity[2] = l.velocity.z;
+  s.angles[0] = l.angles.x, s.angles[1] = l.angles.y, s.angles[2] = l.angles.z;
+  s.angular_velocity[0] = 600.f;  // what the game's own throw passes (CS2 ignores it today)
+  s.owner_slot = PawnForSlot(slot) ? slot : -1;
+  void* e = g_api->grenade_spawn(g_api->self, &s);
+  if (!e) return false;
+  const uint32_t h = g_api->entity_handle_of(g_api->self, e);
+  g_projSeen.insert(h);
+  if (g_api->debug_enabled(g_api->self)) g_projOurs[h] = l;
+  Log("practice: slot %d rethrows their %s from %s vel %s (thrower slot %d)", slot, KindName(t).c_str(),
+      Fmt(Vec3{l.origin.x, l.origin.y, l.origin.z}).c_str(), Fmt(Vec3{l.velocity.x, l.velocity.y, l.velocity.z}).c_str(),
+      s.owner_slot);
+  g_touched = true;
+  return true;
+}
+
+// Throws `t` (`what`: "your last smoke", "grenade no. 3") now, or after its .delay. False (and the
+// reply said why) when it cannot be.
+bool Rethrow(int slot, uint64_t steamid64, const Throw& t, const std::string& what) {
+  if (const std::string why = RethrowRefusal(t); !why.empty()) {
+    Reply(slot, steamid64, "Cannot rethrow " + what + ": " + why + ".");
+    return false;
+  }
+  if (t.delay > 0) {
+    DelayedCmd d;
+    d.due = Now() + t.delay;
+    d.nade = t;
+    d.slot = slot;
+    g_delayed.push_back(std::move(d));
+    g_touched = true;
+    Reply(slot, steamid64, "Rethrowing " + what + " in " + FormatTimerSeconds(t.delay) + "s.");
+    return true;
+  }
+  if (!SpawnThrow(t, slot)) {
+    Reply(slot, steamid64, "Cannot rethrow " + what + ": the server refused the grenade (see the server log).");
+    return false;
+  }
+  Reply(slot, steamid64, "Rethrowing " + what + ".");
+  return true;
+}
+
+// The old server-wide rethrow, for a throw whose launch is unknown or whose type cannot be spawned.
+void ServerRethrow(int slot, uint64_t steamid64, float delay, const std::string& why) {
+  const std::string note = "per-player rethrow unavailable (" + why + "), so rethrowing the last grenade thrown on the server";
+  g_serverRethrowUntil = Now() + delay + 1.0;
+  if (delay > 0) {
+    DelayedCmd d;
+    d.due = Now() + delay;
+    d.cmd = "sv_rethrow_last_grenade";
+    g_delayed.push_back(std::move(d));
+    g_touched = true;
+    return Reply(slot, steamid64, note + " in " + FormatTimerSeconds(delay) + "s.");
+  }
+  Cmd("sv_rethrow_last_grenade");
+  Reply(slot, steamid64, note + ".");
+}
+
+// ---- projectiles -> launch data in the history ------------------------------------------------------
+
+bool NonZero(const Vec3& v) { return v.x != 0.f || v.y != 0.f || v.z != 0.f; }
+
+// How projectile `e` left the hand. The m_vInitial* fields are set when the projectile is created
+// (the client draws its trajectory from them), so they hold however late the scan sees it; without
+// them the projectile's current origin / velocity (a tick or so into the flight).
+Launch ReadLaunch(void* e, const std::string& kind) {
+  const Offsets& o = Off();
+  Launch l;
+  Vec3 origin, vel, ang;
+  const Vec3 initPos = o.initPos >= 0 ? Rd<Vec3>(e, o.initPos) : Vec3{};
+  if (Finite(initPos) && NonZero(initPos)) origin = initPos;
+  else if (!OriginOf(e, &origin)) return l;
+  const Vec3 initVel = o.initVel >= 0 ? Rd<Vec3>(e, o.initVel) : Vec3{};
+  if (Finite(initVel) && NonZero(initVel)) vel = initVel;
+  else if (o.absVelocity >= 0) vel = Rd<Vec3>(e, o.absVelocity);
+  if (!Finite(vel)) return l;
+  if (o.absRotation >= 0 && o.bodyComponent >= 0 && o.sceneNode >= 0) {
+    if (void* body = Rd<void*>(e, o.bodyComponent)) {
+      if (void* node = Rd<void*>(body, o.sceneNode)) ang = Rd<Vec3>(node, o.absRotation);
+    }
+    if (!Finite(ang)) ang = Vec3{};
+  }
+  l.set = true;
+  l.origin = {origin.x, origin.y, origin.z};
+  l.velocity = {vel.x, vel.y, vel.z};
+  l.angles = {ang.x, ang.y, ang.z};
+  l.incendiary = kind == "molotov" && o.isInc >= 0 && Rd<bool>(e, o.isInc);
+  return l;
+}
+
+// A player's projectile: the launch of their grenade_thrown entry, or (nobody threw it: a bot's
+// hello_nade, a plugin's grenade_spawn) a history entry of its own.
+void RecordLaunch(int slot, const std::string& kind, const Launch& l, double now) {
+  ru_player p{};
+  p.struct_size = sizeof(p);
+  const uint64_t id = PlayerId(slot, PlayerBySlot(slot, &p) && !p.is_bot ? p.steamid64 : 0);
+  ThrowHistory& h = g_throws[id];
+  const Offsets& o = Off();
+  Throw* awaiting = h.AwaitingLaunch(kind, now - 3.0);
+  if (awaiting) {
+    const bool incFromEvent = awaiting->launch.incendiary;
+    awaiting->launch = l;
+    if (o.isInc < 0) awaiting->launch.incendiary = incFromEvent;  // no schema field: the event's weapon said
+  } else {
+    if (now < g_serverRethrowUntil) return;  // sv_rethrow_last_grenade's copy of an older throw
+    Throw t;
+    Spot s;
+    if (SpotOfSlot(slot, &s)) {
+      t.pos = {s.pos.x, s.pos.y, s.pos.z};
+      t.ang = {s.ang.x, s.ang.y, s.ang.z};
+    } else {
+      t.pos = l.origin;
+    }
+    t.kind = kind;
+    t.at = now;
+    t.launch = l;
+    h.Add(t);
+    g_touched = true;
+  }
+  if (g_api->debug_enabled(g_api->self)) {
+    Log("practice: slot %d %s launch %s vel %s (%s, history %zu)", slot, kind.c_str(),
+        Fmt(Vec3{l.origin.x, l.origin.y, l.origin.z}).c_str(), Fmt(Vec3{l.velocity.x, l.velocity.y, l.velocity.z}).c_str(),
+        awaiting ? "its grenade_thrown" : "no grenade_thrown: entry of its own", h.Count());
+  }
+}
+
+bool EndsWith(const char* s, const char* suffix) {
+  const size_t n = std::strlen(s), m = std::strlen(suffix);
+  return n >= m && std::strcmp(s + n - m, suffix) == 0;
+}
+
+// Every grenade projectile a player owns that no scan has seen yet. m_hThrower may be set a tick
+// after the projectile appears: those are looked at again on the next scan.
+void ScanProjectiles(double now) {
+  const Offsets& o = Off();
+  if (o.thrower < 0 || o.ctrlPawn < 0) return;
+  std::unordered_map<uint32_t, int> pawns;  // pawn CHandle -> slot
+  for (int slot = 0; slot < 64; ++slot) {
+    void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
+    if (!ctrl) continue;
+    const char* cls = g_api->entity_classname(g_api->self, ctrl);
+    if (cls && std::strcmp(cls, "cs_player_controller") == 0) pawns[Rd<uint32_t>(ctrl, o.ctrlPawn)] = slot;
+  }
+  if (g_projSeen.size() > 256) {
+    for (auto it = g_projSeen.begin(); it != g_projSeen.end();) {
+      it = g_api->entity_from_handle(g_api->self, *it) ? std::next(it) : g_projSeen.erase(it);
+    }
+  }
+  // Projectiles are networked (index < 16384). The first scan of a map looks at every index, later
+  // ones up to the highest index seen + 2048.
+  const bool full = g_projHigh == 0;
+  const auto t0 = std::chrono::steady_clock::now();
+  int entities = 0;
+  const int last = full ? 16383 : std::min(16383, g_projHigh + 2048);
+  for (int i = 65; i <= last; ++i) {
+    void* e = g_api->entity_by_index(g_api->self, i);
+    if (!e) continue;
+    ++entities;
+    if (i > g_projHigh) g_projHigh = i;
+    const char* cls = g_api->entity_classname(g_api->self, e);
+    if (!cls || !EndsWith(cls, "_projectile")) continue;
+    const std::string kind = ProjectileKind(cls);
+    if (kind.empty()) continue;
+    const uint32_t h = g_api->entity_handle_of(g_api->self, e);
+    if (h == 0xFFFFFFFFu) continue;
+    const auto pawn = pawns.find(Rd<uint32_t>(e, o.thrower));
+    if (auto ours = g_projOurs.find(h); ours != g_projOurs.end()) {
+      // debug=1: what one of our rethrows got (once its thrower is set), next to what it was given.
+      if (pawn == pawns.end()) continue;
+      const Launch got = ReadLaunch(e, kind);
+      const Launch& want = ours->second;
+      Log("practice: rethrown %s: given %s vel %s, got %s vel %s, thrower slot %d", kind.c_str(),
+          Fmt(Vec3{want.origin.x, want.origin.y, want.origin.z}).c_str(),
+          Fmt(Vec3{want.velocity.x, want.velocity.y, want.velocity.z}).c_str(),
+          Fmt(Vec3{got.origin.x, got.origin.y, got.origin.z}).c_str(),
+          Fmt(Vec3{got.velocity.x, got.velocity.y, got.velocity.z}).c_str(), pawn->second);
+      g_projOurs.erase(ours);
+      continue;
+    }
+    if (g_projSeen.count(h) || pawn == pawns.end()) continue;
+    g_projSeen.insert(h);
+    const Launch l = ReadLaunch(e, kind);
+    if (l.set) RecordLaunch(pawn->second, kind, l, now);
+  }
+  if (full && g_api->debug_enabled(g_api->self)) {
+    const double us = std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - t0).count();
+    Log("practice: projectile scan: %d entities up to index %d in %.0f us", entities, g_projHigh, us);
+  }
+}
 
 // .last .lastindex .delay .throwidx and the typed rethrows. True when `cmd` was one of them.
 bool RunHistoryTool(int slot, uint64_t steamid64, uint64_t id, const std::string& cmd,
@@ -647,18 +901,20 @@ bool RunHistoryTool(int slot, uint64_t steamid64, uint64_t id, const std::string
         continue;
       }
       if (!count) return Reply(slot, steamid64, "You have not thrown any nade yet!"), true;
-      if (!h->At(n)) {
+      const Throw* t = h->At(n);
+      if (!t) {
         Reply(slot, steamid64, "Your grenade history only goes from 1 to " + std::to_string(count) + "!");
         continue;
       }
-      Reply(slot, steamid64, kNoPerPlayerThrow);
-      return true;
+      // ME throws every index given, each after its own .delay.
+      (void)Rethrow(slot, steamid64, *t, "grenade no. " + std::to_string(n) + " (" + KindName(*t) + ")");
     }
     return true;
   }
   if (const std::string kind = TypedRethrowKind(cmd); !kind.empty()) {
-    if (!h || !h->LastOfKind(kind)) return Reply(slot, steamid64, "You have not thrown any " + kind + " yet!"), true;
-    Reply(slot, steamid64, kNoPerPlayerThrow);
+    const Throw* t = h ? h->LastOfKind(kind) : nullptr;
+    if (!t) return Reply(slot, steamid64, "You have not thrown any " + kind + " yet!"), true;
+    (void)Rethrow(slot, steamid64, *t, "your last " + KindName(*t));
     return true;
   }
   return false;
@@ -1076,15 +1332,12 @@ void RunTool(int slot, uint64_t steamid64, const std::vector<std::string>& args)
   const std::string name = args.size() > 1 ? args[1].substr(0, 32) : std::string("default");
 
   if (cmd == ".rethrow" || cmd == ".rt" || cmd == ".throw") {
-    float delay = 0;
-    if (auto h = g_throws.find(id); h != g_throws.end() && h->second.Last()) delay = h->second.Last()->delay;
-    if (delay > 0) {
-      g_delayed.push_back({Now() + delay, "sv_rethrow_last_grenade"});
-      g_touched = true;
-      return Reply(slot, steamid64, "rethrowing the last grenade thrown on the server in " + FormatTimerSeconds(delay) + " s.");
-    }
-    Cmd("sv_rethrow_last_grenade");
-    return Reply(slot, steamid64, "rethrowing the last grenade thrown on the server.");
+    auto h = g_throws.find(id);
+    const Throw* t = h != g_throws.end() ? h->second.Last() : nullptr;
+    if (!t) return Reply(slot, steamid64, "You have not thrown any nade yet!");
+    if (const std::string why = RethrowRefusal(*t); !why.empty()) return ServerRethrow(slot, steamid64, t->delay, why);
+    (void)Rethrow(slot, steamid64, *t, "your last " + KindName(*t));
+    return;
   }
   if (RunHistoryTool(slot, steamid64, id, cmd, args)) return;
   if (RunToggleTool(slot, steamid64, cmd)) return;
@@ -1459,9 +1712,13 @@ void OnGameEvent(void*, const char* evName, const ru_game_event* ev) {
     Throw t;
     t.pos = {s.pos.x, s.pos.y, s.pos.z};
     t.ang = {s.ang.x, s.ang.y, s.ang.z};
-    t.kind = GrenadeKind(a->ev_get_string(a->self, ev, "weapon", ""));
+    const std::string weapon = a->ev_get_string(a->self, ev, "weapon", "");
+    t.kind = GrenadeKind(weapon);
+    t.at = Now();
+    t.launch.incendiary = weapon.find("incgrenade") != std::string::npos;  // until the projectile says
     g_throws[id].Add(t);
     g_touched = true;
+    g_scanBurst = 8;  // its projectile shows up over the next ticks (ScanProjectiles)
   } else if (std::strcmp(evName, "round_freeze_end") == 0) {
     if (g_dryRun) g_dryArmed = true;
   } else if (std::strcmp(evName, "round_end") == 0) {
@@ -1498,6 +1755,7 @@ void OnMapStart(void*, const ru_event*) {
   // may have run other cfgs); with the match plugin, always=1 re-enters from the tick.
   g_off = Offsets{};
   ClearState(/*restorePawns=*/false);
+  g_projHigh = 0;
   g_manualOff = false;
   if (!MatchOwnsMode() && g_standaloneActive) Cmd("exec ReadyUp/prac.cfg");
 }
@@ -1521,16 +1779,25 @@ void OnTick(void*, const ru_tick_info* t) {
   for (const auto& l : g_grenadeDamage.Flush(t->now, 1.0)) ChatAll(l);
   if (!g_delayed.empty()) {
     const double now = Now();
-    std::vector<std::string> due;
+    std::vector<DelayedCmd> due;
     for (auto it = g_delayed.begin(); it != g_delayed.end();) {
       if (now >= it->due) {
-        due.push_back(it->cmd);
+        due.push_back(std::move(*it));
         it = g_delayed.erase(it);
       } else {
         ++it;
       }
     }
-    for (const auto& c : due) Cmd(c.c_str());
+    for (const auto& d : due) {
+      if (!d.cmd.empty()) Cmd(d.cmd);
+      else if (!SpawnThrow(d.nade, d.slot)) Log("practice: delayed rethrow for slot %d refused", d.slot);
+    }
+  }
+  if (g_scanBurst > 0) {
+    --g_scanBurst;
+    ScanProjectiles(Now());
+  } else if ((++g_scanTick & 7u) == 0) {
+    ScanProjectiles(Now());
   }
   DrawTimers(Now());
   if (g_pendingBots.empty()) return;
@@ -1579,6 +1846,8 @@ void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   add(ctx, "INFO", "practice", d.c_str());
   add(ctx, RU_API_HAS(g_api, entity_set_abs_origin) && g_api->entity_set_abs_origin ? "OK" : "WARN", "practice teleport",
       "ru_api entity_set_abs_origin (.loadpos / .spawn / bot placement)");
+  add(ctx, RU_API_HAS(g_api, grenade_spawn) && g_api->grenade_spawn ? "OK" : "WARN", "practice rethrow",
+      "ru_api grenade_spawn (per-player .rethrow / .throwidx; else the server-wide sv_rethrow_last_grenade)");
   scenarios::Selftest(add, ctx);
 }
 const ru_selftest_iface_v1 g_selftestIface = {sizeof(ru_selftest_iface_v1), &RunSelftest};
@@ -1654,7 +1923,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   api->provide_interface(api->self, RU_PRACTICE_IFACE_NAME, RU_PRACTICE_IFACE_VERSION, const_cast<ru_practice_v1*>(&g_iface));
   api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "practice", RU_SELFTEST_IFACE_VERSION,
                          const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
-  scenarios::Load(api, {[] { return IsActive(); }, [] { return ToolsRefusal(); }});
+  scenarios::Load(api, {[] { return IsActive(); }, [] { return ToolsRefusal(); },
+                        [](void* e) { g_projSeen.insert(g_api->entity_handle_of(g_api->self, e)); }});
   ru_logf(api, RU_LOG_INFO, "loaded " PRACTICE_VERSION);
   return 0;
 }

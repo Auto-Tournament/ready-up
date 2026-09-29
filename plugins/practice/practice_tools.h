@@ -1,8 +1,9 @@
 #pragma once
 
 // readyup-practice pure logic for the ME practice extras (ctest `practice_rules`): grenade throw
-// history (.last / .back N / .lastindex / .delay), closest / farthest spawn (.bestspawn /
-// .worstspawn), the cvar toggles (.solid / .impacts / .traj) and the .timer text. Engine-free.
+// history (.last / .back N / .lastindex / .delay, and what .rethrow / .throwidx replay), closest /
+// farthest spawn (.bestspawn / .worstspawn), the cvar toggles (.solid / .impacts / .traj) and the
+// .timer text. Engine-free.
 
 #include <cstddef>
 #include <string>
@@ -18,16 +19,32 @@ struct Vec3f {
 // Takes a grenade_thrown `weapon` ("smokegrenade", "flashbang", "incgrenade", ...), with or
 // without the "weapon_" prefix.
 std::string GrenadeKind(const std::string& weapon);
+// The kind of a projectile entity ("smokegrenade_projectile" -> "smoke", "flashbang_projectile",
+// "hegrenade_projectile", "molotov_projectile" (molotov and incendiary), "decoy_projectile"), else "".
+std::string ProjectileKind(const std::string& classname);
 
 // The kind a typed ME rethrow command asks for (.rethrowsmoke / .throwsmoke -> "smoke", ...,
 // .rethrownade / .thrownade / .rethrowgrenade / .throwgrenade -> "hegrenade"), else "".
 std::string TypedRethrowKind(const std::string& cmd);
 
+// How the projectile left the hand: what a rethrow passes to ru_api grenade_spawn. grenade_thrown
+// carries none of it, so it is read from the projectile once that exists (practice_plugin.cpp
+// ScanProjectiles).
+struct Launch {
+  bool set = false;
+  Vec3f origin;             // where the projectile started
+  Vec3f velocity;           // its initial velocity (units/s)
+  Vec3f angles;             // its rotation
+  bool incendiary = false;  // a molotov_projectile of an incendiary grenade
+};
+
 struct Throw {
   Vec3f pos;  // where the thrower stood
   Vec3f ang;  // their eye angles
   std::string kind;
-  float delay = 0;  // .delay: seconds before .rethrow runs it
+  float delay = 0;  // .delay: seconds before a rethrow of it runs
+  double at = 0;    // when it was thrown (steady clock seconds)
+  Launch launch;
 };
 
 // One player's throws, oldest first; ME numbers them 1..Count().
@@ -41,6 +58,10 @@ class ThrowHistory {
   Throw* Last() { return items_.empty() ? nullptr : &items_.back(); }
   const Throw* Last() const { return items_.empty() ? nullptr : &items_.back(); }
   const Throw* LastOfKind(const std::string& kind) const;
+  // The oldest throw of `kind` thrown at or after `since` that has no launch yet: the grenade_thrown
+  // entry a projectile belongs to (the projectile shows up a tick or two after the event; two quick
+  // throws of one kind get their projectiles in order).
+  Throw* AwaitingLaunch(const std::string& kind, double since);
 
  private:
   size_t cap_;

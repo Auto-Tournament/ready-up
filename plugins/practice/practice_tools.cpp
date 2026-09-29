@@ -29,6 +29,16 @@ std::string GrenadeKind(const std::string& weapon) {
   return {};
 }
 
+std::string ProjectileKind(const std::string& classname) {
+  const std::string c = Lower(classname);
+  if (c == "smokegrenade_projectile") return "smoke";
+  if (c == "flashbang_projectile") return "flash";
+  if (c == "hegrenade_projectile") return "hegrenade";
+  if (c == "molotov_projectile") return "molotov";
+  if (c == "decoy_projectile") return "decoy";
+  return {};
+}
+
 std::string TypedRethrowKind(const std::string& cmd) {
   std::string c = Lower(cmd);
   if (c.rfind(".rethrow", 0) == 0) c = c.substr(8);
@@ -57,6 +67,15 @@ const Throw* ThrowHistory::LastOfKind(const std::string& kind) const {
     if (it->kind == kind) return &*it;
   }
   return nullptr;
+}
+
+Throw* ThrowHistory::AwaitingLaunch(const std::string& kind, double since) {
+  Throw* oldest = nullptr;
+  for (auto it = items_.rbegin(); it != items_.rend(); ++it) {
+    if (it->at < since) break;
+    if (it->kind == kind && !it->launch.set) oldest = &*it;
+  }
+  return oldest;
 }
 
 bool ParsePositiveInt(const std::string& s, int* out) {
