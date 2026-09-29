@@ -54,7 +54,7 @@ The platform used to send these as RCON commands (`ru_server_id`, `ru_bootstrap_
 | `server.config` fields applied (all of FLEET.md §7.5) | Match plugin (`fleetstate::PlanServerConfig`, `OnServerConfig` in `fleet_bridge.cpp`): `hostname_format`, `scrim_knife`, `scrim_when_idle`, `chat_prefix` / `admin_chat_prefix` (server settings `ru_chat_prefix` / `ru_admin_chat_prefix`; the chat prefix goes to the core with ru_api 1.10 `set_core_setting`), `series_end_kick_delay.*`, `demo.path` / `name_format`, `warmup.*`; fleet.so: `offline_pause_minutes`, `status_http.token` (`server-config.json`) | done | tested | none | – |
 | Server drain / undrain | `server.drain` / `server.undrain` in `fleet_bridge.cpp`: availability `draining`, `match.assign` refused as `busy`; in memory only | done | untested | none | – |
 | `server.selftest` / `hello.selftest` | The core's latest selftest (`ru_api` 1.11 `selftest_summary`): `hello.selftest` carries it, `server.selftest` (reliable, proposed schema) goes out when the outcome changes (`fleet_plugin.cpp`) | done | tested | none | – |
-| `server.cs2_update_required` | Steam UpToDateCheck (appid 730) every 30 min on a worker thread, once per required version (`cs2_update_check.h`) | done | tested | none | – |
+| `server.game_update_required` | Steam UpToDateCheck (appid 730) every 30 min on a worker thread, once per required version (`cs2_update_check.h`) | done | tested | none | – |
 
 ## 2. Per-server settings
 

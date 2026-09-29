@@ -34,7 +34,7 @@ bool IsUlid(std::string_view s);
 // Message type classes.
 bool IsEphemeralType(std::string_view type);  // ping, pong, ack, hello, welcome, error, state.request, ...
 bool IsCriticalType(std::string_view type);   // §6.5 critical: never dropped from a full spool
-bool IsValidType(std::string_view type);      // [a-z][a-z0-9_]*(\.[a-z0-9_]+)*, max 64
+bool IsValidType(std::string_view type);      // ^[a-z]+(\.[a-z_]+)*$ (envelope.json), max 64
 
 struct Envelope {
   int v = kProtocolVersion;

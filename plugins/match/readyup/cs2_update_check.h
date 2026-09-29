@@ -3,7 +3,7 @@
 // Is this CS2 server behind Steam's current build? Pure parts (unit tested by ctest
 // `match_cs2_update`): the number Steam's UpToDateCheck wants, its answer, and the "report each
 // required version once" rule. The fetch runs on a worker thread from fleet_bridge.cpp (the
-// platform gets `server.cs2_update_required {required_build}`, docs/FLEET.md §8.1, §14.3).
+// platform gets `server.game_update_required {required_build}`, docs/FLEET.md §8.1, §14.3).
 
 #include <string>
 

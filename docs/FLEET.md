@@ -69,7 +69,7 @@ Choices made where this document leaves room:
   object, schema proposed in `plugins/fleet/protocol/v1/messages/server.selftest.json`) goes out.
 - `server.drain` / `server.undrain` (match plugin): drain is held in memory (a restart clears it); while
   set the availability reads `draining` (a `server.availability` with reason `drain` is sent) and
-  `match.assign` is refused with `busy`; the running series finishes. `server.cs2_update_required`
+  `match.assign` is refused with `busy`; the running series finishes. `server.game_update_required`
   is sent once per new required version (Steam UpToDateCheck, every 30 min).
 - `hello.versions.plugins` lists only `fleet` for now (match is still compiled into the core).
 - Unknown reliable types get `error {code: "unknown_type"}` (ephemeral, `ref` = the message id)
@@ -831,7 +831,7 @@ applies `patch` when `rev == stored_rev + 1`; on a gap it sends `state.request`.
 | `error` | `{ code, message, fatal }` | any | alert admins |
 
 Server-level: `server.availability {availability, reason}` (a `ServerReset` from `match_end.h`
-→ `available`), `server.cs2_update_required {required_build}`, `server.selftest {pass, passed, total, failures}` (on every change of the outcome).
+→ `available`), `server.game_update_required {required_build}`, `server.selftest {pass, passed, total, failures}` (on every change of the outcome).
 
 ### 8.2 Snapshot
 
@@ -1252,7 +1252,7 @@ The allocator only assigns matches whose requirements the server has.
 4. `hello` reports the new versions; the platform clears `drain` when the update was the reason.
 
 CS2 updates reuse `cs2FleetMonitoringService` / `updateHoldService`: servers report `cs2_build` in
-`hello` and `server.cs2_update_required` when Steam says they are behind.
+`hello` and `server.game_update_required` when Steam says they are behind.
 
 ## 15. Security
 

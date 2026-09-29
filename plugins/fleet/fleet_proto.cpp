@@ -122,17 +122,20 @@ bool IsCriticalType(std::string_view t) {
 
 bool IsValidType(std::string_view t) {
   if (t.empty() || t.size() > 64) return false;
-  // Dot-separated segments, each [a-z][a-z0-9_]*.
+  // envelope.json's pattern ^[a-z]+(\.[a-z_]+)*$: the first segment is [a-z]+, the others
+  // [a-z_]+. No digits: the platform closes the link (4400) on a frame whose type does not
+  // match, and a reliable one stays in the spool and is replayed on every reconnect.
+  bool first = true;
   bool segStart = true;
   for (const char c : t) {
     if (c == '.') {
       if (segStart) return false;
       segStart = true;
+      first = false;
       continue;
     }
     const bool lower = c >= 'a' && c <= 'z';
-    const bool rest = (c >= '0' && c <= '9') || c == '_';
-    if (!(lower || (!segStart && rest))) return false;
+    if (!(lower || (!first && c == '_'))) return false;
     segStart = false;
   }
   return !segStart;

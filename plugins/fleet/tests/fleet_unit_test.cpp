@@ -69,6 +69,11 @@ TEST(TestTypes) {
   CHECK(!IsValidType(".x"));
   CHECK(!IsValidType("x."));
   CHECK(!IsValidType("_x"));
+  // envelope.json: no digits anywhere, no underscore in the first segment.
+  CHECK(IsValidType("server.game_update_required"));
+  CHECK(!IsValidType("server.cs2_update_required"));
+  CHECK(!IsValidType("x1.y"));
+  CHECK(!IsValidType("local_x.y"));
   CHECK(IsEphemeralType("pong"));
   CHECK(!IsEphemeralType("event.phase"));
   CHECK(IsCriticalType("event.round_end"));

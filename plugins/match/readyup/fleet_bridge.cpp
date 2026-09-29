@@ -1575,7 +1575,7 @@ void OnDrain(bool drain, const ru_fleet_msg* m) {
   PublishState(g_asg.active && g_stream.HasState() ? g_stream.State() : Json());  // sends server.availability
 }
 
-// ---- CS2 build check: Steam's UpToDateCheck on a worker thread, `server.cs2_update_required
+// ---- CS2 build check: Steam's UpToDateCheck on a worker thread, `server.game_update_required
 // {required_build}` once per required version (cs2_update_check.h).
 constexpr double kCs2FirstCheckS = 60.0;
 constexpr double kCs2CheckEveryS = 1800.0;
@@ -1601,7 +1601,7 @@ void CheckCs2Update(double now, bool active) {
     g_cs2Reported = a.required;
     Json p = Json::Object();
     p["required_build"] = static_cast<int>(a.required);
-    Send("server.cs2_update_required", p, 0, true);
+    Send("server.game_update_required", p, 0, true);
     Print("fleet: CS2 update required (build %lld)\n", a.required);
   }
   if (!active || g_cs2Running.load()) return;
