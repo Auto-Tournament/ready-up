@@ -257,7 +257,7 @@ jobs:
           path: artifact
 
       - name: shellcheck
-        run: shellcheck install.sh release.sh scripts/package-release.sh scripts/ci/check-bundles.sh scripts/ci/release-notes.sh tests/installer/test_install.sh
+        run: shellcheck install.sh release.sh discord-webhook.sh scripts/package-release.sh scripts/ci/check-bundles.sh scripts/ci/release-notes.sh tests/installer/test_install.sh
 
       - name: release notes from the built zips
         run: |
