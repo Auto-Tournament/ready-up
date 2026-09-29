@@ -447,7 +447,7 @@ Every WebSocket message is one UTF-8 JSON text frame (max 1 MiB).
   "required": ["v", "type", "id", "ts", "payload"],
   "properties": {
     "v":       { "const": 1 },
-    "type":    { "type": "string", "pattern": "^[a-z]+(\\.[a-z_]+)*$", "description": "single-word types (hello, ping, ack, error) have no dot" },
+    "type":    { "type": "string", "pattern": "^[a-z]+(\\.[a-z0-9_]+)*$", "description": "single-word types (hello, ping, ack, error) have no dot" },
     "id":      { "type": "string", "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$", "description": "ULID, unique per message" },
     "seq":     { "type": "integer", "minimum": 1, "description": "present on reliable messages only" },
     "ack":     { "type": "integer", "minimum": 0, "description": "highest contiguous peer seq received" },
