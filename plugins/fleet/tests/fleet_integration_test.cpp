@@ -78,6 +78,7 @@ HelloInfo Hello() {
   h.cs2Patch = "1.40.3.2";
   h.hostname = "it-host";
   h.gamePort = 27055;
+  h.publicAddr = "203.0.113.7:27055";
   h.bootId = NewUlid(NowMs());
   h.capabilities = {"match.v1"};
   h.startedMs = NowMs();
@@ -202,6 +203,7 @@ TEST(TestEnrollConnectPingAck) {
   CHECK_EQ(hp->Get("versions")->Get("plugins")->Get("fleet")->AsStr(), std::string("0.9.0"));
   CHECK_EQ(hp->Get("capabilities")->a.at(0).AsStr(), std::string("match.v1"));
   CHECK_EQ(hp->Get("host")->Get("game_port")->AsInt(), int64_t(27055));
+  CHECK_EQ(hp->Get("host")->Get("public_addr")->AsStr(), std::string("203.0.113.7:27055"));
   CHECK_EQ(hp->Get("stream")->Get("last_tx_seq")->AsInt(), int64_t(0));
   CHECK(hp->Get("state")->IsNull());
   CHECK_EQ(hp->Get("availability")->AsStr(), std::string("available"));

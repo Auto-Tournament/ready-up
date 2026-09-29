@@ -96,8 +96,11 @@ static bool ShouldProcess(uint64_t steamid64, const std::string& playerName, con
 namespace readyup {
 
 // Only `.ru` is the core's; player commands (.r, .pause, ...) belong to plugins (readyup-match).
-// `.ruversion` is the core's too: a player command, the same as `.ru version`.
-bool IsCoreChatCommand(const std::string& firstToken) { return firstToken == ".ru" || firstToken == ".ruversion"; }
+// `.ruversion` / `.version` / `.reload_config` are the core's too: the same as `.ru version` /
+// `.ru reload` (CoreChatAliasToRu, the old plugin's names).
+bool IsCoreChatCommand(const std::string& firstToken) {
+  return firstToken == ".ru" || !CoreChatAliasToRu(firstToken).empty();
+}
 
 void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const std::string& text, int slot) {
   const std::string t = Trim(text);
@@ -121,7 +124,8 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
     DebugLine("ru: ignored (no parts)");
     return;
   }
-  if (Lower(parts[0]) == ".ruversion") parts = {".ru", "version"};  // alias of `.ru version`
+  // `.ruversion` / `.version` = `.ru version`, `.reload_config` = `.ru reload` (arguments dropped).
+  if (const std::string sub = CoreChatAliasToRu(parts[0]); !sub.empty()) parts = {".ru", sub};
   const std::string first = parts[0];
 
   // Commands owned by a loaded plugin (never `.ru`). The plugin callback runs on the next

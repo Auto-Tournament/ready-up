@@ -135,6 +135,22 @@ int main() {
   CHECK(ResolveMapName("mirage_n", {"de_mirage", "de_mirage_night"}).name == "de_mirage_night");
   CHECK(ResolveMapName("mirage", {}).name.empty());
 
+  // .rcon
+  CHECK(RconRefusal("mp_roundtime 2").empty());
+  CHECK(RconRefusal("status; mp_restartgame 1").empty());
+  CHECK(RconRefusal("sv_password \"x y\"").empty());
+  CHECK(RconRefusal("mp_restartgame 1").empty());  // "restart" only as a whole word
+  CHECK(!RconRefusal("").empty() && !RconRefusal("   ").empty());
+  CHECK(!RconRefusal(std::string(513, 'a')).empty());
+  CHECK(!RconRefusal("status\nquit").empty());
+  for (const char* bad : {"quit", "QUIT", " exit", "_restart", "restart", "killserver", "sv_setsteamaccount ABC",
+                          "rcon_password x", "rcon status", "readyup_license_key \"x\"", "alias q quit",
+                          "status; quit", "status;\"quit\"", "fleet enroll x", "ru_fleet_url x", "ru fleet status",
+                          "mp_warmup_end;  Sv_SetSteamAccount 1"}) {
+    CHECK(!RconRefusal(bad).empty());
+  }
+  CHECK(RconRefusal("sv_setsteamaccount 1").find("sv_setsteamaccount") != std::string::npos);
+
   std::printf("essentials_rules_test: %s\n", g_failures ? "FAIL" : "PASS");
   return g_failures ? 1 : 0;
 }

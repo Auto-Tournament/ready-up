@@ -41,6 +41,15 @@ bool FindPlayer(const std::vector<Player>& players, const std::string& fragment,
 // name, a workshop id, ws:<id>, workshop/<id>[/name]).
 std::string MapArgToEntry(const std::string& arg);
 
+// `.rcon <command>` (the old plugin's css_rcon): why the server refuses to run `command`, "" when
+// it may. One line of 1..512 bytes; every `;`-separated part (split on every `;`, quoted or not) is
+// checked by its first word (any case, leading spaces / quotes skipped). Refused:
+//   quit exit _restart restart killserver shutdown   (stop the server)
+//   sv_setsteamaccount (no GSLT on Ready Up servers), rcon_password, rcon, readyup_license_key
+//   alias                                            (would hide any of these behind a new name)
+//   fleet, ru_fleet*, `ru ... fleet ...`             (the fleet link's credentials, as cmd exec)
+std::string RconRefusal(const std::string& command);
+
 // Map commands (change / reload / restart) are refused in these match plugin modes (a knife round
 // or a live map) unless the admin adds `force`.
 bool MapCommandBlocked(const std::string& ruMode);

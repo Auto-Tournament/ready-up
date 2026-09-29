@@ -451,8 +451,35 @@ TEST(TestServerConfigLocal) {
   RmRf(dir);
 }
 
+TEST(TestPublicAddr) {
+  CHECK_EQ(NormalizePublicAddr("203.0.113.7", 27055), std::string("203.0.113.7:27055"));
+  CHECK_EQ(NormalizePublicAddr(" \"203.0.113.7:27016\" ", 27055), std::string("203.0.113.7:27016"));
+  CHECK_EQ(NormalizePublicAddr("play.example.com", 27015), std::string("play.example.com:27015"));
+  CHECK_EQ(NormalizePublicAddr("2001:db8::7", 27015), std::string("[2001:db8::7]:27015"));
+  CHECK_EQ(NormalizePublicAddr("[2001:db8::7]:27020", 27015), std::string("[2001:db8::7]:27020"));
+  CHECK_EQ(NormalizePublicAddr("[2001:db8::7]", 27015), std::string("[2001:db8::7]:27015"));
+  CHECK_EQ(NormalizePublicAddr("", 27015), std::string());
+  CHECK_EQ(NormalizePublicAddr("0.0.0.0", 27015), std::string());
+  CHECK_EQ(NormalizePublicAddr("0.0.0.0:27015", 27015), std::string());
+  CHECK_EQ(NormalizePublicAddr("::", 27015), std::string());
+  CHECK_EQ(NormalizePublicAddr("host:0", 27015), std::string());
+  CHECK_EQ(NormalizePublicAddr("host:99999", 27015), std::string());
+  CHECK_EQ(NormalizePublicAddr("host:", 27015), std::string());
+  CHECK_EQ(NormalizePublicAddr("bad host", 27015), std::string());
+  CHECK_EQ(NormalizePublicAddr("x;rm -rf", 27015), std::string());
+  CHECK_EQ(NormalizePublicAddr("[zz::1]:1", 27015), std::string());
+  CHECK_EQ(NormalizePublicAddr("h", 0), std::string());  // no usable port
+  // fleet.cfg wins, even loopback (the admin said so); detected values skip wildcards and loopback.
+  CHECK_EQ(PickPublicAddr("127.0.0.1", {"203.0.113.7"}, 27015), std::string("127.0.0.1:27015"));
+  CHECK_EQ(PickPublicAddr("", {"", "0.0.0.0"}, 27015), std::string());
+  CHECK_EQ(PickPublicAddr("", {"127.0.0.1", "192.168.50.196"}, 27055), std::string("192.168.50.196:27055"));
+  CHECK_EQ(PickPublicAddr("", {"localhost", "[::1]", "10.0.0.2"}, 27055), std::string("10.0.0.2:27055"));
+  CHECK_EQ(PickPublicAddr("bad host", {"198.51.100.4:27100"}, 27055), std::string("198.51.100.4:27100"));
+}
+
 int main() {
   RUN(TestSelftestPayload);
+  RUN(TestPublicAddr);
   RUN(TestJsonRoundTrip);
   RUN(TestUlid);
   RUN(TestTypes);

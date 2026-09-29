@@ -1,11 +1,14 @@
 #include "readyup/match_end.h"
 
+#include "readyup/at_payloads.h"
+
 #include "readyup/engine.h"
 #include "readyup/demo_recorder.h"
 #include "readyup/game_timers.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
 #include "readyup/match_console.h"
+#include "readyup/match_state.h"
 #include "readyup/modes.h"
 #include "readyup/players.h"
 #include "readyup/webhook.h"
@@ -342,14 +345,39 @@ bool MatchFlowHandleConsoleLine(const std::string& line) {
     return true;
   }
   if (cmd == "ru_match_stats") {
-    std::string json;
+    // `ru_match_stats [matchid]` (the old plugin's get_match_stats <matchId>). Ready Up keeps no
+    // stats database: only the loaded match's current map is known, so another id gets ME's
+    // "No stats found" reply.
+    const auto ctx = WebhookGetMatchContext();
+    const unsigned long long loaded = ctx ? static_cast<unsigned long long>(ctx->matchid) : 0ull;
+    if (args.size() > 1) {
+      const std::string& a = args[1];
+      if (a.empty() || a.find_first_not_of("0123456789") != std::string::npos) {
+        PrintLine("Invalid match ID. Must be a number.");
+        return true;
+      }
+      if (std::strtoull(a.c_str(), nullptr, 10) != loaded || !ctx) {
+        Print("No stats found for match ID %s\n", a.c_str());
+        return true;
+      }
+    }
+    at::MatchStatsLine line;
     {
       std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
-      json = stats::ToJson(stats::Current().Snapshot());
+      line.stats = stats::Current().Snapshot();
+    }
+    const auto ms = MatchStateGet();
+    const auto series = ModesGetSeriesWins();
+    line.matchid = static_cast<long long>(loaded);
+    line.map_number = ms.map_number > 0 ? ms.map_number : 1;
+    line.map_name = ms.current_map;
+    if (ctx) {
+      line.team1 = {ctx->team1_id, ctx->team1_name, std::max(0, series.first)};
+      line.team2 = {ctx->team2_id, ctx->team2_name, std::max(0, series.second)};
     }
     // One line: consumers take everything after the first '{' (the core keeps long plugin
     // log lines whole).
-    PrintLine(("match_stats " + json).c_str());
+    PrintLine(("match_stats " + at::MatchStatsJson(line)).c_str());
     return true;
   }
   return false;

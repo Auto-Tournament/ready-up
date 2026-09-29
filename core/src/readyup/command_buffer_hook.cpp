@@ -183,6 +183,14 @@ static bool HandleReadyUpConsoleCommandLine(const std::string& line) {
   // `readyup_license_key "..."` / `readyup_show_license 0|1` (license_status.h): informational.
   if (license::HandleConsoleLine(line)) return true;
 
+  // `ru_version` / `ru_reload_config` (the old plugin's matchzy_version / at_reload_config):
+  // `ru version` / `ru reload`.
+  {
+    const std::string t = Trim(line);
+    const std::string sub = CoreConsoleAliasToRu(t.substr(0, t.find_first_of(" \t")));
+    if (!sub.empty()) return HandleRuCommandLine("ru " + sub);
+  }
+
   // Handle `ru ...` command family.
   if (HandleRuCommandLine(line)) return true;
 

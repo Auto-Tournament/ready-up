@@ -165,6 +165,23 @@ std::string MapResultJson(const MapResult& mr) {
       .Done();
 }
 
+std::string MatchStatsJson(const MatchStatsLine& ml) {
+  const stats::MapStats& m = ml.stats;
+  const int round = m.rounds.empty() ? 0 : m.rounds.back().round_number;
+  return Obj()
+      .S("event", "match_stats")
+      .I("matchid", ml.matchid)
+      .I("map_number", ml.map_number)
+      .S("map_name", ml.map_name)
+      .I("round_number", round)
+      .R("live", m.live ? "true" : "false")
+      .R("team1", StatsTeamJson(ml.team1, 1, m.team1.score, m.team1, m.players))
+      .R("team2", StatsTeamJson(ml.team2, 2, m.team2.score, m.team2, m.players))
+      .I("team1_score", m.team1.score)
+      .I("team2_score", m.team2.score)
+      .Done();
+}
+
 std::vector<std::string> DemoEventJsons(const demo::DemoEvent& e) {
   using T = demo::DemoEventType;
   std::vector<std::string> out;
