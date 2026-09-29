@@ -83,6 +83,15 @@ HelloInfo Hello() {
   h.capabilities = {"match.v1"};
   h.startedMs = NowMs();
   h.pluginsDisabled = {{"skins", "missing CBaseModelEntity_SetModel after CS2 build 14032"}};
+  // hello.plugins_state is read from here at every hello.
+  static const std::string pluginsDir = [] {
+    const std::string d = TempDir();
+    std::ofstream(d + "/match.so") << "";
+    std::ofstream(d + "/skins.so") << "";
+    std::ofstream(d + "/plugins.json") << "{\"version\": 1, \"disabled\": [\"skins\"]}";
+    return d;
+  }();
+  h.pluginsDir = pluginsDir;
   return h;
 }
 
@@ -208,6 +217,9 @@ TEST(TestEnrollConnectPingAck) {
   CHECK(hp->Get("state")->IsNull());
   CHECK_EQ(hp->Get("availability")->AsStr(), std::string("available"));
   CHECK_EQ(hp->Get("plugins_disabled")->a.at(0).Get("name")->AsStr(), std::string("skins"));
+  CHECK_EQ(hp->Get("plugins_state")->Get("installed")->a.size(), size_t(2));
+  CHECK_EQ(hp->Get("plugins_state")->Get("installed")->a.at(0).AsStr(), std::string("match"));
+  CHECK_EQ(hp->Get("plugins_state")->Get("disabled")->a.at(0).AsStr(), std::string("skins"));
   CHECK(IsUlid(hello.env.Get("id")->AsStr()));
   CHECK(hello.env.Get("seq") == nullptr);  // hello is ephemeral
   CHECK(IsUlid(c.Status().sessionId));

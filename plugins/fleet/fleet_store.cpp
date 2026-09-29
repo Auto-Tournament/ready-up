@@ -3,10 +3,12 @@
 #include "fleet_json.h"
 #include "fleet_proto.h"
 
+#include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
@@ -206,6 +208,48 @@ std::string LoadOrCreateInstallId(const std::string& dir, std::string* err) {
   const std::string id = NewUlid(NowMs());
   if (!WriteFileAtomic(path, id + "\n", 0644, err)) return {};
   return id;
+}
+
+namespace {
+bool PluginName(const std::string& n) {
+  if (n.empty() || n.size() > 32) return false;
+  for (char c : n) {
+    if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-')) return false;
+  }
+  return true;
+}
+
+void SortCap(std::vector<std::string>* v) {
+  std::sort(v->begin(), v->end());
+  v->erase(std::unique(v->begin(), v->end()), v->end());
+  if (v->size() > 64) v->resize(64);
+}
+}  // namespace
+
+bool ReadPluginsState(const std::string& pluginsDir, PluginsState* out) {
+  *out = PluginsState{};
+  if (pluginsDir.empty()) return false;
+  DIR* d = opendir(pluginsDir.c_str());
+  if (!d) return false;
+  while (dirent* e = readdir(d)) {
+    const std::string f = e->d_name;
+    if (f.size() <= 3 || f.compare(f.size() - 3, 3, ".so") != 0) continue;
+    const std::string n = f.substr(0, f.size() - 3);
+    if (PluginName(n)) out->installed.push_back(n);
+  }
+  closedir(d);
+  std::string text;
+  json::Value v;
+  if (ReadFile(pluginsDir + "/plugins.json", &text, 64 * 1024) && json::Parse(text, &v) && v.IsObj()) {
+    if (const json::Value* dis = v.Get("disabled"); dis && dis->IsArr()) {
+      for (const auto& n : dis->a) {
+        if (n.IsStr() && PluginName(n.AsStr())) out->disabled.push_back(n.AsStr());
+      }
+    }
+  }
+  SortCap(&out->installed);
+  SortCap(&out->disabled);
+  return true;
 }
 
 }  // namespace fleet

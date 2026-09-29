@@ -71,6 +71,9 @@ struct HelloInfo {
   // Plugins the core did not load on this CS2 build (needs.json not met): name -> reason
   // (hello.plugins_disabled; core/include/readyup/plugin_needs_iface.h). Empty = left out.
   std::vector<std::pair<std::string, std::string>> pluginsDisabled;
+  // csgo/readyup/plugins: hello.plugins_state is read from it (ReadPluginsState) each time a
+  // hello goes out, so a plugins.set before a reconnect shows. "" = left out.
+  std::string pluginsDir;
   // hello.selftest: SelftestPayload() of the core's latest selftest; "" = none yet (left out).
   std::string selftestJson;
   // ping health

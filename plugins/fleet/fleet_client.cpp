@@ -697,6 +697,19 @@ std::string Client::BuildHello() {
     }
     p.Set("plugins_disabled", std::move(off));
   }
+  // What is installed and what plugins.json keeps off: the platform compares it with the plugin
+  // set it chose for this server (cmd plugins.set) and warns about a plugin that is not there.
+  PluginsState ps;
+  if (!h.pluginsDir.empty() && ReadPluginsState(h.pluginsDir, &ps)) {
+    json::Value st = json::Value::Object();
+    json::Value inst = json::Value::Array();
+    for (const auto& n : ps.installed) inst.Push(json::Value::Str(n));
+    json::Value dis = json::Value::Array();
+    for (const auto& n : ps.disabled) dis.Push(json::Value::Str(n));
+    st.Set("installed", std::move(inst));
+    st.Set("disabled", std::move(dis));
+    p.Set("plugins_state", std::move(st));
+  }
   // The core's latest selftest (ru_api 1.11 selftest_summary, fleet_proto.h SelftestPayload);
   // left out before the first selftest ran (it is optional).
   if (!h.selftestJson.empty()) {

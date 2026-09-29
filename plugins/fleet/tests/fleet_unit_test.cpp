@@ -369,6 +369,41 @@ TEST(TestCredentialsFile) {
   RmRf(dir);
 }
 
+// hello.plugins_state: the .so files and plugins.json's disabled list (the core's format,
+// core/src/readyup/plugin_state.cpp), sorted, bad names skipped.
+TEST(TestPluginsState) {
+  const std::string dir = TempDir();
+  auto touch = [&](const std::string& f, const std::string& text = "") {
+    std::ofstream(dir + "/" + f) << text;
+  };
+  touch("match.so");
+  touch("fleet.so");
+  touch("skins.so");
+  touch("Bad Name.so");
+  touch("notes.txt");
+  touch("essentials.needs.json", "{}");
+  mkdir((dir + "/fleet").c_str(), 0755);  // a plugin's data dir, not a plugin
+  PluginsState ps;
+  CHECK(ReadPluginsState(dir, &ps));
+  CHECK_EQ(ps.installed.size(), size_t(3));
+  CHECK_EQ(ps.installed.at(0), std::string("fleet"));
+  CHECK_EQ(ps.installed.at(1), std::string("match"));
+  CHECK_EQ(ps.installed.at(2), std::string("skins"));
+  CHECK(ps.disabled.empty());  // no plugins.json yet
+  touch("plugins.json", "{\n  \"version\": 1,\n  \"disabled\": [\n    \"skins\",\n    \"midas\",\n    \"../x\"\n  ]\n}\n");
+  CHECK(ReadPluginsState(dir, &ps));
+  CHECK_EQ(ps.disabled.size(), size_t(2));
+  CHECK_EQ(ps.disabled.at(0), std::string("midas"));  // not installed, still reported
+  CHECK_EQ(ps.disabled.at(1), std::string("skins"));
+  touch("plugins.json", "not json");
+  CHECK(ReadPluginsState(dir, &ps));
+  CHECK(ps.disabled.empty());
+  CHECK_EQ(ps.installed.size(), size_t(3));
+  CHECK(!ReadPluginsState(dir + "/missing", &ps));
+  CHECK(!ReadPluginsState("", &ps));
+  RmRf(dir);
+}
+
 TEST(TestSelftestPayload) {
   // The core's selftest_summary JSON (status_feed.cpp NoteSelftest) -> hello.selftest / server.selftest.
   const std::string core =
@@ -492,6 +527,7 @@ int main() {
   RUN(TestSpoolPersistence);
   RUN(TestSpoolLimits);
   RUN(TestCredentialsFile);
+  RUN(TestPluginsState);
   RUN(TestServerConfigLocal);
   return ftest::Finish("fleet_unit_test");
 }
