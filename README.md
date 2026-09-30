@@ -1,6 +1,5 @@
 <div align="center">
-  <img src=".github/logo.svg" width="100" alt="Ready Up logo" />
-  <h1>Ready Up</h1>
+  <img src=".github/banner.png" alt="Ready Up" width="100%" />
   <p><strong>A native CS2 server plugin for scrims, pickups and tournament matches</strong></p>
   <p>
     <a href="https://github.com/Auto-Tournament/ready-up/releases/latest"><img src="https://img.shields.io/github/v/release/Auto-Tournament/ready-up?cacheSeconds=3600" alt="GitHub Release" /></a>
