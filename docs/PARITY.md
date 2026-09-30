@@ -1,6 +1,6 @@
-# Ready Up vs Auto Tournament CS2: parity matrix
+# Ready Up vs MatchZy Enhanced: parity matrix
 
-This document lists what Ready Up must do before it can replace the Auto Tournament CS2 plugin (formerly MatchZy Enhanced) on Auto Tournament servers.
+This document lists what Ready Up must do before it can replace MatchZy Enhanced (formerly MatchZy Enhanced) on Auto Tournament servers.
 
 **Decision (Sivert, 2026-09; replaces the earlier "no adapter, 1:1 RCON + webhook" plan):** Ready Up is fleet-first. The [fleet link](FLEET.md) (a WebSocket with `match.assign`, `match.update`, `cmd`, `server.config` and the `MatchState` stream) **replaces** the per-server RCON + webhook contract. The platform no longer sends `ru_loadmatch_url`, `ru_server_id`, `ru_bootstrap_*`, `ru_remote_log_*`, `ru_report_*`, `ru_tournament_status`, `ru_addplayer` or `css_*` commands to Ready Up, and none of them exist in the code. Each has a fleet equivalent, listed in the "How" column below. This file stays the **feature** checklist: what a tournament needs from the plugin, and how far Ready Up gets.
 

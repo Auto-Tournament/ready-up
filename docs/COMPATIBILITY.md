@@ -9,7 +9,7 @@ Metamod or CounterStrikeSharp for anything Ready Up does.
 
 If you have to keep Metamod or CounterStrikeSharp on the same server for something else, it
 works: see [the answers](#answers). Never run two match plugins (Ready Up's match plugin and
-MatchZy, Get5 or the Auto Tournament CS2 plugin) on one server.
+MatchZy, Get5 or MatchZy Enhanced) on one server.
 
 Everything below was tested on a real CS2 server. It isn't guesswork.
 
@@ -21,7 +21,7 @@ Everything below was tested on a real CS2 server. It isn't guesswork.
 | Ready Up | master `8605aac`, plus the fixes from this change |
 | Metamod:Source | 2.0.0-dev+1469 (`fa6f80e`) |
 | CounterStrikeSharp | v1.0.375 (`751eb0c`), .NET 10 runtime |
-| Auto Tournament CS2 plugin (the MatchZy fork) | 2.0.0 |
+| MatchZy Enhanced (the MatchZy fork) | 2.0.0 |
 
 Each case was a fresh server boot. For each one we captured the console, ran `meta list`,
 `css_plugins list`, `ru selftest` and `curl localhost:<port+7>/status`, then ran the bot live
@@ -218,7 +218,7 @@ update that breaks CSSharp's gamedata crashes the whole server. Only do it if a 
 plugin you can't live without has no Ready Up version, and test the chat features that
 plugin uses.
 
-**Can I run it with MatchZy, Get5 or the Auto Tournament CS2 plugin?**
+**Can I run it with MatchZy, Get5 or MatchZy Enhanced?**
 No. Those are match plugins, and so is Ready Up. Two of them handle the same `.r`, overwrite
 each other's cvars and report every match twice. Use Ready Up's match plugin instead. It
 uses the same commands and event names.
