@@ -241,7 +241,7 @@ doesn't load and Ready Up logs a warning with the fix.
 CSSharp's `Host_Say` chat hook is lost next to Ready Up, and when a CS2 update breaks
 CSSharp's gamedata, CSSharp crashes the whole server. Ready Up can't stop that.
 
-**With MatchZy, Get5 or the Auto Tournament CS2 plugin?** No. Never run two match plugins:
+**With MatchZy, Get5 or MatchZy Enhanced?** No. Never run two match plugins:
 both handle `.r`, they overwrite each other's cvars and every match gets reported twice. Use
 Ready Up's match plugin. It has the same commands.
 
@@ -302,6 +302,6 @@ update period (this build's version line came out after `updates_until`), an eve
 has ended, or an invalid key is a console warning only, and players never see anything like
 "unlicensed". Without a key, the server logs one line that it is free for non-commercial use.
 
-Looking for an MIT plugin instead? [MatchZy Enhanced](https://github.com/Auto-Tournament/cs2-plugin) (now named Auto Tournament CS2) is MIT licensed and free for any use, including paid work. Ready Up is a different plugin, not a fork of it.
+Looking for an MIT plugin instead? [MatchZy Enhanced](https://github.com/Auto-Tournament/matchzy-enhanced) is MIT licensed and free for any use, including paid work. Ready Up is a different plugin, not a fork of it.
 
 Third-party code under `third_party/` keeps its own license.
