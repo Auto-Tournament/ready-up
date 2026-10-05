@@ -17,7 +17,7 @@
 //   3b. Series over (no maps left, or a team clinched when clinch_series is on): a
 //       SeriesEnd event. For matches, every human is kicked after
 //       (restart_delay - 1) + ru_series_end_kick_delay_{no_demo|demo_no_upload|demo_upload}
-//       (5 / 10 / 60 s), and 2 s later the match is unloaded (ServerReset event, mode
+//       (60 s each by default, so players can read the scoreboard), and 2 s later the match is unloaded (ServerReset event, mode
 //       postgame -> idle). Scrims are not kicked; they stay in postgame until
 //       restart_delay - 1 (9 s without a demo), then unload.
 //
@@ -26,8 +26,8 @@
 // existing webhooks (map_result / series_end) are still sent as before.
 //
 // Console / RCON:
-//   ru_series_end_kick_delay_no_demo <s>        default 5
-//   ru_series_end_kick_delay_demo_no_upload <s> default 10
+//   ru_series_end_kick_delay_no_demo <s>        default 60
+//   ru_series_end_kick_delay_demo_no_upload <s> default 60
 //   ru_series_end_kick_delay_demo_upload <s>    default 60
 //   ru_match_stats [matchid]                    current map stats as one JSON line (at_payloads.h)
 // plus the demo settings in demo_recorder.h.
