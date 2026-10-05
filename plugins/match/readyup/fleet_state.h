@@ -202,17 +202,9 @@ bool Base64Decode(const std::string& text, std::string* out);
 
 // ---------------------------------------------------------------------------- validators
 
-// `cmd say`: control characters removed, at most 190 bytes (cut on a UTF-8 boundary).
-std::string SanitizeSay(const std::string& text);
 // `cmd exec` (§7.4, D10): one line, 1..512 bytes, no `;`-chained `ru fleet` / `fleet`
 // (credentials) and no quotes that could smuggle a second command past the check.
 bool ValidateExec(const std::string& command, std::string* err);
-// `cmd plugins.set` {enable?: [name], disable?: [name]}: plugin names [a-z0-9_-] (1..32), at most
-// 16 per list, none in both, and never `match` / `fleet` in disable (the fleet link runs in them).
-bool ParsePluginsSet(const Json& args, std::vector<std::string>* enable, std::vector<std::string>* disable,
-                     std::string* err);
-// `cmd whitelist.set` {enabled: bool, steamids: ["7656119..."]}: at most 1000 SteamID64 strings.
-bool ParseWhitelistSet(const Json& args, bool* enabled, std::vector<uint64_t>* steamids, std::string* err);
 // sv_password value: printable ASCII without quotes, `;` or spaces, at most 64 bytes ("" = none).
 bool ValidPassword(const std::string& password);
 // Map entries (a name, or a workshop id as "123", "ws:123", "workshop/123[/name]"; map_names.h)

@@ -3,7 +3,7 @@
 /*
  * readyup.practice.v1: the practice plugin (plugins/practice, practice.so) to other plugins. The
  * match plugin hands `.ru mode practice` to it and shows its help line in `.help` while practice
- * is on. Published with
+ * is on; fleet.so (plugins/fleet) runs the platform's practice.set with it. Published with
  *
  *   api->provide_interface(api->self, RU_PRACTICE_IFACE_NAME, RU_PRACTICE_IFACE_VERSION, &iface);
  *
@@ -30,6 +30,11 @@ typedef struct ru_practice_v1 {
   /* Appended (check RU_API_HAS): 1 while a `.dryrun` round is under way. The match plugin lets
    * that round end (practice otherwise suppresses round termination). */
   int (*dry_run)(void);
+  /* Appended (check struct_size): the always=1 setting (a dedicated practice server). set_always
+   * stores it in the plugin's data dir (always.txt), where it wins over practice.cfg until it is
+   * set again; on = 1 also switches practice on when nothing blocks it. Returns 1 when stored. */
+  int (*always)(void);
+  int (*set_always)(int on);
 } ru_practice_v1;
 
 #ifdef __cplusplus

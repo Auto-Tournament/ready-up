@@ -1,6 +1,7 @@
 // Unit tests for the fleet link's I/O-free parts: JSON, envelope, ULID, backoff, close codes,
 // redaction, URL rules, inbound seq/ack tracking, the disk spool and the credentials file.
 //   build/fleet_unit_test
+#include "fleet_cmds.h"
 #include "fleet_json.h"
 #include "fleet_proto.h"
 #include "fleet_spool.h"
@@ -523,6 +524,60 @@ TEST(TestPublicAddr) {
   CHECK_EQ(PickPublicAddr("bad host", {"198.51.100.4:27100"}, 27055), std::string("198.51.100.4:27100"));
 }
 
+// The commands fleet.so runs itself (fleet_cmds.h): plugins.set, whitelist.set, practice.set, say.
+TEST(TestOwnedCmds) {
+  auto J = [](const char* text) {
+    json::Value v;
+    CHECK(json::Parse(text, &v));
+    return v;
+  };
+  using namespace fleet::cmds;
+  CHECK(OwnedByFleet("plugins.set") && OwnedByFleet("practice.set") && OwnedByFleet("say"));
+  CHECK(!OwnedByFleet("pause") && !OwnedByFleet("settings.set") && !OwnedByFleet("exec"));
+
+  std::vector<std::string> on, off;
+  std::string err;
+  CHECK(ParsePluginsSet(J(R"({"enable": ["practice", "skins"], "disable": ["midas"]})"), &on, &off, &err));
+  CHECK(on.size() == 2 && on[0] == "practice" && off.size() == 1 && off[0] == "midas");
+  CHECK(ParsePluginsSet(J(R"({"disable": ["skins"]})"), &on, &off, &err) && on.empty());
+  CHECK(ParsePluginsSet(J(R"({"disable": ["match"]})"), &on, &off, &err) && off[0] == "match");  // practice servers
+  CHECK(!ParsePluginsSet(J(R"({})"), &on, &off, &err));
+  CHECK(!ParsePluginsSet(J(R"({"disable": ["fleet"]})"), &on, &off, &err) && err.find("fleet") != std::string::npos);
+  CHECK(!ParsePluginsSet(J(R"({"enable": ["skins"], "disable": ["skins"]})"), &on, &off, &err));
+  CHECK(!ParsePluginsSet(J(R"({"enable": ["../x"]})"), &on, &off, &err));
+  CHECK(!ParsePluginsSet(J(R"({"enable": ["skins; quit"]})"), &on, &off, &err));
+  CHECK(!ParsePluginsSet(J(R"({"enable": "skins"})"), &on, &off, &err));
+
+  bool enabled = false;
+  std::vector<uint64_t> ids;
+  CHECK(ParseWhitelistSet(J(R"({"enabled": true, "steamids": ["76561198000000001", "76561198000000002"]})"), &enabled,
+                          &ids, &err));
+  CHECK(enabled && ids.size() == 2 && ids[1] == 76561198000000002ull);
+  CHECK(ParseWhitelistSet(J(R"({"enabled": false})"), &enabled, &ids, &err) && !enabled && ids.empty());
+  CHECK(!ParseWhitelistSet(J(R"({"steamids": []})"), &enabled, &ids, &err));
+  CHECK(!ParseWhitelistSet(J(R"({"enabled": true, "steamids": [76561198000000001]})"), &enabled, &ids, &err));
+  CHECK(!ParseWhitelistSet(J(R"({"enabled": true, "steamids": ["123"]})"), &enabled, &ids, &err));
+
+  int pon = 0, palways = 0;
+  CHECK(ParsePracticeSet(J(R"({"on": true})"), &pon, &palways, &err) && pon == 1 && palways == -1);
+  CHECK(ParsePracticeSet(J(R"({"on": true, "always": true})"), &pon, &palways, &err) && pon == 1 && palways == 1);
+  CHECK(ParsePracticeSet(J(R"({"always": false})"), &pon, &palways, &err) && pon == -1 && palways == 0);
+  CHECK(!ParsePracticeSet(J(R"({})"), &pon, &palways, &err));
+  CHECK(!ParsePracticeSet(J(R"({"on": 1})"), &pon, &palways, &err));
+
+  CHECK_EQ(SanitizeSay("hi\x01 there\n"), std::string("hi there"));
+  CHECK(SanitizeSay(std::string(300, 'x')).size() == 190);
+  std::string utf;
+  for (int i = 0; i < 100; ++i) utf += "\xc3\xa6";  // 'ae' x 100 = 200 bytes
+  const std::string cut = SanitizeSay(utf);
+  CHECK(cut.size() == 190);
+  CHECK((static_cast<unsigned char>(cut.back()) & 0xC0) == 0x80);  // ends after a whole character
+
+  CHECK_EQ(ResultPayload(Ok(), ""), std::string(R"({"status":"ok"})"));
+  CHECK_EQ(ResultPayload(Rejected("unsupported", "no match.so"), "a1"),
+           std::string(R"({"status":"rejected","error":{"code":"unsupported","message":"no match.so"},"audit_id":"a1"})"));
+}
+
 int main() {
   RUN(TestSelftestPayload);
   RUN(TestPublicAddr);
@@ -540,5 +595,6 @@ int main() {
   RUN(TestCredentialsFile);
   RUN(TestPluginsState);
   RUN(TestServerConfigLocal);
+  RUN(TestOwnedCmds);
   return ftest::Finish("fleet_unit_test");
 }

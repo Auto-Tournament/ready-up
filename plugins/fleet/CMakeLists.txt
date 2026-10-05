@@ -6,7 +6,8 @@
 # Without one the plugin is skipped with a warning; the unit tests and the mock platform still build.
 
 # Everything without network I/O: JSON, envelope, backoff, seq/ack, spool, credentials.
-add_library(readyup_fleet_core STATIC fleet_json.cpp fleet_proto.cpp fleet_spool.cpp fleet_store.cpp fleet_demo.cpp)
+add_library(readyup_fleet_core STATIC fleet_json.cpp fleet_proto.cpp fleet_spool.cpp fleet_store.cpp fleet_demo.cpp
+  fleet_cmds.cpp)
 set_target_properties(readyup_fleet_core PROPERTIES POSITION_INDEPENDENT_CODE ON
   CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
 target_include_directories(readyup_fleet_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

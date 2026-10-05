@@ -9,7 +9,8 @@
 //   ru practice dryrun      the same as .dryrun (admin)
 //   cfg/ReadyUp/practice.cfg (or readyup.cfg [practice]):
 //     always=0              1 = dedicated practice server: practice is switched on at load and on
-//                           every map, whenever nothing blocks it
+//                           every map, whenever nothing blocks it. The platform's practice.set
+//                           {always} stores it in <data_dir>/always.txt, which wins over the cfg
 //
 // Feedback (practice mode, everyone sees it; feedback=0 turns it off): "X flashed 2.4 s by Y" and
 // "Y hit X: -27 hp, -8 armor (head, ak47), 73 hp left" per hit; HE and molotov / incendiary fire
@@ -1506,10 +1507,40 @@ void RunBot(int slot, uint64_t steamid64, const std::string& cmd) {
 
 // ---- commands ------------------------------------------------------------------------------------
 
-// always=1 in cfg/ReadyUp/practice.cfg or readyup.cfg [practice].
+// <data_dir>/always.txt ("1" / "0"), written by readyup.practice.v1 set_always (the platform's
+// practice.set {always}); it wins over the cfg while it exists.
+std::string AlwaysFile() {
+  const char* d = g_api->data_dir(g_api->self);
+  return std::string(d ? d : ".") + "/always.txt";
+}
+int AlwaysStored() {  // -1 = none
+  FILE* f = std::fopen(AlwaysFile().c_str(), "r");
+  if (!f) return -1;
+  const int c = std::fgetc(f);
+  std::fclose(f);
+  return c == '1' ? 1 : c == '0' ? 0 : -1;
+}
+int g_alwaysStored = -2;  // -2 = not read yet
+
+// always=1 in cfg/ReadyUp/practice.cfg or readyup.cfg [practice], unless always.txt says otherwise.
 bool AlwaysOn() {
+  if (g_alwaysStored == -2) g_alwaysStored = AlwaysStored();
+  if (g_alwaysStored >= 0) return g_alwaysStored == 1;
   char b[16] = {};
   return g_api->config_get(g_api->self, "always", b, sizeof(b)) > 0 && ParseBool(b, false);
+}
+
+bool StoreAlways(bool on) {
+  const std::string path = AlwaysFile(), tmp = path + ".tmp";
+  FILE* f = std::fopen(tmp.c_str(), "w");
+  if (!f) return false;
+  const bool ok = std::fputs(on ? "1\n" : "0\n", f) >= 0;
+  if (std::fclose(f) != 0 || !ok || std::rename(tmp.c_str(), path.c_str()) != 0) {
+    std::remove(tmp.c_str());
+    return false;
+  }
+  g_alwaysStored = on ? 1 : 0;
+  return true;
 }
 double g_nextAlwaysCheck = 0;
 
@@ -1857,7 +1888,18 @@ int IfaceSetActive(int on, const char** why) {
 }
 const char* IfaceHelp() { return HelpLine(); }
 int IfaceDryRun() { return IsActive() && g_dryRun ? 1 : 0; }
-const ru_practice_v1 g_iface = {sizeof(ru_practice_v1), &IfaceActive, &IfaceSetActive, &IfaceHelp, &IfaceDryRun};
+int IfaceAlways() { return AlwaysOn() ? 1 : 0; }
+int IfaceSetAlways(int on) {
+  if (!StoreAlways(on != 0)) return 0;
+  Log("practice: always=%d (set by the platform)", on ? 1 : 0);
+  if (on) {
+    g_manualOff = false;
+    g_nextAlwaysCheck = 0;  // the next tick switches practice on when nothing blocks it
+  }
+  return 1;
+}
+const ru_practice_v1 g_iface = {sizeof(ru_practice_v1), &IfaceActive, &IfaceSetActive, &IfaceHelp,
+                                &IfaceDryRun,           &IfaceAlways, &IfaceSetAlways};
 
 void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   std::string d = std::string(IsActive() ? "on" : "off") + (MatchOwnsMode() ? " (match plugin mode)" : " (standalone)");
