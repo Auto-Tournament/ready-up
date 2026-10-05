@@ -746,7 +746,8 @@ Every command gets exactly one `cmd.result`. fleet.so runs `plugins.set`, `white
 `practice.set` and `say` itself (plugins/fleet/fleet_cmds.h), so they work on a server without the
 match plugin (a practice server: core + fleet + practice). The rest go to the match plugin; without
 it they are answered `rejected unsupported`, and fleet.so handles `server.drain` / `server.undrain`
-(availability) itself.
+(availability) itself. fleet.so announces this with the capability `fleet.cmds.v1`; the platform
+only disables `match` or sends `practice.set {always}` to a server that has it.
 
 | `name` | `args` | Notes |
 |---|---|---|

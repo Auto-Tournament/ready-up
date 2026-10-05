@@ -1282,6 +1282,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     while (g_dataDir.size() > 1 && g_dataDir.back() == '/') g_dataDir.pop_back();
     LoadSettings();
     g_caps.push_back("demo.stream.v1");  // FLEET.md §12.2 (fleet_demo.h)
+    g_caps.push_back("fleet.cmds.v1");   // fleet.so runs plugins.set / practice.set {always} / ...; match is optional (fleet_cmds.h)
     g_serverCfg = fleet::ServerConfigLocal{};
     if (!g_dataDir.empty() && fleet::LoadServerConfigLocal(g_dataDir + "/server-config.json", &g_serverCfg)) {
       ApplyServerConfigLocal("saved");
