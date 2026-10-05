@@ -658,9 +658,11 @@ int ScoreKey(const ru_game_event* ev, std::initializer_list<const char*> keys) {
 void OnGameEvent(void* /*user*/, const char* name, const ru_game_event* ev) {
   if (!name || !ev) return;
   if (std::strcmp(name, "round_announce_warmup") == 0) {
+    MatchFeaturesOnGameEvent(name);  // a new warmup is not a round-over (match_features.h)
     OnNativeWarmupStarted("round_announce_warmup event");
     return;
   }
+  if (std::strcmp(name, "round_end") == 0) MatchFeaturesOnGameEvent(name);  // restores wait (match_features.h)
   if (std::strcmp(name, "round_start") == 0) {
     WelcomeObserveRoundStart();     // the cards wait it out
     GoLiveCardObserveRoundStart();  // (golive_card.h)

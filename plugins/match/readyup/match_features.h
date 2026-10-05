@@ -36,8 +36,13 @@ namespace readyup {
 // The match's rules resolved against readyup.cfg and the built-in defaults. Any thread.
 MatchRules EffectiveRules();
 
-// Engine game events (synchronous, game thread): round_start, round_freeze_end.
+// Engine game events (synchronous, game thread): round_start, round_freeze_end, round_end,
+// round_announce_warmup.
 void MatchFeaturesOnGameEvent(const char* name);
+// Between round_end and the next round_start (the round-over delay). A CS2 round backup loaded
+// then never starts the next round (the game stays in RoundOver), so restores wait (fleet_bridge
+// DoRestore). Any thread.
+bool MatchFeaturesRoundOver();
 
 // Game thread, every frame: tactical timeout end, technical pause auto-unpause, forfeit timer.
 void MatchFeaturesTick();
