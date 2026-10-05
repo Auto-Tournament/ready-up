@@ -43,6 +43,8 @@ void MatchFeaturesOnGameEvent(const char* name);
 // then never starts the next round (the game stays in RoundOver), so restores wait (fleet_bridge
 // DoRestore). Any thread.
 bool MatchFeaturesRoundOver();
+// Between round_start and round_freeze_end (freeze time). Any thread.
+bool MatchFeaturesInFreeze();
 
 // Game thread, every frame: tactical timeout end, technical pause auto-unpause, forfeit timer.
 void MatchFeaturesTick();

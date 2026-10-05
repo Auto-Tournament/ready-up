@@ -918,6 +918,7 @@ bool DoRestoreNow(int mapNumber, int round, const std::string& file, const std::
 // (match_features.h MatchFeaturesRoundOver) and runs from Tick. The newest one wins.
 struct DeferredRestore {
   bool active = false;
+  bool needRoundEnd = false;  // an admin restore asked mid-round: first the round ends
   int mapNumber = 0, round = 0, scoreT1 = -1, scoreT2 = -1;
   std::string file, sha, by, reason;
   Json extra;
@@ -925,7 +926,12 @@ struct DeferredRestore {
 DeferredRestore g_deferredRestore;
 
 void RunDeferredRestore() {
-  if (!g_deferredRestore.active || MatchFeaturesRoundOver()) return;
+  if (!g_deferredRestore.active) return;
+  if (g_deferredRestore.needRoundEnd) {
+    if (MatchFeaturesRoundOver()) g_deferredRestore.needRoundEnd = false;
+    return;
+  }
+  if (MatchFeaturesRoundOver()) return;
   DeferredRestore d = std::move(g_deferredRestore);
   g_deferredRestore = DeferredRestore{};
   Print("fleet: next round started; running the restore of map %d round %d\n", d.mapNumber, d.round);
@@ -934,8 +940,21 @@ void RunDeferredRestore() {
 
 bool DoRestore(int mapNumber, int round, const std::string& file, const std::string& sha, const std::string& by,
                const std::string& reason, const Json& extra, int scoreT1 = -1, int scoreT2 = -1) {
+  // An admin restore during a live round (past freeze time) gives money back but not weapons,
+  // armor or utility: CS2 applies the backup's per-player Items only when the restore lands at a
+  // round start (live test; a failover resume, restored 1 s into a fresh round, got them all).
+  // So it waits for this round to end and runs at the next round start, like a resume.
+  if (reason != "resume" && !MatchFeaturesRoundOver() && !MatchFeaturesInFreeze()) {
+    g_deferredRestore = DeferredRestore{true, true, mapNumber, round, scoreT1, scoreT2, file, sha, by, reason, extra};
+    Print("fleet: restore of map %d round %d waits for this round to end (weapons come back at a round start)\n",
+          mapNumber, round);
+    SendToChat(("Ready Up: round " + std::to_string(round) +
+                " is restored at the start of the next round (with everyone's weapons).")
+                   .c_str());
+    return false;
+  }
   if (MatchFeaturesRoundOver()) {
-    g_deferredRestore = DeferredRestore{true, mapNumber, round, scoreT1, scoreT2, file, sha, by, reason, extra};
+    g_deferredRestore = DeferredRestore{true, false, mapNumber, round, scoreT1, scoreT2, file, sha, by, reason, extra};
     Print("fleet: restore of map %d round %d waits for the next round start (round over)\n", mapNumber, round);
     SendToChat(("Ready Up: round " + std::to_string(round) + " is restored when the next round starts.").c_str());
     return false;

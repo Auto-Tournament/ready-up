@@ -210,6 +210,8 @@ void MatchFeaturesOnGameEvent(const char* name) {
   }
 }
 
+bool MatchFeaturesInFreeze() { return g_inFreeze.load(); }
+
 bool MatchFeaturesRoundOver() { return g_roundOver.load(); }
 
 void MatchFeaturesTechPause(WebhookTeam team, uint64_t steamid64, const std::string& name) {
