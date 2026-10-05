@@ -86,6 +86,14 @@ void RestoreLiveMap() {
 
 void Step() {
   if (!g_pending) return;
+  // The platform owns the match once it assigned it (also a failover resume of the same match):
+  // its match.assign says which map and round. Local recovery stands down instead of changing
+  // the map back (a live test resumed map 2 on de_nuke, then recovery sent it to map 1).
+  if (fleet_bridge::Assigned()) {
+    g_pending = false;
+    Print("recovery: the platform assigned a match; local recovery stands down\n");
+    return;
+  }
   const std::string current = MatchStateGet().current_map;
   if (current.empty()) return;  // no map yet: OnMapStart comes back here
   if (mapnames::EntryMatchesLoaded(g_plan.map_entry, current)) {
@@ -105,6 +113,10 @@ void Step() {
 void Recover() {
   auto jsonOpt = persisted_match_state::GetActiveMatchJson();
   if (!jsonOpt) return;
+  if (fleet_bridge::Assigned()) {
+    Print("recovery: the platform assigned a match; local recovery stands down\n");
+    return;
+  }
 
   std::string parseErr;
   auto ctxOpt = ParseWebhookMatchContextFromJson(*jsonOpt, &parseErr);
