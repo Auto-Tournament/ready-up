@@ -216,11 +216,12 @@ void OnEvent(void*, const ru_event* e) {
       // Every map of a real match starts without bots: the gamemode cfg brings bot_quota back on
       // each level change, and a bot alive on a team kept a joining player spectating it (live
       // test, map 2). ApplyLoadedMatch did this only once, before the first map change.
-      // Simulation brings its own bots in just below.
+      // Simulation brings its own bots in just below. Only bot_quota 0: the engine removes the
+      // quota's bots by itself, while `bot_kick` also kicks the GOTV client (SourceTV) and
+      // ends the map's demo recording.
       if (!SimulationActive()) {
         if (auto ctx = WebhookGetMatchContext(); ctx && ctx->slug != "scrim") {
           (void)EnqueueServerCommand("bot_quota 0");
-          (void)EnqueueServerCommand("bot_kick");
         }
       }
       SimulationOnMapStart(host::NowSeconds());  // the bots start over on the new map
