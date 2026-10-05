@@ -66,6 +66,11 @@ class BotFeeder {
   // One bot per `kAddInterval`; while a requested bot has not appeared yet, or a bot is on no
   // side, it waits (at most `kSettleSeconds`, then it counts what is there). Never above maxBots.
   int Next(double now, int total, int ct, int t, int ctWanted, int tWanted, int maxBots, int* quota);
+  // More bots than the rosters need (a bot that was slow to join arrived after a replacement was
+  // asked for): once every bot is on a side, at most every `kSettleSeconds`, returns true with the
+  // bot_quota for the rosters (CS2's normal quota mode kicks from the fuller side). The extra bots
+  // played as no one ("Unknown" in the stats).
+  bool Trim(double now, int total, int ct, int t, int ctWanted, int tWanted, int* quota);
   // A new map: the engine adds the quota's bots again; start over from the bots that are there.
   void Reset() { *this = BotFeeder(); }
   int QuotaSent() const { return sent_; }
@@ -77,6 +82,7 @@ class BotFeeder {
   int sent_ = 0;
   double lastAdd_ = -1e9;
   double unsettledSince_ = -1;
+  double lastTrim_ = -1e9;
 };
 
 // Seconds after a bot took its identity before it "types .ready": 1.5 .. 3.5 s, spread by index.
