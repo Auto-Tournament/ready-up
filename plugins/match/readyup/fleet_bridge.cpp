@@ -547,7 +547,8 @@ Json BuildState() {
   const PauseSnapshot ps = PauseStateGet();
   if (ps.paused && CtxIsOurs(ctx)) {
     g_pauseSeen = true;
-    st["pause"]["type"] = ps.type.empty() ? std::string("admin") : ps.type;
+    // The protocol's pause types have no "restore" (DoRestoreNow): the platform sees technical.
+    st["pause"]["type"] = ps.type.empty() ? std::string("admin") : ps.type == "restore" ? std::string("technical") : ps.type;
     if (!ps.by.empty()) st["pause"]["by"] = ps.by;
   } else {
     g_pauseSeen = false;
@@ -952,7 +953,9 @@ bool DoRestoreNow(int mapNumber, int round, const std::string& file, const std::
   // Ready Up reported "paused" until the map ended). Pause explicitly; every way out of it
   // (admin unpause, pause_after_restore 0, resume) sends mp_unpause_match.
   (void)EnqueueServerCommand("mp_pause_match");
-  if (!PauseStateGet().paused) PauseStateOnPaused("admin", by);
+  // A "restore" pause, not an admin one: both teams lift it with .unpause (match_features.cpp),
+  // so a LAN does not wait for an admin after every restore. An admin can still .fup.
+  if (!PauseStateGet().paused) PauseStateOnPaused("restore", by);
   // Ready Up state: rounds >= `round` are voided (stats, round counter, scores).
   int t1 = 0, t2 = 0;
   {
@@ -1452,7 +1455,10 @@ void RunResumeRestore() {
   DoRestore(g_resume.map_number, g_resume.round, g_resume.file, g_resume.sha256, "platform:resume", "resume", extra,
             g_resume.score_team1, g_resume.score_team2);
   g_phaseReason = "resume";
-  if (!g_resume.pause_after_restore) {
+  // Everyone readied up in warmup to get here, so the resume goes live by itself: `.r` is the
+  // confirmation, no `.unpause` after it (live test). pause_after_restore still holds an admin
+  // restore_round (a restore pause both teams lift).
+  if (true) {
     g_resumeUnpauseAt = g_now + 3.0;
     SendToChat(("Ready Up: match moved here and restored at round " + std::to_string(g_resume.round) +
                 ". Live in 3 seconds.").c_str());

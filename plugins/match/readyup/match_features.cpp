@@ -309,7 +309,9 @@ void MatchFeaturesUnpause(WebhookTeam team, uint64_t steamid64, const std::strin
   }
   // The halftime pause (mp_halftime_pausematch, esports.h) and the engine's auto 5v5 pause
   // (sv_matchpause_auto_5v5) belong to nobody: both teams resume them.
-  const bool both = rules.both_teams_unpause != 0 || cur.type == "halftime" || cur.type == "auto_5v5";
+  // A restore pause (fleet_bridge DoRestoreNow) is nobody's either: both teams confirm.
+  const bool both = rules.both_teams_unpause != 0 || cur.type == "halftime" || cur.type == "auto_5v5" ||
+                    cur.type == "restore";
   const int teamsReady = (snap.team1_ready_to_unpause ? 1 : 0) + (snap.team2_ready_to_unpause ? 1 : 0);
   WebhookEmitUnpauseRequested(mapNumber, team, teamsReady, both ? 2 : 1);
   if (UnpauseSatisfied(snap.team1_ready_to_unpause, snap.team2_ready_to_unpause, both, TeamNum(cur.team))) {
