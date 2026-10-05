@@ -10,7 +10,7 @@ Use these, in this order. Skip a section if there's nothing true to put in it. D
 
 | # | Section | Required | What goes in it |
 |---|---------|----------|-----------------|
-| 1 | Header | Yes | Centered logo, h1 name, bold one-liner, badge row. See below. |
+| 1 | Header | Yes | Centered banner (or logo + h1 name), bold one-liner, badge row. See below. |
 | 2 | Preview / try it | No | A screenshot (`.github/preview.png`, width 700) or a link to a hosted version. Only if there's something to look at. |
 | 3 | Status callout | While unstable | `> [!CAUTION]` with one or two sentences. Remove it at 1.0. |
 | 4 | Intro | No | One or two short paragraphs, no heading. What it is, what it's part of, what it replaces. Name the alternatives plainly. |
@@ -45,7 +45,8 @@ Sub-package READMEs in a monorepo (like `gryt/packages/*`) are shorter: header w
 <br />
 ```
 
-- Logo lives in the repo at `.github/logo.svg` (SVG, square). Width 80 to 120. Sub-packages can point at the main repo's logo by raw URL.
+- Auto Tournament repos use the wide banner from the brand kit instead of logo + `<h1>`: `<img src="BANNER" alt="NAME" width="100%" />`, then the one-liner. The banner already shows the name, so there is no `<h1>`. Banners are rendered from `brand/social` (`node build.cjs`).
+- Other repos: logo in the repo at `.github/logo.svg` (SVG, square). Width 80 to 120. Sub-packages can point at the main repo's logo by raw URL.
 - Use HTML, not Markdown, inside the `<div>`. GitHub doesn't reliably render Markdown inside centered HTML blocks.
 - The one-liner is a noun phrase, bold, no trailing period, no emoji.
 - `<br />` after the `</div>` so the callout doesn't sit on the badges.
