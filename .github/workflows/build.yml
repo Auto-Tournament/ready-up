@@ -89,11 +89,23 @@ jobs:
           path: .ci/deps
           key: sniper-static-deps-${{ hashFiles('scripts/ci/build-static-deps.sh') }}
 
+      # Compiled objects from earlier runs (scripts/ci/build-release.sh uses ccache when present).
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ci/ccache
+          key: ccache-sniper-${{ github.sha }}
+          restore-keys: ccache-sniper-
+
       - name: Build libserver.so + plugins + tools
+        env:
+          CCACHE_DIR: ${{ github.workspace }}/.ci/ccache
+          CCACHE_MAXSIZE: 500M
+          CCACHE_BASEDIR: ${{ github.workspace }}
         run: scripts/ci/build-release.sh build-sniper
 
       - name: Plugin host test (ctest)
-        run: cd build-sniper && ctest --output-on-failure
+        run: cd build-sniper && ctest --output-on-failure -j"$(nproc)"
 
       - name: Current CS2 buildid
         id: cs2

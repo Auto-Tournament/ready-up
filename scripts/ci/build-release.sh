@@ -34,11 +34,23 @@ fi
 
 "$ROOT_DIR/scripts/ci/build-static-deps.sh" "$DEPS_PREFIX"
 
+# ccache when the image has it (CI caches CCACHE_DIR between runs): a small change rebuilds
+# in seconds instead of compiling everything. Same compiler and flags, so the same output.
+LAUNCHER=()
+if command -v ccache >/dev/null 2>&1; then
+  LAUNCHER=(-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache)
+  ccache --zero-stats >/dev/null 2>&1 || true
+else
+  echo "ccache not found; building without it" >&2
+fi
+
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" \
+  "${LAUNCHER[@]}" \
   -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
   -DREADYUP_DEPS_PREFIX="$DEPS_PREFIX" \
   -DREADYUP_LINE_DATE="${READYUP_LINE_DATE:-}"
 cmake --build "$BUILD_DIR" -j"$(nproc)"
+if [[ ${#LAUNCHER[@]} -gt 0 ]]; then ccache --show-stats 2>/dev/null | grep -Ei 'hit|miss' || true; fi
 
 "$ROOT_DIR/scripts/ci/check-portable.sh" "$BUILD_DIR/libserver.so"
 for so in "$BUILD_DIR"/plugins/*.so; do
