@@ -52,9 +52,11 @@ jobs:
               echo "::error::tag $GITHUB_REF_NAME is not vX.Y.Z, vX.Y.Z-beta.N or vX.Y.Z-rc.N"
               exit 1
             fi
+            # The tag is the version: a release is just a tag on master (no VERSION bump PR).
+            # The build (CMakeLists.txt, package-release.sh) reads VERSION, so it is written here.
             if [ "$version" != "$file_version" ]; then
-              echo "::error::tag $GITHUB_REF_NAME does not match VERSION ($file_version)"
-              exit 1
+              echo "VERSION says $file_version; building $version from the tag"
+              printf '%s\n' "$version" > VERSION
             fi
           else
             version="${file_version}-dev.$(git rev-parse --short HEAD)"

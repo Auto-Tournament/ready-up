@@ -1,7 +1,14 @@
 # Releasing
 
-Releases are built and published by CI, never from a laptop. `./release.sh` only writes
-`VERSION`, commits, tags and pushes; the tag push runs `.github/workflows/build.yml`.
+Releases are built and published by CI, never from a laptop. The tag is the version: pushing an
+annotated tag `vX.Y.Z[-beta.N|-rc.N]` on master releases it, with no `VERSION` bump PR (master
+is protected). CI writes `VERSION` from the tag before building. `./release.sh` still writes
+`VERSION`, commits, tags and pushes where a direct push to master is allowed; the tag push runs
+`.github/workflows/build.yml`.
+
+```
+git tag -a v0.1.0-beta.9 -m "Ready Up v0.1.0-beta.9" origin/master && git push origin v0.1.0-beta.9
+```
 
 ## Versions
 
@@ -44,7 +51,8 @@ It refuses a dirty tree, a malformed version and a tag that already exists local
 
 ## What CI does with the tag
 
-1. **Version**: checks the tag is `vX.Y.Z` or `vX.Y.Z-(beta|rc).N` and equals `v` + `VERSION`.
+1. **Version**: checks the tag is `vX.Y.Z` or `vX.Y.Z-(beta|rc).N`; when it differs from
+   `VERSION`, the tag wins and is written to `VERSION` for the build.
 2. **Build + verify**: sniper build, unit tests, ctest, sigcheck + hookcheck against the current
    public CS2 build.
 3. **Package**: `scripts/package-release.sh` (component zips, the essentials / full bundles,
