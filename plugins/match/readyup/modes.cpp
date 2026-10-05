@@ -425,35 +425,29 @@ static void MaybeForceRosterTeamsLocked(State& st) {
   const auto now = std::chrono::steady_clock::now();
   const auto minInterval = std::chrono::milliseconds(900);
 
-  // Walk observed identities and force their team based on match roster.
-  auto slots = ListSlotIdentities();
-  std::unordered_set<uint64_t> seenSteam;
-  for (const auto& s : slots) {
-    if (s.steamid64 == 0) continue;
-    if (s.slot < 0) continue;
-    if (!seenSteam.insert(s.steamid64).second) continue;
+  // Roster players go to their team's side for this map (team lock). Only players on the wrong
+  // side (or none yet) are moved: a change of team kills a live player, so someone already in
+  // place is never touched. Others are left to the whitelist.
+  for (const auto& h : ListHumans()) {
+    if (h.steamid64 == 0 || h.slot < 0) continue;
 
-    int join = 1;  // spec by default
-    if (ctx.spectators.find(s.steamid64) != ctx.spectators.end()) {
-      join = 1;
-    } else {
-      auto it = ctx.roster_team.find(s.steamid64);
-      if (it == ctx.roster_team.end()) continue; // not roster; whitelist will handle them
-      if (it->second == WebhookTeam::Team1) join = team1IsCt ? 3 : 2;      // CT : T
-      else if (it->second == WebhookTeam::Team2) join = team1IsCt ? 2 : 3; // T : CT
+    int join = 1;  // spectators
+    if (ctx.spectators.find(h.steamid64) == ctx.spectators.end()) {
+      auto it = ctx.roster_team.find(h.steamid64);
+      if (it == ctx.roster_team.end()) continue;  // not on the roster: the whitelist handles them
+      if (it->second == WebhookTeam::Team1) join = team1IsCt ? 3 : 2;       // CT : T
+      else if (it->second == WebhookTeam::Team2) join = team1IsCt ? 2 : 3;  // T : CT
+      else continue;
     }
+    if (h.team == join) continue;
 
-    auto lastIt = st.lastForceJoin.find(s.steamid64);
+    auto lastIt = st.lastForceJoin.find(h.steamid64);
     if (lastIt != st.lastForceJoin.end() && (now - lastIt->second) < minInterval) continue;
 
-    if (ForceJoinTeamForSlot(s.slot, join)) {
-      st.lastForceJoin[s.steamid64] = now;
-      if (DebugEnabled()) {
-        Debug("modes: forced jointeam steamid64=%llu slot=%d team=%d\n",
-              static_cast<unsigned long long>(s.steamid64),
-              s.slot,
-              join);
-      }
+    if (ForceJoinTeamForSlot(h.slot, join)) {
+      st.lastForceJoin[h.steamid64] = now;
+      Print("ready: moved %s to %s (their team's side this map)\n", h.name.c_str(),
+            join == 3 ? "CT" : join == 2 ? "T" : "spectators");
     }
   }
 }

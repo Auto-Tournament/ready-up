@@ -67,12 +67,13 @@ bool FeatureEnabled(Feature f);
 void SetRoundTerminationSuppressed(bool suppress);
 bool RoundTerminationSuppressed();
 
-// Forcing a client onto a team is not part of the verified engine surface (see the core's
-// server_game_clients_hook.h). Always false; callers handle that.
-inline bool ForceJoinTeamForSlot(int /*slot*/, int /*joinTeam*/) { return false; }
+// The player in engine `slot` joins `joinTeam` (1 spec, 2 T, 3 CT) through ru_api 1.13
+// player_change_team, like MoveSlotToSpectators. False when the core or this CS2 build does not
+// have it. Game thread. The roster team lock (modes.cpp) uses it in match warmup and knife.
+bool ForceJoinTeamForSlot(int slot, int joinTeam);
 // `.spec`: the player in `slot` joins the spectators through ru_api 1.13 player_change_team
 // (CCSPlayerController::ChangeTeam from the practice gamedata). False when the core or this CS2
-// build does not have it. Game thread. Roster enforcement above deliberately stays off.
+// build does not have it. Game thread.
 bool MoveSlotToSpectators(int slot);
 
 // Ready Up never runs its match flow while the core is disabled (no plugin loads then).
