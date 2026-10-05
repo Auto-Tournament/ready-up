@@ -426,14 +426,6 @@ static void TestCodecs() {
 }
 
 static void TestValidators() {
-  CHECK_STR(fs::SanitizeSay("hi\x01 there\n"), "hi there");
-  CHECK(fs::SanitizeSay(std::string(300, 'x')).size() == 190);
-  std::string utf;
-  for (int i = 0; i < 100; ++i) utf += "\xc3\xa6";  // 'æ' x 100 = 200 bytes
-  const std::string cut = fs::SanitizeSay(utf);
-  CHECK(cut.size() == 190);
-  CHECK((static_cast<unsigned char>(cut.back()) & 0xC0) == 0x80);  // ends after a whole character
-
   std::string err;
   CHECK(fs::ValidateExec("mp_roundtime 2", &err));
   CHECK(fs::ValidateExec("status; mp_restartgame 1", &err));
@@ -771,32 +763,6 @@ static void TestResume() {
   CHECK(rejects(J(R"([1])"), 3, "invalid_config"));
 }
 
-// `cmd plugins.set` / `cmd whitelist.set` argument checks.
-static void TestServerControl() {
-  std::vector<std::string> on, off;
-  std::string err;
-  CHECK(fs::ParsePluginsSet(J(R"({"enable": ["practice", "skins"], "disable": ["midas"]})"), &on, &off, &err));
-  CHECK(on.size() == 2 && on[0] == "practice" && off.size() == 1 && off[0] == "midas");
-  CHECK(fs::ParsePluginsSet(J(R"({"disable": ["skins"]})"), &on, &off, &err) && on.empty());
-  CHECK(!fs::ParsePluginsSet(J(R"({})"), &on, &off, &err));
-  CHECK(!fs::ParsePluginsSet(J(R"({"disable": ["match"]})"), &on, &off, &err) && err.find("match") != std::string::npos);
-  CHECK(!fs::ParsePluginsSet(J(R"({"disable": ["fleet"]})"), &on, &off, &err));
-  CHECK(!fs::ParsePluginsSet(J(R"({"enable": ["skins"], "disable": ["skins"]})"), &on, &off, &err));
-  CHECK(!fs::ParsePluginsSet(J(R"({"enable": ["../x"]})"), &on, &off, &err));
-  CHECK(!fs::ParsePluginsSet(J(R"({"enable": ["skins; quit"]})"), &on, &off, &err));
-  CHECK(!fs::ParsePluginsSet(J(R"({"enable": "skins"})"), &on, &off, &err));
-
-  bool enabled = false;
-  std::vector<uint64_t> ids;
-  CHECK(fs::ParseWhitelistSet(J(R"({"enabled": true, "steamids": ["76561198000000001", "76561198000000002"]})"),
-                              &enabled, &ids, &err));
-  CHECK(enabled && ids.size() == 2 && ids[1] == 76561198000000002ull);
-  CHECK(fs::ParseWhitelistSet(J(R"({"enabled": false})"), &enabled, &ids, &err) && !enabled && ids.empty());
-  CHECK(!fs::ParseWhitelistSet(J(R"({"steamids": []})"), &enabled, &ids, &err));
-  CHECK(!fs::ParseWhitelistSet(J(R"({"enabled": true, "steamids": [76561198000000001]})"), &enabled, &ids, &err));
-  CHECK(!fs::ParseWhitelistSet(J(R"({"enabled": true, "steamids": ["123"]})"), &enabled, &ids, &err));
-}
-
 // server.config settings -> server settings, console settings and the demo upload target.
 static void TestServerConfigPlan() {
   const Json full = J(R"({
@@ -899,7 +865,6 @@ int main() {
   TestRewind();
   TestMapNames();
   TestResume();
-  TestServerControl();
   TestServerConfigPlan();
   if (g_failures) {
     std::fprintf(stderr, "fleet_state_test: %d of %d checks FAILED\n", g_failures, g_checks);

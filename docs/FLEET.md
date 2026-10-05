@@ -742,7 +742,11 @@ cmd { match_id?, epoch?, name: CmdName, args: object, issued_by: { user_id: stri
       expires_at: number }
 ```
 
-Every command gets exactly one `cmd.result`.
+Every command gets exactly one `cmd.result`. fleet.so runs `plugins.set`, `whitelist.set`,
+`practice.set` and `say` itself (plugins/fleet/fleet_cmds.h), so they work on a server without the
+match plugin (a practice server: core + fleet + practice). The rest go to the match plugin; without
+it they are answered `rejected unsupported`, and fleet.so handles `server.drain` / `server.undrain`
+(availability) itself.
 
 | `name` | `args` | Notes |
 |---|---|---|
@@ -757,8 +761,8 @@ Every command gets exactly one `cmd.result`.
 | `swap_teams` | `{}` | `mp_swapteams` + keep team1/team2 mapping |
 | `kick` | `{ steamid64, message? }` | |
 | `say` | `{ text, as_admin?: boolean }` | max 190 bytes, control chars stripped |
-| `plugins.set` | `{ enable?: string[], disable?: string[] }` | the core's `ru plugin enable\|disable <name>` for each: loaded / unloaded and remembered across restarts (`csgo/readyup/plugins/plugins.json`). Plugin names `[a-z0-9_-]`, at most 16 per list; `match` and `fleet` cannot be disabled over the link. Enabling a plugin that is not installed is remembered but loads nothing (the core logs the failed load); hello `plugins_state` shows what is installed. For server profiles ("practice server": practice + skins + whitelist; "official": no practice / skins / midas) |
-| `practice.set` | `{ on: boolean }` | practice mode on / off through the practice plugin (prac.cfg + respawn, or back to idle); `rejected unsupported` without practice.so, `rejected bad_phase` while a match is loaded |
+| `plugins.set` | `{ enable?: string[], disable?: string[] }` | the core's `ru plugin enable\|disable <name>` for each: loaded / unloaded and remembered across restarts (`csgo/readyup/plugins/plugins.json`). Plugin names `[a-z0-9_-]`, at most 16 per list; `fleet` cannot be disabled over the link (`match` can: a practice server runs core + fleet + practice). Enabling a plugin that is not installed is remembered but loads nothing (the core logs the failed load); hello `plugins_state` shows what is installed. For server profiles ("practice server": practice + skins + whitelist; "official": no practice / skins / midas) |
+| `practice.set` | `{ on?: boolean, always?: boolean }` | practice mode on / off through the practice plugin (prac.cfg + respawn, or back to idle); `always` stores the practice plugin's always=1 (a dedicated practice server: practice on at load and on every map) in `plugins/practice/always.txt`, which wins over practice.cfg. `rejected unsupported` without practice.so, `rejected bad_phase` while a match is loaded |
 | `whitelist.set` | `{ enabled: boolean, steamids?: string[] }` | replaces the whitelist plugin's list and on/off (saved in `plugins/whitelist/whitelist.json`); `rejected unsupported` without whitelist.so. At most 1000 SteamID64 strings |
 | `settings.set` | `{ settings?: { [setting]: boolean \| number \| string } }` | server settings of the match plugin (`playout_enabled_default`, `minimum_ready_required`, `hostname_format`, `series_end_kick_delay_*`, ...; docs/INSTALL.md "Match server settings"), the same values `ru_<setting>` and `.ru settings set` change, saved across restarts. All or none: one bad name or value is `rejected bad_args` and nothing changes. `cmd.result.output`: every setting after the change (so `{}` reads them) |
 | `snapshot_now` | `{}` | reliable `state.request` |

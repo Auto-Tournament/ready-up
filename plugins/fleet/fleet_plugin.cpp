@@ -38,9 +38,12 @@
 #include "readyup/fleet_iface.h"
 #include "readyup/plugin_api.h"
 #include "readyup/plugin_needs_iface.h"
+#include "readyup/practice_iface.h"
 #include "readyup/selftest_iface.h"
+#include "readyup/whitelist_iface.h"
 
 #include "fleet_client.h"
+#include "fleet_cmds.h"
 #include "fleet_demo.h"
 #include "fleet_json.h"
 
@@ -58,6 +61,7 @@
 #include <exception>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -492,6 +496,9 @@ void UpdateHandledTypes() {
   std::set<std::string> types;
   types.insert("server.config");  // fleet.so applies part of it itself (OnServerConfig)
   types.insert("demo.ack");       // demo streaming (fleet_demo.h)
+  types.insert("cmd");            // fleet.so's own commands, or "unsupported" without a handler (HandleCmd)
+  types.insert("server.drain");   // availability without the match plugin (HandleDrain)
+  types.insert("server.undrain");
   bool all = false;
   for (const auto& h : g_handlers) {
     if (h.type == "*") all = true;
@@ -515,6 +522,130 @@ void Dispatch(const std::string& type, const ru_fleet_msg& msg) {
       Log(RU_LOG_ERROR, "fleet: a handler for %s threw", type.c_str());
     }
   }
+}
+
+bool HasHandler(const std::string& type) {
+  return std::any_of(g_handlers.begin(), g_handlers.end(),
+                     [&](const Handler& h) { return h.type == "*" || h.type == type; });
+}
+
+const fleet::json::Value* Member(const fleet::json::Value& v, const char* key) {
+  const fleet::json::Value* m = v.Get(key);
+  return m && !m->IsNull() ? m : nullptr;
+}
+std::string MemberStr(const fleet::json::Value& v, const char* key, const std::string& def = {}) {
+  const fleet::json::Value* m = Member(v, key);
+  return m && m->IsStr() ? m->s : def;
+}
+
+// ---- cmd: the commands fleet.so runs itself (fleet_cmds.h) --------------------------------------
+
+fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Value& args) {
+  using namespace fleet::cmds;
+  std::string err;
+  if (name == "plugins.set") {
+    // The core's `ru plugin enable|disable <name>` (remembered in plugins.json); they run on the
+    // next frames, after this reply. Disabling match leaves a server for practice / deathmatch.
+    std::vector<std::string> on, off;
+    if (!ParsePluginsSet(args, &on, &off, &err)) return Rejected("bad_args", err);
+    for (const auto& n : off) {
+      if (!g_api->server_command(g_api->self, ("ru plugin disable " + n).c_str())) return Failed("engine", "the command could not be queued");
+    }
+    for (const auto& n : on) {
+      if (!g_api->server_command(g_api->self, ("ru plugin enable " + n).c_str())) return Failed("engine", "the command could not be queued");
+    }
+    Log(RU_LOG_INFO, "fleet: plugins.set: enable [%zu] disable [%zu]", on.size(), off.size());
+    return Ok();
+  }
+  if (name == "whitelist.set") {
+    bool enabled = false;
+    std::vector<uint64_t> ids;
+    if (!ParseWhitelistSet(args, &enabled, &ids, &err)) return Rejected("bad_args", err);
+    const auto* w = static_cast<const ru_whitelist_v1*>(g_api->get_interface(g_api->self, RU_WHITELIST_IFACE_NAME, 1));
+    if (!w || !w->set) return Rejected("unsupported", "the whitelist plugin (whitelist.so) is not loaded");
+    if (w->set(enabled ? 1 : 0, ids.data(), static_cast<uint32_t>(ids.size())) != 1) return Failed("io", "whitelist.json could not be saved");
+    return Ok();
+  }
+  if (name == "practice.set") {
+    // {on?, always?}: always first, so {on: true, always: true} makes a dedicated practice server.
+    int on = -1, always = -1;
+    if (!ParsePracticeSet(args, &on, &always, &err)) return Rejected("bad_args", err);
+    const auto* p = static_cast<const ru_practice_v1*>(g_api->get_interface(g_api->self, RU_PRACTICE_IFACE_NAME, 1));
+    if (!p || !p->set_active) return Rejected("unsupported", "the practice plugin (practice.so) is not loaded");
+    if (always >= 0) {
+      if (p->struct_size < offsetof(ru_practice_v1, set_always) + sizeof(p->set_always) || !p->set_always) {
+        return Rejected("unsupported", "this practice.so cannot store always (update Ready Up)");
+      }
+      if (p->set_always(always) != 1) return Failed("io", "always.txt could not be saved");
+    }
+    if (on >= 0) {
+      const char* why = "";
+      if (p->set_active(on, &why) != 1) return Rejected("bad_phase", why && *why ? why : "refused");
+    }
+    return Ok();
+  }
+  if (name == "say") {
+    const std::string text = SanitizeSay(MemberStr(args, "text"));
+    if (text.empty()) return Rejected("bad_args", "empty text");
+    const fleet::json::Value* asAdmin = Member(args, "as_admin");
+    const std::string line = asAdmin && asAdmin->AsBool() ? "[Admin] " + text : text;
+    if (!g_api->chat_all(g_api->self, line.c_str(), 0)) return Failed("engine", "chat is unavailable");
+    return Ok();
+  }
+  return Rejected("unknown_command", "unknown cmd \"" + name + "\"");
+}
+
+// FLEET.md §7.4. True = answered here (exactly one cmd.result); false = the plugins registered
+// for "cmd" (the match plugin) take it.
+bool HandleCmd(const fleet::Inbound& in) {
+  fleet::json::Value p;
+  if (!fleet::json::Parse(in.payloadJson, &p) || !p.IsObj()) return false;
+  const std::string name = MemberStr(p, "name");
+  const bool owned = fleet::cmds::OwnedByFleet(name);
+  if (!owned && HasHandler("cmd")) return false;
+  const std::string auditId = MemberStr(p, "audit_id");
+  int64_t epoch = in.env.epoch;
+  if (epoch <= 0) {
+    const fleet::json::Value* e = Member(p, "epoch");
+    epoch = e ? e->AsInt(0) : 0;
+  }
+  const fleet::json::Value* issued = Member(p, "issued_by");
+  const fleet::json::Value* exp = Member(p, "expires_at");
+  fleet::cmds::Result r;
+  if (exp && exp->AsInt(0) > 0 && fleet::NowMs() > exp->AsInt(0)) {
+    r.status = "expired";
+  } else if (!owned) {
+    r = fleet::cmds::Rejected("unsupported", "the match plugin (match.so) is not loaded on this server");
+  } else {
+    Log(RU_LOG_INFO, "fleet: cmd %s by %s (platform:%s)%s%s", name.c_str(),
+        issued ? MemberStr(*issued, "name", "?").c_str() : "?",
+        issued ? MemberStr(*issued, "user_id", "?").c_str() : "?", auditId.empty() ? "" : " audit ", auditId.c_str());
+    const fleet::json::Value* args = Member(p, "args");
+    r = RunOwnedCmd(name, args && args->IsObj() ? *args : fleet::json::Value::Object());
+  }
+  if (auto c = Client()) {
+    std::string err;
+    if (!c->Send("cmd.result", fleet::cmds::ResultPayload(r, auditId), epoch > 0 ? epoch : 0, true, &err, in.env.id)) {
+      Log(RU_LOG_WARN, "fleet: cmd.result for %s refused: %s", name.c_str(), err.c_str());
+    }
+  }
+  return true;
+}
+
+// server.drain / server.undrain without the match plugin: fleet.so sets the availability itself
+// (with it, the match plugin owns availability and handles them). True = handled here.
+bool HandleDrain(const fleet::Inbound& in) {
+  if (HasHandler(in.env.type)) return false;
+  const bool drain = in.env.type == "server.drain";
+  const std::string avail = drain ? "draining" : "available";
+  if (auto c = Client()) {
+    c->SetState("null", avail);
+    std::string err;
+    (void)c->Send("server.availability", "{\"availability\":\"" + avail + "\",\"reason\":\"" +
+                                             (drain ? "drain" : "idle") + "\"}", 0, true, &err);
+  }
+  Log(RU_LOG_INFO, "fleet: %s (no match plugin)", in.env.type.c_str());
+  return true;
 }
 
 void DispatchLocal(const std::string& type, const std::string& payload) {
@@ -549,7 +680,10 @@ void DrainTask(void*) {
         KickDemos();
       }
     }
-    Dispatch(in.env.type, m);
+    bool done = false;
+    if (in.env.type == "cmd") done = HandleCmd(in);
+    else if (in.env.type == "server.drain" || in.env.type == "server.undrain") done = HandleDrain(in);
+    if (!done) Dispatch(in.env.type, m);
     if (in.reliable) c->MarkProcessed(in.env.seq);
   }
 }
