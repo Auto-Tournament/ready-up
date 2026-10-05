@@ -47,7 +47,10 @@ static void TestGoLiveCard() {
   CHECK(!Has(h, "<A>"));
   CHECK(Has(h, "#FF9D3B'>Team &lt;A&gt; (T)"));  // T orange
   CHECK(Has(h, "#5EA8FF'>B &amp; Co (CT)"));     // CT blue
-  for (const char* cmd : {".p<", ".pause<", ".tech<", ".up<", ".unpause<", ".tac<", ".admin<"}) CHECK(Has(h, cmd));
+  for (const char* cmd : {".p<", ".up<", ".tac<", ".admin<"}) CHECK(Has(h, cmd));
+  // Short forms only.
+  for (const char* cmd : {".pause<", ".tech<", ".unpause<"}) CHECK(!Has(h, cmd));
+  CHECK(GoLiveCommandsLine(m, false) == ".p pause | .up resume | .tac timeout | .admin help");
   CHECK(h.size() < 1024);
 
   // Long names are cut: the card stays small.
@@ -60,10 +63,10 @@ static void TestGoLiveCard() {
   GoLiveCardInfo s;
   s.pauses = true;
   const std::string hs = GoLiveCardHtml(s);
-  CHECK(!Has(hs, " vs ") && Has(hs, ".pause<") && Has(hs, ".admin<"));
+  CHECK(!Has(hs, " vs ") && Has(hs, ".p<") && Has(hs, ".admin<"));
   GoLiveCardInfo none;
   const std::string hn = GoLiveCardHtml(none);
-  CHECK(!Has(hn, ".pause<") && !Has(hn, ".tac<") && Has(hn, ".admin<"));
+  CHECK(!Has(hn, ".p<") && !Has(hn, ".tac<") && Has(hn, ".admin<"));
 
   // Unknown side: names without (CT)/(T).
   GoLiveCardInfo u;

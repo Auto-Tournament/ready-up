@@ -217,11 +217,11 @@ void GoLiveCardTick() {
   if (DebugEnabled()) {
     Debug("golive-card: showing (%s) to %d/%d players (%zu bytes html)\n", reason.c_str(), ok, humans, html.size());
   }
-  if (humans > 0 && ok == 0) {
-    // Center HTML unavailable (or every panel taken): the commands go to chat once instead.
-    SendToChat(info.pauses
-                   ? "Ready Up: .p/.pause/.tech pause | .up/.unpause resume | .tac timeout | .admin [message] call an admin"
-                   : "Ready Up: .admin [message] call an admin");
+  // The same commands in chat too, once at go-live: they stay there to look up after the card is
+  // gone (and they are the only copy when center HTML is unavailable).
+  if (humans > 0) {
+    const std::string cmds = GoLiveCommandsLine(info, /*html=*/false);
+    if (!cmds.empty()) SendToChat(("Ready Up: " + cmds).c_str());
   }
 }
 
