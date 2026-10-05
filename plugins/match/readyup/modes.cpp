@@ -444,11 +444,26 @@ static void MaybeForceRosterTeamsLocked(State& st) {
     auto lastIt = st.lastForceJoin.find(h.steamid64);
     if (lastIt != st.lastForceJoin.end() && (now - lastIt->second) < minInterval) continue;
 
-    if (ForceJoinTeamForSlot(h.slot, join)) {
-      st.lastForceJoin[h.steamid64] = now;
-      Print("ready: moved %s to %s (their team's side this map)\n", h.name.c_str(),
-            join == 3 ? "CT" : join == 2 ? "T" : "spectators");
-    }
+    // Not here: ChangeTeam fires the engine's team/death callbacks synchronously, and those
+    // take Ready Up's locks, which this tick holds, so a move from inside it froze the game
+    // thread (a live test hung on a map change). The move runs on the next frame, outside
+    // every lock; the throttle keeps it to one per player per interval.
+    st.lastForceJoin[h.steamid64] = now;
+    ScheduleOnGameThread(0.0, [slot = h.slot, steamid = h.steamid64, join, name = h.name]() {
+      // The slot may have changed hands in between: only move the same player.
+      bool same = false;
+      for (const auto& x : ListHumans()) {
+        if (x.slot == slot) {
+          same = x.steamid64 == steamid && x.team != join;
+          break;
+        }
+      }
+      if (!same) return;
+      if (ForceJoinTeamForSlot(slot, join)) {
+        Print("ready: moved %s to %s (their team's side this map)\n", name.c_str(),
+              join == 3 ? "CT" : join == 2 ? "T" : "spectators");
+      }
+    });
   }
 }
 
