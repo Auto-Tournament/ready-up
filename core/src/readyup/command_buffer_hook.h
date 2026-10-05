@@ -6,7 +6,8 @@ namespace readyup {
 // `ru ...` can work with arguments without relying on CS2 alias arg expansion.
 void InstallCommandBufferHook();
 
-// Enqueue a server command into the engine command buffer (best-effort).
+// Enqueue a server command into the engine command buffer (best-effort). A single Ready Up line
+// (`ru ...`, a plugin console command) is handled by Ready Up instead, as if typed in the console.
 // Returns false if the command buffer isn't available yet.
 bool EnqueueServerCommand(const char* text);
 
