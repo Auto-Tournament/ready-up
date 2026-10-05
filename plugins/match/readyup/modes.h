@@ -85,6 +85,11 @@ void OnMatchRoundEnded(int map_number, int team1_score, int team2_score, const s
 // round limit differs from the server's), the map ends here with the engine's score.
 void ModesOnEngineGameOver(int ctScore, int tScore);
 
+// A human joined CT or T (engine player_team). In match warmup the round is one long round, so a
+// player who joins (or is moved by the team lock) mid-round stays dead until it ends; the warmup
+// round is restarted shortly after so everyone spawns. Debounced. Game thread.
+void ModesOnHumanJoinedTeam(int team);
+
 // Map/series end (match_end.cpp, game thread, outside the modes mutex):
 // - ModesBeginNextMapWarmup: postgame -> match warmup for the next map of the series.
 // - ModesFinishSeriesResetToIdle: unload the match (context, persisted state, stats) and go idle.
