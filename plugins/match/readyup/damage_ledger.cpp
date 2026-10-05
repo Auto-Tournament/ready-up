@@ -42,7 +42,7 @@ std::vector<std::string> FormatDamageReport(const DamageParticipant& self, const
     if (o.key == self.key || (o.team != 2 && o.team != 3) || o.team == self.team) continue;
     const auto to = ledger.Dealt(self.key, o.key);
     const auto from = ledger.Dealt(o.key, self.key);
-    out.push_back("To: " + std::to_string(to.dmg) + " in " + std::to_string(to.hits) + " | From: " +
+    out.push_back("Given: " + std::to_string(to.dmg) + " in " + std::to_string(to.hits) + " | Taken: " +
                   std::to_string(from.dmg) + " in " + std::to_string(from.hits) + " \xE2\x80\x94 " + o.name + " (" +
                   std::to_string(ledger.Health(o.key)) + " hp)");
   }

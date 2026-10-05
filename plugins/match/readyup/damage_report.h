@@ -4,7 +4,7 @@
 // by default). After every round of a live map each player on CT/T gets, privately (chat to
 // their slot), one line per opponent:
 //
-//   To: 54 in 2 | From: 27 in 1 — Name (46 hp)
+//   Given: 54 in 2 | Taken: 27 in 1 — Name (46 hp)
 //
 // from player_hurt (damage capped at the victim's remaining health) and player_death. Knife
 // rounds and warmup are not reported. Bots get no chat; with readyup.cfg debug=1 every line is
