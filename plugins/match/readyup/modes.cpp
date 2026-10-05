@@ -1190,6 +1190,35 @@ static void ResetPracticeRulesLocked(State& st) {
 
 }  // namespace
 
+void ModesOnEngineGameOver(int ctScore, int tScore) {
+  // Later, not now: the final round_end normally decides the map itself just after this line.
+  ScheduleOnGameThread(2.0, [ctScore, tScore]() {
+    auto ctxOpt = WebhookGetMatchContext();
+    if (!ctxOpt || ctxOpt->slug == "scrim") return;
+    auto& st = St();
+    std::lock_guard<std::mutex> lk(st.mu);
+    if (st.mode != ReadyUpMode::MatchLive) return;
+    const auto ms = MatchStateGet();
+    const int map = ms.map_number <= 0 ? 1 : ms.map_number;
+    if (st.mapResultEmittedForMapNumber == map) return;
+    bool team1Ct = true;
+    {
+      std::lock_guard<std::recursive_mutex> slk(stats::Mutex());
+      team1Ct = stats::Current().Snapshot().team1_is_ct;
+    }
+    const int t1 = std::max(0, team1Ct ? ctScore : tScore);
+    const int t2 = std::max(0, team1Ct ? tScore : ctScore);
+    const char* winner = t1 > t2 ? "team1" : t2 > t1 ? "team2" : "none";
+    std::string mapName = ms.current_map;
+    if (mapName.empty() && static_cast<size_t>(map) <= ctxOpt->maplist.size()) {
+      mapName = ctxOpt->maplist[static_cast<size_t>(map - 1)];
+    }
+    Print("map-end: the engine ended map %d (%d-%d) and Ready Up had not; finishing it from the engine's score\n",
+          map, t1, t2);
+    FinishMapLocked(st, *ctxOpt, map, mapName, t1, t2, winner, /*forfeit=*/false);
+  });
+}
+
 ReadyUpMode GetMode() {
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);

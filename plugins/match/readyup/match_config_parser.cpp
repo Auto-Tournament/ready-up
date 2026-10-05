@@ -299,9 +299,11 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
   ruleBool("whitelist", &ctx.whitelist);
   ruleBool("autoready", &ctx.autoready);
 
-  // Fallbacks if maxRounds wasn't provided explicitly.
+  // The server plays the cvars' mp_maxrounds (they go out after every cfg), so the map end is
+  // decided on it too, also when maxRounds is given: a standalone match said maxRounds 8 with
+  // mp_maxrounds 4, CS2 ended the map at 3-0 and Ready Up waited for a 5th win forever.
   if (ctx.maxRounds <= 0) ctx.maxRounds = 24;
-  if (!maxRoundsExplicit) {
+  {
     auto it = ctx.cvars.find("mp_maxrounds");
     if (it != ctx.cvars.end()) {
       try {

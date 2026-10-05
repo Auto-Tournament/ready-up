@@ -17,6 +17,7 @@
 #include "readyup/webhook.h"
 #include "readyup/welcome.h"
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
@@ -148,6 +149,18 @@ void LifecycleLocked(const std::string& line) {
 
   // Knife round: deaths / `attacked` health for the time-out tiebreak.
   if (!isChat && KnifeTrackerActive()) KnifeTrackerObserveLine(line);
+
+  // `Game Over: competitive  de_mirage score 3:0 after 3 min` (CT:T): the engine ended the map.
+  if (!isChat) {
+    const size_t go = line.find("Game Over: ");
+    if (go != std::string::npos) {
+      const size_t sc = line.find(" score ", go);
+      int ct = -1, t = -1;
+      if (sc != std::string::npos && std::sscanf(line.c_str() + sc + 7, "%d:%d", &ct, &t) == 2 && ct >= 0 && t >= 0) {
+        ModesOnEngineGameOver(ct, t);
+      }
+    }
+  }
 
   if (!isChat && (line.find("Loading map \"") != std::string::npos || line.find("Started map \"") != std::string::npos)) {
     std::string map;

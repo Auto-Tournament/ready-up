@@ -80,6 +80,11 @@ void OnMatchRoundStarted();
 // This lets Ready Up detect map completion and perform end-of-map actions.
 void OnMatchRoundEnded(int map_number, int team1_score, int team2_score, const std::string& map_name);
 
+// The engine logged `Game Over: ... score <CT>:<T>` (match_log.cpp). Safety net: if 2 s later
+// the map is still undecided in Ready Up (its own round tally can drift after restores, or its
+// round limit differs from the server's), the map ends here with the engine's score.
+void ModesOnEngineGameOver(int ctScore, int tScore);
+
 // Map/series end (match_end.cpp, game thread, outside the modes mutex):
 // - ModesBeginNextMapWarmup: postgame -> match warmup for the next map of the series.
 // - ModesFinishSeriesResetToIdle: unload the match (context, persisted state, stats) and go idle.
