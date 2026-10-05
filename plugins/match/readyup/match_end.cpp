@@ -24,9 +24,9 @@ namespace {
 constexpr double kResetAfterKickSeconds = 2.0;
 
 std::mutex g_mu;
-int g_kickNoDemo = 60;
-int g_kickDemoNoUpload = 60;
-int g_kickDemoUpload = 60;
+int g_kickNoDemo = 30;
+int g_kickDemoNoUpload = 30;
+int g_kickDemoUpload = 30;
 std::vector<MatchFlowListener> g_listeners;
 std::atomic<unsigned> g_generation{0};
 std::atomic<int> g_pending{0};
