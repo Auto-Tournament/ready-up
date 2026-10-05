@@ -156,7 +156,13 @@ void SimulationTick(double now) {
   // Read before taking g_mu: match_events / the player registry call back into this file
   // (SimulationPlayerForSlot) while holding their own locks.
   const bool team1Ct = active ? Team1IsCtNow(*ctx) : true;
-  const std::vector<BotIdentity> botList = active ? ListBots() : std::vector<BotIdentity>();
+  // The GOTV bot (SourceTV, on no side) is not one of ours: counted, it looked like a bot still
+  // joining, so the feeder kept giving up on it and asking for another (6 v 6 for 5 v 5 rosters,
+  // "Unknown" players in the stats; NTLAN trial run) and the surplus was never trimmed.
+  std::vector<BotIdentity> botList = active ? ListBots() : std::vector<BotIdentity>();
+  botList.erase(std::remove_if(botList.begin(), botList.end(),
+                               [](const BotIdentity& b) { return b.team == 1 || b.name == "SourceTV"; }),
+                botList.end());
 
   std::vector<std::string> cmds;
   std::vector<WebhookPlayer> connects, disconnects;
