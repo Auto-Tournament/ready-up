@@ -91,7 +91,7 @@ Every zip's root is the contents of `game/csgo`:
 | Zip | Contents |
 |---|---|
 | `ready-up-essentials-<v>-linuxsteamrt64.zip` | core + essentials + match + fleet + practice (default, no skins) |
-| `ready-up-full-<v>-linuxsteamrt64.zip` | core + essentials + match + fleet + practice + skins + hello + midas + whitelist + deathmatch + addons + `readyup_sigcheck` / `readyup_hookcheck` |
+| `ready-up-full-<v>-linuxsteamrt64.zip` | core + essentials + match + fleet + practice + skins + midas + whitelist + deathmatch + addons + `readyup_sigcheck` / `readyup_hookcheck` |
 | `ready-up-core-...`, `-match-...`, `-fleet-...`, `-practice-...`, `-essentials-plugin-...`, `-skins-...`, `-hello-...`, `-midas-...`, `-whitelist-...`, `-deathmatch-...`, `-addons-...` | single components. The core runs alone, but the match flow (ready-up, knife, pauses, webhooks) is `match`. `fleet` links the server to the Auto Tournament platform and stays idle until configured ([FLEET.md](FLEET.md)). `ready-up-essentials-plugin-...` is the essentials plugin alone (admins, map commands); `ready-up-essentials-...` without `-plugin` is the bundle. |
 | `SHA256SUMS` | checksums of every zip |
 

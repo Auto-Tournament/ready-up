@@ -173,7 +173,7 @@ if [[ -e "$WORK/match/readyup/cfg-templates/ReadyUp/deathmatch.cfg" ]]; then bad
 if [[ -e "$WORK/match/readyup/cfg-templates/ReadyUp/addons.cfg" ]]; then bad "match ships addons.cfg"; else ok "match: no addons.cfg"; fi
 echo "skins:";      has_skins skins;     check_manifests "$WORK/skins" skins
 echo "full:";       has_skins full; has_match full; has_fleet full; has_notices full; has_addons full
-full_components=(core essentials match fleet practice skins hello midas whitelist deathmatch addons)
+full_components=(core essentials match fleet practice skins midas whitelist deathmatch addons)
 for f in readyup/plugins/deathmatch.so readyup/cfg-templates/ReadyUp/deathmatch.cfg readyup/bin/linuxsteamrt64/engine-surface.practice.json; do
   if [[ -f "$WORK/full/$f" ]]; then ok "full has $f"; else bad "full lacks $f"; fi
 done
