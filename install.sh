@@ -12,7 +12,7 @@
 # Usage: install.sh [BUNDLE|COMPONENT ...] [options]
 #
 #   essentials   core + essentials + match + fleet + practice (default for a fresh install; no skins)
-#   full         core + essentials + match + fleet + practice + skins + hello + midas + whitelist + deathmatch + addons
+#   full         core + essentials + match + fleet + practice + skins + midas + whitelist + deathmatch + addons
 #   core | match | fleet | practice | skins | hello | midas | whitelist | deathmatch | addons   single components
 #                (the essentials plugin comes with the bundles; --remove essentials drops it) (core is always included).
 #                fleet links the server to the Auto Tournament platform; it stays idle until
@@ -116,7 +116,7 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     essentials) WANT+=(core essentials match fleet practice); BUNDLE_FLEET=1; shift ;;
-    full) WANT+=(core essentials match fleet practice skins hello midas whitelist deathmatch addons); WANT_FULL=1; BUNDLE_FLEET=1; shift ;;
+    full) WANT+=(core essentials match fleet practice skins midas whitelist deathmatch addons); WANT_FULL=1; BUNDLE_FLEET=1; shift ;;
     core | match | fleet | skins | hello | midas | whitelist | practice | deathmatch | addons) WANT+=("$1"); shift ;;
     *) die "unknown argument: $1 (see --help)" ;;
   esac

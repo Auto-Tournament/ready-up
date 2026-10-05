@@ -231,8 +231,8 @@ make_server "$S4" 0
 run --dir "$S4" --zip "$FULL" --accept-license=noncommercial full >"$T/out" 2>&1 || { cat "$T/out"; fail "full install exited non-zero"; }
 # (+ tools: the offline gamedata checkers, when the build had them)
 check "installed.json is every component" \
-  test "$(installed "$S4" | sed "s/ tools / /; s/ tools$//")" = "addons core deathmatch essentials fleet hello match midas practice skins whitelist"
-for so in match fleet practice essentials skins hello midas whitelist deathmatch addons; do
+  test "$(installed "$S4" | sed "s/ tools / /; s/ tools$//")" = "addons core deathmatch essentials fleet match midas practice skins whitelist"
+for so in match fleet practice essentials skins midas whitelist deathmatch addons; do
   check "full: $so.so installed" test -x "$S4/game/csgo/readyup/plugins/$so.so"
 done
 

@@ -608,7 +608,7 @@ all of them. `READYUP_PLUGINS_DIR` overrides the directory (tests).
 - component zips `ready-up-{core,match,skins,hello}-X.Y.Z-linuxsteamrt64.zip` (match: `match.so`
   plus the `cfg/ReadyUp/*.cfg` templates it execs), which the root `install.sh` mixes;
 - bundles `ready-up-essentials-...` (core + match, the default, no skins) and
-  `ready-up-full-...` (core + match + skins + hello + the gamedata checkers);
+  `ready-up-full-...` (core + match + skins + the gamedata checkers);
 - `SHA256SUMS`.
 
 Every zip carries `readyup/manifests/<component>.json` (its file list). `scripts/ci/check-bundles.sh`

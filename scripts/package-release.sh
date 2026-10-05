@@ -34,7 +34,7 @@
 #   ready-up-deathmatch-<v>-linuxsteamrt64.zip plugins/deathmatch.so + deathmatch.cfg template (off until .ru dm ffa|tdm)
 # Bundles (for manual download):
 #   ready-up-essentials-<v>-...zip          core + essentials + match + fleet + practice. The default. NO skins.
-#   ready-up-full-<v>-...zip                core + essentials + match + fleet + practice + skins + hello + midas + whitelist + deathmatch + addons + readyup_sigcheck/hookcheck
+#   ready-up-full-<v>-...zip                core + essentials + match + fleet + practice + skins + midas + whitelist + deathmatch + addons + readyup_sigcheck/hookcheck
 # Plus SHA256SUMS over every zip.
 #
 # Each component ships readyup/manifests/<component>.json ({component, version, files}),
@@ -223,7 +223,7 @@ make_zip "ready-up-practice-$SUFFIX" practice
 make_zip "ready-up-essentials-plugin-$SUFFIX" essentials
 make_zip "ready-up-fleet-$SUFFIX" fleet
 make_zip "ready-up-essentials-$SUFFIX" core essentials match fleet practice
-full=(core essentials match fleet practice skins hello midas whitelist deathmatch addons)
+full=(core essentials match fleet practice skins midas whitelist deathmatch addons)
 [[ -d "$WORK/c/tools" ]] && full+=(tools)
 make_zip "ready-up-full-$SUFFIX" "${full[@]}"
 
