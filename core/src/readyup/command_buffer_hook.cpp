@@ -362,6 +362,16 @@ bool EnqueueServerCommand(const char* text) {
   std::string s(text);
   if (s.back() != '\n') s.push_back('\n');
 
+  // A Ready Up line (`ru ...`, a plugin's console command, the license settings) is handled the
+  // way Hook_AddText handles it from the console: g_orig below skips that hook, so without this
+  // the engine answers "Unknown command 'ru'" (fleet plugins.set queues `ru plugin enable|disable`,
+  // fleet exec may run `ru ...`). One line only, like the hook; the handlers defer anything unsafe
+  // (plugin load / unload, plugin console callbacks) to the next GameFrame.
+  {
+    const std::string line = s.substr(0, s.size() - 1);
+    if (line.find_first_of("\r\n") == std::string::npos && HandleReadyUpConsoleCommandLine(line)) return true;
+  }
+
   // Reuse the latest parameter values the engine called AddText with.
   // This keeps us ABI-stable without guessing flag meanings.
   g_orig(thisptr, s.c_str(), g_last.a, g_last.b, g_last.c, g_last.d, g_last.e);
