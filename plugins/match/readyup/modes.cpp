@@ -992,6 +992,17 @@ static void ApplyLiveRulesAndRestartLocked(State& st, const WebhookMatchContext&
         "mp_buytime 20",
         "sv_infinite_ammo 0",
         "sv_cheats 0",
+        // Undo the rest of the emulated warmup (ApplyScrimWarmupRulesLocked): without these a
+        // match went live with 60-minute rounds, no freeze time and 16000 start money. Values as
+        // in ReadyUp/live.cfg; match config cvars still win (they go out after, EnqueueAfterCfg).
+        "mp_roundtime 1.92",
+        "mp_roundtime_defuse 1.92",
+        "mp_roundtime_hostage 1.92",
+        "mp_freezetime 18",
+        "mp_startmoney 800",
+        "mp_maxmoney 16000",
+        "mp_autoteambalance 0",
+        "mp_limitteams 0",
     };
     for (const char* c : cmds) {
       if (EnqueueServerCommand(c)) any = true;
