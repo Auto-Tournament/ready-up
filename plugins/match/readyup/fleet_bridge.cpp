@@ -947,7 +947,11 @@ bool DoRestoreNow(int mapNumber, int round, const std::string& file, const std::
   g_restoring = true;
   MatchEventsIgnoreRoundEndsFor(5.0);  // the reload ends the current round as a draw
   (void)EnqueueServerCommand(("mp_backup_restore_load_file " + file).c_str());
-  // mp_backup_restore_load_autopause 1 (set on load) pauses the restored round; mirror it.
+  // mp_backup_restore_load_autopause 1 is meant to pause the restored round, but it does not
+  // always (NTLAN trial run: a failover resume loaded at go-live played on with no pause while
+  // Ready Up reported "paused" until the map ended). Pause explicitly; every way out of it
+  // (admin unpause, pause_after_restore 0, resume) sends mp_unpause_match.
+  (void)EnqueueServerCommand("mp_pause_match");
   if (!PauseStateGet().paused) PauseStateOnPaused("admin", by);
   // Ready Up state: rounds >= `round` are voided (stats, round counter, scores).
   int t1 = 0, t2 = 0;
