@@ -908,8 +908,42 @@ Result PrepareResumeBackup(const std::string& matchId, fs::ResumePlan* plan) {
 // rounds_voided + match_restored (`extra` members added to its data), then round_restore.h
 // AfterRestore (backup_loaded webhook, pause_after_restore). True when the match unpauses by
 // itself in 3 s.
+bool DoRestoreNow(int mapNumber, int round, const std::string& file, const std::string& sha, const std::string& by,
+                  const std::string& reason, const Json& extra, int scoreT1, int scoreT2);
+
+// A restore asked for between round_end and the next round_start: CS2 loads the backup but never
+// starts the next round (the server stays in RoundOver until a map change; seen in the NTLAN trial
+// run with `.restore` / cmd restore_round / a vote right after a round). It waits for round_start
+// (match_features.h MatchFeaturesRoundOver) and runs from Tick. The newest one wins.
+struct DeferredRestore {
+  bool active = false;
+  int mapNumber = 0, round = 0, scoreT1 = -1, scoreT2 = -1;
+  std::string file, sha, by, reason;
+  Json extra;
+};
+DeferredRestore g_deferredRestore;
+
+void RunDeferredRestore() {
+  if (!g_deferredRestore.active || MatchFeaturesRoundOver()) return;
+  DeferredRestore d = std::move(g_deferredRestore);
+  g_deferredRestore = DeferredRestore{};
+  Print("fleet: next round started; running the restore of map %d round %d\n", d.mapNumber, d.round);
+  (void)DoRestoreNow(d.mapNumber, d.round, d.file, d.sha, d.by, d.reason, d.extra, d.scoreT1, d.scoreT2);
+}
+
 bool DoRestore(int mapNumber, int round, const std::string& file, const std::string& sha, const std::string& by,
                const std::string& reason, const Json& extra, int scoreT1 = -1, int scoreT2 = -1) {
+  if (MatchFeaturesRoundOver()) {
+    g_deferredRestore = DeferredRestore{true, mapNumber, round, scoreT1, scoreT2, file, sha, by, reason, extra};
+    Print("fleet: restore of map %d round %d waits for the next round start (round over)\n", mapNumber, round);
+    SendToChat(("Ready Up: round " + std::to_string(round) + " is restored when the next round starts.").c_str());
+    return false;
+  }
+  return DoRestoreNow(mapNumber, round, file, sha, by, reason, extra, scoreT1, scoreT2);
+}
+
+bool DoRestoreNow(int mapNumber, int round, const std::string& file, const std::string& sha, const std::string& by,
+                  const std::string& reason, const Json& extra, int scoreT1, int scoreT2) {
   g_restoring = true;
   MatchEventsIgnoreRoundEndsFor(5.0);  // the reload ends the current round as a draw
   (void)EnqueueServerCommand(("mp_backup_restore_load_file " + file).c_str());
@@ -1926,6 +1960,7 @@ void OnLogLine(const char* line) {
 void Tick(double now) {
   g_now = now;
   EnsureHandlers();
+  RunDeferredRestore();
   const ru_fleet_v1* f = Fleet();
   CheckCs2Update(now, FleetActive(f));
   if (!g_asg.active) {

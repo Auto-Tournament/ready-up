@@ -31,6 +31,7 @@ namespace {
 std::atomic<int> g_roundStartSeq{0};
 std::atomic<int> g_freezeEndSeq{0};
 std::atomic<bool> g_inFreeze{false};
+std::atomic<bool> g_roundOver{false};  // round_end .. round_start
 
 // Game thread only.
 int g_rsSeqAuto5v5 = 0;  // the round start the auto_5v5 check last ran for
@@ -197,12 +198,19 @@ void MatchFeaturesOnGameEvent(const char* name) {
   if (!name) return;
   if (std::strcmp(name, "round_start") == 0) {
     g_inFreeze.store(true);
+    g_roundOver.store(false);
     g_roundStartSeq.fetch_add(1);
+  } else if (std::strcmp(name, "round_end") == 0) {
+    g_roundOver.store(true);
+  } else if (std::strcmp(name, "round_announce_warmup") == 0) {
+    g_roundOver.store(false);
   } else if (std::strcmp(name, "round_freeze_end") == 0) {
     g_inFreeze.store(false);
     g_freezeEndSeq.fetch_add(1);
   }
 }
+
+bool MatchFeaturesRoundOver() { return g_roundOver.load(); }
 
 void MatchFeaturesTechPause(WebhookTeam team, uint64_t steamid64, const std::string& name) {
   const auto ctx = WebhookGetMatchContext();
