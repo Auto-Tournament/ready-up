@@ -21,6 +21,9 @@ struct GoLiveCardInfo {
   bool pauses = false;       // .p / .pause / .tech, .up / .unpause, .tac work (a match is loaded)
   bool adminCall = true;     // .admin
 };
+// The go-live commands, short forms only: ".p pause · .up resume · .tac timeout · .admin help"
+// (html: bold commands and middle dots; plain: for chat). Empty when there is nothing to show.
+std::string GoLiveCommandsLine(const GoLiveCardInfo& info, bool html);
 std::string GoLiveCardHtml(const GoLiveCardInfo& info);
 
 // "<name> (<teamLabel>) needs an admin" + the message (if any), for admins.

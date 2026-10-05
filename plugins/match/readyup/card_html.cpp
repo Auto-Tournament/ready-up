@@ -64,6 +64,24 @@ std::string CardHtmlEscape(const std::string& in, size_t maxBytes) {
   return out;
 }
 
+std::string GoLiveCommandsLine(const GoLiveCardInfo& info, bool html) {
+  const char* b = html ? "<b>" : "";
+  const char* e = html ? "</b>" : "";
+  const char* dot = html ? " &#183; " : " | ";
+  std::string out;
+  auto add = [&](const char* cmd, const char* what) {
+    if (!out.empty()) out += dot;
+    out += std::string(b) + cmd + e + " " + what;
+  };
+  if (info.pauses) {
+    add(".p", "pause");
+    add(".up", "resume");
+    add(".tac", "timeout");
+  }
+  if (info.adminCall) add(".admin", "help");
+  return out;
+}
+
 std::string GoLiveCardHtml(const GoLiveCardInfo& info) {
   std::string h;
   h.reserve(800);
@@ -77,18 +95,10 @@ std::string GoLiveCardHtml(const GoLiveCardInfo& info) {
     h += TeamPart(info.team2.empty() ? std::string("Team 2") : info.team2, side2);
     h += "<br>";
   }
-  if (info.pauses) {
-    Font(h, "sm", kWhite, "<b>.p</b> / <b>.pause</b> / <b>.tech</b> pause &#183; <b>.up</b> / <b>.unpause</b> resume");
-    h += "<br>";
-  }
-  std::string last;
-  if (info.pauses) last += "<b>.tac</b> timeout";
-  if (info.adminCall) {
-    if (!last.empty()) last += " &#183; ";
-    last += "<b>.admin</b> [message] call an admin";
-  }
-  if (!last.empty()) {
-    Font(h, "sm", kWhite, last);
+  // One line, short forms only (the long ones still work): fewer words to read in a freeze time.
+  const std::string cmds = GoLiveCommandsLine(info, /*html=*/true);
+  if (!cmds.empty()) {
+    Font(h, "sm", kWhite, cmds);
     h += "<br>";
   }
   Font(h, "s", kGrey, "good luck, have fun");
