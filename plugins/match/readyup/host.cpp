@@ -232,6 +232,13 @@ bool MoveSlotToSpectators(int slot) {
   return a->player_change_team(a->self, slot, RU_TEAM_SPECTATOR) == 1;
 }
 
+bool ForceJoinTeamForSlot(int slot, int joinTeam) {
+  const ru_api* a = host::Api();
+  if (!a || !host::OnGameThread() || slot < 0 || !RU_API_HAS(a, player_change_team) || !a->player_change_team) return false;
+  const int team = joinTeam == 3 ? RU_TEAM_CT : joinTeam == 2 ? RU_TEAM_T : RU_TEAM_SPECTATOR;
+  return a->player_change_team(a->self, slot, team) == 1;
+}
+
 const char* FeatureName(Feature f) {
   switch (f) {
     case Feature::ChatCommands: return "chat_commands";
