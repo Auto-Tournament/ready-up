@@ -239,6 +239,11 @@ void SimulationTick(double now) {
           int quota = 0;
           const int side = s.feeder.Next(now, static_cast<int>(bots.size()), ct, t, ctWanted, tWanted,
                                          static_cast<int>(s.ids.size()) + 2, &quota);
+          int trimTo = 0;
+          if (side == 0 && s.feeder.Trim(now, static_cast<int>(bots.size()), ct, t, ctWanted, tWanted, &trimTo)) {
+            cmds.push_back("bot_quota " + std::to_string(trimTo));
+            Print("simulation: %zu bots for %d roster players; bot_quota %d\n", bots.size(), ctWanted + tWanted, trimTo);
+          }
           if (side != 0) {
             for (const auto& c : sim::AddBotCommands(side, quota)) cmds.push_back(c);
             Debug("simulation: adding a bot on %s (bot_quota %d; CT %d/%d, T %d/%d)\n", side == 3 ? "CT" : "T", quota,

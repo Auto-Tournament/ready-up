@@ -103,6 +103,18 @@ int BotFeeder::Next(double now, int total, int ct, int t, int ctWanted, int tWan
   return side;
 }
 
+bool BotFeeder::Trim(double now, int total, int ct, int t, int ctWanted, int tWanted, int* quota) {
+  if (quota) *quota = 0;
+  const int wanted = ctWanted + tWanted;
+  if (wanted <= 0 || total <= wanted) return false;
+  if (total < sent_ || ct + t < total) return false;  // still joining: count once they are in
+  if (now - lastTrim_ < kSettleSeconds) return false;
+  lastTrim_ = now;
+  sent_ = wanted;
+  if (quota) *quota = wanted;
+  return true;
+}
+
 double ReadyDelaySeconds(int index) {
   if (index < 0) index = 0;
   return 1.5 + std::fmod(index * 0.7, 2.0);

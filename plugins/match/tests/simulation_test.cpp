@@ -222,11 +222,27 @@ static void TestWingmanCfg() {
   CHECK(!ReadCfg("live_wingman_override.cfg").empty());
 }
 
+static void TestFeederTrim() {
+  sim::BotFeeder f;
+  int q = 0;
+  // 12 bots for 10 roster players, all on a side: back to 10, then not again for a while.
+  CHECK(f.Trim(100.0, 12, 6, 6, 5, 5, &q) && q == 10);
+  CHECK(!f.Trim(100.0 + sim::BotFeeder::kSettleSeconds - 0.5, 12, 6, 6, 5, 5, &q));
+  CHECK(f.Trim(100.0 + sim::BotFeeder::kSettleSeconds + 0.1, 11, 6, 5, 5, 5, &q) && q == 10);
+  // Exactly the rosters, or fewer: nothing.
+  sim::BotFeeder g;
+  CHECK(!g.Trim(1.0, 10, 5, 5, 5, 5, &q));
+  CHECK(!g.Trim(1.0, 8, 4, 4, 5, 5, &q));
+  // A bot still on no side: wait for it.
+  CHECK(!g.Trim(1.0, 11, 5, 5, 5, 5, &q));
+}
+
 int main() {
   TestTimescale();
   TestIdentities();
   TestAssign();
   TestFeeder();
+  TestFeederTrim();
   TestCommands();
   TestParser();
   TestWingmanCfg();
