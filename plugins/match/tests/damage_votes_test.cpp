@@ -67,15 +67,15 @@ static void TestReport() {
   const auto lines = FormatDamageReport(players[0], players, l);
   CHECK(lines.size() == 2);
   if (lines.size() == 2) {
-    CHECK(lines[0] == std::string("To: 30 in 1 | From: 25 in 1") + kDash + "Bob (70 hp)");
-    CHECK(lines[1] == std::string("To: 0 in 0 | From: 75 in 1") + kDash + "Eve (100 hp)");
+    CHECK(lines[0] == std::string("Given: 30 in 1 | Taken: 25 in 1") + kDash + "Bob (70 hp)");
+    CHECK(lines[1] == std::string("Given: 0 in 0 | Taken: 75 in 1") + kDash + "Eve (100 hp)");
   }
   // Bob's view: one opponent line per CT player.
   const auto bob = FormatDamageReport(players[2], players, l);
   CHECK(bob.size() == 2);
   if (bob.size() == 2) {
-    CHECK(bob[0] == std::string("To: 25 in 1 | From: 30 in 1") + kDash + "Me (0 hp)");
-    CHECK(bob[1] == std::string("To: 0 in 0 | From: 0 in 0") + kDash + "Mate (100 hp)");
+    CHECK(bob[0] == std::string("Given: 25 in 1 | Taken: 30 in 1") + kDash + "Me (0 hp)");
+    CHECK(bob[1] == std::string("Given: 0 in 0 | Taken: 0 in 0") + kDash + "Mate (100 hp)");
   }
   // Spectators get nothing.
   CHECK(FormatDamageReport(players[4], players, l).empty());
