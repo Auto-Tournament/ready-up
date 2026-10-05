@@ -213,6 +213,16 @@ void OnEvent(void*, const ru_event* e) {
       demo::OnMapStart();  // GOTV's recording ended with the level change
       fleet_bridge::OnMapStart();
       match_recovery::OnMapStart();  // a recovery changing to the match map continues
+      // Every map of a real match starts without bots: the gamemode cfg brings bot_quota back on
+      // each level change, and a bot alive on a team kept a joining player spectating it (live
+      // test, map 2). ApplyLoadedMatch did this only once, before the first map change.
+      // Simulation brings its own bots in just below.
+      if (!SimulationActive()) {
+        if (auto ctx = WebhookGetMatchContext(); ctx && ctx->slug != "scrim") {
+          (void)EnqueueServerCommand("bot_quota 0");
+          (void)EnqueueServerCommand("bot_kick");
+        }
+      }
       SimulationOnMapStart(host::NowSeconds());  // the bots start over on the new map
     } else if (e->type == RU_EVENT_ROUND_START) {
       SimulationOnRoundStart();  // host_timescale again while a simulated map is live
