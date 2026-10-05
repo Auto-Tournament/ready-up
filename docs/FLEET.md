@@ -775,7 +775,7 @@ only disables `match` or sends `practice.set {always}` to a server that has it.
 server.config { rev: number, settings: {
   chat_prefix: string, admin_chat_prefix: string, hostname_format?: string,
   demo: { path: string, name_format: string },                    // → ru_demo_path / ru_demo_name_format
-  series_end_kick_delay: { no_demo: 5, demo_no_upload: 10, demo_upload: 60 },   // match_end.h defaults
+  series_end_kick_delay: { no_demo: 60, demo_no_upload: 60, demo_upload: 60 },   // match_end.h defaults
   offline_pause_minutes: 3,
   scrim_when_idle: true, scrim_knife: true,
   warmup: { message_html?: string, respawn: boolean, money: number },
