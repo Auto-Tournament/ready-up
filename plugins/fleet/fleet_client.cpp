@@ -450,6 +450,7 @@ bool Client::DoEnroll(const std::string& secret, const std::string& urlOverride,
   host.Set("hostname", json::Value::Str(h.hostname));
   host.Set("game_port", json::Value::Int(h.gamePort));
   if (!h.publicAddr.empty()) host.Set("public_addr", json::Value::Str(h.publicAddr));
+  host.Set("steam_token", json::Value::Bool(h.steamToken));
   body.Set("host", std::move(host));
   json::Value versions = json::Value::Object();
   versions.Set("core", json::Value::Str(h.coreVersion));
@@ -695,6 +696,7 @@ std::string Client::BuildHello() {
   host.Set("game_port", json::Value::Int(h.gamePort));
   if (h.tvPort > 0) host.Set("tv_port", json::Value::Int(h.tvPort));
   if (!h.publicAddr.empty()) host.Set("public_addr", json::Value::Str(h.publicAddr));
+  host.Set("steam_token", json::Value::Bool(h.steamToken));
   p.Set("host", std::move(host));
   p.Set("boot_id", json::Value::Str(h.bootId));
   json::Value stream = json::Value::Object();

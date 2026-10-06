@@ -223,6 +223,7 @@ struct LaunchArgs {
   int tvPort = 0;
   std::string ip;            // -ip / +ip
   std::string netPublicAdr;  // +net_public_adr
+  bool steamToken = false;   // +sv_setsteamaccount <token>: logs in with a Valve server token (GSLT)
 };
 
 LaunchArgs ReadLaunchArgs() {
@@ -242,6 +243,9 @@ LaunchArgs ReadLaunchArgs() {
     if (args[i] == "+tv_port" || args[i] == "-tv_port") out.tvPort = std::atoi(args[i + 1].c_str());
     if (args[i] == "-ip" || args[i] == "+ip") out.ip = args[i + 1];
     if (args[i] == "+net_public_adr" || args[i] == "-net_public_adr") out.netPublicAdr = args[i + 1];
+    if (args[i] == "+sv_setsteamaccount" && !args[i + 1].empty() && args[i + 1][0] != '+' && args[i + 1][0] != '-') {
+      out.steamToken = true;
+    }
   }
   return out;
 }
@@ -318,6 +322,7 @@ void BuildHello() {
   const LaunchArgs la = ReadLaunchArgs();
   h.gamePort = la.gamePort;
   h.tvPort = la.tvPort;
+  h.steamToken = la.steamToken;
   h.publicAddr = fleet::PickPublicAddr(g_set.publicAddr, {la.netPublicAdr, la.ip}, h.gamePort);
   h.capabilities = g_caps;
   h.bootId = BootId();

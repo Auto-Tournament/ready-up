@@ -31,6 +31,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <vector>
 
 #ifndef SKINS_VERSION
 #define SKINS_VERSION "0.0.0-dev"
@@ -60,6 +61,35 @@ std::mutex g_inertMu;
 std::string g_inertReason;
 double g_lastInertCheck = -1e9;
 
+// +sv_setsteamaccount <token> on the command line: the server logs in with a Valve game server
+// token (GSLT). Valve bans the token, and the account behind it, of a server that lets players use
+// items they do not own, so the plugin stays inert on such a server. Read once (the command line
+// does not change).
+bool LaunchedWithSteamToken() {
+  FILE* f = std::fopen("/proc/self/cmdline", "rb");
+  if (!f) return false;
+  std::string cmd;
+  char buf[4096];
+  size_t n = 0;
+  while ((n = std::fread(buf, 1, sizeof(buf), f)) > 0 && cmd.size() < (1u << 16)) cmd.append(buf, n);
+  std::fclose(f);
+  std::vector<std::string> args;
+  size_t s = 0;
+  for (size_t i = 0; i <= cmd.size(); ++i) {
+    if (i == cmd.size() || cmd[i] == '\0') {
+      if (i > s) args.push_back(cmd.substr(s, i - s));
+      s = i + 1;
+    }
+  }
+  for (size_t i = 0; i + 1 < args.size(); ++i) {
+    if (args[i] == "+sv_setsteamaccount" && !args[i + 1].empty() && args[i + 1][0] != '+' && args[i + 1][0] != '-') {
+      return true;
+    }
+  }
+  return false;
+}
+const bool g_steamToken = LaunchedWithSteamToken();
+
 // Game thread, once a second: the match plugin knows the loaded match's ruleset (and overrides);
 // without it, readyup.cfg `ruleset=` (config_get falls back to the core key).
 void RefreshInert(double now) {
@@ -79,8 +109,12 @@ void RefreshInert(double now) {
       locked = ruleset == "valve";
     }
   }
-  const std::string reason =
+  std::string reason =
       !locked ? std::string() : ruleset == "valve" ? "inert (valve ruleset)" : "inert (cosmetics: inventory)";
+  if (g_steamToken) {
+    locked = true;
+    reason = "inert (Steam server token: remove +sv_setsteamaccount to use skins)";
+  }
   std::string prev;
   {
     std::lock_guard<std::mutex> lk(g_inertMu);
@@ -89,7 +123,10 @@ void RefreshInert(double now) {
   }
   g_inert.store(locked);
   if (reason != prev) {
-    if (locked) {
+    if (locked && g_steamToken) {
+      Log(RU_LOG_WARN, "%s: Valve bans the token of a server that hands out items; nothing is applied",
+          reason.c_str());
+    } else if (locked) {
       Log(RU_LOG_WARN, "%s: players' inventories are not modified (Valve rulebook); nothing is applied or restored",
           reason.c_str());
     } else {
