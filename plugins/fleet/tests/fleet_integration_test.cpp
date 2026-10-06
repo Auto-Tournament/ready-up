@@ -448,6 +448,50 @@ TEST(TestHeartbeatTimeout) {
   p.Stop();
 }
 
+// The game thread stops while players are on: the link closes and stays down until frames
+// come back. With nobody on (an empty server hibernates) a frame gap is not a stall.
+TEST(TestGameThreadStall) {
+  mock::Platform p;
+  CHECK(p.Start());
+  p.heartbeatIntervalMs = 500;
+  const std::string dir = TempDir();
+  ClientConfig cfg = BaseConfig(p, dir);
+  cfg.enrollCode = "RUE-AAAA-BBBB-CCCC";
+  cfg.stallMs = 1500;
+  Client c(cfg);
+  c.SetHelloInfo(Hello());
+  std::string err;
+  CHECK(c.Start(&err));
+  c.NoteGameFrame();
+  CHECK(WaitState(c, LinkState::Online, 5000));
+
+  // No players: frames may stop (hibernation) and the link stays up.
+  c.UpdateHealth(0, 0.0);
+  std::this_thread::sleep_for(std::chrono::milliseconds(2500));
+  CHECK(c.Status().state == LinkState::Online);
+
+  // Players on and no frames: offline, and it stays offline while frames are missing.
+  c.UpdateHealth(2, 0.0);
+  CHECK(WaitState(c, LinkState::Offline, 4000));
+  CHECK(c.Status().lastError.find("game thread stalled") != std::string::npos);
+  std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+  CHECK(c.Status().state == LinkState::Offline);
+
+  // Frames again: back online.
+  std::atomic<bool> ticking{true};
+  std::thread frames([&] {
+    while (ticking) {
+      c.NoteGameFrame();
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+  });
+  CHECK(WaitState(c, LinkState::Online, 5000));
+  ticking = false;
+  frames.join();
+  c.Stop();
+  p.Stop();
+}
+
 // 4401 -> rejected; a refused one-time code stops retrying; a bad token never connects.
 TEST(TestRejections) {
   {
@@ -705,6 +749,7 @@ int main() {
   RUN(TestResumeAfterRestart);
   RUN(TestOfflineSpoolThenConnect);
   RUN(TestHeartbeatTimeout);
+  RUN(TestGameThreadStall);
   RUN(TestRejections);
   RUN(TestTokenRotation);
   RUN(TestBulkLanePriority);

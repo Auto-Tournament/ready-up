@@ -240,9 +240,23 @@ void Client::SetHelloInfo(HelloInfo info) {
 }
 
 void Client::UpdateHealth(int players, double tickMsP99) {
+  players_.store(players, std::memory_order_relaxed);
   std::lock_guard<std::mutex> lk(mu_);
   hello_.players = players;
   hello_.tickMsP99 = tickMsP99;
+}
+
+void Client::NoteGameFrame() { lastFrameMono_.store(MonotonicMs(), std::memory_order_relaxed); }
+
+int64_t Client::FrameAgeMs() const {
+  const int64_t last = lastFrameMono_.load(std::memory_order_relaxed);
+  return last > 0 ? MonotonicMs() - last : -1;
+}
+
+bool Client::GameStalled(int64_t nowMono) const {
+  if (cfg_.stallMs <= 0) return false;
+  const int64_t last = lastFrameMono_.load(std::memory_order_relaxed);
+  return last > 0 && nowMono - last > cfg_.stallMs && players_.load(std::memory_order_relaxed) > 0;
 }
 
 void Client::SetState(const std::string& stateJson, const std::string& availability) {
@@ -1064,9 +1078,22 @@ Client::SessionResult Client::RunSession() {
       health.Set("tick_ms_p99", json::Value::Num(std::round(h.tickMsP99 * 100.0) / 100.0));
       health.Set("spool_msgs", json::Value::Int(static_cast<int64_t>(spool_.count())));
       health.Set("uptime_s", json::Value::Int(h.startedMs > 0 ? (NowMs() - h.startedMs) / 1000 : 0));
+      health.Set("frame_age_ms", json::Value::Int(FrameAgeMs()));
       p.Set("health", std::move(health));
       sendEphemeral("ping", json::Dump(p));
       nextPing = now + s.intervalMs;
+    }
+    if (GameStalled(now)) {
+      // The network thread is fine but the game thread is stuck: pinging on would keep a dead
+      // server "online" and its match would never fail over.
+      const int64_t age = FrameAgeMs();
+      SendClose(s.c, s.sock, 1011, "game thread stalled");
+      Log(2, "fleet: no game frame for " + std::to_string(age / 1000) +
+                 " s with players on the server: closing the link so the platform fails the match over");
+      res.action.what = "game thread stalled (no frame for " + std::to_string(age / 1000) + " s)";
+      res.action.fixedDelayMs = 1000;
+      res.durationMs = now - established;
+      return finish(SessionEnd::Closed);
     }
     if (now - s.lastRxMono > s.timeoutMs) {
       SendClose(s.c, s.sock, 1001, "heartbeat timeout");
@@ -1333,6 +1360,12 @@ void Client::Run() {
       continue;
     }
 
+    if (GameStalled(MonotonicMs())) {
+      // Stay offline until the game thread runs again (see ClientConfig::stallMs).
+      SetLinkState(LinkState::Offline, "game thread stalled");
+      WaitFor(1000);
+      continue;
+    }
     SetLinkState(LinkState::Connecting);
     SessionResult r = RunSession();
     PublishSpoolStatus();

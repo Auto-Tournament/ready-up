@@ -1201,6 +1201,14 @@ void MaybeQueryAddr(double now) {
   }
 }
 
+// Every frame, simulating or not: the fleet link's game thread watchdog (ClientConfig::stallMs).
+void OnFrame(void*, const ru_tick_info*) {
+  try {
+    if (auto c = Client()) c->NoteGameFrame();
+  } catch (...) {
+  }
+}
+
 void OnTick(void*, const ru_tick_info* t) {
   try {
     if (g_lastTickNow > 0.0) {
@@ -1292,6 +1300,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     api->register_console_command(api->self, "fleet", &OnConsole, nullptr);
     api->register_chat_command(api->self, ".fleet", &OnChat, nullptr);
     api->on_tick(api->self, &OnTick, nullptr);
+    api->on_frame(api->self, &OnFrame, nullptr);
     api->provide_interface(api->self, RU_FLEET_IFACE_NAME, RU_FLEET_IFACE_VERSION,
                            const_cast<ru_fleet_v1*>(&g_iface));
     api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "fleet", RU_SELFTEST_IFACE_VERSION,
