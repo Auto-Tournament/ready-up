@@ -66,6 +66,9 @@ struct HelloInfo {
   std::string hostname;
   int gamePort = 0;
   int tvPort = 0;
+  // hello.host.steam_token: the server logs in with a Valve game server token (GSLT). The
+  // platform keeps skins off on such a server (Valve bans tokens of servers that hand out items).
+  bool steamToken = false;
   // hello.host.public_addr: "host:port" players connect to (PickPublicAddr); "" = left out.
   std::string publicAddr;
   std::vector<std::string> capabilities;

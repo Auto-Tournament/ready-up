@@ -835,6 +835,9 @@ state.request {}                         // ephemeral, reply state.snapshot
 - Skins (D6): only when the deployment has skins enabled **and** the server advertises
   `skins.v1` (the skins plugin is loaded). The platform pushes `skins.loadout` when it sees
   `event.player_connect`; the skins plugin caches it for the map.
+  A server launched with a Valve game server token (`+sv_setsteamaccount <token>`) reports
+  `hello.host.steam_token: true`; the platform sends it no loadouts and the skins plugin stays
+  inert there (Valve bans the token of a server that hands out items players do not own).
 
 ## 8. Server → platform messages
 
