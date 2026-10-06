@@ -4,6 +4,7 @@
   "api": [
     "chat_all",
     "chat_to_slot",
+    "on_frame",
     "on_tick",
     "post_to_game_thread",
     "register_chat_command",
