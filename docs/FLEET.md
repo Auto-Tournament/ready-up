@@ -566,9 +566,17 @@ under the schema's 64 characters. An update check should compare against GitHub'
 ### 6.2 Heartbeat
 
 Both sides send `ping {t}` every `interval_ms`; the peer replies `pong {t}`. The server adds
-`health: { players, tick_ms_p99, spool_msgs, uptime_s }` to its pings. Either side treats the
-link as dead after `timeout_ms` without a frame and closes it. The platform then marks the
-server `unreachable`, not `dead` (§11.1).
+`health: { players, tick_ms_p99, spool_msgs, uptime_s, frame_age_ms }` to its pings. Either side
+treats the link as dead after `timeout_ms` without a frame and closes it. The platform then marks
+the server `unreachable`, not `dead` (§11.1).
+
+The link runs on its own thread, so it keeps pinging when the game thread hangs. To keep a hung
+server from looking online, fleet.so watches the game thread: with players on the server and no
+game frame for 45 s (`stallMs`; long enough for a map load or a workshop download), it closes the
+link with `1011 game thread stalled` and does not reconnect until frames come back. The platform
+then sees the server offline and the normal failover runs. An empty server is exempt: it
+hibernates and stops its frames on purpose. `frame_age_ms` in the ping health is the time since the
+last frame (-1 before the first).
 
 ### 6.3 Reconnect with backoff
 

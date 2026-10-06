@@ -45,6 +45,11 @@ struct ClientConfig {
   size_t outboxMax = 20000;  // messages queued by the game thread, not yet on the net thread
   size_t bulkMaxBytes = 2u << 20;  // SendBulk payload bytes that may wait (the lowest-priority lane)
   std::string userAgent = "ReadyUp-fleet";
+  // Game thread watchdog: with players on the server and no game frame for this long, the
+  // link closes (1011 "game thread stalled") and stays down until frames come back, so the
+  // platform sees the server offline and fails the match over. 0 turns it off. Long enough
+  // for a map load or a workshop download; an empty server that hibernates has no players.
+  int64_t stallMs = 45000;
   uint64_t rngSeed = 0;      // tests: deterministic jitter
   // Log sink, called from the network thread (level: 0 info, 1 warn, 2 error, 3 debug).
   // Messages are already redacted.
@@ -151,6 +156,10 @@ class Client {
 
   void SetHelloInfo(HelloInfo info);
   void UpdateHealth(int players, double tickMsP99);
+  // Game thread, every frame (simulating or not): the watchdog's heartbeat.
+  void NoteGameFrame();
+  // Milliseconds since the last NoteGameFrame, or -1 before the first.
+  int64_t FrameAgeMs() const;
   void SetState(const std::string& stateJson, const std::string& availability);
   // Types some handler wants. Reliable messages of other types are answered with
   // error{unknown_type} and acked (§5).
@@ -227,6 +236,10 @@ class Client {
   std::atomic<bool> insecure_{false};
   std::atomic<bool> reconnect_{false};
   std::atomic<bool> holdOut_{false};
+  std::atomic<int64_t> lastFrameMono_{0};
+  std::atomic<int> players_{0};
+  // True while the watchdog holds the link down (see ClientConfig::stallMs).
+  bool GameStalled(int64_t nowMono) const;
   int wakeFd_[2] = {-1, -1};
   std::thread thread_;
 
