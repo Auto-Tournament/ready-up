@@ -93,6 +93,11 @@ double ReadyDelaySeconds(int index);
 // (none at 1x). Teardown: the match is gone (bots out, CS2's bot and speed defaults back).
 std::vector<std::string> SetupCommands();
 std::vector<std::string> AddBotCommands(int side, int quota);
+
+// Bots on the wrong side: one side has more than it needs while the other is short. Adding cannot
+// fix that (bot_join_team only places new bots), so the fill starts over. Seen after the engine
+// refilled a kept bot_quota with the last bot_join_team (all ten on T, cs.sivert.io 2026-10-07).
+bool WrongSides(int ct, int t, int ctWanted, int tWanted);
 std::vector<std::string> TimescaleCommands(double ts);
 std::vector<std::string> RealTimeCommands();
 std::vector<std::string> TeardownCommands();

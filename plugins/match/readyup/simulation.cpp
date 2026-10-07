@@ -167,6 +167,7 @@ void SimulationTick(double now) {
   std::vector<std::string> cmds;
   std::vector<WebhookPlayer> connects, disconnects;
   std::vector<sim::Identity> toReady;
+  std::vector<uint64_t> unready;  // identities whose bot is gone: their .ready goes with it
   {
     std::lock_guard<std::mutex> lk(g_mu);
     if (!active) {
@@ -224,6 +225,23 @@ void SimulationTick(double now) {
         cmds = sim::RealTimeCommands();
         s.timescaleOn = false;
       }
+      if (playing && !s.waitMapStart && now >= s.resumeAt && s.setupDone) {
+        int ct = 0, t = 0, ctWanted = 0, tWanted = 0;
+        for (const auto& b : botList) {
+          if (b.team == 3) ++ct;
+          else if (b.team == 2) ++t;
+        }
+        sim::WantedPerSide(s.ids, team1Ct, &ctWanted, &tWanted);
+        if (sim::WrongSides(ct, t, ctWanted, tWanted)) {
+          // Start the fill over: the setup's bot_quota 0 / bot_kick just below, then bot by bot.
+          Print("simulation: bots on the wrong side (CT %d/%d, T %d/%d); filling again\n", ct, ctWanted, t, tWanted);
+          for (const auto& kv : s.assigned) {
+            const auto& id = s.ids[static_cast<size_t>(kv.second)];
+            if (id.steamid64 != 0) unready.push_back(id.steamid64);
+          }
+          s.setupDone = false;
+        }
+      }
       if (playing && !s.waitMapStart && now >= s.resumeAt) {
         if (!s.setupDone) {
           for (const auto& c : sim::SetupCommands()) cmds.push_back(c);
@@ -261,6 +279,7 @@ void SimulationTick(double now) {
             if (next.count(kv.first)) continue;
             const auto& id = s.ids[static_cast<size_t>(kv.second)];
             s.assignedAt.erase(kv.first);
+            if (id.steamid64 != 0) unready.push_back(id.steamid64);
             if (id.steamid64 != 0 && s.announced.erase(id.steamid64)) {
               disconnects.push_back(WebhookPlayer{id.steamid64, id.name, TeamTag(id.team)});
             }
@@ -297,6 +316,7 @@ void SimulationTick(double now) {
 
   // Outside the lock: modes / webhooks take their own.
   Send(cmds);
+  for (const auto sid : unready) ClearReady(sid);
   for (const auto& p : disconnects) WebhookEmitPlayerDisconnect(p);
   for (const auto& p : connects) WebhookEmitPlayerConnect(p);
   if (!toReady.empty() && ctx && !GoLiveTriggered()) {
