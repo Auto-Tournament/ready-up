@@ -127,6 +127,12 @@ static void TestCommands() {
   const auto add = sim::AddBotCommands(3, 4);
   CHECK(add.size() == 2 && add[0] == "bot_join_team CT" && add[1] == "bot_quota 4");
   CHECK(sim::AddBotCommands(2, 1)[0] == "bot_join_team T");
+  // Bots on the wrong side start the fill over; short or over on one side only does not.
+  CHECK(sim::WrongSides(0, 10, 5, 5));      // all ten on T after an engine refill
+  CHECK(sim::WrongSides(6, 4, 5, 5));
+  CHECK(!sim::WrongSides(5, 5, 5, 5));
+  CHECK(!sim::WrongSides(3, 2, 5, 5));      // still filling
+  CHECK(!sim::WrongSides(6, 5, 5, 5));      // one too many: trimmed, not refilled
   const auto down = sim::TeardownCommands();
   CHECK(Has(down, "bot_quota 0") && Has(down, "bot_kick") && Has(down, "bot_join_team any") &&
         Has(down, "bot_join_after_player 1"));

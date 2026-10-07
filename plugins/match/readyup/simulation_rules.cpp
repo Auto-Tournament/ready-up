@@ -146,6 +146,10 @@ std::vector<std::string> AddBotCommands(int side, int quota) {
   return {side == 3 ? "bot_join_team CT" : "bot_join_team T", "bot_quota " + std::to_string(quota)};
 }
 
+bool WrongSides(int ct, int t, int ctWanted, int tWanted) {
+  return (ct > ctWanted && t < tWanted) || (t > tWanted && ct < ctWanted);
+}
+
 std::vector<std::string> TimescaleCommands(double ts) {
   const double v = ClampTimescale(ts);
   if (v == 1.0) return {};
