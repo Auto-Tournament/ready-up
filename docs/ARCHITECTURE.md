@@ -274,6 +274,14 @@ if (!RU_API_HAS(api, grenade_spawn_available) || !api->grenade_spawn_available(a
 }
 ```
 
+### v1.15 (implemented)
+
+The license standing for new matches.
+
+| Member | Thread | Purpose |
+|---|---|---|
+| `license_stopped(self, buf, len)` | any | Why a new match must not be loaded while the server's paid license has stopped (unpaid past its grace, its key replaced a day ago, or in use on another install); -1 when matches may load. Running matches are never stopped. The match plugin refuses URL loads and fleet assigns while it answers |
+
 ### v1.14 (implemented)
 
 Client command filters. The core's `ISource2GameClients::ClientCommand` hook asks the plugins
