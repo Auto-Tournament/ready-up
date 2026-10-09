@@ -372,15 +372,16 @@ Standing StandingFor(const std::string& key, const std::string& lease, const std
   if (state == "replaced") {
     st.reason = "replaced";
     st.stops_on = state_stops_on;
-    st.status = (state_stops_on.empty() || today > state_stops_on) ? "expired" : "past_due";
+    st.status = (state_stops_on.empty() || today >= state_stops_on) ? "expired" : "past_due";
     return st;
   }
   if (state == "revoked") {
     return Standing{false, "invalid", "", "", 0};
   }
   if (p.kind == "month") {
-    const std::string stops = AddDays(p.updates_until, kGraceDays);
-    if (!stops.empty() && today > stops) {
+    // Works through the 14th day after the last paid day; stops on the 15th.
+    const std::string stops = AddDays(p.updates_until, kGraceDays + 1);
+    if (!stops.empty() && today >= stops) {
       st.status = "expired";
       st.stops_on = stops;
     } else if (today > p.updates_until) {

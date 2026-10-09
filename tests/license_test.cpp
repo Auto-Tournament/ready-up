@@ -138,7 +138,8 @@ static void RunStanding() {
   // Paid, then late, then stopped, offline.
   CHECK(at("", "", "", "2027-03-01").status == "active");
   CHECK(at("", "", "", "2027-03-16").status == "past_due");
-  CHECK(at("", "", "", "2027-03-16").stops_on == "2027-03-29");
+  CHECK(at("", "", "", "2027-03-16").stops_on == "2027-03-30");
+  CHECK(at("", "", "", "2027-03-29").status == "past_due");
   CHECK(at("", "", "", "2027-03-30").status == "expired");
   CHECK(at("", "", "", "2027-03-30").reason == "unpaid");
   // The lease moves it on; terms without the lease mark don't.
@@ -146,9 +147,9 @@ static void RunStanding() {
   CHECK(at(lease, "", "", "2027-03-30").max_servers == 20);
   CHECK(at(unmarked, "", "", "2027-03-30").status == "expired");
   // Replaced: a day, then stopped. In use elsewhere: stopped at once.
-  CHECK(at("", "replaced", "2027-03-02", "2027-03-02").status == "past_due");
-  CHECK(at("", "replaced", "2027-03-02", "2027-03-03").status == "expired");
-  CHECK(at("", "replaced", "2027-03-02", "2027-03-03").reason == "replaced");
+  CHECK(at("", "replaced", "2027-03-02", "2027-03-01").status == "past_due");
+  CHECK(at("", "replaced", "2027-03-02", "2027-03-02").status == "expired");
+  CHECK(at("", "replaced", "2027-03-02", "2027-03-02").reason == "replaced");
   CHECK(at("", "in_use_elsewhere", "2027-03-01", "2027-03-01").reason == "in_use_elsewhere");
   CHECK(at("", "in_use_elsewhere", "2027-03-01", "2027-03-01").status == "expired");
   CHECK(license::AddDays("2027-02-28", 1) == "2027-03-01");

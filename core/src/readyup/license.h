@@ -98,7 +98,7 @@ struct Standing {
   std::string status = "free";
   // Why past due / expired: "unpaid" | "replaced" | "in_use_elsewhere" (else empty).
   std::string reason;
-  std::string stops_on;  // YYYY-MM-DD, or empty
+  std::string stops_on;  // YYYY-MM-DD: the first day it no longer works, or empty
   int64_t max_servers = 0;
 };
 
