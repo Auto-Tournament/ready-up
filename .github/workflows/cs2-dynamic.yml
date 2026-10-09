@@ -26,14 +26,18 @@ name: CS2 dynamic check
 # layer of the instance's own, everything that touches it run through `csm instance exec`) or a
 # CS2 install of its own (CS2_CI_DIR alone). It
 # is OFF until the repo variable CS2_DYNAMIC_ENABLED is `true`; with it on and no runner
-# registered, the `live` job just waits in the queue. Triggers are schedule / workflow_dispatch /
-# workflow_run only: never pull_request (a PR must not run code on the runner). The server runs
+# registered, the `live` job just waits in the queue. Triggers are push to master (merged code) /
+# schedule / workflow_dispatch / workflow_run only: never pull_request (a PR must not run code on
+# the runner). The server runs
 # with +sv_lan 1 and no GSLT.
 
 on:
   workflow_run:
     workflows: ["CS2 update watch"]
     types: [completed]
+  push:
+    branches: [master]
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE*']
   schedule:
     - cron: '41 3 * * *'  # nightly
   workflow_dispatch:
@@ -83,6 +87,7 @@ jobs:
           case "$EVENT" in
             schedule) echo "trigger=nightly" >> "$GITHUB_OUTPUT"; echo "run=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
             workflow_dispatch) echo "trigger=manual" >> "$GITHUB_OUTPUT"; echo "run=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
+            push) echo "trigger=code_change" >> "$GITHUB_OUTPUT"; echo "run=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
           esac
           echo "trigger=build_change" >> "$GITHUB_OUTPUT"
           run=false

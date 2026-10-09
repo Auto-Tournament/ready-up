@@ -20,7 +20,7 @@ GitHub cron */15 (fallback, can lag) ─┴─> cs2-update-watch.yml
     no-verdict (verify broke without a result)                   ── POST no_verdict
         │ new static verdict (not fail)
         v
-cs2-dynamic.yml (self-hosted runner `readyup-live`; also nightly + workflow_dispatch; off until
+cs2-dynamic.yml (self-hosted runner `readyup-live`; also on push to master, nightly + dispatch; off until
                  repo variable CS2_DYNAMIC_ENABLED=true)
     build   : Full bundle in the sniper SDK (GitHub-hosted)
     live    : steamcmd app_update 730 -> install.sh --zip (Full) -> boot +sv_lan 1
@@ -120,7 +120,7 @@ changes.
 {"schema":1,
  "cs2":{"buildid":"25537370","patch":"1.41.8.5"},
  "readyup":{"version":"0.1.0-dev.7f61b71","commit":"<sha>"},
- "run":{"id":"<github run id>","url":"<run url>","trigger":"build_change|surface_change|nightly|release|manual",
+ "run":{"id":"<github run id>","url":"<run url>","trigger":"build_change|surface_change|code_change|nightly|release|manual",
         "stage":"static|selftest|live","state":"queued|checking|pass|warn|fail|no_verdict",
         "started_at":"ISO8601Z","finished_at":"ISO8601Z|null"},
  "overall":"pass|warn|fail|checking|no_verdict",
@@ -133,7 +133,8 @@ changes.
 - `overall`: `fail` if any component fails; `pass` only if every component and check passes;
   otherwise `warn` (static pass, live pending). `run.state` equals `overall` for a result.
 - `trigger`: `build_change` (new buildid; for the dynamic stages: after a new static verdict),
-  `surface_change` (gamedata or a plugin's `needs.json` changed on master), `manual` (dispatch),
+  `surface_change` (gamedata or a plugin's `needs.json` changed on master), `code_change` (the
+  dynamic stages after a push to master), `manual` (dispatch),
   `nightly` (the dynamic stages' nightly run). `release` is reserved.
 - `run.stage`: `static` from the watch; `selftest` then `live` from `cs2-dynamic.yml`. A dynamic
   document keeps the static checks of the last static verdict and replaces the dynamic ones, so
@@ -259,7 +260,8 @@ checks everything except the dispatch. Other settings (`CS2_POLL_REPO`, `CS2_POL
 ## Dynamic stage (self-hosted runner)
 
 `.github/workflows/cs2-dynamic.yml` runs after every watch run that recorded a new, non-failing
-static verdict (`workflow_run`), nightly, and on `workflow_dispatch`. It is **off** until the
+static verdict (`workflow_run`), after every push to master (not docs-only; `code_change`),
+nightly, and on `workflow_dispatch`. It is **off** until the
 repo variable `CS2_DYNAMIC_ENABLED` is `true`. With it on and no runner registered, the `live`
 job waits in the queue until one is.
 
