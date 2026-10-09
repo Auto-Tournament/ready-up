@@ -498,7 +498,8 @@ class Test:
         bid = self.mock.send("match.assign", other, 1)
         res = self.wait_frame("cmd.result", since, lambda f: f.get("ref") == bid)
         self.step("second assign -> busy", self.err_code(res) == "busy", self.err_code(res))
-        res = self.cmd("say", {"text": "fleet livetest"}, epoch=1)
+        # A match command: fleet.so runs `say` itself (FLEET.md 7.4), so it is not fenced by epoch.
+        res = self.cmd("snapshot_now", {}, epoch=1)
         self.step("cmd with a lower epoch -> stale_epoch", self.err_code(res) == "stale_epoch", self.err_code(res))
         res = self.cmd("pause", {"type": "admin"}, match_id="not-this-one")
         self.step("cmd for another match -> not_assigned", self.err_code(res) == "not_assigned", self.err_code(res))
@@ -591,13 +592,16 @@ class Test:
                 since = len(self.frames)
                 mark = len(self.lines)
                 res = self.cmd("restore_round", args)
-                rv = self.wait_frame("event.rounds_voided", since)
-                mr = self.wait_frame("event.match_restored", since)
-                nxt = self.wait_frame("event.round_start", since, timeout=15)
+                # Asked mid-round, the restore waits for the round to end and runs at the next
+                # round start (DoRestore: weapons come back only then), so give it a round.
+                rv = self.wait_frame("event.rounds_voided", since, timeout=a.round_timeout + 30)
+                mr = self.wait_frame("event.match_restored", since, timeout=a.round_timeout + 30)
+                mr_i = next((w["i"] for w in self.frames if w["frame"] is mr), len(self.frames)) if mr else len(self.frames)
+                nxt = self.wait_frame("event.round_start", mr_i, timeout=15)
                 self.step(f"round counter after restore ({how})", bool(nxt) and nxt["payload"]["data"]["round"] == bd["round"]
-                          and not self.frames_of("event.round_end", since),
+                          and not self.frames_of("event.round_end", mr_i),
                           f"next round_start {nxt and nxt['payload']['data']['round']}, want {bd['round']}; "
-                          f"round_end since restore: {len(self.frames_of('event.round_end', since))}")
+                          f"round_end since restore: {len(self.frames_of('event.round_end', mr_i))}")
                 self.step(f"restore_round ({how}) -> ok + rounds_voided + match_restored",
                           self.result_ok(res) and bool(rv) and bool(mr),
                           (self.err_code(res) or "ok") + (mr and f" sha256 {mr['payload']['data']['backup_sha256'][:12]}" or ""))
@@ -746,14 +750,14 @@ class Test:
                          f"{rs['teams']['team1']['score']}-{rs['teams']['team2']['score']}")
         self.step("no round events reported before the restore", bool(mr) and not early,
                   f"round events before match_restored: {early}")
-        time.sleep(3)
-        res = self.cmd("unpause", {})
+        # Everyone readied up to get here: the resume goes live by itself 3 s after the restore.
+        up = self.wait_frame("event.pause", mr_i, lambda f: f["payload"]["data"]["action"] == "unpaused", timeout=15)
         nxt = self.wait_frame("event.round_start", mr_i, timeout=30)
-        self.step("unpause after the resume -> next round is the backup's",
-                  self.result_ok(res) and bool(nxt) and nxt["payload"]["data"]["round"] == rnd and
-                  nxt["payload"]["map_number"] == 2,
-                  f"{self.err_code(res) or 'ok'}; next round_start {nxt and nxt['payload']['data']['round']} "
-                  f"map {nxt and nxt['payload']['map_number']} (want round {rnd} map 2)")
+        self.step("resume unpauses by itself -> next round is the backup's",
+                  bool(up) and bool(nxt) and nxt["payload"]["data"]["round"] == rnd and nxt["payload"]["map_number"] == 2,
+                  f"unpaused by {up and up['payload']['data'].get('by')}; next round_start "
+                  f"{nxt and nxt['payload']['data']['round']} map {nxt and nxt['payload']['map_number']} "
+                  f"(want round {rnd} map 2)")
         res = self.cmd("end_match", {"reason": "livetest-resume"})
         self.step("cmd end_match after the resume", self.result_ok(res), self.err_code(res) or "ok")
         since = len(self.frames)
