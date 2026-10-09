@@ -71,7 +71,7 @@ LIVETEST_DEFAULT = "match"
 LIVETEST_COMPONENT = {"fleet": "fleet"}
 # Order of static check kinds inside a component.
 STATIC_KINDS = ["signature", "rtti", "vtable", "hook_site", "layout"]
-TRIGGERS = ("build_change", "surface_change", "nightly", "release", "manual")
+TRIGGERS = ("build_change", "surface_change", "code_change", "nightly", "release", "manual")
 BADGE = {
     "pass": ("compatible", "brightgreen"),
     "warn": ("static ok", "yellow"),
