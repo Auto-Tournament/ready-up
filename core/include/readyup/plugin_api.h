@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 13
+#define READYUP_PLUGIN_API_VERSION_MINOR 14
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -713,7 +713,17 @@ typedef struct ru_api {
    * 0 = refused (not a live entity, a controller) or unavailable. Game thread. */
   int (*entity_spawn)(ru_plugin* self, void* entity);
 
-  /* v1.14+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.14 ===========================================================
+   * Appended in 1.14. Require 1.14 in ru_plugin_info.api_version, or check RU_API_HAS().
+   */
+  /* Why a new match must not be loaded, when the server's paid Auto Tournament license has
+   * stopped (unpaid past its grace, its key replaced by a new one a day ago, or the key in use on
+   * another Auto Tournament install). Returns the message's length (truncated to len-1 in buf),
+   * or -1 when matches may be loaded (always, without a key or with a key that doesn't verify).
+   * Running matches are never stopped. Any thread. */
+  int (*license_stopped)(ru_plugin* self, char* buf, uint32_t len);
+
+  /* v1.15+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

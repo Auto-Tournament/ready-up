@@ -323,6 +323,16 @@ int ApiLicensePlayerLine(ru_plugin* self, char* buf, uint32_t len) {
   return static_cast<int>(line.size());
 }
 
+// ---- v1.14 --------------------------------------------------------------------------
+
+int ApiLicenseStopped(ru_plugin* self, char* buf, uint32_t len) {
+  if (!self) return -1;
+  const std::string why = license::StoppedMessage();
+  if (why.empty()) return -1;
+  if (buf && len > 0) std::snprintf(buf, len, "%s", why.c_str());
+  return static_cast<int>(why.size());
+}
+
 // ---- v1.10 --------------------------------------------------------------------------
 
 int ApiSetCoreSetting(ru_plugin* self, const char* key, const char* value) {
@@ -462,6 +472,7 @@ void detail::FillEngineApi(ru_api* a) {
   a->player_teleport = &ApiPlayerTeleport;
   a->entity_create = &ApiEntityCreate;
   a->entity_spawn = &ApiEntitySpawn;
+  a->license_stopped = &ApiLicenseStopped;                        // v1.14
 }
 
 }  // namespace readyup::plugins
