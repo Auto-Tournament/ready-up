@@ -1,21 +1,21 @@
 {
  "schema": 1,
  "cs2": {
-  "buildid": "25738536",
-  "patch": "1.41.8.9"
+  "buildid": "25815307",
+  "patch": "1.41.9.0"
  },
  "readyup": {
   "version": "0.1.0-beta.8-dev.dcbffac",
   "commit": "dcbffac589a99ba62e5bbdcfa26ccc546be2cd09"
  },
  "run": {
-  "id": "37870608047",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/37870608047",
-  "trigger": "build_change",
+  "id": "37920436546",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/37920436546",
+  "trigger": "nightly",
   "stage": "live",
   "state": "warn",
-  "started_at": "2026-10-09T01:36:46Z",
-  "finished_at": "2026-10-09T01:56:45Z"
+  "started_at": "2026-10-09T10:54:19Z",
+  "finished_at": "2026-10-09T11:19:35Z"
  },
  "overall": "warn",
  "components": [
@@ -299,12 +299,10 @@
     },
     {
      "kind": "livetest",
-     "status": "pending",
-     "passed": 2,
-     "total": 2,
-     "failures": [
-      "forfeit: failed (exit 1); advisory (not required yet), see the run"
-     ]
+     "status": "pass",
+     "passed": 3,
+     "total": 3,
+     "failures": []
     }
    ]
   },
@@ -563,5 +561,5 @@
    ]
   }
  ],
- "checked_at": "2026-10-09T01:56:45Z"
+ "checked_at": "2026-10-09T11:19:35Z"
 }
