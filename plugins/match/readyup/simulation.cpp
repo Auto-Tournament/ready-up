@@ -27,6 +27,86 @@ constexpr double kMapStartWaitSeconds = 20.0;
 constexpr double kAfterSetupSeconds = 1.5;
 constexpr int kFullTeam = 5;
 
+struct FillData {
+  uint64_t matchid = 0;
+  bool setup = false;
+  double lastMap = -1;
+  double noticedAt = 0;
+  double resumeAt = 0;
+  sim::BotFeeder feeder;
+};
+FillData g_fill;  // game-thread owned
+bool Team1IsCtNow(const WebhookMatchContext& ctx);
+
+void FillTick(double now, const std::optional<WebhookMatchContext>& ctx) {
+  auto& s = g_fill;
+  const bool active = ctx && ctx->bot_fill && ctx->slug != "scrim";
+  if (!active) {
+    if (s.matchid) {
+      for (const auto& c : sim::FillTeardownCommands()) (void)EnqueueServerCommand(c.c_str());
+      const double lastMap = s.lastMap;
+      s = FillData();
+      s.lastMap = lastMap;
+    }
+    return;
+  }
+  const auto mode = GetMode();
+  if (s.matchid != ctx->matchid) {
+    const double lastMap = s.lastMap;
+    s = FillData();
+    s.lastMap = lastMap;
+    s.matchid = ctx->matchid;
+    s.noticedAt = now;
+    // Recovery of a loaded live match must keep its current bots.
+    s.setup = mode == ReadyUpMode::MatchLive || mode == ReadyUpMode::MatchKnife;
+    // The map-start event may arrive before this frame notices the new context.
+    const bool freshMap = lastMap >= 0 && now - lastMap < kMapSettleSeconds;
+    s.resumeAt = s.setup ? now : freshMap ? lastMap + kMapSettleSeconds : now + kMapStartWaitSeconds;
+  }
+  if (mode != ReadyUpMode::MatchWarmup && mode != ReadyUpMode::MatchKnife && mode != ReadyUpMode::MatchLive) return;
+  if (!s.setup && s.lastMap > s.noticedAt) s.resumeAt = s.lastMap + kMapSettleSeconds;
+  if (now < s.resumeAt) return;
+  if (!s.setup) {
+    for (const auto& c : sim::RealTimeCommands()) (void)EnqueueServerCommand(c.c_str());
+    for (const auto& c : sim::FillSetupCommands()) (void)EnqueueServerCommand(c.c_str());
+    s.setup = true;
+    s.resumeAt = now + kAfterSetupSeconds;
+    s.feeder.Reset();
+    return;
+  }
+  int humansCt = 0, humansT = 0;
+  const bool team1Ct = Team1IsCtNow(*ctx);
+  for (const auto& h : ListHumans()) {
+    if (!ctx->roster_team.count(h.steamid64) || ctx->coaches.count(h.steamid64)) continue;
+    // Reserve the roster side as soon as the human connects, even while spectating:
+    // a full bot side must not prevent the arriving human from joining it.
+    const bool isTeam1 = ctx->roster_team.at(h.steamid64) == WebhookTeam::Team1;
+    if (isTeam1 == team1Ct) ++humansCt;
+    else ++humansT;
+  }
+  std::vector<sim::Bot> bots;
+  int ct = 0, t = 0;
+  for (const auto& b : ListBots()) {
+    if (b.team == 1 || b.name == "SourceTV") continue;
+    bots.push_back({b.userid, b.team});
+    if (b.team == 3) ++ct;
+    else if (b.team == 2) ++t;
+  }
+  const auto plan = sim::PlanFill(ctx->players_per_team > 0 ? ctx->players_per_team : kFullTeam, humansCt, humansT, bots);
+  if (!plan.removeUserids.empty()) {
+    // Remove only an excess bot, never a human or the GOTV spectator.
+    (void)EnqueueServerCommand(("kickid " + std::to_string(plan.removeUserids.front())).c_str());
+    (void)EnqueueServerCommand(("bot_quota " + std::to_string(std::max(0, static_cast<int>(bots.size()) - 1))).c_str());
+    s.feeder.Reset();
+    s.resumeAt = now + 1.0;
+    return;
+  }
+  int quota = 0;
+  const int side = s.feeder.Next(now, static_cast<int>(bots.size()), ct, t, plan.ctWanted, plan.tWanted,
+                               plan.ctWanted + plan.tWanted, &quota);
+  if (side) for (const auto& c : sim::AddBotCommands(side, quota)) (void)EnqueueServerCommand(c.c_str());
+}
+
 struct Data {
   uint64_t matchid = 0;  // the simulated match (0 = none)
   std::vector<sim::Identity> ids;
@@ -102,6 +182,10 @@ bool SimulationActive() { return ActiveCtx(WebhookGetMatchContext()); }
 void SimulationOnMapStart(double now) {
   auto& s = S();
   std::lock_guard<std::mutex> lk(g_mu);
+  g_fill.lastMap = now;
+  g_fill.setup = false;
+  g_fill.resumeAt = now + kMapSettleSeconds;
+  g_fill.feeder.Reset();
   s.lastMapStartAt = now;
   if (s.matchid == 0) return;
   // New userids on the new map: identities are handed out again (no disconnect / connect webhooks:
@@ -152,6 +236,9 @@ void SimulationTick(double now) {
   auto& s = S();
   const auto ctx = WebhookGetMatchContext();
   const bool active = ActiveCtx(ctx);
+  const bool fill = ctx && ctx->bot_fill && ctx->slug != "scrim";
+  // End mixed mode before bot-only simulation applies its own setup.
+  if (!fill) FillTick(now, ctx);
   const ReadyUpMode mode = GetMode();
   // Read before taking g_mu: match_events / the player registry call back into this file
   // (SimulationPlayerForSlot) while holding their own locks.
@@ -170,17 +257,16 @@ void SimulationTick(double now) {
   std::vector<uint64_t> unready;  // identities whose bot is gone: their .ready goes with it
   {
     std::lock_guard<std::mutex> lk(g_mu);
-    if (!active) {
-      if (s.matchid == 0) return;
+    if (!active && s.matchid != 0) {
       // The simulated match is gone (series over, unloaded, replaced): bots out, defaults back.
       if (s.timescaleOn) cmds = sim::RealTimeCommands();
-      for (const auto& c : sim::TeardownCommands()) cmds.push_back(c);
+      for (const auto& c : fill ? sim::FillTeardownCommands() : sim::TeardownCommands()) cmds.push_back(c);
       Print("simulation: match %llu is over - bots removed, bot and timescale defaults restored\n",
             static_cast<unsigned long long>(s.matchid));
       const double lastMap = s.lastMapStartAt;
       s = Data();
       s.lastMapStartAt = lastMap;
-    } else {
+    } else if (active) {
       if (s.matchid != ctx->matchid) {
         // A new simulated match. Loaded now: its map load comes next, the bots start on that map.
         // Found already going (plugin reload, boot recovery of a live map): keep the bots there.
@@ -327,6 +413,8 @@ void SimulationTick(double now) {
       Debug("simulation: %s (%llu) is ready\n", id.name.c_str(), static_cast<unsigned long long>(id.steamid64));
     }
   }
+  // Previous simulation cleanup runs first so it cannot undo the mixed match setup.
+  if (fill) FillTick(now, ctx);
 }
 
 }  // namespace readyup

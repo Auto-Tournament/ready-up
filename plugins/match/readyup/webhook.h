@@ -160,6 +160,7 @@ struct WebhookMatchContext {
   int demo_upload = -1;
   // `simulation: true`: bots play the match (simulation.h); `simulation_timescale` (0.1 .. 4)
   // is host_timescale while a map is live.
+  bool bot_fill = false;  // anonymous fillers alongside real roster players
   bool simulation = false;
   double simulation_timescale = 1.0;
 };

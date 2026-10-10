@@ -38,6 +38,12 @@ Your manual match must include (at minimum):
   - `wingman`: `true` for 2v2 on CS2's wingman mode: `game_type 0` / `game_mode 2` before the map
     load, go-live execs `ReadyUp/live_wingman.cfg` (MR8; `maxRounds` defaults to 16 and
     `overtimeSegments` to 2 when not set). Not with `"ruleset": "valve"`.
+  - `bot_fill`: `true` fills each side with anonymous bots up to `players_per_team` (1..32).
+    Connected roster players reserve their team's slots, including while spectating. Bots leave
+    when a player joins and return when a player disconnects. Humans use normal ready-up, veto
+    and match flow; play runs at normal speed. SourceTV stays connected for demo recording.
+    Bot fill takes precedence over `simulation` if both are set. Fleet uses
+    `rules.bot_fill: { "players_per_team": 2 }`.
   - `simulation`: `true` and Ready Up plays the match with bots, one per roster player (they play as
     those players in stats and events, and ready up by themselves); `simulation_timescale`
     (`0.1`..`4`, default 1) is `host_timescale` while a map is live. For platform end-to-end tests.
@@ -141,3 +147,18 @@ These should reflect the values from the match config `cvars{}` (unless blocked 
 - **Players aren’t forced to teams**: `IServerGameClients::ClientCommand` hook failed → team enforcement may be broken.
 - **No RU warmup banner / `.r` ignored**: chat interception path failed (but RCON may still work). Check server logs for chat-hook installation messages.
 
+
+## Tournament bracket with humans and bot fill
+
+Use an AT and Ready Up build that both support bot fill. In AT's tournament setup, choose
+**2 players per team** and turn on **Fill teams with bots** under Format. Create two teams,
+each containing one human Steam account. Leave lineup requirements off for this test.
+
+Start the tournament, complete the normal veto and connect to the allocated server. Each
+human gets one bot teammate and uses `.ready`. Play the match, then check that AT receives
+the map scores and advances the bracket. A two-team bracket tests the final; use four teams
+with human captains to exercise advancement into another round. Bots retain anonymous
+identities and are excluded from player ratings.
+
+When reporting a test, include the match slug, server, map and approximate time of any issue.
+For BO3, also verify that each new map fills both sides and that the demo is recorded.

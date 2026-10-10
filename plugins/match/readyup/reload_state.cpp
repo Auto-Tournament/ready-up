@@ -125,6 +125,7 @@ Json ContextToJson(const WebhookMatchContext& c) {
   for (const auto& kv : c.roster_names) names[U64(kv.first)] = kv.second;
   j["roster_names"] = std::move(names);
   j["wingman"] = c.wingman;
+  j["bot_fill"] = c.bot_fill;
   j["simulation"] = c.simulation;
   j["simulation_timescale"] = c.simulation_timescale;
   return j;
@@ -197,6 +198,7 @@ WebhookMatchContext ContextFromJson(const Json& j) {
     for (const auto& kv : v->Members()) c.roster_names[std::strtoull(kv.first.c_str(), nullptr, 10)] = kv.second.AsString();
   }
   c.wingman = Bool(&j, "wingman");
+  c.bot_fill = Bool(&j, "bot_fill");
   c.simulation = Bool(&j, "simulation");
   if (const Json* v = j.Find("simulation_timescale")) c.simulation_timescale = v->AsDouble();
   return c;
