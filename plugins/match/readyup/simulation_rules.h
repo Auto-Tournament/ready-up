@@ -58,6 +58,16 @@ std::map<int, int> Assign(const std::map<int, int>& prev, const std::vector<Bot>
 // Bots each side should have: the identities of the team playing it.
 void WantedPerSide(const std::vector<Identity>& ids, bool team1IsCt, int* ctWanted, int* tWanted);
 
+// Mixed matches: fillers remain anonymous and never borrow a human's identity.
+struct FillPlan {
+  int ctWanted = 0;
+  int tWanted = 0;
+  std::vector<int> removeUserids;
+};
+FillPlan PlanFill(int playersPerTeam, int humansCt, int humansT, const std::vector<Bot>& bots);
+std::vector<std::string> FillSetupCommands();
+std::vector<std::string> FillTeardownCommands();
+
 // When to add the next bot. Fed once per tick with the bots on the server.
 class BotFeeder {
  public:

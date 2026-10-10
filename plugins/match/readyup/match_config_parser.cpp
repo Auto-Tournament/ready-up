@@ -240,6 +240,9 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
       }
     }
   }
+  if (auto fill = parseBool(cfg->get("bot_fill"))) ctx.bot_fill = *fill;
+  // Mixed matches always run in real time and retain human roster identities.
+  if (ctx.bot_fill) { ctx.simulation = false; ctx.simulation_timescale = 1.0; }
   if (ctx.wingman) {
     // live_wingman.cfg's MR8 / MR2 overtime unless the config says otherwise.
     if (!maxRoundsExplicit) ctx.maxRounds = wingman::kMaxRounds;

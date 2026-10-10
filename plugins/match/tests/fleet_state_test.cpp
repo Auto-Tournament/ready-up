@@ -261,6 +261,19 @@ static void TestAssign() {
     plain["rules"] = J(R"({"max_rounds": 24})");
     auto c6 = ParseWebhookMatchContextFromJson(fs::AssignToMatConfig("x", plain, nullptr).Dump(), &err);
     CHECK(c6 && !c6->wingman && !c6->simulation);
+    Json mixed = plain;
+    mixed["rules"] = J(R"({"bot_fill":{"players_per_team":2},"simulation":{"timescale":4}})");
+    Json mixedAssign = p;
+    mixedAssign["config"] = mixed;
+    CHECK(fs::ValidateAssign(mixedAssign, &err));
+    mixedAssign["config"]["rules"]["bot_fill"]["players_per_team"] = 0;
+    CHECK(!fs::ValidateAssign(mixedAssign, &err));
+    mixedAssign["config"]["rules"]["bot_fill"]["players_per_team"] = 33;
+    CHECK(!fs::ValidateAssign(mixedAssign, &err));
+    mixedAssign["config"]["rules"]["bot_fill"]["players_per_team"] = 1.5;
+    CHECK(!fs::ValidateAssign(mixedAssign, &err));
+    auto mc = ParseWebhookMatchContextFromJson(fs::AssignToMatConfig("mixed", mixed, nullptr).Dump(), &err);
+    CHECK(mc && mc->bot_fill && mc->players_per_team == 2 && !mc->simulation && mc->simulation_timescale == 1.0);
     // rules.demo (demo_recorder.h): absent = the server's settings (-1).
     CHECK(c6 && c6->demo_record == -1 && c6->demo_upload == -1);
     CHECK(!fs::AssignToMatConfig("x", plain, nullptr).Find("config")->Find("demo_record"));

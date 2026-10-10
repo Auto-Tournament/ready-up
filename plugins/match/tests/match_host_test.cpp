@@ -852,6 +852,52 @@ int main(int argc, char** argv) {
     rp::Frame(true);
   }
 
+  std::puts("-- mixed bot fill: real roster, arriving humans, map change and SourceTV");
+  {
+    const std::string body = R"({"id":6000,"slug":"mixed","config":{"matchid":6000,"num_maps":3,"maplist":["de_mixed","de_mixed2","de_mixed3"],"map_sides":["team1_ct","team1_ct","team1_ct"],"bot_fill":true,"players_per_team":2,"maxRounds":24,"cvars":{},"team1":{"name":"Alpha","players":{"76561198000000001":"alice","76561198000000003":"charlie"}},"team2":{"name":"Bravo","players":{"76561198000000002":"bob"}}}})";
+    g_players = {{2, 2, 76561198000000001ull, 3, false, "alice"},
+                 {3, 3, 76561198000000002ull, 2, false, "bob"},
+                 {9, 99, 0, 1, true, "SourceTV"}};
+    std::thread http;
+    const int port = ServeOnce(body, &http);
+    rp::TryDispatchRu(true, 0, "Console", "ru match load http://127.0.0.1:" + std::to_string(port) + "/mixed.json");
+    rp::Frame(true);
+    http.join();
+    Check(FramesUntil([] { return Has(Summary(), "\"ru_mode\":\"match_warmup\""); }, 2000), "mixed: match loaded");
+    ClearCmds();
+    rp::LifecycleEvent mapStart;
+    mapStart.map = "de_mixed";
+    mapStart.type = RU_EVENT_MAP_START;
+    rp::PostEvent(mapStart);
+    Check(FramesUntil([] { return Sent("bot_join_team CT") && Sent("bot_quota 1"); }, 7000), "mixed: first empty slot gets a CT bot");
+    g_players.push_back({10, 110, 0, 3, true, "CT bot"});
+    Check(FramesUntil([] { return Sent("bot_join_team T") && Sent("bot_quota 2"); }, 3000), "mixed: the other empty slot gets a T bot");
+    g_players.push_back({11, 111, 0, 2, true, "T bot"});
+    Check(!Sent("bot_kick") && !Sent("kickid 99"), "mixed: SourceTV is preserved");
+    Check(Has(Summary(), "\"ru_mode\":\"match_warmup\""), "mixed: bots do not ready up for humans");
+    ClearCmds();
+    // Joining from spectator must free the roster side before the human tries to take it.
+    g_players.push_back({4, 4, 76561198000000003ull, 1, false, "charlie"});
+    Check(FramesUntil([] { return Sent("kickid 110"); }, 3000), "mixed: arriving human displaces only the excess CT bot");
+    Check(Sent("bot_quota 1") && !Sent("kickid 111") && !Sent("kickid 4") && !Sent("kickid 99"),
+          "mixed: the other side, humans and SourceTV remain");
+    g_players.pop_back();
+    g_players.erase(g_players.begin() + 3);  // engine applied kickid 110
+    ClearCmds();
+    Check(FramesUntil([] { return Sent("bot_join_team CT") && Sent("bot_quota 2"); }, 3000), "mixed: human disconnect refills the empty slot");
+    // A map start clears the old quota, then fills the new map after its cfg has settled.
+    g_players.erase(g_players.begin() + 3);  // old map's T bot
+    ClearCmds();
+    mapStart.map = "de_mixed2";
+    rp::PostEvent(mapStart);
+    Check(FramesUntil([] { return Sent("bot_quota 0") && Sent("bot_join_team CT"); }, 7000), "mixed: map change refills after setup");
+    Check(!Sent("bot_kick"), "mixed: map setup keeps SourceTV");
+    ClearCmds();
+    rp::TryDispatchRu(true, 0, "Console", "ru match end");
+    Check(FramesUntil([] { return Sent("bot_join_after_player 1"); }, 2000), "mixed: end restores bot defaults");
+    Check(Sent("bot_quota 0") && !Sent("bot_kick"), "mixed: end removes gameplay bots and preserves SourceTV");
+  }
+
   // Return with match.so still loaded and its workers running, like a server `quit` (the core never
   // unloads plugins): the plugin's exit handler must join them before its statics are destroyed,
   // or exit() aborts (joinable std::thread) or hangs (a worker waiting on a destroyed condvar).

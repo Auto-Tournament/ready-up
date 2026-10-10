@@ -308,6 +308,13 @@ bool ValidateAssign(const Json& payload, std::string* err) {
   if (!ValidPassword(pw->AsString())) return fail("password has characters that cannot go into sv_password");
   if (const Json* r = cfg->Find("rules"); r && r->type() != Json::Type::Object) return fail("rules must be an object");
   if (const Json* c = cfg->Find("cvars"); c && c->type() != Json::Type::Object) return fail("cvars must be an object");
+  if (const Json* rules = Obj(*cfg, "rules")) {
+    if (const Json* fill = rules->Find("bot_fill")) {
+      if (fill->type() != Json::Type::Object || !IsInt(fill->Find("players_per_team")) ||
+          Int(*fill, "players_per_team", 0) < 1 || Int(*fill, "players_per_team", 0) > 32)
+        return fail("bot_fill.players_per_team must be an integer 1..32");
+    }
+  }
   if (!ValidateRuleset(*cfg, err)) return false;
   return true;
 }
@@ -437,6 +444,11 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
     if (const Json* ts = sm->Find("timescale"); ts && (ts->type() == Json::Type::Double || ts->type() == Json::Type::Int)) {
       cfg["simulation_timescale"] = ts->type() == Json::Type::Int ? static_cast<double>(ts->AsInt()) : ts->AsDouble();
     }
+  }
+  if (const Json* fill = Obj(r, "bot_fill")) {
+    cfg["bot_fill"] = true;
+    cfg["players_per_team"] = Int(*fill, "players_per_team", 5);
+    cfg["simulation"] = false;
   }
   // Ruleset + overrides (ruleset.h; validated in ValidateAssign).
   if (const Json* rs = r.Find("ruleset")) cfg["ruleset"] = *rs;

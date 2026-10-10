@@ -243,7 +243,29 @@ static void TestFeederTrim() {
   CHECK(!g.Trim(1.0, 11, 5, 5, 5, 5, &q));
 }
 
+static void TestMixedFill() {
+  CHECK(!Has(sim::FillSetupCommands(), "bot_kick"));
+  CHECK(!Has(sim::FillTeardownCommands(), "bot_kick"));
+  CHECK(Has(sim::FillSetupCommands(), "bot_quota 0"));
+  const std::vector<sim::Bot> bots = {{10, 3}, {11, 2}};
+  auto p = sim::PlanFill(2, 1, 1, bots);
+  CHECK(p.ctWanted == 1 && p.tWanted == 1 && p.removeUserids.empty());
+  p = sim::PlanFill(2, 2, 1, bots);
+  CHECK(p.ctWanted == 0 && p.tWanted == 1 && p.removeUserids == std::vector<int>{10});
+  p = sim::PlanFill(2, 1, 0, bots);
+  CHECK(p.ctWanted == 1 && p.tWanted == 2 && p.removeUserids.empty());
+  p = sim::PlanFill(2, 1, 2, {{10, 2}, {11, 3}}); // side swap
+  CHECK(p.ctWanted == 1 && p.tWanted == 0 && p.removeUserids == std::vector<int>{10});
+  p = sim::PlanFill(2, 2, 2, {{12, 1}, {13, 0}}); // spectator/GOTV and joining bot untouched
+  CHECK(p.removeUserids.empty());
+  std::string err;
+  auto c = ParseWebhookMatchContextFromJson(R"({"matchid":7,"bot_fill":true,"simulation":true,"simulation_timescale":4,"players_per_team":2,"maplist":["de_dust2"],"team1":{"players":{"76561198000000001":"Sivert"}},"team2":{"players":{"76561198000000002":"Emil"}}})", &err);
+  CHECK(c && c->bot_fill && !c->simulation && c->simulation_timescale == 1.0 && c->players_per_team == 2);
+  CHECK(c && c->roster_team.size() == 2);
+}
+
 int main() {
+  TestMixedFill();
   TestTimescale();
   TestIdentities();
   TestAssign();

@@ -172,6 +172,10 @@ static void TestReadyGate() {
   // Full team: players_per_team (0 = 5) capped at the roster.
   CHECK(FullTeamSize(5, 0) == 5 && FullTeamSize(7, 0) == 5 && FullTeamSize(2, 0) == 2 && FullTeamSize(3, 2) == 2);
   CHECK(FullTeamSize(0, 0) == 0);
+  // Mixed 2v2 with one roster human per side: that human readies, the anonymous bot does not.
+  CHECK(FullTeamSize(1, 2) == 1);
+  CHECK(TeamReadyToGoLive(1, 1, 1, 0, 2));
+  CHECK(!TeamReadyToGoLive(1, 1, 0, 0, 2));
   // A roster of 6 (one substitute), rule 0: 5 ready players go live, the 6th does not hold it up.
   CHECK(TeamReadyToGoLive(6, 6, 5, 0, 0));
   CHECK(TeamReadyToGoLive(6, 5, 5, 0, 0));

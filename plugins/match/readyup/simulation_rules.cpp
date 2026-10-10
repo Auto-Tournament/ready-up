@@ -8,6 +8,31 @@
 namespace readyup {
 namespace sim {
 
+FillPlan PlanFill(int playersPerTeam, int humansCt, int humansT, const std::vector<Bot>& bots) {
+  FillPlan p;
+  const int size = std::max(1, std::min(32, playersPerTeam));
+  p.ctWanted = std::max(0, size - std::max(0, humansCt));
+  p.tWanted = std::max(0, size - std::max(0, humansT));
+  int ct = 0, t = 0;
+  for (const auto& b : bots) {
+    if (b.side == 3 && ++ct > p.ctWanted) p.removeUserids.push_back(b.userid);
+    if (b.side == 2 && ++t > p.tWanted) p.removeUserids.push_back(b.userid);
+  }
+  return p;
+}
+
+std::vector<std::string> FillSetupCommands() {
+  auto commands = SetupCommands();
+  // bot_kick also kicks GOTV. Quota zero removes gameplay bots while keeping the demo alive.
+  commands.erase(std::remove(commands.begin(), commands.end(), "bot_kick"), commands.end());
+  return commands;
+}
+std::vector<std::string> FillTeardownCommands() {
+  auto commands = TeardownCommands();
+  commands.erase(std::remove(commands.begin(), commands.end(), "bot_kick"), commands.end());
+  return commands;
+}
+
 std::string TimescaleText(double ts) {
   char buf[32];
   std::snprintf(buf, sizeof(buf), "%.2f", ClampTimescale(ts));
