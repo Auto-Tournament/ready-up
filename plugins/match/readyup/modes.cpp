@@ -727,16 +727,21 @@ static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContex
   // Bot fill with nobody connected yet: the match does not go live the moment
   // it loads (2026-10-12: it went live before the humans joined). A
   // bots-only match goes after BotFillEmptyGraceSeconds with nobody joining.
+  // The grace counts from when the server last became empty: a new map (the
+  // players reconnect after the change) or the last human leaving starts it
+  // over (2026-10-12: map 2 went live at once, timed from the match load).
+  static bool wasEmpty = false;
+  static std::chrono::steady_clock::time_point emptySince;
   if (ctx.bot_fill && present[0] + present[1] == 0) {
-    static uint64_t emptyMatch = 0;
-    static std::chrono::steady_clock::time_point emptySince;
     const auto nowTp = std::chrono::steady_clock::now();
-    if (emptyMatch != ctx.matchid) {
-      emptyMatch = ctx.matchid;
+    if (!wasEmpty) {
+      wasEmpty = true;
       emptySince = nowTp;
     }
     const double waited = std::chrono::duration<double>(nowTp - emptySince).count();
     if (!BotFillEmptyMayGoLive(waited)) return false;
+  } else {
+    wasEmpty = false;
   }
   for (int t = 0; t < 2; ++t) {
     // Bot fill: bots are always ready, so only the connected humans hold a team up.
