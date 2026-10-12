@@ -399,8 +399,24 @@ static void MaybeAutoPickKnifeSideLocked(State& st) {
   (void)ApplyKnifeSideChoiceLocked(st, ctx, mapNumber, "stay", /*pickerSteamid64=*/0, /*pickerName=*/"timeout");
 }
 
+// Team1's side right now: the map's start side, flipped by every side swap so far (half time,
+// overtime). The same rule as simulation.cpp's, which is private to that file.
+static bool Team1IsCtNow(const WebhookMatchContext& ctx) {
+  const int mapNumber = std::max(1, MatchStateGet().map_number);
+  bool team1Ct = true;
+  if (static_cast<size_t>(mapNumber) <= ctx.map_sides.size()) {
+    team1Ct = ctx.map_sides[static_cast<size_t>(mapNumber - 1)] != "team2_ct";
+  }
+  if (MatchEventsSnapshot().swapCount % 2 != 0) team1Ct = !team1Ct;
+  return team1Ct;
+}
+
 static void MaybeForceRosterTeamsLocked(State& st) {
-  if (st.mode != ReadyUpMode::MatchWarmup && st.mode != ReadyUpMode::MatchKnife) return;
+  // Live too: a roster player who switched team mid-map (2026-10-12, a BO3's
+  // second map) goes back. Switching team already killed them, so moving
+  // them back costs nothing more; someone on their side is never touched.
+  const bool live = st.mode == ReadyUpMode::MatchLive;
+  if (st.mode != ReadyUpMode::MatchWarmup && st.mode != ReadyUpMode::MatchKnife && !live) return;
   auto ctxOpt = WebhookGetMatchContext();
   if (!ctxOpt) return;
   const auto& ctx = *ctxOpt;
@@ -421,7 +437,8 @@ static void MaybeForceRosterTeamsLocked(State& st) {
     return true;
   };
 
-  const bool team1IsCt = team1IsCtForMap();
+  // While live the sides may have swapped (half time, overtime): use the current ones.
+  const bool team1IsCt = live ? Team1IsCtNow(ctx) : team1IsCtForMap();
   const auto now = std::chrono::steady_clock::now();
   const auto minInterval = std::chrono::milliseconds(900);
 
