@@ -108,6 +108,10 @@ ReadyTally TeamReadyTally(int rosterSize, int ready, int playersPerTeam = 0);
 // bots play). The "x/y ready" count is those humans: ready connected over connected.
 bool BotFillTeamReady(int connected, int readyConnected);
 ReadyTally BotFillReadyTally(int connected, int readyConnected);
+// Bot fill with no human connected: the match waits this long for anyone to join before its bots
+// play it alone (a bots-only bracket match), never going live the moment it loads.
+constexpr double kBotFillEmptyGraceSeconds = 60.0;
+bool BotFillEmptyMayGoLive(double secondsEmpty);
 
 // Spectators of the match config (casters) who typed .ready: `required` (min_spectators_to_ready)
 // of them are needed before go-live. 0 (the default) never holds the match up.

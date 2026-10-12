@@ -4,6 +4,7 @@
 #include "readyup/engine.h"
 #include "readyup/logging.h"
 #include "readyup/match_events.h"
+#include "readyup/match_features.h"
 #include "readyup/match_state.h"
 #include "readyup/modes.h"
 #include "readyup/players.h"
@@ -92,6 +93,9 @@ void FillTick(double now, const std::optional<WebhookMatchContext>& ctx) {
     if (b.team == 3) ++ct;
     else if (b.team == 2) ++t;
   }
+  // While the match is live, bots change only in freeze time: a bot kicked or
+  // added mid-round respawned in front of the players (2026-10-12).
+  if (mode == ReadyUpMode::MatchLive && !MatchFeaturesInFreeze()) return;
   const auto plan = sim::PlanFill(ctx->players_per_team > 0 ? ctx->players_per_team : kFullTeam, humansCt, humansT, bots);
   if (!plan.removeUserids.empty()) {
     // Remove only an excess bot, never a human or the GOTV spectator.
