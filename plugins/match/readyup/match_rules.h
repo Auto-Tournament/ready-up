@@ -113,6 +113,13 @@ ReadyTally BotFillReadyTally(int connected, int readyConnected);
 constexpr double kBotFillEmptyGraceSeconds = 60.0;
 bool BotFillEmptyMayGoLive(double secondsEmpty);
 
+// After a failover resume nobody types .ready: the players were mid-match when the server went.
+// The match goes live once every roster player is back, or kResumeRejoinSeconds after the first
+// one came back (the backup is restored at that round start, so everyone present gets their
+// money and weapons; then it sits paused as any restore does).
+constexpr double kResumeRejoinSeconds = 45.0;
+bool ResumeMayGoLive(int rosterTotal, int presentTotal, double secondsSinceFirstBack);
+
 // Spectators of the match config (casters) who typed .ready: `required` (min_spectators_to_ready)
 // of them are needed before go-live. 0 (the default) never holds the match up.
 bool SpectatorsReadyToGoLive(int required, int readySpectators);

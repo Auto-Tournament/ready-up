@@ -23,6 +23,7 @@
 #include "readyup/knife_tracker.h"
 #include "readyup/logging.h"
 #include "readyup/match_rules.h"
+#include "readyup/fleet_bridge.h"
 #include "readyup/match_settings.h"
 #include "readyup/match_state.h"
 #include "readyup/pause_state.h"
@@ -730,6 +731,23 @@ static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContex
   // The grace counts from when the server last became empty: a new map (the
   // players reconnect after the change) or the last human leaving starts it
   // over (2026-10-12: map 2 went live at once, timed from the match load).
+  // A failover resume: no ready-up, live as the players come back (match_rules.h).
+  if (fleet_bridge::ResumeWaiting()) {
+    static bool anyBack = false;
+    static std::chrono::steady_clock::time_point firstBack;
+    const int presentTotal = present[0] + present[1];
+    if (presentTotal > 0) {
+      const auto nowTp = std::chrono::steady_clock::now();
+      if (!anyBack) {
+        anyBack = true;
+        firstBack = nowTp;
+      }
+      const double since = std::chrono::duration<double>(nowTp - firstBack).count();
+      return ResumeMayGoLive(roster[0] + roster[1], presentTotal, since);
+    }
+    anyBack = false;
+    if (!ctx.bot_fill) return false;  // nobody back yet; a bot-filled match uses its empty grace below
+  }
   static bool wasEmpty = false;
   static std::chrono::steady_clock::time_point emptySince;
   if (ctx.bot_fill && present[0] + present[1] == 0) {

@@ -42,6 +42,9 @@ void OnLogLine(const char* line);
 
 // True while a platform assignment is active.
 bool Assigned();
+// A failover resume is waiting to go live (its backup not restored yet): nobody has to ready;
+// the match goes live as players come back (modes.cpp, match_rules.h ResumeMayGoLive).
+bool ResumeWaiting();
 // The enrolled fleet server id (fleet.so status), "" without fleet / before enrollment. Game thread.
 std::string FleetServerId();
 // The fleet MatchState (what state.snapshot / hello carry) while assigned; false otherwise.
