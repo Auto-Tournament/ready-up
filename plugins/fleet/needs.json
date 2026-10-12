@@ -14,10 +14,12 @@
   ],
   "surface": [
     "CCommand",
+    "CServerSideClient_GameEventLegacyProxy",
     "ClientPrint",
     "Host_Say",
     "ISource2GameClients::ClientCommand",
     "ISource2Server::GameFrame",
+    "LegacyGameEventListener",
     "UTIL_ClientPrintAll"
   ],
   "schema": [],
