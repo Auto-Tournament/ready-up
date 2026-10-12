@@ -387,6 +387,15 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
   return &info;
 }
 
+// `jointeam <team>` (the team menu sends it too): refused for a roster player whose team is
+// locked; they are told why.
+static int OnJoinTeam(void*, int slot, uint64_t steamid64, const char*, int argc, const char* const* argv) {
+  const int team = argc > 1 ? std::atoi(argv[1]) : 0;
+  if (!TeamLockRefusesJoin(steamid64, team)) return 0;
+  ClientPrintChat(slot, "Ready Up: teams are locked for this match.");
+  return 1;
+}
+
 READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_api_version) {
   if (RU_API_VERSION_MAJOR(core_api_version) != READYUP_PLUGIN_API_VERSION_MAJOR ||
       !RU_API_HAS(api, current_map)) {
@@ -425,6 +434,12 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
       }
     }
 
+    // The team lock (api 1.14): roster players cannot switch team at all during a match.
+    if (RU_API_HAS(api, filter_client_command)) {
+      if (!api->filter_client_command(api->self, "jointeam", &OnJoinTeam, nullptr)) {
+        Print("match: could not filter jointeam (team lock falls back to moving players back)\n");
+      }
+    }
     api->on_frame(api->self, &OnFrame, nullptr);
     api->on_tick(api->self, &OnTick, nullptr);
     api->on_tick(api->self, &OnSlowTick, nullptr);

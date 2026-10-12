@@ -400,8 +400,24 @@ static void MaybeAutoPickKnifeSideLocked(State& st) {
   (void)ApplyKnifeSideChoiceLocked(st, ctx, mapNumber, "stay", /*pickerSteamid64=*/0, /*pickerName=*/"timeout");
 }
 
+// Team1's side right now: the map's start side, flipped by every side swap so far (half time,
+// overtime). The same rule as simulation.cpp's, which is private to that file.
+static bool Team1IsCtNow(const WebhookMatchContext& ctx) {
+  const int mapNumber = std::max(1, MatchStateGet().map_number);
+  bool team1Ct = true;
+  if (static_cast<size_t>(mapNumber) <= ctx.map_sides.size()) {
+    team1Ct = ctx.map_sides[static_cast<size_t>(mapNumber - 1)] != "team2_ct";
+  }
+  if (MatchEventsSnapshot().swapCount % 2 != 0) team1Ct = !team1Ct;
+  return team1Ct;
+}
+
 static void MaybeForceRosterTeamsLocked(State& st) {
-  if (st.mode != ReadyUpMode::MatchWarmup && st.mode != ReadyUpMode::MatchKnife) return;
+  // Live too: a roster player who switched team mid-map (2026-10-12, a BO3's
+  // second map) goes back. Switching team already killed them, so moving
+  // them back costs nothing more; someone on their side is never touched.
+  const bool live = st.mode == ReadyUpMode::MatchLive;
+  if (st.mode != ReadyUpMode::MatchWarmup && st.mode != ReadyUpMode::MatchKnife && !live) return;
   auto ctxOpt = WebhookGetMatchContext();
   if (!ctxOpt) return;
   const auto& ctx = *ctxOpt;
@@ -422,7 +438,8 @@ static void MaybeForceRosterTeamsLocked(State& st) {
     return true;
   };
 
-  const bool team1IsCt = team1IsCtForMap();
+  // While live the sides may have swapped (half time, overtime): use the current ones.
+  const bool team1IsCt = live ? Team1IsCtNow(ctx) : team1IsCtForMap();
   const auto now = std::chrono::steady_clock::now();
   const auto minInterval = std::chrono::milliseconds(900);
 
@@ -691,6 +708,19 @@ static void EnforceWhitelistLocked(State& st) {
 }
 
 static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContext& ctx) {
+  // Nobody goes live on the wrong side: a player who switched team and typed .ready before the
+  // team lock moved them back would start the match there. Wait for the lock (it moves them
+  // within a second; MaybeForceRosterTeamsLocked).
+  {
+    const bool team1Ct = Team1IsCtNow(ctx);
+    for (const auto& h : ListHumans()) {
+      auto it = ctx.roster_team.find(h.steamid64);
+      if (it == ctx.roster_team.end() || (h.team != 2 && h.team != 3)) continue;
+      const bool isTeam1 = it->second == WebhookTeam::Team1;
+      const int want = (isTeam1 == team1Ct) ? 3 : 2;
+      if (h.team != want) return false;
+    }
+  }
   // min_spectators_to_ready: that many of the match's spectators (casters) typed .ready.
   if (const int needSpec = EffectiveRules().min_spectators_to_ready; needSpec > 0) {
     int readySpec = 0;
@@ -1608,6 +1638,30 @@ bool RestartMatch() {
   // Best-effort reset scoreboard state.
   (void)EnqueueServerCommand("mp_restartgame 1");
   return true;
+}
+
+bool TeamLockRefusesJoin(uint64_t steamid64, int team) {
+  if (steamid64 == 0) return false;
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  if (st.mode != ReadyUpMode::MatchWarmup && st.mode != ReadyUpMode::MatchKnife &&
+      st.mode != ReadyUpMode::MatchLive) {
+    return false;
+  }
+  const auto ctx = WebhookGetMatchContext();
+  if (!ctx || ctx->slug == "scrim") return false;
+  if (ctx->spectators.count(steamid64)) return team != 1;  // casters stay spectators
+  auto it = ctx->roster_team.find(steamid64);
+  if (it == ctx->roster_team.end()) return false;  // not on the roster: the whitelist handles them
+  const bool team1Ct = st.mode == ReadyUpMode::MatchLive ? Team1IsCtNow(*ctx) : [&] {
+    const int mapNum = std::max(1, MatchStateGet().map_number);
+    if (static_cast<size_t>(mapNum) <= ctx->map_sides.size()) {
+      return ctx->map_sides[static_cast<size_t>(mapNum - 1)] != "team2_ct";
+    }
+    return true;
+  }();
+  const int want = ((it->second == WebhookTeam::Team1) == team1Ct) ? 3 : 2;
+  return team != want;
 }
 
 bool EndMatchResetServer() {
