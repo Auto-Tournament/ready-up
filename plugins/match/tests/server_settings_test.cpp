@@ -187,6 +187,11 @@ static void TestReadyGate() {
   CHECK(!BotFillEmptyMayGoLive(0));
   CHECK(!BotFillEmptyMayGoLive(kBotFillEmptyGraceSeconds - 1));
   CHECK(BotFillEmptyMayGoLive(kBotFillEmptyGraceSeconds));
+  // Failover resume: live when everyone is back, or after the rejoin window once anyone is.
+  CHECK(!ResumeMayGoLive(4, 0, 999));
+  CHECK(ResumeMayGoLive(4, 4, 0));
+  CHECK(!ResumeMayGoLive(4, 2, kResumeRejoinSeconds - 1));
+  CHECK(ResumeMayGoLive(4, 2, kResumeRejoinSeconds));
   // A roster of 6 (one substitute), rule 0: 5 ready players go live, the 6th does not hold it up.
   CHECK(TeamReadyToGoLive(6, 6, 5, 0, 0));
   CHECK(TeamReadyToGoLive(6, 5, 5, 0, 0));

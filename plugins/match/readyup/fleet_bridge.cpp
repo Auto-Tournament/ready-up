@@ -2119,6 +2119,7 @@ void Tick(double now) {
 }
 
 bool Assigned() { return g_asg.active; }
+bool ResumeWaiting() { return g_resumeActive && !g_resumeRestored; }
 bool EndedKickPending() { return !g_kicks.empty(); }
 
 bool RestoreRoundFromLocalBackup(int round, const std::string& by, const std::string& reason, std::string* err,

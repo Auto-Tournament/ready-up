@@ -128,6 +128,12 @@ bool BotFillTeamReady(int connected, int readyConnected) {
   return std::max(0, readyConnected) >= std::max(0, connected);
 }
 
+bool ResumeMayGoLive(int rosterTotal, int presentTotal, double secondsSinceFirstBack) {
+  if (presentTotal <= 0) return false;
+  if (presentTotal >= rosterTotal) return true;
+  return secondsSinceFirstBack >= kResumeRejoinSeconds;
+}
+
 bool BotFillEmptyMayGoLive(double secondsEmpty) { return secondsEmpty >= kBotFillEmptyGraceSeconds; }
 
 ReadyTally BotFillReadyTally(int connected, int readyConnected) {
