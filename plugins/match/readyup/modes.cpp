@@ -239,6 +239,7 @@ static std::string KnifeWinnerNameLocked(const State& st, const WebhookMatchCont
 
 // Forward declarations (defined later in this file).
 static void ApplyWarmupRulesLocked(State& st);
+static void AppendTeamNameCmds(std::vector<std::string>* cmds);
 static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContext& ctx);
 static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx);
 static void FinishMapLocked(State& st, const WebhookMatchContext& ctx, int map_number, const std::string& map,
@@ -815,6 +816,10 @@ static void ApplyWarmupRulesLocked(State& st) {
     }
     // No death drops even with an older warmup.cfg that lacks them (weapon_cleanup.h).
     EnqueueAfterCfg(std::vector<std::string>(std::begin(kWarmupNoDropCmds), std::end(kWarmupNoDropCmds)));
+    // The scoreboard shows the teams' names from warmup on, not only once live.
+    std::vector<std::string> names;
+    AppendTeamNameCmds(&names);
+    EnqueueAfterCfg(std::move(names));
     if (any) {
       st.warmupRulesApplied = true;
       DebugLine("modes: warmup cfg executed (CS2 warmup off)");
@@ -861,6 +866,14 @@ static void ApplyWarmupRulesLocked(State& st) {
   // Warmup runs for hours: nothing drops on death (weapon_cleanup.h).
   for (const char* c : kWarmupNoDropCmds) {
     if (EnqueueServerCommand(c)) any = true;
+  }
+  // The scoreboard shows the teams' names from warmup on, not only once live.
+  {
+    std::vector<std::string> names;
+    AppendTeamNameCmds(&names);
+    for (const auto& c : names) {
+      if (EnqueueServerCommand(c.c_str())) any = true;
+    }
   }
   if (st.warmupInfiniteAmmo) {
     // Enable cheats so sv_infinite_ammo can apply.
