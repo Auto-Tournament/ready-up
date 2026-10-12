@@ -183,6 +183,10 @@ static void TestReadyGate() {
   CHECK(!BotFillTeamReady(2, 1));
   CHECK(BotFillReadyTally(2, 1).ready == 1 && BotFillReadyTally(2, 1).total == 2);
   CHECK(BotFillReadyTally(0, 0).total == 0);
+  // Nobody connected: not live on load, a bots-only match after the grace.
+  CHECK(!BotFillEmptyMayGoLive(0));
+  CHECK(!BotFillEmptyMayGoLive(kBotFillEmptyGraceSeconds - 1));
+  CHECK(BotFillEmptyMayGoLive(kBotFillEmptyGraceSeconds));
   // A roster of 6 (one substitute), rule 0: 5 ready players go live, the 6th does not hold it up.
   CHECK(TeamReadyToGoLive(6, 6, 5, 0, 0));
   CHECK(TeamReadyToGoLive(6, 5, 5, 0, 0));
