@@ -1609,6 +1609,30 @@ bool RestartMatch() {
   return true;
 }
 
+bool TeamLockRefusesJoin(uint64_t steamid64, int team) {
+  if (steamid64 == 0) return false;
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  if (st.mode != ReadyUpMode::MatchWarmup && st.mode != ReadyUpMode::MatchKnife &&
+      st.mode != ReadyUpMode::MatchLive) {
+    return false;
+  }
+  const auto ctx = WebhookGetMatchContext();
+  if (!ctx || ctx->slug == "scrim") return false;
+  if (ctx->spectators.count(steamid64)) return team != 1;  // casters stay spectators
+  auto it = ctx->roster_team.find(steamid64);
+  if (it == ctx->roster_team.end()) return false;  // not on the roster: the whitelist handles them
+  const bool team1Ct = st.mode == ReadyUpMode::MatchLive ? Team1IsCtNow(*ctx) : [&] {
+    const int mapNum = std::max(1, MatchStateGet().map_number);
+    if (static_cast<size_t>(mapNum) <= ctx->map_sides.size()) {
+      return ctx->map_sides[static_cast<size_t>(mapNum - 1)] != "team2_ct";
+    }
+    return true;
+  }();
+  const int want = ((it->second == WebhookTeam::Team1) == team1Ct) ? 3 : 2;
+  return team != want;
+}
+
 bool EndMatchResetServer() {
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);

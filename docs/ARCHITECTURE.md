@@ -274,6 +274,15 @@ if (!RU_API_HAS(api, grenade_spawn_available) || !api->grenade_spawn_available(a
 }
 ```
 
+### v1.14 (implemented)
+
+Client command filters. The core's `ISource2GameClients::ClientCommand` hook asks the plugins
+before passing a player's console command to the game (`plugin_loader.cpp` FilterClientCommand).
+
+| Member | Thread | Purpose |
+|---|---|---|
+| `filter_client_command(self, cmd, fn, user)` | game | `fn(user, slot, steamid64, cmd, argc, argv)` runs for every player `cmd` (e.g. `jointeam`, which the team menu sends too); return 1 to block it. `say`, `say_team` and `ru` are reserved. The match plugin's team lock refuses `jointeam` to anything but a roster player's own side during warmup, knife and live |
+
 ### v1.13 (implemented)
 
 Team changes, pawn teleports with view angles, and creating entities. Engine side in
