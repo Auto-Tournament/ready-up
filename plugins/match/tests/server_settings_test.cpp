@@ -176,6 +176,13 @@ static void TestReadyGate() {
   CHECK(FullTeamSize(1, 2) == 1);
   CHECK(TeamReadyToGoLive(1, 1, 1, 0, 2));
   CHECK(!TeamReadyToGoLive(1, 1, 0, 0, 2));
+  // Bot fill: a team waits for its connected humans only; nobody connected (a roster that never
+  // joins, bots playing) is ready. 2026-10-12: a 5-player roster with nobody on held the match up.
+  CHECK(BotFillTeamReady(0, 0));
+  CHECK(BotFillTeamReady(2, 2));
+  CHECK(!BotFillTeamReady(2, 1));
+  CHECK(BotFillReadyTally(2, 1).ready == 1 && BotFillReadyTally(2, 1).total == 2);
+  CHECK(BotFillReadyTally(0, 0).total == 0);
   // A roster of 6 (one substitute), rule 0: 5 ready players go live, the 6th does not hold it up.
   CHECK(TeamReadyToGoLive(6, 6, 5, 0, 0));
   CHECK(TeamReadyToGoLive(6, 5, 5, 0, 0));

@@ -179,15 +179,23 @@ void Collect(Json* sOut, Json* stOut, bool* safeOut) {
   if (ctx) {
     // Per team, ready players up to a full team over the full team: substitutes never count toward
     // the players the match waits for (match_rules.h TeamReadyTally).
-    int teamRoster[2] = {0, 0}, teamReady[2] = {0, 0};
+    int teamRoster[2] = {0, 0}, teamReady[2] = {0, 0}, teamPresent[2] = {0, 0}, teamPresentReady[2] = {0, 0};
     for (const auto& kv : ctx->roster_team) {
       if (!kv.first) continue;
       const int t = kv.second == WebhookTeam::Team2 ? 1 : 0;
       ++teamRoster[t];
-      if (IsReady(kv.first)) ++teamReady[t];
+      const bool ready = IsReady(kv.first);
+      if (ready) ++teamReady[t];
+      if (humanBy.count(kv.first)) {
+        ++teamPresent[t];
+        if (ready) ++teamPresentReady[t];
+      }
     }
     for (int t = 0; t < 2; ++t) {
-      const ReadyTally tally = TeamReadyTally(teamRoster[t], teamReady[t], ctx->players_per_team);
+      // Bot fill: the connected humans only (match_rules.h BotFillReadyTally).
+      const ReadyTally tally = ctx->bot_fill
+                                   ? BotFillReadyTally(teamPresent[t], teamPresentReady[t])
+                                   : TeamReadyTally(teamRoster[t], teamReady[t], ctx->players_per_team);
       ready += tally.ready;
       readyTotal += tally.total;
     }

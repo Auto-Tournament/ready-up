@@ -103,6 +103,12 @@ struct ReadyTally {
 };
 ReadyTally TeamReadyTally(int rosterSize, int ready, int playersPerTeam = 0);
 
+// Bot fill (match config bot_fill): bots take every empty seat and are always ready, so a team
+// waits only for the roster humans who are connected; a team with nobody connected is ready (its
+// bots play). The "x/y ready" count is those humans: ready connected over connected.
+bool BotFillTeamReady(int connected, int readyConnected);
+ReadyTally BotFillReadyTally(int connected, int readyConnected);
+
 // Spectators of the match config (casters) who typed .ready: `required` (min_spectators_to_ready)
 // of them are needed before go-live. 0 (the default) never holds the match up.
 bool SpectatorsReadyToGoLive(int required, int readySpectators);

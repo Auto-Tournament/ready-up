@@ -124,6 +124,17 @@ ReadyTally TeamReadyTally(int rosterSize, int ready, int playersPerTeam) {
   return t;
 }
 
+bool BotFillTeamReady(int connected, int readyConnected) {
+  return std::max(0, readyConnected) >= std::max(0, connected);
+}
+
+ReadyTally BotFillReadyTally(int connected, int readyConnected) {
+  ReadyTally t;
+  t.total = std::max(0, connected);
+  t.ready = std::min(std::max(0, readyConnected), t.total);
+  return t;
+}
+
 bool SpectatorsReadyToGoLive(int required, int readySpectators) { return required <= 0 || readySpectators >= required; }
 
 bool SpecCommandAllowed(bool onLoadedMatchRoster) { return !onLoadedMatchRoster; }

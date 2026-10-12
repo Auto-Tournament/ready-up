@@ -577,18 +577,27 @@ static void MaybeShowWarmupUiLocked(State& st) {
     for (const auto& s : ListSlotIdentities()) {
       if (s.steamid64 != 0) connected.insert(s.steamid64);
     }
-    int teamRoster[2] = {0, 0}, teamReady[2] = {0, 0};
+    int teamRoster[2] = {0, 0}, teamReady[2] = {0, 0}, teamPresent[2] = {0, 0}, teamPresentReady[2] = {0, 0};
     for (const auto& kv : ctx->roster_team) {
       const uint64_t sid = kv.first;
       if (sid == 0) continue;
       const int t = kv.second == WebhookTeam::Team2 ? 1 : 0;
       ++teamRoster[t];
-      if (connected.find(sid) != connected.end()) rosterConnected++;
+      const bool here = connected.find(sid) != connected.end();
+      if (here) {
+        rosterConnected++;
+        ++teamPresent[t];
+      }
       auto it = st.ready.find(sid);
-      if (it != st.ready.end() && it->second) ++teamReady[t];
+      if (it != st.ready.end() && it->second) {
+        ++teamReady[t];
+        if (here) ++teamPresentReady[t];
+      }
     }
     for (int t = 0; t < 2; ++t) {
-      const ReadyTally tally = TeamReadyTally(teamRoster[t], teamReady[t], ctx->players_per_team);
+      const ReadyTally tally = ctx->bot_fill
+                                   ? BotFillReadyTally(teamPresent[t], teamPresentReady[t])
+                                   : TeamReadyTally(teamRoster[t], teamReady[t], ctx->players_per_team);
       rosterTotal += tally.total;
       rosterReady += tally.ready;
     }
@@ -716,6 +725,11 @@ static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContex
     if (it != st.ready.end() && it->second) ++ready[t];
   }
   for (int t = 0; t < 2; ++t) {
+    // Bot fill: bots are always ready, so only the connected humans hold a team up.
+    if (ctx.bot_fill) {
+      if (!BotFillTeamReady(present[t], ready[t])) return false;
+      continue;
+    }
     if (!TeamReadyToGoLive(roster[t], present[t], ready[t], minPlayers, ctx.players_per_team)) return false;
   }
   return true;

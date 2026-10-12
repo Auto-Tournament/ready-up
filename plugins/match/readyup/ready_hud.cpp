@@ -182,7 +182,7 @@ static Board BuildBoard(ReadyUpMode mode, const std::optional<WebhookMatchContex
     }
     std::unordered_set<uint64_t> connected;
     for (const auto& h : humans) connected.insert(h.steamid64);
-    int teamRoster[2] = {0, 0}, teamReady[2] = {0, 0};
+    int teamRoster[2] = {0, 0}, teamReady[2] = {0, 0}, teamPresent[2] = {0, 0}, teamPresentReady[2] = {0, 0};
     for (const auto& kv : ctx->roster_team) {
       if (kv.first == 0) continue;
       Entry e;
@@ -194,11 +194,20 @@ static Board BuildBoard(ReadyUpMode mode, const std::optional<WebhookMatchContex
       e.connected = connected.count(kv.first) != 0;
       ++teamRoster[t1 ? 0 : 1];
       if (e.ready) ++teamReady[t1 ? 0 : 1];
+      if (e.connected) {
+        ++teamPresent[t1 ? 0 : 1];
+        if (e.ready) ++teamPresentReady[t1 ? 0 : 1];
+      }
+      // Bot fill: roster players who are not here are not waited for, so not listed.
+      if (ctx->bot_fill && !e.connected) continue;
       b.entries.push_back(std::move(e));
     }
     // Substitutes never raise the total (match_rules.h TeamReadyTally): 5 + 1 sub reads x/5.
+    // Bot fill counts the connected humans only (BotFillReadyTally): 2 humans + 3 bots reads x/2.
     for (int t = 0; t < 2; ++t) {
-      const ReadyTally tally = TeamReadyTally(teamRoster[t], teamReady[t], ctx->players_per_team);
+      const ReadyTally tally = ctx->bot_fill
+                                   ? BotFillReadyTally(teamPresent[t], teamPresentReady[t])
+                                   : TeamReadyTally(teamRoster[t], teamReady[t], ctx->players_per_team);
       b.ready += tally.ready;
       b.total += tally.total;
     }
