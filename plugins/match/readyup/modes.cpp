@@ -707,6 +707,19 @@ static void EnforceWhitelistLocked(State& st) {
 }
 
 static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContext& ctx) {
+  // Nobody goes live on the wrong side: a player who switched team and typed .ready before the
+  // team lock moved them back would start the match there. Wait for the lock (it moves them
+  // within a second; MaybeForceRosterTeamsLocked).
+  {
+    const bool team1Ct = Team1IsCtNow(ctx);
+    for (const auto& h : ListHumans()) {
+      auto it = ctx.roster_team.find(h.steamid64);
+      if (it == ctx.roster_team.end() || (h.team != 2 && h.team != 3)) continue;
+      const bool isTeam1 = it->second == WebhookTeam::Team1;
+      const int want = (isTeam1 == team1Ct) ? 3 : 2;
+      if (h.team != want) return false;
+    }
+  }
   // min_spectators_to_ready: that many of the match's spectators (casters) typed .ready.
   if (const int needSpec = EffectiveRules().min_spectators_to_ready; needSpec > 0) {
     int readySpec = 0;
