@@ -399,8 +399,17 @@ static void MaybeAutoPickKnifeSideLocked(State& st) {
   (void)ApplyKnifeSideChoiceLocked(st, ctx, mapNumber, "stay", /*pickerSteamid64=*/0, /*pickerName=*/"timeout");
 }
 
-// simulation.cpp: team1's side right now (the map's start side, flipped by every side swap).
-bool Team1IsCtNow(const WebhookMatchContext& ctx);
+// Team1's side right now: the map's start side, flipped by every side swap so far (half time,
+// overtime). The same rule as simulation.cpp's, which is private to that file.
+static bool Team1IsCtNow(const WebhookMatchContext& ctx) {
+  const int mapNumber = std::max(1, MatchStateGet().map_number);
+  bool team1Ct = true;
+  if (static_cast<size_t>(mapNumber) <= ctx.map_sides.size()) {
+    team1Ct = ctx.map_sides[static_cast<size_t>(mapNumber - 1)] != "team2_ct";
+  }
+  if (MatchEventsSnapshot().swapCount % 2 != 0) team1Ct = !team1Ct;
+  return team1Ct;
+}
 
 static void MaybeForceRosterTeamsLocked(State& st) {
   // Live too: a roster player who switched team mid-map (2026-10-12, a BO3's
