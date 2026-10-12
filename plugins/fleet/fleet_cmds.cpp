@@ -84,6 +84,25 @@ bool ParsePracticeSet(const json::Value& args, int* on, int* always, std::string
   return true;
 }
 
+std::string SayCenterHtml(const std::string& text) {
+  std::string out;
+  for (char c : text) {
+    switch (c) {
+      case '<': out += "&lt;"; break;
+      case '>': out += "&gt;"; break;
+      case '&': out += "&amp;"; break;
+      case '"': out += "&quot;"; break;
+      default: out.push_back(c);
+    }
+  }
+  return out;
+}
+
+int SayCenterSeconds(int64_t asked) {
+  if (asked <= 0) return 0;
+  return asked > 15 ? 15 : static_cast<int>(asked);
+}
+
 std::string SanitizeSay(const std::string& text) {
   std::string s;
   for (unsigned char c : text) {

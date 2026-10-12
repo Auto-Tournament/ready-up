@@ -566,6 +566,8 @@ TEST(TestOwnedCmds) {
   CHECK(!ParsePracticeSet(J(R"({"on": 1})"), &pon, &palways, &err));
 
   CHECK_EQ(SanitizeSay("hi\x01 there\n"), std::string("hi there"));
+  CHECK_EQ(SayCenterHtml("Map 2: <b>Nuke</b> & \"more\""), std::string("Map 2: &lt;b&gt;Nuke&lt;/b&gt; &amp; &quot;more&quot;"));
+  CHECK(SayCenterSeconds(0) == 0 && SayCenterSeconds(-3) == 0 && SayCenterSeconds(5) == 5 && SayCenterSeconds(99) == 15);
   CHECK(SanitizeSay(std::string(300, 'x')).size() == 190);
   std::string utf;
   for (int i = 0; i < 100; ++i) utf += "\xc3\xa6";  // 'ae' x 100 = 200 bytes

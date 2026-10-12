@@ -594,7 +594,20 @@ fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Valu
     if (text.empty()) return Rejected("bad_args", "empty text");
     const fleet::json::Value* asAdmin = Member(args, "as_admin");
     const std::string line = asAdmin && asAdmin->AsBool() ? "[Admin] " + text : text;
+    const fleet::json::Value* centerArg = Member(args, "center_seconds");
+    const int center = fleet::cmds::SayCenterSeconds(centerArg ? centerArg->AsInt(0) : 0);
+    // {to}: one player (a SteamID64 string), e.g. "your loadout is updated"; not on the server: nothing to do.
+    const std::string to = MemberStr(args, "to");
+    if (!to.empty()) {
+      const uint64_t steamid = std::strtoull(to.c_str(), nullptr, 10);
+      const int slot = steamid ? g_api->slot_for_steamid(g_api->self, steamid) : -1;
+      if (slot < 0) return Ok();
+      if (!g_api->chat_to_slot(g_api->self, slot, line.c_str())) return Failed("engine", "chat is unavailable");
+      if (center) g_api->center_html_to_slot(g_api->self, slot, fleet::cmds::SayCenterHtml(text).c_str(), center);
+      return Ok();
+    }
     if (!g_api->chat_all(g_api->self, line.c_str(), 0)) return Failed("engine", "chat is unavailable");
+    if (center) g_api->center_html_all(g_api->self, fleet::cmds::SayCenterHtml(text).c_str(), center);
     return Ok();
   }
   return Rejected("unknown_command", "unknown cmd \"" + name + "\"");

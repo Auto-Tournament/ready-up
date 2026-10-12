@@ -26,6 +26,10 @@ bool ParseWhitelistSet(const json::Value& args, bool* enabled, std::vector<uint6
 bool ParsePracticeSet(const json::Value& args, int* on, int* always, std::string* err);
 // say: control characters dropped, at most 190 bytes (cut on a UTF-8 boundary).
 std::string SanitizeSay(const std::string& text);
+// A say line as the center panel's HTML: escaped, so the text never becomes markup.
+std::string SayCenterHtml(const std::string& text);
+// say {center_seconds}: 0 = chat only; otherwise 1..15 s on the center panel too.
+int SayCenterSeconds(int64_t asked);
 
 struct Result {
   std::string status = "ok";  // ok | rejected | failed | expired
