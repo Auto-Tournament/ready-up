@@ -42,6 +42,9 @@ void OnLogLine(const char* line);
 
 // True while a platform assignment is active.
 bool Assigned();
+// A match just ended and its players get their goodbye kick after the series-end delay: until
+// then nobody else kicks them (kick_when_no_match_loaded waits).
+bool EndedKickPending();
 // The enrolled fleet server id (fleet.so status), "" without fleet / before enrollment. Game thread.
 std::string FleetServerId();
 // The fleet MatchState (what state.snapshot / hello carry) while assigned; false otherwise.
