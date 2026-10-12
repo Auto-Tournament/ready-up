@@ -164,6 +164,10 @@ const char* KnifeWinnerTeamString();
 bool ForceStartMatch(bool force = false);
 bool RestartMatch();
 bool EndMatchResetServer();
+// The team lock: true when a roster player of the loaded match may not `jointeam <team>` now
+// (anything but their own team's side, while the match is in warmup, knife or live; a fat finger
+// in the team menu does nothing). `team` is jointeam's argument (0 auto, 1 spec, 2 T, 3 CT).
+bool TeamLockRefusesJoin(uint64_t steamid64, int team);
 
 // Apply match cvars immediately (no restart). Best-effort.
 void ApplyMatchCvarsNow();

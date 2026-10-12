@@ -100,6 +100,13 @@ static void Hook_ClientCommand(void* thisptr, CPlayerSlot slot, const void* args
     return;
   }
 
+  // A plugin may refuse the command (the match plugin's team lock refuses `jointeam`).
+  if (cmd != "say" && cmd != "say_team" &&
+      plugins::FilterClientCommand(slotNum, ident ? ident->steamid64 : 0ull, *argv)) {
+    Debug("client-command: slot %d `%s` blocked by a plugin\n", slotNum, cmd.c_str());
+    return;
+  }
+
   if (cmd != "say" && cmd != "say_team") return g_origClientCommand(thisptr, slot, args);
   if (!ident) return g_origClientCommand(thisptr, slot, args);
 
