@@ -2,6 +2,8 @@
   "schema_version": 1,
   "plugin": "fleet",
   "api": [
+    "center_html_all",
+    "center_html_to_slot",
     "chat_all",
     "chat_to_slot",
     "on_frame",
