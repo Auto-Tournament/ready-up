@@ -708,7 +708,7 @@ static void EnforceWhitelistLocked(State& st) {
   }
 }
 
-static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContext& ctx) {
+static bool GoLiveCheckLocked(State& st, const WebhookMatchContext& ctx, std::string* why) {
   // Nobody goes live on the wrong side: a player who switched team and typed .ready before the
   // team lock moved them back would start the match there. Wait for the lock (it moves them
   // within a second; MaybeForceRosterTeamsLocked).
@@ -719,7 +719,10 @@ static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContex
       if (it == ctx.roster_team.end() || (h.team != 2 && h.team != 3)) continue;
       const bool isTeam1 = it->second == WebhookTeam::Team1;
       const int want = (isTeam1 == team1Ct) ? 3 : 2;
-      if (h.team != want) return false;
+      if (h.team != want) {
+        *why = h.name + " is on " + (h.team == 3 ? "CT" : "T") + " but their team plays " + (want == 3 ? "CT" : "T");
+        return false;
+      }
     }
   }
   // min_spectators_to_ready: that many of the match's spectators (casters) typed .ready.
@@ -729,7 +732,10 @@ static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContex
       auto it = st.ready.find(sid);
       if (it != st.ready.end() && it->second) ++readySpec;
     }
-    if (!SpectatorsReadyToGoLive(needSpec, readySpec)) return false;
+    if (!SpectatorsReadyToGoLive(needSpec, readySpec)) {
+      *why = "spectators ready " + std::to_string(readySpec) + "/" + std::to_string(needSpec);
+      return false;
+    }
   }
   if (ctx.roster_team.empty()) return true;
 
@@ -775,10 +781,15 @@ static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContex
       }
       const double since = std::chrono::duration<double>(nowTp - firstBack).count();
       const ResumeHeadcount head = ResumeCount(roster, present, ctx.players_per_team);
-      return ResumeMayGoLive(head.needed, head.back, since);
+      const bool go = ResumeMayGoLive(head.needed, head.back, since);
+      if (!go) *why = "failover resume: " + std::to_string(head.back) + "/" + std::to_string(head.needed) + " players back";
+      return go;
     }
     anyBack = false;
-    if (!ctx.bot_fill) return false;  // nobody back yet; a bot-filled match uses its empty grace below
+    if (!ctx.bot_fill) {  // nobody back yet; a bot-filled match uses its empty grace below
+      *why = "failover resume: nobody back yet";
+      return false;
+    }
   }
   static bool wasEmpty = false;
   static std::chrono::steady_clock::time_point emptySince;
@@ -789,19 +800,50 @@ static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContex
       emptySince = nowTp;
     }
     const double waited = std::chrono::duration<double>(nowTp - emptySince).count();
-    if (!BotFillEmptyMayGoLive(waited)) return false;
+    if (!BotFillEmptyMayGoLive(waited)) {
+      *why = "bot fill: waiting for a human to join";
+      return false;
+    }
   } else {
     wasEmpty = false;
   }
   for (int t = 0; t < 2; ++t) {
     // Bot fill: bots are always ready, so only the connected humans hold a team up.
     if (ctx.bot_fill) {
-      if (!BotFillTeamReady(present[t], ready[t])) return false;
+      if (!BotFillTeamReady(present[t], ready[t])) {
+        *why = std::string(t == 0 ? "team1" : "team2") + ": " + std::to_string(ready[t]) + "/" +
+               std::to_string(present[t]) + " connected players ready";
+        return false;
+      }
       continue;
     }
-    if (!TeamReadyToGoLive(roster[t], present[t], ready[t], minPlayers, ctx.players_per_team)) return false;
+    if (!TeamReadyToGoLive(roster[t], present[t], ready[t], minPlayers, ctx.players_per_team)) {
+      *why = std::string(t == 0 ? "team1" : "team2") + ": " + std::to_string(ready[t]) + " ready, " +
+             std::to_string(present[t]) + " connected, " + std::to_string(roster[t]) + " on the roster";
+      return false;
+    }
   }
   return true;
+}
+
+// Why the match is not going live, said once per change in the console without debug=1, once
+// anybody typed .ready (before that, waiting is the normal state and would only be noise).
+static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContext& ctx) {
+  static std::string lastWhy;
+  std::string why;
+  const bool go = GoLiveCheckLocked(st, ctx, &why);
+  bool anyReady = false;
+  for (const auto& kv : st.ready) anyReady = anyReady || kv.second;
+  if (go) {
+    if (!lastWhy.empty()) Print("match: everyone is ready; going live\n");
+    lastWhy.clear();
+  } else if (anyReady && why != lastWhy) {
+    Print("match: not going live yet: %s\n", why.empty() ? "waiting" : why.c_str());
+    lastWhy = why;
+  } else if (!anyReady) {
+    lastWhy.clear();
+  }
+  return go;
 }
 
 static void ApplyWarmupRulesLocked(State& st) {

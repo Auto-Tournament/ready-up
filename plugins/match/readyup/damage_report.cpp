@@ -92,6 +92,17 @@ void OnGameEvent(void*, const char* name, const ru_game_event* ev) {
   } else if (std::strcmp(name, "player_death") == 0) {
     g_ledger.OnDeath(a->ev_get_player_slot(a->self, ev, "userid"));
   } else if (std::strcmp(name, "round_end") == 0) {
+    // Warmup rounds never end (mp_ignore_round_win_conditions 1): one that does means something
+    // reset the warmup rules (a game mode cfg, another plugin). Said without debug=1, not every time.
+    if (GetMode() == ReadyUpMode::MatchWarmup) {
+      static int warmupRoundEnds = 0;
+      ++warmupRoundEnds;
+      if (warmupRoundEnds <= 3 || warmupRoundEnds % 50 == 0) {
+        Print("warmup: a round ended during match warmup (%d so far, reason %d): the warmup rules were "
+              "reset by something else (game mode cfg, another plugin)\n",
+              warmupRoundEnds, a->ev_get_int(a->self, ev, "reason", -1));
+      }
+    }
     if (!Cfg().damage_report || GetMode() != ReadyUpMode::MatchLive) return;
     if (!PlayerExtrasAllowed(CurrentEffectiveRules())) return;  // valve ruleset: no report
     BuildReports();
