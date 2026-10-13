@@ -28,6 +28,7 @@ set(MATCH_SOURCES
   readyup/fleet_state.cpp
   readyup/game_timers.cpp
   readyup/golive_card.cpp
+  readyup/result_card.cpp
   readyup/host.cpp
   readyup/idle_refresh.cpp
   readyup/warmup_money.cpp

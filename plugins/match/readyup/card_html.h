@@ -26,6 +26,21 @@ struct GoLiveCardInfo {
 std::string GoLiveCommandsLine(const GoLiveCardInfo& info, bool html);
 std::string GoLiveCardHtml(const GoLiveCardInfo& info);
 
+// The result cards (result_card.h), shown to everyone at the end of a map and of the series.
+struct ResultCardInfo {
+  std::string team1, team2;      // names; empty: "Team 1" / "Team 2"
+  std::string winner;            // "team1" | "team2" | "" (a draw)
+  int team1Score = 0, team2Score = 0;  // rounds (map card) or maps (series card)
+  int mapNumber = 0;             // map card: 1-based
+  std::string mapName;           // map card: "de_mirage" -> "Mirage"
+  std::string nextMap;           // map card: the next map, if any
+  bool forfeit = false;          // series card: won by forfeit
+};
+// "MAP 2 · MIRAGE" / "<winner> wins the map" / "7 - 5" / "Next: Inferno".
+std::string MapResultCardHtml(const ResultCardInfo& info);
+// "<winner> WINS THE SERIES" / "2 - 1" (or "by forfeit"), or "SERIES DRAWN".
+std::string SeriesResultCardHtml(const ResultCardInfo& info);
+
 // "<name> (<teamLabel>) needs an admin" + the message (if any), for admins.
 std::string AdminCallCardHtml(const std::string& name, const std::string& teamLabel, const std::string& message);
 

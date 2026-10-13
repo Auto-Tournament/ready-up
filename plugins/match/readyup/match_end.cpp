@@ -1,5 +1,8 @@
 #include "readyup/match_end.h"
 
+#include "readyup/card_html.h"
+#include "readyup/result_card.h"
+
 #include "readyup/at_payloads.h"
 
 #include "readyup/engine.h"
@@ -207,7 +210,17 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
         in.mapNumber, recording ? 1 : 0, hasUpload ? 1 : 0, tvDelay, plan.restartDelay, plan.tvFlushDelay,
         in.seriesOver ? 1 : 0);
 
+  ResultCardInfo card;
+  card.team1 = base.team1Name;
+  card.team2 = base.team2Name;
   if (!in.seriesOver) {
+    card.winner = in.winner == "team1" || in.winner == "team2" ? in.winner : "";
+    card.team1Score = in.team1Score;
+    card.team2Score = in.team2Score;
+    card.mapNumber = in.mapNumber;
+    card.mapName = in.mapName;
+    card.nextMap = in.nextMap;
+    ResultCardShow(MapResultCardHtml(card), std::max(1, plan.restartDelay - 1), "map result");
     ScheduleNextMap(std::max(1, plan.restartDelay - 1), in.nextMap, gen);
     return plan;
   }
@@ -228,6 +241,12 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
   Emit(seriesEv);
   // Existing webhook (shape unchanged); time_until_restore now carries the real delay.
   WebhookEmitSeriesEnd(in.team1SeriesScore, in.team2SeriesScore, seriesWinner.c_str(), resetIn);
+
+  card.winner = seriesWinner == "none" ? "" : seriesWinner;
+  card.team1Score = in.team1SeriesScore;
+  card.team2Score = in.team2SeriesScore;
+  card.forfeit = !winnerName.empty() && !in.seriesWinner.empty();
+  ResultCardShow(SeriesResultCardHtml(card), resetIn, "series result");
 
   if (!winnerName.empty() && !in.seriesWinner.empty()) {
     SendToChat(("Ready Up: " + winnerName + " won the series by forfeit.").c_str());
