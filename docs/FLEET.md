@@ -578,6 +578,10 @@ then sees the server offline and the normal failover runs. An empty server is ex
 hibernates and stops its frames on purpose. `frame_age_ms` in the ping health is the time since the
 last frame (-1 before the first).
 
+Commands from the platform are applied on the game thread, so a hibernating server would take its
+match only once a player joined. fleet.so therefore sets `sv_hibernate_when_empty 0` when it starts
+with a platform to talk to (standalone servers are left alone).
+
 ### 6.3 Reconnect with backoff
 
 Delay = `min(cap, base · 2^attempt)` with full jitter, `base` 1 s, `cap` 30 s, reset after a
