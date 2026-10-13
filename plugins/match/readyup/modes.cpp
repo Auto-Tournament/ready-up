@@ -774,7 +774,8 @@ static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContex
         firstBack = nowTp;
       }
       const double since = std::chrono::duration<double>(nowTp - firstBack).count();
-      return ResumeMayGoLive(roster[0] + roster[1], presentTotal, since);
+      const ResumeHeadcount head = ResumeCount(roster, present, ctx.players_per_team);
+      return ResumeMayGoLive(head.needed, head.back, since);
     }
     anyBack = false;
     if (!ctx.bot_fill) return false;  // nobody back yet; a bot-filled match uses its empty grace below

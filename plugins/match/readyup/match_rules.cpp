@@ -134,6 +134,16 @@ bool ResumeMayGoLive(int rosterTotal, int presentTotal, double secondsSinceFirst
   return secondsSinceFirstBack >= kResumeRejoinSeconds;
 }
 
+ResumeHeadcount ResumeCount(const int roster[2], const int present[2], int playersPerTeam) {
+  ResumeHeadcount c;
+  for (int t = 0; t < 2; ++t) {
+    const int full = FullTeamSize(roster[t], playersPerTeam);
+    c.needed += full;
+    c.back += std::min(std::max(0, present[t]), full);
+  }
+  return c;
+}
+
 bool BotFillEmptyMayGoLive(double secondsEmpty) { return secondsEmpty >= kBotFillEmptyGraceSeconds; }
 
 ReadyTally BotFillReadyTally(int connected, int readyConnected) {

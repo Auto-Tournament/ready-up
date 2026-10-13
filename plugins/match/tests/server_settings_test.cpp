@@ -192,6 +192,22 @@ static void TestReadyGate() {
   CHECK(ResumeMayGoLive(4, 4, 0));
   CHECK(!ResumeMayGoLive(4, 2, kResumeRejoinSeconds - 1));
   CHECK(ResumeMayGoLive(4, 2, kResumeRejoinSeconds));
+  {
+    // 6 and 5 on the rosters (one substitute), 5 per team: 10 needed, the substitute not counted.
+    const int roster[2] = {6, 5};
+    const int allBack[2] = {5, 5};
+    const ResumeHeadcount h = ResumeCount(roster, allBack, 0);
+    CHECK(h.needed == 10 && h.back == 10);
+    CHECK(ResumeMayGoLive(h.needed, h.back, 0));
+    const int subToo[2] = {6, 4};
+    const ResumeHeadcount h2 = ResumeCount(roster, subToo, 0);
+    CHECK(h2.back == 9);
+    CHECK(!ResumeMayGoLive(h2.needed, h2.back, 0));
+    // Wingman with a 3-player roster: 2 per team.
+    const int wr[2] = {3, 2};
+    const int wp[2] = {2, 2};
+    CHECK(ResumeCount(wr, wp, 2).needed == 4 && ResumeCount(wr, wp, 2).back == 4);
+  }
   // A roster of 6 (one substitute), rule 0: 5 ready players go live, the 6th does not hold it up.
   CHECK(TeamReadyToGoLive(6, 6, 5, 0, 0));
   CHECK(TeamReadyToGoLive(6, 5, 5, 0, 0));
