@@ -204,9 +204,18 @@ void OnTick(void*, const ru_tick_info* t) {
   });
 }
 
+// Players' chat (.r, .pause, ...) and their teams are read from the game log: a server whose
+// config never says `log on` (a hand-made server.cfg, a host panel's) wrote no log, so .r did
+// nothing at all (Discord, 2026-10-13). Ready Up turns it on itself, at load and on every map.
+void EnsureGameLogOn() {
+  if (EnqueueServerCommand("log on")) DebugLine("match: game log on (chat commands are read from it)");
+  else Print("match: could not queue `log on`; put `log on` in server.cfg or chat commands won't work\n");
+}
+
 void OnEvent(void*, const ru_event* e) {
   Guard("event", [&] {
     if (e->type == RU_EVENT_MAP_START) {
+      EnsureGameLogOn();
       IdleRefreshOnMapStart(host::NowSeconds());
       retention::SweepAsync();  // old round backups and demos (retention.h)
       EsportsOnMapStart();  // the GOTV client is looked for again
@@ -416,6 +425,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
 
     // Commands: player chat, `ru <sub>` / `.ru <sub>`, console settings, `tv_delay` observer.
     RegisterReadyCommands();
+    EnsureGameLogOn();  // chat commands are read from the game log
     for (const auto& sub : MatchRuSubcommands()) {
       if (!api->register_ru_subcommand(api->self, sub.c_str(), &OnRuSub, nullptr)) {
         Print("match: could not register `ru %s`\n", sub.c_str());
