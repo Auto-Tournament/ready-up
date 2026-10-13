@@ -639,7 +639,8 @@ TEST(TestBulkLanePriority) {
     ++i;
   }
   CHECK(evAt >= 0 && firstChunk > evAt);
-  CHECK(c.Status().bulkSent >= 3);
+  // The counter goes up after the write returns, so the platform can read chunk 3 first.
+  CHECK(p.WaitFor([&] { return c.Status().bulkSent >= 3; }, 3000));
   CheckSchemas(p);
   c.Stop();
   p.Stop();
