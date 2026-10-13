@@ -96,6 +96,12 @@ static void TestAuto5v5() {
   CHECK(!Auto5v5PauseExpected(true, true, true, 4, 5));
   // The short side: the one with fewer players, CT on a tie; 0 when both are full.
   CHECK(Auto5v5ShortSide(5, 5) == 0);
+  // An auto_5v5 pause ends by itself: both sides full for 5 s, or the time cap.
+  CHECK(Auto5v5UnpauseReason(5, 5, kAuto5v5FullHoldSeconds, 30, 300) == "full");
+  CHECK(Auto5v5UnpauseReason(5, 5, 1, 30, 300).empty());  // just back: hold on a moment
+  CHECK(Auto5v5UnpauseReason(4, 5, 0, 30, 300).empty());
+  CHECK(Auto5v5UnpauseReason(4, 5, 0, 300, 300) == "timeout");
+  CHECK(Auto5v5UnpauseReason(4, 5, 0, 9999, 0).empty());  // 0: no limit
   CHECK(Auto5v5ShortSide(4, 5) == 3);
   CHECK(Auto5v5ShortSide(5, 3) == 2);
   CHECK(Auto5v5ShortSide(4, 4) == 3);

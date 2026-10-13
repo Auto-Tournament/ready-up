@@ -10,6 +10,7 @@ MatchRules BuiltinDefaultRules() {
   MatchRules r;
   r.tech_pauses_per_team = 3;
   r.tech_pause_max_seconds = 300;
+  r.disconnect_pause_max_seconds = 300;
   r.both_teams_unpause = 1;
   r.allow_force_ready = 1;
   r.min_players_to_ready = 0;
@@ -32,6 +33,8 @@ MatchRules ResolveRules(const MatchRules& match, const MatchRules& base) {
   r.tech_pauses_per_team = pick(match.tech_pauses_per_team, base.tech_pauses_per_team, d.tech_pauses_per_team);
   r.tech_pause_max_seconds =
       pick(match.tech_pause_max_seconds, base.tech_pause_max_seconds, d.tech_pause_max_seconds);
+  r.disconnect_pause_max_seconds = pick(match.disconnect_pause_max_seconds, base.disconnect_pause_max_seconds,
+                                        d.disconnect_pause_max_seconds);
   r.both_teams_unpause = pick(match.both_teams_unpause, base.both_teams_unpause, d.both_teams_unpause) ? 1 : 0;
   r.allow_force_ready = pick(match.allow_force_ready, base.allow_force_ready, d.allow_force_ready) ? 1 : 0;
   r.min_players_to_ready = pick(match.min_players_to_ready, base.min_players_to_ready, d.min_players_to_ready);
@@ -88,6 +91,13 @@ bool Auto5v5PauseExpected(bool ruleOn, bool liveMap, bool alreadyPaused, int ctP
 int Auto5v5ShortSide(int ctPlayers, int tPlayers) {
   if (ctPlayers >= kFullTeamPlayers && tPlayers >= kFullTeamPlayers) return 0;
   return ctPlayers <= tPlayers ? 3 : 2;
+}
+
+std::string Auto5v5UnpauseReason(int ctPlayers, int tPlayers, double fullForSeconds, double pausedSeconds,
+                                 int maxSeconds) {
+  if (Auto5v5ShortSide(ctPlayers, tPlayers) == 0 && fullForSeconds >= kAuto5v5FullHoldSeconds) return "full";
+  if (maxSeconds > 0 && pausedSeconds >= maxSeconds) return "timeout";
+  return "";
 }
 
 int FullTeamSize(int rosterSize, int playersPerTeam) {
