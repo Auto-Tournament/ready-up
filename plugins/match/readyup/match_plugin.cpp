@@ -55,6 +55,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
@@ -177,32 +178,76 @@ void OnFrame(void*, const ru_tick_info*) {
   });
 }
 
+// Where a slow match tick spends its time (servers showed 8-10 ms ticks, 2026-10-13): each part
+// is timed, and a tick over kSlowTickMs logs its parts at most every kSlowTickLogSeconds.
+constexpr double kSlowTickMs = 4.0;
+constexpr double kSlowTickLogSeconds = 10.0;
+double g_lastSlowTickLog = -1e9;
+
+class TickSections {
+ public:
+  template <typename F>
+  void Run(const char* name, F&& fn) {
+    const auto start = std::chrono::steady_clock::now();
+    fn();
+    const double ms =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+    total_ += ms;
+    if (count_ < kMax) parts_[count_++] = {name, ms};
+  }
+  // Logs the parts of a slow tick (rate-limited).
+  void Report(double now) {
+    if (total_ < kSlowTickMs || now - g_lastSlowTickLog < kSlowTickLogSeconds) return;
+    g_lastSlowTickLog = now;
+    std::string line;
+    for (int i = 0; i < count_; ++i) {
+      if (parts_[i].ms < 0.05) continue;
+      char buf[64];
+      std::snprintf(buf, sizeof(buf), "%s%s %.2f", line.empty() ? "" : ", ", parts_[i].name, parts_[i].ms);
+      line += buf;
+    }
+    Print("perf: slow match tick %.2f ms: %s\n", total_, line.c_str());
+  }
+
+ private:
+  static constexpr int kMax = 24;
+  struct Part {
+    const char* name;
+    double ms;
+  };
+  Part parts_[kMax] = {};
+  int count_ = 0;
+  double total_ = 0;
+};
+
 void OnTick(void*, const ru_tick_info* t) {
   Guard("tick", [&] {
+    TickSections s;
     // Round events of this frame, after the core delivered this frame's log lines.
-    MatchEventsTick();
+    s.Run("events", [] { MatchEventsTick(); });
     if (FeatureEnabled(Feature::MatchFlow)) {
-      Tick();
-      SimulationTick(t->now);  // simulation mode: bots in/out, simulated ready, timescale (simulation.h)
-      ScrimTick();  // scrim flow + `state:` log; outside Tick() (which holds the modes mutex)
-      MatchFeaturesTick();  // tactical timeout end, technical auto-unpause, forfeit timer
-      DamageReportTick();       // damage reports built at round_end (damage_report.h)
-      VotesTick(t->now);        // .gg / .stop vote timeouts (votes.h)
-      WarmupMoneyTick(t->now);  // warmup money top-up (warmup_money.h)
-      match_settings::Tick(t->now);  // autoready, kick_when_no_match_loaded, hostname_format
-      WeaponCleanupTick(t->now);  // dropped weapons in warmup (weapon_cleanup.h)
-      CoachTick(t->now);          // coaches: m_iCoachingTeam, sv_coaching_enabled (coach.h)
+      s.Run("modes", [] { Tick(); });
+      s.Run("simulation", [&] { SimulationTick(t->now); });  // bots in/out, simulated ready (simulation.h)
+      s.Run("scrim", [] { ScrimTick(); });  // outside Tick() (which holds the modes mutex)
+      s.Run("features", [] { MatchFeaturesTick(); });  // timeouts, technical auto-unpause, forfeit timer
+      s.Run("damage", [] { DamageReportTick(); });     // damage reports built at round_end (damage_report.h)
+      s.Run("votes", [&] { VotesTick(t->now); });      // .gg / .stop vote timeouts (votes.h)
+      s.Run("warmup_money", [&] { WarmupMoneyTick(t->now); });  // warmup money top-up (warmup_money.h)
+      s.Run("settings", [&] { match_settings::Tick(t->now); });  // autoready, kick_when_no_match_loaded
+      s.Run("weapons", [&] { WeaponCleanupTick(t->now); });  // dropped weapons in warmup (weapon_cleanup.h)
+      s.Run("coach", [&] { CoachTick(t->now); });            // coaches (coach.h)
     }
     // Fleet link (no-op without fleet.so): platform handlers, MatchState patches, events.
-    fleet_bridge::Tick(t->now);
+    s.Run("fleet", [&] { fleet_bridge::Tick(t->now); });
     // One-off cards before the HUD: the HUD leaves a player's panel alone while one is up.
-    if (FeatureEnabled(Feature::MatchFlow)) GoLiveCardTick();  // "LIVE · GO GO GO" (golive_card.h)
-    ResultCardTick();  // map / series result (result_card.h)
-    AdminCallTick();  // `.admin` cards for in-game admins (admin_call.h)
-    if (FeatureEnabled(Feature::WelcomeHtml)) WelcomeTick();
-    if (FeatureEnabled(Feature::ReadyHud)) ReadyHudTick();  // skips players whose welcome card is up
-    if (FeatureEnabled(Feature::ReadyHud)) ReadyHudAnimTick();  // `.ru hud anim`, every frame
-    PrefixTick(t->now);
+    if (FeatureEnabled(Feature::MatchFlow)) s.Run("golive_card", [] { GoLiveCardTick(); });
+    s.Run("result_card", [] { ResultCardTick(); });  // map / series result (result_card.h)
+    s.Run("admin_call", [] { AdminCallTick(); });  // `.admin` cards for in-game admins (admin_call.h)
+    if (FeatureEnabled(Feature::WelcomeHtml)) s.Run("welcome", [] { WelcomeTick(); });
+    if (FeatureEnabled(Feature::ReadyHud)) s.Run("ready_hud", [] { ReadyHudTick(); });  // skips welcome cards
+    if (FeatureEnabled(Feature::ReadyHud)) s.Run("hud_anim", [] { ReadyHudAnimTick(); });  // `.ru hud anim`
+    s.Run("prefix", [&] { PrefixTick(t->now); });
+    s.Report(t->now);
   });
 }
 
