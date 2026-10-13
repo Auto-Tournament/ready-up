@@ -119,6 +119,14 @@ bool BotFillEmptyMayGoLive(double secondsEmpty);
 // money and weapons; then it sits paused as any restore does).
 constexpr double kResumeRejoinSeconds = 45.0;
 bool ResumeMayGoLive(int rosterTotal, int presentTotal, double secondsSinceFirstBack);
+// "Every roster player is back" for ResumeMayGoLive, per team: a full team (FullTeamSize), so a
+// substitute who was not playing does not hold the resume up for the rejoin window.
+// needed / back: the totals to pass as ResumeMayGoLive's rosterTotal / presentTotal.
+struct ResumeHeadcount {
+  int needed = 0;
+  int back = 0;
+};
+ResumeHeadcount ResumeCount(const int roster[2], const int present[2], int playersPerTeam = 0);
 
 // Spectators of the match config (casters) who typed .ready: `required` (min_spectators_to_ready)
 // of them are needed before go-live. 0 (the default) never holds the match up.
