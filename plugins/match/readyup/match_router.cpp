@@ -287,7 +287,8 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
 
   if (hasMatch) {
     if (ctx->roster_team.find(steamid64) == ctx->roster_team.end()) {
-      DebugLine("ru: match loaded but sender is not on its roster");
+      Print("ready: %s (%llu) typed %s but is not on this match's roster\n", playerName.c_str(),
+            static_cast<unsigned long long>(steamid64), first.c_str());
       SendToChat("Ready Up: you are not on this match's roster.");
       return;
     }
@@ -326,6 +327,8 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
         Debug("ru:   bot userid=%d name=\"%s\" team=%d (dev_bots_ready=%d)\n", b.userid, b.name.c_str(), b.team,
               DevBotsReadyEnabled() ? 1 : 0);
       }
+      Print("ready: %s (%llu) typed %s but is not on CT or T\n", playerName.c_str(),
+            static_cast<unsigned long long>(steamid64), first.c_str());
       SendToChat("Ready Up: join CT or T first.");
       return;
     }
@@ -375,6 +378,8 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   };
   if (first == ".r" || first == ".ready") {
     const bool wasReady = SetReady(steamid64, true);
+    Print("ready: %s (%llu) READY %s\n", playerName.c_str(), static_cast<unsigned long long>(steamid64),
+          progress().c_str());
     if (wasReady) {
       if (!HudReplacesChat()) SendToChat(("Ready Up: " + playerName + " is already READY " + progress() + ".").c_str());
     } else {
@@ -386,6 +391,8 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   }
   if (first == ".unready" || first == ".ur" || first == ".notready" || first == ".nr") {
     const bool wasReady = SetReady(steamid64, false);
+    Print("ready: %s (%llu) NOT READY %s\n", playerName.c_str(), static_cast<unsigned long long>(steamid64),
+          progress().c_str());
     if (!wasReady) {
       if (!HudReplacesChat()) SendToChat(("Ready Up: " + playerName + " is already NOT READY " + progress() + ".").c_str());
     } else {
