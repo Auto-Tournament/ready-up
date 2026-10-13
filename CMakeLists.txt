@@ -28,6 +28,7 @@ add_library(server_shim SHARED
   core/src/readyup/client_print.cpp
   core/src/readyup/client_command_hook.cpp
   core/src/readyup/command_buffer_hook.cpp
+  core/src/readyup/stay_awake.cpp
   core/src/readyup/config.cpp
   core/src/readyup/console_command.cpp
   core/src/readyup/crash_handler.cpp
@@ -396,6 +397,12 @@ target_link_libraries(readyup_license_status_test PRIVATE readyup_monocypher)
 add_executable(readyup_ru_help_test tests/ru_help_test.cpp core/src/readyup/ru_help_text.cpp)
 target_include_directories(readyup_ru_help_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
 target_compile_options(readyup_ru_help_test PRIVATE -Wall -Wextra)
+
+# Which command text turns empty-server hibernation back on (core/src/readyup/stay_awake.h).
+add_executable(readyup_stay_awake_test tests/stay_awake_test.cpp core/src/readyup/stay_awake.cpp)
+target_include_directories(readyup_stay_awake_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
+target_compile_options(readyup_stay_awake_test PRIVATE -Wall -Wextra)
+add_test(NAME stay_awake COMMAND readyup_stay_awake_test)
 
 # Plugin time per server frame, `ru perf` (core/src/readyup/perf_stats.h).
 add_executable(readyup_perf_stats_test tests/perf_stats_test.cpp core/src/readyup/perf_stats.cpp)
