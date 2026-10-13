@@ -1733,7 +1733,13 @@ void OnCmd(const ru_fleet_msg* m) {
   } else if (name == "start") {
     // args.force: also under the valve ruleset without GOTV (esports.h).
     const bool force = Bool(args, "force");
-    if (!IsWarmupMode()) r = Rejected("bad_phase", "start works in warmup only");
+    if (GetMode() == ReadyUpMode::MatchLive) {
+      // Live, but CS2 can still be in its own warmup (it starts one when players join an empty
+      // server): the admin's "End warmup" ends it (2026-10-13: a map sat in warmup for 20 min).
+      const bool queued = EnqueueServerCommand("mp_warmup_pausetimer 0") && EnqueueServerCommand("mp_warmup_end");
+      r = queued ? Ok() : Failed("engine", "could not queue mp_warmup_end");
+      Print("fleet: start on a live map: CS2 warmup ended (%s)\n", queued ? "queued" : "not queued");
+    } else if (!IsWarmupMode()) r = Rejected("bad_phase", "start works in warmup only");
     else if (ForceStartMatch(force)) r = Ok();
     else if (!force && LiveCfgRequired() && EsportsGotvState() == GotvState::Down)
       r = Rejected("gotv_off", "GOTV is off on this map (valve ruleset): reload the map, or start with {\"force\": true}");
