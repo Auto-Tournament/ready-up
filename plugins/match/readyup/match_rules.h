@@ -24,6 +24,9 @@ struct MatchRules {
   // -1 = not set (take the next source).
   int tech_pauses_per_team = -1;   // technical pauses per team per map; 0 = unlimited
   int tech_pause_max_seconds = -1; // auto-unpause after this long; 0 = no limit
+  // auto_5v5 (a side short: sv_matchpause_auto_5v5): unpaused once both sides are full again,
+  // or after this long; 0 = no limit (both teams .unpause, or an admin).
+  int disconnect_pause_max_seconds = -1;
   int both_teams_unpause = -1;     // 1: both teams type .unpause; 0: the pausing team alone
   int allow_force_ready = -1;      // `.forceready`
   int min_players_to_ready = -1;   // connected players a team needs for .forceready; 0 = full roster
@@ -72,6 +75,12 @@ constexpr int kFullTeamPlayers = 5;
 bool Auto5v5PauseExpected(bool ruleOn, bool liveMap, bool alreadyPaused, int ctPlayers, int tPlayers);
 // The short side (3 CT / 2 T; the one with fewer players, CT on a tie), 0 when both are full.
 int Auto5v5ShortSide(int ctPlayers, int tPlayers);
+// An auto_5v5 pause ends by itself (pure): "full" once both sides have 5 again (held for
+// kAuto5v5FullHoldSeconds, so a player flickering in and out does not start the round),
+// "timeout" after maxSeconds (> 0) of the pause, else "" (it waits).
+constexpr double kAuto5v5FullHoldSeconds = 5.0;
+std::string Auto5v5UnpauseReason(int ctPlayers, int tPlayers, double fullForSeconds, double pausedSeconds,
+                                 int maxSeconds);
 
 // ---- .forceready -----------------------------------------------------------------------------
 

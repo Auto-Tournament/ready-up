@@ -35,6 +35,7 @@ std::atomic<bool> g_roundOver{false};  // round_end .. round_start
 
 // Game thread only.
 int g_rsSeqAuto5v5 = 0;  // the round start the auto_5v5 check last ran for
+double g_auto5v5FullSince = 0;  // when both sides were last seen full during an auto_5v5 pause (0: not)
 bool g_wasPaused = false;
 double g_effectiveAt = 0;  // technical: when the pause took effect (0 = waiting for freeze time)
 int g_rsSeqAtPause = 0;
@@ -165,18 +166,25 @@ void ForfeitTick(double now) {
 // with a side short of 5 players the engine pauses the match in freeze time. Ready Up marks that
 // pause "auto_5v5" (it belongs to nobody: both teams .unpause, or an admin; it counts against
 // neither team). If the engine did not pause after all, the freeze time ends and the tick clears it.
+// Players on each side, humans and bots (bot fill counts: a bot is a full seat).
+void CountSides(int* ct, int* t) {
+  *ct = 0;
+  *t = 0;
+  for (const auto& h : ListHumans()) {
+    if (h.team == 3) ++*ct;
+    else if (h.team == 2) ++*t;
+  }
+  for (const auto& b : ListBots()) {
+    if (b.team == 3) ++*ct;
+    else if (b.team == 2) ++*t;
+  }
+}
+
 void MaybeMarkAuto5v5Pause() {
   const auto ctx = WebhookGetMatchContext();
   if (!ctx) return;
   int ct = 0, t = 0;
-  for (const auto& h : ListHumans()) {
-    if (h.team == 3) ++ct;
-    else if (h.team == 2) ++t;
-  }
-  for (const auto& b : ListBots()) {
-    if (b.team == 3) ++ct;
-    else if (b.team == 2) ++t;
-  }
+  CountSides(&ct, &t);
   if (!Auto5v5PauseExpected(AutoPause5v5Enabled(), LiveMap(), PauseStateGet().paused, ct, t)) return;
   const int side = Auto5v5ShortSide(ct, t);
   const WebhookTeam shortTeam = CsSideOf(*ctx, WebhookTeam::Team1) == side ? WebhookTeam::Team1 : WebhookTeam::Team2;
@@ -184,8 +192,11 @@ void MaybeMarkAuto5v5Pause() {
   WebhookEmitMatchPaused(MatchStateGet().map_number, WebhookPlayer{0, "server", shortTeam}, /*is_tactical=*/false,
                          /*is_admin=*/false, /*pause_time=*/0);
   Print("pause: auto_5v5 (sv_matchpause_auto_5v5 1): CT %d, T %d players; %s is short\n", ct, t, TeamKey(shortTeam));
-  SendToChat(("Ready Up: paused - " + TeamName(*ctx, shortTeam) +
-              " is not full (5v5). Both teams type .unpause when ready, or an admin unpauses.")
+  const int maxSeconds = EffectiveRules().disconnect_pause_max_seconds;
+  SendToChat(("Ready Up: paused - " + TeamName(*ctx, shortTeam) + " is not full (5v5). It goes on by itself " +
+              "when the team is full again" +
+              (maxSeconds > 0 ? " or in " + std::to_string(maxSeconds / 60) + " min" : std::string()) +
+              "; both teams .unpause or an admin to go on now.")
                  .c_str());
 }
 
@@ -445,6 +456,7 @@ void MatchFeaturesTick() {
     g_warnedAutoUnpause = false;
   } else if (!ps.paused) {
     g_wasPaused = false;
+    g_auto5v5FullSince = 0;
   }
   int secondsLeft = -1;
   if (ps.paused) {
@@ -453,6 +465,26 @@ void MatchFeaturesTick() {
       Unpause("tactical timeout over");
     } else if (ps.type == "auto_5v5" && g_freezeEndSeq.load() != g_feSeqAtPause) {
       Unpause("freeze time ended: the engine is not paused (auto_5v5)");
+    } else if (ps.type == "auto_5v5" && LiveMap()) {
+      // The player is back (or the wait is over): on with the round, nobody has to .unpause.
+      int ct = 0, t = 0;
+      CountSides(&ct, &t);
+      if (Auto5v5ShortSide(ct, t) == 0) {
+        if (g_auto5v5FullSince == 0) {
+          g_auto5v5FullSince = now;
+          SendToChat("Ready Up: both teams are full again - live in 5 seconds.");
+        }
+      } else {
+        g_auto5v5FullSince = 0;
+      }
+      const double paused = g_effectiveAt > 0 ? now - g_effectiveAt : 0;
+      const std::string why = Auto5v5UnpauseReason(ct, t, g_auto5v5FullSince > 0 ? now - g_auto5v5FullSince : 0,
+                                                   paused, rules.disconnect_pause_max_seconds);
+      if (!why.empty() && EnqueueServerCommand("mp_unpause_match")) {
+        g_auto5v5FullSince = 0;
+        Unpause(why == "full" ? "both teams are full again (auto_5v5)" : "the disconnect pause time is up");
+        if (why == "timeout") SendToChat("Ready Up: the wait for the missing player is over - unpaused.");
+      }
     } else if (ps.type == "technical" && rules.tech_pause_max_seconds > 0 && g_effectiveAt > 0 && LiveMap()) {
       secondsLeft = TechPauseSecondsLeft(static_cast<int>(now - g_effectiveAt), rules.tech_pause_max_seconds);
       if (secondsLeft <= 10 && secondsLeft > 0 && !g_warnedAutoUnpause) {
