@@ -1,5 +1,7 @@
 #include "readyup/card_html.h"
 
+#include <algorithm>
+
 namespace readyup {
 namespace {
 
@@ -102,6 +104,84 @@ std::string GoLiveCardHtml(const GoLiveCardInfo& info) {
     h += "<br>";
   }
   Font(h, "s", kGrey, "good luck, have fun");
+  return h;
+}
+
+namespace {
+
+// "de_mirage" -> "Mirage", "cs_office" -> "Office", "workshop/123/de_x" -> "X".
+std::string PrettyMap(const std::string& map) {
+  std::string m = map;
+  const size_t slash = m.find_last_of('/');
+  if (slash != std::string::npos) m = m.substr(slash + 1);
+  for (const char* p : {"de_", "cs_", "ar_", "dz_"}) {
+    if (m.rfind(p, 0) == 0) {
+      m = m.substr(3);
+      break;
+    }
+  }
+  for (char& c : m) {
+    if (c == '_') c = ' ';
+  }
+  if (!m.empty() && m[0] >= 'a' && m[0] <= 'z') m[0] = static_cast<char>(m[0] - 'a' + 'A');
+  return m;
+}
+
+std::string ResultTeamName(const ResultCardInfo& info, const std::string& which) {
+  const std::string& name = which == "team1" ? info.team1 : info.team2;
+  return CardHtmlEscape(name.empty() ? (which == "team1" ? "Team 1" : "Team 2") : name, kMaxTeamBytes);
+}
+
+std::string ScoreLine(const ResultCardInfo& info) {
+  return std::to_string(info.team1Score) + " - " + std::to_string(info.team2Score);
+}
+
+std::string Matchup(const ResultCardInfo& info) {
+  return ResultTeamName(info, "team1") + " vs " + ResultTeamName(info, "team2");
+}
+
+}  // namespace
+
+std::string MapResultCardHtml(const ResultCardInfo& info) {
+  std::string h;
+  h.reserve(512);
+  std::string head = "MAP " + std::to_string(std::max(1, info.mapNumber));
+  if (!info.mapName.empty()) head += " &#183; " + CardHtmlEscape(PrettyMap(info.mapName), kMaxTeamBytes);
+  Font(h, "m", kGrey, head);
+  h += "<br>";
+  if (info.winner == "team1" || info.winner == "team2") {
+    Font(h, "xl", kGold, "<b>" + ResultTeamName(info, info.winner) + "</b>");
+    Font(h, "l", kWhite, " wins the map");
+  } else {
+    Font(h, "xl", kGold, "<b>MAP DRAWN</b>");
+  }
+  h += "<br>";
+  Font(h, "l", kWhite, "<b>" + ScoreLine(info) + "</b>");
+  h += "<br>";
+  Font(h, "s", kGrey, Matchup(info));
+  if (!info.nextMap.empty()) {
+    h += "<br>";
+    Font(h, "sm", kOk, "Next: " + CardHtmlEscape(PrettyMap(info.nextMap), kMaxTeamBytes));
+  }
+  return h;
+}
+
+std::string SeriesResultCardHtml(const ResultCardInfo& info) {
+  std::string h;
+  h.reserve(512);
+  if (info.winner == "team1" || info.winner == "team2") {
+    Font(h, "xl", kGold, "<b>" + ResultTeamName(info, info.winner) + "</b>");
+    h += "<br>";
+    Font(h, "l", kOk, "<b>WINS THE SERIES</b>");
+  } else {
+    Font(h, "xl", kGold, "<b>SERIES DRAWN</b>");
+  }
+  h += "<br>";
+  Font(h, "l", kWhite, info.forfeit ? std::string("by forfeit") : "<b>" + ScoreLine(info) + "</b>");
+  h += "<br>";
+  Font(h, "s", kGrey, Matchup(info));
+  h += "<br>";
+  Font(h, "s", kGrey, "GG &#183; thanks for playing");
   return h;
 }
 

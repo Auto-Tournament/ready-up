@@ -48,6 +48,7 @@
 #include "readyup/webhook.h"
 #include "readyup/admin_call.h"
 #include "readyup/golive_card.h"
+#include "readyup/result_card.h"
 #include "readyup/welcome.h"
 #include "readyup/workers.h"
 
@@ -196,6 +197,7 @@ void OnTick(void*, const ru_tick_info* t) {
     fleet_bridge::Tick(t->now);
     // One-off cards before the HUD: the HUD leaves a player's panel alone while one is up.
     if (FeatureEnabled(Feature::MatchFlow)) GoLiveCardTick();  // "LIVE · GO GO GO" (golive_card.h)
+    ResultCardTick();  // map / series result (result_card.h)
     AdminCallTick();  // `.admin` cards for in-game admins (admin_call.h)
     if (FeatureEnabled(Feature::WelcomeHtml)) WelcomeTick();
     if (FeatureEnabled(Feature::ReadyHud)) ReadyHudTick();  // skips players whose welcome card is up
