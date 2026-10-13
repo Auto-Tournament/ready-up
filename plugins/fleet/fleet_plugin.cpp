@@ -1337,6 +1337,13 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
                                                        : !g_set.code.empty() ? "enrolling with the one-time code"
                                                                              : "not enrolled (ru fleet enroll <code>)"));
       StartClient(g_set.url);  // failure is logged and shown by status/selftest; the plugin stays loaded
+      // An empty server hibernates and runs no game frames, and the platform's
+      // commands (assign a match, load its config) are applied on the game
+      // thread: a hibernating server would only take its match once a player
+      // joined. A server the platform runs stays awake.
+      if (!api->server_command(api->self, "sv_hibernate_when_empty 0")) {
+        Log(RU_LOG_WARN, "fleet: could not queue sv_hibernate_when_empty 0; set it in server.cfg");
+      }
     }
     return 0;
   } catch (const std::exception& e) {
