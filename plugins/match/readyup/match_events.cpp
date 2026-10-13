@@ -1,6 +1,7 @@
 // Match half of the old core game_events.cpp (see match_events.h). Engine access goes through
 // ru_api only: event fields via ev_get_*, controllers via entity_by_index / schema_offset.
 #include "readyup/match_events.h"
+#include "readyup/round_economy.h"
 #include "readyup/match_recovery.h"
 
 #include "readyup/backup_files.h"
@@ -666,7 +667,9 @@ void OnGameEvent(void* /*user*/, const char* name, const ru_game_event* ev) {
   if (std::strcmp(name, "round_start") == 0) {
     WelcomeObserveRoundStart();     // the cards wait it out
     GoLiveCardObserveRoundStart();  // (golive_card.h)
+    RoundEconomyOnRoundStart();     // money at the start (round_economy.h)
   }
+  if (std::strcmp(name, "round_freeze_end") == 0) RoundEconomyOnFreezeEnd();  // the buys
   if (std::strcmp(name, "round_start") == 0 || std::strcmp(name, "round_freeze_end") == 0) {
     MatchFeaturesOnGameEvent(name);  // freeze time tracking for pauses (match_features.h)
     if (name[6] == 'f') {

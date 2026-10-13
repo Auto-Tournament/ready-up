@@ -42,6 +42,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <filesystem>
@@ -1385,15 +1386,24 @@ Result CmdForceReady(const Json& args) {
   if (!ctx) return Rejected("bad_phase", "no match loaded");
   const std::string team = Str(args, "team");
   if (!team.empty() && team != "team1" && team != "team2") return Rejected("bad_args", "team must be team1 or team2");
+  // One player (the admin match page's per-player "Mark ready"), else a team or everyone.
+  const std::string one = Str(args, "steamid64");
+  const uint64_t oneId = one.empty() ? 0 : std::strtoull(one.c_str(), nullptr, 10);
+  if (!one.empty() && oneId == 0) return Rejected("bad_args", "steamid64 must be a SteamID64");
   int n = 0;
+  bool found = false;
   for (const auto& h : ListHumans()) {
+    if (oneId != 0 && h.steamid64 != oneId) continue;
     const auto it = ctx->roster_team.find(h.steamid64);
     if (it == ctx->roster_team.end()) continue;
     if (!team.empty() && (it->second == WebhookTeam::Team1 ? "team1" : "team2") != team) continue;
+    found = true;
     if (!SetReady(h.steamid64, true)) ++n;
   }
+  if (oneId != 0 && !found) return Rejected("not_connected", "no connected roster player " + one);
   ScrimNoteReadyChanged();
-  SendToChat("Ready Up: players readied by a tournament admin.");
+  SendToChat(oneId != 0 ? "Ready Up: a player was readied by a tournament admin."
+                        : "Ready Up: players readied by a tournament admin.");
   Result r = Ok();
   r.message = std::to_string(n) + " player(s) set ready";
   return r;
