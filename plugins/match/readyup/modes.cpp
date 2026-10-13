@@ -807,6 +807,26 @@ static bool GoLiveCheckLocked(State& st, const WebhookMatchContext& ctx, std::st
   } else {
     wasEmpty = false;
   }
+  // Bot fill: both sides need someone in game (a bot or a human). Going live on an empty server
+  // left the map in warmup: CS2 starts a warmup when the first players join an empty server, so
+  // the bots that joined after the go-live put it back in warmup while Ready Up counted it live
+  // (2026-10-13: map 2 of a bots-only Bo3 stuck in warmup for 20 minutes).
+  if (ctx.bot_fill) {
+    int ct = 0, t = 0;
+    for (const auto& h : ListHumans()) {
+      if (h.team == 3) ++ct;
+      else if (h.team == 2) ++t;
+    }
+    for (const auto& b : ListBots()) {
+      if (b.team == 3) ++ct;
+      else if (b.team == 2) ++t;
+    }
+    if (ct == 0 || t == 0) {
+      *why = "bot fill: waiting for players or bots on both sides (CT " + std::to_string(ct) + ", T " +
+             std::to_string(t) + ")";
+      return false;
+    }
+  }
   for (int t = 0; t < 2; ++t) {
     // Bot fill: bots are always ready, so only the connected humans hold a team up.
     if (ctx.bot_fill) {
@@ -2457,7 +2477,10 @@ void OnNativeWarmupStarted(const char* source) {
                          m == ReadyUpMode::MatchKnife);
   // Practice has no warmup either. After a map change or a restart, CS2 starts its warmup after
   // prac.cfg (and its mp_warmup_end) already ran, so practice sat in CS2's warmup until `.prac`.
-  if (!emulated && m != ReadyUpMode::Practice) {
+  // A live map has no warmup either: CS2 starts one when players join an empty server, which put a
+  // map that went live before its bots joined back in warmup for good (2026-10-13). End it.
+  const bool live = m == ReadyUpMode::MatchLive;
+  if (!emulated && !live && m != ReadyUpMode::Practice) {
     Debug("warmup: CS2 warmup started (%s) in mode=%s; left alone\n", source ? source : "?", ModeToString(m));
     return;
   }
@@ -2474,7 +2497,9 @@ void OnNativeWarmupStarted(const char* source) {
   }
   if (any) st.lastNativeWarmupEnd = now;
   Print("warmup: CS2 warmup started (%s) in mode=%s; ending it (%s)%s\n", source ? source : "?", ModeToString(m),
-        m == ReadyUpMode::Practice ? "practice has no warmup" : "Ready Up emulates warmup",
+        m == ReadyUpMode::Practice ? "practice has no warmup"
+        : live                     ? "the map is live"
+                                   : "Ready Up emulates warmup",
         any ? "" : " - command buffer not ready");
 }
 
