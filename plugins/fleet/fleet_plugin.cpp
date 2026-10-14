@@ -575,9 +575,10 @@ fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Valu
   if (name == "practice.set") {
     // {on?, always?}: always first, so {on: true, always: true} makes a dedicated practice server.
     int on = -1, always = -1;
-    bool hasHome = false;
+    bool hasHome = false, hasCvars = false;
     std::string home;
-    if (!ParsePracticeSet(args, &on, &always, &err, &hasHome, &home)) return Rejected("bad_args", err);
+    std::vector<std::string> cvars;
+    if (!ParsePracticeSet(args, &on, &always, &err, &hasHome, &home, &hasCvars, &cvars)) return Rejected("bad_args", err);
     // home_map: essentials.so's default map for "practice"; an empty always=1 server goes there.
     if (hasHome) {
       const auto* e = static_cast<const ru_essentials_v1*>(
@@ -587,10 +588,22 @@ fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Valu
         return Rejected("unsupported", "home_map needs essentials.so (update Ready Up)");
       }
       if (e->set_default_map("practice", home.c_str()) != 1) return Rejected("bad_args", "home_map: not a map name, workshop id or link");
-      if (on < 0 && always < 0) return Ok();
+      if (on < 0 && always < 0 && !hasCvars) return Ok();
     }
     const auto* p = static_cast<const ru_practice_v1*>(g_api->get_interface(g_api->self, RU_PRACTICE_IFACE_NAME, 1));
     if (!p || !p->set_active) return Rejected("unsupported", "the practice plugin (practice.so) is not loaded");
+    // home_cvars: the home map's settings (a surf map's air acceleration ...), practice.so applies them.
+    if (hasCvars) {
+      if (p->struct_size < offsetof(ru_practice_v1, set_home_cvars) + sizeof(p->set_home_cvars) || !p->set_home_cvars) {
+        return Rejected("unsupported", "home_cvars needs a newer practice.so (update Ready Up)");
+      }
+      std::vector<const char*> ptrs;
+      for (const auto& c : cvars) ptrs.push_back(c.c_str());
+      if (p->set_home_cvars(ptrs.data(), static_cast<uint32_t>(ptrs.size())) != 1) {
+        return Rejected("bad_args", "home_cvars: each a \"sv_/mp_<name> <number>\" line");
+      }
+      if (on < 0 && always < 0) return Ok();
+    }
     if (always >= 0) {
       if (p->struct_size < offsetof(ru_practice_v1, set_always) + sizeof(p->set_always) || !p->set_always) {
         return Rejected("unsupported", "this practice.so cannot store always (update Ready Up)");

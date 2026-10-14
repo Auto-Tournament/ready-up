@@ -572,6 +572,12 @@ TEST(TestOwnedCmds) {
     CHECK(ParsePracticeSet(J(R"({"home_map": ""})"), &pon, &palways, &err, &hasHome, &home) && hasHome && home.empty());
     CHECK(!ParsePracticeSet(J(R"({"home_map": "de_dust2; quit"})"), &pon, &palways, &err, &hasHome, &home));
     CHECK(!ParsePracticeSet(J(R"({"home_map": 5})"), &pon, &palways, &err, &hasHome, &home));
+    bool hasCvars = false;
+    std::vector<std::string> cvars;
+    CHECK(ParsePracticeSet(J(R"({"home_cvars": ["sv_airaccelerate 150"]})"), &pon, &palways, &err, &hasHome, &home,
+                           &hasCvars, &cvars) &&
+          hasCvars && cvars.size() == 1 && !hasHome);
+    CHECK(!ParsePracticeSet(J(R"({"home_cvars": "sv_x 1"})"), &pon, &palways, &err, &hasHome, &home, &hasCvars, &cvars));
   }
 
   CHECK_EQ(SanitizeSay("hi\x01 there\n"), std::string("hi there"));

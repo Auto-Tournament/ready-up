@@ -26,7 +26,8 @@ bool ParseWhitelistSet(const json::Value& args, bool* enabled, std::vector<uint6
 // practice.set {on?, always?, home_map?}: -1 = not given. home_map (a map name, workshop id or link;
 // "" clears) sets *hasHomeMap; essentials.so checks the map itself.
 bool ParsePracticeSet(const json::Value& args, int* on, int* always, std::string* err, bool* hasHomeMap = nullptr,
-                      std::string* homeMap = nullptr);
+                      std::string* homeMap = nullptr, bool* hasHomeCvars = nullptr,
+                      std::vector<std::string>* homeCvars = nullptr);
 // say: control characters dropped, at most 190 bytes (cut on a UTF-8 boundary).
 std::string SanitizeSay(const std::string& text);
 // A say line as the center panel's HTML: escaped, so the text never becomes markup.
