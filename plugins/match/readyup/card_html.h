@@ -35,6 +35,8 @@ struct ResultCardInfo {
   std::string mapName;           // map card: "de_mirage" -> "Mirage"
   std::string nextMap;           // map card: the next map, if any
   bool forfeit = false;          // series card: won by forfeit
+  bool decidedByDamage = false;  // the (last) map was tied after its overtimes and won on damage
+  int team1Damage = 0, team2Damage = 0;
 };
 // "MAP 2 · MIRAGE" / "<winner> wins the map" / "7 - 5" / "Next: Inferno".
 std::string MapResultCardHtml(const ResultCardInfo& info);

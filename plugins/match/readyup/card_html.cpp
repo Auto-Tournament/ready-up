@@ -142,6 +142,11 @@ std::string Matchup(const ResultCardInfo& info) {
 
 }  // namespace
 
+// "won on damage: 2,345 - 2,101" (tied after the overtimes).
+static std::string DamageLine(const ResultCardInfo& info) {
+  return "won on damage: " + std::to_string(info.team1Damage) + " - " + std::to_string(info.team2Damage);
+}
+
 std::string MapResultCardHtml(const ResultCardInfo& info) {
   std::string h;
   h.reserve(512);
@@ -158,6 +163,10 @@ std::string MapResultCardHtml(const ResultCardInfo& info) {
   h += "<br>";
   Font(h, "l", kWhite, "<b>" + ScoreLine(info) + "</b>");
   h += "<br>";
+  if (info.decidedByDamage) {
+    Font(h, "sm", kGold, DamageLine(info));
+    h += "<br>";
+  }
   Font(h, "s", kGrey, Matchup(info));
   if (!info.nextMap.empty()) {
     h += "<br>";
@@ -180,6 +189,10 @@ std::string SeriesResultCardHtml(const ResultCardInfo& info) {
   Font(h, "l", kWhite, info.forfeit ? std::string("by forfeit") : "<b>" + ScoreLine(info) + "</b>");
   h += "<br>";
   Font(h, "s", kGrey, Matchup(info));
+  if (info.decidedByDamage) {
+    h += "<br>";
+    Font(h, "sm", kGold, "Last map " + DamageLine(info));
+  }
   h += "<br>";
   Font(h, "s", kGrey, "GG &#183; thanks for playing");
   return h;

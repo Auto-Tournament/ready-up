@@ -1990,6 +1990,20 @@ static void FinishMapLocked(State& st, const WebhookMatchContext& ctx, int map_n
   in.seriesOver = seriesOver;
   in.nextMap = nextMap;
   if (forfeit) in.seriesWinner = winner;
+  // Tied after the overtimes and still won: the damage tiebreak decided it. Say so, with the numbers.
+  const bool won = std::strcmp(winner, "team1") == 0 || std::strcmp(winner, "team2") == 0;
+  if (!forfeit && won && in.team1Score == in.team2Score) {
+    const auto dmg = GetRosterTeamDamageTotals();
+    in.decidedByDamage = true;
+    in.team1Damage = dmg.first;
+    in.team2Damage = dmg.second;
+    const std::string winnerName = std::strcmp(winner, "team1") == 0 ? ctx.team1_name : ctx.team2_name;
+    SendToChat(("Ready Up: " + std::to_string(in.team1Score) + "-" + std::to_string(in.team2Score) +
+                " after the overtimes, so total damage decides: " + winnerName + " wins the map (" +
+                ctx.team1_name + " " + std::to_string(dmg.first) + " - " + std::to_string(dmg.second) + " " +
+                ctx.team2_name + ").")
+                   .c_str());
+  }
   (void)MatchEndOnMapComplete(in);
   match_recovery::NoteProgress();  // map_over + the series score (crash recovery)
 }
