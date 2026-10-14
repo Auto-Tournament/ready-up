@@ -794,7 +794,9 @@ void RunWarmupRegive() {
     if (g_regive.empty()) return;
     due.swap(g_regive);
   }
-  if (GameWarmup() != 1) return;  // live (or unknown): the next spawn brings the new skins
+  // CS2's own warmup, or Ready Up's (a match warmup runs with CS2's warmup ended): swap now.
+  // Live (or unknown): the next spawn brings the new skins.
+  if (GameWarmup() != 1 && !WarmupLike()) return;
   for (int slot = 0; slot < 64; ++slot) {
     if (g_players[slot].steamid64 != 0 && due.count(g_players[slot].steamid64)) {
       RequestReapply(slot);

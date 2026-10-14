@@ -332,6 +332,9 @@ void OnDebugAs(void*, const ru_command_ctx* ctx) {
 }
 
 }  // namespace
+
+bool WarmupLike() { return SkinsReloadAllowed(RuMode()); }
+
 }  // namespace skins
 
 using namespace skins;
