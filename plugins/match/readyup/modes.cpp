@@ -708,6 +708,12 @@ static void EnforceWhitelistLocked(State& st) {
   }
 }
 
+// Bot fill's empty-server grace (BotFillEmptyMayGoLive). A new match starts it over: a match
+// loaded on a server that had been empty since the last one went live at once, before anyone
+// could join (2026-10-14).
+static bool g_botFillWasEmpty = false;
+static std::chrono::steady_clock::time_point g_botFillEmptySince;
+
 static bool GoLiveCheckLocked(State& st, const WebhookMatchContext& ctx, std::string* why) {
   // Nobody goes live on the wrong side: a player who switched team and typed .ready before the
   // team lock moved them back would start the match there. Wait for the lock (it moves them
@@ -791,8 +797,8 @@ static bool GoLiveCheckLocked(State& st, const WebhookMatchContext& ctx, std::st
       return false;
     }
   }
-  static bool wasEmpty = false;
-  static std::chrono::steady_clock::time_point emptySince;
+  bool& wasEmpty = g_botFillWasEmpty;
+  std::chrono::steady_clock::time_point& emptySince = g_botFillEmptySince;
   if (ctx.bot_fill && present[0] + present[1] == 0) {
     const auto nowTp = std::chrono::steady_clock::now();
     if (!wasEmpty) {
@@ -1570,6 +1576,7 @@ void OnMatchLoaded() {
   st.lastUi.clear();
   st.warmupRulesApplied = false;
   st.startTriggered = false;
+  g_botFillWasEmpty = false;  // the empty-server grace counts from this match's load
   st.lifecycleMapNumber = 0;
   st.warmupEndedSent = false;
   st.goingLiveSent = false;
