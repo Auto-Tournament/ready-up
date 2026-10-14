@@ -581,8 +581,11 @@ void ProcessPlayer(int slot, void* controller) {
   // Gloves and the agent model rebuild things on the client (the glove counter, a full re-send of
   // the pawn). Done while CS2 restarts the round, the client crashed (CopyExistingEntity, a player
   // joining with gloves on, 2026-10-14): the passes start over once the restart has settled.
-  if (restartQuiet && ps.cosmeticsPass >= 0) ps.spawnTick = g_tick;
-  if (!restartQuiet && ps.cosmeticsPass >= 0 && ps.cosmeticsPass < kCosmeticPassCount &&
+  // Only while the restart is pending: with no full re-send of the pawn any more (gloves the
+  // WeaponPaints way), waiting the whole quiet window after it only showed stock gloves and knife
+  // for a second after every restart.
+  if (g_restartPendingNow && ps.cosmeticsPass >= 0) ps.spawnTick = g_tick;
+  if (!g_restartPendingNow && ps.cosmeticsPass >= 0 && ps.cosmeticsPass < kCosmeticPassCount &&
       g_tick - ps.spawnTick >= kCosmeticPassTicks[ps.cosmeticsPass]) {
     // Anything first seen on our first active tick may already have been networked.
     const bool late = g_tick > ps.spawnTick + 1 || ps.spawnTick == g_activeSince;
@@ -632,12 +635,10 @@ void ProcessPlayer(int slot, void* controller) {
       }
       continue;
     }
-    // The same for a knife swap (ChangeSubclass): it waits, and the knife is re-given once the
-    // restart has settled, so the swap lands on a new knife on its first tick (a late swap of the
-    // old one leaves the stock look and HUD icon).
-    if (restartQuiet && IsKnifeDesigner(EntityDesignerName(weapon)) && FindKnifeClassname(steamid64, team)) {
-      st.done = true;
-      g_reapplyAt[slot] = g_tick + 1;  // held until the quiet window ends (above)
+    // A knife swap (ChangeSubclass) waits while the restart is pending; the restart hands out a new
+    // knife, swapped on its first tick. No re-give: removing and giving weapons is what crashed
+    // clients and servers (a re-give after each round start, 2026-10-14).
+    if (g_restartPendingNow && IsKnifeDesigner(EntityDesignerName(weapon)) && FindKnifeClassname(steamid64, team)) {
       continue;
     }
     const bool late = g_tick > st.firstSeen || st.firstSeen == g_activeSince;
