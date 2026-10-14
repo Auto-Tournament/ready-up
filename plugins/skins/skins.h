@@ -16,6 +16,9 @@ namespace skins {
 extern const ru_api* g_api;
 void Log(int level, const char* fmt, ...) RU_PRINTF(2, 3);
 bool DebugOn();  // readyup.cfg debug=1 (any thread)
+// Whether nothing is being played (Ready Up's idle, practice or a match / scrim warmup, or no
+// match plugin): a new loadout may swap the held weapons and gloves at once. Game thread.
+bool WarmupLike();
 // Ruleset "valve" (docs/ESPORTS-MODE.md, Valve rulebook: inventories "should not be modified or
 // augmented"): the plugin applies and restores nothing. Asked from the match plugin
 // (readyup.match.v1 inventory_locked), else readyup.cfg `ruleset=`; refreshed once a second on the
