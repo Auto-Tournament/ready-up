@@ -85,6 +85,8 @@
     "item_equip",
     "item_pickup",
     "player_death",
-    "player_spawn"
+    "player_spawn",
+    "round_prestart",
+    "round_start"
   ]
 }

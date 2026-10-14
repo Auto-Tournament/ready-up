@@ -112,6 +112,8 @@ bool SetPlayerNameTagExternal(uint64_t steamid64, const char* nameTag);
 // `.skins reload`: about a second from now, gloves + agent again and the held weapons repainted
 // with the (re-read) loadout. Game thread.
 void RequestReapply(int slot);
+// A round restart happened (round_prestart / round_start): re-gives wait a moment.
+void NoteRoundChange();
 // A new loadout came from the platform for this player (any thread). In warmup their held
 // weapons are swapped for ones with the new skins right away (like `.skins reload`); in a live
 // round nothing changes until the next spawn, so a fight never loses its weapon mid-round.
