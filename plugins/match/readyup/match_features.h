@@ -43,6 +43,10 @@ void MatchFeaturesOnGameEvent(const char* name);
 // then never starts the next round (the game stays in RoundOver), so restores wait (fleet_bridge
 // DoRestore). Any thread.
 bool MatchFeaturesRoundOver();
+// An admin ends an auto_5v5 pause: CS2 would pause again at once while a side is short, so the
+// engine's auto pause goes off for the rest of the map (the admin chose to play on short). Call
+// before mp_unpause_match. Game thread / any thread (queues commands).
+void MatchFeaturesAdminUnpausing();
 // Between round_start and round_freeze_end (freeze time). Any thread.
 bool MatchFeaturesInFreeze();
 
