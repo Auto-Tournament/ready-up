@@ -357,6 +357,8 @@ long long g_reapplyAt[65] = {};
 // 2026-10-14, a loadout that arrived as the match went live).
 long long g_roundChangeTick = -1000000;
 constexpr long long kRestartQuietTicks = 96;
+// This tick is inside the quiet window (set once per tick in the tick function).
+bool g_restartQuietNow = false;
 // Dev only (skins_debug_as, debug=1): a bot slot decorated with a real player's loadout, so the
 // whole apply path can be exercised without a human client.
 uint64_t g_debugAs[65] = {};
@@ -542,9 +544,12 @@ void ProcessPlayer(int slot, void* controller) {
   const bool alive = Rd<uint8_t>(pawn, o.ent_lifeState) == 0;
   bool repaintHeld = false;
   bool refreshed = false;
-  if (g_reapplyAt[slot] != 0 && g_tick >= g_reapplyAt[slot] && alive &&
-      g_tick - g_roundChangeTick < kRestartQuietTicks) {
-    g_reapplyAt[slot] = g_roundChangeTick + kRestartQuietTicks;  // after the restart settles
+  // Around a round restart nothing is given, swapped or dressed: a weapon made or removed while
+  // CS2 deletes and recreates the round's entities crashed servers and clients (2026-10-14,
+  // WriteEnterPVS / CopyExistingEntity). It all runs once the restart has settled.
+  const bool restartQuiet = g_restartQuietNow;
+  if (g_reapplyAt[slot] != 0 && g_tick >= g_reapplyAt[slot] && alive && restartQuiet) {
+    g_reapplyAt[slot] = g_tick + 8;
   }
   if (g_reapplyAt[slot] != 0 && g_tick >= g_reapplyAt[slot] && alive) {
     g_reapplyAt[slot] = 0;
@@ -568,6 +573,22 @@ void ProcessPlayer(int slot, void* controller) {
   ps.pawnHandle = pawnHandle;
   if (!alive) return;
 
+  if (restartQuiet) {
+    // The passes start over once the restart has settled. Weapons are only noted, so the ones
+    // seen now count as late (already networked) when they are painted afterwards.
+    if (ps.cosmeticsPass >= 0) ps.spawnTick = g_tick;
+    void* qws = Rd<void*>(pawn, o.pawn_weaponServices);
+    const int qn = qws ? Rd<int32_t>(qws, o.ws_myWeapons) : 0;
+    const uint32_t* qh = qws ? Rd<const uint32_t*>(qws, o.ws_myWeapons + 8) : nullptr;
+    if (qh && qn > 0 && qn <= 64) {
+      for (int i = 0; i < qn; ++i) {
+        WeaponState& st = g_weapons[qh[i]];
+        if (st.firstSeen == 0) st.firstSeen = g_tick;
+        st.lastSeen = g_tick;
+      }
+    }
+    return;
+  }
   if (ps.cosmeticsPass >= 0 && ps.cosmeticsPass < kCosmeticPassCount &&
       g_tick - ps.spawnTick >= kCosmeticPassTicks[ps.cosmeticsPass]) {
     // Anything first seen on our first active tick may already have been networked.
@@ -629,6 +650,7 @@ void PruneWeapons() {
 
 namespace {
 void RunWarmupRegive();
+bool GameRestartPending();
 }  // namespace
 
 void GameFrameTick() {
@@ -655,7 +677,8 @@ void GameFrameTick() {
     for (auto& r : g_reapplyAt) r = 0;
   }
 
-  RunPendingRefresh();
+  g_restartQuietNow = GameRestartPending() || g_tick - g_roundChangeTick < kRestartQuietTicks;
+  if (!g_restartQuietNow) RunPendingRefresh();
   RunWarmupRegive();
   for (int slot = 0; slot < 64; ++slot) {
     void* controller = EntityByIndex(slot + 1);
@@ -765,8 +788,9 @@ void QueueWarmupRegive(uint64_t steamid64) {
 }
 
 namespace {
-int g_offRulesPtr = -2, g_offWarmup = -2;
+int g_offRulesPtr = -2, g_offWarmup = -2, g_offGameRestart = -2;
 uint32_t g_rulesProxy = 0xFFFFFFFFu;
+void* g_rulesPtr = nullptr;
 long long g_rulesScanTick = -100000;
 
 // CS2's own warmup (CCSGameRules::m_bWarmupPeriod): -1 unknown, 0 no, 1 yes.
@@ -774,6 +798,7 @@ int GameWarmup() {
   if (g_offRulesPtr == -2) {
     g_offRulesPtr = g_api->schema_offset(g_api->self, "CCSGameRulesProxy", "m_pGameRules");
     g_offWarmup = g_api->schema_offset(g_api->self, "CCSGameRules", "m_bWarmupPeriod");
+    g_offGameRestart = g_api->schema_offset(g_api->self, "CCSGameRules", "m_bGameRestart");
   }
   if (g_offRulesPtr < 0 || g_offWarmup < 0) return -1;
   void* proxy = g_rulesProxy != 0xFFFFFFFFu ? g_api->entity_from_handle(g_api->self, g_rulesProxy) : nullptr;
@@ -795,7 +820,15 @@ int GameWarmup() {
   void* rules = nullptr;
   std::memcpy(&rules, static_cast<unsigned char*>(proxy) + g_offRulesPtr, sizeof(rules));
   if (!rules) return -1;
+  g_rulesPtr = rules;
   return *(static_cast<unsigned char*>(rules) + g_offWarmup) ? 1 : 0;
+}
+
+// CS2 has a restart pending (mp_restartgame, a match going live: CCSGameRules::m_bGameRestart),
+// read through the game rules GameWarmup found.
+bool GameRestartPending() {
+  if (GameWarmup() < 0 || g_offGameRestart < 0 || !g_rulesPtr) return false;
+  return *(static_cast<unsigned char*>(g_rulesPtr) + g_offGameRestart) != 0;
 }
 
 // Game thread: players with a new loadout get their weapons re-given, in warmup only.
