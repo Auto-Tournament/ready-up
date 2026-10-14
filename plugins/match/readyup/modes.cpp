@@ -799,6 +799,13 @@ static bool GoLiveCheckLocked(State& st, const WebhookMatchContext& ctx, std::st
   }
   bool& wasEmpty = g_botFillWasEmpty;
   std::chrono::steady_clock::time_point& emptySince = g_botFillEmptySince;
+  // Players on a roster are waited for: the grace below started a match with bots 60 s after it
+  // loaded, before its player could get in (2026-10-14). Only a match with nobody rostered goes on
+  // by itself; an admin force-starts one whose players never come.
+  if (ctx.bot_fill && present[0] + present[1] == 0 && roster[0] + roster[1] > 0) {
+    *why = "bot fill: waiting for the rostered players to join";
+    return false;
+  }
   if (ctx.bot_fill && present[0] + present[1] == 0) {
     const auto nowTp = std::chrono::steady_clock::now();
     if (!wasEmpty) {
