@@ -153,6 +153,7 @@ namespace {
 int g_offPing = -2;      // CCSPlayerController.m_iPing
 int g_offRulesPtr = -2;  // CCSGameRulesProxy.m_pGameRules
 int g_offWarmup = -2;    // CCSGameRules.m_bWarmupPeriod
+int g_offFreeze = -2;    // CCSGameRules.m_bFreezePeriod
 uint32_t g_rulesProxy = 0xFFFFFFFFu;
 long long g_rulesScanAtMs = 0;
 // When each roster player was first seen connected (unix ms); dropped when they leave.
@@ -173,20 +174,27 @@ int PingOfSlot(int slot) {
   return v > 5000 ? -1 : static_cast<int>(v);
 }
 
-// CS2's own warmup flag (not Ready Up's phase): 1 in warmup, 0 not, -1 unknown. The game rules
-// proxy is found once per map (at most one scan every 10 s while missing) and kept by handle.
-int GameWarmup(long long nowMs) {
+// CS2's own game rules flags (not Ready Up's phase). The game rules proxy is found once per map
+// (at most one scan every 10 s while missing) and kept by handle.
+struct GameFlags {
+  int warmup = -1;  // 1 in CS2's warmup, 0 not, -1 unknown
+  int freeze = -1;  // 1 in freeze time
+};
+
+GameFlags ReadGameFlags(long long nowMs) {
+  GameFlags out;
   const ru_api* a = host::Api();
-  if (!a || a->entity_system_status(a->self) != RU_ENTSYS_OK) return -1;
+  if (!a || a->entity_system_status(a->self) != RU_ENTSYS_OK) return out;
   if (g_offRulesPtr == -2) {
     g_offRulesPtr = a->schema_offset(a->self, "CCSGameRulesProxy", "m_pGameRules");
     g_offWarmup = a->schema_offset(a->self, "CCSGameRules", "m_bWarmupPeriod");
+    g_offFreeze = a->schema_offset(a->self, "CCSGameRules", "m_bFreezePeriod");
   }
-  if (g_offRulesPtr < 0 || g_offWarmup < 0) return -1;
+  if (g_offRulesPtr < 0) return out;
   void* proxy = g_rulesProxy != 0xFFFFFFFFu ? a->entity_from_handle(a->self, g_rulesProxy) : nullptr;
   if (!proxy) {
     g_rulesProxy = 0xFFFFFFFFu;
-    if (nowMs - g_rulesScanAtMs < 10000) return -1;
+    if (nowMs - g_rulesScanAtMs < 10000) return out;
     g_rulesScanAtMs = nowMs;
     for (int i = 65; i < 4096 && !proxy; ++i) {
       void* e = a->entity_by_index(a->self, i);
@@ -197,14 +205,20 @@ int GameWarmup(long long nowMs) {
         g_rulesProxy = a->entity_handle_of(a->self, e);
       }
     }
-    if (!proxy) return -1;
+    if (!proxy) return out;
   }
   void* rules = nullptr;
   std::memcpy(&rules, static_cast<unsigned char*>(proxy) + g_offRulesPtr, sizeof(rules));
-  if (!rules) return -1;
-  bool warmup = false;
-  std::memcpy(&warmup, static_cast<unsigned char*>(rules) + g_offWarmup, sizeof(warmup));
-  return warmup ? 1 : 0;
+  if (!rules) return out;
+  auto flag = [&](int off) {
+    if (off < 0) return -1;
+    bool v = false;
+    std::memcpy(&v, static_cast<unsigned char*>(rules) + off, sizeof(v));
+    return v ? 1 : 0;
+  };
+  out.warmup = flag(g_offWarmup);
+  out.freeze = flag(g_offFreeze);
+  return out;
 }
 
 // The summary fields, the MatchState of the loaded match / scrim (null when none) and
@@ -309,10 +323,9 @@ void Collect(Json* sOut, Json* stOut, bool* safeOut) {
   players["expected"] = ctx ? static_cast<int>(ctx->roster_team.size()) : 0;
   s["players"] = std::move(players);
   // CS2's own warmup flag, in every mode (idle too): csm's status table and debugging.
-  {
-    const int warmup = GameWarmup(nowMs);
-    if (warmup >= 0) s["game_warmup"] = warmup == 1;
-  }
+  const GameFlags game = ReadGameFlags(nowMs);
+  if (game.warmup >= 0) s["game_warmup"] = game.warmup == 1;
+  if (game.freeze >= 0) s["game_freeze"] = game.freeze == 1;
   Json rdy = Json::Object();
   rdy["ready"] = ready;
   rdy["total"] = readyTotal;
@@ -496,10 +509,10 @@ void Collect(Json* sOut, Json* stOut, bool* safeOut) {
 
     // CS2's own view, next to Ready Up's phase: a map stuck in CS2's warmup shows up as a
     // mismatch on the platform (FLEET.md §6, `game`).
-    const int warmup = GameWarmup(nowMs);
-    if (warmup >= 0) {
+    if (game.warmup >= 0 || game.freeze >= 0) {
       Json gj = Json::Object();
-      gj["warmup"] = warmup == 1;
+      if (game.warmup >= 0) gj["warmup"] = game.warmup == 1;
+      if (game.freeze >= 0) gj["freeze_period"] = game.freeze == 1;
       st["game"] = std::move(gj);
     }
 

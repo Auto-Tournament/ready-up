@@ -933,8 +933,9 @@ MatchState {
            used: { team1: { tactical: number, technical: number }, team2: { tactical: number, technical: number } } }
   round: { number: number, started_at?: number, overtime?: number }
   backups: { latest_round?: number }   // the list itself lives on the platform (§12.3)
-  game?: { warmup: boolean }          // CS2's own warmup flag (CCSGameRules.m_bWarmupPeriod), next to
+  game?: { warmup?: boolean,          // CS2's own warmup flag (CCSGameRules.m_bWarmupPeriod), next to
                                       // Ready Up's phase: live + warmup = a map stuck in CS2's warmup
+           freeze_period?: boolean }  // CS2's freeze time (m_bFreezePeriod)
   rules: rules
 }
 Team {
