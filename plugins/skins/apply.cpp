@@ -592,7 +592,7 @@ void ProcessPlayer(int slot, void* controller) {
     if (ApplySpawnCosmetics(pawn, steamid64, team, late)) {
       if (++ps.cosmeticsPass >= kCosmeticPassCount) {
         ps.cosmeticsPass = -1;
-        ps.glovesSettleAt = g_tick + 13;  // ~0.2 s at 64 ticks
+        if (GlovesEnabled()) ps.glovesSettleAt = g_tick + 13;  // ~0.2 s at 64 ticks
       }
     } else if (g_tick - ps.spawnTick > kRetryTicks) {
       ps.cosmeticsPass = -1;  // loadout never loaded — give up for this spawn

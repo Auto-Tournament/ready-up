@@ -52,6 +52,8 @@ std::string NormalizeAgentModel(const std::string& raw) {
 
 }  // namespace
 
+bool GlovesEnabled() { return false; }
+
 void SettleGloves(void* pawn) {
   if (pawn) (void)SetBodygroupByName(pawn, "first_or_third_person", 1);
 }
@@ -71,7 +73,12 @@ bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late) {
   }
 
   // 2) Gloves: fill the pawn's glove econ item, then hide the model's default gloves.
-  if (const auto gloveDef = FindGloveDefindex(steamid64, team)) {
+  // Off for now (2026-10-15): every client crash in a day of live tests (CopyExistingEntity /
+  // OnPreserveEntity: missing client entity, at round restarts and mid-round) had gloves on, and
+  // each way of networking them so far either crashed or lost the viewmodel. They come back with a
+  // field-level state change for m_EconGloves instead of a full re-send of the pawn.
+  if (!GlovesEnabled()) {
+  } else if (const auto gloveDef = FindGloveDefindex(steamid64, team)) {
     auto& po = POff();
     if (po.econGloves < 0 || !detail::EconOffsetsReady()) {
       WarnOnce(steamid64, "glove schema fields missing; gloves not applied");
