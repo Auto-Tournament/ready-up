@@ -86,6 +86,9 @@ struct HelloInfo {
   std::string selftestJson;
   // ping health
   int players = 0;
+  // The connected humans' Steam ids (ping.health.steamids): the platform sends their skins on a
+  // server with no match, where no player_connect event says who is there.
+  std::vector<uint64_t> steamids;
   double tickMsP99 = 0.0;
   int64_t startedMs = 0;
 };
@@ -158,7 +161,7 @@ class Client {
   bool SendSnapshot(const std::string& reason, const std::string& extraJson);
 
   void SetHelloInfo(HelloInfo info);
-  void UpdateHealth(int players, double tickMsP99);
+  void UpdateHealth(int players, double tickMsP99, std::vector<uint64_t> steamids = {});
   // Game thread, every frame (simulating or not): the watchdog's heartbeat.
   void NoteGameFrame();
   // Milliseconds since the last NoteGameFrame, or -1 before the first.

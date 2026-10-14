@@ -239,10 +239,11 @@ void Client::SetHelloInfo(HelloInfo info) {
   if (hello_.availability.empty()) hello_.availability = avail.empty() ? "available" : avail;
 }
 
-void Client::UpdateHealth(int players, double tickMsP99) {
+void Client::UpdateHealth(int players, double tickMsP99, std::vector<uint64_t> steamids) {
   players_.store(players, std::memory_order_relaxed);
   std::lock_guard<std::mutex> lk(mu_);
   hello_.players = players;
+  hello_.steamids = std::move(steamids);
   hello_.tickMsP99 = tickMsP99;
 }
 
@@ -1077,6 +1078,11 @@ Client::SessionResult Client::RunSession() {
       p.Set("t", json::Value::Int(NowMs()));
       json::Value health = json::Value::Object();
       health.Set("players", json::Value::Int(h.players));
+      if (!h.steamids.empty()) {
+        json::Value ids = json::Value::Array();
+        for (uint64_t id : h.steamids) ids.Push(json::Value::Str(std::to_string(id)));
+        health.Set("steamids", std::move(ids));
+      }
       health.Set("tick_ms_p99", json::Value::Num(std::round(h.tickMsP99 * 100.0) / 100.0));
       health.Set("spool_msgs", json::Value::Int(static_cast<int64_t>(spool_.count())));
       health.Set("uptime_s", json::Value::Int(h.startedMs > 0 ? (NowMs() - h.startedMs) / 1000 : 0));

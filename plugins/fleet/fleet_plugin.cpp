@@ -1147,6 +1147,19 @@ int CountPlayers() {
   return n;
 }
 
+// The connected humans' Steam ids, for ping.health.steamids.
+std::vector<uint64_t> ConnectedSteamIds() {
+  std::vector<uint64_t> ids;
+  g_api->for_each_player(
+      g_api->self,
+      [](void* u, const ru_player* p) {
+        if (p->connected && !p->is_bot && p->steamid64) static_cast<std::vector<uint64_t>*>(u)->push_back(p->steamid64);
+        return 1;
+      },
+      &ids);
+  return ids;
+}
+
 // A new core selftest outcome (pass/fail, counts or the failing checks changed): hello carries it
 // from now on, and the platform gets `server.selftest` (reliable) right away. A re-run with the
 // same outcome sends nothing.
@@ -1246,7 +1259,7 @@ void OnTick(void*, const ru_tick_info* t) {
       std::nth_element(v.begin(), v.begin() + static_cast<long>(k), v.end());
       p99 = v[k];
     }
-    c->UpdateHealth(CountPlayers(), p99);
+    c->UpdateHealth(CountPlayers(), p99, ConnectedSteamIds());
     MaybeQueryAddr(t->now);
     if (t->now - g_lastSelftestPoll >= 5.0) {
       g_lastSelftestPoll = t->now;
