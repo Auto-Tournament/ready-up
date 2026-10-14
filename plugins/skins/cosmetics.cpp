@@ -52,6 +52,35 @@ std::string NormalizeAgentModel(const std::string& raw) {
 
 }  // namespace
 
+// Back to the model's own gloves. A pawn whose glove item Ready Up had set crashed the client
+// (CopyExistingEntity) when CS2 restarted the round (a player joining, a match going live;
+// 2026-10-14, a test with the knife alone did not). Called while the restart is pending, so the
+// restart rebuilds a stock pawn; the gloves go back on once it has settled.
+bool StripGloves(void* pawn, uint64_t steamid64, int team) {
+  if (!pawn || steamid64 == 0 || (team != 2 && team != 3)) return false;
+  const auto ours = FindGloveDefindex(steamid64, team);
+  if (!ours) return false;  // the player has no gloves from Ready Up
+  auto& po = POff();
+  if (po.econGloves < 0 || !detail::EconOffsetsReady()) return false;
+  void* item = static_cast<unsigned char*>(pawn) + po.econGloves;
+  uint16_t def = 0;
+  std::memcpy(&def, static_cast<unsigned char*>(item) + detail::ItemDefIndexOffset(), sizeof(def));
+  if (def != static_cast<uint16_t>(*ours)) return false;  // not ours (or already stripped)
+  def = 0;
+  std::memcpy(static_cast<unsigned char*>(item) + detail::ItemDefIndexOffset(), &def, sizeof(def));
+  if (detail::ItemInitializedOffset() >= 0) {
+    const bool init = false;
+    std::memcpy(static_cast<unsigned char*>(item) + detail::ItemInitializedOffset(), &init, sizeof(init));
+  }
+  if (po.econGlovesChanged >= 0) {
+    auto* counter = static_cast<unsigned char*>(pawn) + po.econGlovesChanged;
+    *counter = static_cast<unsigned char>(*counter + 1);
+  }
+  (void)SetBodygroupByName(pawn, "default_gloves", 0);
+  (void)MarkEntityFullyChanged(pawn);
+  return true;
+}
+
 bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late) {
   if (!pawn || steamid64 == 0 || (team != 2 && team != 3)) return true;
   if (!IsLoaded(steamid64)) return false;
