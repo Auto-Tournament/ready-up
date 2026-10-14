@@ -332,6 +332,9 @@ struct WeaponState {
   // Painted by another plugin (readyup.skins.v1 paint_weapon): no loadout over it until handed back.
   bool external = false;
   bool externalLegacy = false;  // that paint used the legacy model (reset on hand back)
+  // Held by a bot first. A bot has no SteamID, so its weapons carry no original owner and would
+  // look new to the player who picks one up (a CT got their T-side AK skin on a bot's AK).
+  bool botOwned = false;
 };
 
 // Cosmetics (agent model, gloves, default_gloves bodygroup) are applied on these ticks after the
@@ -501,6 +504,21 @@ void ProcessPlayer(int slot, void* controller) {
   if (steamid64 == 0 && g_debugAs[slot] != 0 && DebugOn()) steamid64 = g_debugAs[slot];
   if (steamid64 == 0) {  // bots / not yet authenticated
     ps = PlayerState{};
+    // Remember what a bot holds: a player who picks it up gets it as it is (stock).
+    if (void* botPawn = EntityFromHandle(Rd<uint32_t>(controller, o.ctrl_playerPawn))) {
+      if (void* bws = Rd<void*>(botPawn, o.pawn_weaponServices)) {
+        const int n = Rd<int32_t>(bws, o.ws_myWeapons);
+        const uint32_t* hs = Rd<const uint32_t*>(bws, o.ws_myWeapons + 8);
+        if (hs && n > 0 && n <= 64) {
+          for (int i = 0; i < n; ++i) {
+            WeaponState& st = g_weapons[hs[i]];
+            if (st.firstSeen == 0) st.firstSeen = g_tick;
+            st.lastSeen = g_tick;
+            if (!st.done) st.botOwned = true;
+          }
+        }
+      }
+    }
     return;
   }
   if (ps.steamid64 != steamid64) ps = PlayerState{steamid64};
@@ -566,6 +584,10 @@ void ProcessPlayer(int slot, void* controller) {
     if (st.firstSeen == 0) st.firstSeen = g_tick;
     st.lastSeen = g_tick;
     if (st.done && !st.legacyPending) continue;
+    if (st.botOwned) {  // picked up from a bot: keep its (stock) look
+      st.done = true;
+      continue;
+    }
     void* weapon = EntityFromHandle(h);
     if (!weapon) continue;
     if (st.done) {
