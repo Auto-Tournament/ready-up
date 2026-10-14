@@ -527,7 +527,24 @@ int IfaceLoadMap(const char* entry) {
     return 0;
   }
 }
-const ru_essentials_v1 g_iface = {sizeof(ru_essentials_v1), &IfaceDefaultMap, &IfaceLoadMap};
+int IfaceSetDefaultMap(const char* mode, const char* entry) {
+  try {
+    LoadDefaultMaps();
+    const std::string m = mode ? mode : "", e = entry && *entry ? entry : "clear";
+    std::string err;
+    if (!SetDefaultMap(&g_defaultMaps, m, e, &err)) {
+      ru_logf(g_api, RU_LOG_WARN, "default map %s: %s", m.c_str(), err.c_str());
+      return 0;
+    }
+    if (!SaveDefaultMaps()) return 0;
+    const std::string now = DefaultMapFor(g_defaultMaps, m);
+    ru_logf(g_api, RU_LOG_INFO, "default map %s = %s (set by another plugin)", m.c_str(), now.empty() ? "(none)" : now.c_str());
+    return 1;
+  } catch (...) {
+    return 0;
+  }
+}
+const ru_essentials_v1 g_iface = {sizeof(ru_essentials_v1), &IfaceDefaultMap, &IfaceLoadMap, &IfaceSetDefaultMap};
 
 void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   std::string d;

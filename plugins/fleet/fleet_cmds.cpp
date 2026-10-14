@@ -68,8 +68,20 @@ bool ParseWhitelistSet(const json::Value& args, bool* enabled, std::vector<uint6
   return true;
 }
 
-bool ParsePracticeSet(const json::Value& args, int* on, int* always, std::string* err) {
+bool ParsePracticeSet(const json::Value& args, int* on, int* always, std::string* err, bool* hasHomeMap,
+                      std::string* homeMap) {
   int o = -1, a = -1;
+  bool hasHome = false;
+  std::string home;
+  if (const json::Value* v = args.Get("home_map"); v && !v->IsNull()) {
+    if (!v->IsStr()) return Fail(err, "home_map must be a string");
+    if (v->s.size() > 200) return Fail(err, "home_map: at most 200 characters");
+    for (unsigned char c : v->s) {
+      if (c <= 0x20 || c == 0x7f || c == '"' || c == ';') return Fail(err, "home_map: not a map name, workshop id or link");
+    }
+    hasHome = true;
+    home = v->s;
+  }
   if (const json::Value* v = args.Get("on"); v && !v->IsNull()) {
     if (v->t != json::Value::T::Bool) return Fail(err, "on must be a boolean");
     o = v->b ? 1 : 0;
@@ -78,9 +90,11 @@ bool ParsePracticeSet(const json::Value& args, int* on, int* always, std::string
     if (v->t != json::Value::T::Bool) return Fail(err, "always must be a boolean");
     a = v->b ? 1 : 0;
   }
-  if (o < 0 && a < 0) return Fail(err, "on or always (boolean) is required");
+  if (o < 0 && a < 0 && !hasHome) return Fail(err, "on, always (boolean) or home_map is required");
   if (on) *on = o;
   if (always) *always = a;
+  if (hasHomeMap) *hasHomeMap = hasHome;
+  if (homeMap) *homeMap = home;
   return true;
 }
 

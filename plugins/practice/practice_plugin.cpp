@@ -86,6 +86,7 @@
 #include "practice_feedback.h"
 #include "practice_lineups.h"
 #include "practice_rules.h"
+#include "readyup/map_names.h"
 #include "practice_scenarios.h"
 #include "practice_tools.h"
 
@@ -93,6 +94,7 @@
 
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
+#include "readyup/essentials_iface.h"
 #include "readyup/practice_iface.h"
 #include "readyup/selftest_iface.h"
 
@@ -1544,6 +1546,45 @@ bool StoreAlways(bool on) {
 }
 double g_nextAlwaysCheck = 0;
 
+// A dedicated practice server (always=1) goes back to its home map, the essentials default map
+// for "practice" (`ru map default practice <map>`, the platform's practice.set {home_map}; a skin
+// tryout server's hub map), whenever nobody is on it. A workshop download takes a while: asked
+// again only after kHomeRetrySeconds.
+double g_homeAskedAt = -1e9;
+constexpr double kHomeRetrySeconds = 180.0;
+
+bool AnyHumanOn() {
+  bool any = false;
+  g_api->for_each_player(
+      g_api->self,
+      [](void* u, const ru_player* p) -> int {
+        if (p->is_bot) return 1;
+        *static_cast<bool*>(u) = true;
+        return 0;
+      },
+      &any);
+  return any;
+}
+
+void GoHomeIfEmpty(double now) {
+  if (!AlwaysOn() || now - g_homeAskedAt < kHomeRetrySeconds) return;
+  const auto* e = static_cast<const ru_essentials_v1*>(
+      g_api->get_interface(g_api->self, RU_ESSENTIALS_IFACE_NAME, RU_ESSENTIALS_IFACE_VERSION));
+  if (!e || !e->default_map || !e->load_map) return;
+  const std::string home = e->default_map("practice");
+  if (home.empty()) return;
+  const char* cur = g_api->current_map(g_api->self);
+  if (cur && *cur && readyup::mapnames::EntryMatchesLoaded(home, cur)) return;
+  if (AnyHumanOn()) return;
+  g_homeAskedAt = now;
+  // The engine names a workshop map by its bsp only: remember which id this load is for.
+  if (readyup::mapnames::MapRef ref; readyup::mapnames::ParseEntry(home, &ref) && !ref.workshop_id.empty()) {
+    readyup::mapnames::NoteWorkshopLoad(ref.workshop_id);
+  }
+  Log("practice: nobody on %s: back to the home map %s", cur && *cur ? cur : "?", home.c_str());
+  if (!e->load_map(home.c_str())) Log("practice: the home map %s could not be loaded", home.c_str());
+}
+
 std::vector<std::string> Args(const ru_command_ctx* c, int from) {
   std::vector<std::string> out;
   for (int i = from; i < c->argc; ++i) out.emplace_back(c->argv[i] ? c->argv[i] : "");
@@ -1800,6 +1841,8 @@ void OnGameEvent(void*, const char* evName, const ru_game_event* ev) {
 }
 
 void OnMapStart(void*, const ru_event*) {
+  // Binds a workshop id to the map it loaded (EntryMatchesLoaded for the home map).
+  if (const char* cur = g_api->current_map(g_api->self); cur && *cur) readyup::mapnames::NoteMapLoaded(cur);
   // New map: new entities and pawns. A standalone practice server keeps practice on (the map load
   // may have run other cfgs); with the match plugin, always=1 re-enters from the tick.
   g_off = Offsets{};
@@ -1817,6 +1860,7 @@ void OnTick(void*, const ru_tick_info* t) {
       const char* why = "";
       if (Enter(&why)) Log("practice: always=1: practice mode switched on");
     }
+    GoHomeIfEmpty(t->now);
   }
   if (!IsActive()) {
     if (g_touched) {

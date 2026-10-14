@@ -38,6 +38,7 @@
 #include "readyup/fleet_iface.h"
 #include "readyup/plugin_api.h"
 #include "readyup/plugin_needs_iface.h"
+#include "readyup/essentials_iface.h"
 #include "readyup/practice_iface.h"
 #include "readyup/selftest_iface.h"
 #include "readyup/whitelist_iface.h"
@@ -574,7 +575,20 @@ fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Valu
   if (name == "practice.set") {
     // {on?, always?}: always first, so {on: true, always: true} makes a dedicated practice server.
     int on = -1, always = -1;
-    if (!ParsePracticeSet(args, &on, &always, &err)) return Rejected("bad_args", err);
+    bool hasHome = false;
+    std::string home;
+    if (!ParsePracticeSet(args, &on, &always, &err, &hasHome, &home)) return Rejected("bad_args", err);
+    // home_map: essentials.so's default map for "practice"; an empty always=1 server goes there.
+    if (hasHome) {
+      const auto* e = static_cast<const ru_essentials_v1*>(
+          g_api->get_interface(g_api->self, RU_ESSENTIALS_IFACE_NAME, RU_ESSENTIALS_IFACE_VERSION));
+      if (!e || e->struct_size < offsetof(ru_essentials_v1, set_default_map) + sizeof(e->set_default_map) ||
+          !e->set_default_map) {
+        return Rejected("unsupported", "home_map needs essentials.so (update Ready Up)");
+      }
+      if (e->set_default_map("practice", home.c_str()) != 1) return Rejected("bad_args", "home_map: not a map name, workshop id or link");
+      if (on < 0 && always < 0) return Ok();
+    }
     const auto* p = static_cast<const ru_practice_v1*>(g_api->get_interface(g_api->self, RU_PRACTICE_IFACE_NAME, 1));
     if (!p || !p->set_active) return Rejected("unsupported", "the practice plugin (practice.so) is not loaded");
     if (always >= 0) {
