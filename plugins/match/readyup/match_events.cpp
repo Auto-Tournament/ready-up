@@ -59,7 +59,8 @@ void AnnounceOvertimeRules(int overtimeNumber, int seg) {
       msg += " Still tied after it: the map is a draw.";
     }
   }
-  SendToChat(msg.c_str());
+  // Until the overtime's first round starts: in chat and in the middle of the screen.
+  SendImportantToChat(msg.c_str(), 15);
 }
 }  // namespace
 

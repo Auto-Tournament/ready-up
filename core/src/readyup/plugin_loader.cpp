@@ -330,6 +330,10 @@ int ApiServerCommand(ru_plugin* self, const char* cmd) {
 
 int ApiChatAll(ru_plugin* self, const char* msg, uint32_t flags) {
   if (!GameThreadCaller(self, "chat_all") || !msg || !*msg) return 0;
+  if (flags & RU_CHAT_IMPORTANT) {
+    SendImportantToChat(msg);
+    return 1;
+  }
   if (flags & RU_CHAT_RAW) SendRawToChat(msg);
   else SendToChat(msg);
   return 1;

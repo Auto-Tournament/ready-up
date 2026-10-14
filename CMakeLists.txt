@@ -23,6 +23,7 @@ add_library(server_shim SHARED
   core/src/readyup/banner.cpp
   core/src/readyup/ccommand.cpp
   core/src/readyup/chat.cpp
+  core/src/readyup/chat_highlight.cpp
   core/src/readyup/center_html.cpp
   core/src/readyup/cs2_version.cpp
   core/src/readyup/client_print.cpp
@@ -397,6 +398,12 @@ target_link_libraries(readyup_license_status_test PRIVATE readyup_monocypher)
 add_executable(readyup_ru_help_test tests/ru_help_test.cpp core/src/readyup/ru_help_text.cpp)
 target_include_directories(readyup_ru_help_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
 target_compile_options(readyup_ru_help_test PRIVATE -Wall -Wextra)
+
+# Chat line coloring: .commands green, numbers gold (core/src/readyup/chat_highlight.h).
+add_executable(readyup_chat_highlight_test tests/chat_highlight_test.cpp core/src/readyup/chat_highlight.cpp)
+target_include_directories(readyup_chat_highlight_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
+target_compile_options(readyup_chat_highlight_test PRIVATE -Wall -Wextra)
+add_test(NAME chat_highlight COMMAND readyup_chat_highlight_test)
 
 # Which command text turns empty-server hibernation back on (core/src/readyup/stay_awake.h).
 add_executable(readyup_stay_awake_test tests/stay_awake_test.cpp core/src/readyup/stay_awake.cpp)

@@ -606,7 +606,9 @@ fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Valu
       if (center) g_api->center_html_to_slot(g_api->self, slot, fleet::cmds::SayCenterHtml(text).c_str(), center);
       return Ok();
     }
-    if (!g_api->chat_all(g_api->self, line.c_str(), 0)) return Failed("engine", "chat is unavailable");
+    const fleet::json::Value* importantArg = Member(args, "important");
+    const uint32_t chatFlags = importantArg && importantArg->AsBool() ? RU_CHAT_IMPORTANT : 0;
+    if (!g_api->chat_all(g_api->self, line.c_str(), chatFlags)) return Failed("engine", "chat is unavailable");
     if (center) g_api->center_html_all(g_api->self, fleet::cmds::SayCenterHtml(text).c_str(), center);
     return Ok();
   }
