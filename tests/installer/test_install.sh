@@ -124,6 +124,7 @@ for mm in 0 1; do
   check "practice.so installed (essentials)" test -x "$CS/readyup/plugins/practice.so"
   check "practice gamedata next to the core (grenade spawning)" test -f "$CS/readyup/bin/linuxsteamrt64/engine-surface.practice.json"
   check "essentials.so installed (essentials bundle)" test -x "$CS/readyup/plugins/essentials.so"
+  check "mapvote.so installed (essentials bundle)" test -x "$CS/readyup/plugins/mapvote.so"
   check "prac.cfg seeded by the practice component" test -f "$CS/cfg/ReadyUp/prac.cfg"
   check "practice.cfg seeded, all comments (always off)" idle_cfg "$CS/cfg/ReadyUp/practice.cfg"
   check "installed.json lists core essentials fleet match practice" test "$(installed "$S")" = "core essentials fleet match practice"
