@@ -1376,6 +1376,7 @@ Result CmdPause(const Json& args, const std::string& by) {
 
 Result CmdUnpause(const std::string& by) {
   if (!PauseStateGet().paused) return Rejected("not_paused", "the match is not paused");
+  MatchFeaturesAdminUnpausing();
   if (!EnqueueServerCommand("mp_unpause_match")) return Failed("engine", "mp_unpause_match unavailable");
   PauseStateOnUnpaused();
   g_unpauseBy = by;

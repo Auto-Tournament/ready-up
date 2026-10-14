@@ -529,4 +529,14 @@ LiveHudInfo MatchFeaturesHud() {
   return g_hud;
 }
 
+void MatchFeaturesAdminUnpausing() {
+  if (PauseStateGet().type != "auto_5v5") return;
+  // An unpause while a side is still short was undone by CS2 at once (2026-10-14: a bot-filled
+  // test match stayed paused after the admin unpause).
+  if (EnqueueServerCommand("sv_matchpause_auto_5v5 0")) {
+    SendToChat("Ready Up: an admin unpaused - no more automatic pauses this map.");
+    Print("pause: admin unpause of auto_5v5; sv_matchpause_auto_5v5 0 for the rest of the map\n");
+  }
+}
+
 }  // namespace readyup

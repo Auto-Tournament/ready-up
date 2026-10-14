@@ -786,6 +786,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
                            /*is_tactical=*/false, /*is_admin=*/true, /*pause_time=*/0);
     sendAdmin("admin pause.");
   } else if (sub == "unpause") {
+    MatchFeaturesAdminUnpausing();
     if (!EnqueueServerCommand("mp_unpause_match")) {
       replyPrivate("Ready Up: unpause unavailable yet.");
       return;
