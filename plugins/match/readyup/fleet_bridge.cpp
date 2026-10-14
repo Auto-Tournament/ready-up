@@ -471,7 +471,7 @@ void Overlay(Json* st, const Json& live) {
       const Json* p = lp ? lp->Find(kv.first) : nullptr;
       if (!p) continue;
       Json& dst = players[kv.first];
-      for (const char* k : {"connected", "ready"}) {
+      for (const char* k : {"connected", "ready", "ping", "connected_at"}) {
         if (const Json* v = p->Find(k)) dst[k] = *v;
       }
       if (Str(dst, "name").empty() && !Str(*p, "name").empty()) dst["name"] = Str(*p, "name");
@@ -498,6 +498,7 @@ void Overlay(Json* st, const Json& live) {
     }
   }
   if (const Json* r = live.Find("round")) s["round"] = *r;
+  if (const Json* g = live.Find("game")) s["game"] = *g;
   // Ruleset + effective rules (ruleset.h): what the server enforces, "differs from Valve".
   for (const char* k : {"ruleset", "effective_rules"}) {
     if (const Json* v = live.Find(k)) s[k] = *v;

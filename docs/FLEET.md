@@ -933,13 +933,18 @@ MatchState {
            used: { team1: { tactical: number, technical: number }, team2: { tactical: number, technical: number } } }
   round: { number: number, started_at?: number, overtime?: number }
   backups: { latest_round?: number }   // the list itself lives on the platform (§12.3)
+  game?: { warmup?: boolean,          // CS2's own warmup flag (CCSGameRules.m_bWarmupPeriod), next to
+                                      // Ready Up's phase: live + warmup = a map stuck in CS2's warmup
+           freeze_period?: boolean }  // CS2's freeze time (m_bFreezePeriod)
   rules: rules
 }
 Team {
   id: string, name: string, tag?: string, side: "ct" | "t" | null,
   score: number, score_ct: number, score_t: number,       // MapStats TeamLine
   players: { [steamid64: string]: { name: string, role: "player" | "sub" | "coach",
-             connected: boolean, ready: boolean, alive?: boolean } }
+             connected: boolean, ready: boolean, alive?: boolean,
+             ping?: number,            // ms, from the controller (m_iPing), while connected
+             connected_at?: number } } // unix ms this player was first seen connected
 }
 ```
 
@@ -953,7 +958,7 @@ snapshot stays around 3 KB.
 |---|---|---|
 | `match_id`, `epoch`, `server_id` | platform | `match.assign` / `match.unassign` |
 | team identity, rosters, roles, spectators, `rules`, map list and sides, `num_maps` | platform (`config_rev`) | server never edits; platform sends `match.update` |
-| `phase`, `round`, `knife`, `pause`, `ready`, all scores, map status/winner, `side`, player `connected/ready/alive` | server (`live_rev`) | platform sends a `cmd`, the server executes it and reports the change |
+| `phase`, `round`, `knife`, `pause`, `ready`, all scores, map status/winner, `side`, player `connected/ready/alive/ping/connected_at`, `game` | server (`live_rev`) | platform sends a `cmd`, the server executes it and reports the change |
 | `maps[].demo`, `backups.latest_round` | server | platform confirms storage (`demo.state = stored` after upload) |
 
 ### 9.3 Conflict rules
