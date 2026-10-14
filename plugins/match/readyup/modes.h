@@ -89,6 +89,9 @@ void ModesOnEngineGameOver(int ctScore, int tScore);
 // player who joins (or is moved by the team lock) mid-round stays dead until it ends; the warmup
 // round is restarted shortly after so everyone spawns. Debounced. Game thread.
 void ModesOnHumanJoinedTeam(int team);
+// A level load (RU_EVENT_MAP_START): the gamemode cfg reset the cvars, so the mode's rules (warmup,
+// idle, practice) are applied again, also when the map is the same one as before.
+void ModesOnMapStart();
 
 // Map/series end (match_end.cpp, game thread, outside the modes mutex):
 // - ModesBeginNextMapWarmup: postgame -> match warmup for the next map of the series.

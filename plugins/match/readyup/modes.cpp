@@ -1353,6 +1353,15 @@ static void ResetPracticeRulesLocked(State& st) {
 
 }  // namespace
 
+void ModesOnMapStart() {
+  auto& st = St();
+  std::lock_guard<std::mutex> lk(st.mu);
+  // A match loaded on the map the server already had reloads that map: same name, so the map-change
+  // check in Tick() never fired and the warmup ran on competitive defaults (no respawn, 15 s freeze
+  // time; 2026-10-14). Forgetting the map makes Tick() treat it as new.
+  st.lastSeenMap.clear();
+}
+
 void ModesOnHumanJoinedTeam(int team) {
   if (team != 2 && team != 3) return;
   static bool s_pending = false;
