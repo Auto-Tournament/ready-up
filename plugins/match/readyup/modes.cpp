@@ -1998,7 +1998,7 @@ static void FinishMapLocked(State& st, const WebhookMatchContext& ctx, int map_n
     in.team1Damage = dmg.first;
     in.team2Damage = dmg.second;
     const std::string winnerName = std::strcmp(winner, "team1") == 0 ? ctx.team1_name : ctx.team2_name;
-    SendToChat(("Ready Up: " + std::to_string(in.team1Score) + "-" + std::to_string(in.team2Score) +
+    SendImportantToChat(("Ready Up: " + std::to_string(in.team1Score) + "-" + std::to_string(in.team2Score) +
                 " after the overtimes, so total damage decides: " + winnerName + " wins the map (" +
                 ctx.team1_name + " " + std::to_string(dmg.first) + " - " + std::to_string(dmg.second) + " " +
                 ctx.team2_name + ").")

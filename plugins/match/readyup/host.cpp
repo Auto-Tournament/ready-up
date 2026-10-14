@@ -170,6 +170,30 @@ void SendToChat(const char* msg) {
   });
 }
 
+void SendImportantToChat(const char* msg, int centerSeconds) {
+  if (!msg || !*msg) return;
+  host::RunOnGameThread([m = std::string(msg), centerSeconds] {
+    const ru_api* a = host::Api();
+    if (!a) return;
+    a->chat_all(a->self, m.c_str(), RU_CHAT_IMPORTANT);
+    if (centerSeconds <= 0) return;
+    // Plain text in the center panel: the chat's "Ready Up: " lead-in is not needed there.
+    std::string text = m.rfind("Ready Up: ", 0) == 0 ? m.substr(10) : m;
+    std::string esc;
+    for (char ch : text) {
+      if (ch == '&') esc += "&amp;";
+      else if (ch == '<') esc += "&lt;";
+      else if (ch == '>') esc += "&gt;";
+      else esc.push_back(ch);
+    }
+    const std::string html = "<font color='#FFD700'>" + esc + "</font>";
+    if (RU_API_HAS(a, center_html_all_prio) && a->center_html_all_prio)
+      a->center_html_all_prio(a->self, html.c_str(), centerSeconds, RU_HTML_PRIO_ALERT);
+    else
+      a->center_html_all(a->self, html.c_str(), centerSeconds);
+  });
+}
+
 void SendRawToChat(const char* payload) {
   if (!payload || !*payload) return;
   host::RunOnGameThread([m = std::string(payload)] {

@@ -262,7 +262,11 @@ typedef int (*ru_admin_provider_fn)(void* user, uint64_t steamid64);
 /* ---- the function table the core hands to each plugin ------------------ */
 
 enum {
-  RU_CHAT_RAW = 1u << 0 /* do not add the Ready Up chat prefix */
+  RU_CHAT_RAW = 1u << 0, /* do not add the Ready Up chat prefix */
+  /* A line that must not be missed: gold, sent three times so it fills the chat. An older core
+   * ignores the bit (one plain line). Pair it with center_html_all_prio for the center of the
+   * screen. */
+  RU_CHAT_IMPORTANT = 1u << 1
 };
 
 /* ---- v1.2: command flags (register_chat_command_ex / register_console_command_ex) ---- */
