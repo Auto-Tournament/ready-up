@@ -71,16 +71,17 @@ std::string GoLiveCommandsLine(const GoLiveCardInfo& info, bool html) {
   const char* e = html ? "</b>" : "";
   const char* dot = html ? " &#183; " : " | ";
   std::string out;
-  auto add = [&](const char* cmd, const char* what) {
+  // What it does first, then the command: ".up resume" read like a command with an argument.
+  auto add = [&](const char* what, const char* cmd) {
     if (!out.empty()) out += dot;
-    out += std::string(b) + cmd + e + " " + what;
+    out += std::string(what) + ": " + b + cmd + e;
   };
   if (info.pauses) {
-    add(".p", "pause");
-    add(".up", "resume");
-    add(".tac", "timeout");
+    add("Pause", ".p");
+    add("Unpause", ".up");
+    add("Timeout", ".tac");
   }
-  if (info.adminCall) add(".admin", "help");
+  if (info.adminCall) add("Call an admin", ".admin");
   return out;
 }
 
