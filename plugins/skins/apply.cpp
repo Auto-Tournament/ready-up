@@ -321,6 +321,7 @@ struct PlayerState {
   uint32_t pawnHandle = 0xFFFFFFFFu;
   bool wasAlive = false;
   int cosmeticsPass = -1;      // next index into kCosmeticPassTicks, -1 = none pending
+  long long glovesSettleAt = 0;  // tick for SettleGloves after the last pass, 0 = none
   long long spawnTick = 0;
 };
 
@@ -580,22 +581,24 @@ void ProcessPlayer(int slot, void* controller) {
   // Gloves and the agent model rebuild things on the client (the glove counter, a full re-send of
   // the pawn). Done while CS2 restarts the round, the client crashed (CopyExistingEntity, a player
   // joining with gloves on, 2026-10-14): the passes start over once the restart has settled.
-  // A restart is pending (it comes within a second): gloves off now, back on after it (the passes
-  // start over).
-  if (g_restartPendingNow && alive && StripGloves(pawn, steamid64, team)) {
-    ps.cosmeticsPass = 0;
-    ps.spawnTick = g_tick;
-  }
   if (restartQuiet && ps.cosmeticsPass >= 0) ps.spawnTick = g_tick;
   if (!restartQuiet && ps.cosmeticsPass >= 0 && ps.cosmeticsPass < kCosmeticPassCount &&
       g_tick - ps.spawnTick >= kCosmeticPassTicks[ps.cosmeticsPass]) {
     // Anything first seen on our first active tick may already have been networked.
     const bool late = g_tick > ps.spawnTick + 1 || ps.spawnTick == g_activeSince;
     if (ApplySpawnCosmetics(pawn, steamid64, team, late)) {
-      if (++ps.cosmeticsPass >= kCosmeticPassCount) ps.cosmeticsPass = -1;
+      if (++ps.cosmeticsPass >= kCosmeticPassCount) {
+        ps.cosmeticsPass = -1;
+        ps.glovesSettleAt = g_tick + 13;  // ~0.2 s at 64 ticks
+      }
     } else if (g_tick - ps.spawnTick > kRetryTicks) {
       ps.cosmeticsPass = -1;  // loadout never loaded — give up for this spawn
     }
+  }
+
+  if (ps.glovesSettleAt != 0 && g_tick >= ps.glovesSettleAt) {
+    ps.glovesSettleAt = 0;
+    SettleGloves(pawn);
   }
 
   if (refreshed) return;  // the new weapons arrive in two ticks
