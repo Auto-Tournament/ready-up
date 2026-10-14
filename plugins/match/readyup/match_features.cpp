@@ -116,7 +116,9 @@ void ForfeitTick(double now) {
     g_ffAnnounced = -1;
   }
   const int limit = EffectiveRules().forfeit_after_seconds;
-  const bool active = ctx && limit > 0 && LiveMap();
+  // A scrim has no roster and nothing to forfeit: a human taking a bot's place
+  // must not start a countdown for the team the bot left.
+  const bool active = ctx && limit > 0 && LiveMap() && ctx->slug != "scrim";
   bool p1 = true, p2 = true;
   if (active) {
     std::unordered_set<uint64_t> connected;
