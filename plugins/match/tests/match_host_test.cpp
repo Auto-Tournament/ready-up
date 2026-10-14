@@ -79,6 +79,7 @@ void SendToChat(const char* msg) {
   g_chat.push_back(msg);
 }
 void SendRawToChat(const char* msg) { SendToChat(msg); }
+void SendImportantToChat(const char* msg) { SendToChat(msg); }
 bool ClientPrintChat(int, const char* msg) {
   SendToChat(msg);
   return true;
