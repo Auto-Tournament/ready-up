@@ -799,6 +799,13 @@ static bool GoLiveCheckLocked(State& st, const WebhookMatchContext& ctx, std::st
   }
   bool& wasEmpty = g_botFillWasEmpty;
   std::chrono::steady_clock::time_point& emptySince = g_botFillEmptySince;
+  // Players on a roster are waited for: the grace below started a match with bots 60 s after it
+  // loaded, before its player could get in (2026-10-14). Only a match with nobody rostered goes on
+  // by itself; an admin force-starts one whose players never come.
+  if (ctx.bot_fill && present[0] + present[1] == 0 && roster[0] + roster[1] > 0) {
+    *why = "bot fill: waiting for the rostered players to join";
+    return false;
+  }
   if (ctx.bot_fill && present[0] + present[1] == 0) {
     const auto nowTp = std::chrono::steady_clock::now();
     if (!wasEmpty) {
@@ -2526,6 +2533,16 @@ void OnNativeWarmupStarted(const char* source) {
     if (EnqueueServerCommand(c)) any = true;
   }
   if (any) st.lastNativeWarmupEnd = now;
+  // CS2's warmup starting (bots or the first player joining) and ending puts competitive defaults
+  // back: no respawn, no buy anywhere, rounds end (2026-10-14, a match warmup that played like a
+  // normal match). Ready Up's warmup rules go on again once the end has gone through.
+  if (m == ReadyUpMode::MatchWarmup || m == ReadyUpMode::ScrimWarmup) {
+    ScheduleOnGameThread(1.0, []() {
+      auto& st2 = St();
+      std::lock_guard<std::mutex> lk2(st2.mu);
+      if (st2.mode == ReadyUpMode::MatchWarmup || st2.mode == ReadyUpMode::ScrimWarmup) st2.warmupRulesApplied = false;
+    });
+  }
   Print("warmup: CS2 warmup started (%s) in mode=%s; ending it (%s)%s\n", source ? source : "?", ModeToString(m),
         m == ReadyUpMode::Practice ? "practice has no warmup"
         : live                     ? "the map is live"
