@@ -544,9 +544,10 @@ void ProcessPlayer(int slot, void* controller) {
   const bool alive = Rd<uint8_t>(pawn, o.ent_lifeState) == 0;
   bool repaintHeld = false;
   bool refreshed = false;
-  // Around a round restart nothing is given, swapped or dressed: a weapon made or removed while
-  // CS2 deletes and recreates the round's entities crashed servers and clients (2026-10-14,
-  // WriteEnterPVS / CopyExistingEntity). It all runs once the restart has settled.
+  // Around a round restart no weapon is given or removed: one made or removed while CS2 deletes
+  // and recreates the round's entities crashed servers and clients (2026-10-14, WriteEnterPVS /
+  // CopyExistingEntity). Painting is untouched: the round's new weapons are painted on their first
+  // tick as always (holding that too left a vanilla knife, 2026-10-14).
   const bool restartQuiet = g_restartQuietNow;
   if (g_reapplyAt[slot] != 0 && g_tick >= g_reapplyAt[slot] && alive && restartQuiet) {
     g_reapplyAt[slot] = g_tick + 8;
@@ -573,22 +574,6 @@ void ProcessPlayer(int slot, void* controller) {
   ps.pawnHandle = pawnHandle;
   if (!alive) return;
 
-  if (restartQuiet) {
-    // The passes start over once the restart has settled. Weapons are only noted, so the ones
-    // seen now count as late (already networked) when they are painted afterwards.
-    if (ps.cosmeticsPass >= 0) ps.spawnTick = g_tick;
-    void* qws = Rd<void*>(pawn, o.pawn_weaponServices);
-    const int qn = qws ? Rd<int32_t>(qws, o.ws_myWeapons) : 0;
-    const uint32_t* qh = qws ? Rd<const uint32_t*>(qws, o.ws_myWeapons + 8) : nullptr;
-    if (qh && qn > 0 && qn <= 64) {
-      for (int i = 0; i < qn; ++i) {
-        WeaponState& st = g_weapons[qh[i]];
-        if (st.firstSeen == 0) st.firstSeen = g_tick;
-        st.lastSeen = g_tick;
-      }
-    }
-    return;
-  }
   if (ps.cosmeticsPass >= 0 && ps.cosmeticsPass < kCosmeticPassCount &&
       g_tick - ps.spawnTick >= kCosmeticPassTicks[ps.cosmeticsPass]) {
     // Anything first seen on our first active tick may already have been networked.
