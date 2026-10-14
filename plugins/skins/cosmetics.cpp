@@ -52,10 +52,6 @@ std::string NormalizeAgentModel(const std::string& raw) {
 
 }  // namespace
 
-void SettleGloves(void* pawn) {
-  if (pawn) (void)SetBodygroupByName(pawn, "first_or_third_person", 1);
-}
-
 bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late) {
   if (!pawn || steamid64 == 0 || (team != 2 && team != 3)) return true;
   if (!IsLoaded(steamid64)) return false;
@@ -89,11 +85,11 @@ bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late) {
           const bool init = true;
           std::memcpy(static_cast<unsigned char*>(item) + detail::ItemInitializedOffset(), &init, sizeof(init));
         }
-        // As WeaponPaints does it: no glove counter bump and no full re-send of the pawn (both
-        // crashed clients when CS2 restarted the round, 2026-10-14). The model is redrawn by
-        // switching its first_or_third_person bodygroup off here and on again ~0.2 s later
-        // (SettleGloves, after the last pass).
-        (void)SetBodygroupByName(pawn, "first_or_third_person", 0);
+        if (po.econGlovesChanged >= 0) {
+          // Networked counter; bumping it tells clients to rebuild the glove model.
+          auto* counter = static_cast<unsigned char*>(pawn) + po.econGlovesChanged;
+          *counter = static_cast<unsigned char>(*counter + 1);
+        }
         // Hides the agent model's built-in gloves. Retried on every cosmetics pass: on the spawn
         // frame the (new) agent model is often not loaded yet (GetModel == null).
         const auto bg = SetBodygroupByName(pawn, "default_gloves", 1);
@@ -104,12 +100,13 @@ bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late) {
                                   BodygroupResultName(bg);
           WarnOnce(steamid64, why.c_str());
         }
+        changed = true;
       }
     }
   }
 
-  // Pawns persist across rounds, so a new agent model was networked long ago: force a full
-  // re-send. Gloves do not (above).
+  // Pawns persist across rounds, so their glove/model fields were networked long ago. Force a
+  // full re-send (cheap: once per spawn, only for players with cosmetics).
   if (changed) {
     if (!MarkEntityFullyChanged(pawn)) WarnOnce(steamid64, "NetworkStateChanged unavailable");
   }

@@ -96,9 +96,6 @@ std::string ApplyStatus();
 // Dev only: treat bot `slot` as `steamid64` (0 clears). Needs readyup.cfg debug=1.
 bool SetDebugAs(int slot, uint64_t steamid64);
 bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late);
-// After the glove passes: the pawn's first_or_third_person bodygroup on again, so the client draws
-// the new gloves.
-void SettleGloves(void* pawn);
 // player_spawn (game thread): gloves + agent again for that slot on its next alive tick, also
 // when the pawn stayed alive (mp_restartgame, round start).
 void RequestSpawnCosmetics(int slot);
