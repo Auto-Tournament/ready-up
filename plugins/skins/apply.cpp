@@ -359,6 +359,8 @@ long long g_roundChangeTick = -1000000;
 constexpr long long kRestartQuietTicks = 96;
 // This tick is inside the quiet window (set once per tick in the tick function).
 bool g_restartQuietNow = false;
+// CS2 has a round restart pending this tick (CCSGameRules::m_bGameRestart).
+bool g_restartPendingNow = false;
 // Dev only (skins_debug_as, debug=1): a bot slot decorated with a real player's loadout, so the
 // whole apply path can be exercised without a human client.
 uint64_t g_debugAs[65] = {};
@@ -578,6 +580,12 @@ void ProcessPlayer(int slot, void* controller) {
   // Gloves and the agent model rebuild things on the client (the glove counter, a full re-send of
   // the pawn). Done while CS2 restarts the round, the client crashed (CopyExistingEntity, a player
   // joining with gloves on, 2026-10-14): the passes start over once the restart has settled.
+  // A restart is pending (it comes within a second): gloves off now, back on after it (the passes
+  // start over).
+  if (g_restartPendingNow && alive && StripGloves(pawn, steamid64, team)) {
+    ps.cosmeticsPass = 0;
+    ps.spawnTick = g_tick;
+  }
   if (restartQuiet && ps.cosmeticsPass >= 0) ps.spawnTick = g_tick;
   if (!restartQuiet && ps.cosmeticsPass >= 0 && ps.cosmeticsPass < kCosmeticPassCount &&
       g_tick - ps.spawnTick >= kCosmeticPassTicks[ps.cosmeticsPass]) {
@@ -675,7 +683,8 @@ void GameFrameTick() {
     for (auto& r : g_reapplyAt) r = 0;
   }
 
-  g_restartQuietNow = GameRestartPending() || g_tick - g_roundChangeTick < kRestartQuietTicks;
+  g_restartPendingNow = GameRestartPending();
+  g_restartQuietNow = g_restartPendingNow || g_tick - g_roundChangeTick < kRestartQuietTicks;
   if (!g_restartQuietNow) RunPendingRefresh();
   RunWarmupRegive();
   for (int slot = 0; slot < 64; ++slot) {
