@@ -2533,6 +2533,16 @@ void OnNativeWarmupStarted(const char* source) {
     if (EnqueueServerCommand(c)) any = true;
   }
   if (any) st.lastNativeWarmupEnd = now;
+  // CS2's warmup starting (bots or the first player joining) and ending puts competitive defaults
+  // back: no respawn, no buy anywhere, rounds end (2026-10-14, a match warmup that played like a
+  // normal match). Ready Up's warmup rules go on again once the end has gone through.
+  if (m == ReadyUpMode::MatchWarmup || m == ReadyUpMode::ScrimWarmup) {
+    ScheduleOnGameThread(1.0, []() {
+      auto& st2 = St();
+      std::lock_guard<std::mutex> lk2(st2.mu);
+      if (st2.mode == ReadyUpMode::MatchWarmup || st2.mode == ReadyUpMode::ScrimWarmup) st2.warmupRulesApplied = false;
+    });
+  }
   Print("warmup: CS2 warmup started (%s) in mode=%s; ending it (%s)%s\n", source ? source : "?", ModeToString(m),
         m == ReadyUpMode::Practice ? "practice has no warmup"
         : live                     ? "the map is live"
