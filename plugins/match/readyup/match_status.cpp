@@ -308,6 +308,11 @@ void Collect(Json* sOut, Json* stOut, bool* safeOut) {
   players["connected"] = static_cast<int>(humans.size());
   players["expected"] = ctx ? static_cast<int>(ctx->roster_team.size()) : 0;
   s["players"] = std::move(players);
+  // CS2's own warmup flag, in every mode (idle too): csm's status table and debugging.
+  {
+    const int warmup = GameWarmup(nowMs);
+    if (warmup >= 0) s["game_warmup"] = warmup == 1;
+  }
   Json rdy = Json::Object();
   rdy["ready"] = ready;
   rdy["total"] = readyTotal;
