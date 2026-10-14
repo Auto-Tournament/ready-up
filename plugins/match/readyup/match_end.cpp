@@ -192,6 +192,9 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
   mapEv.team2Score = in.team2Score;
   mapEv.seriesOver = in.seriesOver;
   mapEv.nextMap = in.nextMap;
+  mapEv.decidedByDamage = in.decidedByDamage;
+  mapEv.team1Damage = in.team1Damage;
+  mapEv.team2Damage = in.team2Damage;
   {
     std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
     stats::Current().EndMap();
@@ -213,6 +216,9 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
   ResultCardInfo card;
   card.team1 = base.team1Name;
   card.team2 = base.team2Name;
+  card.decidedByDamage = in.decidedByDamage;
+  card.team1Damage = in.team1Damage;
+  card.team2Damage = in.team2Damage;
   if (!in.seriesOver) {
     card.winner = in.winner == "team1" || in.winner == "team2" ? in.winner : "";
     card.team1Score = in.team1Score;

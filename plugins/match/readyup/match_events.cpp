@@ -22,6 +22,7 @@
 #include "readyup/welcome.h"
 
 #include <algorithm>
+#include <string>
 #include <atomic>
 #include <chrono>
 #include <climits>
@@ -35,6 +36,33 @@
 #include <vector>
 
 namespace readyup {
+
+namespace {
+// Overtime N starts: say how it is played and what happens if it stays tied, so nobody is
+// surprised by a map decided on damage.
+void AnnounceOvertimeRules(int overtimeNumber, int seg) {
+  const auto ctx = WebhookGetMatchContext();
+  if (!ctx) return;
+  std::string msg = "Ready Up: OVERTIME " + std::to_string(overtimeNumber) + ": " + std::to_string(2 * seg) +
+                    " rounds, first to " + std::to_string(seg + 1) + " wins it.";
+  if (ctx->maxOvertimes > 0) {
+    const int left = ctx->maxOvertimes - overtimeNumber;
+    if (left > 0) {
+      msg += " Up to " + std::to_string(ctx->maxOvertimes) + " overtimes (" + std::to_string(left) + " more after this).";
+    } else {
+      msg += " This is the last overtime.";
+    }
+    if (ctx->damageTiebreakEnabled) {
+      msg += " Still tied after it: the team with more total damage wins the map";
+      msg += ctx->suddenDeathOnDamageTie ? " (equal damage: the next round decides)." : ".";
+    } else {
+      msg += " Still tied after it: the map is a draw.";
+    }
+  }
+  SendToChat(msg.c_str());
+}
+}  // namespace
+
 namespace {
 
 const ru_api* A() { return host::Api(); }
@@ -545,7 +573,10 @@ void OnRoundStartLocked(const PendingRound& ev) {
       }
     }
 
-    if (emitOvertimeStart && overtimeNumber > 0) WebhookEmitOvertimeStarted(mapNumber, overtimeNumber);
+    if (emitOvertimeStart && overtimeNumber > 0) {
+      WebhookEmitOvertimeStarted(mapNumber, overtimeNumber);
+      AnnounceOvertimeRules(overtimeNumber, seg);
+    }
 
     // Every half start implies a side swap (except the very first half).
     if (emitHalfStart) {
