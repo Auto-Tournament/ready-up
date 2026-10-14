@@ -566,7 +566,7 @@ under the schema's 64 characters. An update check should compare against GitHub'
 ### 6.2 Heartbeat
 
 Both sides send `ping {t}` every `interval_ms`; the peer replies `pong {t}`. The server adds
-`health: { players, tick_ms_p99, spool_msgs, uptime_s, frame_age_ms }` to its pings. Either side
+`health: { players, tick_ms_p99, spool_msgs, uptime_s, frame_age_ms, steamids? }` to its pings. Either side
 treats the link as dead after `timeout_ms` without a frame and closes it. The platform then marks
 the server `unreachable`, not `dead` (§11.1).
 
