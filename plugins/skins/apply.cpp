@@ -635,12 +635,10 @@ void ProcessPlayer(int slot, void* controller) {
       }
       continue;
     }
-    // The same for a knife swap (ChangeSubclass): it waits, and the knife is re-given once the
-    // restart has settled, so the swap lands on a new knife on its first tick (a late swap of the
-    // old one leaves the stock look and HUD icon).
+    // A knife swap (ChangeSubclass) waits while the restart is pending; the restart hands out a new
+    // knife, swapped on its first tick. No re-give: removing and giving weapons is what crashed
+    // clients and servers (a re-give after each round start, 2026-10-14).
     if (g_restartPendingNow && IsKnifeDesigner(EntityDesignerName(weapon)) && FindKnifeClassname(steamid64, team)) {
-      st.done = true;
-      g_reapplyAt[slot] = g_tick + 1;  // held until the quiet window ends (above)
       continue;
     }
     const bool late = g_tick > st.firstSeen || st.firstSeen == g_activeSince;
