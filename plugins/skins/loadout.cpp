@@ -384,6 +384,7 @@ void OnFleetMessage(void*, const ru_fleet_msg* m) {
       e.loadout = std::move(l);
       e.loaded_at = Clock::now();
       SKINS_DEBUG("fleet: skins.loadout %llu rev %lld", static_cast<unsigned long long>(sid), static_cast<long long>(rev));
+      QueueWarmupRegive(sid);  // warmup: the held weapons get the new skins now
     } else if (type == "skins.invalidate") {
       std::lock_guard<std::mutex> lk(g_mu);
       g_fleet.erase(sid);

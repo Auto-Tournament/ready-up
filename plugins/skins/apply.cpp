@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 // Weapon skins + knives, driven from the plugin's on_tick (the core's GameFrame hook).
@@ -594,6 +595,10 @@ void PruneWeapons() {
 
 }  // namespace
 
+namespace {
+void RunWarmupRegive();
+}  // namespace
+
 void GameFrameTick() {
   if (DisabledByEnv() || Inert()) return;  // Inert: ruleset valve (skins.h)
   ++g_tick;
@@ -619,6 +624,7 @@ void GameFrameTick() {
   }
 
   RunPendingRefresh();
+  RunWarmupRegive();
   for (int slot = 0; slot < 64; ++slot) {
     void* controller = EntityByIndex(slot + 1);
     if (!controller) {
@@ -713,6 +719,68 @@ void RequestSpawnCosmetics(int slot) {
 void RequestReapply(int slot) {
   if (slot >= 0 && slot < 65) g_reapplyAt[slot] = g_tick + 64;
 }
+
+// ---- warmup re-give (a new loadout from the platform) -----------------------------------------
+std::mutex g_regiveMu;
+std::unordered_set<uint64_t> g_regive;  // players whose loadout changed since the last frame
+
+void QueueWarmupRegive(uint64_t steamid64) {
+  if (steamid64 == 0) return;
+  std::lock_guard<std::mutex> lk(g_regiveMu);
+  g_regive.insert(steamid64);
+}
+
+namespace {
+int g_offRulesPtr = -2, g_offWarmup = -2;
+uint32_t g_rulesProxy = 0xFFFFFFFFu;
+long long g_rulesScanTick = -100000;
+
+// CS2's own warmup (CCSGameRules::m_bWarmupPeriod): -1 unknown, 0 no, 1 yes.
+int GameWarmup() {
+  if (g_offRulesPtr == -2) {
+    g_offRulesPtr = g_api->schema_offset(g_api->self, "CCSGameRulesProxy", "m_pGameRules");
+    g_offWarmup = g_api->schema_offset(g_api->self, "CCSGameRules", "m_bWarmupPeriod");
+  }
+  if (g_offRulesPtr < 0 || g_offWarmup < 0) return -1;
+  void* proxy = g_rulesProxy != 0xFFFFFFFFu ? g_api->entity_from_handle(g_api->self, g_rulesProxy) : nullptr;
+  if (!proxy) {
+    g_rulesProxy = 0xFFFFFFFFu;
+    if (g_tick - g_rulesScanTick < 640) return -1;  // look again in ~10 s
+    g_rulesScanTick = g_tick;
+    for (int i = 65; i < 4096 && !proxy; ++i) {
+      void* e = g_api->entity_by_index(g_api->self, i);
+      if (!e) continue;
+      const char* cn = g_api->entity_classname(g_api->self, e);
+      if (cn && std::strcmp(cn, "cs_gamerules") == 0) {
+        proxy = e;
+        g_rulesProxy = g_api->entity_handle_of(g_api->self, e);
+      }
+    }
+    if (!proxy) return -1;
+  }
+  void* rules = nullptr;
+  std::memcpy(&rules, static_cast<unsigned char*>(proxy) + g_offRulesPtr, sizeof(rules));
+  if (!rules) return -1;
+  return *(static_cast<unsigned char*>(rules) + g_offWarmup) ? 1 : 0;
+}
+
+// Game thread: players with a new loadout get their weapons re-given, in warmup only.
+void RunWarmupRegive() {
+  std::unordered_set<uint64_t> due;
+  {
+    std::lock_guard<std::mutex> lk(g_regiveMu);
+    if (g_regive.empty()) return;
+    due.swap(g_regive);
+  }
+  if (GameWarmup() != 1) return;  // live (or unknown): the next spawn brings the new skins
+  for (int slot = 0; slot < 64; ++slot) {
+    if (g_players[slot].steamid64 != 0 && due.count(g_players[slot].steamid64)) {
+      RequestReapply(slot);
+      if (DebugOn()) Log(RU_LOG_DEBUG, "warmup: new loadout, re-giving slot %d", slot);
+    }
+  }
+}
+}  // namespace
 
 bool SetDebugAs(int slot, uint64_t steamid64) {
   if (slot < 0 || slot >= 64) return false;
