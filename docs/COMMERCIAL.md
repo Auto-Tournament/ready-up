@@ -28,6 +28,6 @@ update period (this build's version line came out after `updates_until`), an eve
 has ended, or an invalid key is a console warning only, and players never see anything like
 "unlicensed". Without a key, the server logs one line that it is free for non-commercial use.
 
-Looking for an MIT plugin instead? [MatchZy Enhanced](https://github.com/Auto-Tournament/matchzy-enhanced) is MIT licensed and free for any use, including paid work. Ready Up is a different plugin, not a fork of it.
+Looking for an MIT plugin instead? [MatchZy Enhanced](https://github.com/Auto-Tournament/matchzy-enhanced) is MIT licensed and free for any use, including paid work, but it works only with Auto Tournament 2.x; Auto Tournament 3.x needs Ready Up. Ready Up is a different plugin, not a fork of it.
 
 Third-party code under `third_party/` keeps its own license.
