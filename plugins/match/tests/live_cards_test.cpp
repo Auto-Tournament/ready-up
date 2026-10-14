@@ -50,7 +50,7 @@ static void TestGoLiveCard() {
   for (const char* cmd : {".p<", ".up<", ".tac<", ".admin<"}) CHECK(Has(h, cmd));
   // Short forms only.
   for (const char* cmd : {".pause<", ".tech<", ".unpause<"}) CHECK(!Has(h, cmd));
-  CHECK(GoLiveCommandsLine(m, false) == ".p pause | .up resume | .tac timeout | .admin help");
+  CHECK(GoLiveCommandsLine(m, false) == "Pause: .p | Unpause: .up | Timeout: .tac | Call an admin: .admin");
   CHECK(h.size() < 1024);
 
   // Long names are cut: the card stays small.

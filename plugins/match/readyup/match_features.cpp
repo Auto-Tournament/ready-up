@@ -168,17 +168,14 @@ void ForfeitTick(double now) {
 // with a side short of 5 players the engine pauses the match in freeze time. Ready Up marks that
 // pause "auto_5v5" (it belongs to nobody: both teams .unpause, or an admin; it counts against
 // neither team). If the engine did not pause after all, the freeze time ends and the tick clears it.
-// Players on each side, humans and bots (bot fill counts: a bot is a full seat).
+// People on each side. CS2 counts only people for this pause: a side of one player and four bots
+// is paused (2026-10-14), so bots counted here left that pause unmarked and unexplained in chat.
 void CountSides(int* ct, int* t) {
   *ct = 0;
   *t = 0;
   for (const auto& h : ListHumans()) {
     if (h.team == 3) ++*ct;
     else if (h.team == 2) ++*t;
-  }
-  for (const auto& b : ListBots()) {
-    if (b.team == 3) ++*ct;
-    else if (b.team == 2) ++*t;
   }
 }
 
@@ -195,10 +192,10 @@ void MaybeMarkAuto5v5Pause() {
                          /*is_admin=*/false, /*pause_time=*/0);
   Print("pause: auto_5v5 (sv_matchpause_auto_5v5 1): CT %d, T %d players; %s is short\n", ct, t, TeamKey(shortTeam));
   const int maxSeconds = EffectiveRules().disconnect_pause_max_seconds;
-  SendToChat(("Ready Up: paused - " + TeamName(*ctx, shortTeam) + " is not full (5v5). It goes on by itself " +
-              "when the team is full again" +
-              (maxSeconds > 0 ? " or in " + std::to_string(maxSeconds / 60) + " min" : std::string()) +
-              "; both teams .unpause or an admin to go on now.")
+  SendToChat(("Ready Up: match paused automatically - " + TeamName(*ctx, shortTeam) +
+              " is missing a player. It goes on when they are back" +
+              (maxSeconds > 0 ? " (or in " + std::to_string(maxSeconds / 60) + " min)" : std::string()) +
+              ". To go on now, both teams type .up.")
                  .c_str());
 }
 

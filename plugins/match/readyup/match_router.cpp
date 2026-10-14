@@ -184,7 +184,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
       SendLicenseLine();
       return;
     }
-    SendToChat("Ready Up commands: .r / .ready / .ur (.nr) | .forceready | .tac (timeout) | .tech (.pause) | .unpause | .admin [message]");
+    SendToChat("Ready Up commands: ready: .r | not ready: .ur | start without a full team: .forceready | timeout: .tac | pause: .p | unpause: .up | call an admin: .admin [message]");
     if (hasMatch) {
       SendToChat("Ready Up: knife: .stay/.switch (.ct/.t) | forfeit: .ff (captain) | coaches: .coach ct|t, .uncoach");
     } else {
