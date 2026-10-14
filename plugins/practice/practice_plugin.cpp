@@ -486,6 +486,9 @@ void ClearState(bool restorePawns) {
 
 // ---- mode ---------------------------------------------------------------------------------------
 
+// Set when the home map's settings went in for this map load (practice_set home_cvars, below).
+bool g_homeCvarsApplied = false;
+
 bool Enter(const char** why) {
   if (MatchOwnsMode()) {
     if (Match()->set_practice(1) != 1) {
@@ -502,6 +505,7 @@ bool Enter(const char** why) {
   g_toggles = Toggles{};
   g_dryRun = g_dryArmed = false;
   Cmd("exec ReadyUp/prac.cfg");
+  g_homeCvarsApplied = false;  // prac.cfg may set them back: the home map's settings again
   // Respawn everyone so they get prac.cfg's grenade set and weapons now, not on their next death.
   Cmd("mp_restartgame 1");
   Log("practice: on (%s)", MatchOwnsMode() ? "match plugin mode" : "standalone");
@@ -1566,6 +1570,58 @@ bool AnyHumanOn() {
   return any;
 }
 
+// Settings for the home map (practice.set {home_cvars}), applied once per map load while on it.
+std::vector<std::string> g_homeCvars;
+bool g_homeCvarsRead = false;
+std::string HomeCvarsFile() {
+  const char* d = g_api->data_dir(g_api->self);
+  return std::string(d ? d : ".") + "/home_cvars.txt";
+}
+const std::vector<std::string>& HomeCvars() {
+  if (!g_homeCvarsRead) {
+    g_homeCvarsRead = true;
+    if (FILE* f = std::fopen(HomeCvarsFile().c_str(), "r")) {
+      char b[128];
+      while (std::fgets(b, sizeof(b), f) && static_cast<int>(g_homeCvars.size()) < kMaxHomeCvars) {
+        std::string line = b;
+        while (!line.empty() && (line.back() == '\n' || line.back() == '\r')) line.pop_back();
+        if (ValidHomeCvar(line)) g_homeCvars.push_back(line);
+      }
+      std::fclose(f);
+    }
+  }
+  return g_homeCvars;
+}
+bool StoreHomeCvars(const std::vector<std::string>& lines) {
+  const std::string path = HomeCvarsFile(), tmp = path + ".tmp";
+  FILE* f = std::fopen(tmp.c_str(), "w");
+  if (!f) return false;
+  bool ok = true;
+  for (const auto& l : lines) ok = ok && std::fputs((l + "\n").c_str(), f) >= 0;
+  if (std::fclose(f) != 0 || !ok || std::rename(tmp.c_str(), path.c_str()) != 0) {
+    std::remove(tmp.c_str());
+    return false;
+  }
+  g_homeCvars = lines;
+  g_homeCvarsRead = true;
+  g_homeCvarsApplied = false;
+  return true;
+}
+
+// On the home map: its settings, once per load (and again after practice's cfg).
+void ApplyHomeCvars() {
+  if (g_homeCvarsApplied || HomeCvars().empty()) return;
+  const auto* e = static_cast<const ru_essentials_v1*>(
+      g_api->get_interface(g_api->self, RU_ESSENTIALS_IFACE_NAME, RU_ESSENTIALS_IFACE_VERSION));
+  if (!e || !e->default_map) return;
+  const std::string home = e->default_map("practice");
+  const char* cur = g_api->current_map(g_api->self);
+  if (home.empty() || !cur || !*cur || !readyup::mapnames::EntryMatchesLoaded(home, cur)) return;
+  g_homeCvarsApplied = true;
+  for (const auto& l : HomeCvars()) Cmd(l);
+  Log("practice: home map %s: %zu setting(s) applied", cur, HomeCvars().size());
+}
+
 void GoHomeIfEmpty(double now) {
   if (!AlwaysOn() || now - g_homeAskedAt < kHomeRetrySeconds) return;
   const auto* e = static_cast<const ru_essentials_v1*>(
@@ -1841,6 +1897,7 @@ void OnGameEvent(void*, const char* evName, const ru_game_event* ev) {
 }
 
 void OnMapStart(void*, const ru_event*) {
+  g_homeCvarsApplied = false;
   // Binds a workshop id to the map it loaded (EntryMatchesLoaded for the home map).
   if (const char* cur = g_api->current_map(g_api->self); cur && *cur) readyup::mapnames::NoteMapLoaded(cur);
   // New map: new entities and pawns. A standalone practice server keeps practice on (the map load
@@ -1861,6 +1918,7 @@ void OnTick(void*, const ru_tick_info* t) {
       if (Enter(&why)) Log("practice: always=1: practice mode switched on");
     }
     GoHomeIfEmpty(t->now);
+    ApplyHomeCvars();
   }
   if (!IsActive()) {
     if (g_touched) {
@@ -1942,8 +2000,20 @@ int IfaceSetAlways(int on) {
   }
   return 1;
 }
+int IfaceSetHomeCvars(const char* const* lines, uint32_t n) {
+  if (n > static_cast<uint32_t>(kMaxHomeCvars)) return 0;
+  std::vector<std::string> out;
+  for (uint32_t i = 0; i < n; ++i) {
+    const std::string l = lines && lines[i] ? lines[i] : "";
+    if (!ValidHomeCvar(l)) return 0;
+    out.push_back(l);
+  }
+  if (!StoreHomeCvars(out)) return 0;
+  Log("practice: %zu home map setting(s) (set by the platform)", out.size());
+  return 1;
+}
 const ru_practice_v1 g_iface = {sizeof(ru_practice_v1), &IfaceActive, &IfaceSetActive, &IfaceHelp,
-                                &IfaceDryRun,           &IfaceAlways, &IfaceSetAlways};
+                                &IfaceDryRun,           &IfaceAlways, &IfaceSetAlways, &IfaceSetHomeCvars};
 
 void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   std::string d = std::string(IsActive() ? "on" : "off") + (MatchOwnsMode() ? " (match plugin mode)" : " (standalone)");
