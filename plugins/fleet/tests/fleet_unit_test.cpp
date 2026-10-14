@@ -564,6 +564,15 @@ TEST(TestOwnedCmds) {
   CHECK(ParsePracticeSet(J(R"({"always": false})"), &pon, &palways, &err) && pon == -1 && palways == 0);
   CHECK(!ParsePracticeSet(J(R"({})"), &pon, &palways, &err));
   CHECK(!ParsePracticeSet(J(R"({"on": 1})"), &pon, &palways, &err));
+  {
+    bool hasHome = false;
+    std::string home;
+    CHECK(ParsePracticeSet(J(R"({"home_map": "3070284539"})"), &pon, &palways, &err, &hasHome, &home) && hasHome &&
+          home == "3070284539" && pon == -1 && palways == -1);
+    CHECK(ParsePracticeSet(J(R"({"home_map": ""})"), &pon, &palways, &err, &hasHome, &home) && hasHome && home.empty());
+    CHECK(!ParsePracticeSet(J(R"({"home_map": "de_dust2; quit"})"), &pon, &palways, &err, &hasHome, &home));
+    CHECK(!ParsePracticeSet(J(R"({"home_map": 5})"), &pon, &palways, &err, &hasHome, &home));
+  }
 
   CHECK_EQ(SanitizeSay("hi\x01 there\n"), std::string("hi there"));
   CHECK_EQ(SayCenterHtml("Map 2: <b>Nuke</b> & \"more\""), std::string("Map 2: &lt;b&gt;Nuke&lt;/b&gt; &amp; &quot;more&quot;"));
