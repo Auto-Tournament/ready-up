@@ -14,6 +14,7 @@
 
 #include <cstring>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace readyup {
@@ -31,6 +32,10 @@ struct Outgoing {
 };
 std::vector<Outgoing> g_out;
 int g_outRound = 0;
+// Who was on a team when the round started: someone who joined mid-round gets no report
+// for it (it would be all zeros: a scrim player taking a bot's place saw one on joining).
+std::unordered_set<int> g_roundStartSlots;
+bool g_haveRoundStart = false;
 
 int TeamOf(int slot) {
   if (slot < 0) return 0;
@@ -67,7 +72,7 @@ void BuildReports() {
   for (size_t i = 0; i < c.players.size(); ++i) {
     Outgoing o;
     o.slot = c.players[i].key;
-    o.human = c.human[i];
+    o.human = c.human[i] && (!g_haveRoundStart || g_roundStartSlots.count(o.slot) > 0);
     o.name = c.players[i].name;
     o.lines = FormatDamageReport(c.players[i], c.players, g_ledger);
     if (!o.lines.empty()) g_out.push_back(std::move(o));
@@ -80,6 +85,11 @@ void OnGameEvent(void*, const char* name, const ru_game_event* ev) {
   if (std::strcmp(name, "round_start") == 0) {
     g_ledger.Reset();
     g_enemyDamage = false;
+    Collect c;
+    a->for_each_player(a->self, &CollectPlayer, &c);
+    g_roundStartSlots.clear();
+    for (const auto& p : c.players) g_roundStartSlots.insert(p.key);
+    g_haveRoundStart = true;
   } else if (std::strcmp(name, "player_hurt") == 0) {
     const int victim = a->ev_get_player_slot(a->self, ev, "userid");
     const int attacker = a->ev_get_player_slot(a->self, ev, "attacker");
