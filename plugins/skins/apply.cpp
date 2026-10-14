@@ -351,6 +351,12 @@ bool g_spawnRequested[65] = {};
 // `.skins reload` (RequestReapply): at this tick (0 = none) the slot's cosmetics run again and
 // the weapons it holds are repainted. A second after the request, so the re-read loadout is in.
 long long g_reapplyAt[65] = {};
+// The last round restart (round_prestart / round_start: mp_restartgame, a match going live, a
+// new round). A re-give within kRestartQuietTicks of one is put off: weapons re-given while the
+// restart deletes and recreates them crashed a server (WriteEnterPVS: GetEntServerClass failed,
+// 2026-10-14, a loadout that arrived as the match went live).
+long long g_roundChangeTick = -1000000;
+constexpr long long kRestartQuietTicks = 96;
 // Dev only (skins_debug_as, debug=1): a bot slot decorated with a real player's loadout, so the
 // whole apply path can be exercised without a human client.
 uint64_t g_debugAs[65] = {};
@@ -536,6 +542,10 @@ void ProcessPlayer(int slot, void* controller) {
   const bool alive = Rd<uint8_t>(pawn, o.ent_lifeState) == 0;
   bool repaintHeld = false;
   bool refreshed = false;
+  if (g_reapplyAt[slot] != 0 && g_tick >= g_reapplyAt[slot] && alive &&
+      g_tick - g_roundChangeTick < kRestartQuietTicks) {
+    g_reapplyAt[slot] = g_roundChangeTick + kRestartQuietTicks;  // after the restart settles
+  }
   if (g_reapplyAt[slot] != 0 && g_tick >= g_reapplyAt[slot] && alive) {
     g_reapplyAt[slot] = 0;
     g_spawnRequested[slot] = true;
@@ -737,6 +747,8 @@ bool ExternalPaintReady() {
 void RequestSpawnCosmetics(int slot) {
   if (slot >= 0 && slot < 65) g_spawnRequested[slot] = true;
 }
+
+void NoteRoundChange() { g_roundChangeTick = g_tick; }
 
 void RequestReapply(int slot) {
   if (slot >= 0 && slot < 65) g_reapplyAt[slot] = g_tick + 64;
