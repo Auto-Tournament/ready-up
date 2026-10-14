@@ -480,6 +480,9 @@ add_subdirectory(plugins/whitelist)
 # readyup-addons (plugins/addons): Steam Workshop addons, plus its unit test.
 add_subdirectory(plugins/addons)
 
+# readyup-mapvote (plugins/mapvote): .rtv / .nominate / end-of-map vote, plus its unit test.
+add_subdirectory(plugins/mapvote)
+
 # readyup-deathmatch (plugins/deathmatch): FFA / team deathmatch, plus its unit test.
 add_subdirectory(plugins/deathmatch)
 
