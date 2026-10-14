@@ -269,6 +269,7 @@ void OnEvent(void*, const ru_event* e) {
       demo::OnMapStart();  // GOTV's recording ended with the level change
       fleet_bridge::OnMapStart();
       match_recovery::OnMapStart();  // a recovery changing to the match map continues
+      ModesOnMapStart();  // the mode's rules again, also on a reload of the same map
       // Every map of a real match starts without bots: the gamemode cfg brings bot_quota back on
       // each level change, and a bot alive on a team kept a joining player spectating it (live
       // test, map 2). ApplyLoadedMatch did this only once, before the first map change.

@@ -546,8 +546,9 @@ void ProcessPlayer(int slot, void* controller) {
   bool refreshed = false;
   // Around a round restart no weapon is given or removed: one made or removed while CS2 deletes
   // and recreates the round's entities crashed servers and clients (2026-10-14, WriteEnterPVS /
-  // CopyExistingEntity). Painting is untouched: the round's new weapons are painted on their first
-  // tick as always (holding that too left a vanilla knife, 2026-10-14).
+  // CopyExistingEntity). Gun paint is untouched: the round's new weapons are painted on their first
+  // tick as always (holding that too left a vanilla knife, 2026-10-14). Gloves and knife swaps wait
+  // (below).
   const bool restartQuiet = g_restartQuietNow;
   if (g_reapplyAt[slot] != 0 && g_tick >= g_reapplyAt[slot] && alive && restartQuiet) {
     g_reapplyAt[slot] = g_tick + 8;
@@ -574,7 +575,11 @@ void ProcessPlayer(int slot, void* controller) {
   ps.pawnHandle = pawnHandle;
   if (!alive) return;
 
-  if (ps.cosmeticsPass >= 0 && ps.cosmeticsPass < kCosmeticPassCount &&
+  // Gloves and the agent model rebuild things on the client (the glove counter, a full re-send of
+  // the pawn). Done while CS2 restarts the round, the client crashed (CopyExistingEntity, a player
+  // joining with gloves on, 2026-10-14): the passes start over once the restart has settled.
+  if (restartQuiet && ps.cosmeticsPass >= 0) ps.spawnTick = g_tick;
+  if (!restartQuiet && ps.cosmeticsPass >= 0 && ps.cosmeticsPass < kCosmeticPassCount &&
       g_tick - ps.spawnTick >= kCosmeticPassTicks[ps.cosmeticsPass]) {
     // Anything first seen on our first active tick may already have been networked.
     const bool late = g_tick > ps.spawnTick + 1 || ps.spawnTick == g_activeSince;
@@ -614,6 +619,14 @@ void ProcessPlayer(int slot, void* controller) {
       } else if (g_tick - st.firstSeen > kRetryTicks) {
         st.legacyPending = false;
       }
+      continue;
+    }
+    // The same for a knife swap (ChangeSubclass): it waits, and the knife is re-given once the
+    // restart has settled, so the swap lands on a new knife on its first tick (a late swap of the
+    // old one leaves the stock look and HUD icon).
+    if (restartQuiet && IsKnifeDesigner(EntityDesignerName(weapon)) && FindKnifeClassname(steamid64, team)) {
+      st.done = true;
+      g_reapplyAt[slot] = g_tick + 1;  // held until the quiet window ends (above)
       continue;
     }
     const bool late = g_tick > st.firstSeen || st.firstSeen == g_activeSince;
