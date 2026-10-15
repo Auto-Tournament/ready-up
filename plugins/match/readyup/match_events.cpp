@@ -631,6 +631,16 @@ void OnRoundEndLocked(const PendingRound& ev) {
   EmitRoundEndLocked(ev.winner, ev.reason, ev.roundTimeMs);
 }
 
+// Damage and kills count against the other side only: a teamkill, team damage or a player hurting
+// themselves (a grenade) is not a kill or ADR (a teamkill showed as ADR 81, 2026-10-15).
+bool Enemies(int attackerSlot, int victimSlot) {
+  if (attackerSlot < 0 || victimSlot < 0 || attackerSlot == victimSlot) return false;
+  const auto ta = GetCsTeamNumForSlot(attackerSlot);
+  const auto tv = GetCsTeamNumForSlot(victimSlot);
+  if (!ta || !tv) return true;  // unknown side: count it, as before
+  return *ta != *tv;
+}
+
 void OnPlayerDeathLocked(const ru_game_event* ev) {
   const ru_api* a = A();
   const int attackerSlot = a->ev_get_player_slot(a->self, ev, "attacker");
@@ -641,7 +651,7 @@ void OnPlayerDeathLocked(const ru_game_event* ev) {
   const auto victimSid = SteamForSlot(victimSlot);
   const auto assisterSid = SteamForSlot(assisterSlot);
 
-  if (attackerSid) {
+  if (attackerSid && Enemies(attackerSlot, victimSlot)) {
     auto& s = g_stats[*attackerSid];
     const std::string nm = NameForSlot(attackerSlot);
     if (!nm.empty()) s.name = nm;
@@ -656,7 +666,8 @@ void OnPlayerDeathLocked(const ru_game_event* ev) {
     s.team = TeamForSteam(*victimSid);
     s.deaths += 1;
   }
-  if (assisterSid && attackerSid && victimSid && *assisterSid != *attackerSid && *assisterSid != *victimSid) {
+  if (assisterSid && attackerSid && victimSid && *assisterSid != *attackerSid && *assisterSid != *victimSid &&
+      Enemies(assisterSlot, victimSlot)) {
     auto& s = g_stats[*assisterSid];
     const std::string nm = NameForSlot(assisterSlot);
     if (!nm.empty()) s.name = nm;
@@ -671,6 +682,7 @@ void OnPlayerHurtLocked(const ru_game_event* ev) {
   const int dmg = a->ev_get_int(a->self, ev, "dmg_health", 0);
   const auto attackerSid = SteamForSlot(attackerSlot);
   if (!attackerSid) return;
+  if (!Enemies(attackerSlot, a->ev_get_player_slot(a->self, ev, "userid"))) return;
   auto& s = g_stats[*attackerSid];
   const std::string nm = NameForSlot(attackerSlot);
   if (!nm.empty()) s.name = nm;
