@@ -320,6 +320,9 @@ void EnsureGameLogOn() {
 
 void OnEvent(void*, const ru_event* e) {
   Guard("event", [&] {
+    if (e->type == RU_EVENT_PLAYER_CONNECT || e->type == RU_EVENT_PLAYER_DISCONNECT || e->type == RU_EVENT_PLAYER_TEAM) {
+      PlayersInvalidate();
+    }
     if (e->type == RU_EVENT_MAP_START) {
       EnsureGameLogOn();
       IdleRefreshOnMapStart(host::NowSeconds());
