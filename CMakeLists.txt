@@ -486,6 +486,9 @@ add_subdirectory(plugins/mapvote)
 # readyup-community (plugins/community): .rank / .top / .speclist / .kick, plus its unit test.
 add_subdirectory(plugins/community)
 
+# readyup-movement (plugins/movement): surf / bhop / kz timers and records, plus its unit test.
+add_subdirectory(plugins/movement)
+
 # readyup-deathmatch (plugins/deathmatch): FFA / team deathmatch, plus its unit test.
 add_subdirectory(plugins/deathmatch)
 
