@@ -56,12 +56,6 @@ struct Off {
 };
 Off g_off;
 
-double Now() {
-  timespec ts{};
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-  return static_cast<double>(ts.tv_sec) + static_cast<double>(ts.tv_nsec) / 1e9;
-}
-
 void Reply(const ru_command_ctx* c, const std::string& m) {
   if (c->is_console || c->slot < 0) ru_logf(g_api, RU_LOG_INFO, "%s", m.c_str());
   else g_api->chat_to_slot(g_api->self, c->slot, m.c_str());
