@@ -9,6 +9,9 @@
 //                        counts its teleports)
 //   .timerhud            your timer panel on / off (.timer is practice's)
 //
+// Chat: the runner hears when the timer starts and stops (left the start, died, noclip) and
+// their time. Others hear a finish per movement.cfg finish_chat (default: only server records).
+//
 // The mode comes from cfg/ReadyUp/movement.cfg `mode=` (auto: from the map prefix surf_ / bhop_ /
 // kz_). Zones are the map's own triggers and buttons by name (map_start / map_end,
 // timer_startzone / timer_endzone, climb_startbutton / climb_endbutton, ...): their boxes are read
@@ -79,6 +82,7 @@ struct Run {
 
 struct State {
   Mode configured = Mode::Off;  // from movement.cfg; Off = auto
+  FinishChat finishChat = FinishChat::Records;
   bool autoMode = true;
   Mode mode = Mode::Off;        // this map's
   std::string map;
@@ -244,6 +248,13 @@ void LoadSettings() {
     g.autoMode = !ok;
     if (!ok) ru_logf(g_api, RU_LOG_WARN, "movement.cfg: mode=%s is not auto, surf, bhop, kz or off", buf);
   }
+  g.finishChat = FinishChat::Records;
+  char fc[32] = {};
+  if (g_api->config_get(g_api->self, "finish_chat", fc, sizeof(fc)) >= 0 && fc[0]) {
+    bool ok = false;
+    g.finishChat = ParseFinishChat(fc, &ok);
+    if (!ok) ru_logf(g_api, RU_LOG_WARN, "movement.cfg: finish_chat=%s is not records, self or all", fc);
+  }
 }
 
 void LoadRecords() {
@@ -278,13 +289,20 @@ void FinishRun(int slot, double now) {
   const Finish f = AddRun(&g.records, g.map, CourseKey(ModeName(g.mode), r.course), p.steamid64, p.name, ms, date);
   g.dirty = true;
   SendRecord(RecordPayload(g.map, ModeName(g.mode), r.course, p.steamid64, p.name, ms, r.teleports, date));
-  std::string line = std::string(p.name) + " finished " + g.map + (r.course > 0 ? " " + CourseName(r.course) : "") + " in " + FormatTime(ms);
-  if (g.mode == Mode::Kz) line += r.teleports > 0 ? " (" + std::to_string(r.teleports) + " TP)" : " (pro)";
-  if (f.serverRecord) line += ". New server record!";
-  else if (f.personalBest && f.previousMs > 0) line += ". New personal best (-" + FormatTime(f.previousMs - ms) + "), rank " + std::to_string(f.rank) + ".";
-  else if (f.personalBest) line += ", rank " + std::to_string(f.rank) + ".";
-  else line += " (best " + FormatTime(f.previousMs) + ").";
-  g_api->chat_all(g_api->self, line.c_str(), 0);
+  std::string tail;
+  if (g.mode == Mode::Kz) tail += r.teleports > 0 ? " (" + std::to_string(r.teleports) + " TP)" : " (pro)";
+  if (f.serverRecord) tail += ". New server record!";
+  else if (f.personalBest && f.previousMs > 0) tail += ". New personal best (-" + FormatTime(f.previousMs - ms) + "), rank " + std::to_string(f.rank) + ".";
+  else if (f.personalBest) tail += ", rank " + std::to_string(f.rank) + ".";
+  else tail += " (best " + FormatTime(f.previousMs) + ").";
+  const std::string where = g.map + (r.course > 0 ? " " + CourseName(r.course) : "");
+  if (FinishToAll(g.finishChat, f.serverRecord)) {
+    const std::string line = std::string(p.name) + " finished " + where + " in " + FormatTime(ms) + tail;
+    g_api->chat_all(g_api->self, line.c_str(), 0);
+  } else {
+    const std::string line = "You finished " + where + " in " + FormatTime(ms) + tail;
+    (void)g_api->chat_to_slot(g_api->self, slot, line.c_str());
+  }
 }
 
 void HudFor(int slot, double now) {
@@ -330,6 +348,9 @@ void OnTick(void*, const ru_tick_info* t) {
     }
     void* pawn = g_api->entity_from_handle(g_api->self, Rd<uint32_t>(ctrl, g_off.ctrlPawn));
     if (!pawn || Rd<uint8_t>(pawn, g_off.lifeState) != 0) {
+      if (r.running) {
+        (void)g_api->chat_to_slot(g_api->self, slot, "Timer stopped: you died. Start again from the start zone (.rs).");
+      }
       r.running = false;
       r.inStart = false;
       continue;

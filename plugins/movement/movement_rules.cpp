@@ -53,6 +53,19 @@ Mode ModeForMap(const std::string& map) {
   return Mode::Off;
 }
 
+FinishChat ParseFinishChat(const std::string& s, bool* ok) {
+  const std::string v = Lower(s);
+  *ok = true;
+  if (v == "self") return FinishChat::Self;
+  if (v == "all") return FinishChat::All;
+  if (v != "records") *ok = false;
+  return FinishChat::Records;
+}
+
+bool FinishToAll(FinishChat c, bool serverRecord) {
+  return c == FinishChat::All || (c == FinishChat::Records && serverRecord);
+}
+
 std::vector<std::string> ModeCvars(Mode m) {
   // Shared: nobody dies of the map, rounds never end, no stamina, players pass through each other.
   std::vector<std::string> c = {

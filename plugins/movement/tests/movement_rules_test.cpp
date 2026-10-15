@@ -43,6 +43,10 @@ int main() {
   CHECK(CourseKey("surf", 0) == "surf" && CourseKey("surf", 2) == "surf.b2");
   CHECK(ParseCourse("") == 0 && ParseCourse("b2") == 2 && ParseCourse("bonus1") == 1 && ParseCourse("3") == 3);
   CHECK(ParseCourse("x") == -1 && ParseCourse("b") == -1);
+  CHECK(ParseFinishChat("SELF", &ok) == FinishChat::Self && ok);
+  CHECK(ParseFinishChat("nope", &ok) == FinishChat::Records && !ok);
+  CHECK(FinishToAll(FinishChat::Records, true) && !FinishToAll(FinishChat::Records, false));
+  CHECK(!FinishToAll(FinishChat::Self, true) && FinishToAll(FinishChat::All, false));
   {
     const std::string j = RecordPayload("surf_mesa", "surf", 1, 76561198000000001ull, "Ann", 62345, 0, 1790000000);
     CHECK(j.find("\"steamid64\":\"76561198000000001\"") != std::string::npos);
