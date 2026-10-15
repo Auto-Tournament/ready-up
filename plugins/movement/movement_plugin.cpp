@@ -348,9 +348,14 @@ bool AnyHumanOn() {
 
 // An empty server on a map without a movement mode (a restart boots de_dust2) goes to home_map.
 // A workshop download takes a while: asked again only after 3 minutes.
+// Only on a movement server (match.so off: the Movement preset). A tournament server that also has
+// movement.so loaded sits empty on de_dust2 between matches; sending it to a surf map raced the
+// next match's map load and the players joined a surf map (2026-10-15).
+bool MatchPluginLoaded() { return g_api->get_interface(g_api->self, RU_MATCH_IFACE_NAME, 1) != nullptr; }
+
 void GoHomeIfEmpty(double now) {
   if (g.mode != Mode::Off || g.homeMap.empty() || now - g.homeAskedAt < 180.0) return;
-  if (!g.autoMode || MatchLoaded() || AnyHumanOn()) return;
+  if (!g.autoMode || MatchPluginLoaded() || AnyHumanOn()) return;
   const auto* e = static_cast<const ru_essentials_v1*>(
       g_api->get_interface(g_api->self, RU_ESSENTIALS_IFACE_NAME, RU_ESSENTIALS_IFACE_VERSION));
   if (!e || !e->load_map) return;
@@ -429,8 +434,9 @@ void SpawnFirstPlayer(double now) {
 void OnTick(void*, const ru_tick_info* t) {
   const double now = t->now;
   GoHomeIfEmpty(now);
-  if (Active()) AutoTeam(now);
-  if (Active() && Resolve()) SpawnFirstPlayer(now);
+  // Teams and spawns belong to match.so where it runs (a match's rosters, warmup).
+  if (Active() && !MatchPluginLoaded()) AutoTeam(now);
+  if (Active() && !MatchPluginLoaded() && Resolve()) SpawnFirstPlayer(now);
   if (g.scanAt > 0 && now >= g.scanAt) {
     g.scanAt = 0;
     ScanZones();
