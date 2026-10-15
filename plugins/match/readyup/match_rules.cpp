@@ -65,37 +65,32 @@ int GgThresholdPctFromText(const std::string& text) {
   return std::max(1, static_cast<int>(std::lround(pct)));
 }
 
-std::string GoLiveRulesLine(int mapNumber, int numMaps, const std::string& map, int maxRounds, bool overtime,
-                            int overtimeHalfRounds, int maxOvertimes, bool damageTiebreak) {
+std::vector<std::string> GoLiveRulesLines(int mapNumber, int numMaps, const std::string& map, int maxRounds,
+                                          bool overtime, int overtimeHalfRounds, int maxOvertimes,
+                                          bool damageTiebreak) {
   std::string name = map.rfind("de_", 0) == 0 || map.rfind("cs_", 0) == 0 ? map.substr(3) : map;
   if (!name.empty()) name[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(name[0])));
-  std::string out = "Ready Up: ";
-  if (numMaps > 1) {
-    out += "map " + std::to_string(mapNumber) + " of " + std::to_string(numMaps) + " (first to " +
-           std::to_string(numMaps / 2 + 1) + " maps)";
-  } else {
-    out += "one map";
-  }
-  if (!name.empty()) out += ", " + name;
-  if (maxRounds > 0) {
-    const int half = maxRounds / 2;
-    out += ". " + std::to_string(maxRounds) + " rounds: first to " + std::to_string(half + 1) +
-           " wins, sides switch after " + std::to_string(half) + ".";
-    const std::string tie = " At " + std::to_string(half) + "-" + std::to_string(half) + ": ";
-    if (overtime && overtimeHalfRounds > 0) {
-      out += tie + "overtime, " + std::to_string(overtimeHalfRounds * 2) + " rounds each (first to " +
-             std::to_string(overtimeHalfRounds + 1) + ")";
-      if (maxOvertimes > 0) {
-        out += ", at most " + std::to_string(maxOvertimes);
-        out += damageTiebreak ? ", then total damage decides." : ", then a draw.";
-      } else {
-        out += " until someone wins.";
-      }
+  std::vector<std::string> out;
+  std::string first = numMaps > 1 ? "Ready Up: map " + std::to_string(mapNumber) + " of " + std::to_string(numMaps) +
+                                        " (first to " + std::to_string(numMaps / 2 + 1) + " maps)"
+                                  : std::string("Ready Up: one map");
+  out.push_back(first + (name.empty() ? "." : ": " + name + "."));
+  if (maxRounds <= 0) return out;
+  const int half = maxRounds / 2;
+  out.push_back("Ready Up: " + std::to_string(maxRounds) + " rounds, first to " + std::to_string(half + 1) + " wins.");
+  out.push_back("Ready Up: sides switch after " + std::to_string(half) + " rounds.");
+  const std::string tie = "Ready Up: at " + std::to_string(half) + "-" + std::to_string(half) + ", ";
+  if (overtime && overtimeHalfRounds > 0) {
+    std::string ot = tie + "overtime: " + std::to_string(overtimeHalfRounds * 2) + " rounds, first to " +
+                     std::to_string(overtimeHalfRounds + 1);
+    if (maxOvertimes > 0) {
+      ot += ", at most " + std::to_string(maxOvertimes) + (damageTiebreak ? ", then total damage decides." : ", then a draw.");
     } else {
-      out += tie + (damageTiebreak ? "total damage decides." : "the map is a draw.");
+      ot += ", until someone wins.";
     }
+    out.push_back(ot);
   } else {
-    out += ".";
+    out.push_back(tie + (damageTiebreak ? "total damage decides." : "the map is a draw."));
   }
   return out;
 }

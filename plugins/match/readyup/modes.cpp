@@ -1641,9 +1641,11 @@ void OnMatchRoundStarted() {
   if (const auto ctx = WebhookGetMatchContext()) {
     const int mapNo = std::max(1, MatchStateGet().map_number);
     const std::string mapName = mapNo - 1 < static_cast<int>(ctx->maplist.size()) ? ctx->maplist[mapNo - 1] : "";
-    SendToChat(GoLiveRulesLine(mapNo, std::max(1, ctx->num_maps), mapName, ctx->maxRounds, ctx->overtime_enabled,
-                               ctx->overtimeSegments, ctx->maxOvertimes, ctx->damageTiebreakEnabled)
-                   .c_str());
+    for (const auto& line : GoLiveRulesLines(mapNo, std::max(1, ctx->num_maps), mapName, ctx->maxRounds,
+                                              ctx->overtime_enabled, ctx->overtimeSegments, ctx->maxOvertimes,
+                                              ctx->damageTiebreakEnabled)) {
+      SendToChat(line.c_str());
+    }
   }
   GoLiveCardArm("go-live round start", /*restartPending=*/false);  // "LIVE · GO GO GO" + commands
 
