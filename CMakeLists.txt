@@ -483,6 +483,9 @@ add_subdirectory(plugins/addons)
 # readyup-mapvote (plugins/mapvote): .rtv / .nominate / end-of-map vote, plus its unit test.
 add_subdirectory(plugins/mapvote)
 
+# readyup-community (plugins/community): .rank / .top / .speclist / .kick, plus its unit test.
+add_subdirectory(plugins/community)
+
 # readyup-deathmatch (plugins/deathmatch): FFA / team deathmatch, plus its unit test.
 add_subdirectory(plugins/deathmatch)
 
