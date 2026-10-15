@@ -177,10 +177,8 @@ bool BotFillTeamReady(int connected, int readyConnected) {
   return std::max(0, readyConnected) >= std::max(0, connected);
 }
 
-bool ResumeMayGoLive(int rosterTotal, int presentTotal, double secondsSinceFirstBack) {
-  if (presentTotal <= 0) return false;
-  if (presentTotal >= rosterTotal) return true;
-  return secondsSinceFirstBack >= kResumeRejoinSeconds;
+bool ResumeMayGoLive(int rosterTotal, int presentTotal) {
+  return presentTotal > 0 && presentTotal >= rosterTotal;
 }
 
 ResumeHeadcount ResumeCount(const int roster[2], const int present[2], int playersPerTeam) {

@@ -777,26 +777,14 @@ static bool GoLiveCheckLocked(State& st, const WebhookMatchContext& ctx, std::st
   // The grace counts from when the server last became empty: a new map (the
   // players reconnect after the change) or the last human leaving starts it
   // over (2026-10-12: map 2 went live at once, timed from the match load).
-  // A failover resume: no ready-up, live as the players come back (match_rules.h).
+  // A failover resume restores a round: every roster player back first, then the normal ready-up
+  // below (.r from everyone present). Live as soon as anyone was back skipped both, and a match
+  // came back live with a player missing and nobody ready (2026-10-15). An admin start is the
+  // way on without someone.
   if (fleet_bridge::ResumeWaiting()) {
-    static bool anyBack = false;
-    static std::chrono::steady_clock::time_point firstBack;
-    const int presentTotal = present[0] + present[1];
-    if (presentTotal > 0) {
-      const auto nowTp = std::chrono::steady_clock::now();
-      if (!anyBack) {
-        anyBack = true;
-        firstBack = nowTp;
-      }
-      const double since = std::chrono::duration<double>(nowTp - firstBack).count();
-      const ResumeHeadcount head = ResumeCount(roster, present, ctx.players_per_team);
-      const bool go = ResumeMayGoLive(head.needed, head.back, since);
-      if (!go) *why = "failover resume: " + std::to_string(head.back) + "/" + std::to_string(head.needed) + " players back";
-      return go;
-    }
-    anyBack = false;
-    if (!ctx.bot_fill) {  // nobody back yet; a bot-filled match uses its empty grace below
-      *why = "failover resume: nobody back yet";
+    const ResumeHeadcount head = ResumeCount(roster, present, ctx.players_per_team);
+    if (!ResumeMayGoLive(head.needed, head.back)) {
+      *why = "failover resume: " + std::to_string(head.back) + "/" + std::to_string(head.needed) + " players back";
       return false;
     }
   }

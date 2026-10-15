@@ -134,12 +134,9 @@ constexpr double kBotFillEmptyGraceSeconds = 60.0;
 constexpr double kBotFillRosterGraceSeconds = 300.0;
 bool BotFillEmptyMayGoLive(double secondsEmpty);
 
-// After a failover resume nobody types .ready: the players were mid-match when the server went.
-// The match goes live once every roster player is back, or kResumeRejoinSeconds after the first
-// one came back (the backup is restored at that round start, so everyone present gets their
-// money and weapons; then it sits paused as any restore does).
-constexpr double kResumeRejoinSeconds = 45.0;
-bool ResumeMayGoLive(int rosterTotal, int presentTotal, double secondsSinceFirstBack);
+// A failover resume restores a round, so it waits for every roster player to be back; then the
+// normal ready-up applies (everyone .r), the match goes live and the backup round is restored.
+bool ResumeMayGoLive(int rosterTotal, int presentTotal);
 // "Every roster player is back" for ResumeMayGoLive, per team: a full team (FullTeamSize), so a
 // substitute who was not playing does not hold the resume up for the rejoin window.
 // needed / back: the totals to pass as ResumeMayGoLive's rosterTotal / presentTotal.
