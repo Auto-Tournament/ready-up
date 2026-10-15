@@ -96,6 +96,7 @@
 #include "readyup/plugin_api.h"
 #include "readyup/essentials_iface.h"
 #include "readyup/practice_iface.h"
+#include "readyup/help_iface.h"
 #include "readyup/selftest_iface.h"
 
 #include <algorithm>
@@ -1988,6 +1989,10 @@ int IfaceSetActive(int on, const char** why) {
   }
   return ok ? 1 : 0;
 }
+// readyup.help.practice: the `.help` line (essentials); off, how to turn it on.
+const char* HelpLineNow() { return IfaceActive() ? HelpLine() : "Practice: .prac to start practice mode"; }
+const ru_help_v1 g_help = {sizeof(ru_help_v1), &HelpLineNow};
+
 const char* IfaceHelp() { return HelpLine(); }
 int IfaceDryRun() { return IsActive() && g_dryRun ? 1 : 0; }
 int IfaceAlways() { return AlwaysOn() ? 1 : 0; }
@@ -2094,6 +2099,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   }
   api->subscribe(api->self, RU_EVENT_MAP_START, &OnMapStart, nullptr);
   api->on_tick(api->self, &OnTick, nullptr);
+  api->provide_interface(api->self, RU_HELP_IFACE_PREFIX "practice", RU_HELP_IFACE_VERSION,
+                         const_cast<ru_help_v1*>(&g_help));
   api->provide_interface(api->self, RU_PRACTICE_IFACE_NAME, RU_PRACTICE_IFACE_VERSION, const_cast<ru_practice_v1*>(&g_iface));
   api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "practice", RU_SELFTEST_IFACE_VERSION,
                          const_cast<ru_selftest_iface_v1*>(&g_selftestIface));

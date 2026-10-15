@@ -23,6 +23,7 @@
 #include "mapvote_rules.h"
 
 #include "readyup/essentials_iface.h"
+#include "readyup/help_iface.h"
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
 
@@ -118,6 +119,7 @@ void LoadSettings() {
       },
       &warnings);
   for (const auto& w : warnings) ru_logf(g_api, RU_LOG_WARN, "mapvote.cfg: %s", w.c_str());
+  if (g.s.maps.empty()) g.s.maps = mapvote::DefaultPool(g.currentMap);
 }
 
 bool LoadMap(const std::string& entry) {
@@ -215,9 +217,16 @@ double Now() {
   return static_cast<double>(ts.tv_sec) + static_cast<double>(ts.tv_nsec) / 1e9;
 }
 
+// readyup.help.mapvote: the `.help` line (essentials), none while map voting is off.
+const char* HelpLineNow() {
+  return Active() ? "Map vote: .rtv vote to change map (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft" : nullptr;
+}
+const ru_help_v1 g_help = {sizeof(ru_help_v1), &HelpLineNow};
+
 bool CheckActive(const ru_command_ctx* c) {
   if (Active()) return true;
-  Reply(c, MatchOwnsMap() ? "Map vote is off during a match." : "Map vote is off on this server.");
+  Reply(c, MatchOwnsMap() ? "Map vote is off during a match." : g.s.enabled ? "Map vote is off on this server: no map pool (maps= in mapvote.cfg)."
+                                                  : "Map vote is off on this server.");
   return false;
 }
 
@@ -452,9 +461,9 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   }
   g_api = api;
   g = State{};
-  LoadSettings();
   const char* cm = api->current_map(api->self);
   g.currentMap = cm ? cm : "";
+  LoadSettings();  // after the map: an empty pool follows it (DefaultPool)
   g.mapStartedAt = Now();
   struct Cmd {
     const char* name;
@@ -478,6 +487,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   api->subscribe(api->self, RU_EVENT_MAP_START, &OnMapStart, nullptr);
   api->subscribe(api->self, RU_EVENT_PLAYER_DISCONNECT, &OnPlayerEvent, nullptr);
   api->on_tick(api->self, &OnTick, nullptr);
+  api->provide_interface(api->self, RU_HELP_IFACE_PREFIX "mapvote", RU_HELP_IFACE_VERSION,
+                         const_cast<ru_help_v1*>(&g_help));
   ru_logf(api, RU_LOG_INFO, "loaded " MAPVOTE_VERSION ": %zu map(s)%s", g.s.maps.size(), g.s.enabled ? "" : " (disabled)");
   return 0;
 }

@@ -17,6 +17,7 @@
 #include "readyup/json_store.h"
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
+#include "readyup/help_iface.h"
 
 #include <algorithm>
 #include <cstring>
@@ -144,6 +145,10 @@ void OnTick(void*, const ru_tick_info* t) {
 }
 
 // ---- commands -----------------------------------------------------------------------------------
+
+// readyup.help.community: the `.help` line (essentials).
+const char* HelpLineNow() { return "Community: .rank | .top | .speclist"; }
+const ru_help_v1 g_help = {sizeof(ru_help_v1), &HelpLineNow};
 
 void OnRank(void*, const ru_command_ctx* c) {
   if (!g.s.enabled || c->steamid64 == 0) return;
@@ -287,6 +292,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     ru_logf(api, RU_LOG_WARN, "could not subscribe to player_death: stats are not counted");
   }
   api->on_tick(api->self, &OnTick, nullptr);
+  api->provide_interface(api->self, RU_HELP_IFACE_PREFIX "community", RU_HELP_IFACE_VERSION,
+                         const_cast<ru_help_v1*>(&g_help));
   ru_logf(api, RU_LOG_INFO, "loaded " COMMUNITY_VERSION ": %zu player(s) in stats.json", g.stats.size());
   return 0;
 }
