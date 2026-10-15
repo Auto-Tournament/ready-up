@@ -30,6 +30,7 @@
   "schema": [],
   "schema_optional": [
     "CBaseEntity.m_CBodyComponent",
+    "CBaseEntity.m_MoveType",
     "CBaseEntity.m_lifeState",
     "CBaseEntity.m_vecAbsVelocity",
     "CBaseModelEntity.m_Collision",

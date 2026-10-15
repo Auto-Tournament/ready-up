@@ -41,6 +41,7 @@ struct Off {
   bool resolved = false;
   int ctrlPawn = -1, lifeState = -1, bodyComponent = -1, sceneNode = -1, absOrigin = -1, absVelocity = -1;
   int collision = -1, colMins = -1, colMaxs = -1, entityIdentity = -1, identityName = -1;
+  int moveType = -1;  // CBaseEntity::m_MoveType (optional: noclip detection)
   bool ok() const {
     return ctrlPawn >= 0 && lifeState >= 0 && bodyComponent >= 0 && sceneNode >= 0 && absOrigin >= 0 &&
            collision >= 0 && colMins >= 0 && colMaxs >= 0 && entityIdentity >= 0 && identityName >= 0;
@@ -123,6 +124,7 @@ bool Resolve() {
   g_off.colMaxs = so("CCollisionProperty", "m_vecMaxs");
   g_off.entityIdentity = so("CEntityInstance", "m_pEntity");
   g_off.identityName = so("CEntityIdentity", "m_name");
+  g_off.moveType = so("CBaseEntity", "m_MoveType");
   if (!g_off.ok()) ru_logf(g_api, RU_LOG_WARN, "schema fields missing: zones and timers off on this build");
   return g_off.ok();
 }
@@ -298,6 +300,14 @@ void OnTick(void*, const ru_tick_info* t) {
     }
     Vec3 p;
     if (!Origin(pawn, &p)) continue;
+    // Noclip (practice's .noclip, sv_cheats): the run does not count. It counts again from the start zone.
+    constexpr uint8_t kMoveTypeNoclip = 8;
+    if (g_off.moveType >= 0 && Rd<uint8_t>(pawn, g_off.moveType) == kMoveTypeNoclip) {
+      if (r.running) (void)g_api->chat_to_slot(g_api->self, slot, "Timer stopped: noclip. Go back to the start (.rs) for a run that counts.");
+      r.running = false;
+      r.inStart = false;
+      continue;
+    }
     const bool inStart = ZoneAt(p, ZoneKind::Start) != nullptr;
     if (inStart) {
       r.running = false;
