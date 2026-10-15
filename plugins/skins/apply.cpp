@@ -191,6 +191,9 @@ namespace {
 
 enum class WeaponResult { kDone, kRetry };
 
+// Set by ProcessWeapon when it swapped a knife to another knife (ChangeSubclass) this call.
+bool g_lastSwappedKnife = false;
+
 // Paint kits with items_game `use_legacy_model 1` (CS:GO-era UVs). In CS2 they only render
 // correctly on the weapon's legacy model: bodygroup "body" = 1 (what WeaponPaints does with
 // AcceptInput("SetBodygroup", "body,1")). Regenerate with scripts/gen_legacy_paint_kits.py.
@@ -235,6 +238,7 @@ std::unordered_map<uint64_t, std::string> g_overrideNameTag;  // set_player_name
 long long g_applied = 0;  // weapons painted / knives swapped this session (for skins_status)
 
 WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late, bool* legacyPending) {
+  g_lastSwappedKnife = false;
   auto& o = Off();
   const bool isKnife = IsKnifeDesigner(EntityDesignerName(weapon));
   const auto ov = g_paintOverride.find(steamid64);
@@ -273,6 +277,7 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
             defindex = *wantDef;
             changed = true;
             swappedKnife = true;
+            g_lastSwappedKnife = true;
           } else if (DebugOn()) {
             Log(RU_LOG_DEBUG, "ChangeSubclass unavailable; keeping default knife for %llu",
                   static_cast<unsigned long long>(steamid64));
@@ -340,6 +345,9 @@ struct WeaponState {
   // Held by a bot first. A bot has no SteamID, so its weapons carry no original owner and would
   // look new to the player who picks one up (a CT got their T-side AK skin on a bot's AK).
   bool botOwned = false;
+  // A knife swapped to another knife is painted again here: the client rebuilds the model from
+  // the new VData after the first paint and drew it vanilla (a T-side karambit, 2026-10-15).
+  long long repaintAt = 0;
 };
 
 // Cosmetics (agent model, gloves, default_gloves bodygroup) are applied on these ticks after the
@@ -614,6 +622,15 @@ void ProcessPlayer(int slot, void* controller) {
     WeaponState& st = g_weapons[h];
     if (st.firstSeen == 0) st.firstSeen = g_tick;
     st.lastSeen = g_tick;
+    if (st.done && st.repaintAt != 0 && g_tick >= st.repaintAt) {
+      st.repaintAt = 0;
+      if (void* again = EntityFromHandle(h)) {
+        bool legacy = false;
+        (void)ProcessWeapon(again, steamid64, team, /*late=*/true, &legacy);
+        if (legacy) st.legacyPending = true;
+      }
+      continue;
+    }
     if (st.done && !st.legacyPending) continue;
     if (st.botOwned) {  // picked up from a bot: keep its (stock) look
       st.done = true;
@@ -641,6 +658,7 @@ void ProcessPlayer(int slot, void* controller) {
     if (ProcessWeapon(weapon, steamid64, team, late, &st.legacyPending) == WeaponResult::kDone ||
         g_tick - st.firstSeen > kRetryTicks) {
       st.done = true;
+      if (g_lastSwappedKnife) st.repaintAt = g_tick + 16;  // about a quarter second
     }
   }
 }
