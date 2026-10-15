@@ -289,6 +289,21 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
     }
   }
 
+  // A knife swapped to another knife (ChangeSubclass) gets its paint a quarter second later (the
+  // repaint pass, repaintAt), not on this tick. Painted on the same tick, the client built the
+  // skin's material against the old knife model and kept that broken copy for the paint, seed
+  // and wear until the game was restarted: the knife showed vanilla every time after (an M9
+  // Black Pearl, 2026-10-15; another seed of the same skin painted fine).
+  if (swappedKnife) {
+    ++g_applied;
+    MarkEntityFullyChanged(weapon);
+    if (DebugOn()) {
+      Log(RU_LOG_DEBUG, "knife swapped to def=%d owner=%llu: paint follows on the repaint pass", defindex,
+          static_cast<unsigned long long>(steamid64));
+    }
+    return WeaponResult::kDone;
+  }
+
   if (ov != g_paintOverride.end()) {
     WeaponSkinEntry paint = ov->second;
     if (ownPaint) {  // the loadout's skin for this weapon (stock when none), with the override's name tag
@@ -314,14 +329,11 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
   }
 
   if (changed) ++g_applied;
-  // A knife swapped to another knife (ChangeSubclass) is sent in full even on its first
-  // tick: the client kept the new model unpainted otherwise (a side-specific karambit on
-  // T showed vanilla while the server had painted it, 2026-10-15).
-  if (changed && (late || swappedKnife)) MarkEntityFullyChanged(weapon);
+  if (changed && late) MarkEntityFullyChanged(weapon);
   if (changed && DebugOn()) {
     Log(RU_LOG_DEBUG, "applied to %s def=%d owner=%llu paint=%d wear=%.2f%s%s", EntityDesignerName(weapon), defindex,
           static_cast<unsigned long long>(steamid64), paintUsed, static_cast<double>(wearUsed),
-          fromOverride ? " (player paint)" : "", late ? " (late)" : swappedKnife ? " (knife swap)" : "");
+          fromOverride ? " (player paint)" : "", late ? " (late)" : "");
   }
   return WeaponResult::kDone;
 }
