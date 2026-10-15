@@ -142,8 +142,8 @@ jobs:
         run: scripts/ci/check-bundles.sh dist "${{ steps.version.outputs.version }}"
 
       # One artifact with everything (what the installer job and the release use), plus one
-      # per zip so a single zip can be downloaded from the run page. Artifacts only: no
-      # release is created here.
+      # per zip so a single zip can be downloaded from the run page (not on pull requests:
+      # 15 uploads, ~15 s). Artifacts only: no release is created here.
       - name: Upload artifact (all zips)
         uses: actions/upload-artifact@v4
         with:
@@ -155,6 +155,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-essentials
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-essentials-${{ steps.version.outputs.version }}
@@ -163,6 +164,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-full
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-full-${{ steps.version.outputs.version }}
@@ -171,6 +173,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-core
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-core-${{ steps.version.outputs.version }}
@@ -179,6 +182,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-match
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-match-${{ steps.version.outputs.version }}
@@ -187,6 +191,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-fleet
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-fleet-${{ steps.version.outputs.version }}
@@ -195,6 +200,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-skins
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-skins-${{ steps.version.outputs.version }}
@@ -203,6 +209,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-practice
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-practice-${{ steps.version.outputs.version }}
@@ -211,6 +218,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-essentials-plugin
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-essentials-plugin-${{ steps.version.outputs.version }}
@@ -219,6 +227,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-hello
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-hello-${{ steps.version.outputs.version }}
@@ -227,6 +236,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-midas
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-midas-${{ steps.version.outputs.version }}
@@ -235,6 +245,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-whitelist
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-whitelist-${{ steps.version.outputs.version }}
@@ -243,6 +254,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-deathmatch
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-deathmatch-${{ steps.version.outputs.version }}
@@ -251,6 +263,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-mapvote
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-mapvote-${{ steps.version.outputs.version }}
@@ -259,6 +272,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-community
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-community-${{ steps.version.outputs.version }}
@@ -267,6 +281,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-movement
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-movement-${{ steps.version.outputs.version }}
@@ -275,6 +290,7 @@ jobs:
           retention-days: 30
 
       - name: Upload ready-up-addons
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ready-up-addons-${{ steps.version.outputs.version }}
