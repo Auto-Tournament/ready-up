@@ -433,6 +433,9 @@ void SpawnFirstPlayer(double now) {
 
 void OnTick(void*, const ru_tick_info* t) {
   const double now = t->now;
+  // A match server (match.so on): movement.so stays out of the way entirely. The full bundle
+  // installs it on every server; only the Movement preset (match off) runs it.
+  if (MatchPluginLoaded()) return;
   GoHomeIfEmpty(now);
   // Teams and spawns belong to match.so where it runs (a match's rosters, warmup).
   if (Active() && !MatchPluginLoaded()) AutoTeam(now);
@@ -648,6 +651,9 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g.map = cm ? cm : "";
   g.mode = g.autoMode ? ModeForMap(g.map) : g.configured;
   g.scanAt = g.mode != Mode::Off ? Now() + 1.0 : 0;
+  // match.so loaded first (plugins load by name): a match server. No chat commands, so .restart
+  // and .b stay match.so's; the tick does nothing either (OnTick).
+  const bool matchServer = api->get_interface(api->self, RU_MATCH_IFACE_NAME, 1) != nullptr;
   struct Cmd {
     const char* name;
     ru_command_fn fn;
@@ -655,13 +661,18 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   for (const Cmd& c : {Cmd{".restart", &OnRestart}, Cmd{".rs", &OnRestart}, Cmd{".b", &OnBonus},
                        Cmd{".bonus", &OnBonus}, Cmd{".pb", &OnPb}, Cmd{".wr", &OnTop},
                        Cmd{".maptop", &OnTop}, Cmd{".cp", &OnCheckpoint}, Cmd{".tp", &OnTeleport}, Cmd{".timerhud", &OnTimer}}) {
+    if (matchServer) break;
     if (!api->register_chat_command(api->self, c.name, c.fn, nullptr)) {
       ru_logf(api, RU_LOG_WARN, "could not register `%s` (another plugin owns it)", c.name);
     }
   }
   api->subscribe(api->self, RU_EVENT_MAP_START, &OnMapStart, nullptr);
   api->on_tick(api->self, &OnTick, nullptr);
-  ru_logf(api, RU_LOG_INFO, "loaded " MOVEMENT_VERSION ": %s on %s", ModeName(g.mode), g.map.c_str());
+  if (matchServer) {
+    ru_logf(api, RU_LOG_INFO, "loaded " MOVEMENT_VERSION ": off (match.so runs on this server; the Movement preset turns it off)");
+  } else {
+    ru_logf(api, RU_LOG_INFO, "loaded " MOVEMENT_VERSION ": %s on %s", ModeName(g.mode), g.map.c_str());
+  }
   return 0;
 }
 
