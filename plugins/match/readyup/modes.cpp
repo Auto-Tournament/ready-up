@@ -453,8 +453,11 @@ static void MaybeForceRosterTeamsLocked(State& st) {
     int join = 1;  // spectators
     if (ctx.spectators.find(h.steamid64) == ctx.spectators.end()) {
       auto it = ctx.roster_team.find(h.steamid64);
-      if (it == ctx.roster_team.end()) continue;  // not on the roster: the whitelist handles them
-      if (it->second == WebhookTeam::Team1) join = team1IsCt ? 3 : 2;       // CT : T
+      // Not on the roster (an admin the whitelist lets in, a player still in the server
+      // from the match before): spectators. An admin in a team played in someone else's
+      // match and bot fill counted them (2026-10-15).
+      if (it == ctx.roster_team.end()) join = 1;
+      else if (it->second == WebhookTeam::Team1) join = team1IsCt ? 3 : 2;  // CT : T
       else if (it->second == WebhookTeam::Team2) join = team1IsCt ? 2 : 3;  // T : CT
       else continue;
     }
@@ -479,7 +482,7 @@ static void MaybeForceRosterTeamsLocked(State& st) {
       }
       if (!same) return;
       if (ForceJoinTeamForSlot(slot, join)) {
-        Print("ready: moved %s to %s (their team's side this map)\n", name.c_str(),
+        Print(join == 1 ? "ready: moved %s to %s (not on this match's roster)\n" : "ready: moved %s to %s (their team's side this map)\n", name.c_str(),
               join == 3 ? "CT" : join == 2 ? "T" : "spectators");
       }
     });
