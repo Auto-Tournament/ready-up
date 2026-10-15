@@ -332,6 +332,12 @@ struct PlayerState {
   bool wasAlive = false;
   int cosmeticsPass = -1;      // next index into kCosmeticPassTicks, -1 = none pending
   long long spawnTick = 0;
+  // Spawned before the first loadout arrived: held in spectators until it lands (or a few
+  // seconds), then back on `holdTeam` with a fresh spawn: a knife already in the hand when
+  // its loadout arrives cannot be painted on the client (2026-10-15).
+  bool heldOnce = false;
+  int holdTeam = 0;
+  long long holdUntil = 0;
 };
 
 struct WeaponState {
@@ -551,6 +557,19 @@ void ProcessPlayer(int slot, void* controller) {
   // Prefetch roughly once a second; MaybeRefreshAsync is TTL-gated anyway.
   if (((g_tick + slot) & 63) == 0) MaybeRefreshAsync(steamid64);
 
+  // Held for the first loadout: back on the team once it is here (or after the wait).
+  if (ps.holdTeam != 0) {
+    if (IsLoaded(steamid64) || g_tick >= ps.holdUntil) {
+      const int back = ps.holdTeam;
+      ps.holdTeam = 0;
+      if (RU_API_HAS(g_api, player_change_team) && g_api->player_change_team)
+        (void)g_api->player_change_team(g_api->self, slot, back);
+      if (DebugOn())
+        Log(RU_LOG_DEBUG, "first loadout %s: slot %d back on team %d", IsLoaded(steamid64) ? "here" : "late", slot, back);
+    }
+    return;
+  }
+
   const uint32_t pawnHandle = Rd<uint32_t>(controller, o.ctrl_playerPawn);
   void* pawn = EntityFromHandle(pawnHandle);
   if (!pawn) {
@@ -581,6 +600,23 @@ void ProcessPlayer(int slot, void* controller) {
     ps.wasAlive = false;
     return;
   }
+  // Alive on a team before the first loadout arrived (a server without a match asks for it on
+  // connect): spectators for that moment, then a fresh spawn with everything painted.
+  // Never in a live match round (a move to the spectators kills): warmup, practice, idle only.
+  if (alive && !ps.heldOnce && !IsLoaded(steamid64) && WarmupLike() && RU_API_HAS(g_api, player_change_team) &&
+      g_api->player_change_team && g_api->engine_feature_available &&
+      g_api->engine_feature_available(g_api->self, "change_team") == 1) {
+    ps.heldOnce = true;
+    ps.holdTeam = team;
+    ps.holdUntil = g_tick + 192;  // three seconds at 64 ticks
+    MaybeRefreshAsync(steamid64);
+    if (g_api->player_change_team(g_api->self, slot, 1) == 1) {
+      if (DebugOn()) Log(RU_LOG_DEBUG, "slot %d spawned before its first loadout: spectators until it lands", slot);
+      return;
+    }
+    ps.holdTeam = 0;
+  }
+  if (alive && IsLoaded(steamid64)) ps.heldOnce = true;  // only a first life can be held
   // The player's first loadout came after their spawn (a server without a match: it is asked
   // for on connect). Paint what they hold now and send it again; no weapon is given or removed.
   if (alive && g_repaintNow[slot].exchange(false)) {
