@@ -235,7 +235,6 @@ void MatchFeaturesTechPause(WebhookTeam team, uint64_t steamid64, const std::str
   if (!TechPauseAllowed(used, rules.tech_pauses_per_team)) {
     Print("pause: technical refused for %s (%d/%d used)\n", TeamKey(team), used, rules.tech_pauses_per_team);
     // "(3/3)" read as three left; say it in words (2026-10-15).
-    if (rules.tech_pauses_per_team <= 0) return Reply(steamid64, "Ready Up: technical pauses are off in this match.");
     return Reply(steamid64, "Ready Up: " + tn + " has used all " + std::to_string(rules.tech_pauses_per_team) +
                                 " technical pauses; none left.");
   }
