@@ -55,6 +55,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <ctime>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -189,11 +190,14 @@ class TickSections {
   template <typename F>
   void Run(const char* name, F&& fn) {
     const auto start = std::chrono::steady_clock::now();
+    const double cpu0 = ThreadCpuMs();
     fn();
     const double ms =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+    const double cpu = ThreadCpuMs() - cpu0;
     total_ += ms;
-    if (count_ < kMax) parts_[count_++] = {name, ms};
+    cpuTotal_ += cpu;
+    if (count_ < kMax) parts_[count_++] = {name, ms, cpu};
   }
   // Logs the parts of a slow tick (rate-limited).
   void Report(double now) {
@@ -202,11 +206,14 @@ class TickSections {
     std::string line;
     for (int i = 0; i < count_; ++i) {
       if (parts_[i].ms < 0.05) continue;
-      char buf[64];
-      std::snprintf(buf, sizeof(buf), "%s%s %.2f", line.empty() ? "" : ", ", parts_[i].name, parts_[i].ms);
+      char buf[80];
+      std::snprintf(buf, sizeof(buf), "%s%s %.2f (cpu %.2f)", line.empty() ? "" : ", ", parts_[i].name, parts_[i].ms,
+                    parts_[i].cpu);
       line += buf;
     }
-    Print("perf: slow match tick %.2f ms: %s\n", total_, line.c_str());
+    // Wall time well above CPU time: the thread was waiting (the OS ran something else, or a lock),
+    // not working.
+    Print("perf: slow match tick %.2f ms (cpu %.2f): %s\n", total_, cpuTotal_, line.c_str());
   }
 
  private:
@@ -214,10 +221,18 @@ class TickSections {
   struct Part {
     const char* name;
     double ms;
+    double cpu;
   };
+  // This thread's CPU time in ms (CLOCK_THREAD_CPUTIME_ID).
+  static double ThreadCpuMs() {
+    timespec ts{};
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
+    return static_cast<double>(ts.tv_sec) * 1e3 + static_cast<double>(ts.tv_nsec) / 1e6;
+  }
   Part parts_[kMax] = {};
   int count_ = 0;
   double total_ = 0;
+  double cpuTotal_ = 0;
 };
 
 void OnTick(void*, const ru_tick_info* t) {
