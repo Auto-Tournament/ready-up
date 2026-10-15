@@ -15,6 +15,7 @@
     "entity_set_model",
     "entity_system_status",
     "on_tick",
+    "player_change_team",
     "player_give_item",
     "register_chat_command",
     "register_console_command",
