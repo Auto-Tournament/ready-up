@@ -646,7 +646,7 @@ void ProcessPlayer(int slot, void* controller) {
     st.lastSeen = g_tick;
     if (st.done && st.repaintAt != 0 && g_tick >= st.repaintAt) {
       st.repaintAt = 0;
-      if (DebugOn()) Log(RU_LOG_DEBUG, "knife repaint: slot %d handle %u pass %d", slot, h, st.repaints + 1);
+      if (DebugOn()) Log(RU_LOG_DEBUG, "knife repaint: slot %d handle %u", slot, h);
       if (void* again = EntityFromHandle(h)) {
         bool legacy = false;
         (void)ProcessWeapon(again, steamid64, team, /*late=*/true, &legacy);
