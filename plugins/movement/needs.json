@@ -16,6 +16,7 @@
     "get_interface",
     "get_player",
     "on_tick",
+    "player_change_team",
     "player_teleport",
     "register_chat_command",
     "schema_offset",

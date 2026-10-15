@@ -77,6 +77,7 @@ struct Run {
   Vec3 cp;
   float cpAngles[3] = {0, 0, 0};
   bool cpHasAngles = false;
+  double unassignedSince = 0;  // joined but on no team yet (auto team after 2 s)
   bool hud = false;  // the panel is opt-in (.timerhud): chat carries the start and the time
   double nextHud = 0;
 };
@@ -358,9 +359,44 @@ void GoHomeIfEmpty(double now) {
   if (!e->load_map(g.homeMap.c_str())) ru_logf(g_api, RU_LOG_WARN, "the home map %s could not be loaded", g.homeMap.c_str());
 }
 
+// Nobody picks a team on a movement server: a player still on none after 2 s goes to the side
+// with fewer players (CT on a tie). Spectators chose that and stay.
+void AutoTeam(double now) {
+  struct Count {
+    int t = 0, ct = 0;
+    std::vector<int> waiting;
+  } n;
+  g_api->for_each_player(
+      g_api->self,
+      [](void* u, const ru_player* p) -> int {
+        auto* c = static_cast<Count*>(u);
+        if (p->team == RU_TEAM_T) ++c->t;
+        if (p->team == RU_TEAM_CT) ++c->ct;
+        if (!p->is_bot && p->connected && p->slot >= 0 && p->slot < 64 && p->team == RU_TEAM_UNASSIGNED) c->waiting.push_back(p->slot);
+        return 1;
+      },
+      &n);
+  for (int slot = 0; slot < 64; ++slot) {
+    if (std::find(n.waiting.begin(), n.waiting.end(), slot) == n.waiting.end()) g.runs[slot].unassignedSince = 0;
+  }
+  for (int slot : n.waiting) {
+    Run& r = g.runs[slot];
+    if (r.unassignedSince == 0) r.unassignedSince = now;
+    if (now - r.unassignedSince < 2.0) continue;
+    const int team = n.t < n.ct ? RU_TEAM_T : RU_TEAM_CT;
+    if (g_api->player_change_team(g_api->self, slot, team)) {
+      (team == RU_TEAM_T ? n.t : n.ct)++;
+      r.unassignedSince = 0;
+    } else {
+      r.unassignedSince = now + 10.0;  // refused: try again later
+    }
+  }
+}
+
 void OnTick(void*, const ru_tick_info* t) {
   const double now = t->now;
   GoHomeIfEmpty(now);
+  if (Active()) AutoTeam(now);
   if (g.scanAt > 0 && now >= g.scanAt) {
     g.scanAt = 0;
     ScanZones();
@@ -399,6 +435,10 @@ void OnTick(void*, const ru_tick_info* t) {
     }
     const Zone* start = ZoneAt(p, ZoneKind::Start, -1);
     const bool inStart = start != nullptr;
+    if (inStart && r.running && now - r.startedAt > 1.0) {
+      // The map's teleport (a fall) or .rs put the runner back at the start.
+      (void)g_api->chat_to_slot(g_api->self, slot, "Back at the start: timer reset.");
+    }
     if (inStart) {
       r.running = false;
       r.teleports = 0;
