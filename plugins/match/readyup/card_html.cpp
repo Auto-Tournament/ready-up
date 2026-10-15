@@ -195,7 +195,9 @@ std::string SeriesResultCardHtml(const ResultCardInfo& info) {
     Font(h, "sm", kGold, "Last map " + DamageLine(info));
   }
   h += "<br>";
-  Font(h, "s", kGrey, "GG &#183; thanks for playing");
+  // Players looked for what to do next in the game (a live test, 2026-10-15): the platform's
+  // match page has it (the next match, the bracket, matchmaking).
+  Font(h, "sm", kOk, "GG &#183; what's next is on the tournament site");
   return h;
 }
 
