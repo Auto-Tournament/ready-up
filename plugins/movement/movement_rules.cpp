@@ -109,7 +109,7 @@ std::string FormatTime(int64_t ms) {
   const int64_t m = ms / 60000, s = (ms / 1000) % 60, r = ms % 1000;
   char buf[32];
   if (m > 0) std::snprintf(buf, sizeof(buf), "%lld:%02lld.%03lld", static_cast<long long>(m), static_cast<long long>(s), static_cast<long long>(r));
-  else std::snprintf(buf, sizeof(buf), "%lld.%03lld", static_cast<long long>(s), static_cast<long long>(r));
+  else std::snprintf(buf, sizeof(buf), "%lld.%03lld s", static_cast<long long>(s), static_cast<long long>(r));
   return buf;
 }
 

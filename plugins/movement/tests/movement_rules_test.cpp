@@ -38,7 +38,7 @@ int main() {
   CHECK(Inside(b, {101, 50, 10}, 2));
 
   CHECK(FormatTime(62345) == "1:02.345");
-  CHECK(FormatTime(12345) == "12.345");
+  CHECK(FormatTime(12345) == "12.345 s");
 
   Records r;
   auto f = AddRun(&r, "surf_a", "surf", 1, "alice", 60000, 100);

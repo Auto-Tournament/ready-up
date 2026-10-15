@@ -20,6 +20,7 @@
 #include "readyup/plugin_api.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <fstream>
@@ -60,7 +61,7 @@ struct Run {
   bool hasCheckpoint = false;
   Vec3 cp;
   float cpAngles[3] = {0, 0, 0};
-  bool hud = true;
+  bool hud = false;  // the panel is opt-in (.timerhud): chat carries the start and the time
   double nextHud = 0;
 };
 
@@ -250,19 +251,24 @@ void FinishRun(int slot, double now) {
 
 void HudFor(int slot, double now) {
   Run& r = g.runs[slot];
+  // Once a second, whole seconds: redrawing the center panel 10 times a second flickered and
+  // queued up network messages for the player (2026-10-15).
   if (!r.hud || now < r.nextHud) return;
-  r.nextHud = now + 0.1;
+  r.nextHud = now + 1.0;
   std::string h;
   if (r.running) {
-    const int64_t ms = static_cast<int64_t>((now - r.startedAt) * 1000.0);
-    h = "<font class='fontSize-l' color='#FFD34D'>" + FormatTime(ms) + "</font>";
+    const int64_t secs = static_cast<int64_t>(now - r.startedAt);
+    char clock[32];
+    if (secs >= 60) std::snprintf(clock, sizeof(clock), "%lld:%02lld", static_cast<long long>(secs / 60), static_cast<long long>(secs % 60));
+    else std::snprintf(clock, sizeof(clock), "%lld s", static_cast<long long>(secs));
+    h = "<font class='fontSize-l' color='#FFD34D'>" + std::string(clock) + "</font>";
     if (g.mode == Mode::Kz) h += " <font color='#9AA4B2'>" + std::to_string(r.teleports) + " TP</font>";
   } else if (r.inStart) {
     h = "<font color='#7FD7FF'>In the start zone</font>";
   } else {
     return;
   }
-  (void)g_api->center_html_to_slot_prio(g_api->self, slot, h.c_str(), 1, RU_HTML_PRIO_HUD);
+  (void)g_api->center_html_to_slot_prio(g_api->self, slot, h.c_str(), 2, RU_HTML_PRIO_HUD);
 }
 
 void OnTick(void*, const ru_tick_info* t) {
@@ -299,6 +305,7 @@ void OnTick(void*, const ru_tick_info* t) {
     } else if (r.inStart) {
       r.running = true;  // left the start zone: go
       r.startedAt = now;
+      (void)g_api->chat_to_slot(g_api->self, slot, "Timer started.");
     }
     r.inStart = inStart;
     if (r.running && ZoneAt(p, ZoneKind::End)) FinishRun(slot, now);
