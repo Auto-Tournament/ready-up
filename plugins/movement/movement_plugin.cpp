@@ -393,10 +393,44 @@ void AutoTeam(double now) {
   }
 }
 
+// The first player on an empty server never spawns: CS2's "game commencing" restart needs a
+// round to end, and mp_ignore_round_win_conditions keeps it from ending. A player on a team who is
+// still not alive after 3 s while nobody else is alive gets a restart (the round has no runs to
+// lose). Once someone is alive, a newcomer spawns through mp_join_grace_time.
+double g_waitingSince = 0, g_lastRestart = -1e9;
+void SpawnFirstPlayer(double now) {
+  struct S {
+    int waiting = 0, alive = 0;
+  } st;
+  g_api->for_each_player(
+      g_api->self,
+      [](void* u, const ru_player* p) -> int {
+        auto* x = static_cast<S*>(u);
+        if (p->is_bot || !p->connected || (p->team != RU_TEAM_T && p->team != RU_TEAM_CT) || p->slot < 0) return 1;
+        void* ctrl = g_api->entity_by_index(g_api->self, p->slot + 1);
+        void* pawn = ctrl ? g_api->entity_from_handle(g_api->self, Rd<uint32_t>(ctrl, g_off.ctrlPawn)) : nullptr;
+        if (pawn && Rd<uint8_t>(pawn, g_off.lifeState) == 0) ++x->alive;
+        else ++x->waiting;
+        return 1;
+      },
+      &st);
+  if (st.waiting == 0 || st.alive > 0) {
+    g_waitingSince = 0;
+    return;
+  }
+  if (g_waitingSince == 0) g_waitingSince = now;
+  if (now - g_waitingSince < 3.0 || now - g_lastRestart < 10.0) return;
+  g_lastRestart = now;
+  g_waitingSince = 0;
+  ru_logf(g_api, RU_LOG_INFO, "nobody alive, %d waiting to spawn: restarting the round", st.waiting);
+  (void)g_api->server_command(g_api->self, "mp_restartgame 1");
+}
+
 void OnTick(void*, const ru_tick_info* t) {
   const double now = t->now;
   GoHomeIfEmpty(now);
   if (Active()) AutoTeam(now);
+  if (Active() && Resolve()) SpawnFirstPlayer(now);
   if (g.scanAt > 0 && now >= g.scanAt) {
     g.scanAt = 0;
     ScanZones();
