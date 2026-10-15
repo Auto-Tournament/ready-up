@@ -1338,12 +1338,20 @@ void OnUnassign(const ru_fleet_msg* m) {
   const std::string reason = Str(p, "reason", "ended");
   const std::string kickMsg = Str(p, "kick_message");
   const auto ctx = WebhookGetMatchContext();
-  if (CtxIsOurs(ctx)) {
+  // The series just ended and its end card is up (match_end.cpp's kick-then-reset is pending):
+  // that plan resets the server once the players have seen the result. Resetting here put the
+  // players in a pickup warmup ("YOU ARE NOT READY") a second after the last round (2026-10-15).
+  const bool endCardUp =
+      CtxIsOurs(ctx) && GetMode() == ReadyUpMode::Postgame && MatchEndPending() && kickMsg.empty();
+  if (CtxIsOurs(ctx) && !endCardUp) {
     WebhookClearMatchContext();
     (void)EndMatchResetServer();
   }
+  if (endCardUp) Print("fleet: %s unassigned; the end card stays until the series-end kick\n", mid.c_str());
   SetPassword("");
-  if (!kickMsg.empty()) {
+  if (endCardUp) {
+    // match_end.cpp kicks and resets on its own schedule.
+  } else if (!kickMsg.empty()) {
     KickHumans(kickMsg, nullptr);
   } else if (!ListHumans().empty()) {
     int noDemo = 5, d1 = 0, d2 = 0;
