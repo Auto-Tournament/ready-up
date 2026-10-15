@@ -278,9 +278,6 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
             changed = true;
             swappedKnife = true;
             g_lastSwappedKnife = true;
-            // The item is rebuilt on the client when m_bInitialized goes false -> true: cleared
-            // here, set again by the repaint a moment later (a late swap stayed vanilla).
-            if (o.item_initialized >= 0) Wr<bool>(item, o.item_initialized, false);
           } else if (DebugOn()) {
             Log(RU_LOG_DEBUG, "ChangeSubclass unavailable; keeping default knife for %llu",
                   static_cast<unsigned long long>(steamid64));
@@ -640,10 +637,6 @@ void ProcessPlayer(int slot, void* controller) {
         bool legacy = false;
         (void)ProcessWeapon(again, steamid64, team, /*late=*/true, &legacy);
         if (legacy) st.legacyPending = true;
-        if (Off().item_initialized >= 0) {
-          Wr<bool>(EconItemViewOfWeapon(again), Off().item_initialized, true);
-          MarkEntityFullyChanged(again);
-        }
       }
       continue;
     }
