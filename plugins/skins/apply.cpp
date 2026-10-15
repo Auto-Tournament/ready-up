@@ -258,6 +258,7 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
   if (defindex <= 0) return WeaponResult::kDone;
 
   bool changed = false;
+  bool swappedKnife = false;
   int paintUsed = 0;
   float wearUsed = 0.0f;
   const bool fromOverride = ov != g_paintOverride.end();
@@ -271,6 +272,7 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
             Wr<uint16_t>(item, o.item_defIndex, static_cast<uint16_t>(*wantDef));
             defindex = *wantDef;
             changed = true;
+            swappedKnife = true;
           } else if (DebugOn()) {
             Log(RU_LOG_DEBUG, "ChangeSubclass unavailable; keeping default knife for %llu",
                   static_cast<unsigned long long>(steamid64));
@@ -307,11 +309,14 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
   }
 
   if (changed) ++g_applied;
-  if (changed && late) MarkEntityFullyChanged(weapon);
+  // A knife swapped to another knife (ChangeSubclass) is sent in full even on its first
+  // tick: the client kept the new model unpainted otherwise (a side-specific karambit on
+  // T showed vanilla while the server had painted it, 2026-10-15).
+  if (changed && (late || swappedKnife)) MarkEntityFullyChanged(weapon);
   if (changed && DebugOn()) {
     Log(RU_LOG_DEBUG, "applied to %s def=%d owner=%llu paint=%d wear=%.2f%s%s", EntityDesignerName(weapon), defindex,
           static_cast<unsigned long long>(steamid64), paintUsed, static_cast<double>(wearUsed),
-          fromOverride ? " (player paint)" : "", late ? " (late)" : "");
+          fromOverride ? " (player paint)" : "", late ? " (late)" : swappedKnife ? " (knife swap)" : "");
   }
   return WeaponResult::kDone;
 }
