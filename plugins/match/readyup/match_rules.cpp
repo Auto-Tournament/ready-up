@@ -1,3 +1,4 @@
+#include <cctype>
 #include "readyup/match_rules.h"
 
 #include <algorithm>
@@ -62,6 +63,41 @@ int GgThresholdPctFromText(const std::string& text) {
   const double pct = v <= 1.0 ? v * 100.0 : v;
   if (pct > 100.0) return -1;
   return std::max(1, static_cast<int>(std::lround(pct)));
+}
+
+std::string GoLiveRulesLine(int mapNumber, int numMaps, const std::string& map, int maxRounds, bool overtime,
+                            int overtimeHalfRounds, int maxOvertimes, bool damageTiebreak) {
+  std::string name = map.rfind("de_", 0) == 0 || map.rfind("cs_", 0) == 0 ? map.substr(3) : map;
+  if (!name.empty()) name[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(name[0])));
+  std::string out = "Ready Up: ";
+  if (numMaps > 1) {
+    out += "map " + std::to_string(mapNumber) + " of " + std::to_string(numMaps) + " (first to " +
+           std::to_string(numMaps / 2 + 1) + " maps)";
+  } else {
+    out += "one map";
+  }
+  if (!name.empty()) out += ", " + name;
+  if (maxRounds > 0) {
+    const int half = maxRounds / 2;
+    out += ". " + std::to_string(maxRounds) + " rounds: first to " + std::to_string(half + 1) +
+           " wins, sides switch after " + std::to_string(half) + ".";
+    const std::string tie = " At " + std::to_string(half) + "-" + std::to_string(half) + ": ";
+    if (overtime && overtimeHalfRounds > 0) {
+      out += tie + "overtime, " + std::to_string(overtimeHalfRounds * 2) + " rounds each (first to " +
+             std::to_string(overtimeHalfRounds + 1) + ")";
+      if (maxOvertimes > 0) {
+        out += ", at most " + std::to_string(maxOvertimes);
+        out += damageTiebreak ? ", then total damage decides." : ", then a draw.";
+      } else {
+        out += " until someone wins.";
+      }
+    } else {
+      out += tie + (damageTiebreak ? "total damage decides." : "the map is a draw.");
+    }
+  } else {
+    out += ".";
+  }
+  return out;
 }
 
 std::string PlayerLeftChatLine(const std::string& name, const std::string& team, bool autoPause, int maxSeconds) {
