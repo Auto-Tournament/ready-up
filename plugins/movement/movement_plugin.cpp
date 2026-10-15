@@ -5,7 +5,7 @@
 //   .pb                  your best time on this map
 //   .wr / .maptop        the map's top 10 (this mode)
 //   .cp / .tp            kz: save a checkpoint / teleport to it (the run counts its teleports)
-//   .timer               your timer panel on / off
+//   .timerhud            your timer panel on / off (.timer is practice's)
 //
 // The mode comes from cfg/ReadyUp/movement.cfg `mode=` (auto: from the map prefix surf_ / bhop_ /
 // kz_). Zones are the map's own triggers and buttons by name (map_start / map_end,
@@ -430,7 +430,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     ru_command_fn fn;
   };
   for (const Cmd& c : {Cmd{".restart", &OnRestart}, Cmd{".rs", &OnRestart}, Cmd{".pb", &OnPb}, Cmd{".wr", &OnTop},
-                       Cmd{".maptop", &OnTop}, Cmd{".cp", &OnCheckpoint}, Cmd{".tp", &OnTeleport}, Cmd{".timer", &OnTimer}}) {
+                       Cmd{".maptop", &OnTop}, Cmd{".cp", &OnCheckpoint}, Cmd{".tp", &OnTeleport}, Cmd{".timerhud", &OnTimer}}) {
     if (!api->register_chat_command(api->self, c.name, c.fn, nullptr)) {
       ru_logf(api, RU_LOG_WARN, "could not register `%s` (another plugin owns it)", c.name);
     }
