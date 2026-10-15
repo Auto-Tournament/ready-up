@@ -815,11 +815,12 @@ void RequestReapply(int slot) {
 std::mutex g_regiveMu;
 std::unordered_set<uint64_t> g_regive;  // players whose loadout changed since the last frame
 
+std::unordered_set<uint64_t> g_firstRepaint;  // guarded by g_regiveMu (filled off the game thread)
+
 void QueueFirstLoadoutRepaint(uint64_t steamid64) {
   if (steamid64 == 0) return;
-  for (int slot = 0; slot < 64; ++slot) {
-    if (g_players[slot].steamid64 == steamid64) g_repaintNow[slot] = true;
-  }
+  std::lock_guard<std::mutex> lk(g_regiveMu);
+  g_firstRepaint.insert(steamid64);
 }
 
 void QueueWarmupRegive(uint64_t steamid64) {
@@ -875,11 +876,16 @@ bool GameRestartPending() {
 // Game thread: players with a new loadout get their weapons re-given, in warmup only.
 void RunWarmupRegive() {
   std::unordered_set<uint64_t> due;
+  std::unordered_set<uint64_t> first;
   {
     std::lock_guard<std::mutex> lk(g_regiveMu);
-    if (g_regive.empty()) return;
     due.swap(g_regive);
+    first.swap(g_firstRepaint);
   }
+  for (int slot = 0; slot < 64 && !first.empty(); ++slot) {
+    if (g_players[slot].steamid64 != 0 && first.count(g_players[slot].steamid64)) g_repaintNow[slot] = true;
+  }
+  if (due.empty()) return;
   // CS2's own warmup, or Ready Up's (a match warmup runs with CS2's warmup ended): swap now.
   // Live (or unknown): the next spawn brings the new skins.
   if (GameWarmup() != 1 && !WarmupLike()) return;
