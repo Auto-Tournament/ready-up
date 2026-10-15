@@ -275,8 +275,20 @@ static std::string SideLine(const Board& b, int side, uint64_t viewer) {
 }
 
 static std::string ReadyHtml(const Board& b, uint64_t viewer, const std::string& footer) {
+  const Entry* me = nullptr;
+  for (const auto& e : b.entries) {
+    if (e.sid == viewer) me = &e;
+  }
   std::string h;
-  h.reserve(768);
+  h.reserve(1024);
+  // The viewer's own state first and big: players missed the small line under the
+  // names and sat in warmup not knowing they were the one holding it up.
+  if (me && !me->ready) {
+    h += "<font class='fontSize-xl' color='" + std::string(kNo) + "'><b>YOU ARE NOT READY</b></font><br>";
+    h += Font(kGold, "type <b>.r</b> in chat to ready up") + "<br>";
+  } else if (me) {
+    h += "<font class='fontSize-l' color='" + std::string(kOk) + "'><b>YOU ARE READY</b></font><br>";
+  }
   const std::string brand = HudBrandHtml(/*imgHeight=*/20, "");
   if (!brand.empty()) h += brand + " " + Font(kGrey, "&#183; " + b.title);
   else h += Font(kGrey, b.title);
@@ -286,16 +298,10 @@ static std::string ReadyHtml(const Board& b, uint64_t viewer, const std::string&
             "<b>" + std::to_string(b.ready) + "/" + std::to_string(b.total) + " ready</b>");
   h += "<br>" + SideLine(b, 3, viewer) + "<br>" + SideLine(b, 2, viewer) + "<br>";
 
-  const Entry* me = nullptr;
-  for (const auto& e : b.entries) {
-    if (e.sid == viewer) me = &e;
-  }
   if (!me) {
     h += Font(kGrey, b.scrim ? "join CT or T to play" : "spectating");
   } else if (me->ready) {
-    h += Font(kGrey, "you are ready &#183; <b>.ur</b> to cancel");
-  } else {
-    h += Font(kGold, "type <b>.r</b> in chat when ready");
+    h += Font(kGrey, "<b>.ur</b> to cancel");
   }
   if (!b.note.empty()) h += "<br>" + Font(kGrey, b.note);
   if (!footer.empty()) h += "<br>" + footer;
