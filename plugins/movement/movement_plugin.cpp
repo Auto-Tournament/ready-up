@@ -24,6 +24,7 @@
 #include "movement_rules.h"
 
 #include "readyup/essentials_iface.h"
+#include "readyup/help_iface.h"
 #include "readyup/fleet_iface.h"
 #include "readyup/json_store.h"
 #include "readyup/match_iface.h"
@@ -531,6 +532,13 @@ void ToStart(const ru_command_ctx* c, int course) {
   TeleportTo(c->slot, Center(z->box), nullptr);
 }
 
+// readyup.help.movement: the `.help` line (essentials), none while movement is off.
+const char* HelpLineNow() {
+  if (!Active()) return nullptr;
+  return "Movement: .rs restart | .b [n] bonus | .cp / .tp checkpoint | .pb .wr records | .timerhud";
+}
+const ru_help_v1 g_help = {sizeof(ru_help_v1), &HelpLineNow};
+
 void OnRestart(void*, const ru_command_ctx* c) {
   if (!CheckActive(c) || c->slot < 0) return;
   ToStart(c, 0);
@@ -668,6 +676,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   }
   api->subscribe(api->self, RU_EVENT_MAP_START, &OnMapStart, nullptr);
   api->on_tick(api->self, &OnTick, nullptr);
+  api->provide_interface(api->self, RU_HELP_IFACE_PREFIX "movement", RU_HELP_IFACE_VERSION,
+                         const_cast<ru_help_v1*>(&g_help));
   if (matchServer) {
     ru_logf(api, RU_LOG_INFO, "loaded " MOVEMENT_VERSION ": off (match.so runs on this server; the Movement preset turns it off)");
   } else {

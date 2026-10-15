@@ -7,6 +7,14 @@
 #include <cstdlib>
 
 namespace mapvote {
+
+std::vector<std::string> DefaultPool(const std::string& currentMap) {
+  const bool defuse = currentMap.rfind("de_", 0) == 0 || currentMap.rfind("cs_", 0) == 0;
+  if (!defuse) return {};
+  // Valve's Active Duty pool (csm's maps.json, 2026-10).
+  return {"de_dust2", "de_inferno", "de_mirage", "de_nuke", "de_overpass", "de_train", "de_vertigo"};
+}
+
 namespace {
 
 std::string Trim(const std::string& s) {

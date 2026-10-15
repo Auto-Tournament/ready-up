@@ -37,6 +37,7 @@
 
 #include "readyup/essentials_iface.h"
 #include "readyup/fleet_iface.h"
+#include "readyup/help_iface.h"
 #include "readyup/map_names.h"
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
@@ -66,6 +67,7 @@ std::vector<Admin> g_admins;
 std::string g_path;
 int64_t g_mtime = -1;
 double g_nextReload = 0;
+double g_nextHelpSync = 0;
 
 // default_maps.json (game thread only).
 DefaultMaps g_defaultMaps;
@@ -495,8 +497,46 @@ void PollDownload(double now) {
   SendAlertAll(DownloadPanelHtml(g_dl.name, done, total), 1);
 }
 
+// `.help` on a server without the match plugin (which answers it itself): one line per loaded
+// plugin that publishes readyup.help.<name>, then the commands everyone has. Owned only while
+// match.so is absent (SyncHelpCommand), so a match server keeps match.so's `.help`.
+ru_handle g_helpCmd = 0;
+
+void OnHelpChat(void*, const ru_command_ctx* c) {
+  if (c->slot < 0) return;
+  auto say = [&](const std::string& line) { g_api->chat_to_slot(g_api->self, c->slot, (" \x04[ReadyUp]\x01 " + line).c_str()); };
+  say("Commands:");
+  for (const char* name : RU_HELP_PLUGINS) {
+    const auto* h = static_cast<const ru_help_v1*>(
+        g_api->get_interface(g_api->self, (std::string(RU_HELP_IFACE_PREFIX) + name).c_str(), RU_HELP_IFACE_VERSION));
+    if (!h || !h->line) continue;
+    const char* line = h->line();
+    if (line && *line) say(line);
+  }
+  say(".ru help  every command on this server");
+  char buf[256];
+  if (RU_API_HAS(g_api, license_player_line) && g_api->license_player_line &&
+      g_api->license_player_line(g_api->self, buf, sizeof(buf)) > 0) {
+    say(buf);
+  }
+}
+
+void SyncHelpCommand() {
+  const bool match = g_api->get_interface(g_api->self, RU_MATCH_IFACE_NAME, 1) != nullptr;
+  if (match && g_helpCmd) {
+    g_api->unregister(g_api->self, g_helpCmd);
+    g_helpCmd = 0;
+  } else if (!match && !g_helpCmd) {
+    g_helpCmd = g_api->register_chat_command(g_api->self, ".help", &OnHelpChat, nullptr);
+  }
+}
+
 void OnTick(void*, const ru_tick_info* t) {
   PollDownload(t->now);
+  if (t->now >= g_nextHelpSync) {
+    g_nextHelpSync = t->now + 1.0;
+    SyncHelpCommand();
+  }
   if (t->now < g_nextReload) return;
   g_nextReload = t->now + 30.0;
   LoadAdmins();  // re-read when admins.json changed on disk
@@ -588,6 +628,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_path = dataDir + "/admins.json";
   g_mtime = -1;
   g_nextReload = 0;
+  g_nextHelpSync = 0;
+  g_helpCmd = 0;
   MigrateFromMatch(dataDir);
   LoadAdmins();
   g_mapsPath = dataDir + "/default_maps.json";

@@ -73,6 +73,12 @@ int main() {
   CHECK(FormatClock(42) == "0:42");
 
   // Settings: values, defaults on bad input.
+  // No pool set: the Active Duty maps on a defuse map, nothing on a surf map.
+  CHECK(mapvote::DefaultPool("de_dust2").size() == 7);
+  CHECK(mapvote::DefaultPool("cs_office").size() == 7);
+  CHECK(mapvote::DefaultPool("surf_utopia_njv").empty());
+  CHECK(mapvote::DefaultPool("").empty());
+
   std::map<std::string, std::string> cfg = {{"maps", "a,b"}, {"rtv_ratio", "0.5"}, {"vote_options", "99"}, {"enabled", "0"}};
   std::vector<std::string> warnings;
   const Settings loaded = LoadSettings(
