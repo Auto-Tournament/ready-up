@@ -18,7 +18,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
 
 concurrency:
   group: build-${{ github.ref }}
@@ -28,13 +27,10 @@ jobs:
   build:
     name: Build (sniper) + verify vs current CS2
     runs-on: ubuntu-latest
-    # Valve's sniper SDK, mirrored to GHCR by sdk-image.yml (weekly): pulling it from
-    # registry.gitlab.steamos.cloud took ~70 s of every build.
+    # Starting this container takes ~75 s (unpacking the SDK). A GHCR mirror was tried
+    # (2026-10-15) and was no faster, so the image comes straight from Valve.
     container:
-      image: ghcr.io/auto-tournament/ready-up-sniper-sdk:latest
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      image: registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest
     env:
       DEPS_PREFIX: ${{ github.workspace }}/.ci/deps
       DEPS_WORK: ${{ github.workspace }}/.ci/deps-work
