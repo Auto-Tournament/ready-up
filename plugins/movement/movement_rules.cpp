@@ -75,6 +75,8 @@ std::vector<std::string> ModeCvars(Mode m) {
       "sv_staminamax 0", "mp_solid_teammates 0", "mp_friendlyfire 0", "mp_autokick 0",
       "mp_death_drop_gun 0", "sv_enablebunnyhopping 1", "sv_maxvelocity 3500", "mp_free_armor 1",
       "mp_buy_anywhere 1", "mp_buytime 99999", "bot_quota 0", "bot_kick",
+      // A player who joins a team mid-round spawns (the round is an hour long), not next round.
+      "mp_join_grace_time 3600",
   };
   switch (m) {
     case Mode::Surf:
