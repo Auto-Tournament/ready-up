@@ -55,7 +55,7 @@ trap 'rm -rf "$WORK"' EXIT
 EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 SUFFIX="$VERSION-linuxsteamrt64.zip"
 
-for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so plugins/practice.so plugins/essentials.so plugins/deathmatch.so plugins/mapvote.so plugins/addons.so; do
+for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so plugins/practice.so plugins/essentials.so plugins/deathmatch.so plugins/mapvote.so plugins/community.so plugins/addons.so; do
   [[ -f "$BUILD/$f" ]] || { echo "package-release: missing $BUILD/$f" >&2; exit 1; }
 done
 
@@ -108,7 +108,7 @@ stage_component core "Ready Up core: libserver.so, engine surface, plugin host, 
 match_files=("$BUILD/plugins/match.so:plugins/match.so:755"
   "$ROOT_DIR/plugins/match/needs.json:plugins/match.needs.json")
 for f in "$ROOT_DIR"/cfg/ReadyUp/*.cfg; do
-  case "$(basename "$f")" in fleet.cfg | midas.cfg | prac.cfg | practice.cfg | deathmatch.cfg | mapvote.cfg | addons.cfg) continue ;; esac  # the fleet / midas / practice / deathmatch / addons components' own
+  case "$(basename "$f")" in fleet.cfg | midas.cfg | prac.cfg | practice.cfg | deathmatch.cfg | mapvote.cfg | community.cfg | addons.cfg) continue ;; esac  # the fleet / midas / practice / deathmatch / addons components' own
   match_files+=("$f:cfg-templates/ReadyUp/$(basename "$f")")
 done
 stage_component match "Ready-up, scrims, knife round, pauses, practice, match configs, webhooks, demos" "${match_files[@]}"
@@ -193,6 +193,12 @@ stage_component mapvote "Map voting: .rtv, .nominate, an end-of-map vote and .ti
   "$ROOT_DIR/plugins/mapvote/needs.json:plugins/mapvote.needs.json" \
   "$ROOT_DIR/cfg/ReadyUp/mapvote.cfg:cfg-templates/ReadyUp/mapvote.cfg"
 
+# Community-server commands (.rank, .top, .speclist, admin .kick); stats only while no match is loaded.
+stage_component community "Community commands: .rank, .top, .speclist and admin .kick (stats counted while no match is loaded)" \
+  "$BUILD/plugins/community.so:plugins/community.so:755" \
+  "$ROOT_DIR/plugins/community/needs.json:plugins/community.needs.json" \
+  "$ROOT_DIR/cfg/ReadyUp/community.cfg:cfg-templates/ReadyUp/community.cfg"
+
 extras=()
 for t in readyup_sigcheck readyup_hookcheck; do
   [[ -f "$BUILD/$t" ]] && extras+=("$BUILD/$t:tools/$t:755")
@@ -227,11 +233,12 @@ make_zip "ready-up-addons-$SUFFIX" addons
 make_zip "ready-up-whitelist-$SUFFIX" whitelist
 make_zip "ready-up-deathmatch-$SUFFIX" deathmatch
 make_zip "ready-up-mapvote-$SUFFIX" mapvote
+make_zip "ready-up-community-$SUFFIX" community
 make_zip "ready-up-practice-$SUFFIX" practice
 make_zip "ready-up-essentials-plugin-$SUFFIX" essentials
 make_zip "ready-up-fleet-$SUFFIX" fleet
 make_zip "ready-up-essentials-$SUFFIX" core essentials match fleet practice mapvote
-full=(core essentials match fleet practice skins midas whitelist deathmatch mapvote addons)
+full=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community addons)
 [[ -d "$WORK/c/tools" ]] && full+=(tools)
 make_zip "ready-up-full-$SUFFIX" "${full[@]}"
 
