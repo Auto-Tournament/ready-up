@@ -188,21 +188,22 @@ static void TestReadyGate() {
   CHECK(!BotFillEmptyMayGoLive(kBotFillEmptyGraceSeconds - 1));
   CHECK(BotFillEmptyMayGoLive(kBotFillEmptyGraceSeconds));
   // Failover resume: live when everyone is back, or after the rejoin window once anyone is.
-  CHECK(!ResumeMayGoLive(4, 0, 999));
-  CHECK(ResumeMayGoLive(4, 4, 0));
-  CHECK(!ResumeMayGoLive(4, 2, kResumeRejoinSeconds - 1));
-  CHECK(ResumeMayGoLive(4, 2, kResumeRejoinSeconds));
+  // A resume waits for the whole roster (then the normal ready-up), however long it takes.
+  CHECK(!ResumeMayGoLive(4, 0));
+  CHECK(ResumeMayGoLive(4, 4));
+  CHECK(!ResumeMayGoLive(4, 2));
+  CHECK(!ResumeMayGoLive(4, 3));
   {
     // 6 and 5 on the rosters (one substitute), 5 per team: 10 needed, the substitute not counted.
     const int roster[2] = {6, 5};
     const int allBack[2] = {5, 5};
     const ResumeHeadcount h = ResumeCount(roster, allBack, 0);
     CHECK(h.needed == 10 && h.back == 10);
-    CHECK(ResumeMayGoLive(h.needed, h.back, 0));
+    CHECK(ResumeMayGoLive(h.needed, h.back));
     const int subToo[2] = {6, 4};
     const ResumeHeadcount h2 = ResumeCount(roster, subToo, 0);
     CHECK(h2.back == 9);
-    CHECK(!ResumeMayGoLive(h2.needed, h2.back, 0));
+    CHECK(!ResumeMayGoLive(h2.needed, h2.back));
     // Wingman with a 3-player roster: 2 per team.
     const int wr[2] = {3, 2};
     const int wp[2] = {2, 2};

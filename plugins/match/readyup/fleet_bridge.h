@@ -43,7 +43,7 @@ void OnLogLine(const char* line);
 // True while a platform assignment is active.
 bool Assigned();
 // A failover resume is waiting to go live (its backup not restored yet): nobody has to ready;
-// the match goes live as players come back (modes.cpp, match_rules.h ResumeMayGoLive).
+// the match waits for the whole roster, then the normal ready-up (modes.cpp, match_rules.h ResumeMayGoLive).
 bool ResumeWaiting();
 // A match just ended and its players get their goodbye kick after the series-end delay: until
 // then nobody else kicks them (kick_when_no_match_loaded waits).
