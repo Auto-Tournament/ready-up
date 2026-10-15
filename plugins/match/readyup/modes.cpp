@@ -797,8 +797,6 @@ static bool GoLiveCheckLocked(State& st, const WebhookMatchContext& ctx, std::st
       return false;
     }
   }
-  bool& wasEmpty = g_botFillWasEmpty;
-  std::chrono::steady_clock::time_point& emptySince = g_botFillEmptySince;
   // Bot fill with nobody on the server yet: wait before the bots play alone. A match with players on
   // its roster gives them kBotFillRosterGraceSeconds to join (60 s started a match before its player
   // got in, 2026-10-14; waiting forever never started a bot team's match whose roster holds a
