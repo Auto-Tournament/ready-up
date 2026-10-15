@@ -633,6 +633,7 @@ void ProcessPlayer(int slot, void* controller) {
     st.lastSeen = g_tick;
     if (st.done && st.repaintAt != 0 && g_tick >= st.repaintAt) {
       st.repaintAt = 0;
+      if (DebugOn()) Log(RU_LOG_DEBUG, "knife repaint: slot %d handle %u pass %d", slot, h, st.repaints + 1);
       if (void* again = EntityFromHandle(h)) {
         bool legacy = false;
         (void)ProcessWeapon(again, steamid64, team, /*late=*/true, &legacy);
@@ -667,7 +668,10 @@ void ProcessPlayer(int slot, void* controller) {
     if (ProcessWeapon(weapon, steamid64, team, late, &st.legacyPending) == WeaponResult::kDone ||
         g_tick - st.firstSeen > kRetryTicks) {
       st.done = true;
-      if (g_lastSwappedKnife) st.repaintAt = g_tick + 16;  // about a quarter second
+      if (g_lastSwappedKnife) {
+        st.repaintAt = g_tick + 16;  // about a quarter second
+        if (DebugOn()) Log(RU_LOG_DEBUG, "knife repaint scheduled: slot %d handle %u", slot, h);
+      }
     }
   }
 }
