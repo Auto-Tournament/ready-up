@@ -52,6 +52,9 @@ bool MatchFeaturesInFreeze();
 
 // Game thread, every frame: tactical timeout end, technical pause auto-unpause, forfeit timer.
 void MatchFeaturesTick();
+// A player left / came back (core events): one chat line for a rostered player on a live map.
+void MatchFeaturesOnPlayerLeft(uint64_t steamid64, const std::string& name);
+void MatchFeaturesOnPlayerBack(uint64_t steamid64, const std::string& name);
 
 // Pause commands for `team` (steamid64 = the player, 0 = console / admin on behalf of the team).
 // Reply goes to chat (players) or the console. Game thread.

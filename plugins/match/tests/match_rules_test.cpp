@@ -106,6 +106,14 @@ static void TestAuto5v5() {
   CHECK(Auto5v5ShortSide(5, 3) == 2);
   CHECK(Auto5v5ShortSide(4, 4) == 3);
   CHECK(Auto5v5ShortSide(2, 7) == 3);
+  // A rostered player leaving a live map: what chat says will happen.
+  CHECK(PlayerLeftChatLine("Emil", "Team Emil", false, 0) ==
+        "Ready Up: Emil (Team Emil) left the server. The match goes on; they can rejoin with the same connect link.");
+  CHECK(PlayerLeftChatLine("Emil", "Team Emil", true, 0) ==
+        "Ready Up: Emil (Team Emil) left the server. The match pauses at the next freeze time until they are back.");
+  CHECK(PlayerLeftChatLine("Emil", "Team Emil", true, 300) ==
+        "Ready Up: Emil (Team Emil) left the server. The match pauses at the next freeze time until they are back "
+        "(at most 5 min).");
   // Both teams resume it (it belongs to nobody): the pauser is ignored when both are required.
   CHECK(!UnpauseSatisfied(true, false, true, 1));
   CHECK(UnpauseSatisfied(true, true, true, 2));

@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <set>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -178,6 +179,9 @@ void CountSides(int* ct, int* t) {
     else if (h.team == 2) ++*t;
   }
 }
+
+std::mutex g_leftMu;
+std::set<uint64_t> g_left;  // rostered players who left a live map, for the "back" line
 
 void MaybeMarkAuto5v5Pause() {
   const auto ctx = WebhookGetMatchContext();
@@ -538,6 +542,30 @@ void MatchFeaturesAdminUnpausing() {
     SendToChat("Ready Up: an admin unpaused - no more automatic pauses this map.");
     Print("pause: admin unpause of auto_5v5; sv_matchpause_auto_5v5 0 for the rest of the map\n");
   }
+}
+
+void MatchFeaturesOnPlayerLeft(uint64_t steamid64, const std::string& name) {
+  const auto ctx = WebhookGetMatchContext();
+  if (!ctx || !steamid64 || !LiveMap() || ctx->slug == "scrim") return;
+  const auto it = ctx->roster_team.find(steamid64);
+  if (it == ctx->roster_team.end()) return;
+  {
+    std::lock_guard<std::mutex> lk(g_leftMu);
+    if (!g_left.insert(steamid64).second) return;
+  }
+  const std::string who = name.empty() ? "A player" : name;
+  SendToChat(PlayerLeftChatLine(who, TeamName(*ctx, it->second), AutoPause5v5Enabled(),
+                                EffectiveRules().disconnect_pause_max_seconds)
+                 .c_str());
+}
+
+void MatchFeaturesOnPlayerBack(uint64_t steamid64, const std::string& name) {
+  {
+    std::lock_guard<std::mutex> lk(g_leftMu);
+    if (!g_left.erase(steamid64)) return;
+  }
+  if (!LiveMap()) return;
+  SendToChat(("Ready Up: " + (name.empty() ? std::string("A player") : name) + " is back.").c_str());
 }
 
 }  // namespace readyup
