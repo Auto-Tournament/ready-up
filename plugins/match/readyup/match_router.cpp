@@ -184,15 +184,25 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
       SendLicenseLine();
       return;
     }
-    SendToChat("Ready Up commands: ready: .r | not ready: .ur | start without a full team: .forceready | timeout: .tac | pause: .p | unpause: .up | call an admin: .admin [message]");
+    // One command per message: players scroll chat (Y); one long line wrapped unreadably.
+    for (const char* line : {"Ready Up commands:", "  .r  ready", "  .ur  not ready", "  .forceready  start without a full team",
+                             "  .tac  timeout", "  .p  pause", "  .up  unpause", "  .admin [message]  call an admin"}) {
+      SendToChat(line);
+    }
     if (hasMatch) {
-      SendToChat("Ready Up: knife: .stay/.switch (.ct/.t) | forfeit: .ff (captain) | coaches: .coach ct|t, .uncoach");
+      for (const char* line : {"  .stay / .switch (.ct / .t)  knife round side", "  .ff  forfeit (captain)",
+                               "  .coach ct|t, .uncoach  coaches"}) {
+        SendToChat(line);
+      }
     } else {
       SendToChat(settings::Bool("knife_enabled_default")
                      ? "Ready Up: scrim: when everyone on CT/T is READY: 5s countdown, knife round, winners .stay/.switch, live."
                      : "Ready Up: scrim: when everyone on CT/T is READY, a 5s countdown starts and the scrim goes live.");
     }
-    if (IsReadyUpAdmin(steamid64)) SendToChat("Ready Up admin: .ru help (commands) | .ru help <command> (its subcommands)");
+    if (IsReadyUpAdmin(steamid64)) {
+      SendToChat("  .ru help  admin commands");
+      SendToChat("  .ru help <command>  its subcommands");
+    }
     SendLicenseLine();
     return;
   }

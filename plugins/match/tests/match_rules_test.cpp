@@ -106,16 +106,16 @@ static void TestAuto5v5() {
   CHECK(Auto5v5ShortSide(5, 3) == 2);
   CHECK(Auto5v5ShortSide(4, 4) == 3);
   CHECK(Auto5v5ShortSide(2, 7) == 3);
-  // Going live: what is played and for how long.
-  CHECK(GoLiveRulesLine(1, 1, "de_inferno", 16, true, 3, -1, false) ==
-        "Ready Up: one map, Inferno. 16 rounds: first to 9 wins, sides switch after 8. At 8-8: overtime, 6 rounds "
-        "each (first to 4) until someone wins.");
-  CHECK(GoLiveRulesLine(2, 3, "de_nuke", 24, false, 3, -1, false) ==
-        "Ready Up: map 2 of 3 (first to 2 maps), Nuke. 24 rounds: first to 13 wins, sides switch after 12. At 12-12: "
-        "the map is a draw.");
-  CHECK(GoLiveRulesLine(1, 1, "de_dust2", 24, true, 3, 2, true) ==
-        "Ready Up: one map, Dust2. 24 rounds: first to 13 wins, sides switch after 12. At 12-12: overtime, 6 rounds "
-        "each (first to 4), at most 2, then total damage decides.");
+  // Going live: what is played and for how long, one chat message per line.
+  CHECK((GoLiveRulesLines(1, 1, "de_inferno", 16, true, 3, -1, false) ==
+         std::vector<std::string>{"Ready Up: one map: Inferno.", "Ready Up: 16 rounds, first to 9 wins.",
+                                  "Ready Up: sides switch after 8 rounds.",
+                                  "Ready Up: at 8-8, overtime: 6 rounds, first to 4, until someone wins."}));
+  CHECK((GoLiveRulesLines(2, 3, "de_nuke", 24, false, 3, -1, false) ==
+         std::vector<std::string>{"Ready Up: map 2 of 3 (first to 2 maps): Nuke.", "Ready Up: 24 rounds, first to 13 wins.",
+                                  "Ready Up: sides switch after 12 rounds.", "Ready Up: at 12-12, the map is a draw."}));
+  CHECK(GoLiveRulesLines(1, 1, "de_dust2", 24, true, 3, 2, true).back() ==
+        "Ready Up: at 12-12, overtime: 6 rounds, first to 4, at most 2, then total damage decides.");
   // A rostered player leaving a live map: what chat says will happen.
   CHECK(PlayerLeftChatLine("Emil", "Team Emil", false, 0) ==
         "Ready Up: Emil (Team Emil) left the server. The match goes on; they can rejoin with the same connect link.");
