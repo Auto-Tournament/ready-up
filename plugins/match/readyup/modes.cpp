@@ -829,9 +829,31 @@ static bool GoLiveCheckLocked(State& st, const WebhookMatchContext& ctx, std::st
       return false;
     }
   }
+  // Bot fill: a rostered player who has not joined yet is waited for (kBotFillRosterGraceSeconds
+  // from when the team was first seen short), not filled with a bot: a teammate's .r started a
+  // shuffle match while the other player was still connecting (2026-10-15). Past the grace a bot
+  // plays for the no-show; an admin start is the way on sooner.
+  static std::chrono::steady_clock::time_point shortSince[2];
+  static bool shortSeen[2] = {false, false};
+  if (ctx.bot_fill && wasEmpty) shortSeen[0] = shortSeen[1] = false;
   for (int t = 0; t < 2; ++t) {
     // Bot fill: bots are always ready, so only the connected humans hold a team up.
     if (ctx.bot_fill) {
+      if (present[t] < roster[t]) {
+        const auto nowTp = std::chrono::steady_clock::now();
+        if (!shortSeen[t]) {
+          shortSeen[t] = true;
+          shortSince[t] = nowTp;
+        }
+        const double waited = std::chrono::duration<double>(nowTp - shortSince[t]).count();
+        if (waited < kBotFillRosterGraceSeconds) {
+          *why = std::string(t == 0 ? "team1" : "team2") + ": waiting for " +
+                 std::to_string(roster[t] - present[t]) + " rostered player(s) to join";
+          return false;
+        }
+      } else {
+        shortSeen[t] = false;
+      }
       if (!BotFillTeamReady(present[t], ready[t])) {
         *why = std::string(t == 0 ? "team1" : "team2") + ": " + std::to_string(ready[t]) + "/" +
                std::to_string(present[t]) + " connected players ready";
