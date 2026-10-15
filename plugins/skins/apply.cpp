@@ -364,6 +364,8 @@ bool g_spawnRequested[65] = {};
 // `.skins reload` (RequestReapply): at this tick (0 = none) the slot's cosmetics run again and
 // the weapons it holds are repainted. A second after the request, so the re-read loadout is in.
 long long g_reapplyAt[65] = {};
+// Repaint what the player holds (no re-give): their first loadout arrived after they spawned.
+std::atomic<bool> g_repaintNow[65] = {};
 // The last round restart (round_prestart / round_start: mp_restartgame, a match going live, a
 // new round). A re-give within kRestartQuietTicks of one is put off: weapons re-given while the
 // restart deletes and recreates them crashed a server (WriteEnterPVS: GetEntServerClass failed,
@@ -578,6 +580,13 @@ void ProcessPlayer(int slot, void* controller) {
   if (team != 2 && team != 3) {
     ps.wasAlive = false;
     return;
+  }
+  // The player's first loadout came after their spawn (a server without a match: it is asked
+  // for on connect). Paint what they hold now and send it again; no weapon is given or removed.
+  if (alive && g_repaintNow[slot].exchange(false)) {
+    repaintHeld = true;
+    g_spawnRequested[slot] = true;
+    if (DebugOn()) Log(RU_LOG_DEBUG, "first loadout after spawn: repainting slot %d", slot);
   }
 
   if (alive && (!ps.wasAlive || ps.pawnHandle != pawnHandle || g_spawnRequested[slot])) {
@@ -805,6 +814,13 @@ void RequestReapply(int slot) {
 // ---- warmup re-give (a new loadout from the platform) -----------------------------------------
 std::mutex g_regiveMu;
 std::unordered_set<uint64_t> g_regive;  // players whose loadout changed since the last frame
+
+void QueueFirstLoadoutRepaint(uint64_t steamid64) {
+  if (steamid64 == 0) return;
+  for (int slot = 0; slot < 64; ++slot) {
+    if (g_players[slot].steamid64 == steamid64) g_repaintNow[slot] = true;
+  }
+}
 
 void QueueWarmupRegive(uint64_t steamid64) {
   if (steamid64 == 0) return;

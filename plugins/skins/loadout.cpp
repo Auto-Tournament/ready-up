@@ -387,6 +387,7 @@ void OnFleetMessage(void*, const ru_fleet_msg* m) {
       const std::string itemsKey = items ? readyup::json_store::Pretty(*items) : std::string();
       const auto prev = g_fleetItems.find(sid);
       const bool changed = prev != g_fleetItems.end() && prev->second != itemsKey;
+      const bool firstLoadout = prev == g_fleetItems.end();
       g_fleetItems[sid] = itemsKey;
       g_fleetRev[sid] = rev;
       g_fleet[sid] = l;
@@ -395,6 +396,9 @@ void OnFleetMessage(void*, const ru_fleet_msg* m) {
       e.loaded_at = Clock::now();
       SKINS_DEBUG("fleet: skins.loadout %llu rev %lld", static_cast<unsigned long long>(sid), static_cast<long long>(rev));
       if (changed) QueueWarmupRegive(sid);  // warmup: the held weapons get the new skins now
+      // The first one may come after the player spawned (asked for on connect): paint what they
+      // hold, or the first life on a server without a match was all stock (#339).
+      if (firstLoadout) QueueFirstLoadoutRepaint(sid);
     } else if (type == "skins.invalidate") {
       std::lock_guard<std::mutex> lk(g_mu);
       g_fleet.erase(sid);

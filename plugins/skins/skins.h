@@ -118,6 +118,8 @@ void NoteRoundChange();
 // weapons are swapped for ones with the new skins right away (like `.skins reload`); in a live
 // round nothing changes until the next spawn, so a fight never loses its weapon mid-round.
 void QueueWarmupRegive(uint64_t steamid64);
+// A player's first loadout arrived: repaint what they hold (they may have spawned before it).
+void QueueFirstLoadoutRepaint(uint64_t steamid64);
 
 // ---- StatTrak (stattrak.cpp) -------------------------------------------------------------
 void OnPlayerDeath(const ru_game_event* ev);
