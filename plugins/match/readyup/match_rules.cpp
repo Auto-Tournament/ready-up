@@ -64,6 +64,14 @@ int GgThresholdPctFromText(const std::string& text) {
   return std::max(1, static_cast<int>(std::lround(pct)));
 }
 
+std::string PlayerLeftChatLine(const std::string& name, const std::string& team, bool autoPause, int maxSeconds) {
+  std::string msg = "Ready Up: " + name + " (" + team + ") left the server.";
+  if (!autoPause) return msg + " The match goes on; they can rejoin with the same connect link.";
+  msg += " The match pauses at the next freeze time until they are back";
+  if (maxSeconds > 0) msg += " (at most " + std::to_string(std::max(1, maxSeconds / 60)) + " min)";
+  return msg + ".";
+}
+
 bool TechPauseAllowed(int used, int limit) { return limit <= 0 || used < limit; }
 
 int TechPausesLeft(int used, int limit) {

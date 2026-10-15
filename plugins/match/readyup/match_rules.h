@@ -58,6 +58,9 @@ MatchRules ResolveRules(const MatchRules& match, const MatchRules& base);
 
 // A team with `used` technical pauses this map may pause again under `limit` (0 = unlimited).
 bool TechPauseAllowed(int used, int limit);
+// Chat when a rostered player leaves a live map: whether the match will pause for them
+// (auto 5v5 pause on) and, with a limit, for how long. `maxSeconds` <= 0 = no limit.
+std::string PlayerLeftChatLine(const std::string& name, const std::string& team, bool autoPause, int maxSeconds);
 // Technical pauses left (-1 = unlimited).
 int TechPausesLeft(int used, int limit);
 // Seconds until the automatic unpause (`elapsed` since the pause took effect), -1 = no limit.

@@ -349,6 +349,9 @@ void OnEvent(void*, const ru_event* e) {
     } else if (e->type == RU_EVENT_PLAYER_DISCONNECT) {
       // Ready state must not survive a reconnect.
       if (e->steamid64) ClearReady(e->steamid64);
+      if (e->steamid64) MatchFeaturesOnPlayerLeft(e->steamid64, e->name ? e->name : "");
+    } else if (e->type == RU_EVENT_PLAYER_CONNECT) {
+      if (e->steamid64) MatchFeaturesOnPlayerBack(e->steamid64, e->name ? e->name : "");
     } else if (e->type == RU_EVENT_PLAYER_TEAM && e->source == RU_SOURCE_ENGINE) {
       // Welcome card trigger (the log-line source comes through MatchObserveLogLine).
       if (e->team == 2 || e->team == 3) {
