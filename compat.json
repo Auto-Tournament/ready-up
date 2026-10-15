@@ -5,17 +5,17 @@
   "patch": "1.41.9.1"
  },
  "readyup": {
-  "version": "0.1.0-beta.53-dev.5019249",
-  "commit": "5019249887da4ebcc04ada8e26289c404f528214"
+  "version": "0.1.0-beta.53-dev.31f28d0",
+  "commit": "31f28d0890bb458ce2f329e74dcc32f2ef47d1a0"
  },
  "run": {
-  "id": "38752472122",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/38752472122",
-  "trigger": "surface_change",
-  "stage": "static",
+  "id": "38750135891",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/38750135891",
+  "trigger": "code_change",
+  "stage": "live",
   "state": "warn",
-  "started_at": "2026-10-15T14:33:50Z",
-  "finished_at": "2026-10-15T14:36:14Z"
+  "started_at": "2026-10-15T14:18:25Z",
+  "finished_at": "2026-10-15T14:45:15Z"
  },
  "overall": "warn",
  "components": [
@@ -61,9 +61,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 103,
+     "total": 103,
      "failures": []
     }
    ]
@@ -103,9 +103,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     }
    ]
@@ -152,23 +152,23 @@
     },
     {
      "kind": "schema",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 32,
      "total": 32,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 6,
      "total": 6,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
      "failures": []
     }
    ]
@@ -215,23 +215,23 @@
     },
     {
      "kind": "schema",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 36,
      "total": 36,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 6,
      "total": 6,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     }
    ]
@@ -278,30 +278,30 @@
     },
     {
      "kind": "schema",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 28,
      "total": 28,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 13,
      "total": 13,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     },
     {
      "kind": "livetest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 3,
+     "total": 3,
      "failures": []
     }
    ]
@@ -348,9 +348,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     }
    ]
@@ -397,23 +397,23 @@
     },
     {
      "kind": "schema",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 23,
      "total": 23,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 7,
      "total": 7,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     }
    ]
@@ -446,9 +446,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     }
    ]
@@ -495,16 +495,16 @@
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     }
    ]
@@ -551,9 +551,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     },
     {
@@ -561,10 +561,12 @@
      "status": "pending",
      "passed": 0,
      "total": 0,
-     "failures": []
+     "failures": [
+      "fleet: failed (exit 1); advisory (not required yet), see the run"
+     ]
     }
    ]
   }
  ],
- "checked_at": "2026-10-15T14:36:14Z"
+ "checked_at": "2026-10-15T14:45:15Z"
 }
