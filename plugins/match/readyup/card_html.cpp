@@ -197,7 +197,7 @@ std::string SeriesResultCardHtml(const ResultCardInfo& info) {
   h += "<br>";
   // Players looked for what to do next in the game (a live test, 2026-10-15): the platform's
   // match page has it (the next match, the bracket, matchmaking).
-  Font(h, "sm", kOk, "GG &#183; what's next is on the tournament site");
+  Font(h, "sm", kOk, "Go back to the platform to view your next match");
   return h;
 }
 
