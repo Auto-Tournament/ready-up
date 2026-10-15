@@ -27,9 +27,9 @@ namespace {
 constexpr double kResetAfterKickSeconds = 2.0;
 
 std::mutex g_mu;
-int g_kickNoDemo = 30;
-int g_kickDemoNoUpload = 30;
-int g_kickDemoUpload = 30;
+int g_kickNoDemo = 90;
+int g_kickDemoNoUpload = 90;
+int g_kickDemoUpload = 90;
 std::vector<MatchFlowListener> g_listeners;
 std::atomic<unsigned> g_generation{0};
 std::atomic<int> g_pending{0};
@@ -264,6 +264,9 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
   } else {
     SendToChat("Ready Up: the series ended in a draw.");
   }
+
+  // Where to go now (a live test, 2026-10-15): the platform's match page has the next match.
+  if (!base.scrim) SendToChat("Ready Up: go back to the platform to view your next match.");
 
   if (base.scrim) {
     // Pickup games: nobody is kicked, the scrim just unloads.
