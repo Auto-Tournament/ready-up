@@ -238,30 +238,39 @@ class TickSections {
 void OnTick(void*, const ru_tick_info* t) {
   Guard("tick", [&] {
     TickSections s;
+    // Every tick: round events, the mode state machine (ready, go-live) and the fleet link. The rest
+    // is clock-driven (timeouts, cards, the HUD's own interval, votes) and runs on every 4th tick
+    // (16/s at 64 tick): a quarter of the per-frame work, nothing anyone can see.
+    const bool light = (t->frame & 3u) == 0;
     // Round events of this frame, after the core delivered this frame's log lines.
     s.Run("events", [] { MatchEventsTick(); });
     if (FeatureEnabled(Feature::MatchFlow)) {
       s.Run("modes", [] { Tick(); });
-      s.Run("simulation", [&] { SimulationTick(t->now); });  // bots in/out, simulated ready (simulation.h)
-      s.Run("scrim", [] { ScrimTick(); });  // outside Tick() (which holds the modes mutex)
-      s.Run("features", [] { MatchFeaturesTick(); });  // timeouts, technical auto-unpause, forfeit timer
-      s.Run("damage", [] { DamageReportTick(); });     // damage reports built at round_end (damage_report.h)
-      s.Run("votes", [&] { VotesTick(t->now); });      // .gg / .stop vote timeouts (votes.h)
-      s.Run("warmup_money", [&] { WarmupMoneyTick(t->now); });  // warmup money top-up (warmup_money.h)
-      s.Run("settings", [&] { match_settings::Tick(t->now); });  // autoready, kick_when_no_match_loaded
-      s.Run("weapons", [&] { WeaponCleanupTick(t->now); });  // dropped weapons in warmup (weapon_cleanup.h)
-      s.Run("coach", [&] { CoachTick(t->now); });            // coaches (coach.h)
+      if (light) {
+        s.Run("simulation", [&] { SimulationTick(t->now); });  // bots in/out, simulated ready (simulation.h)
+        s.Run("scrim", [] { ScrimTick(); });  // outside Tick() (which holds the modes mutex)
+        s.Run("features", [] { MatchFeaturesTick(); });  // timeouts, technical auto-unpause, forfeit timer
+        s.Run("damage", [] { DamageReportTick(); });     // damage reports built at round_end (damage_report.h)
+        s.Run("votes", [&] { VotesTick(t->now); });      // .gg / .stop vote timeouts (votes.h)
+        s.Run("warmup_money", [&] { WarmupMoneyTick(t->now); });  // warmup money top-up (warmup_money.h)
+        s.Run("settings", [&] { match_settings::Tick(t->now); });  // autoready, kick_when_no_match_loaded
+        s.Run("weapons", [&] { WeaponCleanupTick(t->now); });  // dropped weapons in warmup (weapon_cleanup.h)
+        s.Run("coach", [&] { CoachTick(t->now); });            // coaches (coach.h)
+      }
     }
     // Fleet link (no-op without fleet.so): platform handlers, MatchState patches, events.
     s.Run("fleet", [&] { fleet_bridge::Tick(t->now); });
-    // One-off cards before the HUD: the HUD leaves a player's panel alone while one is up.
-    if (FeatureEnabled(Feature::MatchFlow)) s.Run("golive_card", [] { GoLiveCardTick(); });
-    s.Run("result_card", [] { ResultCardTick(); });  // map / series result (result_card.h)
-    s.Run("admin_call", [] { AdminCallTick(); });  // `.admin` cards for in-game admins (admin_call.h)
-    if (FeatureEnabled(Feature::WelcomeHtml)) s.Run("welcome", [] { WelcomeTick(); });
-    if (FeatureEnabled(Feature::ReadyHud)) s.Run("ready_hud", [] { ReadyHudTick(); });  // skips welcome cards
-    if (FeatureEnabled(Feature::ReadyHud)) s.Run("hud_anim", [] { ReadyHudAnimTick(); });  // `.ru hud anim`
-    s.Run("prefix", [&] { PrefixTick(t->now); });
+    if (light) {
+      // One-off cards before the HUD: the HUD leaves a player's panel alone while one is up.
+      if (FeatureEnabled(Feature::MatchFlow)) s.Run("golive_card", [] { GoLiveCardTick(); });
+      s.Run("result_card", [] { ResultCardTick(); });  // map / series result (result_card.h)
+      s.Run("admin_call", [] { AdminCallTick(); });  // `.admin` cards for in-game admins (admin_call.h)
+      if (FeatureEnabled(Feature::WelcomeHtml)) s.Run("welcome", [] { WelcomeTick(); });
+      if (FeatureEnabled(Feature::ReadyHud)) s.Run("ready_hud", [] { ReadyHudTick(); });  // skips welcome cards
+      s.Run("prefix", [&] { PrefixTick(t->now); });
+    }
+    // `.ru hud anim` moves every other tick (32/s): smooth enough, half the cost.
+    if (FeatureEnabled(Feature::ReadyHud) && (t->frame & 1u) == 0) s.Run("hud_anim", [] { ReadyHudAnimTick(); });
     s.Report(t->now);
   });
 }
