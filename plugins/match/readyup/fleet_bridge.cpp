@@ -302,9 +302,9 @@ void KickHumans(const std::string& message, bool (*keep)(uint64_t)) {
   }
 }
 
-bool KeepOnHandOver(uint64_t sid) {
-  return fs::InAssignedMatch(g_config, sid) || IsReadyUpAdmin(sid);
-}
+// Only the new match's own players stay. Admins too are kicked: an admin left in the
+// server played in the next match and disrupted it (2026-10-15); they rejoin as spectators.
+bool KeepOnHandOver(uint64_t sid) { return fs::InAssignedMatch(g_config, sid); }
 
 void SetPassword(const std::string& pw) {
   // ValidPassword() already refused quotes / `;` / spaces.
@@ -2025,7 +2025,8 @@ void Tick(double now) {
         ++it;
         continue;
       }
-      KickHumans(it->message, [](uint64_t sid) { return IsReadyUpAdmin(sid); });
+      // Everyone, admins included: the server is about to take another match.
+      KickHumans(it->message, nullptr);
       it = g_kicks.erase(it);
     }
     return;
