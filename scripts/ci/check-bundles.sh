@@ -160,6 +160,7 @@ echo "practice:";   no_skins practice;   check_manifests "$WORK/practice" practi
 echo "deathmatch:"; no_skins deathmatch; check_manifests "$WORK/deathmatch" deathmatch
 echo "mapvote:";    no_skins mapvote;    check_manifests "$WORK/mapvote" mapvote
 echo "community:";  no_skins community;  check_manifests "$WORK/community" community
+echo "movement:";   no_skins movement;   check_manifests "$WORK/movement" movement
 echo "essentials-plugin:"; no_skins essentials-plugin; check_manifests "$WORK/essentials-plugin" essentials
 if [[ -e "$WORK/essentials/readyup/plugins/practice.so" ]]; then ok "essentials has practice.so"; else bad "essentials lacks practice.so"; fi
 for b in practice essentials; do  # its gamedata fragment (grenade spawning) ships with it; full is checked below
@@ -177,8 +178,8 @@ if [[ -e "$WORK/essentials/readyup/plugins/mapvote.so" ]]; then ok "essentials h
 if [[ -e "$WORK/match/readyup/cfg-templates/ReadyUp/addons.cfg" ]]; then bad "match ships addons.cfg"; else ok "match: no addons.cfg"; fi
 echo "skins:";      has_skins skins;     check_manifests "$WORK/skins" skins
 echo "full:";       has_skins full; has_match full; has_fleet full; has_notices full; has_addons full
-full_components=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community addons)
-for f in readyup/plugins/deathmatch.so readyup/cfg-templates/ReadyUp/deathmatch.cfg readyup/plugins/mapvote.so readyup/cfg-templates/ReadyUp/mapvote.cfg readyup/plugins/community.so readyup/cfg-templates/ReadyUp/community.cfg readyup/bin/linuxsteamrt64/engine-surface.practice.json; do
+full_components=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community movement addons)
+for f in readyup/plugins/deathmatch.so readyup/cfg-templates/ReadyUp/deathmatch.cfg readyup/plugins/mapvote.so readyup/cfg-templates/ReadyUp/mapvote.cfg readyup/plugins/community.so readyup/cfg-templates/ReadyUp/community.cfg readyup/plugins/movement.so readyup/cfg-templates/ReadyUp/movement.cfg readyup/bin/linuxsteamrt64/engine-surface.practice.json; do
   if [[ -f "$WORK/full/$f" ]]; then ok "full has $f"; else bad "full lacks $f"; fi
 done
 [[ -f "$WORK/full/readyup/manifests/tools.json" ]] && full_components+=(tools)

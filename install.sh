@@ -12,8 +12,8 @@
 # Usage: install.sh [BUNDLE|COMPONENT ...] [options]
 #
 #   essentials   core + essentials + match + fleet + practice + mapvote (default for a fresh install; no skins)
-#   full         core + essentials + match + fleet + practice + skins + midas + whitelist + deathmatch + mapvote + community + addons
-#   core | match | fleet | practice | skins | hello | midas | whitelist | deathmatch | mapvote | community | addons   single components
+#   full         core + essentials + match + fleet + practice + skins + midas + whitelist + deathmatch + mapvote + community + movement + addons
+#   core | match | fleet | practice | skins | hello | midas | whitelist | deathmatch | mapvote | community | movement | addons   single components
 #                (the essentials plugin comes with the bundles; --remove essentials drops it) (core is always included).
 #                fleet links the server to the Auto Tournament platform; it stays idle until
 #                cfg/ReadyUp/fleet.cfg (or readyup.cfg [fleet]) sets a url
@@ -52,8 +52,8 @@ set -euo pipefail
 REPO="${READYUP_REPO:-Auto-Tournament/ready-up}"
 API="${READYUP_API:-https://api.github.com}"
 GAME_PATH="csgo/readyup"
-COMPONENTS=(core match fleet skins hello midas whitelist practice essentials deathmatch mapvote community addons)
-declare -A LABEL=([core]="Core" [match]="Match" [fleet]="Fleet" [skins]="Skins" [hello]="Hello" [midas]="Midas" [whitelist]="Whitelist" [practice]="Practice" [essentials]="Essentials" [deathmatch]="Deathmatch" [mapvote]="Map vote" [community]="Community" [addons]="Addons")
+COMPONENTS=(core match fleet skins hello midas whitelist practice essentials deathmatch mapvote community movement addons)
+declare -A LABEL=([core]="Core" [match]="Match" [fleet]="Fleet" [skins]="Skins" [hello]="Hello" [midas]="Midas" [whitelist]="Whitelist" [practice]="Practice" [essentials]="Essentials" [deathmatch]="Deathmatch" [mapvote]="Map vote" [community]="Community" [movement]="Movement" [addons]="Addons")
 declare -A NOTE=([core]="required" [match]="ready-up, knife, pauses, webhooks"
   [fleet]="link to the Auto Tournament platform (idle until configured)" [skins]="may get servers banned"
   [hello]="example plugin" [midas]="fun: gold weapons (off until enabled)"
@@ -63,6 +63,7 @@ declare -A NOTE=([core]="required" [match]="ready-up, knife, pauses, webhooks"
   [deathmatch]="FFA / team deathmatch with a leaderboard (off until .ru dm ffa|tdm)"
   [mapvote]=".rtv, .nominate and an end-of-map vote (off until mapvote.cfg lists maps)"
   [community]=".rank, .top, .speclist and admin .kick"
+  [movement]="surf / bhop / kz timers and records (on surf_, bhop_, kz_ maps)"
   [addons]="Steam Workshop addons (idle until workshop_addons is set)")
 
 DIR="."
@@ -118,8 +119,8 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     essentials) WANT+=(core essentials match fleet practice mapvote); BUNDLE_FLEET=1; shift ;;
-    full) WANT+=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community addons); WANT_FULL=1; BUNDLE_FLEET=1; shift ;;
-    core | match | fleet | skins | hello | midas | whitelist | practice | deathmatch | mapvote | community | addons) WANT+=("$1"); shift ;;
+    full) WANT+=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community movement addons); WANT_FULL=1; BUNDLE_FLEET=1; shift ;;
+    core | match | fleet | skins | hello | midas | whitelist | practice | deathmatch | mapvote | community | movement | addons) WANT+=("$1"); shift ;;
     *) die "unknown argument: $1 (see --help)" ;;
   esac
 done
@@ -135,7 +136,7 @@ case "$ACCEPT_LICENSE" in
   *) die "--accept-license must be noncommercial or commercial (got: $ACCEPT_LICENSE)" ;;
 esac
 for c in "${REMOVE[@]}"; do
-  case "$c" in match | fleet | skins | hello | midas | whitelist | practice | essentials | deathmatch | mapvote | community | addons) ;; core) die "core can't be removed on its own; use --uninstall" ;; *) die "unknown component: $c" ;; esac
+  case "$c" in match | fleet | skins | hello | midas | whitelist | practice | essentials | deathmatch | mapvote | community | movement | addons) ;; core) die "core can't be removed on its own; use --uninstall" ;; *) die "unknown component: $c" ;; esac
 done
 
 # ---- requirements ---------------------------------------------------------------------------
@@ -284,7 +285,7 @@ if [[ $UNINSTALL -eq 1 ]]; then
   else
     warn "patch_gameinfo.py is missing; remove the \"Game $GAME_PATH\" line from gameinfo.gi by hand"
   fi
-  for c in addons community mapvote deathmatch essentials practice whitelist midas hello skins fleet match core; do
+  for c in addons movement community mapvote deathmatch essentials practice whitelist midas hello skins fleet match core; do
     [[ -n "${INSTALLED[$c]:-}" || -f "$RU/manifests/$c.json" ]] || continue
     remove_component "$c"
     ok "removed $c"
@@ -590,7 +591,7 @@ for a in rel.get("assets", []):
     elif name.startswith("ready-up-essentials-plugin-") and name.endswith(".zip"):
         print("asset\tessentials\t%s" % url)  # the plugin; ready-up-essentials-<v> is the bundle
     else:
-        m = re.match(r"^ready-up-(core|match|fleet|skins|hello|midas|whitelist|practice|deathmatch|mapvote|community|addons)-.*\.zip$", name)
+        m = re.match(r"^ready-up-(core|match|fleet|skins|hello|midas|whitelist|practice|deathmatch|mapvote|community|movement|addons)-.*\.zip$", name)
         if m:
             print("asset\t%s\t%s" % (m.group(1), url))
 PY
@@ -828,7 +829,7 @@ for c in "${!INSTALLED[@]}"; do BEFORE[$c]="${INSTALLED[$c]}"; done
 
 # Core first (the patcher and the plugin host come with it).
 ordered=()
-for c in core essentials match fleet practice skins hello midas whitelist deathmatch mapvote community addons; do
+for c in core essentials match fleet practice skins hello midas whitelist deathmatch mapvote community movement addons; do
   for t in "${TO_INSTALL[@]}"; do [[ "$t" == "$c" ]] && ordered+=("$c"); done
 done
 for c in "${ordered[@]}"; do
