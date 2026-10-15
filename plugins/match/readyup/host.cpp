@@ -382,12 +382,20 @@ PlayersView ReadPlayers() {
   return v;
 }
 
+// Game thread: the view is read from the engine once per frame (FrameBegin) and again only after a
+// player connects, leaves or changes team (PlayersInvalidate). Every ListHumans() / ListBots() used
+// to walk the engine's players again, dozens of times per tick (2026-10-15: most of the match
+// plugin's per-tick cost).
+bool g_playersStale = true;  // game thread only
+
 PlayersView Players() {
   if (host::OnGameThread() && host::Api()) {
-    PlayersView v = ReadPlayers();
-    std::lock_guard<std::mutex> lk(g_playersMu);
-    g_players = v;
-    return v;
+    if (g_playersStale) {
+      PlayersView v = ReadPlayers();
+      std::lock_guard<std::mutex> lk(g_playersMu);
+      g_players = std::move(v);
+      g_playersStale = false;
+    }
   }
   std::lock_guard<std::mutex> lk(g_playersMu);
   return g_players;
@@ -395,7 +403,14 @@ PlayersView Players() {
 
 }  // namespace
 
-void PlayersRefreshCache() { (void)Players(); }
+void PlayersRefreshCache() {
+  g_playersStale = true;
+  (void)Players();
+}
+
+void PlayersInvalidate() {
+  if (host::OnGameThread()) g_playersStale = true;
+}
 
 std::vector<HumanIdentity> ListHumans() { return Players().humans; }
 

@@ -53,8 +53,10 @@
 #include "readyup/workers.h"
 
 #include <algorithm>
+#include <map>
 #include <atomic>
 #include <chrono>
+#include <ctime>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -184,16 +186,52 @@ constexpr double kSlowTickMs = 4.0;
 constexpr double kSlowTickLogSeconds = 10.0;
 double g_lastSlowTickLog = -1e9;
 
+// Per-section totals since the last summary (game thread): `perf: match sections` every 5 minutes,
+// the average and worst wall time of each section per call, so the costly one stands out.
+struct SectionTotals {
+  double us = 0, maxUs = 0;
+  uint64_t calls = 0;
+};
+// Keyed by the section name literal (pointer): no string built per call.
+std::map<const char*, SectionTotals> g_sectionTotals;
+double g_lastSectionSummary = -1;
+constexpr double kSectionSummarySeconds = 300.0;
+
+void MaybeLogSectionSummary(double now) {
+  if (g_lastSectionSummary < 0) g_lastSectionSummary = now;
+  if (now - g_lastSectionSummary < kSectionSummarySeconds) return;
+  g_lastSectionSummary = now;
+  std::vector<std::pair<const char*, SectionTotals>> rows(g_sectionTotals.begin(), g_sectionTotals.end());
+  std::sort(rows.begin(), rows.end(), [](const auto& a, const auto& b) { return a.second.us > b.second.us; });
+  std::string line;
+  for (const auto& r : rows) {
+    if (r.second.calls == 0) continue;
+    char buf[96];
+    std::snprintf(buf, sizeof(buf), "%s%s avg %.1f max %.0f us", line.empty() ? "" : ", ", r.first,
+                  r.second.us / static_cast<double>(r.second.calls), r.second.maxUs);
+    line += buf;
+  }
+  g_sectionTotals.clear();
+  if (!line.empty()) Print("perf: match sections (5 min): %s\n", line.c_str());
+}
+
 class TickSections {
  public:
   template <typename F>
   void Run(const char* name, F&& fn) {
     const auto start = std::chrono::steady_clock::now();
+    const double cpu0 = ThreadCpuMs();
     fn();
     const double ms =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+    const double cpu = ThreadCpuMs() - cpu0;
     total_ += ms;
-    if (count_ < kMax) parts_[count_++] = {name, ms};
+    cpuTotal_ += cpu;
+    if (count_ < kMax) parts_[count_++] = {name, ms, cpu};
+    SectionTotals& t = g_sectionTotals[name];
+    t.us += ms * 1000.0;
+    t.maxUs = std::max(t.maxUs, ms * 1000.0);
+    ++t.calls;
   }
   // Logs the parts of a slow tick (rate-limited).
   void Report(double now) {
@@ -202,11 +240,14 @@ class TickSections {
     std::string line;
     for (int i = 0; i < count_; ++i) {
       if (parts_[i].ms < 0.05) continue;
-      char buf[64];
-      std::snprintf(buf, sizeof(buf), "%s%s %.2f", line.empty() ? "" : ", ", parts_[i].name, parts_[i].ms);
+      char buf[80];
+      std::snprintf(buf, sizeof(buf), "%s%s %.2f (cpu %.2f)", line.empty() ? "" : ", ", parts_[i].name, parts_[i].ms,
+                    parts_[i].cpu);
       line += buf;
     }
-    Print("perf: slow match tick %.2f ms: %s\n", total_, line.c_str());
+    // Wall time well above CPU time: the thread was waiting (the OS ran something else, or a lock),
+    // not working.
+    Print("perf: slow match tick %.2f ms (cpu %.2f): %s\n", total_, cpuTotal_, line.c_str());
   }
 
  private:
@@ -214,40 +255,58 @@ class TickSections {
   struct Part {
     const char* name;
     double ms;
+    double cpu;
   };
+  // This thread's CPU time in ms (CLOCK_THREAD_CPUTIME_ID).
+  static double ThreadCpuMs() {
+    timespec ts{};
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
+    return static_cast<double>(ts.tv_sec) * 1e3 + static_cast<double>(ts.tv_nsec) / 1e6;
+  }
   Part parts_[kMax] = {};
   int count_ = 0;
   double total_ = 0;
+  double cpuTotal_ = 0;
 };
 
 void OnTick(void*, const ru_tick_info* t) {
   Guard("tick", [&] {
     TickSections s;
+    // Every tick: round events, the mode state machine (ready, go-live) and the fleet link. The rest
+    // is clock-driven (timeouts, cards, the HUD's own interval, votes) and runs on every 4th tick
+    // (16/s at 64 tick): a quarter of the per-frame work, nothing anyone can see.
+    const bool light = (t->frame & 3u) == 0;
     // Round events of this frame, after the core delivered this frame's log lines.
     s.Run("events", [] { MatchEventsTick(); });
     if (FeatureEnabled(Feature::MatchFlow)) {
       s.Run("modes", [] { Tick(); });
-      s.Run("simulation", [&] { SimulationTick(t->now); });  // bots in/out, simulated ready (simulation.h)
-      s.Run("scrim", [] { ScrimTick(); });  // outside Tick() (which holds the modes mutex)
-      s.Run("features", [] { MatchFeaturesTick(); });  // timeouts, technical auto-unpause, forfeit timer
-      s.Run("damage", [] { DamageReportTick(); });     // damage reports built at round_end (damage_report.h)
-      s.Run("votes", [&] { VotesTick(t->now); });      // .gg / .stop vote timeouts (votes.h)
-      s.Run("warmup_money", [&] { WarmupMoneyTick(t->now); });  // warmup money top-up (warmup_money.h)
-      s.Run("settings", [&] { match_settings::Tick(t->now); });  // autoready, kick_when_no_match_loaded
-      s.Run("weapons", [&] { WeaponCleanupTick(t->now); });  // dropped weapons in warmup (weapon_cleanup.h)
-      s.Run("coach", [&] { CoachTick(t->now); });            // coaches (coach.h)
+      if (light) {
+        s.Run("simulation", [&] { SimulationTick(t->now); });  // bots in/out, simulated ready (simulation.h)
+        s.Run("scrim", [] { ScrimTick(); });  // outside Tick() (which holds the modes mutex)
+        s.Run("features", [] { MatchFeaturesTick(); });  // timeouts, technical auto-unpause, forfeit timer
+        s.Run("damage", [] { DamageReportTick(); });     // damage reports built at round_end (damage_report.h)
+        s.Run("votes", [&] { VotesTick(t->now); });      // .gg / .stop vote timeouts (votes.h)
+        s.Run("warmup_money", [&] { WarmupMoneyTick(t->now); });  // warmup money top-up (warmup_money.h)
+        s.Run("settings", [&] { match_settings::Tick(t->now); });  // autoready, kick_when_no_match_loaded
+        s.Run("weapons", [&] { WeaponCleanupTick(t->now); });  // dropped weapons in warmup (weapon_cleanup.h)
+        s.Run("coach", [&] { CoachTick(t->now); });            // coaches (coach.h)
+      }
     }
     // Fleet link (no-op without fleet.so): platform handlers, MatchState patches, events.
     s.Run("fleet", [&] { fleet_bridge::Tick(t->now); });
-    // One-off cards before the HUD: the HUD leaves a player's panel alone while one is up.
-    if (FeatureEnabled(Feature::MatchFlow)) s.Run("golive_card", [] { GoLiveCardTick(); });
-    s.Run("result_card", [] { ResultCardTick(); });  // map / series result (result_card.h)
-    s.Run("admin_call", [] { AdminCallTick(); });  // `.admin` cards for in-game admins (admin_call.h)
-    if (FeatureEnabled(Feature::WelcomeHtml)) s.Run("welcome", [] { WelcomeTick(); });
-    if (FeatureEnabled(Feature::ReadyHud)) s.Run("ready_hud", [] { ReadyHudTick(); });  // skips welcome cards
-    if (FeatureEnabled(Feature::ReadyHud)) s.Run("hud_anim", [] { ReadyHudAnimTick(); });  // `.ru hud anim`
-    s.Run("prefix", [&] { PrefixTick(t->now); });
+    if (light) {
+      // One-off cards before the HUD: the HUD leaves a player's panel alone while one is up.
+      if (FeatureEnabled(Feature::MatchFlow)) s.Run("golive_card", [] { GoLiveCardTick(); });
+      s.Run("result_card", [] { ResultCardTick(); });  // map / series result (result_card.h)
+      s.Run("admin_call", [] { AdminCallTick(); });  // `.admin` cards for in-game admins (admin_call.h)
+      if (FeatureEnabled(Feature::WelcomeHtml)) s.Run("welcome", [] { WelcomeTick(); });
+      if (FeatureEnabled(Feature::ReadyHud)) s.Run("ready_hud", [] { ReadyHudTick(); });  // skips welcome cards
+      s.Run("prefix", [&] { PrefixTick(t->now); });
+    }
+    // `.ru hud anim` moves every other tick (32/s): smooth enough, half the cost.
+    if (FeatureEnabled(Feature::ReadyHud) && (t->frame & 1u) == 0) s.Run("hud_anim", [] { ReadyHudAnimTick(); });
     s.Report(t->now);
+    MaybeLogSectionSummary(t->now);
   });
 }
 
@@ -261,6 +320,9 @@ void EnsureGameLogOn() {
 
 void OnEvent(void*, const ru_event* e) {
   Guard("event", [&] {
+    if (e->type == RU_EVENT_PLAYER_CONNECT || e->type == RU_EVENT_PLAYER_DISCONNECT || e->type == RU_EVENT_PLAYER_TEAM) {
+      PlayersInvalidate();
+    }
     if (e->type == RU_EVENT_MAP_START) {
       EnsureGameLogOn();
       IdleRefreshOnMapStart(host::NowSeconds());
@@ -422,6 +484,7 @@ void SelftestRefresh(double now) {
 }
 
 void OnSlowTick(void*, const ru_tick_info* t) {
+  if ((t->frame & 15u) != 0) return;  // four times a second is plenty for selftest state
   Guard("selftest refresh", [&] { SelftestRefresh(t->now); });
 }
 
