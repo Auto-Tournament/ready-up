@@ -23,6 +23,7 @@
 // reliable), which keeps the leaderboards across servers.
 #include "movement_rules.h"
 
+#include "readyup/essentials_iface.h"
 #include "readyup/fleet_iface.h"
 #include "readyup/json_store.h"
 #include "readyup/match_iface.h"
@@ -83,6 +84,8 @@ struct Run {
 struct State {
   Mode configured = Mode::Off;  // from movement.cfg; Off = auto
   FinishChat finishChat = FinishChat::Records;
+  std::string homeMap = "3073875025";  // movement.cfg home_map (surf_utopia_njv)
+  double homeAskedAt = -1e9;
   bool autoMode = true;
   Mode mode = Mode::Off;        // this map's
   std::string map;
@@ -248,6 +251,8 @@ void LoadSettings() {
     g.autoMode = !ok;
     if (!ok) ru_logf(g_api, RU_LOG_WARN, "movement.cfg: mode=%s is not auto, surf, bhop, kz or off", buf);
   }
+  char hm[128] = {};
+  g.homeMap = g_api->config_get(g_api->self, "home_map", hm, sizeof(hm)) >= 0 ? std::string(hm) : "3073875025";
   g.finishChat = FinishChat::Records;
   char fc[32] = {};
   if (g_api->config_get(g_api->self, "finish_chat", fc, sizeof(fc)) >= 0 && fc[0]) {
@@ -327,8 +332,35 @@ void HudFor(int slot, double now) {
   (void)g_api->center_html_to_slot_prio(g_api->self, slot, h.c_str(), 2, RU_HTML_PRIO_HUD);
 }
 
+bool AnyHumanOn() {
+  bool any = false;
+  g_api->for_each_player(
+      g_api->self,
+      [](void* u, const ru_player* p) -> int {
+        if (p->is_bot || !p->connected) return 1;
+        *static_cast<bool*>(u) = true;
+        return 0;
+      },
+      &any);
+  return any;
+}
+
+// An empty server on a map without a movement mode (a restart boots de_dust2) goes to home_map.
+// A workshop download takes a while: asked again only after 3 minutes.
+void GoHomeIfEmpty(double now) {
+  if (g.mode != Mode::Off || g.homeMap.empty() || now - g.homeAskedAt < 180.0) return;
+  if (!g.autoMode || MatchLoaded() || AnyHumanOn()) return;
+  const auto* e = static_cast<const ru_essentials_v1*>(
+      g_api->get_interface(g_api->self, RU_ESSENTIALS_IFACE_NAME, RU_ESSENTIALS_IFACE_VERSION));
+  if (!e || !e->load_map) return;
+  g.homeAskedAt = now;
+  ru_logf(g_api, RU_LOG_INFO, "nobody on %s (no movement mode): to the home map %s", g.map.c_str(), g.homeMap.c_str());
+  if (!e->load_map(g.homeMap.c_str())) ru_logf(g_api, RU_LOG_WARN, "the home map %s could not be loaded", g.homeMap.c_str());
+}
+
 void OnTick(void*, const ru_tick_info* t) {
   const double now = t->now;
+  GoHomeIfEmpty(now);
   if (g.scanAt > 0 && now >= g.scanAt) {
     g.scanAt = 0;
     ScanZones();

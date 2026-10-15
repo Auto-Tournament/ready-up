@@ -12,6 +12,7 @@
     "entity_by_index",
     "entity_classname",
     "entity_from_handle",
+    "for_each_player",
     "get_interface",
     "get_player",
     "on_tick",
