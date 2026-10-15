@@ -901,8 +901,10 @@ static void ApplyWarmupRulesLocked(State& st) {
     for (const char* c : off) {
       if (EnqueueServerCommand(c)) any = true;
     }
-    // No death drops even with an older warmup.cfg that lacks them (weapon_cleanup.h).
+    // No death drops even with an older warmup.cfg that lacks them (weapon_cleanup.h), and
+    // no team damage even with an older warmup.cfg or a game mode cfg that turns it on.
     EnqueueAfterCfg(std::vector<std::string>(std::begin(kWarmupNoDropCmds), std::end(kWarmupNoDropCmds)));
+    EnqueueAfterCfg({"mp_friendlyfire 0"});
     // The scoreboard shows the teams' names from warmup on, not only once live.
     std::vector<std::string> names;
     AppendTeamNameCmds(&names);
@@ -1635,7 +1637,13 @@ void OnMatchRoundStarted() {
   // round starts) should NOT automatically mark the match as live. Only transition
   // once Ready Up actually triggered going-live (startTriggered), or when warmup
   // gating is disabled.
-  if (st.warmupEnabled && !st.startTriggered) return;
+  if (st.warmupEnabled && !st.startTriggered) {
+    // Warmup has no team damage. The map's game mode cfg (wingman: competitive2v2) can run
+    // after warmup.cfg and turn friendly fire back on, so every warmup round says it again
+    // (2026-10-15: teammates hurt each other in a wingman warmup).
+    (void)EnqueueServerCommand("mp_friendlyfire 0");
+    return;
+  }
   // mp_restartgame 1 needs a second: a Round_Start inside that window belongs
   // to the round being replaced (e.g. the knife side-pick round), not to live.
   if (st.startTriggered && st.lastGateCmd.time_since_epoch().count() != 0 &&
