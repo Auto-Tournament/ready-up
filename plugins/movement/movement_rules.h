@@ -15,6 +15,13 @@ const char* ModeName(Mode m);
 Mode ParseMode(const std::string& s, bool* ok);
 Mode ModeForMap(const std::string& map);
 
+// Who sees a finished run in chat (movement.cfg finish_chat).
+enum class FinishChat { Records, Self, All };
+// "records" / "self" / "all"; anything else = Records and *ok = false.
+FinishChat ParseFinishChat(const std::string& s, bool* ok);
+// Whether everyone sees this finish (else only the runner).
+bool FinishToAll(FinishChat c, bool serverRecord);
+
 // The cvars a mode sets (applied on every map start of that mode).
 std::vector<std::string> ModeCvars(Mode m);
 

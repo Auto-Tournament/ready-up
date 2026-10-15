@@ -244,6 +244,7 @@ class Client {
   std::atomic<bool> holdOut_{false};
   std::atomic<int64_t> lastFrameMono_{0};
   std::atomic<int> players_{0};
+  std::atomic<bool> pingSoon_{false};  // a player joined: the next loop pings early
   // True while the watchdog holds the link down (see ClientConfig::stallMs).
   bool GameStalled(int64_t nowMono) const;
   int wakeFd_[2] = {-1, -1};

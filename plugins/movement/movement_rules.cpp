@@ -53,6 +53,19 @@ Mode ModeForMap(const std::string& map) {
   return Mode::Off;
 }
 
+FinishChat ParseFinishChat(const std::string& s, bool* ok) {
+  const std::string v = Lower(s);
+  *ok = true;
+  if (v == "self") return FinishChat::Self;
+  if (v == "all") return FinishChat::All;
+  if (v != "records") *ok = false;
+  return FinishChat::Records;
+}
+
+bool FinishToAll(FinishChat c, bool serverRecord) {
+  return c == FinishChat::All || (c == FinishChat::Records && serverRecord);
+}
+
 std::vector<std::string> ModeCvars(Mode m) {
   // Shared: nobody dies of the map, rounds never end, no stamina, players pass through each other.
   std::vector<std::string> c = {
@@ -61,7 +74,9 @@ std::vector<std::string> ModeCvars(Mode m) {
       "mp_warmup_end", "sv_falldamage_scale 0", "sv_staminajumpcost 0", "sv_staminalandcost 0",
       "sv_staminamax 0", "mp_solid_teammates 0", "mp_friendlyfire 0", "mp_autokick 0",
       "mp_death_drop_gun 0", "sv_enablebunnyhopping 1", "sv_maxvelocity 3500", "mp_free_armor 1",
-      "mp_buy_anywhere 1", "mp_buytime 99999",
+      "mp_buy_anywhere 1", "mp_buytime 99999", "bot_quota 0", "bot_kick",
+      // A player who joins a team mid-round spawns (the round is an hour long), not next round.
+      "mp_join_grace_time 3600",
   };
   switch (m) {
     case Mode::Surf:

@@ -9,6 +9,9 @@
 //                        counts its teleports)
 //   .timerhud            your timer panel on / off (.timer is practice's)
 //
+// Chat: the runner hears when the timer starts and stops (left the start, died, noclip) and
+// their time. Others hear a finish per movement.cfg finish_chat (default: only server records).
+//
 // The mode comes from cfg/ReadyUp/movement.cfg `mode=` (auto: from the map prefix surf_ / bhop_ /
 // kz_). Zones are the map's own triggers and buttons by name (map_start / map_end,
 // timer_startzone / timer_endzone, climb_startbutton / climb_endbutton, ...): their boxes are read
@@ -20,6 +23,7 @@
 // reliable), which keeps the leaderboards across servers.
 #include "movement_rules.h"
 
+#include "readyup/essentials_iface.h"
 #include "readyup/fleet_iface.h"
 #include "readyup/json_store.h"
 #include "readyup/match_iface.h"
@@ -73,12 +77,16 @@ struct Run {
   Vec3 cp;
   float cpAngles[3] = {0, 0, 0};
   bool cpHasAngles = false;
+  double unassignedSince = 0;  // joined but on no team yet (auto team after 2 s)
   bool hud = false;  // the panel is opt-in (.timerhud): chat carries the start and the time
   double nextHud = 0;
 };
 
 struct State {
   Mode configured = Mode::Off;  // from movement.cfg; Off = auto
+  FinishChat finishChat = FinishChat::Records;
+  std::string homeMap = "3073875025";  // movement.cfg home_map (surf_utopia_njv)
+  double homeAskedAt = -1e9;
   bool autoMode = true;
   Mode mode = Mode::Off;        // this map's
   std::string map;
@@ -244,6 +252,15 @@ void LoadSettings() {
     g.autoMode = !ok;
     if (!ok) ru_logf(g_api, RU_LOG_WARN, "movement.cfg: mode=%s is not auto, surf, bhop, kz or off", buf);
   }
+  char hm[128] = {};
+  g.homeMap = g_api->config_get(g_api->self, "home_map", hm, sizeof(hm)) >= 0 ? std::string(hm) : "3073875025";
+  g.finishChat = FinishChat::Records;
+  char fc[32] = {};
+  if (g_api->config_get(g_api->self, "finish_chat", fc, sizeof(fc)) >= 0 && fc[0]) {
+    bool ok = false;
+    g.finishChat = ParseFinishChat(fc, &ok);
+    if (!ok) ru_logf(g_api, RU_LOG_WARN, "movement.cfg: finish_chat=%s is not records, self or all", fc);
+  }
 }
 
 void LoadRecords() {
@@ -278,13 +295,20 @@ void FinishRun(int slot, double now) {
   const Finish f = AddRun(&g.records, g.map, CourseKey(ModeName(g.mode), r.course), p.steamid64, p.name, ms, date);
   g.dirty = true;
   SendRecord(RecordPayload(g.map, ModeName(g.mode), r.course, p.steamid64, p.name, ms, r.teleports, date));
-  std::string line = std::string(p.name) + " finished " + g.map + (r.course > 0 ? " " + CourseName(r.course) : "") + " in " + FormatTime(ms);
-  if (g.mode == Mode::Kz) line += r.teleports > 0 ? " (" + std::to_string(r.teleports) + " TP)" : " (pro)";
-  if (f.serverRecord) line += ". New server record!";
-  else if (f.personalBest && f.previousMs > 0) line += ". New personal best (-" + FormatTime(f.previousMs - ms) + "), rank " + std::to_string(f.rank) + ".";
-  else if (f.personalBest) line += ", rank " + std::to_string(f.rank) + ".";
-  else line += " (best " + FormatTime(f.previousMs) + ").";
-  g_api->chat_all(g_api->self, line.c_str(), 0);
+  std::string tail;
+  if (g.mode == Mode::Kz) tail += r.teleports > 0 ? " (" + std::to_string(r.teleports) + " TP)" : " (pro)";
+  if (f.serverRecord) tail += ". New server record!";
+  else if (f.personalBest && f.previousMs > 0) tail += ". New personal best (-" + FormatTime(f.previousMs - ms) + "), rank " + std::to_string(f.rank) + ".";
+  else if (f.personalBest) tail += ", rank " + std::to_string(f.rank) + ".";
+  else tail += " (best " + FormatTime(f.previousMs) + ").";
+  const std::string where = g.map + (r.course > 0 ? " " + CourseName(r.course) : "");
+  if (FinishToAll(g.finishChat, f.serverRecord)) {
+    const std::string line = std::string(p.name) + " finished " + where + " in " + FormatTime(ms) + tail;
+    g_api->chat_all(g_api->self, line.c_str(), 0);
+  } else {
+    const std::string line = "You finished " + where + " in " + FormatTime(ms) + tail;
+    (void)g_api->chat_to_slot(g_api->self, slot, line.c_str());
+  }
 }
 
 void HudFor(int slot, double now) {
@@ -309,8 +333,110 @@ void HudFor(int slot, double now) {
   (void)g_api->center_html_to_slot_prio(g_api->self, slot, h.c_str(), 2, RU_HTML_PRIO_HUD);
 }
 
+bool AnyHumanOn() {
+  bool any = false;
+  g_api->for_each_player(
+      g_api->self,
+      [](void* u, const ru_player* p) -> int {
+        if (p->is_bot || !p->connected) return 1;
+        *static_cast<bool*>(u) = true;
+        return 0;
+      },
+      &any);
+  return any;
+}
+
+// An empty server on a map without a movement mode (a restart boots de_dust2) goes to home_map.
+// A workshop download takes a while: asked again only after 3 minutes.
+// Only on a movement server (match.so off: the Movement preset). A tournament server that also has
+// movement.so loaded sits empty on de_dust2 between matches; sending it to a surf map raced the
+// next match's map load and the players joined a surf map (2026-10-15).
+bool MatchPluginLoaded() { return g_api->get_interface(g_api->self, RU_MATCH_IFACE_NAME, 1) != nullptr; }
+
+void GoHomeIfEmpty(double now) {
+  if (g.mode != Mode::Off || g.homeMap.empty() || now - g.homeAskedAt < 180.0) return;
+  if (!g.autoMode || MatchPluginLoaded() || AnyHumanOn()) return;
+  const auto* e = static_cast<const ru_essentials_v1*>(
+      g_api->get_interface(g_api->self, RU_ESSENTIALS_IFACE_NAME, RU_ESSENTIALS_IFACE_VERSION));
+  if (!e || !e->load_map) return;
+  g.homeAskedAt = now;
+  ru_logf(g_api, RU_LOG_INFO, "nobody on %s (no movement mode): to the home map %s", g.map.c_str(), g.homeMap.c_str());
+  if (!e->load_map(g.homeMap.c_str())) ru_logf(g_api, RU_LOG_WARN, "the home map %s could not be loaded", g.homeMap.c_str());
+}
+
+// Nobody picks a team on a movement server: a player still on none after 2 s goes to the side
+// with fewer players (CT on a tie). Spectators chose that and stay.
+void AutoTeam(double now) {
+  struct Count {
+    int t = 0, ct = 0;
+    std::vector<int> waiting;
+  } n;
+  g_api->for_each_player(
+      g_api->self,
+      [](void* u, const ru_player* p) -> int {
+        auto* c = static_cast<Count*>(u);
+        if (p->team == RU_TEAM_T) ++c->t;
+        if (p->team == RU_TEAM_CT) ++c->ct;
+        if (!p->is_bot && p->connected && p->slot >= 0 && p->slot < 64 && p->team == RU_TEAM_UNASSIGNED) c->waiting.push_back(p->slot);
+        return 1;
+      },
+      &n);
+  for (int slot = 0; slot < 64; ++slot) {
+    if (std::find(n.waiting.begin(), n.waiting.end(), slot) == n.waiting.end()) g.runs[slot].unassignedSince = 0;
+  }
+  for (int slot : n.waiting) {
+    Run& r = g.runs[slot];
+    if (r.unassignedSince == 0) r.unassignedSince = now;
+    if (now - r.unassignedSince < 2.0) continue;
+    const int team = n.t < n.ct ? RU_TEAM_T : RU_TEAM_CT;
+    if (g_api->player_change_team(g_api->self, slot, team)) {
+      (team == RU_TEAM_T ? n.t : n.ct)++;
+      r.unassignedSince = 0;
+    } else {
+      r.unassignedSince = now + 10.0;  // refused: try again later
+    }
+  }
+}
+
+// The first player on an empty server never spawns: CS2's "game commencing" restart needs a
+// round to end, and mp_ignore_round_win_conditions keeps it from ending. A player on a team who is
+// still not alive after 3 s while nobody else is alive gets a restart (the round has no runs to
+// lose). Once someone is alive, a newcomer spawns through mp_join_grace_time.
+double g_waitingSince = 0, g_lastRestart = -1e9;
+void SpawnFirstPlayer(double now) {
+  struct S {
+    int waiting = 0, alive = 0;
+  } st;
+  g_api->for_each_player(
+      g_api->self,
+      [](void* u, const ru_player* p) -> int {
+        auto* x = static_cast<S*>(u);
+        if (p->is_bot || !p->connected || (p->team != RU_TEAM_T && p->team != RU_TEAM_CT) || p->slot < 0) return 1;
+        void* ctrl = g_api->entity_by_index(g_api->self, p->slot + 1);
+        void* pawn = ctrl ? g_api->entity_from_handle(g_api->self, Rd<uint32_t>(ctrl, g_off.ctrlPawn)) : nullptr;
+        if (pawn && Rd<uint8_t>(pawn, g_off.lifeState) == 0) ++x->alive;
+        else ++x->waiting;
+        return 1;
+      },
+      &st);
+  if (st.waiting == 0 || st.alive > 0) {
+    g_waitingSince = 0;
+    return;
+  }
+  if (g_waitingSince == 0) g_waitingSince = now;
+  if (now - g_waitingSince < 3.0 || now - g_lastRestart < 10.0) return;
+  g_lastRestart = now;
+  g_waitingSince = 0;
+  ru_logf(g_api, RU_LOG_INFO, "nobody alive, %d waiting to spawn: restarting the round", st.waiting);
+  (void)g_api->server_command(g_api->self, "mp_restartgame 1");
+}
+
 void OnTick(void*, const ru_tick_info* t) {
   const double now = t->now;
+  GoHomeIfEmpty(now);
+  // Teams and spawns belong to match.so where it runs (a match's rosters, warmup).
+  if (Active() && !MatchPluginLoaded()) AutoTeam(now);
+  if (Active() && !MatchPluginLoaded() && Resolve()) SpawnFirstPlayer(now);
   if (g.scanAt > 0 && now >= g.scanAt) {
     g.scanAt = 0;
     ScanZones();
@@ -330,6 +456,9 @@ void OnTick(void*, const ru_tick_info* t) {
     }
     void* pawn = g_api->entity_from_handle(g_api->self, Rd<uint32_t>(ctrl, g_off.ctrlPawn));
     if (!pawn || Rd<uint8_t>(pawn, g_off.lifeState) != 0) {
+      if (r.running) {
+        (void)g_api->chat_to_slot(g_api->self, slot, "Timer stopped: you died. Start again from the start zone (.rs).");
+      }
       r.running = false;
       r.inStart = false;
       continue;
@@ -346,6 +475,10 @@ void OnTick(void*, const ru_tick_info* t) {
     }
     const Zone* start = ZoneAt(p, ZoneKind::Start, -1);
     const bool inStart = start != nullptr;
+    if (inStart && r.running && now - r.startedAt > 1.0) {
+      // The map's teleport (a fall) or .rs put the runner back at the start.
+      (void)g_api->chat_to_slot(g_api->self, slot, "Back at the start: timer reset.");
+    }
     if (inStart) {
       r.running = false;
       r.teleports = 0;

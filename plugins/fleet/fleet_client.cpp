@@ -241,10 +241,22 @@ void Client::SetHelloInfo(HelloInfo info) {
 
 void Client::UpdateHealth(int players, double tickMsP99, std::vector<uint64_t> steamids) {
   players_.store(players, std::memory_order_relaxed);
-  std::lock_guard<std::mutex> lk(mu_);
-  hello_.players = players;
-  hello_.steamids = std::move(steamids);
-  hello_.tickMsP99 = tickMsP99;
+  bool arrived = false;
+  {
+    std::lock_guard<std::mutex> lk(mu_);
+    for (uint64_t id : steamids) {
+      if (std::find(hello_.steamids.begin(), hello_.steamids.end(), id) == hello_.steamids.end()) arrived = true;
+    }
+    hello_.players = players;
+    hello_.steamids = std::move(steamids);
+    hello_.tickMsP99 = tickMsP99;
+  }
+  // A player joined: ping now, not at the next heartbeat. On a server without a match the ping's
+  // steamids is how the platform learns who is there and sends their skins (up to 10 s late before).
+  if (arrived) {
+    pingSoon_.store(true, std::memory_order_relaxed);
+    Wake();
+  }
 }
 
 void Client::NoteGameFrame() { lastFrameMono_.store(MonotonicMs(), std::memory_order_relaxed); }
@@ -1003,6 +1015,7 @@ Client::SessionResult Client::RunSession() {
 
   // 4. steady state
   int64_t nextPing = MonotonicMs() + s.intervalMs;
+  int64_t lastPingMono = 0;
   std::vector<Out> eph;
   while (!s.broken) {
     if (stop_) {
@@ -1068,7 +1081,9 @@ Client::SessionResult Client::RunSession() {
       sendEphemeral("ack", "{}");
     }
     const int64_t now = MonotonicMs();
+    if (pingSoon_.exchange(false, std::memory_order_relaxed) && now - lastPingMono >= 1000) nextPing = now;
     if (!s.broken && now >= nextPing) {
+      lastPingMono = now;
       HelloInfo h;
       {
         std::lock_guard<std::mutex> lk(mu_);
