@@ -797,15 +797,12 @@ static bool GoLiveCheckLocked(State& st, const WebhookMatchContext& ctx, std::st
       return false;
     }
   }
+  // Bot fill with nobody on the server yet: wait before the bots play alone. A match with players on
+  // its roster gives them kBotFillRosterGraceSeconds to join (60 s started a match before its player
+  // got in, 2026-10-14; waiting forever never started a bot team's match whose roster holds a
+  // placeholder player, 2026-10-15); a match with nobody rostered goes after the short grace.
   bool& wasEmpty = g_botFillWasEmpty;
   std::chrono::steady_clock::time_point& emptySince = g_botFillEmptySince;
-  // Players on a roster are waited for: the grace below started a match with bots 60 s after it
-  // loaded, before its player could get in (2026-10-14). Only a match with nobody rostered goes on
-  // by itself; an admin force-starts one whose players never come.
-  if (ctx.bot_fill && present[0] + present[1] == 0 && roster[0] + roster[1] > 0) {
-    *why = "bot fill: waiting for the rostered players to join";
-    return false;
-  }
   if (ctx.bot_fill && present[0] + present[1] == 0) {
     const auto nowTp = std::chrono::steady_clock::now();
     if (!wasEmpty) {
@@ -813,8 +810,9 @@ static bool GoLiveCheckLocked(State& st, const WebhookMatchContext& ctx, std::st
       emptySince = nowTp;
     }
     const double waited = std::chrono::duration<double>(nowTp - emptySince).count();
-    if (!BotFillEmptyMayGoLive(waited)) {
-      *why = "bot fill: waiting for a human to join";
+    const bool rostered = roster[0] + roster[1] > 0;
+    if (rostered ? waited < kBotFillRosterGraceSeconds : !BotFillEmptyMayGoLive(waited)) {
+      *why = rostered ? "bot fill: waiting for the rostered players to join" : "bot fill: waiting for a human to join";
       return false;
     }
   } else {

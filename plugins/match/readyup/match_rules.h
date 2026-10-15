@@ -120,6 +120,8 @@ ReadyTally BotFillReadyTally(int connected, int readyConnected);
 // Bot fill with no human connected: the match waits this long for anyone to join before its bots
 // play it alone (a bots-only bracket match), never going live the moment it loads.
 constexpr double kBotFillEmptyGraceSeconds = 60.0;
+// Bot fill: how long a match with players on its roster waits for one of them before its bots play.
+constexpr double kBotFillRosterGraceSeconds = 300.0;
 bool BotFillEmptyMayGoLive(double secondsEmpty);
 
 // After a failover resume nobody types .ready: the players were mid-match when the server went.
