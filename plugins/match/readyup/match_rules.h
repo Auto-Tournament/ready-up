@@ -60,6 +60,10 @@ MatchRules ResolveRules(const MatchRules& match, const MatchRules& base);
 bool TechPauseAllowed(int used, int limit);
 // Chat when a rostered player leaves a live map: whether the match will pause for them
 // (auto 5v5 pause on) and, with a limit, for how long. `maxSeconds` <= 0 = no limit.
+// Chat when a map goes live: what is played and how long (2026-10-15, a live test: "so
+// you see how long you will play for"). `maxOvertimes` -1 = as many as needed.
+std::string GoLiveRulesLine(int mapNumber, int numMaps, const std::string& map, int maxRounds, bool overtime,
+                            int overtimeHalfRounds, int maxOvertimes, bool damageTiebreak);
 std::string PlayerLeftChatLine(const std::string& name, const std::string& team, bool autoPause, int maxSeconds);
 // Technical pauses left (-1 = unlimited).
 int TechPausesLeft(int used, int limit);

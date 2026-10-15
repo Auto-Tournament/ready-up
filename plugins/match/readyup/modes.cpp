@@ -1377,10 +1377,14 @@ void ModesOnHumanJoinedTeam(int team) {
     if (st.mode != ReadyUpMode::MatchWarmup) return;
   }
   const auto now = std::chrono::steady_clock::now();
-  if (s_pending || (now - s_last) < std::chrono::seconds(4)) return;
+  if (s_pending) return;  // the restart already queued spawns this player too
   s_pending = true;
-  // 1.5 s: lets a few joins (and a team-lock move) land in the same restart.
-  ScheduleOnGameThread(1.5, []() {
+  // 1.5 s: lets a few joins (and a team-lock move) land in the same restart. A join
+  // just after a restart waits for the 4 s gap instead of being dropped: the second
+  // player of a 2v2 joined 2 s after the first and never spawned (2026-10-15).
+  const double sinceLast = std::chrono::duration<double>(now - s_last).count();
+  const double delay = std::max(1.5, 4.0 - sinceLast);
+  ScheduleOnGameThread(delay, []() {
     s_pending = false;
     s_last = std::chrono::steady_clock::now();
     {
@@ -1634,6 +1638,13 @@ void OnMatchRoundStarted() {
   match_recovery::NoteProgress();
   WebhookSetHeartbeatStatus("live");
   SendToChat("Ready Up: LIVE! Good luck, have fun.");
+  if (const auto ctx = WebhookGetMatchContext()) {
+    const int mapNo = std::max(1, MatchStateGet().map_number);
+    const std::string mapName = mapNo - 1 < static_cast<int>(ctx->maplist.size()) ? ctx->maplist[mapNo - 1] : "";
+    SendToChat(GoLiveRulesLine(mapNo, std::max(1, ctx->num_maps), mapName, ctx->maxRounds, ctx->overtime_enabled,
+                               ctx->overtimeSegments, ctx->maxOvertimes, ctx->damageTiebreakEnabled)
+                   .c_str());
+  }
   GoLiveCardArm("go-live round start", /*restartPending=*/false);  // "LIVE · GO GO GO" + commands
 
   // Emit warmup/live lifecycle events once per map transition.
