@@ -815,7 +815,9 @@ install_component() {  # <component>
   done < <(manifest_files "$m")
   # Files the previous version shipped but this one does not.
   if [[ -f "$RU/manifests/$c.json" ]]; then
-    comm -23 <(manifest_files "$RU/manifests/$c.json" | sort) <(manifest_files "$m" | sort) | while IFS= read -r f; do
+    # One collation for sort and comm: Ubuntu 26.04's comm (uutils) checks the order and refused
+    # the locale-sorted lists, failing the install.
+    LC_ALL=C comm -23 <(manifest_files "$RU/manifests/$c.json" | LC_ALL=C sort) <(manifest_files "$m" | LC_ALL=C sort) | while IFS= read -r f; do
       [[ -n "$f" && ! "$f" =~ $PROTECTED_RE ]] && rm -f "$CSGO/$f"
     done
   fi
