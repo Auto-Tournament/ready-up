@@ -224,7 +224,7 @@ run --dir "$S3" --zip "$ESS" -y >"$T/out" 2>&1 || { cat "$T/out"; fail "update o
 check "update added practice.so" test -x "$CS3/readyup/plugins/practice.so"
 check "update added essentials.so" test -x "$CS3/readyup/plugins/essentials.so"
 check "update did not add fleet (not asked for)" test ! -e "$CS3/readyup/plugins/fleet.so"
-check "installed.json is core essentials match practice" test "$(installed "$S3")" = "core essentials mapvote match practice"
+check "installed.json is core essentials match practice" test "$(installed "$S3")" = "core essentials match practice"
 
 echo "== full bundle by name"
 S4="$T/server-full"
