@@ -246,12 +246,18 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
   // wait for it, since the knife model comes from the loadout.
   // paint_kit -1 ("the player's own skin") needs the loadout like no override at all.
   const bool ownPaint = ov != g_paintOverride.end() && ov->second.paint_id < 0;
-  if ((ov == g_paintOverride.end() || isKnife || ownPaint) && !IsLoaded(steamid64)) return WeaponResult::kRetry;
+  if ((ov == g_paintOverride.end() || isKnife || ownPaint) && !IsLoaded(steamid64)) {
+    if (isKnife && DebugOn()) Log(RU_LOG_DEBUG, "knife %s owner=%llu team=%d: loadout not loaded (retry)", EntityDesignerName(weapon), static_cast<unsigned long long>(steamid64), team);
+    return WeaponResult::kRetry;
+  }
 
   // Weapons picked up from someone else keep their original owner's look.
   const uint64_t xuid = (static_cast<uint64_t>(Rd<uint32_t>(weapon, o.econ_xuidHigh)) << 32) |
                         Rd<uint32_t>(weapon, o.econ_xuidLow);
-  if (xuid != 0 && xuid != steamid64) return WeaponResult::kDone;
+  if (xuid != 0 && xuid != steamid64) {
+    if (isKnife && DebugOn()) Log(RU_LOG_DEBUG, "knife %s owner=%llu: xuid %llu is someone else's (skip)", EntityDesignerName(weapon), static_cast<unsigned long long>(steamid64), static_cast<unsigned long long>(xuid));
+    return WeaponResult::kDone;
+  }
   if (xuid == 0) {
     Wr<uint32_t>(weapon, o.econ_xuidLow, static_cast<uint32_t>(steamid64 & 0xFFFFFFFFu));
     Wr<uint32_t>(weapon, o.econ_xuidHigh, static_cast<uint32_t>(steamid64 >> 32));
@@ -266,6 +272,11 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
   int paintUsed = 0;
   float wearUsed = 0.0f;
   const bool fromOverride = ov != g_paintOverride.end();
+  if (isKnife && DebugOn()) {
+    const auto want = FindKnifeClassname(steamid64, team);
+    Log(RU_LOG_DEBUG, "knife %s def=%d owner=%llu team=%d late=%d xuid=%llu want=%s", EntityDesignerName(weapon), defindex,
+        static_cast<unsigned long long>(steamid64), team, late ? 1 : 0, static_cast<unsigned long long>(xuid), want ? want->c_str() : "(none)");
+  }
   if (isKnife) {
     if (const auto want = FindKnifeClassname(steamid64, team)) {
       if (const auto wantDef = KnifeClassnameToDefindex(*want)) {
@@ -304,6 +315,7 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
     changed = true;
     if (IsLegacyPaintKit(paint.paint_id) && !ApplyLegacyBody(weapon, steamid64)) *legacyPending = true;
   } else if (const auto skin = FindWeaponSkin(steamid64, team, defindex)) {
+    if (isKnife && DebugOn()) Log(RU_LOG_DEBUG, "knife def=%d team=%d: skin paint=%d", defindex, team, skin->paint_id);
     if (skin->paint_id > 0) {
       WritePaint(weapon, item, steamid64, *skin);
       paintUsed = skin->paint_id;
@@ -313,6 +325,7 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
     }
   }
 
+  if (isKnife && !changed && DebugOn()) Log(RU_LOG_DEBUG, "knife def=%d team=%d: nothing applied (no skin for this defindex/team)", defindex, team);
   if (changed) ++g_applied;
   // A knife swapped to another knife (ChangeSubclass) is sent in full even on its first
   // tick: the client kept the new model unpainted otherwise (a side-specific karambit on
