@@ -89,8 +89,9 @@ has to build: [`docs/fleet-step3-platform-notes.md`](../../../docs/fleet-step3-p
 | `messages/skins.loadout.json` | platform → server | reliable | ack only |
 | `messages/skins.invalidate.json` | platform → server | reliable | ack only |
 | `messages/skins.stattrak.json` | server → platform | reliable (critical) | |
+| `messages/movement.record.json` | server → platform | reliable | |
 
-Examples: `examples/v1/{admins.set,skins.loadout,skins.invalidate,skins.stattrak}.json`.
+Examples: `examples/v1/{admins.set,skins.loadout,skins.invalidate,skins.stattrak,movement.record}.json`.
 
 `hello` (a copied step-1 schema) gets one proposed optional member, `admins_rev`: the rev of the
 admins.set list the server has cached (absent = none). `state.snapshot.admins_rev` carries the

@@ -1,25 +1,32 @@
 // readyup-movement: surf, bhop and kz on community servers: the mode's physics, a run timer
 // between the map's start and end zones, personal bests and the map's top times.
 //
-//   .restart / .rs       back to the start zone (the timer resets)
-//   .pb                  your best time on this map
-//   .wr / .maptop        the map's top 10 (this mode)
-//   .cp / .tp            kz: save a checkpoint / teleport to it (the run counts its teleports)
+//   .restart / .rs       back to the map's start zone (the timer resets)
+//   .b [n] / .bonus [n]  to bonus n's start zone (default: the bonus you are on, else 1)
+//   .pb [bN]             your best time on this map (or bonus N)
+//   .wr / .maptop [bN]   the map's top 10 (this mode; or bonus N)
+//   .cp / .tp            kz: save a checkpoint / teleport to it, with where you looked (the run
+//                        counts its teleports)
 //   .timerhud            your timer panel on / off (.timer is practice's)
 //
 // The mode comes from cfg/ReadyUp/movement.cfg `mode=` (auto: from the map prefix surf_ / bhop_ /
 // kz_). Zones are the map's own triggers and buttons by name (map_start / map_end,
 // timer_startzone / timer_endzone, climb_startbutton / climb_endbutton, ...): their boxes are read
-// on map start, players are checked against them every tick. Off while a match is loaded.
+// on map start, players are checked against them every tick. Bonus courses (b1_start / b1_end,
+// bonus2_start, ...) are runs of their own with their own records. Off while a match is loaded.
 //
-// Records: csgo/readyup/plugins/movement/records.json (best time per player per map and mode).
+// Records: csgo/readyup/plugins/movement/records.json (best time per player per map, mode and
+// course). In fleet mode every finished run also goes to the platform (`movement.record`,
+// reliable), which keeps the leaderboards across servers.
 #include "movement_rules.h"
 
+#include "readyup/fleet_iface.h"
 #include "readyup/json_store.h"
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
@@ -42,6 +49,7 @@ struct Off {
   int ctrlPawn = -1, lifeState = -1, bodyComponent = -1, sceneNode = -1, absOrigin = -1, absVelocity = -1;
   int collision = -1, colMins = -1, colMaxs = -1, entityIdentity = -1, identityName = -1;
   int moveType = -1;  // CBaseEntity::m_MoveType (optional: noclip detection)
+  int eyeAngles = -1; // CCSPlayerPawn::m_angEyeAngles (optional: .cp keeps where the player looked)
   bool ok() const {
     return ctrlPawn >= 0 && lifeState >= 0 && bodyComponent >= 0 && sceneNode >= 0 && absOrigin >= 0 &&
            collision >= 0 && colMins >= 0 && colMaxs >= 0 && entityIdentity >= 0 && identityName >= 0;
@@ -51,17 +59,20 @@ Off g_off;
 
 struct Zone {
   ZoneKind kind = ZoneKind::None;
+  int course = 0;  // 0 = the map run, N = bonus N
   Box box;
   std::string name;
 };
 
 struct Run {
   bool inStart = false, running = false;
+  int course = 0;  // the course of the start zone the run left
   double startedAt = 0;
   int teleports = 0;
   bool hasCheckpoint = false;
   Vec3 cp;
   float cpAngles[3] = {0, 0, 0};
+  bool cpHasAngles = false;
   bool hud = false;  // the panel is opt-in (.timerhud): chat carries the start and the time
   double nextHud = 0;
 };
@@ -125,6 +136,8 @@ bool Resolve() {
   g_off.entityIdentity = so("CEntityInstance", "m_pEntity");
   g_off.identityName = so("CEntityIdentity", "m_name");
   g_off.moveType = so("CBaseEntity", "m_MoveType");
+  g_off.eyeAngles = so("CCSPlayerPawn", "m_angEyeAngles");
+  if (g_off.eyeAngles < 0) g_off.eyeAngles = so("CCSPlayerPawnBase", "m_angEyeAngles");
   if (!g_off.ok()) ru_logf(g_api, RU_LOG_WARN, "schema fields missing: zones and timers off on this build");
   return g_off.ok();
 }
@@ -161,7 +174,8 @@ void ScanZones() {
     const bool button = std::strcmp(cls, "func_button") == 0;
     if (!trigger && !button) continue;
     const std::string name = TargetName(ent);
-    const ZoneKind kind = ClassifyZone(name);
+    int course = 0;
+    const ZoneKind kind = ClassifyZone(name, &course);
     if (kind == ZoneKind::None) continue;
     Vec3 o;
     if (!Origin(ent, &o)) continue;
@@ -170,30 +184,50 @@ void ScanZones() {
     const float* mx = reinterpret_cast<const float*>(col + g_off.colMaxs);
     Zone z;
     z.kind = kind;
+    z.course = course;
     z.name = name;
     z.box.mins = {o.x + mn[0], o.y + mn[1], o.z + mn[2]};
     z.box.maxs = {o.x + mx[0], o.y + mx[1], o.z + mx[2]};
     g.zones.push_back(z);
   }
-  int starts = 0, ends = 0;
-  for (const auto& z : g.zones) (z.kind == ZoneKind::Start ? starts : ends)++;
-  ru_logf(g_api, RU_LOG_INFO, "%s on %s: %d start zone(s), %d end zone(s) (%d entities scanned)", ModeName(g.mode),
-          g.map.c_str(), starts, ends, scanned);
+  int starts = 0, ends = 0, bonuses = 0;
+  for (const auto& z : g.zones) {
+    if (z.course > 0) bonuses = std::max(bonuses, z.course);
+    else (z.kind == ZoneKind::Start ? starts : ends)++;
+  }
+  ru_logf(g_api, RU_LOG_INFO, "%s on %s: %d start zone(s), %d end zone(s), %d bonus(es) (%d entities scanned)",
+          ModeName(g.mode), g.map.c_str(), starts, ends, bonuses, scanned);
 }
 
-const Zone* ZoneAt(const Vec3& p, ZoneKind kind) {
+// course -1 = any course.
+const Zone* ZoneAt(const Vec3& p, ZoneKind kind, int course) {
   // Buttons are small: a player next to one counts.
   for (const auto& z : g.zones) {
-    if (z.kind == kind && Inside(z.box, p, z.name.find("button") != std::string::npos ? 48.0f : 2.0f)) return &z;
+    if (z.kind != kind || (course >= 0 && z.course != course)) continue;
+    if (Inside(z.box, p, z.name.find("button") != std::string::npos ? 48.0f : 2.0f)) return &z;
   }
   return nullptr;
 }
 
-const Zone* FirstZone(ZoneKind kind) {
+const Zone* FirstZone(ZoneKind kind, int course) {
   for (const auto& z : g.zones) {
-    if (z.kind == kind) return &z;
+    if (z.kind == kind && z.course == course) return &z;
   }
   return nullptr;
+}
+
+// The finished run to the platform (fleet mode); the platform keeps the cross-server leaderboards.
+void SendRecord(const std::string& payload) {
+  const auto* f = static_cast<const ru_fleet_v1*>(g_api->get_interface(g_api->self, RU_FLEET_IFACE_NAME, 1));
+  if (!f || f->struct_size < offsetof(ru_fleet_v1, send_event) + sizeof(f->send_event) || !f->send_event) return;
+  if (f->get_status) {
+    ru_fleet_status st{};
+    st.struct_size = sizeof(st);
+    if (!f->get_status(&st)) return;  // standalone: no platform
+  }
+  if (!f->send_event("movement.record", payload.c_str(), 0, RU_FLEET_RELIABLE)) {
+    ru_logf(g_api, RU_LOG_WARN, "fleet: movement.record not queued");
+  }
 }
 
 void ApplyModeCvars() {
@@ -240,9 +274,11 @@ void FinishRun(int slot, double now) {
   p.struct_size = sizeof(p);
   if (!g_api->get_player(g_api->self, slot, &p) || p.steamid64 == 0) return;
   const int64_t ms = static_cast<int64_t>((now - r.startedAt) * 1000.0 + 0.5);
-  const Finish f = AddRun(&g.records, g.map, ModeName(g.mode), p.steamid64, p.name, ms, static_cast<int64_t>(std::time(nullptr)));
+  const int64_t date = static_cast<int64_t>(std::time(nullptr));
+  const Finish f = AddRun(&g.records, g.map, CourseKey(ModeName(g.mode), r.course), p.steamid64, p.name, ms, date);
   g.dirty = true;
-  std::string line = std::string(p.name) + " finished " + g.map + " in " + FormatTime(ms);
+  SendRecord(RecordPayload(g.map, ModeName(g.mode), r.course, p.steamid64, p.name, ms, r.teleports, date));
+  std::string line = std::string(p.name) + " finished " + g.map + (r.course > 0 ? " " + CourseName(r.course) : "") + " in " + FormatTime(ms);
   if (g.mode == Mode::Kz) line += r.teleports > 0 ? " (" + std::to_string(r.teleports) + " TP)" : " (pro)";
   if (f.serverRecord) line += ". New server record!";
   else if (f.personalBest && f.previousMs > 0) line += ". New personal best (-" + FormatTime(f.previousMs - ms) + "), rank " + std::to_string(f.rank) + ".";
@@ -308,17 +344,19 @@ void OnTick(void*, const ru_tick_info* t) {
       r.inStart = false;
       continue;
     }
-    const bool inStart = ZoneAt(p, ZoneKind::Start) != nullptr;
+    const Zone* start = ZoneAt(p, ZoneKind::Start, -1);
+    const bool inStart = start != nullptr;
     if (inStart) {
       r.running = false;
       r.teleports = 0;
+      r.course = start->course;
     } else if (r.inStart) {
       r.running = true;  // left the start zone: go
       r.startedAt = now;
-      (void)g_api->chat_to_slot(g_api->self, slot, "Timer started.");
+      (void)g_api->chat_to_slot(g_api->self, slot, r.course > 0 ? ("Timer started (" + CourseName(r.course) + ").").c_str() : "Timer started.");
     }
     r.inStart = inStart;
-    if (r.running && ZoneAt(p, ZoneKind::End)) FinishRun(slot, now);
+    if (r.running && ZoneAt(p, ZoneKind::End, r.course)) FinishRun(slot, now);
     HudFor(slot, now);
   }
 }
@@ -348,31 +386,61 @@ void TeleportTo(int slot, const Vec3& p, const float* angles) {
   (void)g_api->player_teleport(g_api->self, slot, origin, angles, zero);
 }
 
-void OnRestart(void*, const ru_command_ctx* c) {
-  if (!CheckActive(c) || c->slot < 0) return;
-  const Zone* z = FirstZone(ZoneKind::Start);
-  if (!z) return Reply(c, "This map has no start zone the timer knows.");
+void ToStart(const ru_command_ctx* c, int course) {
+  const Zone* z = FirstZone(ZoneKind::Start, course);
+  if (!z) {
+    return Reply(c, course > 0 ? "This map has no " + CourseName(course) + "." : "This map has no start zone the timer knows.");
+  }
   g.runs[c->slot].running = false;
   TeleportTo(c->slot, Center(z->box), nullptr);
 }
 
+void OnRestart(void*, const ru_command_ctx* c) {
+  if (!CheckActive(c) || c->slot < 0) return;
+  ToStart(c, 0);
+}
+
+void OnBonus(void*, const ru_command_ctx* c) {
+  if (!CheckActive(c) || c->slot < 0) return;
+  int course = g.runs[c->slot].course > 0 ? g.runs[c->slot].course : 1;
+  if (c->argc > 1) {
+    course = ParseCourse(c->argv[1]);
+    if (course <= 0) return Reply(c, "Usage: .b <number>, e.g. .b 2");
+  }
+  ToStart(c, course);
+}
+
+// `.pb b2` / `.wr 2`: the course the player asked for; -1 after a usage reply.
+int CourseArg(const ru_command_ctx* c) {
+  if (c->argc < 2) return 0;
+  const int course = ParseCourse(c->argv[1]);
+  if (course < 0) Reply(c, std::string("Usage: ") + c->argv[0] + " [b<number>], e.g. " + c->argv[0] + " b1");
+  return course;
+}
+
+std::string Where(int course) { return course > 0 ? g.map + " " + CourseName(course) : g.map; }
+
 void OnPb(void*, const ru_command_ctx* c) {
   if (!CheckActive(c) || c->steamid64 == 0) return;
-  const auto all = Top(g.records, g.map, ModeName(g.mode), 100000);
+  const int course = CourseArg(c);
+  if (course < 0) return;
+  const auto all = Top(g.records, g.map, CourseKey(ModeName(g.mode), course), 100000);
   for (size_t i = 0; i < all.size(); ++i) {
     if (all[i].steamid64 == c->steamid64) {
-      return Reply(c, "Your best on " + g.map + ": " + FormatTime(all[i].rec.ms) + ", rank " + std::to_string(i + 1) + " of " +
-                          std::to_string(all.size()) + ".");
+      return Reply(c, "Your best on " + Where(course) + ": " + FormatTime(all[i].rec.ms) + ", rank " + std::to_string(i + 1) +
+                          " of " + std::to_string(all.size()) + ".");
     }
   }
-  Reply(c, "No time on " + g.map + " yet.");
+  Reply(c, "No time on " + Where(course) + " yet.");
 }
 
 void OnTop(void*, const ru_command_ctx* c) {
   if (!CheckActive(c)) return;
-  const auto top = Top(g.records, g.map, ModeName(g.mode), 10);
-  if (top.empty()) return Reply(c, "No times on " + g.map + " yet.");
-  Reply(c, "Top times on " + g.map + " (" + ModeName(g.mode) + "):");
+  const int course = CourseArg(c);
+  if (course < 0) return;
+  const auto top = Top(g.records, g.map, CourseKey(ModeName(g.mode), course), 10);
+  if (top.empty()) return Reply(c, "No times on " + Where(course) + " yet.");
+  Reply(c, "Top times on " + Where(course) + " (" + ModeName(g.mode) + "):");
   for (size_t i = 0; i < top.size(); ++i) {
     Reply(c, std::to_string(i + 1) + ". " + FormatTime(top[i].rec.ms) + "  " + top[i].rec.name);
   }
@@ -388,6 +456,11 @@ void OnCheckpoint(void*, const ru_command_ctx* c) {
   Run& r = g.runs[c->slot];
   r.cp = p;
   r.hasCheckpoint = true;
+  r.cpHasAngles = g_off.eyeAngles >= 0;
+  if (r.cpHasAngles) {
+    std::memcpy(r.cpAngles, static_cast<const unsigned char*>(pawn) + g_off.eyeAngles, sizeof(r.cpAngles));
+    r.cpAngles[2] = 0;  // no roll
+  }
   Reply(c, "Checkpoint saved.");
 }
 
@@ -396,7 +469,7 @@ void OnTeleport(void*, const ru_command_ctx* c) {
   Run& r = g.runs[c->slot];
   if (!r.hasCheckpoint) return Reply(c, "No checkpoint yet: .cp saves one.");
   if (r.running) ++r.teleports;
-  TeleportTo(c->slot, r.cp, nullptr);
+  TeleportTo(c->slot, r.cp, r.cpHasAngles ? r.cpAngles : nullptr);
 }
 
 void OnTimer(void*, const ru_command_ctx* c) {
@@ -446,7 +519,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     const char* name;
     ru_command_fn fn;
   };
-  for (const Cmd& c : {Cmd{".restart", &OnRestart}, Cmd{".rs", &OnRestart}, Cmd{".pb", &OnPb}, Cmd{".wr", &OnTop},
+  for (const Cmd& c : {Cmd{".restart", &OnRestart}, Cmd{".rs", &OnRestart}, Cmd{".b", &OnBonus},
+                       Cmd{".bonus", &OnBonus}, Cmd{".pb", &OnPb}, Cmd{".wr", &OnTop},
                        Cmd{".maptop", &OnTop}, Cmd{".cp", &OnCheckpoint}, Cmd{".tp", &OnTeleport}, Cmd{".timerhud", &OnTimer}}) {
     if (!api->register_chat_command(api->self, c.name, c.fn, nullptr)) {
       ru_logf(api, RU_LOG_WARN, "could not register `%s` (another plugin owns it)", c.name);

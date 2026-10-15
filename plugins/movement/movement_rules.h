@@ -21,9 +21,18 @@ std::vector<std::string> ModeCvars(Mode m);
 // A trigger or button that marks a run's start or end, from its targetname.
 enum class ZoneKind { None, Start, End };
 // Start: map_start, timer_startzone, start_zone, zone_start, s1_start, climb_startbutton,
-// startzone, ...; End: map_end, timer_endzone, end_zone, climb_endbutton, endzone, ... Stage and
-// bonus triggers (s2_start, b1_start, ...) are not the map run: None.
-ZoneKind ClassifyZone(const std::string& targetname);
+// startzone, ...; End: map_end, timer_endzone, end_zone, climb_endbutton, endzone, ... These are
+// the map run (*course = 0). Bonus courses: b1_start / b1_end, bonus1_start / bonus1_end,
+// bonus_start / bonus_end (= 1), timer_bonus2_startzone, ... (*course = N, 1..99). Stage triggers
+// (s2_start, ...) are not a run: None.
+ZoneKind ClassifyZone(const std::string& targetname, int* course = nullptr);
+
+// The records key for a mode and course: "surf" for the map run, "surf.b1" for bonus 1.
+std::string CourseKey(const std::string& mode, int course);
+// "map" / "bonus 1".
+std::string CourseName(int course);
+// A player's `.wr b2` / `.wr 2` / `.wr bonus2` argument: the course (0 = the map run), -1 = not a course.
+int ParseCourse(const std::string& arg);
 
 struct Vec3 {
   float x = 0, y = 0, z = 0;
@@ -61,6 +70,10 @@ struct Ranked {
   Record rec;
 };
 std::vector<Ranked> Top(const Records& r, const std::string& map, const std::string& mode, size_t n);
+
+// The `movement.record` fleet payload (protocol/v1/messages/movement.record.json) for a finished run.
+std::string RecordPayload(const std::string& map, const std::string& mode, int course, uint64_t steamid64,
+                          const std::string& name, int64_t ms, int teleports, int64_t finishedAt);
 
 std::string Serialize(const Records& r);
 bool Deserialize(const std::string& text, Records* out);

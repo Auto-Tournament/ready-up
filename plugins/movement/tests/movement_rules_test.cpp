@@ -31,6 +31,23 @@ int main() {
   CHECK(ClassifyZone("climb_startbutton") == ZoneKind::Start);
   CHECK(ClassifyZone("s2_start") == ZoneKind::None);
   CHECK(ClassifyZone("") == ZoneKind::None);
+  int course = -1;
+  CHECK(ClassifyZone("map_start", &course) == ZoneKind::Start && course == 0);
+  CHECK(ClassifyZone("b1_start", &course) == ZoneKind::Start && course == 1);
+  CHECK(ClassifyZone("B2_End", &course) == ZoneKind::End && course == 2);
+  CHECK(ClassifyZone("bonus_start", &course) == ZoneKind::Start && course == 1);
+  CHECK(ClassifyZone("bonus3_endzone", &course) == ZoneKind::End && course == 3);
+  CHECK(ClassifyZone("timer_bonus1_startzone", &course) == ZoneKind::Start && course == 1);
+  CHECK(ClassifyZone("b1_stage2", &course) == ZoneKind::None);
+  CHECK(ClassifyZone("button_1", &course) == ZoneKind::None);
+  CHECK(CourseKey("surf", 0) == "surf" && CourseKey("surf", 2) == "surf.b2");
+  CHECK(ParseCourse("") == 0 && ParseCourse("b2") == 2 && ParseCourse("bonus1") == 1 && ParseCourse("3") == 3);
+  CHECK(ParseCourse("x") == -1 && ParseCourse("b") == -1);
+  {
+    const std::string j = RecordPayload("surf_mesa", "surf", 1, 76561198000000001ull, "Ann", 62345, 0, 1790000000);
+    CHECK(j.find("\"steamid64\":\"76561198000000001\"") != std::string::npos);
+    CHECK(j.find("\"course\":1") != std::string::npos && j.find("\"time_ms\":62345") != std::string::npos);
+  }
 
   Box b{{0, 0, 0}, {100, 100, 50}};
   CHECK(Inside(b, {50, 50, 10}, 0));

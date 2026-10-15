@@ -79,7 +79,30 @@ std::vector<std::string> ModeCvars(Mode m) {
   return c;
 }
 
-ZoneKind ClassifyZone(const std::string& targetname) {
+namespace {
+
+// "b1_start" / "bonus1_start" / "bonus_start" / "timer_bonus1_startzone": the bonus number and the
+// rest after it ("start", "startzone", ...); 0 when the name is no bonus.
+int BonusPrefix(const std::string& n, std::string* rest) {
+  std::string s = n;
+  if (s.rfind("timer_", 0) == 0) s = s.substr(6);
+  size_t i = 0;
+  if (s.rfind("bonus", 0) == 0) i = 5;
+  else if (s.size() > 1 && s[0] == 'b' && std::isdigit(static_cast<unsigned char>(s[1]))) i = 1;
+  else return 0;
+  int num = 0;
+  size_t j = i;
+  while (j < s.size() && std::isdigit(static_cast<unsigned char>(s[j])) && j - i < 2) num = num * 10 + (s[j++] - '0');
+  if (j == i) num = 1;  // bonus_start
+  if (j >= s.size() || s[j] != '_' || num < 1) return 0;
+  *rest = s.substr(j + 1);
+  return num;
+}
+
+}  // namespace
+
+ZoneKind ClassifyZone(const std::string& targetname, int* course) {
+  if (course) *course = 0;
   const std::string n = Lower(targetname);
   if (n.empty()) return ZoneKind::None;
   static const char* const kStart[] = {"map_start", "timer_startzone", "start_zone", "zone_start", "startzone",
@@ -92,7 +115,35 @@ ZoneKind ClassifyZone(const std::string& targetname) {
   for (const char* s : kEnd) {
     if (n == s) return ZoneKind::End;
   }
+  std::string rest;
+  const int bonus = BonusPrefix(n, &rest);
+  if (bonus > 0) {
+    ZoneKind k = ZoneKind::None;
+    if (rest == "start" || rest == "startzone" || rest == "start_zone" || rest == "zone_start") k = ZoneKind::Start;
+    if (rest == "end" || rest == "endzone" || rest == "end_zone" || rest == "zone_end") k = ZoneKind::End;
+    if (k != ZoneKind::None && course) *course = bonus;
+    return k;
+  }
   return ZoneKind::None;
+}
+
+std::string CourseKey(const std::string& mode, int course) {
+  return course > 0 ? mode + ".b" + std::to_string(course) : mode;
+}
+
+std::string CourseName(int course) { return course > 0 ? "bonus " + std::to_string(course) : "map"; }
+
+int ParseCourse(const std::string& arg) {
+  std::string a = Lower(arg);
+  if (a.empty() || a == "map" || a == "main") return 0;
+  if (a.rfind("bonus", 0) == 0) a = a.substr(5);
+  else if (a[0] == 'b') a = a.substr(1);
+  if (a.empty() || a.size() > 2) return -1;
+  for (char c : a) {
+    if (!std::isdigit(static_cast<unsigned char>(c))) return -1;
+  }
+  const int n = std::stoi(a);
+  return n >= 1 ? n : -1;
 }
 
 bool Inside(const Box& b, const Vec3& p, float pad) {
@@ -149,6 +200,26 @@ Finish AddRun(Records* r, const std::string& map, const std::string& mode, uint6
     if (all[i].steamid64 == steamid64) f.rank = static_cast<int>(i) + 1;
   }
   return f;
+}
+
+std::string RecordPayload(const std::string& map, const std::string& mode, int course, uint64_t steamid64,
+                          const std::string& name, int64_t ms, int teleports, int64_t finishedAt) {
+  Json p = Json::Object();
+  p["map"] = map;
+  p["mode"] = mode;
+  p["course"] = course;
+  p["steamid64"] = std::to_string(steamid64);
+  std::string n = name;
+  if (n.size() > 64) {
+    size_t cut = 64;
+    while (cut > 0 && (static_cast<unsigned char>(n[cut]) & 0xC0) == 0x80) --cut;  // whole UTF-8 characters
+    n.resize(cut);
+  }
+  p["name"] = n;
+  p["time_ms"] = ms;
+  p["teleports"] = teleports;
+  p["finished_at"] = finishedAt;
+  return p.Dump();
 }
 
 std::string Serialize(const Records& r) {
