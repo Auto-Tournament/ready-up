@@ -354,6 +354,7 @@ struct WeaponState {
   // A knife swapped to another knife is painted again here: the client rebuilds the model from
   // the new VData after the first paint and drew it vanilla (a T-side karambit, 2026-10-15).
   long long repaintAt = 0;
+  int repaints = 0;  // repaint passes so far (a knife CS2 put back after a team change is swapped again)
 };
 
 // Cosmetics (agent model, gloves, default_gloves bodygroup) are applied on these ticks after the
@@ -673,6 +674,8 @@ void ProcessPlayer(int slot, void* controller) {
         bool legacy = false;
         (void)ProcessWeapon(again, steamid64, team, /*late=*/true, &legacy);
         if (legacy) st.legacyPending = true;
+        // CS2 put the stock knife back (after a team change): swapped again, so look again.
+        if (g_lastSwappedKnife && ++st.repaints < 4) st.repaintAt = g_tick + 16;
       }
       continue;
     }
