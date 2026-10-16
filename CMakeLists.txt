@@ -411,6 +411,12 @@ target_include_directories(readyup_stay_awake_test PRIVATE ${CMAKE_SOURCE_DIR}/c
 target_compile_options(readyup_stay_awake_test PRIVATE -Wall -Wextra)
 add_test(NAME stay_awake COMMAND readyup_stay_awake_test)
 
+# Who is connected, from log lines (core/src/readyup/slot_registry.h).
+add_executable(readyup_slot_registry_test tests/slot_registry_test.cpp core/src/readyup/slot_registry.cpp)
+target_include_directories(readyup_slot_registry_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
+target_compile_options(readyup_slot_registry_test PRIVATE -Wall -Wextra)
+add_test(NAME slot_registry COMMAND readyup_slot_registry_test)
+
 # Plugin time per server frame, `ru perf` (core/src/readyup/perf_stats.h).
 add_executable(readyup_perf_stats_test tests/perf_stats_test.cpp core/src/readyup/perf_stats.cpp)
 target_include_directories(readyup_perf_stats_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
