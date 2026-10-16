@@ -936,6 +936,15 @@ void RunDeferredRestore() {
   if (MatchFeaturesRoundOver()) return;
   DeferredRestore d = std::move(g_deferredRestore);
   g_deferredRestore = DeferredRestore{};
+  // A local crash-recovery restore that waited for this round, while the platform's failover
+  // resume already restored the match: running it would restore the round a second time, rounds
+  // after the resume. That moved players to the wrong sides and ended a series at a wrong score
+  // (t3-shuffle-r4-m4, NTLAN 2026-10-16).
+  if (d.reason == "recovery" && (g_resumeActive || g_asg.active)) {
+    Print("fleet: dropped the local recovery restore of map %d round %d; the platform resumed the match\n",
+          d.mapNumber, d.round);
+    return;
+  }
   Print("fleet: next round started; running the restore of map %d round %d\n", d.mapNumber, d.round);
   (void)DoRestoreNow(d.mapNumber, d.round, d.file, d.sha, d.by, d.reason, d.extra, d.scoreT1, d.scoreT2);
 }
@@ -2161,6 +2170,12 @@ bool RestoreRoundFromLocalBackup(int round, const std::string& by, const std::st
   }
   if (round < 1) {
     if (err) *err = "round must be >= 1";
+    return false;
+  }
+  // The platform owns a match it assigned (or resumes): its match.assign / resume restores it.
+  // Local crash recovery must not restore it again on top (a round restored twice, 2026-10-16).
+  if (reason == "recovery" && (g_resumeActive || g_asg.active)) {
+    if (err) *err = "the platform resumes this match";
     return false;
   }
   const int mapNumber = std::max(1, MatchStateGet().map_number);
