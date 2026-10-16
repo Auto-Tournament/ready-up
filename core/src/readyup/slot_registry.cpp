@@ -106,6 +106,16 @@ void ObserveHuman(int userid, uint64_t steamid64, const std::string& name, int t
   if (steamid64 == 0) return;
   const auto now = std::chrono::steady_clock::now();
   std::lock_guard<std::mutex> lk(g_humanMu);
+  // A userid belongs to one live client: whoever held it before is gone, even when their
+  // disconnect line never came (a client stuck "challenging"). The stale entry kept a userid with
+  // a steamid off the roster, the whitelist kicked that userid every 3 s, and the kick hit the
+  // rostered player who got the number next (NTLAN, 2026-10-16).
+  if (userid >= 0) {
+    for (auto it = g_humans.begin(); it != g_humans.end();) {
+      if (it->first != steamid64 && it->second.userid == userid) it = g_humans.erase(it);
+      else ++it;
+    }
+  }
   auto& h = g_humans[steamid64];
   h.steamid64 = steamid64;
   if (userid >= 0) h.userid = userid;
