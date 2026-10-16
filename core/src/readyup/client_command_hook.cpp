@@ -115,6 +115,13 @@ static int TeamFromSwitchLine(const std::string& line) {
   return TeamFromLogName(line.substr(to + 5, end - (to + 5)));
 }
 
+// A line that starts (or completes) a player's connection. Not `STEAM USERID validated`: the
+// validation can be logged after a player who was kicked while connecting has gone.
+static bool IsConnectLine(const std::string& line) {
+  return line.find("\" connected, address \"") != std::string::npos ||
+         line.find("\" entered the game") != std::string::npos;
+}
+
 static void HandleLogLine(const char* lineCStr) {
   if (!lineCStr) return;
   std::string line(lineCStr);
@@ -165,6 +172,12 @@ static void HandleLogLine(const char* lineCStr) {
 
   // Only treat as a player header if it looks like one.
   if (header.find('<') != std::string::npos && steamid64 != 0) {
+    const bool leaving = !isChat && line.find("\" disconnected (reason") != std::string::npos;
+    // CS2 logs more lines for a player right after their disconnect (`triggered
+    // "Dropped_The_Bomb"`, `committed suicide`). Re-adding them from those left a ghost with
+    // their slot number: the whitelist kicked whoever took that number next, so rostered
+    // players were kicked on every join (2026-10-16). Only a connect line brings them back.
+    if (!AcceptHumanLogLine(steamid64, leaving, !isChat && IsConnectLine(line))) return;
     ObserveSlotIdentity(slot, steamid64, name);
     int team = TeamFromHeader(header);
     const int switched = isChat ? -1 : TeamFromSwitchLine(line);
@@ -190,7 +203,7 @@ static void HandleLogLine(const char* lineCStr) {
     }
     // `"Name<2><[U:1:x]><CT>" disconnected (reason ...)`: the player leaves the registry
     // (plugins get RU_EVENT_PLAYER_DISCONNECT and drop their own state, e.g. ready).
-    if (!isChat && line.find("\" disconnected (reason") != std::string::npos) {
+    if (leaving) {
       ForgetHuman(steamid64);
       ForgetSlotIdentitiesForSteam(steamid64);
       ObserveSlotTeamFromLog(slot, 0);

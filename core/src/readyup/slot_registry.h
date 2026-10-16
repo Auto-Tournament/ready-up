@@ -61,7 +61,10 @@ void ForgetSlotIdentitiesForSteam(uint64_t steamid64);
 // Connected humans, keyed by SteamID64.
 //
 // Exactly one entry per connected human. Presence comes from log lines (added
-// by any player header, removed on `disconnected (reason ...)`). This table is
+// by any player header, removed on `disconnected (reason ...)`). After a
+// disconnect only a connect line brings the player back (`AcceptHumanLogLine`): CS2
+// logs more lines for the leaving player right after (`triggered
+// "Dropped_The_Bomb"`, `committed suicide`), and those must not re-add them. This table is
 // the single source of truth for a human's team: it is fed by log lines
 // (header team / "switched from team") and by `player_team` engine events
 // (resolved to a SteamID through the event's controller), and the latest
@@ -91,7 +94,13 @@ void ObserveHuman(int userid, uint64_t steamid64, const std::string& name, int t
 bool ObserveHumanTeamFromEvent(uint64_t steamid64, int slot, int team);
 // Engine slot seen for this SteamID in an engine event (player_spawn etc).
 void ObserveHumanSlot(uint64_t steamid64, int slot);
+// Removes the human and remembers that they left (see AcceptHumanLogLine).
 void ForgetHuman(uint64_t steamid64);
+// Whether a log line with this player's header may update their presence. After
+// a disconnect (ForgetHuman), only a connect line (`connected, address`,
+// `entered the game`) does, and it ends the wait; the lines CS2
+// logs right after a disconnect are ignored. `leaving`: the disconnect line itself.
+bool AcceptHumanLogLine(uint64_t steamid64, bool leaving, bool connectLine);
 // Map load: players stay connected but have to pick a team again.
 void ResetHumanTeams();
 std::vector<HumanIdentity> ListHumans();

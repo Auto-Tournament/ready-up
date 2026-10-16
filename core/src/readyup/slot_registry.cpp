@@ -3,6 +3,7 @@
 #include <chrono>
 #include <mutex>
 #include <unordered_map>
+#include <unordered_set>
  #include <vector>
 
 namespace readyup {
@@ -16,6 +17,7 @@ std::unordered_map<int, BotIdentity> g_bots;
 
 std::mutex g_humanMu;
 std::unordered_map<uint64_t, HumanIdentity> g_humans;
+std::unordered_set<uint64_t> g_departed;  // left; no connect line since (guarded by g_humanMu)
 
 }  // namespace
 
@@ -153,6 +155,17 @@ const char* TeamSourceName(TeamSource s) {
 void ForgetHuman(uint64_t steamid64) {
   std::lock_guard<std::mutex> lk(g_humanMu);
   g_humans.erase(steamid64);
+  if (steamid64 != 0) g_departed.insert(steamid64);
+}
+
+bool AcceptHumanLogLine(uint64_t steamid64, bool leaving, bool connectLine) {
+  if (leaving) return true;
+  std::lock_guard<std::mutex> lk(g_humanMu);
+  auto it = g_departed.find(steamid64);
+  if (it == g_departed.end()) return true;
+  if (!connectLine) return false;
+  g_departed.erase(it);
+  return true;
 }
 
 void ResetHumanTeams() {
