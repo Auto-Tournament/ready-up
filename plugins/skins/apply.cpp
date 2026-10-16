@@ -126,6 +126,10 @@ uint64_t NextItemId() {
   return ++next;
 }
 
+// The stock knives' item definitions: CT's "weapon_knife" and T's "weapon_knife_t".
+constexpr int kStockKnifeCt = 42;
+constexpr int kStockKnifeT = 59;
+
 bool IsKnifeDesigner(const char* dn) {
   if (!dn) return false;
   return std::strncmp(dn, "weapon_knife", 12) == 0 || std::strcmp(dn, "weapon_bayonet") == 0;
@@ -285,6 +289,16 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
         }
         // Quality 3 = "unusual" (the ★ prefix); non-default knives always carry it.
         Wr<int32_t>(item, o.item_quality, 3);
+      }
+    } else if (defindex != kStockKnifeCt && defindex != kStockKnifeT) {
+      // No knife equipped (any more): the stock knife, not the last one swapped in. Unequipping
+      // left the old knife in hand (NTLAN, 2026-10-16).
+      const int stock = team == 2 ? kStockKnifeT : kStockKnifeCt;
+      if (ChangeSubclass(weapon, std::to_string(stock).c_str())) {
+        Wr<uint16_t>(item, o.item_defIndex, static_cast<uint16_t>(stock));
+        Wr<int32_t>(item, o.item_quality, 0);
+        defindex = stock;
+        changed = true;
       }
     }
   }
@@ -498,6 +512,28 @@ bool RefreshHeldWeapons(int slot) {
   return true;
 }
 
+// The player in this slot holds a knife now (a live entity in their weapon list). A refresh whose
+// knife removal has not gone through, or a second refresh racing the first, would otherwise give
+// another one: CS2 hands out a second knife rather than replacing it (two knives on one side,
+// NTLAN 2026-10-16).
+bool HoldsKnife(int slot) {
+  auto& o = Off();
+  void* controller = EntityByIndex(slot + 1);
+  if (!controller) return false;
+  void* pawn = EntityFromHandle(Rd<uint32_t>(controller, o.ctrl_playerPawn));
+  if (!pawn) return false;
+  void* ws = Rd<void*>(pawn, o.pawn_weaponServices);
+  if (!ws) return false;
+  const int count = Rd<int32_t>(ws, o.ws_myWeapons);
+  const uint32_t* handles = Rd<const uint32_t*>(ws, o.ws_myWeapons + 8);
+  if (!handles || count <= 0 || count > 64) return false;
+  for (int i = 0; i < count; ++i) {
+    void* weapon = EntityFromHandle(handles[i]);
+    if (weapon && IsKnifeDesigner(EntityDesignerName(weapon))) return true;
+  }
+  return false;
+}
+
 // Before the player loop, so the new weapons are painted in the tick they are created. Waits for
 // the loadout (up to ~2 s after a `.skins reload`) so they get it on first sight.
 void RunPendingRefresh() {
@@ -507,7 +543,12 @@ void RunPendingRefresh() {
     PendingRefresh& pr = g_refresh[slot];
     if (pr.at == 0 || g_tick < pr.at) continue;
     if (!IsLoaded(pr.steamid64) && g_tick < pr.at + 128) continue;
+    const bool hasKnife = HoldsKnife(slot);
     for (const PendingGive& g : pr.gives) {
+      if (hasKnife && IsKnifeDesigner(g.cls.c_str())) {
+        if (DebugOn()) Log(RU_LOG_DEBUG, "refresh: slot %d still holds a knife; not giving another", slot);
+        continue;
+      }
       void* w = g_api->player_give_item(g_api->self, slot, g.cls.c_str());
       if (!w) {
         Log(RU_LOG_WARN, "refresh: could not give %s to slot %d; weapon refresh off until restart", g.cls.c_str(), slot);
