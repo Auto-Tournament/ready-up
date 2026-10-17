@@ -30,6 +30,7 @@
 #include <cstring>
 #include <fstream>
 #include <map>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
@@ -77,6 +78,15 @@ double g_driftCheckAt = -1;
 std::set<std::string> g_baselineAsked;  // cvar_query in flight
 std::set<std::string> g_mismatchLogged;
 std::string g_lastMode;
+// match.update set_rules with rules.broadcast: applied once the match plugin reports that config_rev
+// (it may refuse the update: compare-and-set).
+struct PendingUpdate {
+  std::string matchId;
+  int64_t configRev = 0;
+  Profile profile;
+  double since = 0;
+};
+std::optional<PendingUpdate> g_update;
 std::vector<ru_handle> g_observers;
 
 // Fleet link.
@@ -299,7 +309,8 @@ bool MatchMode(const std::string& m) {
 
 // The platform match id the match plugin has loaded ("" = none): MatchState.match_id of a fleet
 // match, else the status summary's slug (the platform id too, AssignToMatConfig).
-std::string LoadedMatchId(const std::string& mode) {
+std::string LoadedMatchId(const std::string& mode, int64_t* configRev = nullptr) {
+  if (configRev) *configRev = -1;
   if (!MatchMode(mode)) return {};
   const ru_match_v1* m = Match();
   if (!m || !m->get_status) return {};
@@ -312,6 +323,9 @@ std::string LoadedMatchId(const std::string& mode) {
     const auto v = readyup::minijson::Parse(j, &pe);
     if (!v) continue;
     const Value* id = v->get(j == st.state_json ? "match_id" : "slug");
+    if (j == st.state_json && configRev) {
+      if (const Value* r = v->get("config_rev"); r && r->type == Value::Type::Number) *configRev = static_cast<int64_t>(r->num);
+    }
     if (id && id->type == Value::Type::String && !id->str.empty()) return id->str;
   }
   return {};
@@ -401,6 +415,69 @@ void OnUnassign(void*, const ru_fleet_msg* msg) {
   }
 }
 
+void OnUpdate(void*, const ru_fleet_msg* msg) {
+  try {
+    if (!msg || !msg->payload_json) return;
+    readyup::minijson::ParseError pe;
+    const auto v = readyup::minijson::Parse(msg->payload_json, &pe);
+    if (!v || v->type != Value::Type::Object) return;
+    const Value* id = v->get("match_id");
+    const Value* rev = v->get("config_rev");
+    const Value* ops = v->get("ops");
+    if (!id || id->type != Value::Type::String || !rev || rev->type != Value::Type::Number || !ops ||
+        ops->type != Value::Type::Array) {
+      return;
+    }
+    MatchProfile* target = g_tracker.active && g_tracker.active->matchId == id->str ? &*g_tracker.active
+                           : g_tracker.pending && g_tracker.pending->matchId == id->str ? &*g_tracker.pending
+                                                                                         : nullptr;
+    if (!target) return;
+    Profile next = target->profile;
+    bool any = false;
+    for (const auto& op : ops->arr) {
+      const Value* name = op.get("op");
+      const Value* rules = op.get("rules");
+      if (!name || name->type != Value::Type::String || name->str != "set_rules" || !rules) continue;
+      bool touched = false;
+      std::string err;
+      if (!ApplyBroadcastPatch(*rules, &next, &touched, &err)) {
+        ru_logf(g_api, RU_LOG_WARN, "tv: match.update for %s: %s (broadcast unchanged)", id->str.c_str(), err.c_str());
+        return;
+      }
+      any = any || touched;
+    }
+    if (!any) return;
+    if (const std::string c = bc::ConflictWithMatchCvars(next, target->delayFloor, target->matchCvars); !c.empty()) {
+      ru_logf(g_api, RU_LOG_WARN, "tv: match.update for %s: rules.broadcast disagrees with the match's cvars on %s (broadcast unchanged)",
+              id->str.c_str(), c.c_str());
+      return;
+    }
+    const bool isActive = g_tracker.active.has_value() && target == &*g_tracker.active;
+    if (!isActive) {
+      target->profile = next;  // not loaded yet: the update rides along
+      return;
+    }
+    g_update = PendingUpdate{id->str, static_cast<int64_t>(rev->num), next, g_now};
+  } catch (...) {
+  }
+}
+
+// The match plugin took the update (its config_rev reached it): the new broadcast profile applies.
+void MaybeApplyUpdate(int64_t loadedRev) {
+  if (!g_update) return;
+  if (!g_tracker.active || g_tracker.active->matchId != g_update->matchId || g_now - g_update->since > 30.0) {
+    g_update.reset();
+    return;
+  }
+  if (loadedRev < g_update->configRev) return;
+  g_tracker.active->profile = g_update->profile;
+  g_update.reset();
+  ru_logf(g_api, RU_LOG_INFO, "tv: match %s: broadcast profile updated to %s", g_tracker.active->matchId.c_str(),
+          bc::ProfileJson(g_tracker.active->profile).c_str());
+  PersistActive();
+  Apply(true);
+}
+
 void FleetLink() {
   const ru_fleet_v1* f = Fleet();
   if (!f || !FleetHas<decltype(f->instance_id)>(f, offsetof(ru_fleet_v1, instance_id)) || !f->instance_id) {
@@ -413,7 +490,8 @@ void FleetLink() {
   g_fleetInstance = inst;
   g_fleetHandlers.clear();  // fleet.so reloaded: its registrations are gone
   if (!FleetHas<decltype(f->register_handler)>(f, offsetof(ru_fleet_v1, register_handler))) return;
-  for (const auto& t : {std::make_pair("match.assign", &OnAssign), std::make_pair("match.unassign", &OnUnassign)}) {
+  for (const auto& t : {std::make_pair("match.assign", &OnAssign), std::make_pair("match.update", &OnUpdate),
+                        std::make_pair("match.unassign", &OnUnassign)}) {
     if (const uint64_t h = f->register_handler(t.first, t.second, nullptr)) g_fleetHandlers.push_back(h);
   }
   if (FleetHas<decltype(f->add_capability)>(f, offsetof(ru_fleet_v1, add_capability)) && f->add_capability) {
@@ -704,7 +782,9 @@ void OnFrame(void*, const ru_tick_info* t) {
       }
       g_lastMode = mode;
     }
-    OnTrackEvent(g_tracker.Observe(LoadedMatchId(mode), g_now));
+    int64_t loadedRev = -1;
+    OnTrackEvent(g_tracker.Observe(LoadedMatchId(mode, &loadedRev), g_now));
+    MaybeApplyUpdate(loadedRev);
     if (g_now - g_lastGuestPush >= 5.0) {
       g_lastGuestPush = g_now;
       PushGuests();
@@ -889,6 +969,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   // The match profile of a match that was loaded before a restart / reload: it waits for the match
   // plugin to report that match again.
   g_restore.reset();
+  g_update.reset();
   g_driftCheckAt = -1;
   MatchProfile saved;
   if (ParseMatchProfile(ReadFile(ActivePath()), &saved)) g_restore = std::move(saved);

@@ -194,8 +194,14 @@ static void ApplyTests() {
   Applier b = a;
   b.baseline.erase("tv_secure_bypass");
   plan = PlanApply(b, {}, false);
-  CHECK(Has(plan.commands, "tv_delay 10") && Has(plan.commands, "tv_secure_bypass 0") && plan.commands.size() == 2);
-  CHECK(plan.notes.size() == 1 && Contains(plan.notes[0], "sv_deltaticks_enforce") && b.applied.empty());
+  CHECK(Has(plan.commands, "tv_delay 10") && Has(plan.commands, "tv_secure_bypass 0") &&
+        Has(plan.commands, "sv_deltaticks_enforce 2") && plan.commands.size() == 3);  // CS2's defaults
+  CHECK(plan.notes.empty() && b.applied.empty());
+  Applier nb;
+  nb.baselineUnknown = {"tv_maxclients"};
+  (void)PlanApply(nb, {{"tv_maxclients", "8"}}, false);
+  plan = PlanApply(nb, {}, false);
+  CHECK(plan.commands.empty() && plan.notes.size() == 1 && Contains(plan.notes[0], "tv_maxclients"));
   plan = PlanApply(a, {}, false);
   CHECK(Has(plan.commands, "tv_secure_bypass 0") && Has(plan.commands, "tv_delay 10"));
   // Restoring a baseline equal to what is set sends nothing.
@@ -265,6 +271,22 @@ static void TrackerTests() {
   CHECK(u.active->matchId == "m_1" && u.pending);
   CHECK(u.Observe("m_2", 3) == TrackEvent::Activated && u.active->matchId == "m_2");
 
+  // match.update set_rules: rules.broadcast merge patch.
+  {
+    readyup::minijson::ParseError pe;
+    auto J = [&](const char* j) { return *readyup::minijson::Parse(j, &pe); };
+    Profile b;
+    b.delay_seconds = 105;
+    b.relay_voice = true;
+    bool touched = false;
+    std::string err;
+    CHECK(ApplyBroadcastPatch(J(R"({"knife":{"side_pick_seconds":45}})"), &b, &touched, &err) && !touched && b.delay_seconds == 105);
+    CHECK(ApplyBroadcastPatch(J(R"({"broadcast":{"allow_insecure_observers":true,"relay_voice":null}})"), &b, &touched, &err) &&
+          touched && b.allow_insecure_observers == true && !b.relay_voice && b.delay_seconds == 105);
+    CHECK(!ApplyBroadcastPatch(J(R"({"broadcast":{"delay_seconds":"x"}})"), &b, &touched, &err) && b.delay_seconds == 105);
+    CHECK(ApplyBroadcastPatch(J(R"({"broadcast":null})"), &b, &touched, &err) && touched && b.Empty());
+  }
+
   // active.json round trip.
   MatchProfile x;
   m.override_.max_clients = 3;
@@ -322,6 +344,13 @@ static void EngineViewTests() {
   CHECK(ParseTvStatusLine("GOTV[0]: Master \"x\", delay 90", &g) && g.delay == 90);
   CHECK(!ParseTvStatusLine("GOTV[1]: Local Slots 4, Spectators 2, Proxies 0", &g) && g.clients == 0);  // instance 1
   TvStatus off;
+  // CS2 1.41.9.1 (live server, 2026-10-17).
+  TvStatus live;
+  CHECK(ParseTvStatusLine("Master \"SourceTV\", delay 105, frames 1026 / ticks 1026", &live) && live.delay == 105);
+  CHECK(ParseTvStatusLine("Local Slots 8, Spectators 1, Proxies 0", &live) && live.clients == 1 && live.slots == 8);
+  CHECK(ParseTvStatusLine("Total Slots 8, Spectators 1, Proxies 0", &live) && live.clients == 1);
+  CHECK(!ParseTvStatusLine("   0    01:16    0    0     active 1572864 192.168.199.229:53211 'NTLAN'", &live) &&
+        live.clients == 1 && !live.port);
   CHECK(ParseTvStatusLine("SourceTV not active.", &off) && off.active == false);
   CHECK(ParseTvStatusLine("GOTV[0]: not active", &off) && off.active == false);
   TvStatus none;

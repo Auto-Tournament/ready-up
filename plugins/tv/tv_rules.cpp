@@ -107,7 +107,9 @@ Plan PlanApply(Applier& a, const std::vector<std::pair<std::string, std::string>
     if (b != a.baseline.end()) {
       if (b->second != kv.second || force) p.commands.push_back(kv.first + " " + b->second);
     } else if (kv.first == "tv_secure_bypass") {
-      p.commands.push_back("tv_secure_bypass 0");  // the safe value
+      p.commands.push_back("tv_secure_bypass 0");  // the safe value (CS2 default)
+    } else if (kv.first == "sv_deltaticks_enforce") {
+      p.commands.push_back("sv_deltaticks_enforce 2");  // CS2 default (help sv_deltaticks_enforce, 1.41.9.1)
     } else {
       p.notes.push_back(kv.first + " left at " + kv.second + " (its value before Ready Up changed it is not known)");
     }
@@ -224,6 +226,29 @@ TrackEvent MatchTracker::Observe(const std::string& loaded, double now) {
     return TrackEvent::Deactivated;
   }
   return ev;
+}
+
+bool ApplyBroadcastPatch(const Value& rulesPatch, Profile* p, bool* touched, std::string* err) {
+  if (touched) *touched = false;
+  if (rulesPatch.type != Value::Type::Object) return true;
+  const Value* b = rulesPatch.get("broadcast");
+  if (!b) return true;
+  if (touched) *touched = true;
+  if (b->type == Value::Type::Null) {
+    *p = Profile{};
+    return true;
+  }
+  Profile set;
+  std::vector<Key> cleared;
+  std::string e;
+  if (!bc::ParseProfile(*b, &set, &e, &cleared)) {
+    if (err) *err = "rules.broadcast: " + e;
+    return false;
+  }
+  Profile next = bc::Overlay(*p, set);
+  for (Key k : cleared) next.Clear(k);
+  *p = next;
+  return true;
 }
 
 std::string MatchProfileJson(const MatchProfile& m) {

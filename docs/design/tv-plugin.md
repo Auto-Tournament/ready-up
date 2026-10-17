@@ -13,7 +13,13 @@ LHM documents (guide.lhm.gg, Counter-Strike page) is two server cvars:
 - `tv_secure_bypass 1`: insecure clients may connect to GOTV (only GOTV; the game port stays
   VAC-secured).
 - `sv_deltaticks_enforce 0`: stops the "tick ack out of order" / "false tick interval" kicks those
-  observers get.
+  observers get. CS2 1.41.9.1 `help sv_deltaticks_enforce`: default **2** = kick every client that
+  acks delta ticks out of order, 1 = kick only TV clients, 0 = kick nobody. There is no value that
+  relaxes it for TV only, so 0 relaxes it for players too.
+
+Checked on the live server (2026-10-17): `tv_secure_bypass 1` took effect mid-map (the insecure LHM
+client joined GOTV, nobody else reconnected) and was still 1 after the next map loaded. Re-applying
+on map load stays anyway (cheap; a cfg can still reset it).
 
 They were typed into the console by hand. They can reset on a map change or a cfg exec, and
 re-applying them from outside the server (the platform or csm sending `exec` lines on a timer)
@@ -50,8 +56,8 @@ own its broadcast settings and put them back itself.
 - Managing `tv_password`. The platform sets it per match in `config.cvars` (the match plugin
   applies it). tv.so only reports whether one is set.
 - Anything for players: no client checks, no change to VAC for the game port.
-- Standalone (non-fleet) per-match profiles: a match loaded from a file (`ru match load`) gets
-  the server profile only.
+- Per-match profiles for matches loaded from a file (`ru match load`): they use the server
+  defaults.
 
 ## Settings
 
@@ -85,12 +91,12 @@ how often `tv_status` is read for the client count while the fleet link is up; 0
 
 - **Baseline.** Before tv.so first changes a cvar it reads its current value (`cvar_query`, ru_api
   1.11). When nobody sets that key any more (unassign, `ru tv set <key> default`) it writes the
-  baseline back. Baselines and what is applied survive `ru plugin reload tv` (core stash). If a
-  baseline could not be read, `tv_secure_bypass` goes back to `0` (the safe value) and the other
-  cvars are left as they are (logged).
+  baseline back. Baselines and what is applied survive `ru plugin reload tv` (core stash). Without
+  a baseline, `tv_secure_bypass` goes back to `0` and `sv_deltaticks_enforce` to `2` (CS2's
+  defaults); the other cvars are left as they are (logged).
 - **Re-apply triggers.** Map start (now, +2 s, +8 s: after `server.cfg`, the game mode cfgs and
   the match plugin's `EnqueueAfterCfg`), `Match_Start`, a change of the match plugin's ru mode
-  (+1 s, +5 s), assign / unassign / any setting change (now), `ru tv reapply`, and an observed
+  (+1 s, +5 s), assign / `match.update` / unassign / any setting change (now), `ru tv reapply`, and an observed
   console line that sets an owned cvar to another value (+1 s). A re-apply sends every desired
   value again (cheap, idempotent); there is no cvar polling.
 - **Verify.** 3 s after a re-apply tv.so reads the owned cvars back and reports what the engine
@@ -203,10 +209,12 @@ caster list in the server settings.
   GOTV port. The game port still refuses them; VAC for players is unchanged. Nothing in tv.so
   touches `-insecure` or `sv_lan`. A server started `-insecure` itself is not VAC-secured at all;
   `ru tv status` and `tvState.server_insecure` say so, so nobody mistakes the bypass for the cause.
-- **`sv_deltaticks_enforce 0` is server-wide.** It relaxes a tick-ack sanity check for every
-  client, players included, not only GOTV. Valve does not document what it guards against. That is
-  why it is never set on its own: it is on only while `allow_insecure_observers` is on, and goes
-  back with it. Leave the switch off unless an HLAE / LHM observer needs it.
+- **`sv_deltaticks_enforce 0` is server-wide.** The default 2 kicks any client that acks delta
+  ticks out of order; 0 kicks nobody, players included (1 kicks only TV clients: the opposite of
+  what is needed, so there is no GOTV-only relax). So `allow_insecure_observers` lowers a check for
+  everyone. It is never set on its own: only while `allow_insecure_observers` is on, and on unassign
+  / switch-off it goes back to its value before (or 2, the CS2 default, when that is not known).
+  Leave the switch off unless an HLAE / LHM observer needs it.
 - **GOTV delay.** Never lowered below the match's own floor (see above).
 - **GOTV password.** tv.so never reads `tv_password` with `cvar_query` (the engine would print it
   to the console log) and never logs or sends it. `password_set` comes from the assign's
@@ -237,17 +245,21 @@ so a stage of viewers does not load the game server.
   port in the platform's watch links instead of the master's. tv.so could report
   `relay_password_set` and the master's `tv_relay*` cvars once that exists.
 
+## Settled (live server, CS2 1.41.9.1, 2026-10-17)
+
+- `tv_status` prints `Master "SourceTV", delay 105, frames 1026 / ticks 1026`, `Local Slots 8,
+  Spectators 1, Proxies 0`, `Total Slots 8, Spectators 1, Proxies 0`, then one line per client.
+  The parser reads the delay and the Local spectators (the tests carry these lines).
+- `tv_secure_bypass` works mid-map and survived a map change; re-applying on map load stays.
+- `sv_deltaticks_enforce` defaults to 2 (see Security notes); restored to 2 when no earlier value
+  is known.
+- `tv_delay1` / the second GOTV instance stays out of the profile.
+- Matches loaded from a file use the server defaults.
+- `match.update` may change `rules.broadcast`: a `set_rules` op whose `rules` has `broadcast` is a
+  merge patch (null clears a key, `broadcast: null` the whole profile). tv.so applies it once the
+  match plugin reports the update's `config_rev` (compare-and-set: a refused update changes
+  nothing), then re-applies.
+
 ## Open questions
 
-- `tv_status` output on current CS2: the parser accepts the CS:GO shape (`Local Slots N,
-  Spectators N, Proxies N`) and a `GOTV[0]:`-prefixed variant; check it on a test server and add
-  the real line to the tests.
-- Is `tv_secure_bypass` honoured when the bypass is set after GOTV started on the map, or only at
-  map load? The re-apply at map start covers both; confirm on a test server.
-- Default of `sv_deltaticks_enforce` on current CS2 (the baseline read handles either).
-- Should `rules.broadcast` also carry `tv_delay1` / the second instance for broadcast tools that
-  use it?
-- Per-match profiles for matches loaded from a file (no fleet): add `broadcast` to the get5 /
-  MAT config shape?
-- `match.update` cannot change `rules.broadcast` today (only `tv.set {scope: match}`); does the
-  platform need it in `update` ops?
+- None of the above has run with tv.so itself yet: first run on a test server.

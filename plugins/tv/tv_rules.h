@@ -5,6 +5,7 @@
 // tv_plugin.cpp is the engine side. Design: docs/design/tv-plugin.md.
 
 #include "readyup/broadcast_profile.h"
+#include "readyup/minijson.h"
 
 #include <cstdint>
 #include <map>
@@ -36,7 +37,8 @@ struct Plan {
 // desired = cvar -> value (DesiredCvars). force = send every desired value even if tv.so already
 // set it (a map load / cfg exec may have reset it). A desired cvar tv.so has not touched yet and
 // has no baseline for goes to needBaseline instead. A cvar tv.so set that is no longer desired
-// goes back to its baseline (tv_secure_bypass to 0 without one; any other is left as it is).
+// goes back to its baseline; without one tv_secure_bypass goes to 0 and sv_deltaticks_enforce to 2
+// (CS2's defaults; 2 = kick any client that acks delta ticks out of order); any other is left.
 // Updates a.applied.
 Plan PlanApply(Applier& a, const std::vector<std::pair<std::string, std::string>>& desired, bool force);
 
@@ -84,6 +86,11 @@ struct MatchTracker {
   // loadedMatchId: what the match plugin reports now ("" = no match loaded / no match plugin).
   TrackEvent Observe(const std::string& loadedMatchId, double now);
 };
+
+// match.update `set_rules` op: its `rules` is a merge patch. rules.broadcast null clears the whole
+// profile; a key null clears that key; others are set (validated like rules.broadcast). Returns
+// false (profile unchanged) on a bad patch; *touched = the patch has a broadcast member at all.
+bool ApplyBroadcastPatch(const readyup::minijson::Value& rulesPatch, Profile* p, bool* touched, std::string* err);
 
 // Persisted (data_dir/active.json) so a server restart mid-match finds its profile again; the
 // override and password flag ride along.
