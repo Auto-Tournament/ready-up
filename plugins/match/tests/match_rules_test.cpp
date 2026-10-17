@@ -317,6 +317,23 @@ static void TestWeaponCleanup() {
   }
 }
 
+static void TestTeamHudStatus() {
+  TeamHudState a = TeamHudStatus(5, 5, 5);
+  CHECK(a.ready && a.allHere && a.here == 5 && a.total == 5);
+  a = TeamHudStatus(5, 5, 1);
+  CHECK(!a.ready && a.allHere);
+  a = TeamHudStatus(5, 4, 4);
+  CHECK(!a.ready && !a.allHere && a.here == 4 && a.total == 5);
+  a = TeamHudStatus(7, 7, 5, 5);  // substitutes: 5 ready of a full team of 5
+  CHECK(a.ready && a.allHere && a.here == 5 && a.total == 5);
+  a = TeamHudStatus(7, 6, 3, 5);
+  CHECK(!a.ready && a.allHere && a.here == 5);
+  a = TeamHudStatus(0, 0, 0);
+  CHECK(!a.ready && !a.allHere && a.total == 0);
+  a = TeamHudStatus(2, 2, 2, 5);  // 2-player roster in a 5-per-team match
+  CHECK(a.ready && a.allHere && a.total == 2);
+}
+
 static void TestSpectators() {
   CHECK(BuiltinDefaultRules().min_spectators_to_ready == 0);
   MatchRules m;
@@ -336,6 +353,7 @@ int main() {
   TestAuto5v5();
   TestForceReady();
   TestTeamReady();
+  TestTeamHudStatus();
   TestTeamNames();
   TestForfeit();
   // Warmup money top-up: scrim and match warmup only, and only when enabled.

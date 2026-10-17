@@ -56,7 +56,14 @@ struct Entry {
   bool connected = true;
 };
 
+struct TeamLine {
+  std::string name;
+  TeamHudState st;
+};
+
 struct Board {
+  bool teamView = false;  // rule team_ready: per-team lines (match warmup, not scrim, not bot fill)
+  TeamLine teams[2];      // [0] = T (side 2), [1] = CT (side 3); set when teamView
   std::string title;      // e.g. "scrim warmup"
   std::string countdown;  // e.g. "knife in 3" (empty when none)
   std::vector<Entry> entries;
@@ -212,6 +219,15 @@ static Board BuildBoard(ReadyUpMode mode, const std::optional<WebhookMatchContex
       b.total += tally.total;
     }
     b.tallied = true;
+    if (!b.scrim && !ctx->bot_fill && EffectiveRules().team_ready) {
+      b.teamView = true;
+      for (int t = 0; t < 2; ++t) {
+        const int side = ((t == 0) == team1Ct) ? 3 : 2;
+        TeamLine& tl = b.teams[side == 3 ? 1 : 0];
+        tl.name = (t == 0) ? ctx->team1_name : ctx->team2_name;
+        tl.st = TeamHudStatus(teamRoster[t], teamPresent[t], teamPresentReady[t], ctx->players_per_team);
+      }
+    }
     if (DevBotsReadyEnabled()) {
       for (const auto& bot : ListBots()) {
         if (bot.team == 3) b.botsCt++;
@@ -233,6 +249,14 @@ static Board BuildBoard(ReadyUpMode mode, const std::optional<WebhookMatchContex
 // One side's line. Entries are grouped by color (ready, not ready, not
 // connected) so each run costs one <font> tag: keeps 5v5 well under ~1 KB.
 static std::string SideLine(const Board& b, int side, uint64_t viewer) {
+  if (b.teamView) {
+    const TeamLine& t = b.teams[side == 3 ? 1 : 0];
+    std::string s = Font(side == 3 ? kCt : kT, side == 3 ? "<b>CT</b>" : "<b>T</b>");
+    if (!t.name.empty()) s += " " + Esc(t.name, 16);
+    if (t.st.ready) return s + " " + Font(kOk, "<b>&#10004; READY</b>");
+    return s + " " + Font(kNo, "&#10006; NOT READY") +
+           Font(kDim, " &#183; " + std::to_string(t.st.here) + "/" + std::to_string(t.st.total) + " here");
+  }
   std::string s = Font(side == 3 ? kCt : kT, side == 3 ? "<b>CT</b>" : "<b>T</b>");
   std::vector<const Entry*> list;
   for (const auto& e : b.entries) {
@@ -283,7 +307,20 @@ static std::string ReadyHtml(const Board& b, uint64_t viewer, const std::string&
   h.reserve(1024);
   // The viewer's own state first and big: players missed the small line under the
   // names and sat in warmup not knowing they were the one holding it up.
-  if (me && !me->ready) {
+  if (b.teamView && me) {
+    const TeamHudState& st = b.teams[me->side == 3 ? 1 : 0].st;
+    const std::string n = std::to_string(st.total);
+    if (st.ready) {
+      h += "<font class='fontSize-l' color='" + std::string(kOk) + "'><b>YOUR TEAM IS READY</b></font><br>";
+    } else if (st.allHere) {
+      h += "<font class='fontSize-xl' color='" + std::string(kNo) + "'><b>YOUR TEAM IS NOT READY</b></font><br>";
+      h += Font(kGold, "type <b>.r</b> to ready your whole team") + "<br>";
+    } else {
+      h += "<font class='fontSize-xl' color='" + std::string(kNo) + "'><b>WAITING FOR YOUR TEAM (" +
+           std::to_string(st.here) + "/" + n + " here)</b></font><br>";
+      h += Font(kGold, "one <b>.r</b> readies everyone once all " + n + " are in") + "<br>";
+    }
+  } else if (me && !me->ready) {
     h += "<font class='fontSize-xl' color='" + std::string(kNo) + "'><b>YOU ARE NOT READY</b></font><br>";
     h += Font(kGold, "type <b>.r</b> in chat to ready up") + "<br>";
   } else if (me) {

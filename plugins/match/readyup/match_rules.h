@@ -144,6 +144,17 @@ struct ReadyTally {
 };
 ReadyTally TeamReadyTally(int rosterSize, int ready, int playersPerTeam = 0);
 
+// Rule `team_ready`, the warmup HUD's per-team line. here: connected roster players (capped at the
+// full team, so substitutes never inflate it); total: the full team (FullTeamSize); ready: the team
+// is ready when every full-team slot is filled by a ready connected player.
+struct TeamHudState {
+  int here = 0;
+  int total = 0;
+  bool allHere = false;
+  bool ready = false;
+};
+TeamHudState TeamHudStatus(int rosterSize, int connected, int readyConnected, int playersPerTeam = 0);
+
 // Bot fill (match config bot_fill): bots take every empty seat and are always ready, so a team
 // waits only for the roster humans who are connected; a team with nobody connected is ready (its
 // bots play). The "x/y ready" count is those humans: ready connected over connected.
