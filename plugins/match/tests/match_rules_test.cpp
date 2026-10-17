@@ -94,6 +94,17 @@ static void TestAuto5v5() {
   CHECK(!Auto5v5PauseExpected(false, true, false, 4, 5));
   CHECK(!Auto5v5PauseExpected(true, false, false, 4, 5));
   CHECK(!Auto5v5PauseExpected(true, true, true, 4, 5));
+  // Only when CS2 really paused (2026-10-17, server-2: a stale count of 4 v 4 with 10 players on
+  // teams marked a pause at every round start, ended at freeze end).
+  CHECK(Auto5v5Decide(true, true, false, 0, 4, 4) == Auto5v5Check::Wait);
+  CHECK(Auto5v5Decide(true, true, false, 1, 4, 5) == Auto5v5Check::Mark);
+  CHECK(Auto5v5Decide(true, true, false, 1, 5, 5) == Auto5v5Check::Done);  // an admin's pause
+  CHECK(Auto5v5Decide(true, true, true, 1, 4, 5) == Auto5v5Check::Done);
+  CHECK(Auto5v5Decide(false, true, false, 1, 4, 5) == Auto5v5Check::Done);
+  CHECK(Auto5v5Decide(true, false, false, 1, 4, 5) == Auto5v5Check::Done);
+  // Engine state unknown: the counts, as before.
+  CHECK(Auto5v5Decide(true, true, false, -1, 4, 5) == Auto5v5Check::Mark);
+  CHECK(Auto5v5Decide(true, true, false, -1, 5, 5) == Auto5v5Check::Done);
   // The short side: the one with fewer players, CT on a tie; 0 when both are full.
   CHECK(Auto5v5ShortSide(5, 5) == 0);
   // An auto_5v5 pause ends by itself: both sides full for 5 s, or the time cap.

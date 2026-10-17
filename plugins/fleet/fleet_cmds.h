@@ -37,7 +37,7 @@ std::string SanitizeSay(const std::string& text, size_t maxBytes = kSayLineBytes
 // bytes, at a space where there is one (never inside a UTF-8 character). Longer text is cut.
 // Empty = nothing to say.
 std::vector<std::string> SplitSay(const std::string& text);
-// One chat line of an admin's say (as_admin / from): " \x07[ADMIN]\x01 <from>: <text>" (from in
+// One chat line of an admin's say (as_admin, optional from): " \x07[ADMIN]\x01 <from>: <text>" (from in
 // gold), or " \x07[ADMIN]\x01 <text>" without `from`. Sent raw (no Ready Up prefix).
 std::string AdminSayLine(const std::string& from, const std::string& text);
 // say {team}: "team1" -> 1, "team2" -> 2, absent / "" -> 0, anything else -> -1.

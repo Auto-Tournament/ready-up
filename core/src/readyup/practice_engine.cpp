@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <optional>
 
 namespace readyup::practice_engine {
 namespace {
@@ -65,7 +66,9 @@ bool ChangeTeam(int slot, int team, std::string* why) {
 int TeamOf(int slot) {
   void* ctrl = Controller(slot);
   if (!ctrl) return -1;
-  const auto off = SchemaFindOffset("server", "CCSPlayerController", "m_iTeamNum");
+  // Resolved once (and again only while the schema does not have it yet).
+  static std::optional<int> off;
+  if (!off) off = SchemaFindOffset("server", "CCSPlayerController", "m_iTeamNum");
   if (!off) return -1;
   // A byte (ChangeTeam itself reads it with `movzx r14d, byte [rdi+m_iTeamNum]`).
   const int team = static_cast<const unsigned char*>(ctrl)[*off];

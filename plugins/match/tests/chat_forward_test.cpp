@@ -33,6 +33,17 @@ static void TestTeamLock() {
   CHECK(!TeamMoveNeeded(3, std::nullopt, 3));
   CHECK(TeamMoveNeeded(0, std::nullopt, 3));
   CHECK(TeamMoveNeeded(2, std::nullopt, 3));
+
+  // Engine unreadable and the move does not take: 3 tries, then nothing until the team changes.
+  MoveRetryCap cap(3);
+  CHECK(cap.Allow(1, 3, 0) && cap.Allow(1, 3, 0) && cap.Allow(1, 3, 0));
+  CHECK(!cap.Allow(1, 3, 0));
+  CHECK(!cap.Allow(1, 3, 0));
+  CHECK(cap.Allow(2, 3, 0));  // per player
+  CHECK(cap.Allow(1, 3, 2));  // a team event arrived (cached team 2): tries again
+  CHECK(cap.Allow(1, 2, 2));  // a new target (side swap) too
+  cap.Forget(1);
+  CHECK(cap.Allow(1, 2, 2));
 }
 
 static void TestParse() {

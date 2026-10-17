@@ -622,11 +622,12 @@ fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Valu
     const std::vector<std::string> lines = fleet::cmds::SplitSay(MemberStr(args, "text"));
     if (lines.empty()) return Rejected("bad_args", "empty text");
     const std::string text = SanitizeSay(MemberStr(args, "text"), fleet::cmds::kSayLineBytes * fleet::cmds::kSayMaxLines);
-    // An admin's line ({from}: the admin's name, or as_admin) stands out: a red [ADMIN], no Ready Up prefix.
-    std::string from = SanitizeSay(MemberStr(args, "from"), 32);
-    while (!from.empty() && from.back() == ' ') from.pop_back();
+    // {as_admin}: an admin's line stands out, a red [ADMIN] (with {from}, the admin's name), no
+    // Ready Up prefix. Without as_admin it is the platform's own notice: plain, `from` unused.
     const fleet::json::Value* asAdminArg = Member(args, "as_admin");
-    const bool admin = !from.empty() || (asAdminArg && asAdminArg->AsBool());
+    const bool admin = asAdminArg && asAdminArg->AsBool();
+    std::string from = admin ? SanitizeSay(MemberStr(args, "from"), 32) : std::string();
+    while (!from.empty() && from.back() == ' ') from.pop_back();
     std::vector<std::string> out;
     for (const auto& l : lines) out.push_back(admin ? fleet::cmds::AdminSayLine(from, l) : l);
     const fleet::json::Value* centerArg = Member(args, "center_seconds");

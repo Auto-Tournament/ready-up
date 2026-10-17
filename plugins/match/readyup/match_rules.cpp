@@ -129,6 +129,15 @@ bool Auto5v5PauseExpected(bool ruleOn, bool liveMap, bool alreadyPaused, int ctP
   return Auto5v5ShortSide(ctPlayers, tPlayers) != 0;
 }
 
+Auto5v5Check Auto5v5Decide(bool ruleOn, bool liveMap, bool alreadyPaused, int enginePaused, int ctPlayers,
+                           int tPlayers) {
+  if (!ruleOn || !liveMap || alreadyPaused) return Auto5v5Check::Done;
+  // Paused with both sides full: someone else's pause (an admin's mp_pause_match), not auto 5v5.
+  if (enginePaused == 1) return Auto5v5ShortSide(ctPlayers, tPlayers) != 0 ? Auto5v5Check::Mark : Auto5v5Check::Done;
+  if (enginePaused == 0) return Auto5v5Check::Wait;  // not (yet) paused: look again until freeze ends
+  return Auto5v5ShortSide(ctPlayers, tPlayers) != 0 ? Auto5v5Check::Mark : Auto5v5Check::Done;
+}
+
 int Auto5v5ShortSide(int ctPlayers, int tPlayers) {
   if (ctPlayers >= kFullTeamPlayers && tPlayers >= kFullTeamPlayers) return 0;
   return ctPlayers <= tPlayers ? 3 : 2;

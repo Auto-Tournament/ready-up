@@ -135,12 +135,12 @@
             "allow_force_ready": {
               "type": "boolean"
             },
-            "team_ready": {
-              "type": "boolean",
-              "description": "default false. A rostered player's .ready readies their whole team (and .unready un-readies it) once the team has the connected players .forceready needs (min_per_team, 0 = full roster); otherwise only that player"
-            },
             "autoready": {
               "type": "boolean"
+            },
+            "team_ready": {
+              "type": "boolean",
+              "description": "one player's .ready readies their whole team (tournament matches; default false)"
             }
           }
         },

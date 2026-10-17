@@ -86,6 +86,15 @@ bool UnpauseSatisfied(bool team1Confirmed, bool team2Confirmed, bool bothRequire
 // marks that pause as type "auto_5v5". ct / t: players (humans + bots) on each side.
 constexpr int kFullTeamPlayers = 5;
 bool Auto5v5PauseExpected(bool ruleOn, bool liveMap, bool alreadyPaused, int ctPlayers, int tPlayers);
+// What the freeze-time check does (match_features.cpp), polled from the round start until the
+// freeze time ends. enginePaused: CS2's own pause state (match_status.h EngineMatchPaused: 1 / 0 /
+// -1 unknown). The pause is only marked when the engine really paused: a stale team count marked
+// one at every round start and reported "paused" to the platform (2026-10-17, server-2). Paused
+// with both sides full is someone else's pause (Done). Unknown engine state: the counts decide,
+// as before.
+enum class Auto5v5Check { Done, Wait, Mark };
+Auto5v5Check Auto5v5Decide(bool ruleOn, bool liveMap, bool alreadyPaused, int enginePaused, int ctPlayers,
+                           int tPlayers);
 // The short side (3 CT / 2 T; the one with fewer players, CT on a tie), 0 when both are full.
 int Auto5v5ShortSide(int ctPlayers, int tPlayers);
 // An auto_5v5 pause ends by itself (pure): "full" once both sides have 5 again (held for
