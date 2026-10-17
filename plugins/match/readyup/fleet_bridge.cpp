@@ -679,8 +679,35 @@ void Derive(const Json& prev, const Json& cur, std::vector<Ev>* out) {
   }
 }
 
+// Events that say nothing about MatchState: they bump live_rev (the protocol wants a rev on
+// every event.*) but carry no state diff, so a chat line does not drag the state with it.
+bool RevOnlyEvent(const std::string& type) { return type == "chat"; }
+
 void EmitAll(const Json& st, std::vector<Ev>& evs) {
   const long long epoch = g_asg.epoch;
+  if (!evs.empty() && g_stream.HasState()) {
+    const long long curMap = Int(Copy(st.Find("series")), "current_map", 1);
+    const long long curRound = Int(Copy(st.Find("round")), "number", 0);
+    for (auto it = evs.begin(); it != evs.end();) {
+      if (!RevOnlyEvent(it->type)) {
+        ++it;
+        continue;
+      }
+      Json patch;
+      long long rev = 0;
+      if (!g_stream.BumpRevOnly(&patch, &rev)) break;
+      Json p = Json::Object();
+      p["match_id"] = g_asg.match_id;
+      p["map_number"] = it->mapNumber > 0 ? static_cast<long long>(it->mapNumber) : std::max<long long>(1, curMap);
+      const long long round = it->round >= 0 ? it->round : curRound;
+      if (round > 0) p["round"] = round;
+      p["rev"] = rev;
+      p["patch"] = std::move(patch);
+      p["data"] = std::move(it->data);
+      Send("event." + it->type, p, epoch, true);
+      it = evs.erase(it);
+    }
+  }
   if (evs.empty()) {
     Json patch;
     long long rev = 0;
@@ -2022,7 +2049,9 @@ static chat_forward::RateLimiter g_chatLimit(5, 5.0);
 static void ForwardChat(const char* line) {
   if (!g_asg.active || !signals::Enabled()) return;
   if (!std::strstr(line, "\" say \"") && !std::strstr(line, "\" say_team \"")) return;
-  const auto c = chat_forward::ParseChatLogLine(line);
+  std::vector<chat_forward::KnownHuman> humans;
+  for (const auto& h : ListHumans()) humans.push_back({h.userid, h.steamid64});
+  const auto c = chat_forward::ParseChatLogLine(line, humans);
   if (!c || IsDevBotId(c->steamid64) || chat_forward::IsCommand(c->message)) return;
   Json d = chat_forward::EventData(*c, fs::TeamOf(g_config, c->steamid64), UnixMs());
   if (d.Find("message")->AsString().empty()) return;

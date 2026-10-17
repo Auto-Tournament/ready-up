@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace readyup::chat_forward {
 
@@ -24,9 +25,22 @@ struct ChatLine {
   std::string message;  // raw, as logged
 };
 
+// A connected human (ListHumans()): log userid `<N>` (-1 = unknown) and SteamID64.
+struct KnownHuman {
+  int userid = -1;
+  uint64_t steamid64 = 0;
+};
+
 // `L 10/17/2026 - 12:00:00: "Name<2><[U:1:123]><CT>" say "gg"` (or say_team). nullopt for
 // anything else, bots (`<BOT>`), the console and players without a SteamID.
-std::optional<ChatLine> ParseChatLogLine(const std::string& line);
+//
+// The name and the message are player text and may hold `<..><..><..>" say "` themselves, so
+// the header is not "the first ` say `": every `<userid><steamid><team>" say[_team] "` block in
+// the line is a candidate, and a candidate counts only when its userid + SteamID is a connected
+// human in `humans`. Exactly one must count; more than one (a forged block naming another
+// connected player, in the name or the message) or none drops the line. The sender, the side and
+// say vs say_team all come from that one block.
+std::optional<ChatLine> ParseChatLogLine(const std::string& line, const std::vector<KnownHuman>& humans);
 
 // A chat command (`.ready`, `!admin`): never forwarded. Leading spaces are ignored.
 bool IsCommand(const std::string& message);
