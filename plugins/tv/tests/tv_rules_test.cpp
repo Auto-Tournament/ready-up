@@ -118,6 +118,22 @@ static void AssignTests() {
   CHECK(bc::ValidateAssignConfigText(R"({"rules":{"broadcast":{"relay_voice":false}}})", &err));
   CHECK(!bc::ValidateAssignConfigText("[]", &err));
 
+  // What the platform sends with allow_insecure_observers: the pair in config.cvars too. Agrees,
+  // so it is accepted; tv.so takes those cvars as the match's (not a baseline, no fight).
+  const auto platform = cfg(R"({"cvars":{"tv_secure_bypass":"1","sv_deltaticks_enforce":0,"tv_delay":90,"mp_freezetime":15},)"
+                            R"("rules":{"broadcast":{"allow_insecure_observers":true,"delay_seconds":90}}})");
+  CHECK(bc::ValidateAssignConfig(platform, &err));
+  const auto mc = bc::OwnedCvarsInAssign(platform);
+  CHECK(mc.size() == 3 && mc[0] == std::make_pair(std::string("tv_delay"), std::string("90")) &&
+        mc[1] == std::make_pair(std::string("tv_secure_bypass"), std::string("1")) &&
+        mc[2] == std::make_pair(std::string("sv_deltaticks_enforce"), std::string("0")));
+  const Profile fromCvars = bc::ProfileFromMatchCvars(mc);
+  CHECK(fromCvars.allow_insecure_observers == true && !fromCvars.delay_seconds && !fromCvars.max_clients);
+  Profile serverSays;
+  serverSays.allow_insecure_observers = false;
+  CHECK(bc::ConflictWithMatchCvars(serverSays, 90, mc) == "tv_secure_bypass");
+  CHECK(bc::ConflictWithMatchCvars(bc::Overlay(serverSays, fromCvars), 90, mc).empty());  // the match's cvars win
+
   Profile p;
   CHECK(bc::ProfileFromAssign(cfg(R"({"rules":{"broadcast":{"max_clients":8}}})"), &p, &err) && p.max_clients == 8);
   CHECK(bc::ProfileFromAssign(cfg(R"({"rules":{}})"), &p, &err) && p.Empty());
@@ -253,8 +269,9 @@ static void TrackerTests() {
   MatchProfile x;
   m.override_.max_clients = 3;
   m.passwordSet = true;
+  m.matchCvars = {{"tv_secure_bypass", "1"}, {"sv_deltaticks_enforce", "0"}};
   CHECK(ParseMatchProfile(MatchProfileJson(m), &x) && x.matchId == "m_1" && x.profile == m.profile &&
-        x.override_ == m.override_ && x.delayFloor == 105 && x.passwordSet);
+        x.override_ == m.override_ && x.delayFloor == 105 && x.passwordSet && x.matchCvars == m.matchCvars);
   CHECK(!ParseMatchProfile("{}", &x) && !ParseMatchProfile("", &x));
 }
 

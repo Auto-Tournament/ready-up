@@ -139,8 +139,8 @@ All in `plugins/fleet/protocol/v1`, written in the platform's style:
 
 | File | What |
 |---|---|
-| `tv.defs.json` (new) | `$defs/broadcastProfile` (the five keys, all optional, `additionalProperties: false`) and `$defs/tvState` |
-| `match.defs.json` | `rules.broadcast` → `tv.defs.json#/$defs/broadcastProfile` |
+| `tv.defs.json` (new) | `$defs/broadcastProfile` (the five keys, Ready Up's ranges: what a server may hold), `$defs/broadcastSettings` (tv.set, null clears) and `$defs/tvState` |
+| `match.defs.json` | `rules.broadcast`: the platform's definition, copied as is (Auto-Tournament/auto-tournament#1037: delay 0..120, max_clients 0..128); the file is the same JSON as the platform's |
 | `messages/server.tv.json` (new) | server → platform, reliable: `tvState`, sent when it changes (at most every 5 s) |
 | `messages/hello.json` | optional `tv`: `tvState` |
 | `messages/state.snapshot.json` | optional `tv`: `tvState` |
@@ -178,9 +178,19 @@ not save). fleet.so owns the command (like `whitelist.set`) and hands the args t
 
 Capability: tv.so adds `tv.v1` to hello's capabilities.
 
-The platform repo's fleet-protocol-sync test compares these files with its copy, so the platform
-must copy, unchanged: `tv.defs.json`, `messages/server.tv.json`, and the edited `match.defs.json`,
-`messages/{hello,state.snapshot,cmd}.json`, plus the four example frames.
+The platform repo's fleet-protocol-sync test compares every file both sides have. `match.defs.json`
+already matches the platform's (#1037). The platform must copy, unchanged: the edited
+`messages/{hello,state.snapshot,cmd}.json` (the sync test fails on them until it does: `hello.tv`,
+`state.snapshot.tv`, `cmd tv.set`), and the new `tv.defs.json` and `messages/server.tv.json`
+(Ready Up only until then; listed, not failing), plus the four example frames.
+
+**Match cvars.** With `allow_insecure_observers` the platform also puts `tv_secure_bypass 1` and
+`sv_deltaticks_enforce 0` in `config.cvars`, which the match plugin applies itself. tv.so treats
+owned cvars in `config.cvars` as the match's setting: they agree with `rules.broadcast` (else the
+assign is refused), they sit above the server settings for that match (no re-apply fight), they are
+never taken as a baseline (the match plugin set them first), and `ru tv match` / `tv.set {scope:
+match}` cannot override them. After the match `tv_secure_bypass` goes to 0 (or the server setting)
+and `sv_deltaticks_enforce` is the match plugin's cvar snapshot's to restore.
 
 What the platform then needs to build: a "Broadcast" block in the match / tournament settings
 (the five keys, written to `rules.broadcast`), a server page row for `tv` (port, delay, clients,

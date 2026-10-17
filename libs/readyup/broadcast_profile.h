@@ -76,6 +76,21 @@ bool PasswordInAssign(const minijson::Value& config);
 bool ValidateAssignConfig(const minijson::Value& config, std::string* err);
 bool ValidateAssignConfigText(const std::string& configJson, std::string* err);
 
+// config.cvars entries for cvars the profile owns (tv_secure_bypass "1", ...), as the text the match
+// plugin applies. The platform sends tv_secure_bypass 1 + sv_deltaticks_enforce 0 next to
+// allow_insecure_observers: the match plugin applies them too, so tv.so must neither take them as
+// a baseline nor set anything else for them during that match.
+std::vector<std::pair<std::string, std::string>> OwnedCvarsInAssign(const minijson::Value& config);
+
+// The same match cvars as profile keys (tv_secure_bypass -> allow_insecure_observers, tv_maxclients,
+// tv_relaytextchat, tv_relayvoice; tv_delay is the floor instead), so the server's own settings yield
+// to them for that match instead of fighting the match plugin on every re-apply.
+Profile ProfileFromMatchCvars(const std::vector<std::pair<std::string, std::string>>& matchCvars);
+
+// The first cvar where `eff`'s DesiredCvars disagree with `matchCvars` ("" = none).
+std::string ConflictWithMatchCvars(const Profile& eff, int delayFloor,
+                                   const std::vector<std::pair<std::string, std::string>>& matchCvars);
+
 // Every cvar the profile can set.
 const std::vector<std::string>& OwnedCvars();
 

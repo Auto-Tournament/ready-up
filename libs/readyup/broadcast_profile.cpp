@@ -318,6 +318,42 @@ bool ValidateAssignConfig(const Value& config, std::string* err) {
   return true;
 }
 
+std::vector<std::pair<std::string, std::string>> OwnedCvarsInAssign(const Value& config) {
+  std::vector<std::pair<std::string, std::string>> out;
+  const Value* cv = config.get("cvars");
+  if (!cv || cv->type != Value::Type::Object) return out;
+  for (const auto& name : OwnedCvars()) {
+    const Value* v = cv->get(name.c_str());
+    std::string t;
+    if (v && CvarText(*v, &t) && CvarInt(t) >= 0) out.emplace_back(name, std::to_string(CvarInt(t)));
+  }
+  return out;
+}
+
+Profile ProfileFromMatchCvars(const std::vector<std::pair<std::string, std::string>>& matchCvars) {
+  Profile p;
+  for (const auto& kv : matchCvars) {
+    const int n = CvarInt(kv.second);
+    if (n < 0) continue;
+    if (kv.first == "tv_secure_bypass") p.allow_insecure_observers = n != 0;
+    else if (kv.first == "tv_maxclients" && n <= kMaxClients) p.max_clients = n;
+    else if (kv.first == "tv_relaytextchat") p.relay_text_chat = n != 0;
+    else if (kv.first == "tv_relayvoice") p.relay_voice = n != 0;
+  }
+  return p;
+}
+
+std::string ConflictWithMatchCvars(const Profile& eff, int delayFloor,
+                                   const std::vector<std::pair<std::string, std::string>>& matchCvars) {
+  for (const auto& kv : DesiredCvars(eff, delayFloor)) {
+    if (kv.first == "tv_delay") continue;  // the floor covers it
+    for (const auto& m : matchCvars) {
+      if (m.first == kv.first && CvarInt(m.second) != CvarInt(kv.second)) return kv.first;
+    }
+  }
+  return {};
+}
+
 bool ValidateAssignConfigText(const std::string& configJson, std::string* err) {
   minijson::ParseError pe;
   const auto v = minijson::Parse(configJson, &pe);

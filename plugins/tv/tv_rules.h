@@ -56,6 +56,8 @@ struct MatchProfile {
   Profile override_;  // `ru tv match` / tv.set {scope: match}
   int delayFloor = 0;
   bool passwordSet = false;
+  // config.cvars entries for owned cvars (OwnedCvarsInAssign): the match plugin sets these itself.
+  std::vector<std::pair<std::string, std::string>> matchCvars;
 };
 
 enum class TrackEvent { None, Activated, Deactivated, Dropped };

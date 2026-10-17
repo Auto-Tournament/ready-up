@@ -124,11 +124,12 @@ Capability `tv.v1`. Examples: `examples/v1/{match.assign.broadcast,cmd.tv.set,se
 | File | Direction | Delivery | Answer |
 |---|---|---|---|
 | `tv.defs.json` (new) | shared `$defs`: `broadcastProfile`, `broadcastSettings` (tv.set: null clears), `tvState` | | |
-| `match.defs.json` | `rules.broadcast` → `broadcastProfile` (match.assign; invalid_config below the match's own tv_delay or against `config.cvars`) | | |
+| `match.defs.json` | `rules.broadcast`, the platform's own definition (auto-tournament#1037), byte for byte the same JSON; Ready Up refuses (invalid_config) a delay below the match's own tv_delay or a key against `config.cvars` | | |
 | `messages/cmd.json` | `tv.set {scope: server\|match, settings?, casters?}` (fleet.so → tv.so) | reliable | `cmd.result` |
 | `messages/server.tv.json` (new) | server → platform: `tvState` when it changed (≤ every 5 s, online only) | reliable | |
 | `messages/hello.json`, `messages/state.snapshot.json` | optional `tv`: `tvState` | | |
 
 `tvState` never carries the GOTV password, only `password_set`. The platform repo's
 fleet-protocol-sync test compares these files, so copy them over unchanged (`tv.defs.json`,
-`messages/server.tv.json`, and the edited `match.defs.json`, `messages/{hello,state.snapshot,cmd}.json`).
+`messages/server.tv.json`, and the edited `messages/{hello,state.snapshot,cmd}.json`; `match.defs.json`
+already matches).

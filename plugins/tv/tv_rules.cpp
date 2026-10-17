@@ -229,7 +229,11 @@ TrackEvent MatchTracker::Observe(const std::string& loaded, double now) {
 std::string MatchProfileJson(const MatchProfile& m) {
   return "{\"version\":1,\"match_id\":" + Quote(m.matchId) + ",\"profile\":" + bc::ProfileJson(m.profile) +
          ",\"override\":" + bc::ProfileJson(m.override_) + ",\"delay_floor\":" + std::to_string(m.delayFloor) +
-         ",\"password_set\":" + (m.passwordSet ? "true" : "false") + "}";
+         ",\"password_set\":" + (m.passwordSet ? "true" : "false") + ",\"match_cvars\":" + [&] {
+           std::string o = "{";
+           for (const auto& kv : m.matchCvars) o += (o.size() > 1 ? "," : "") + Quote(kv.first) + ":" + Quote(kv.second);
+           return o + "}";
+         }() + "}";
 }
 
 bool ParseMatchProfile(const std::string& json, MatchProfile* out) {
@@ -246,6 +250,12 @@ bool ParseMatchProfile(const std::string& json, MatchProfile* out) {
     m.delayFloor = static_cast<int>(f->num);
   }
   if (const Value* pw = v->get("password_set"); pw && pw->type == Value::Type::Bool) m.passwordSet = pw->b;
+  if (const Value* mc = v->get("match_cvars"); mc && mc->type == Value::Type::Object) {
+    for (const auto& name : bc::OwnedCvars()) {
+      const Value* x = mc->get(name.c_str());
+      if (x && x->type == Value::Type::String && NumericValue(x->str)) m.matchCvars.emplace_back(name, x->str);
+    }
+  }
   if (out) *out = std::move(m);
   return true;
 }

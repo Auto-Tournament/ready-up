@@ -138,7 +138,7 @@ int main() {
     p->Get("config")->Get("rules")->Get("broadcast")->Set("delay_seconds", Value::Int(961));
   }));
   CHECK(broken("match.assign.broadcast.json", [](Value* p) {
-    p->Get("config")->Get("rules")->Get("broadcast")->Set("tv_secure_bypass", Value::Int(1));  // a cvar, not a key
+    p->Get("config")->Get("rules")->Get("broadcast")->Set("max_clients", Value::Int(129));
   }));
   CHECK(broken("match.assign.broadcast.json", [](Value* p) {
     p->Get("config")->Get("rules")->Get("broadcast")->Set("allow_insecure_observers", Value::Str("yes"));

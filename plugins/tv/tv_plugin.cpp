@@ -160,6 +160,8 @@ Profile Effective(int* floor) {
   Profile eff = ServerProfile();
   int f = 0;
   if (g_tracker.active) {
+    // Server < the match's own cvars < rules.broadcast < the admin's match override.
+    eff = bc::Overlay(eff, bc::ProfileFromMatchCvars(g_tracker.active->matchCvars));
     eff = bc::Overlay(bc::Overlay(eff, g_tracker.active->profile), g_tracker.active->override_);
     f = g_tracker.active->delayFloor;
   }
@@ -222,6 +224,17 @@ void Apply(bool force) {
   int floor = 0;
   const Profile eff = Effective(&floor);
   const auto desired = bc::DesiredCvars(eff, floor);
+  // Owned cvars the match's config.cvars set (the platform sends tv_secure_bypass 1 +
+  // sv_deltaticks_enforce 0 with allow_insecure_observers): the match plugin already applied them,
+  // so the engine's value now is the match's, not a baseline. No baseline: tv_secure_bypass goes
+  // to 0 afterwards, sv_deltaticks_enforce is the match plugin's to restore (its cvar snapshot).
+  if (g_tracker.active) {
+    for (const auto& kv : g_tracker.active->matchCvars) {
+      if (!g_applier.applied.count(kv.first) && !g_applier.baseline.count(kv.first) && !g_applier.baselineUnknown.count(kv.first)) {
+        RecordBaseline(g_applier, kv.first, nullptr);
+      }
+    }
+  }
   const Plan plan = PlanApply(g_applier, desired, force);
   for (const auto& n : plan.needBaseline) {
     if (g_baselineAsked.count(n)) continue;
@@ -359,6 +372,7 @@ void OnAssign(void*, const ru_fleet_msg* msg) {
     (void)bc::ProfileFromAssign(*cfg, &p.profile, nullptr);
     p.delayFloor = bc::DelayFloor(*cfg);
     p.passwordSet = bc::PasswordInAssign(*cfg);
+    p.matchCvars = bc::OwnedCvarsInAssign(*cfg);
     const bool same = g_tracker.active && g_tracker.active->matchId == p.matchId;
     g_tracker.Assign(std::move(p), g_now);
     if (same) {
@@ -524,6 +538,11 @@ void RunTv(const ru_command_ctx* ctx, const std::vector<std::string>& args) {
       if (!bc::SetFromText(&o, k, args[2], &err)) return Reply(ctx, err);
       if (k == Key::Delay && o.delay_seconds && *o.delay_seconds < g_tracker.active->delayFloor) {
         return Reply(ctx, "the match needs a GOTV delay of at least " + std::to_string(g_tracker.active->delayFloor) + " s");
+      }
+      const Profile merged = bc::Overlay(bc::Overlay(bc::Overlay(ServerProfile(), bc::ProfileFromMatchCvars(g_tracker.active->matchCvars)), g_tracker.active->profile), o);
+      if (const std::string c = bc::ConflictWithMatchCvars(merged, g_tracker.active->delayFloor, g_tracker.active->matchCvars);
+          !c.empty()) {
+        return Reply(ctx, "the match's own cvars set " + c + ": change it on the platform");
       }
       g_tracker.active->override_ = o;
       PersistActive();
@@ -758,6 +777,11 @@ int IfaceTvSet(const char* argsJson, char* code, uint32_t codeLen, char* message
       for (Key k : cleared) o.Clear(k);
       if (o.delay_seconds && *o.delay_seconds < g_tracker.active->delayFloor) {
         return refuse("bad_args", "delay_seconds below the match's GOTV delay (" + std::to_string(g_tracker.active->delayFloor) + " s)");
+      }
+      const Profile merged = bc::Overlay(bc::Overlay(bc::Overlay(ServerProfile(), bc::ProfileFromMatchCvars(g_tracker.active->matchCvars)), g_tracker.active->profile), o);
+      if (const std::string c = bc::ConflictWithMatchCvars(merged, g_tracker.active->delayFloor, g_tracker.active->matchCvars);
+          !c.empty()) {
+        return refuse("bad_args", "the match's own cvars set " + c + " (config.cvars): change the match instead");
       }
       g_tracker.active->override_ = o;
       PersistActive();
