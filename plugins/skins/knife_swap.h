@@ -47,4 +47,20 @@ class KnifeSwapLedger {
   std::unordered_map<uint32_t, uint64_t> owner_;
 };
 
+// What the plugin last wrote onto one econ item (a weapon by entity handle, a pawn's gloves by
+// player): the fake item ID and the look. The same look again on the same item is skipped: each
+// write hands the client a new item ID, and for gloves a bumped m_nEconGlovesChanged, so it
+// rebuilds the model. Gloves were rebuilt on 4 passes of every spawn, and knives repainted on every
+// loadout refresh (a crash lead, 2026-10-17). The game resetting the item (a new spawn, a new
+// weapon) changes its item ID, and then it is written again.
+struct PaintStamp {
+  uint64_t itemId = 0;  // 0 = nothing written
+  int defindex = 0, paint = 0, seed = 0;
+  float wear = 0.0f;
+};
+inline bool StampMatches(const PaintStamp& last, uint64_t currentItemId, int defindex, int paint, int seed, float wear) {
+  return last.itemId != 0 && last.itemId == currentItemId && last.defindex == defindex && last.paint == paint &&
+         last.seed == seed && last.wear == wear;
+}
+
 }  // namespace skins

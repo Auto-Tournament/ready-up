@@ -47,6 +47,18 @@ int main() {
   l.Clear();
   CHECK(l.Size() == 0);
 
+  // Paint stamps: the same look on the same item is not written again; a new item ID (the game
+  // reset it: new spawn, new weapon) or another look is.
+  PaintStamp none;
+  CHECK(!StampMatches(none, 0, 0, 0, 0, 0.0f));
+  const PaintStamp st{0x10001, 5030, 10018, 7, 0.15f};
+  CHECK(StampMatches(st, 0x10001, 5030, 10018, 7, 0.15f));
+  CHECK(!StampMatches(st, 0x99999, 5030, 10018, 7, 0.15f));
+  CHECK(!StampMatches(st, 0x10001, 5031, 10018, 7, 0.15f));
+  CHECK(!StampMatches(st, 0x10001, 5030, 10019, 7, 0.15f));
+  CHECK(!StampMatches(st, 0x10001, 5030, 10018, 8, 0.15f));
+  CHECK(!StampMatches(st, 0x10001, 5030, 10018, 7, 0.2f));
+
   if (g_failures == 0) std::printf("skins_knife_swap: ok\n");
   return g_failures == 0 ? 0 : 1;
 }

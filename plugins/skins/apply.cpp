@@ -147,7 +147,9 @@ int ItemInitializedOffset() { return Off().item_initialized; }
 
 // Writes paint/seed/wear/StatTrak/nametag onto an econ item view + the owning entity's fallback
 // fields. Used for weapons (owner = the weapon entity) and gloves (owner = nullptr).
-void WritePaint(void* ownerEconEntity, void* itemView, uint64_t steamid64, const WeaponSkinEntry& skin) {
+uint64_t ItemIdOf(void* itemView) { return Rd<uint64_t>(itemView, Off().item_id); }
+
+uint64_t WritePaint(void* ownerEconEntity, void* itemView, uint64_t steamid64, const WeaponSkinEntry& skin) {
   auto& o = Off();
   const uint64_t itemId = NextItemId();
   Wr<uint64_t>(itemView, o.item_id, itemId);
@@ -180,6 +182,7 @@ void WritePaint(void* ownerEconEntity, void* itemView, uint64_t steamid64, const
     std::memcpy(dst, skin.nametag.data(), n);
     dst[n] = '\0';
   }
+  return itemId;
 }
 
 void* EconItemViewOfWeapon(void* weapon) {
@@ -191,6 +194,7 @@ void* EconItemViewOfWeapon(void* weapon) {
 
 using detail::EconItemViewOfWeapon;
 using detail::WritePaint;
+using detail::ItemIdOf;
 
 namespace {
 
@@ -200,6 +204,8 @@ enum class WeaponResult { kDone, kRetry };
 bool g_lastSwappedKnife = false;
 // Knife entities whose knife we swapped in (knife_swap.h): only those go back to stock.
 KnifeSwapLedger g_knifeSwaps;
+// What we last painted on each weapon (by entity handle): the same paint is not written again.
+std::unordered_map<uint32_t, PaintStamp> g_weaponStamps;
 
 // Paint kits with items_game `use_legacy_model 1` (CS:GO-era UVs). In CS2 they only render
 // correctly on the weapon's legacy model: bodygroup "body" = 1 (what WeaponPaints does with
@@ -244,7 +250,10 @@ std::unordered_map<uint64_t, WeaponSkinEntry> g_paintOverride;
 std::unordered_map<uint64_t, std::string> g_overrideNameTag;  // set_player_name_tag
 long long g_applied = 0;  // weapons painted / knives swapped this session (for skins_status)
 
-WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late, bool* legacyPending) {
+// force: write the paint even when the weapon already has it (the planned repaint of a swapped
+// knife a quarter second later, which the client needs).
+WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late, bool* legacyPending,
+                           bool force = false) {
   g_lastSwappedKnife = false;
   auto& o = Off();
   const bool isKnife = IsKnifeDesigner(EntityDesignerName(weapon));
@@ -273,8 +282,21 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
   int paintUsed = 0;
   float wearUsed = 0.0f;
   const bool fromOverride = ov != g_paintOverride.end();
+  const uint32_t handle = g_api->entity_handle_of(g_api->self, weapon);
+  // One paint write, skipped when this weapon already shows exactly this paint from us.
+  auto paintOnce = [&](const WeaponSkinEntry& paint) {
+    if (!force && !swappedKnife && handle != 0xFFFFFFFFu) {
+      const auto st = g_weaponStamps.find(handle);
+      if (st != g_weaponStamps.end() &&
+          StampMatches(st->second, ItemIdOf(item), defindex, paint.paint_id, paint.seed, paint.wear)) {
+        return false;
+      }
+    }
+    const uint64_t id = WritePaint(weapon, item, steamid64, paint);
+    if (handle != 0xFFFFFFFFu) g_weaponStamps[handle] = PaintStamp{id, defindex, paint.paint_id, paint.seed, paint.wear};
+    return true;
+  };
   if (isKnife) {
-    const uint32_t handle = g_api->entity_handle_of(g_api->self, weapon);
     std::optional<int> wantDef;
     if (const auto want = FindKnifeClassname(steamid64, team)) wantDef = KnifeClassnameToDefindex(*want);
     switch (DecideKnife(wantDef, defindex, handle != 0xFFFFFFFFu && g_knifeSwaps.Swapped(handle, steamid64))) {
@@ -326,15 +348,15 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
     if (write) {
       const auto tag = g_overrideNameTag.find(steamid64);
       if (tag != g_overrideNameTag.end()) paint.nametag = tag->second;
-      WritePaint(weapon, item, steamid64, paint);
-      paintUsed = paint.paint_id;
-      wearUsed = paint.wear;
-      changed = true;
-      if (IsLegacyPaintKit(paint.paint_id) && !ApplyLegacyBody(weapon, steamid64)) *legacyPending = true;
+      if (paintOnce(paint)) {
+        paintUsed = paint.paint_id;
+        wearUsed = paint.wear;
+        changed = true;
+        if (IsLegacyPaintKit(paint.paint_id) && !ApplyLegacyBody(weapon, steamid64)) *legacyPending = true;
+      }
     }
   } else if (const auto skin = FindWeaponSkin(steamid64, team, defindex)) {
-    if (skin->paint_id > 0) {
-      WritePaint(weapon, item, steamid64, *skin);
+    if (skin->paint_id > 0 && paintOnce(*skin)) {
       paintUsed = skin->paint_id;
       wearUsed = skin->wear;
       changed = true;
@@ -695,7 +717,7 @@ void ProcessPlayer(int slot, void* controller) {
       st.repaintAt = 0;
       if (void* again = EntityFromHandle(h)) {
         bool legacy = false;
-        (void)ProcessWeapon(again, steamid64, team, /*late=*/true, &legacy);
+        (void)ProcessWeapon(again, steamid64, team, /*late=*/true, &legacy, /*force=*/true);
         if (legacy) st.legacyPending = true;
       }
       continue;
@@ -736,6 +758,7 @@ void PruneWeapons() {
   for (auto it = g_weapons.begin(); it != g_weapons.end();) {
     if (g_tick - it->second.lastSeen > 64 * 60) {
       g_knifeSwaps.Forget(it->first);
+      g_weaponStamps.erase(it->first);
       it = g_weapons.erase(it);
     }
     else ++it;
@@ -770,6 +793,7 @@ void GameFrameTick() {
     g_activeSince = g_tick;
     g_weapons.clear();
     g_knifeSwaps.Clear();
+    g_weaponStamps.clear();
     for (auto& p : g_players) p = PlayerState{};
     for (auto& r : g_reapplyAt) r = 0;
   }
