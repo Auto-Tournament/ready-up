@@ -1,5 +1,6 @@
 #include "readyup/fleet_state.h"
 
+#include "readyup/broadcast_profile.h"
 #include "readyup/map_names.h"
 #include "readyup/ruleset.h"
 
@@ -328,6 +329,9 @@ bool ValidateAssign(const Json& payload, std::string* err) {
     }
   }
   if (!ValidateRuleset(*cfg, err)) return false;
+  // rules.broadcast (the tv plugin's GOTV profile, docs/design/tv-plugin.md): the same validator
+  // tv.so uses, so a bad block refuses the whole assign instead of being half applied.
+  if (std::string why; !broadcast::ValidateAssignConfigText(cfg->Dump(), &why)) return fail(why);
   return true;
 }
 
