@@ -192,6 +192,15 @@ ReadyTally TeamReadyTally(int rosterSize, int ready, int playersPerTeam) {
   return t;
 }
 
+TeamHudState TeamHudStatus(int rosterSize, int connected, int readyConnected, int playersPerTeam) {
+  TeamHudState st;
+  st.total = FullTeamSize(rosterSize, playersPerTeam);
+  st.here = std::min(std::max(0, connected), st.total);
+  st.allHere = st.total > 0 && st.here >= st.total;
+  st.ready = st.total > 0 && std::min(std::max(0, readyConnected), st.total) >= st.total;
+  return st;
+}
+
 bool BotFillTeamReady(int connected, int readyConnected) {
   return std::max(0, readyConnected) >= std::max(0, connected);
 }
