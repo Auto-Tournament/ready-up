@@ -59,6 +59,8 @@
     "CBasePlayerPawn.m_pItemServices",
     "CBasePlayerPawn.m_pWeaponServices",
     "CCSGameRules.m_bFreezePeriod",
+    "CCSGameRules.m_bGamePaused",
+    "CCSGameRules.m_bMatchWaitingForResume",
     "CCSGameRules.m_bWarmupPeriod",
     "CCSGameRulesProxy.m_pGameRules",
     "CCSPlayerController.m_hPlayerPawn",
