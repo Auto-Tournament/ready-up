@@ -524,7 +524,8 @@ TEST(TestPublicAddr) {
   CHECK_EQ(PickPublicAddr("bad host", {"198.51.100.4:27100"}, 27055), std::string("198.51.100.4:27100"));
 }
 
-// The commands fleet.so runs itself (fleet_cmds.h): plugins.set, whitelist.set, practice.set, say.
+// The commands fleet.so runs itself (fleet_cmds.h): plugins.set, whitelist.set, practice.set, say,
+// tv.set (args checked by tv.so).
 TEST(TestOwnedCmds) {
   auto J = [](const char* text) {
     json::Value v;
@@ -532,7 +533,7 @@ TEST(TestOwnedCmds) {
     return v;
   };
   using namespace fleet::cmds;
-  CHECK(OwnedByFleet("plugins.set") && OwnedByFleet("practice.set") && OwnedByFleet("say"));
+  CHECK(OwnedByFleet("plugins.set") && OwnedByFleet("practice.set") && OwnedByFleet("say") && OwnedByFleet("tv.set"));
   CHECK(!OwnedByFleet("pause") && !OwnedByFleet("settings.set") && !OwnedByFleet("exec"));
 
   std::vector<std::string> on, off;

@@ -42,6 +42,7 @@
 #include "readyup/essentials_iface.h"
 #include "readyup/practice_iface.h"
 #include "readyup/selftest_iface.h"
+#include "readyup/tv_iface.h"
 #include "readyup/whitelist_iface.h"
 
 #include "fleet_client.h"
@@ -124,6 +125,11 @@ int64_t g_offlineFiredFor = -1;
 // (kept in the stash across `ru plugin reload fleet`) and when it was last read (game thread).
 std::string g_selftestSent;
 double g_lastSelftestPoll = 0.0;
+// tv.so's GOTV state (readyup.tv.v1; docs/design/tv-plugin.md): the rev last read, the tvState last
+// sent as server.tv and when.
+uint64_t g_tvRev = 0;
+std::string g_tvSent;
+double g_tvSentAt = -1e9;
 
 void Log(int level, const char* fmt, ...) RU_PRINTF(2, 3);
 void Log(int level, const char* fmt, ...) {
@@ -339,6 +345,7 @@ void BuildHello() {
   h.stateJson.clear();     // keep whatever publish_state set
   h.availability.clear();
   g_hello = h;
+  g_tvRev = 0;  // hello.tv: read again on the next poll
 }
 
 // ---- handlers ------------------------------------------------------------------------------
@@ -545,6 +552,61 @@ std::string MemberStr(const fleet::json::Value& v, const char* key, const std::s
   return m && m->IsStr() ? m->s : def;
 }
 
+// ---- tv.so (readyup.tv.v1) --------------------------------------------------------------------
+
+const ru_tv_v1* TvIface() {
+  const auto* tv = static_cast<const ru_tv_v1*>(g_api->get_interface(g_api->self, RU_TV_IFACE_NAME, RU_TV_IFACE_VERSION));
+  if (!tv || tv->struct_size < offsetof(ru_tv_v1, tv_set) + sizeof(tv->tv_set) || !tv->state_rev || !tv->state_json) return nullptr;
+  return tv;
+}
+
+std::string TvStateJson(const ru_tv_v1* tv) {
+  std::string buf(2048, '\0');
+  int n = tv->state_json(buf.data(), static_cast<uint32_t>(buf.size()));
+  if (n < 0) return {};
+  if (static_cast<size_t>(n) >= buf.size()) {
+    if (n > 65536) return {};
+    buf.assign(static_cast<size_t>(n) + 1, '\0');
+    n = tv->state_json(buf.data(), static_cast<uint32_t>(buf.size()));
+    if (n < 0) return {};
+  }
+  buf.resize(std::min(static_cast<size_t>(n), buf.size() - 1));
+  fleet::json::Value v;
+  return fleet::json::Parse(buf, &v) && v.IsObj() ? buf : std::string();
+}
+
+// hello.tv / state.snapshot.tv carry the latest tvState; server.tv (reliable) goes out when it
+// changed, at most every 5 s and only while online (a reconnect's hello carries the latest).
+void PollTv(fleet::Client& c, double now) {
+  const ru_tv_v1* tv = TvIface();
+  if (!tv) {
+    g_tvRev = 0;
+    if (!g_hello.tvJson.empty()) {
+      g_hello.tvJson.clear();
+      c.SetHelloInfo(g_hello);
+    }
+    return;
+  }
+  const uint64_t rev = tv->state_rev();
+  if (rev != g_tvRev) {
+    g_tvRev = rev;
+    const std::string j = TvStateJson(tv);
+    if (j != g_hello.tvJson) {
+      g_hello.tvJson = j;
+      c.SetHelloInfo(g_hello);
+    }
+  }
+  if (g_hello.tvJson.empty() || g_hello.tvJson == g_tvSent || now - g_tvSentAt < 5.0) return;
+  if (c.Status().state != LinkState::Online) return;
+  std::string err;
+  if (!c.Send("server.tv", g_hello.tvJson, 0, true, &err)) {
+    Log(RU_LOG_WARN, "fleet: server.tv not queued: %s", err.c_str());
+    return;
+  }
+  g_tvSent = g_hello.tvJson;
+  g_tvSentAt = now;
+}
+
 // ---- cmd: the commands fleet.so runs itself (fleet_cmds.h) --------------------------------------
 
 fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Value& args) {
@@ -679,6 +741,20 @@ fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Valu
     }
     if (center) g_api->center_html_all(g_api->self, centerHtml.c_str(), center);
     return Ok();
+  }
+  if (name == "tv.set") {
+    // {scope: server|match, settings?, casters?}: tv.so validates and applies it (all or nothing).
+    const ru_tv_v1* tv = TvIface();
+    if (!tv || !tv->tv_set) return Rejected("unsupported", "the tv plugin (tv.so) is not loaded");
+    char code[32] = {0};
+    char msg[512] = {0};
+    if (tv->tv_set(fleet::json::Dump(args).c_str(), code, sizeof(code), msg, sizeof(msg)) == 1) {
+      if (auto c = Client()) PollTv(*c, g_lastTickNow);  // hello / snapshot carry it at once
+      return Ok();
+    }
+    const std::string c = code;
+    if (c == "io") return Failed("io", msg);
+    return Rejected(c == "bad_phase" ? "bad_phase" : "bad_args", msg);
   }
   return Rejected("unknown_command", "unknown cmd \"" + name + "\"");
 }
@@ -1335,6 +1411,7 @@ void OnTick(void*, const ru_tick_info* t) {
       g_lastSelftestPoll = t->now;
       PollSelftest(*c);
     }
+    PollTv(*c, t->now);
 
     // Offline timer (D12). The auto-pause itself lands with the match plugin; this fires the
     // hook once per offline period.
@@ -1378,6 +1455,9 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     g_caps.clear();
     g_frameMs.clear();
     g_lastTickNow = g_lastHousekeeping = g_lastSelftestPoll = 0.0;
+    g_tvRev = 0;
+    g_tvSent.clear();
+    g_tvSentAt = -1e9;
     g_offlineFiredFor = -1;
     g_addrQuery = AddrQuery::Idle;
     g_selftestSent.clear();

@@ -1,6 +1,6 @@
 // The platform commands fleet.so runs itself (FLEET.md §7.4), so a server without the match plugin
 // (a practice server: core + fleet + practice) still takes them: plugins.set, whitelist.set,
-// practice.set and say. Every other cmd goes to the plugins that registered for "cmd" (the match
+// practice.set, say and tv.set (the tv plugin validates its own args, readyup.tv.v1). Every other cmd goes to the plugins that registered for "cmd" (the match
 // plugin); without one, fleet.so answers it as unsupported. No engine calls here: parsing and the
 // cmd.result payload (fleet_plugin.cpp runs them).
 #pragma once
@@ -14,7 +14,7 @@
 
 namespace fleet::cmds {
 
-// plugins.set, whitelist.set, practice.set, say.
+// plugins.set, whitelist.set, practice.set, say, tv.set.
 bool OwnedByFleet(const std::string& name);
 
 // plugins.set {enable?: [name], disable?: [name]}: [a-z0-9_-]{1,32}, at most 16 each, not both

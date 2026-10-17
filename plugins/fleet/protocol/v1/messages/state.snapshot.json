@@ -46,6 +46,10 @@
     },
     "map_stats": {
       "$ref": "../match.defs.json#/$defs/mapStats"
+    },
+    "tv": {
+      "$ref": "../tv.defs.json#/$defs/tvState",
+      "description": "GOTV state (tv.so); absent without it"
     }
   }
 }

@@ -377,9 +377,12 @@
             }
           },
           "description": "Anonymous bots fill each side alongside human roster players; real time and human ready-up."
+        },
+        "broadcast": {
+          "$ref": "tv.defs.json#/$defs/broadcastProfile"
         }
       },
-      "description": "Typed match rules (FLEET.md §7.1). Enforced by Ready Up today: max_rounds, overtime, tiebreak, knife.side_pick_seconds, clinch_series, whitelist (always on), ready.min_per_team (reported). The rest is carried in MatchState.rules for later steps. ruleset + overrides: docs/ESPORTS-MODE.md (enforced)."
+      "description": "Typed match rules (FLEET.md §7.1). Enforced by Ready Up today: max_rounds, overtime, tiebreak, knife.side_pick_seconds, clinch_series, whitelist (always on), ready.min_per_team (reported). The rest is carried in MatchState.rules for later steps. ruleset + overrides: docs/ESPORTS-MODE.md (enforced). broadcast: the tv plugin's GOTV profile for this match (tv.defs.json, docs/design/tv-plugin.md; enforced when tv.so is loaded, validated always)."
     },
     "assignPlayer": {
       "type": "object",
