@@ -1,3 +1,4 @@
+#include "knife_swap.h"
 #include "skins.h"
 
 #include "apply_internal.h"
@@ -127,8 +128,8 @@ uint64_t NextItemId() {
 }
 
 // The stock knives' item definitions: CT's "weapon_knife" and T's "weapon_knife_t".
-constexpr int kStockKnifeCt = 42;
-constexpr int kStockKnifeT = 59;
+constexpr int kStockKnifeCt = kStockKnifeCtDef;
+constexpr int kStockKnifeT = kStockKnifeTDef;
 
 bool IsKnifeDesigner(const char* dn) {
   if (!dn) return false;
@@ -197,6 +198,8 @@ enum class WeaponResult { kDone, kRetry };
 
 // Set by ProcessWeapon when it swapped a knife to another knife (ChangeSubclass) this call.
 bool g_lastSwappedKnife = false;
+// Knife entities whose knife we swapped in (knife_swap.h): only those go back to stock.
+KnifeSwapLedger g_knifeSwaps;
 
 // Paint kits with items_game `use_legacy_model 1` (CS:GO-era UVs). In CS2 they only render
 // correctly on the weapon's legacy model: bodygroup "body" = 1 (what WeaponPaints does with
@@ -271,52 +274,64 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
   float wearUsed = 0.0f;
   const bool fromOverride = ov != g_paintOverride.end();
   if (isKnife) {
-    if (const auto want = FindKnifeClassname(steamid64, team)) {
-      if (const auto wantDef = KnifeClassnameToDefindex(*want)) {
-        if (*wantDef != defindex) {
-          // Same as the "ChangeSubclass" input / `subclass_change <defindex>`: swaps weapon VData
-          // (model, animations) to the chosen knife.
-          if (ChangeSubclass(weapon, std::to_string(*wantDef).c_str())) {
-            Wr<uint16_t>(item, o.item_defIndex, static_cast<uint16_t>(*wantDef));
-            defindex = *wantDef;
-            changed = true;
-            swappedKnife = true;
-            g_lastSwappedKnife = true;
-          } else if (DebugOn()) {
-            Log(RU_LOG_DEBUG, "ChangeSubclass unavailable; keeping default knife for %llu",
-                  static_cast<unsigned long long>(steamid64));
-          }
+    const uint32_t handle = g_api->entity_handle_of(g_api->self, weapon);
+    std::optional<int> wantDef;
+    if (const auto want = FindKnifeClassname(steamid64, team)) wantDef = KnifeClassnameToDefindex(*want);
+    switch (DecideKnife(wantDef, defindex, handle != 0xFFFFFFFFu && g_knifeSwaps.Swapped(handle, steamid64))) {
+      case KnifeAction::Swap:
+        // Same as the "ChangeSubclass" input / `subclass_change <defindex>`: swaps weapon VData
+        // (model, animations) to the chosen knife.
+        if (ChangeSubclass(weapon, std::to_string(*wantDef).c_str())) {
+          Wr<uint16_t>(item, o.item_defIndex, static_cast<uint16_t>(*wantDef));
+          defindex = *wantDef;
+          changed = true;
+          swappedKnife = true;
+          g_lastSwappedKnife = true;
+          if (handle != 0xFFFFFFFFu) g_knifeSwaps.MarkSwapped(handle, steamid64);
+        } else if (DebugOn()) {
+          Log(RU_LOG_DEBUG, "ChangeSubclass unavailable; keeping default knife for %llu",
+                static_cast<unsigned long long>(steamid64));
         }
-        // Quality 3 = "unusual" (the ★ prefix); non-default knives always carry it.
-        Wr<int32_t>(item, o.item_quality, 3);
+        break;
+      case KnifeAction::RevertStock: {
+        // No platform knife equipped any more, on a knife we swapped in: the stock knife, not the
+        // last one swapped in (unequipping left the old knife in hand, NTLAN, 2026-10-16). A knife
+        // the game gave (the player's Steam inventory knife) never gets here.
+        const int stock = team == 2 ? kStockKnifeT : kStockKnifeCt;
+        if (ChangeSubclass(weapon, std::to_string(stock).c_str())) {
+          Wr<uint16_t>(item, o.item_defIndex, static_cast<uint16_t>(stock));
+          Wr<int32_t>(item, o.item_quality, 0);
+          defindex = stock;
+          changed = true;
+          g_knifeSwaps.Forget(handle);
+        }
+        break;
       }
-    } else if (defindex != kStockKnifeCt && defindex != kStockKnifeT) {
-      // No knife equipped (any more): the stock knife, not the last one swapped in. Unequipping
-      // left the old knife in hand (NTLAN, 2026-10-16).
-      const int stock = team == 2 ? kStockKnifeT : kStockKnifeCt;
-      if (ChangeSubclass(weapon, std::to_string(stock).c_str())) {
-        Wr<uint16_t>(item, o.item_defIndex, static_cast<uint16_t>(stock));
-        Wr<int32_t>(item, o.item_quality, 0);
-        defindex = stock;
-        changed = true;
-      }
+      case KnifeAction::Keep: break;
     }
+    // Quality 3 = "unusual" (the ★ prefix); non-default knives always carry it.
+    if (wantDef) Wr<int32_t>(item, o.item_quality, 3);
   }
 
   if (ov != g_paintOverride.end()) {
     WeaponSkinEntry paint = ov->second;
-    if (ownPaint) {  // the loadout's skin for this weapon (stock when none), with the override's name tag
+    bool write = true;
+    if (ownPaint) {  // the loadout's skin for this weapon, with the override's name tag
       const auto own = FindWeaponSkin(steamid64, team, defindex);
       paint = own ? *own : WeaponSkinEntry{};
-      if (paint.paint_id < 0) paint.paint_id = 0;
+      // No platform skin for it: the weapon keeps what the game gave (the player's Steam
+      // inventory skin, or stock). Writing paint 0 replaced Steam skins with stock (2026-10-17).
+      write = paint.paint_id > 0;
     }
-    const auto tag = g_overrideNameTag.find(steamid64);
-    if (tag != g_overrideNameTag.end()) paint.nametag = tag->second;
-    WritePaint(weapon, item, steamid64, paint);
-    paintUsed = paint.paint_id;
-    wearUsed = paint.wear;
-    changed = true;
-    if (IsLegacyPaintKit(paint.paint_id) && !ApplyLegacyBody(weapon, steamid64)) *legacyPending = true;
+    if (write) {
+      const auto tag = g_overrideNameTag.find(steamid64);
+      if (tag != g_overrideNameTag.end()) paint.nametag = tag->second;
+      WritePaint(weapon, item, steamid64, paint);
+      paintUsed = paint.paint_id;
+      wearUsed = paint.wear;
+      changed = true;
+      if (IsLegacyPaintKit(paint.paint_id) && !ApplyLegacyBody(weapon, steamid64)) *legacyPending = true;
+    }
   } else if (const auto skin = FindWeaponSkin(steamid64, team, defindex)) {
     if (skin->paint_id > 0) {
       WritePaint(weapon, item, steamid64, *skin);
@@ -719,7 +734,10 @@ void ProcessPlayer(int slot, void* controller) {
 
 void PruneWeapons() {
   for (auto it = g_weapons.begin(); it != g_weapons.end();) {
-    if (g_tick - it->second.lastSeen > 64 * 60) it = g_weapons.erase(it);
+    if (g_tick - it->second.lastSeen > 64 * 60) {
+      g_knifeSwaps.Forget(it->first);
+      it = g_weapons.erase(it);
+    }
     else ++it;
   }
 }
@@ -751,6 +769,7 @@ void GameFrameTick() {
     g_lastEntitySystemWorld = world;
     g_activeSince = g_tick;
     g_weapons.clear();
+    g_knifeSwaps.Clear();
     for (auto& p : g_players) p = PlayerState{};
     for (auto& r : g_reapplyAt) r = 0;
   }
