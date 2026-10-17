@@ -395,7 +395,18 @@ int ApiEngineFeatureAvailable(ru_plugin* self, const char* feature) {
 int ApiPlayerChangeTeam(ru_plugin* self, int slot, int team) {
   if (!CheckGameThread(self, "player_change_team")) return 0;
   std::string why;
-  if (practice_engine::ChangeTeam(slot, team, &why)) return 1;
+  if (practice_engine::ChangeTeam(slot, team, &why)) {
+    // ChangeTeam to the team the player is already on returns early: no player_team event, so the
+    // registry kept the 0 a map load gave it and callers retried every second (2026-10-17: "moved
+    // BBro to CT" 260 times in 2 min of a live map). The engine's team after the call goes in.
+    const int now = practice_engine::TeamOf(slot);
+    if (now >= 0) {
+      for (const auto& h : ListHumans()) {
+        if (h.slot == slot && h.steamid64 != 0 && h.team != now) (void)ObserveHumanTeamFromEvent(h.steamid64, slot, now);
+      }
+    }
+    return 1;
+  }
   Print("plugin[%s]: player_change_team(%d, %d) refused: %s\n", detail::PluginNameOf(self), slot, team, why.c_str());
   return 0;
 }

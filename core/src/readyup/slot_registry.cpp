@@ -178,6 +178,28 @@ void ResetHumanTeams() {
   }
 }
 
+int ReconcileHumanTeams(int (*engineTeam)(int slot)) {
+  if (!engineTeam) return 0;
+  struct Seen {
+    uint64_t steamid64;
+    int slot, team;
+  };
+  std::vector<Seen> seen;
+  {
+    std::lock_guard<std::mutex> lk(g_humanMu);
+    for (const auto& kv : g_humans) {
+      if (kv.second.slot >= 0) seen.push_back({kv.first, kv.second.slot, kv.second.team});
+    }
+  }
+  int changed = 0;
+  for (const auto& s : seen) {  // the engine is read outside the lock
+    const int t = engineTeam(s.slot);
+    if (t < 0 || t > 3 || t == s.team) continue;
+    if (ObserveHumanTeamFromEvent(s.steamid64, s.slot, t)) ++changed;
+  }
+  return changed;
+}
+
 std::vector<HumanIdentity> ListHumans() {
   std::vector<HumanIdentity> out;
   std::lock_guard<std::mutex> lk(g_humanMu);

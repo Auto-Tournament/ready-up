@@ -5,9 +5,9 @@
 //
 // Where a value comes from (first one set wins):
 //   1. the match config: MAT JSON top-level keys `max_tech_pauses_per_team`, `tech_pause_max_seconds`,
-//      `both_teams_unpause_required`, `allow_force_ready`, `min_players_to_ready`,
+//      `both_teams_unpause_required`, `allow_force_ready`, `team_ready`, `min_players_to_ready`,
 //      `min_spectators_to_ready`, `forfeit_after_seconds`; a fleet `match.assign` maps `rules.pause.technical_per_team`,
-//      `rules.pause.technical_seconds`, `rules.pause.unpause`, `rules.ready.allow_force_ready`,
+//      `rules.pause.technical_seconds`, `rules.pause.unpause`, `rules.ready.allow_force_ready`, `rules.ready.team_ready`,
 //      `rules.ready.min_per_team` and `rules.forfeit.team_absent_seconds` onto them
 //      (fleet_state.cpp AssignToMatConfig),
 //   2. readyup.cfg / match.cfg keys of the same names (scrims only have these),
@@ -30,6 +30,9 @@ struct MatchRules {
   int disconnect_pause_max_seconds = -1;
   int both_teams_unpause = -1;     // 1: both teams type .unpause; 0: the pausing team alone
   int allow_force_ready = -1;      // `.forceready`
+  // `.ready` by a rostered player readies their whole team (and `.unready` un-readies it), once
+  // the team has the players .forceready needs. MAT key team_ready; fleet rules.ready.team_ready.
+  int team_ready = -1;
   int min_players_to_ready = -1;   // connected players a team needs for .forceready; 0 = full roster
   int min_spectators_to_ready = -1; // spectators (casters, match `spectators`) that must be ready before go-live; 0 = none
   int forfeit_after_seconds = -1;  // whole team disconnected while live -> forfeit; 0 = off
@@ -83,6 +86,15 @@ bool UnpauseSatisfied(bool team1Confirmed, bool team2Confirmed, bool bothRequire
 // marks that pause as type "auto_5v5". ct / t: players (humans + bots) on each side.
 constexpr int kFullTeamPlayers = 5;
 bool Auto5v5PauseExpected(bool ruleOn, bool liveMap, bool alreadyPaused, int ctPlayers, int tPlayers);
+// What the freeze-time check does (match_features.cpp), polled from the round start until the
+// freeze time ends. enginePaused: CS2's own pause state (match_status.h EngineMatchPaused: 1 / 0 /
+// -1 unknown). The pause is only marked when the engine really paused: a stale team count marked
+// one at every round start and reported "paused" to the platform (2026-10-17, server-2). Paused
+// with both sides full is someone else's pause (Done). Unknown engine state: the counts decide,
+// as before.
+enum class Auto5v5Check { Done, Wait, Mark };
+Auto5v5Check Auto5v5Decide(bool ruleOn, bool liveMap, bool alreadyPaused, int enginePaused, int ctPlayers,
+                           int tPlayers);
 // The short side (3 CT / 2 T; the one with fewer players, CT on a tie), 0 when both are full.
 int Auto5v5ShortSide(int ctPlayers, int tPlayers);
 // An auto_5v5 pause ends by itself (pure): "full" once both sides have 5 again (held for
@@ -102,6 +114,16 @@ std::string Auto5v5UnpauseReason(int ctPlayers, int tPlayers, double fullForSeco
 int FullTeamSize(int rosterSize, int playersPerTeam = 0);
 bool ForceReadyAllowed(int connected, int rosterSize, int minPlayers, int playersPerTeam = 0);
 int ForceReadyRequired(int rosterSize, int minPlayers, int playersPerTeam = 0);
+
+// Rule `team_ready`: what a rostered player's .ready / .unready in match warmup does.
+//   Single:     only the player (rule off).
+//   Team:       the whole team (connected roster players).
+//   NotEnough:  .ready with the rule on, but the team lacks the players .forceready needs: say so
+//               (ForceReadyRequired) and ready only the player.
+// .unready with the rule on is always Team.
+enum class TeamReadyAction { Single, Team, NotEnough };
+TeamReadyAction DecideTeamReady(bool teamReadyRule, bool ready, int connected, int rosterSize, int minPlayers,
+                                int playersPerTeam = 0);
 
 // ---- go-live ready gate ----------------------------------------------------------------------
 

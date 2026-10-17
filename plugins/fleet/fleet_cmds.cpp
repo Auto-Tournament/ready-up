@@ -130,18 +130,65 @@ int SayCenterSeconds(int64_t asked) {
   return asked > 15 ? 15 : static_cast<int>(asked);
 }
 
-std::string SanitizeSay(const std::string& text) {
+namespace {
+// The longest prefix of `s` of at most `maxBytes` that does not split a UTF-8 character.
+size_t Utf8Cut(const std::string& s, size_t maxBytes) {
+  if (s.size() <= maxBytes) return s.size();
+  size_t cut = maxBytes;
+  while (cut > 0 && (static_cast<unsigned char>(s[cut]) & 0xC0) == 0x80) --cut;
+  return cut;
+}
+}  // namespace
+
+std::string SanitizeSay(const std::string& text, size_t maxBytes) {
   std::string s;
   for (unsigned char c : text) {
     if (c < 0x20 || c == 0x7f) continue;
     s.push_back(static_cast<char>(c));
   }
-  if (s.size() > 190) {
-    size_t cut = 190;
-    while (cut > 0 && (static_cast<unsigned char>(s[cut]) & 0xC0) == 0x80) --cut;  // UTF-8 boundary
-    s.resize(cut);
-  }
+  s.resize(Utf8Cut(s, maxBytes));
   return s;
+}
+
+std::vector<std::string> SplitSay(const std::string& text) {
+  std::string rest = SanitizeSay(text, kSayLineBytes * kSayMaxLines);
+  std::vector<std::string> out;
+  auto trim = [](std::string& s) {
+    const size_t a = s.find_first_not_of(' ');
+    if (a == std::string::npos) {
+      s.clear();
+      return;
+    }
+    s = s.substr(a, s.find_last_not_of(' ') - a + 1);
+  };
+  trim(rest);
+  while (!rest.empty() && out.size() < kSayMaxLines) {
+    size_t cut = Utf8Cut(rest, kSayLineBytes);
+    if (cut < rest.size()) {
+      // Break at the last space in the line, unless that leaves it very short (one long word).
+      const size_t sp = rest.rfind(' ', cut);
+      if (sp != std::string::npos && sp >= kSayLineBytes / 2) cut = sp;
+    }
+    std::string line = rest.substr(0, cut);
+    rest = rest.substr(cut);
+    trim(line);
+    trim(rest);
+    if (!line.empty()) out.push_back(std::move(line));
+  }
+  return out;
+}
+
+std::string AdminSayLine(const std::string& from, const std::string& text) {
+  std::string line = " \x07[ADMIN]\x01 ";
+  if (!from.empty()) line += "\x10" + from + "\x01: ";
+  return line + text;
+}
+
+int SayTeam(const std::string& team) {
+  if (team.empty()) return 0;
+  if (team == "team1") return 1;
+  if (team == "team2") return 2;
+  return -1;
 }
 
 Result Ok() { return Result{}; }

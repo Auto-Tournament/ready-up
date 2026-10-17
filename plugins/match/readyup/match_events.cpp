@@ -842,6 +842,15 @@ std::optional<int> GetCsTeamNumForSlot(int slot) {
   return std::nullopt;
 }
 
+std::optional<int> EngineTeamForSlot(int slot) {
+  if (slot < 0 || !host::OnGameThread() || !Off().teamNum) return std::nullopt;
+  void* c = ControllerForSlot(slot);
+  if (!c) return std::nullopt;
+  const auto v = ReadAt<uint8_t>(c, *Off().teamNum);
+  if (!v || *v > 3) return std::nullopt;
+  return static_cast<int>(*v);
+}
+
 std::pair<int, int> GetRosterTeamDamageTotals() {
   std::lock_guard<std::recursive_mutex> lk(g_mu);
   auto ctxOpt = WebhookGetMatchContext();

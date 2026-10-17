@@ -154,6 +154,8 @@ int g_offPing = -2;      // CCSPlayerController.m_iPing
 int g_offRulesPtr = -2;  // CCSGameRulesProxy.m_pGameRules
 int g_offWarmup = -2;    // CCSGameRules.m_bWarmupPeriod
 int g_offFreeze = -2;    // CCSGameRules.m_bFreezePeriod
+int g_offWaitResume = -2;  // CCSGameRules.m_bMatchWaitingForResume (mp_pause_match, auto 5v5)
+int g_offGamePaused = -2;  // CCSGameRules.m_bGamePaused
 uint32_t g_rulesProxy = 0xFFFFFFFFu;
 long long g_rulesScanAtMs = 0;
 // When each roster player was first seen connected (unix ms); dropped when they leave.
@@ -179,6 +181,7 @@ int PingOfSlot(int slot) {
 struct GameFlags {
   int warmup = -1;  // 1 in CS2's warmup, 0 not, -1 unknown
   int freeze = -1;  // 1 in freeze time
+  int paused = -1;  // 1 while the match is paused or waits to pause (m_bMatchWaitingForResume / m_bGamePaused)
 };
 
 GameFlags ReadGameFlags(long long nowMs) {
@@ -189,6 +192,8 @@ GameFlags ReadGameFlags(long long nowMs) {
     g_offRulesPtr = a->schema_offset(a->self, "CCSGameRulesProxy", "m_pGameRules");
     g_offWarmup = a->schema_offset(a->self, "CCSGameRules", "m_bWarmupPeriod");
     g_offFreeze = a->schema_offset(a->self, "CCSGameRules", "m_bFreezePeriod");
+    g_offWaitResume = a->schema_offset(a->self, "CCSGameRules", "m_bMatchWaitingForResume");
+    g_offGamePaused = a->schema_offset(a->self, "CCSGameRules", "m_bGamePaused");
   }
   if (g_offRulesPtr < 0) return out;
   void* proxy = g_rulesProxy != 0xFFFFFFFFu ? a->entity_from_handle(a->self, g_rulesProxy) : nullptr;
@@ -218,6 +223,8 @@ GameFlags ReadGameFlags(long long nowMs) {
   };
   out.warmup = flag(g_offWarmup);
   out.freeze = flag(g_offFreeze);
+  const int wait = flag(g_offWaitResume), gp = flag(g_offGamePaused);
+  out.paused = wait == 1 || gp == 1 ? 1 : (wait == 0 || gp == 0) ? 0 : -1;
   return out;
 }
 
@@ -635,6 +642,11 @@ void MatchStatusRestoreJson(const Json& j) {
       g_demos[std::atoi(kv.first.c_str())] = d;
     }
   }
+}
+
+int EngineMatchPaused() {
+  if (!host::OnGameThread()) return -1;
+  return ReadGameFlags(UnixMs()).paused;
 }
 
 }  // namespace readyup

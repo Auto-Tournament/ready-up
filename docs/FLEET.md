@@ -131,7 +131,7 @@ Choices made where this document leaves room:
 - Rules enforced from `rules`: `max_rounds`, `overtime`, `tiebreak`, `knife.side_pick_seconds`,
   `clinch_series`, `pause.technical_per_team` / `technical_seconds` / `unpause`,
   `pause.tactical_per_team` / `tactical_seconds` (as `mp_team_timeout_max` / `_time`),
-  `ready.allow_force_ready` / `min_per_team` and `forfeit.team_absent_seconds` (through the MAT
+  `ready.allow_force_ready` / `team_ready` / `min_per_team` and `forfeit.team_absent_seconds` (through the MAT
   config the match flow already loads; `plugins/match/readyup/match_rules.h`). Coaches
   (`role: coach`) are whitelisted spectators who coach their team (CS2's coach slot,
   docs/ADMINS.md "Coaches"); no protocol field beyond the role. The gg-vote rules are carried
@@ -700,7 +700,7 @@ count (`MatchState.ready`, the ready HUD, chat) reads 10/10 for a 5v5 with a sub
 rules {
   max_rounds: 24, overtime: { enabled: true, rounds_per_half: 3, max_overtimes: -1 },
   tiebreak?: { damage: boolean, sudden_death_on_tie: boolean },
-  ready: { min_per_team: 0 /* 0 = full roster */, allow_force_ready: true, autoready: false },
+  ready: { min_per_team: 0 /* 0 = full roster */, allow_force_ready: true, team_ready: false, autoready: false },
   knife: { side_pick_seconds: 60 },
   pause: { tactical_per_team: 4, tactical_seconds: 30, technical_per_team: 10,
            technical_seconds?: 300 /* auto-unpause; 0 = none */,
@@ -773,7 +773,7 @@ only disables `match` or sends `practice.set {always}` to a server that has it.
 | `change_map` | `{ map_number }` or `{ name, workshop_id? }` | pre-live only |
 | `swap_teams` | `{}` | `mp_swapteams` + keep team1/team2 mapping |
 | `kick` | `{ steamid64, message? }` | |
-| `say` | `{ text, as_admin?: boolean }` | max 190 bytes, control chars stripped |
+| `say` | `{ text, as_admin?: boolean, from?: string, to?: u64s, team?: "team1" \| "team2", center_seconds?, important? }` | control chars stripped; up to 3 chat lines of 190 bytes (570 in all). `as_admin`: a red `[ADMIN] <from>: <text>` (`from` ≤ 32 bytes) or `[ADMIN] <text>`, without the Ready Up prefix; without `as_admin` the text is plain and `from` is unused. `team`: only that team's roster players (needs the match plugin) |
 | `plugins.set` | `{ enable?: string[], disable?: string[] }` | the core's `ru plugin enable\|disable <name>` for each: loaded / unloaded and remembered across restarts (`csgo/readyup/plugins/plugins.json`). Plugin names `[a-z0-9_-]`, at most 16 per list; `fleet` cannot be disabled over the link (`match` can: a practice server runs core + fleet + practice). Enabling a plugin that is not installed is remembered but loads nothing (the core logs the failed load); hello `plugins_state` shows what is installed. For server profiles ("practice server": practice + skins + whitelist; "official": no practice / skins / midas) |
 | `practice.set` | `{ on?: boolean, always?: boolean }` | practice mode on / off through the practice plugin (prac.cfg + respawn, or back to idle); `always` stores the practice plugin's always=1 (a dedicated practice server: practice on at load and on every map) in `plugins/practice/always.txt`, which wins over practice.cfg. `rejected unsupported` without practice.so, `rejected bad_phase` while a match is loaded |
 | `whitelist.set` | `{ enabled: boolean, steamids?: string[] }` | replaces the whitelist plugin's list and on/off (saved in `plugins/whitelist/whitelist.json`); `rejected unsupported` without whitelist.so. At most 1000 SteamID64 strings |
@@ -880,6 +880,7 @@ applies `patch` when `rev == stored_rev + 1`; on a gap it sends `state.request`.
 | `match_restored` | `{ map_number, round, backup_sha256 }` | restore | failover confirmation |
 | `forfeit` / `gg` | `{ team, reason }` | match | |
 | `admin_called` | `{ call_id, player: { steamid64, name, team: "team1"\|"team2"\|"spectator"\|null, side: "ct"\|"t"\|null }, message, called_at }` | `.admin [message]` (`admin_call.h`, [ADMINS.md](ADMINS.md)) | admin notification; the platform resolves it |
+| `chat` | `{ player: { steamid64, name, team: "team1"\|"team2"\|null, side: "ct"\|"t"\|"spec" }, message, team_only, at }` | a human's say / say_team that is not a command (`chat_forward.h`); at most 5 lines per player per 5 s, message ≤ 300 characters, `at` Unix ms | match chat for admins |
 | `error` | `{ code, message, fatal }` | any | alert admins |
 
 Server-level: `server.availability {availability, reason}` (a `ServerReset` from `match_end.h`

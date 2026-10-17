@@ -36,6 +36,7 @@
 // Commands: `ru fleet status|enroll [url] <code|key> [--insecure]|reconnect` (console / RCON; also plain
 // `fleet ...`), `.fleet status|reconnect` / `.ru fleet ...` (admins, chat).
 #include "readyup/fleet_iface.h"
+#include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
 #include "readyup/plugin_needs_iface.h"
 #include "readyup/essentials_iface.h"
@@ -617,26 +618,66 @@ fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Valu
     return Ok();
   }
   if (name == "say") {
-    const std::string text = SanitizeSay(MemberStr(args, "text"));
-    if (text.empty()) return Rejected("bad_args", "empty text");
-    const fleet::json::Value* asAdmin = Member(args, "as_admin");
-    const std::string line = asAdmin && asAdmin->AsBool() ? "[Admin] " + text : text;
+    // {text, as_admin?, from?, to?, team?, center_seconds?, important?}. Longer text: up to 3 lines.
+    const std::vector<std::string> lines = fleet::cmds::SplitSay(MemberStr(args, "text"));
+    if (lines.empty()) return Rejected("bad_args", "empty text");
+    const std::string text = SanitizeSay(MemberStr(args, "text"), fleet::cmds::kSayLineBytes * fleet::cmds::kSayMaxLines);
+    // {as_admin}: an admin's line stands out, a red [ADMIN] (with {from}, the admin's name), no
+    // Ready Up prefix. Without as_admin it is the platform's own notice: plain, `from` unused.
+    const fleet::json::Value* asAdminArg = Member(args, "as_admin");
+    const bool admin = asAdminArg && asAdminArg->AsBool();
+    std::string from = admin ? SanitizeSay(MemberStr(args, "from"), 32) : std::string();
+    while (!from.empty() && from.back() == ' ') from.pop_back();
+    std::vector<std::string> out;
+    for (const auto& l : lines) out.push_back(admin ? fleet::cmds::AdminSayLine(from, l) : l);
     const fleet::json::Value* centerArg = Member(args, "center_seconds");
     const int center = fleet::cmds::SayCenterSeconds(centerArg ? centerArg->AsInt(0) : 0);
+    const std::string centerHtml = center ? fleet::cmds::SayCenterHtml(from.empty() ? text : from + ": " + text) : std::string();
+    auto toSlot = [&](int slot) {
+      bool sent = false;
+      for (const auto& l : out) sent = g_api->chat_to_slot(g_api->self, slot, l.c_str()) == 1 || sent;
+      if (sent && center) g_api->center_html_to_slot(g_api->self, slot, centerHtml.c_str(), center);
+      return sent;
+    };
     // {to}: one player (a SteamID64 string), e.g. "your loadout is updated"; not on the server: nothing to do.
     const std::string to = MemberStr(args, "to");
     if (!to.empty()) {
       const uint64_t steamid = std::strtoull(to.c_str(), nullptr, 10);
       const int slot = steamid ? g_api->slot_for_steamid(g_api->self, steamid) : -1;
       if (slot < 0) return Ok();
-      if (!g_api->chat_to_slot(g_api->self, slot, line.c_str())) return Failed("engine", "chat is unavailable");
-      if (center) g_api->center_html_to_slot(g_api->self, slot, fleet::cmds::SayCenterHtml(text).c_str(), center);
+      if (!toSlot(slot)) return Failed("engine", "chat is unavailable");
+      return Ok();
+    }
+    // {team}: only that team's roster players (the match plugin knows the roster).
+    const int team = fleet::cmds::SayTeam(MemberStr(args, "team"));
+    if (team < 0) return Rejected("bad_args", "team must be team1 or team2");
+    if (team > 0) {
+      const auto* m = static_cast<const ru_match_v1*>(g_api->get_interface(g_api->self, RU_MATCH_IFACE_NAME, 1));
+      if (!m || m->struct_size < offsetof(ru_match_v1, roster_team) + sizeof(m->roster_team) || !m->roster_team) {
+        return Rejected("unsupported", "say to a team needs the match plugin (update Ready Up)");
+      }
+      struct Ctx {
+        const ru_match_v1* m;
+        int team;
+        std::vector<int> slots;
+      } ctx{m, team, {}};
+      g_api->for_each_player(
+          g_api->self,
+          [](void* user, const ru_player* p) -> int {
+            auto* c = static_cast<Ctx*>(user);
+            if (!p->is_bot && p->steamid64 && p->slot >= 0 && c->m->roster_team(p->steamid64) == c->team) c->slots.push_back(p->slot);
+            return 1;
+          },
+          &ctx);
+      for (int slot : ctx.slots) (void)toSlot(slot);
       return Ok();
     }
     const fleet::json::Value* importantArg = Member(args, "important");
-    const uint32_t chatFlags = importantArg && importantArg->AsBool() ? RU_CHAT_IMPORTANT : 0;
-    if (!g_api->chat_all(g_api->self, line.c_str(), chatFlags)) return Failed("engine", "chat is unavailable");
-    if (center) g_api->center_html_all(g_api->self, fleet::cmds::SayCenterHtml(text).c_str(), center);
+    const uint32_t chatFlags = (importantArg && importantArg->AsBool() ? RU_CHAT_IMPORTANT : 0) | (admin ? RU_CHAT_RAW : 0);
+    for (const auto& l : out) {
+      if (!g_api->chat_all(g_api->self, l.c_str(), chatFlags)) return Failed("engine", "chat is unavailable");
+    }
+    if (center) g_api->center_html_all(g_api->self, centerHtml.c_str(), center);
     return Ok();
   }
   return Rejected("unknown_command", "unknown cmd \"" + name + "\"");

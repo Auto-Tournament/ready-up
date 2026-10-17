@@ -5,6 +5,7 @@
 
 #include "readyup/admin_check.h"
 #include "readyup/backup_files.h"
+#include "readyup/chat_forward.h"
 #include "readyup/cs2_update_check.h"
 #include "readyup/cs2_version.h"
 #include "readyup/demo_recorder.h"
@@ -2014,8 +2015,28 @@ void OnCoreEvent(const ru_event* e) {
   }
 }
 
+// Player chat (chat_forward.h): every human line that is not a command, as `event.chat`, at most
+// 5 lines per player per 5 s so a spammer cannot flood the link.
+static chat_forward::RateLimiter g_chatLimit(5, 5.0);
+
+static void ForwardChat(const char* line) {
+  if (!g_asg.active || !signals::Enabled()) return;
+  if (!std::strstr(line, "\" say \"") && !std::strstr(line, "\" say_team \"")) return;
+  const auto c = chat_forward::ParseChatLogLine(line);
+  if (!c || IsDevBotId(c->steamid64) || chat_forward::IsCommand(c->message)) return;
+  Json d = chat_forward::EventData(*c, fs::TeamOf(g_config, c->steamid64), UnixMs());
+  if (d.Find("message")->AsString().empty()) return;
+  if (!g_chatLimit.Allow(c->steamid64, g_now)) {
+    Debug("fleet: chat from %llu over the rate limit; not forwarded\n", static_cast<unsigned long long>(c->steamid64));
+    return;
+  }
+  signals::Emit("chat", std::move(d));
+}
+
 void OnLogLine(const char* line) {
-  if (g_execs.empty() || !line) return;
+  if (!line) return;
+  ForwardChat(line);
+  if (g_execs.empty()) return;
   for (auto& x : g_execs) {
     if (x.output.size() >= kExecOutputMax) continue;
     x.output.append(line);

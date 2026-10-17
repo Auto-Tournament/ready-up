@@ -94,6 +94,17 @@ static void TestAuto5v5() {
   CHECK(!Auto5v5PauseExpected(false, true, false, 4, 5));
   CHECK(!Auto5v5PauseExpected(true, false, false, 4, 5));
   CHECK(!Auto5v5PauseExpected(true, true, true, 4, 5));
+  // Only when CS2 really paused (2026-10-17, server-2: a stale count of 4 v 4 with 10 players on
+  // teams marked a pause at every round start, ended at freeze end).
+  CHECK(Auto5v5Decide(true, true, false, 0, 4, 4) == Auto5v5Check::Wait);
+  CHECK(Auto5v5Decide(true, true, false, 1, 4, 5) == Auto5v5Check::Mark);
+  CHECK(Auto5v5Decide(true, true, false, 1, 5, 5) == Auto5v5Check::Done);  // an admin's pause
+  CHECK(Auto5v5Decide(true, true, true, 1, 4, 5) == Auto5v5Check::Done);
+  CHECK(Auto5v5Decide(false, true, false, 1, 4, 5) == Auto5v5Check::Done);
+  CHECK(Auto5v5Decide(true, false, false, 1, 4, 5) == Auto5v5Check::Done);
+  // Engine state unknown: the counts, as before.
+  CHECK(Auto5v5Decide(true, true, false, -1, 4, 5) == Auto5v5Check::Mark);
+  CHECK(Auto5v5Decide(true, true, false, -1, 5, 5) == Auto5v5Check::Done);
   // The short side: the one with fewer players, CT on a tie; 0 when both are full.
   CHECK(Auto5v5ShortSide(5, 5) == 0);
   // An auto_5v5 pause ends by itself: both sides full for 5 s, or the time cap.
@@ -143,6 +154,28 @@ static void TestForceReady() {
   CHECK(ForceReadyAllowed(2, 2, 5));
   // Empty roster never qualifies.
   CHECK(!ForceReadyAllowed(0, 0, 0));
+}
+
+static void TestTeamReady() {
+  // Off by default; the match config wins over readyup.cfg.
+  CHECK(BuiltinDefaultRules().team_ready == 0);
+  MatchRules m, base;
+  CHECK(ResolveRules(m, base).team_ready == 0);
+  base.team_ready = 1;
+  CHECK(ResolveRules(m, base).team_ready == 1);
+  m.team_ready = 0;
+  CHECK(ResolveRules(m, base).team_ready == 0);
+  // Rule off: always the player alone.
+  CHECK(DecideTeamReady(false, true, 5, 5, 0) == TeamReadyAction::Single);
+  CHECK(DecideTeamReady(false, false, 5, 5, 0) == TeamReadyAction::Single);
+  // On: the whole team once .forceready's threshold is met.
+  CHECK(DecideTeamReady(true, true, 5, 5, 0) == TeamReadyAction::Team);
+  CHECK(DecideTeamReady(true, true, 4, 5, 0) == TeamReadyAction::NotEnough);
+  CHECK(DecideTeamReady(true, true, 4, 5, 4) == TeamReadyAction::Team);
+  CHECK(DecideTeamReady(true, true, 5, 7, 0, 5) == TeamReadyAction::Team);  // substitutes
+  CHECK(DecideTeamReady(true, true, 0, 0, 0) == TeamReadyAction::NotEnough);
+  // .unready un-readies the team whoever is connected.
+  CHECK(DecideTeamReady(true, false, 1, 5, 0) == TeamReadyAction::Team);
 }
 
 static void TestTeamNames() {
@@ -302,6 +335,7 @@ int main() {
   TestPauses();
   TestAuto5v5();
   TestForceReady();
+  TestTeamReady();
   TestTeamNames();
   TestForfeit();
   // Warmup money top-up: scrim and match warmup only, and only when enabled.

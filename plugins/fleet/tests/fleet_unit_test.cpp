@@ -590,6 +590,22 @@ TEST(TestOwnedCmds) {
   CHECK(cut.size() == 190);
   CHECK((static_cast<unsigned char>(cut.back()) & 0xC0) == 0x80);  // ends after a whole character
 
+  // say: up to 3 lines of 190 bytes, broken at a space; the admin prefix; team.
+  CHECK(SplitSay("  ").empty());
+  CHECK(SplitSay("hello").size() == 1 && SplitSay("hello")[0] == "hello");
+  {
+    std::string words;
+    for (int i = 0; i < 60; ++i) words += "word" + std::to_string(i % 10) + " ";  // 360 bytes
+    const auto lines = SplitSay(words);
+    CHECK(lines.size() == 2);
+    for (const auto& l : lines) CHECK(l.size() <= 190 && l.front() != ' ' && l.back() != ' ');
+    CHECK(SplitSay(std::string(1000, 'x')).size() == 3);
+    for (const auto& l : SplitSay(std::string(1000, 'x'))) CHECK(l.size() == 190);
+  }
+  CHECK_EQ(AdminSayLine("", "go"), std::string(" \x07[ADMIN]\x01 go"));
+  CHECK_EQ(AdminSayLine("Sivert", "go"), std::string(" \x07[ADMIN]\x01 \x10Sivert\x01: go"));
+  CHECK(SayTeam("") == 0 && SayTeam("team1") == 1 && SayTeam("team2") == 2 && SayTeam("ct") == -1);
+
   CHECK_EQ(ResultPayload(Ok(), ""), std::string(R"({"status":"ok"})"));
   CHECK_EQ(ResultPayload(Rejected("unsupported", "no match.so"), "a1"),
            std::string(R"({"status":"rejected","error":{"code":"unsupported","message":"no match.so"},"audit_id":"a1"})"));

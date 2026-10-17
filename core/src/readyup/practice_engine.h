@@ -21,6 +21,9 @@ bool Available(const char* feature);
 
 // The player in `slot` joins `team` (1 = spectators, 2 = T, 3 = CT), as jointeam does.
 bool ChangeTeam(int slot, int team, std::string* why);
+// The controller's team now (m_iTeamNum: 0 none, 1 spectators, 2 T, 3 CT), or -1 when `slot` is
+// not a player or the schema is not ready.
+int TeamOf(int slot);
 
 // The live pawn of `slot`: new origin / view angles (pitch, yaw, roll) / velocity; a null part is
 // left alone.

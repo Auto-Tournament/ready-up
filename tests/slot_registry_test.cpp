@@ -16,6 +16,37 @@ static int g_failures = 0;
     }                                                                               \
   } while (0)
 
+static int TeamOf(uint64_t sid) {
+  for (const auto& h : ListHumans()) {
+    if (h.steamid64 == sid) return h.team;
+  }
+  return -1;
+}
+
+// The engine in the 2026-10-17 case: slot 3 (BBro) is CT, slot 4 (EmilYO) T, slot 9 unknown.
+static int EngineTeam(int slot) { return slot == 3 ? 3 : slot == 4 ? 2 : -1; }
+
+static void TestReconcileAfterMapLoad() {
+  const uint64_t bbro = 76561198000000003ull, emil = 76561198000000004ull, other = 76561198000000009ull;
+  ObserveHuman(13, bbro, "BBro", 3);
+  ObserveHuman(14, emil, "EmilYO", 2);
+  ObserveHuman(19, other, "x", 3);
+  CHECK(ObserveHumanTeamFromEvent(bbro, 3, 3));
+  CHECK(ObserveHumanTeamFromEvent(emil, 4, 2));
+  CHECK(ObserveHumanTeamFromEvent(other, 9, 3));
+  // Map load: everyone "has no team"; the two who stay on their side send no player_team event.
+  ResetHumanTeams();
+  CHECK(TeamOf(bbro) == 0 && TeamOf(emil) == 0);
+  CHECK(ReconcileHumanTeams(&EngineTeam) == 2);
+  CHECK(TeamOf(bbro) == 3 && TeamOf(emil) == 2);
+  CHECK(TeamOf(other) == 0);  // engine unknown: left alone
+  CHECK(ReconcileHumanTeams(&EngineTeam) == 0);  // nothing more to do
+  CHECK(ReconcileHumanTeams(nullptr) == 0);
+  ForgetHuman(bbro);
+  ForgetHuman(emil);
+  ForgetHuman(other);
+}
+
 static bool Present(uint64_t sid) {
   for (const auto& h : ListHumans()) {
     if (h.steamid64 == sid) return true;
@@ -61,6 +92,8 @@ int main() {
   Line(cola, 7, true, false);
   Line(cola, 7, false, false);
   CHECK(!Present(cola));
+
+  TestReconcileAfterMapLoad();
 
   if (g_failures == 0) std::printf("slot_registry: ok\n");
   return g_failures == 0 ? 0 : 1;

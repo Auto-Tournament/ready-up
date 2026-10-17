@@ -14,6 +14,7 @@ MatchRules BuiltinDefaultRules() {
   r.disconnect_pause_max_seconds = 300;
   r.both_teams_unpause = 1;
   r.allow_force_ready = 1;
+  r.team_ready = 0;
   r.min_players_to_ready = 0;
   r.min_spectators_to_ready = 0;
   r.forfeit_after_seconds = 240;
@@ -38,6 +39,7 @@ MatchRules ResolveRules(const MatchRules& match, const MatchRules& base) {
                                         d.disconnect_pause_max_seconds);
   r.both_teams_unpause = pick(match.both_teams_unpause, base.both_teams_unpause, d.both_teams_unpause) ? 1 : 0;
   r.allow_force_ready = pick(match.allow_force_ready, base.allow_force_ready, d.allow_force_ready) ? 1 : 0;
+  r.team_ready = pick(match.team_ready, base.team_ready, d.team_ready) ? 1 : 0;
   r.min_players_to_ready = pick(match.min_players_to_ready, base.min_players_to_ready, d.min_players_to_ready);
   r.min_spectators_to_ready =
       pick(match.min_spectators_to_ready, base.min_spectators_to_ready, d.min_spectators_to_ready);
@@ -127,6 +129,15 @@ bool Auto5v5PauseExpected(bool ruleOn, bool liveMap, bool alreadyPaused, int ctP
   return Auto5v5ShortSide(ctPlayers, tPlayers) != 0;
 }
 
+Auto5v5Check Auto5v5Decide(bool ruleOn, bool liveMap, bool alreadyPaused, int enginePaused, int ctPlayers,
+                           int tPlayers) {
+  if (!ruleOn || !liveMap || alreadyPaused) return Auto5v5Check::Done;
+  // Paused with both sides full: someone else's pause (an admin's mp_pause_match), not auto 5v5.
+  if (enginePaused == 1) return Auto5v5ShortSide(ctPlayers, tPlayers) != 0 ? Auto5v5Check::Mark : Auto5v5Check::Done;
+  if (enginePaused == 0) return Auto5v5Check::Wait;  // not (yet) paused: look again until freeze ends
+  return Auto5v5ShortSide(ctPlayers, tPlayers) != 0 ? Auto5v5Check::Mark : Auto5v5Check::Done;
+}
+
 int Auto5v5ShortSide(int ctPlayers, int tPlayers) {
   if (ctPlayers >= kFullTeamPlayers && tPlayers >= kFullTeamPlayers) return 0;
   return ctPlayers <= tPlayers ? 3 : 2;
@@ -153,6 +164,14 @@ int ForceReadyRequired(int rosterSize, int minPlayers, int playersPerTeam) {
 bool ForceReadyAllowed(int connected, int rosterSize, int minPlayers, int playersPerTeam) {
   if (rosterSize <= 0) return false;
   return connected >= ForceReadyRequired(rosterSize, minPlayers, playersPerTeam);
+}
+
+TeamReadyAction DecideTeamReady(bool teamReadyRule, bool ready, int connected, int rosterSize, int minPlayers,
+                                int playersPerTeam) {
+  if (!teamReadyRule) return TeamReadyAction::Single;
+  if (!ready) return TeamReadyAction::Team;
+  return ForceReadyAllowed(connected, rosterSize, minPlayers, playersPerTeam) ? TeamReadyAction::Team
+                                                                               : TeamReadyAction::NotEnough;
 }
 
 int TeamReadyNeeded(int rosterSize, int connected, int minPlayers, int playersPerTeam) {

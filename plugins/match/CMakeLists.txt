@@ -10,6 +10,7 @@ set(MATCH_SOURCES
   readyup/admin_check.cpp
   readyup/at_payloads.cpp
   readyup/backup_files.cpp
+  readyup/chat_forward.cpp
   readyup/card_html.cpp
   readyup/golive_card_logic.cpp
   readyup/coach.cpp
@@ -255,3 +256,11 @@ add_executable(match_retention_test tests/retention_test.cpp readyup/retention_r
 target_include_directories(match_retention_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(match_retention_test PRIVATE -Wall -Wextra)
 add_test(NAME match_retention COMMAND match_retention_test)
+
+# Player chat to the platform (readyup/chat_forward.h: log line parser, rate limit, event.chat
+# data) and the team lock's move rule (readyup/team_lock.h) (ctest `match_chat_forward`).
+add_executable(match_chat_forward_test tests/chat_forward_test.cpp readyup/chat_forward.cpp readyup/admin_call_logic.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/steamid.cpp)
+target_include_directories(match_chat_forward_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
+target_compile_options(match_chat_forward_test PRIVATE -Wall -Wextra)
+add_test(NAME match_chat_forward COMMAND match_chat_forward_test)

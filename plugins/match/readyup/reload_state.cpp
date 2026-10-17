@@ -98,6 +98,7 @@ Json ContextToJson(const WebhookMatchContext& c) {
   rules["tech_pause_max_seconds"] = c.rules.tech_pause_max_seconds;
   rules["both_teams_unpause"] = c.rules.both_teams_unpause;
   rules["allow_force_ready"] = c.rules.allow_force_ready;
+  rules["team_ready"] = c.rules.team_ready;
   rules["min_players_to_ready"] = c.rules.min_players_to_ready;
   rules["min_spectators_to_ready"] = c.rules.min_spectators_to_ready;
   rules["forfeit_after_seconds"] = c.rules.forfeit_after_seconds;
@@ -173,6 +174,7 @@ WebhookMatchContext ContextFromJson(const Json& j) {
     c.rules.tech_pause_max_seconds = Int(r, "tech_pause_max_seconds", -1);
     c.rules.both_teams_unpause = Int(r, "both_teams_unpause", -1);
     c.rules.allow_force_ready = Int(r, "allow_force_ready", -1);
+    c.rules.team_ready = Int(r, "team_ready", -1);
     c.rules.min_players_to_ready = Int(r, "min_players_to_ready", -1);
     c.rules.min_spectators_to_ready = Int(r, "min_spectators_to_ready", -1);
     c.rules.forfeit_after_seconds = Int(r, "forfeit_after_seconds", -1);

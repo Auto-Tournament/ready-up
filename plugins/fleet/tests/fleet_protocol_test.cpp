@@ -70,7 +70,7 @@ int main() {
   for (const char* t : {"match.assign", "match.update", "match.unassign", "cmd", "cmd.result", "state.snapshot",
                         "state.patch", "state.request", "server.availability", "event.round_end", "event.map_result",
                         "event.backup", "event.phase", "event.pause", "event.demo", "event.series_end", "admins.set",
-                        "server.drain", "server.undrain", "server.cs2_update_required", "server.selftest", "skins.loadout", "skins.invalidate", "skins.stattrak", "movement.record", "event.admin_called"}) {
+                        "server.drain", "server.undrain", "server.cs2_update_required", "server.selftest", "skins.loadout", "skins.invalidate", "skins.stattrak", "movement.record", "event.admin_called", "event.chat"}) {
     CHECK(set.Has(kBase + "messages/" + t + ".json"));
   }
 
@@ -153,6 +153,20 @@ int main() {
   }));
   CHECK(broken("event.admin_called.json", [](Value* p) { p->Get("data")->Set("called_at", Value::Str("yesterday")); }));
   CHECK(broken("event.admin_called.json", [](Value* p) { p->Get("data")->Set("message", Value::Str(std::string(801, 'x'))); }));
+
+  // event.chat: roster team or null, side ct|t|spec, a non-empty message.
+  CHECK(broken("event.chat.json", [](Value* p) { p->Get("data")->Get("player")->Set("team", Value::Str("spectator")); }));
+  CHECK(broken("event.chat.json", [](Value* p) { p->Get("data")->Get("player")->Set("side", Value::Null()); }));
+  CHECK(broken("event.chat.json", [](Value* p) { p->Get("data")->Set("message", Value::Str("")); }));
+  CHECK(broken("event.chat.json", [](Value* p) { p->Get("data")->Set("team_only", Value::Str("no")); }));
+  {
+    Value env = Load(std::string(FLEET_EXAMPLES_DIR) + "/event.chat.json");
+    Value* data = env.Get("payload")->Get("data");
+    data->Get("player")->Set("team", Value::Null());
+    data->Get("player")->Set("side", Value::Str("spec"));
+    data->Set("team_only", Value::Bool(true));
+    CHECK(ValidateFrame(set, env, "event.chat.json spectator"));
+  }
 
   // `.admin` from a spectator / a player whose team or side is unknown, with no message.
   {

@@ -280,6 +280,7 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
   ruleInt("disconnect_pause_max_seconds", &ctx.rules.disconnect_pause_max_seconds);
   ruleBool("both_teams_unpause_required", &ctx.rules.both_teams_unpause);
   ruleBool("allow_force_ready", &ctx.rules.allow_force_ready);
+  ruleBool("team_ready", &ctx.rules.team_ready);
   ruleInt("min_players_to_ready", &ctx.rules.min_players_to_ready);
   ruleInt("min_spectators_to_ready", &ctx.rules.min_spectators_to_ready);
   ruleInt("forfeit_after_seconds", &ctx.rules.forfeit_after_seconds);

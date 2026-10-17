@@ -1,5 +1,6 @@
 // Tactical / technical pauses, .forceready and the team-left forfeit (see match_features.h).
 #include "readyup/match_features.h"
+#include "readyup/match_status.h"
 
 #include "readyup/config.h"
 #include "readyup/engine.h"
@@ -36,6 +37,10 @@ std::atomic<bool> g_roundOver{false};  // round_end .. round_start
 
 // Game thread only.
 int g_rsSeqAuto5v5 = 0;  // the round start the auto_5v5 check last ran for
+bool g_auto5v5Pending = false;  // this round's auto_5v5 check still runs (until freeze time ends)
+double g_auto5v5NextAt = 0;
+double g_auto5v5CountAt = 0;  // the paused branch's side count, every 250 ms
+int g_auto5v5Ct = 0, g_auto5v5T = 0;
 double g_auto5v5FullSince = 0;  // when both sides were last seen full during an auto_5v5 pause (0: not)
 bool g_wasPaused = false;
 double g_effectiveAt = 0;  // technical: when the pause took effect (0 = waiting for freeze time)
@@ -174,21 +179,27 @@ void ForfeitTick(double now) {
 void CountSides(int* ct, int* t) {
   *ct = 0;
   *t = 0;
+  // The engine's team (a byte per player) over the cached one, which a map load leaves at 0 for a
+  // player who stays on their side (team_lock.h). Called at most every 250 ms.
   for (const auto& h : ListHumans()) {
-    if (h.team == 3) ++*ct;
-    else if (h.team == 2) ++*t;
+    const int team = EngineTeamForSlot(h.slot).value_or(h.team);
+    if (team == 3) ++*ct;
+    else if (team == 2) ++*t;
   }
 }
 
 std::mutex g_leftMu;
 std::set<uint64_t> g_left;  // rostered players who left a live map, for the "back" line
 
-void MaybeMarkAuto5v5Pause() {
+// True when the check is over for this round (marked, or nothing to mark); false = look again.
+bool MaybeMarkAuto5v5Pause() {
   const auto ctx = WebhookGetMatchContext();
-  if (!ctx) return;
+  if (!ctx) return true;
   int ct = 0, t = 0;
   CountSides(&ct, &t);
-  if (!Auto5v5PauseExpected(AutoPause5v5Enabled(), LiveMap(), PauseStateGet().paused, ct, t)) return;
+  const Auto5v5Check c = Auto5v5Decide(AutoPause5v5Enabled(), LiveMap(), PauseStateGet().paused, EngineMatchPaused(), ct, t);
+  if (c == Auto5v5Check::Wait) return false;
+  if (c == Auto5v5Check::Done) return true;
   const int side = Auto5v5ShortSide(ct, t);
   const WebhookTeam shortTeam = CsSideOf(*ctx, WebhookTeam::Team1) == side ? WebhookTeam::Team1 : WebhookTeam::Team2;
   PauseStateOnPaused("auto_5v5", "server", shortTeam);
@@ -201,6 +212,7 @@ void MaybeMarkAuto5v5Pause() {
               (maxSeconds > 0 ? " (or in " + std::to_string(maxSeconds / 60) + " min)" : std::string()) +
               ". To go on now, both teams type .up.")
                  .c_str());
+  return true;
 }
 
 }  // namespace
@@ -393,6 +405,51 @@ void MatchFeaturesForceReady(uint64_t steamid64, const std::string& name) {
                  .c_str());
 }
 
+bool MatchFeaturesTeamReady(uint64_t steamid64, const std::string& name, bool ready, std::vector<uint64_t>* changed) {
+  const MatchRules rules = EffectiveRules();
+  if (!rules.team_ready) return false;
+  const auto ctx = WebhookGetMatchContext();
+  if (!ctx || ctx->slug == "scrim") return false;
+  if (GetMode() != ReadyUpMode::MatchWarmup || GoLiveTriggered() || KnifeIsAwaitingPick()) return false;
+  const auto it = ctx->roster_team.find(steamid64);
+  if (it == ctx->roster_team.end()) return false;
+  const WebhookTeam team = it->second;
+  // The same count as .forceready's.
+  std::unordered_set<uint64_t> connected;
+  for (const auto& h : ListHumans()) connected.insert(h.steamid64);
+  int rosterSize = 0, present = 0;
+  for (const auto& kv : ctx->roster_team) {
+    if (kv.second != team) continue;
+    ++rosterSize;
+    if (connected.count(kv.first)) ++present;
+  }
+  const std::string teamName = TeamName(*ctx, team);
+  switch (DecideTeamReady(true, ready, present, rosterSize, rules.min_players_to_ready, ctx->players_per_team)) {
+    case TeamReadyAction::Single: return false;
+    case TeamReadyAction::NotEnough:
+      Reply(steamid64, "Ready Up: " + teamName + " needs " +
+                           std::to_string(ForceReadyRequired(rosterSize, rules.min_players_to_ready, ctx->players_per_team)) +
+                           " players connected to ready the whole team (" + std::to_string(present) + " now).");
+      return false;
+    case TeamReadyAction::Team: break;
+  }
+  int n = 0;
+  for (const auto& kv : ctx->roster_team) {
+    if (kv.second != team || !connected.count(kv.first)) continue;
+    if (SetReady(kv.first, ready) != ready) {
+      ++n;
+      if (changed) changed->push_back(kv.first);
+    }
+  }
+  ScrimNoteReadyChanged();
+  Print("ready: team_ready %s by %s -> %s, %d player(s)\n", ready ? ".ready" : ".unready", name.c_str(),
+        teamName.c_str(), n);
+  SendToChat(("Ready Up: " + name + (ready ? " readied " : " unreadied ") + teamName + " (" + std::to_string(n) +
+              " player" + (n == 1 ? "" : "s") + ").")
+                 .c_str());
+  return true;
+}
+
 bool MatchFeaturesSwapTeams(std::string* why) {
   const auto ctx = WebhookGetMatchContext();
   if (!ctx || ctx->slug == "scrim") {
@@ -444,9 +501,17 @@ bool MatchFeaturesRenameTeam(int team, const std::string& name, std::string* why
 
 void MatchFeaturesTick() {
   const double now = host::NowSeconds();
+  // auto_5v5: from the round start until the freeze time ends, every 250 ms, until CS2 paused
+  // (marked) or the check is over. Two byte reads of the game rules and one per player.
   if (const int rs = g_roundStartSeq.load(); rs != g_rsSeqAuto5v5) {
     g_rsSeqAuto5v5 = rs;
-    MaybeMarkAuto5v5Pause();
+    g_auto5v5Pending = true;
+    g_auto5v5NextAt = 0;
+  }
+  if (g_auto5v5Pending && !g_inFreeze.load()) g_auto5v5Pending = false;
+  if (g_auto5v5Pending && now >= g_auto5v5NextAt) {
+    g_auto5v5NextAt = now + 0.25;
+    if (MaybeMarkAuto5v5Pause()) g_auto5v5Pending = false;
   }
   const PauseSnapshot ps = PauseStateGet();
   const auto ctx = WebhookGetMatchContext();
@@ -471,8 +536,11 @@ void MatchFeaturesTick() {
       Unpause("freeze time ended: the engine is not paused (auto_5v5)");
     } else if (ps.type == "auto_5v5" && LiveMap()) {
       // The player is back (or the wait is over): on with the round, nobody has to .unpause.
-      int ct = 0, t = 0;
-      CountSides(&ct, &t);
+      if (now >= g_auto5v5CountAt) {
+        g_auto5v5CountAt = now + 0.25;
+        CountSides(&g_auto5v5Ct, &g_auto5v5T);
+      }
+      const int ct = g_auto5v5Ct, t = g_auto5v5T;
       if (Auto5v5ShortSide(ct, t) == 0) {
         if (g_auto5v5FullSince == 0) {
           g_auto5v5FullSince = now;

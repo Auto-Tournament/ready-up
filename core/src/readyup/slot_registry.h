@@ -103,6 +103,11 @@ void ForgetHuman(uint64_t steamid64);
 bool AcceptHumanLogLine(uint64_t steamid64, bool leaving, bool connectLine);
 // Map load: players stay connected but have to pick a team again.
 void ResetHumanTeams();
+// The engine's team (engineTeam(slot): 0..3, or < 0 when unknown) for every human with an engine
+// slot; where it differs from the table it is written in (as an event observation). A player who
+// stays on their side over a map load produces no player_team event, so after ResetHumanTeams the
+// table said "no team" for the whole map (2026-10-17). Returns how many entries changed.
+int ReconcileHumanTeams(int (*engineTeam)(int slot));
 std::vector<HumanIdentity> ListHumans();
 
 }  // namespace readyup

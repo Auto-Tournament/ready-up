@@ -33,6 +33,7 @@
 #include "readyup/players.h"
 #include "readyup/round_restore.h"
 #include "readyup/simulation.h"
+#include "readyup/team_lock.h"
 #include "readyup/status_snapshot.h"
 #include "readyup/weapon_cleanup.h"
 #include "readyup/webhook.h"
@@ -413,6 +414,10 @@ static bool Team1IsCtNow(const WebhookMatchContext& ctx) {
   return team1Ct;
 }
 
+// Moves tried per player and target while their cached team stays the same (team_lock.h).
+// Guarded by the state lock MaybeForceRosterTeamsLocked runs under.
+static MoveRetryCap g_moveCap(3);
+
 static void MaybeForceRosterTeamsLocked(State& st) {
   // Live too: a roster player who switched team mid-map (2026-10-12, a BO3's
   // second map) goes back. Switching team already killed them, so moving
@@ -461,22 +466,32 @@ static void MaybeForceRosterTeamsLocked(State& st) {
       else if (it->second == WebhookTeam::Team2) join = team1IsCt ? 2 : 3;  // T : CT
       else continue;
     }
-    if (h.team == join) continue;
-
+    // The cached team agrees: nothing to read or do (the common case, every tick).
+    if (h.team == join) {
+      g_moveCap.Forget(h.steamid64);
+      continue;
+    }
+    // It does not: throttled, then the engine's team (a byte of the controller) decides. A map
+    // load leaves the cache at 0 for a player who stays on their side (team_lock.h).
     auto lastIt = st.lastForceJoin.find(h.steamid64);
     if (lastIt != st.lastForceJoin.end() && (now - lastIt->second) < minInterval) continue;
+    st.lastForceJoin[h.steamid64] = now;
+    if (!TeamMoveNeeded(h.team, EngineTeamForSlot(h.slot), join)) {
+      g_moveCap.Forget(h.steamid64);
+      continue;
+    }
+    if (!g_moveCap.Allow(h.steamid64, join, h.team)) continue;
 
     // Not here: ChangeTeam fires the engine's team/death callbacks synchronously, and those
     // take Ready Up's locks, which this tick holds, so a move from inside it froze the game
     // thread (a live test hung on a map change). The move runs on the next frame, outside
     // every lock; the throttle keeps it to one per player per interval.
-    st.lastForceJoin[h.steamid64] = now;
     ScheduleOnGameThread(0.0, [slot = h.slot, steamid = h.steamid64, join, name = h.name]() {
       // The slot may have changed hands in between: only move the same player.
       bool same = false;
       for (const auto& x : ListHumans()) {
         if (x.slot == slot) {
-          same = x.steamid64 == steamid && x.team != join;
+          same = x.steamid64 == steamid && TeamMoveNeeded(x.team, EngineTeamForSlot(slot), join);
           break;
         }
       }
