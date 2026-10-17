@@ -32,6 +32,8 @@
 #                                            practice.cfg templates + tools/scenario/ru_scenario.py + seed scenarios
 #   ready-up-essentials-plugin-<v>-...zip   plugins/essentials.so (admins, map commands); "essentials" alone is the bundle
 #   ready-up-deathmatch-<v>-linuxsteamrt64.zip plugins/deathmatch.so + deathmatch.cfg template (off until .ru dm ffa|tdm)
+#   ready-up-tv-<v>-linuxsteamrt64.zip      plugins/tv.so + an all-comments tv.cfg template (GOTV broadcast
+#                                            settings; touches nothing until a key is set)
 # Bundles (for manual download):
 #   ready-up-essentials-<v>-...zip          core + essentials + match + fleet + practice. The default. NO skins.
 #   ready-up-full-<v>-...zip                core + essentials + match + fleet + practice + skins + midas + whitelist + deathmatch + addons + readyup_sigcheck/hookcheck
@@ -55,7 +57,7 @@ trap 'rm -rf "$WORK"' EXIT
 EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 SUFFIX="$VERSION-linuxsteamrt64.zip"
 
-for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so plugins/practice.so plugins/essentials.so plugins/deathmatch.so plugins/mapvote.so plugins/community.so plugins/movement.so plugins/addons.so; do
+for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so plugins/practice.so plugins/essentials.so plugins/deathmatch.so plugins/mapvote.so plugins/community.so plugins/movement.so plugins/addons.so plugins/tv.so; do
   [[ -f "$BUILD/$f" ]] || { echo "package-release: missing $BUILD/$f" >&2; exit 1; }
 done
 
@@ -108,7 +110,7 @@ stage_component core "Ready Up core: libserver.so, engine surface, plugin host, 
 match_files=("$BUILD/plugins/match.so:plugins/match.so:755"
   "$ROOT_DIR/plugins/match/needs.json:plugins/match.needs.json")
 for f in "$ROOT_DIR"/cfg/ReadyUp/*.cfg; do
-  case "$(basename "$f")" in fleet.cfg | midas.cfg | prac.cfg | practice.cfg | deathmatch.cfg | mapvote.cfg | community.cfg | movement.cfg | addons.cfg) continue ;; esac  # the fleet / midas / practice / deathmatch / addons components' own
+  case "$(basename "$f")" in fleet.cfg | midas.cfg | prac.cfg | practice.cfg | deathmatch.cfg | mapvote.cfg | community.cfg | movement.cfg | addons.cfg | tv.cfg) continue ;; esac  # the fleet / midas / practice / deathmatch / addons components' own
   match_files+=("$f:cfg-templates/ReadyUp/$(basename "$f")")
 done
 stage_component match "Ready-up, scrims, knife round, pauses, practice, match configs, webhooks, demos" "${match_files[@]}"
@@ -204,6 +206,13 @@ stage_component movement "Movement: surf / bhop / kz run timer, zones from the m
   "$ROOT_DIR/plugins/movement/needs.json:plugins/movement.needs.json" \
   "$ROOT_DIR/cfg/ReadyUp/movement.cfg:cfg-templates/ReadyUp/movement.cfg"
 
+# GOTV broadcast settings (docs/design/tv-plugin.md): the template is all comments, so it touches
+# nothing until a key is set (or a platform match carries rules.broadcast).
+stage_component tv "GOTV broadcast settings: delay, insecure observers for HUD tools, casters (idle until set)" \
+  "$BUILD/plugins/tv.so:plugins/tv.so:755" \
+  "$ROOT_DIR/plugins/tv/needs.json:plugins/tv.needs.json" \
+  "$ROOT_DIR/cfg/ReadyUp/tv.cfg:cfg-templates/ReadyUp/tv.cfg"
+
 extras=()
 for t in readyup_sigcheck readyup_hookcheck; do
   [[ -f "$BUILD/$t" ]] && extras+=("$BUILD/$t:tools/$t:755")
@@ -240,11 +249,12 @@ make_zip "ready-up-deathmatch-$SUFFIX" deathmatch
 make_zip "ready-up-mapvote-$SUFFIX" mapvote
 make_zip "ready-up-community-$SUFFIX" community
 make_zip "ready-up-movement-$SUFFIX" movement
+make_zip "ready-up-tv-$SUFFIX" tv
 make_zip "ready-up-practice-$SUFFIX" practice
 make_zip "ready-up-essentials-plugin-$SUFFIX" essentials
 make_zip "ready-up-fleet-$SUFFIX" fleet
 make_zip "ready-up-essentials-$SUFFIX" core essentials match fleet practice mapvote
-full=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community movement addons)
+full=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community movement addons tv)
 [[ -d "$WORK/c/tools" ]] && full+=(tools)
 make_zip "ready-up-full-$SUFFIX" "${full[@]}"
 
