@@ -44,6 +44,7 @@
 #include "readyup/ready_hud.h"
 #include "readyup/reload_state.h"
 #include "readyup/retention.h"
+#include "readyup/round_restore_rules.h"
 #include "readyup/scrim_flow.h"
 #include "readyup/votes.h"
 #include "readyup/webhook.h"
@@ -462,6 +463,8 @@ const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus,      &Invento
                                   &RosterTeamIface};
 
 std::atomic<int> g_hudShowing{0}, g_hudFeature{0};
+// -allow_round_backup_files on this process's command line: -1 not read (or no /proc), 0 missing, 1 present.
+std::atomic<int> g_backupFlag{-1};
 std::mutex g_brandMu;
 std::string g_brandLine;
 
@@ -476,6 +479,14 @@ void RunSelftest(ru_selftest_add_fn add, void* ctx) {
       (std::string("showing=") + (g_hudShowing.load() ? "yes" : "no") + " (feature " +
        (g_hudFeature.load() ? "on" : "off") + ")")
           .c_str());
+  if (const int f = g_backupFlag.load(); f == 1) {
+    add(ctx, "OK", "round backups", "server started with -allow_round_backup_files");
+  } else if (f == 0) {
+    add(ctx, "WARN", "round backups",
+        (std::string("server started without -allow_round_backup_files: no round backups, .restore finds none. ") +
+         restore::BackupFlagHint())
+            .c_str());
+  }
   std::lock_guard<std::mutex> lk(g_brandMu);
   add(ctx, "INFO", "hud brand", g_brandLine.c_str());
 }
@@ -488,6 +499,16 @@ void SelftestRefresh(double now) {
   g_hudFeature.store(FeatureEnabled(Feature::ReadyHud) ? 1 : 0);
   if (now - g_lastSelftestRefresh < 60.0) return;
   g_lastSelftestRefresh = now;
+  if (g_backupFlag.load() < 0) {  // the command line never changes: read it once (Linux only)
+    if (std::FILE* f = std::fopen("/proc/self/cmdline", "rb")) {
+      std::string raw;
+      char b[4096];
+      size_t n;
+      while ((n = std::fread(b, 1, sizeof(b), f)) > 0 && raw.size() < (1u << 20)) raw.append(b, n);
+      std::fclose(f);
+      if (!raw.empty()) g_backupFlag.store(restore::CmdlineHasArg(raw, restore::kRoundBackupFlag) ? 1 : 0);
+    }
+  }
   const auto c = Cfg();
   const std::string header = HudBrandHtml(24, "fontSize-l");
   char buf[512];
