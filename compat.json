@@ -5,17 +5,17 @@
   "patch": "1.41.9.1"
  },
  "readyup": {
-  "version": "0.1.0-beta.70-dev.fd633ba",
-  "commit": "fd633ba2f553db51f6d8a6af0c61cc6d4bbd48fd"
+  "version": "0.1.0-beta.70-dev.5973e03",
+  "commit": "5973e0359c4442d36d98369d426d9721897fea6b"
  },
  "run": {
-  "id": "39049598409",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/39049598409",
+  "id": "39059442404",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/39059442404",
   "trigger": "code_change",
   "stage": "live",
   "state": "fail",
-  "started_at": "2026-10-17T16:29:08Z",
-  "finished_at": "2026-10-17T16:55:23Z"
+  "started_at": "2026-10-17T18:44:48Z",
+  "finished_at": "2026-10-17T19:13:02Z"
  },
  "overall": "fail",
  "components": [
@@ -292,10 +292,12 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
+     "status": "warn",
      "passed": 1,
-     "total": 1,
-     "failures": []
+     "total": 2,
+     "failures": [
+      "round backups: server started without -allow_round_backup_files: no round backups, .restore finds none. CS2 writes round backups only when started with -allow_round_backup_files (csm 1.27.4+ adds it; restart the server)"
+     ]
     },
     {
      "kind": "livetest",
@@ -570,5 +572,5 @@
    ]
   }
  ],
- "checked_at": "2026-10-17T16:55:23Z"
+ "checked_at": "2026-10-17T19:13:02Z"
 }
