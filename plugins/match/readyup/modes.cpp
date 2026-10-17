@@ -33,6 +33,7 @@
 #include "readyup/players.h"
 #include "readyup/round_restore.h"
 #include "readyup/simulation.h"
+#include "readyup/team_lock.h"
 #include "readyup/status_snapshot.h"
 #include "readyup/weapon_cleanup.h"
 #include "readyup/webhook.h"
@@ -461,7 +462,7 @@ static void MaybeForceRosterTeamsLocked(State& st) {
       else if (it->second == WebhookTeam::Team2) join = team1IsCt ? 2 : 3;  // T : CT
       else continue;
     }
-    if (h.team == join) continue;
+    if (!TeamMoveNeeded(h.team, EngineTeamForSlot(h.slot), join)) continue;
 
     auto lastIt = st.lastForceJoin.find(h.steamid64);
     if (lastIt != st.lastForceJoin.end() && (now - lastIt->second) < minInterval) continue;
@@ -476,7 +477,7 @@ static void MaybeForceRosterTeamsLocked(State& st) {
       bool same = false;
       for (const auto& x : ListHumans()) {
         if (x.slot == slot) {
-          same = x.steamid64 == steamid && x.team != join;
+          same = x.steamid64 == steamid && TeamMoveNeeded(x.team, EngineTeamForSlot(slot), join);
           break;
         }
       }

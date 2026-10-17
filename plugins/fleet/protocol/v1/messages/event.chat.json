@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://auto-tournament.dev/fleet/v1/messages/event.chat.json",
+  "title": "event.chat (server → platform, reliable)",
+  "description": "Match event (FLEET.md §8.1): a human player's chat line (say / say_team) that is not a chat command (`.` or `!`). Sent only while the server has a platform assignment; bots and the console are never sent. At most 5 lines per player per 5 s (more are dropped on the server). Envelope epoch = the assignment's. `rev` / `patch` continue the MatchState stream (see match.defs.json#/$defs/rev). There is no answer on the link.",
+  "type": "object",
+  "required": [
+    "match_id",
+    "map_number",
+    "rev",
+    "patch",
+    "data"
+  ],
+  "properties": {
+    "match_id": {
+      "$ref": "../match.defs.json#/$defs/matchId"
+    },
+    "map_number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "round": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rev": {
+      "$ref": "../match.defs.json#/$defs/rev"
+    },
+    "patch": {
+      "$ref": "../match.defs.json#/$defs/patch"
+    },
+    "data": {
+      "type": "object",
+      "required": [
+        "player",
+        "message",
+        "team_only",
+        "at"
+      ],
+      "properties": {
+        "player": {
+          "type": "object",
+          "required": [
+            "steamid64",
+            "name",
+            "team",
+            "side"
+          ],
+          "properties": {
+            "steamid64": {
+              "$ref": "../defs.json#/$defs/u64s"
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "team": {
+              "enum": [
+                "team1",
+                "team2",
+                null
+              ],
+              "description": "by the assignment's roster; null = not on a team's roster (a spectator, an admin)"
+            },
+            "side": {
+              "enum": [
+                "ct",
+                "t",
+                "spec"
+              ],
+              "description": "the player's side when they wrote the line (spec = spectators or no team yet)"
+            }
+          }
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200,
+          "description": "the line: control bytes dropped, spaces collapsed, trimmed, at most 300 characters (UTF-8; up to 1200 bytes)"
+        },
+        "team_only": {
+          "type": "boolean",
+          "description": "true = say_team (only the player's own side saw it)"
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "when the server saw the line, Unix ms"
+        }
+      }
+    }
+  }
+}

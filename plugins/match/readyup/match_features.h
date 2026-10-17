@@ -30,6 +30,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace readyup {
 
@@ -63,6 +64,11 @@ void MatchFeaturesTacticalTimeout(WebhookTeam team, uint64_t steamid64, const st
 void MatchFeaturesUnpause(WebhookTeam team, uint64_t steamid64, const std::string& name);
 // `.forceready` from a roster player (match) or a player on CT/T (scrim warmup: ctx empty).
 void MatchFeaturesForceReady(uint64_t steamid64, const std::string& name);
+// Rule team_ready (match_rules.h DecideTeamReady), match warmup only: a rostered player's .ready /
+// .unready for their whole team. True = done here (chat line sent; *changed = the players whose
+// state changed). False = not this rule's case: the caller readies only the player (after
+// "needs N players connected" when the team is short).
+bool MatchFeaturesTeamReady(uint64_t steamid64, const std::string& name, bool ready, std::vector<uint64_t>* changed);
 
 // `.switch` (admin, no knife pick pending) / `ru match swap` / fleet cmd swap_teams: mp_swapteams in
 // match warmup, and the map's side follows (team1_ct <-> team2_ct) so team1 / team2 stay who they

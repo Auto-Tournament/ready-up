@@ -444,8 +444,21 @@ int SetExternalModeIface(const char* name) {
   Guard("set_external_mode", [&] { rc = MatchSetExternal(name ? name : "") ? 1 : 0; });
   return rc;
 }
-const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus, &InventoryLockedIface, &RulesetIface,
-                                  &SetPracticeIface, &ModeIface, &MapStatsIface, &SetExternalModeIface};
+// v1.6: the roster team of a player (fleet.so `say {team}`).
+int RosterTeamIface(uint64_t steamid64) {
+  int rc = 0;
+  Guard("roster_team", [&] {
+    const auto ctx = WebhookGetMatchContext();
+    if (!ctx) return;
+    const auto it = ctx->roster_team.find(steamid64);
+    if (it == ctx->roster_team.end()) return;
+    rc = it->second == WebhookTeam::Team1 ? 1 : it->second == WebhookTeam::Team2 ? 2 : 0;
+  });
+  return rc;
+}
+const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus,      &InventoryLockedIface, &RulesetIface,
+                                  &SetPracticeIface,   &ModeIface,      &MapStatsIface,        &SetExternalModeIface,
+                                  &RosterTeamIface};
 
 std::atomic<int> g_hudShowing{0}, g_hudFeature{0};
 std::mutex g_brandMu;

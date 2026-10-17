@@ -62,6 +62,16 @@ bool ChangeTeam(int slot, int team, std::string* why) {
   return true;
 }
 
+int TeamOf(int slot) {
+  void* ctrl = Controller(slot);
+  if (!ctrl) return -1;
+  const auto off = SchemaFindOffset("server", "CCSPlayerController", "m_iTeamNum");
+  if (!off) return -1;
+  // A byte (ChangeTeam itself reads it with `movzx r14d, byte [rdi+m_iTeamNum]`).
+  const int team = static_cast<const unsigned char*>(ctrl)[*off];
+  return team <= 3 ? team : -1;
+}
+
 bool Teleport(int slot, const float* origin, const float* angles, const float* velocity, std::string* why) {
   auto fail = [&](const std::string& w) {
     if (why) *why = w;

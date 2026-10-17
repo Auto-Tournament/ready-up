@@ -56,6 +56,7 @@ admin_prefix=<DarkRed>[Admin]<Default>
 #                                when both sides are full again, or after this long; 0 = never
 # both_teams_unpause_required=1  0 = the pausing team alone can unpause
 # allow_force_ready=1            .forceready readies the caller's team
+# team_ready=0                   1: a rostered player's .ready / .unready is for their whole team (match warmup)
 # min_players_to_ready=0         players a team needs ready to go live / connected to force ready
 #                                (0 = a full team: players_per_team, else 5; substitutes on top).
 #                                The same value as minimum_ready_required below.

@@ -9,7 +9,7 @@
 //     per-match sv_password, D16 scrim hand-over: chat notice, kick non-roster players after 5 s,
 //     then load), match.update (compare-and-set on config_rev), match.unassign (epoch fenced),
 //     cmd (pause, unpause, force_ready, start, restore_round, restart_map, end_match, change_map,
-//     swap_teams, kick, say, snapshot_now, exec) with exactly one cmd.result each, and
+//     swap_teams, kick, snapshot_now, exec; fleet.so runs say itself) with exactly one cmd.result each, and
 //     local.offline_timeout (D12 auto-pause) / local.connection (snapshot on connect);
 //   - keeps the canonical MatchState (§9.1): platform-owned fields from the assign config,
 //     server-owned fields from the match flow (match_status.h), live_rev + epoch; every change

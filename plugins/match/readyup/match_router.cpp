@@ -381,6 +381,26 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     WebhookEmitPlayerReady(WebhookPlayer{steamid64, playerName, team}, nowReady, c.r1, c.r2, c.total, c.expected);
   };
 
+  // Rule team_ready: a rostered player's .ready / .unready is for the whole team (match warmup).
+  {
+    const bool r = first == ".r" || first == ".ready";
+    const bool ur = first == ".unready" || first == ".ur" || first == ".notready" || first == ".nr";
+    std::vector<uint64_t> changed;
+    if (hasMatch && (r || ur) && MatchFeaturesTeamReady(steamid64, playerName, r, &changed)) {
+      const auto c = computeCounts();
+      for (uint64_t sid : changed) {
+        std::string nm = sid == steamid64 ? playerName : std::string();
+        if (nm.empty()) {
+          for (const auto& h : ListHumans()) {
+            if (h.steamid64 == sid) nm = h.name;
+          }
+        }
+        WebhookEmitPlayerReady(WebhookPlayer{sid, nm, ctx->roster_team[sid]}, r, c.r1, c.r2, c.total, c.expected);
+      }
+      return;
+    }
+  }
+
   // Not a toggle: `.r`/`.ready` always mean READY, `.ur`/`.nr`/`.unready` always NOT READY.
   auto progress = [&]() {
     const auto c = computeCounts();

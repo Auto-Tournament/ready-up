@@ -145,6 +145,28 @@ static void TestForceReady() {
   CHECK(!ForceReadyAllowed(0, 0, 0));
 }
 
+static void TestTeamReady() {
+  // Off by default; the match config wins over readyup.cfg.
+  CHECK(BuiltinDefaultRules().team_ready == 0);
+  MatchRules m, base;
+  CHECK(ResolveRules(m, base).team_ready == 0);
+  base.team_ready = 1;
+  CHECK(ResolveRules(m, base).team_ready == 1);
+  m.team_ready = 0;
+  CHECK(ResolveRules(m, base).team_ready == 0);
+  // Rule off: always the player alone.
+  CHECK(DecideTeamReady(false, true, 5, 5, 0) == TeamReadyAction::Single);
+  CHECK(DecideTeamReady(false, false, 5, 5, 0) == TeamReadyAction::Single);
+  // On: the whole team once .forceready's threshold is met.
+  CHECK(DecideTeamReady(true, true, 5, 5, 0) == TeamReadyAction::Team);
+  CHECK(DecideTeamReady(true, true, 4, 5, 0) == TeamReadyAction::NotEnough);
+  CHECK(DecideTeamReady(true, true, 4, 5, 4) == TeamReadyAction::Team);
+  CHECK(DecideTeamReady(true, true, 5, 7, 0, 5) == TeamReadyAction::Team);  // substitutes
+  CHECK(DecideTeamReady(true, true, 0, 0, 0) == TeamReadyAction::NotEnough);
+  // .unready un-readies the team whoever is connected.
+  CHECK(DecideTeamReady(true, false, 1, 5, 0) == TeamReadyAction::Team);
+}
+
 static void TestTeamNames() {
   CHECK(SanitizeTeamName("Team Alpha") == "Team Alpha");
   CHECK(SanitizeTeamName("  Bad\";quit\n ") == "Badquit");
@@ -302,6 +324,7 @@ int main() {
   TestPauses();
   TestAuto5v5();
   TestForceReady();
+  TestTeamReady();
   TestTeamNames();
   TestForfeit();
   // Warmup money top-up: scrim and match warmup only, and only when enabled.

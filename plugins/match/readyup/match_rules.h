@@ -5,9 +5,9 @@
 //
 // Where a value comes from (first one set wins):
 //   1. the match config: MAT JSON top-level keys `max_tech_pauses_per_team`, `tech_pause_max_seconds`,
-//      `both_teams_unpause_required`, `allow_force_ready`, `min_players_to_ready`,
+//      `both_teams_unpause_required`, `allow_force_ready`, `team_ready`, `min_players_to_ready`,
 //      `min_spectators_to_ready`, `forfeit_after_seconds`; a fleet `match.assign` maps `rules.pause.technical_per_team`,
-//      `rules.pause.technical_seconds`, `rules.pause.unpause`, `rules.ready.allow_force_ready`,
+//      `rules.pause.technical_seconds`, `rules.pause.unpause`, `rules.ready.allow_force_ready`, `rules.ready.team_ready`,
 //      `rules.ready.min_per_team` and `rules.forfeit.team_absent_seconds` onto them
 //      (fleet_state.cpp AssignToMatConfig),
 //   2. readyup.cfg / match.cfg keys of the same names (scrims only have these),
@@ -30,6 +30,9 @@ struct MatchRules {
   int disconnect_pause_max_seconds = -1;
   int both_teams_unpause = -1;     // 1: both teams type .unpause; 0: the pausing team alone
   int allow_force_ready = -1;      // `.forceready`
+  // `.ready` by a rostered player readies their whole team (and `.unready` un-readies it), once
+  // the team has the players .forceready needs. MAT key team_ready; fleet rules.ready.team_ready.
+  int team_ready = -1;
   int min_players_to_ready = -1;   // connected players a team needs for .forceready; 0 = full roster
   int min_spectators_to_ready = -1; // spectators (casters, match `spectators`) that must be ready before go-live; 0 = none
   int forfeit_after_seconds = -1;  // whole team disconnected while live -> forfeit; 0 = off
@@ -102,6 +105,16 @@ std::string Auto5v5UnpauseReason(int ctPlayers, int tPlayers, double fullForSeco
 int FullTeamSize(int rosterSize, int playersPerTeam = 0);
 bool ForceReadyAllowed(int connected, int rosterSize, int minPlayers, int playersPerTeam = 0);
 int ForceReadyRequired(int rosterSize, int minPlayers, int playersPerTeam = 0);
+
+// Rule `team_ready`: what a rostered player's .ready / .unready in match warmup does.
+//   Single:     only the player (rule off).
+//   Team:       the whole team (connected roster players).
+//   NotEnough:  .ready with the rule on, but the team lacks the players .forceready needs: say so
+//               (ForceReadyRequired) and ready only the player.
+// .unready with the rule on is always Team.
+enum class TeamReadyAction { Single, Team, NotEnough };
+TeamReadyAction DecideTeamReady(bool teamReadyRule, bool ready, int connected, int rosterSize, int minPlayers,
+                                int playersPerTeam = 0);
 
 // ---- go-live ready gate ----------------------------------------------------------------------
 

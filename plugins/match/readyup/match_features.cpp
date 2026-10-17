@@ -393,6 +393,51 @@ void MatchFeaturesForceReady(uint64_t steamid64, const std::string& name) {
                  .c_str());
 }
 
+bool MatchFeaturesTeamReady(uint64_t steamid64, const std::string& name, bool ready, std::vector<uint64_t>* changed) {
+  const MatchRules rules = EffectiveRules();
+  if (!rules.team_ready) return false;
+  const auto ctx = WebhookGetMatchContext();
+  if (!ctx || ctx->slug == "scrim") return false;
+  if (GetMode() != ReadyUpMode::MatchWarmup || GoLiveTriggered() || KnifeIsAwaitingPick()) return false;
+  const auto it = ctx->roster_team.find(steamid64);
+  if (it == ctx->roster_team.end()) return false;
+  const WebhookTeam team = it->second;
+  // The same count as .forceready's.
+  std::unordered_set<uint64_t> connected;
+  for (const auto& h : ListHumans()) connected.insert(h.steamid64);
+  int rosterSize = 0, present = 0;
+  for (const auto& kv : ctx->roster_team) {
+    if (kv.second != team) continue;
+    ++rosterSize;
+    if (connected.count(kv.first)) ++present;
+  }
+  const std::string teamName = TeamName(*ctx, team);
+  switch (DecideTeamReady(true, ready, present, rosterSize, rules.min_players_to_ready, ctx->players_per_team)) {
+    case TeamReadyAction::Single: return false;
+    case TeamReadyAction::NotEnough:
+      Reply(steamid64, "Ready Up: " + teamName + " needs " +
+                           std::to_string(ForceReadyRequired(rosterSize, rules.min_players_to_ready, ctx->players_per_team)) +
+                           " players connected to ready the whole team (" + std::to_string(present) + " now).");
+      return false;
+    case TeamReadyAction::Team: break;
+  }
+  int n = 0;
+  for (const auto& kv : ctx->roster_team) {
+    if (kv.second != team || !connected.count(kv.first)) continue;
+    if (SetReady(kv.first, ready) != ready) {
+      ++n;
+      if (changed) changed->push_back(kv.first);
+    }
+  }
+  ScrimNoteReadyChanged();
+  Print("ready: team_ready %s by %s -> %s, %d player(s)\n", ready ? ".ready" : ".unready", name.c_str(),
+        teamName.c_str(), n);
+  SendToChat(("Ready Up: " + name + (ready ? " readied " : " unreadied ") + teamName + " (" + std::to_string(n) +
+              " player" + (n == 1 ? "" : "s") + ").")
+                 .c_str());
+  return true;
+}
+
 bool MatchFeaturesSwapTeams(std::string* why) {
   const auto ctx = WebhookGetMatchContext();
   if (!ctx || ctx->slug == "scrim") {
