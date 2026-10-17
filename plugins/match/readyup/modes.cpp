@@ -40,6 +40,7 @@
 #include "readyup/wingman.h"
 #include "readyup/host.h"
 #include "readyup/practice_iface.h"
+#include "readyup/whitelist_iface.h"
 
 #include <atomic>
 #include <chrono>
@@ -60,6 +61,14 @@ bool PracticeDryRun() {
   if (!a) return false;
   const auto* p = static_cast<const ru_practice_v1*>(a->get_interface(a->self, RU_PRACTICE_IFACE_NAME, 1));
   return p && RU_API_HAS(p, dry_run) && p->dry_run && p->dry_run() == 1;
+}
+// readyup.whitelist.v1 is_guest: a player another plugin lets in (tv.so's casters,
+// docs/design/tv-plugin.md). They join as spectators, like the match's own `spectators`.
+bool WhitelistGuest(uint64_t steamid64) {
+  const ru_api* a = readyup::host::Api();
+  if (!a || steamid64 == 0) return false;
+  const auto* w = static_cast<const ru_whitelist_v1*>(a->get_interface(a->self, RU_WHITELIST_IFACE_NAME, 1));
+  return w && RU_API_HAS(w, is_guest) && w->is_guest && w->is_guest(steamid64) == 1;
 }
 }  // namespace
 
@@ -714,6 +723,7 @@ static void EnforceWhitelistLocked(State& st) {
     if (allowed.find(s.steamid64) != allowed.end()) continue;
     if (isAdmin(s.steamid64)) continue;
     if (CoachAllowedOnServer(s.steamid64)) continue;  // an admin made them a coach (coach.h)
+    if (WhitelistGuest(s.steamid64)) continue;        // a caster (tv.so via whitelist.so)
 
     auto it = st.lastKick.find(s.steamid64);
     if (it != st.lastKick.end() && (now - it->second) < minKickInterval) continue;
@@ -1118,13 +1128,15 @@ static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx) {
   for (const auto& kv : ctx.cvars) {
     const std::string& key = kv.first;
     const std::string& val = kv.second;
+    // tv_password (and any other *password*): never in the log, not even at debug=1.
+    const bool secret = key.find("password") != std::string::npos;
     if (!IsSafeConvarKey(key) || !IsSafeConvarValue(val)) {
-      Debug("modes: skipped unsafe cvar key=\"%s\" val=\"%s\"\n", key.c_str(), val.c_str());
+      Debug("modes: skipped unsafe cvar key=\"%s\" val=\"%s\"\n", key.c_str(), secret ? "<hidden>" : val.c_str());
       continue;
     }
     const std::string cmd = key + " " + val;
     if (DebugEnabled()) {
-      Debug("modes: cvar: %s\n", cmd.c_str());
+      Debug("modes: cvar: %s\n", secret ? (key + " <hidden>").c_str() : cmd.c_str());
     }
     cmds.push_back(cmd);
   }
@@ -1797,6 +1809,7 @@ bool TeamLockRefusesJoin(uint64_t steamid64, int team) {
   const auto ctx = WebhookGetMatchContext();
   if (!ctx || ctx->slug == "scrim") return false;
   if (ctx->spectators.count(steamid64)) return team != 1;  // casters stay spectators
+  if (!ctx->roster_team.count(steamid64) && WhitelistGuest(steamid64)) return team != 1;  // tv.so casters too
   auto it = ctx->roster_team.find(steamid64);
   if (it == ctx->roster_team.end()) return false;  // not on the roster: the whitelist handles them
   const bool team1Ct = st.mode == ReadyUpMode::MatchLive ? Team1IsCtNow(*ctx) : [&] {

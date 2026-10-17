@@ -21,7 +21,8 @@ bool ValidPluginName(const std::string& n) {
 }  // namespace
 
 bool OwnedByFleet(const std::string& name) {
-  return name == "plugins.set" || name == "whitelist.set" || name == "practice.set" || name == "say";
+  return name == "plugins.set" || name == "whitelist.set" || name == "practice.set" || name == "say" ||
+         name == "tv.set";
 }
 
 bool ParsePluginsSet(const json::Value& args, std::vector<std::string>* enable, std::vector<std::string>* disable,

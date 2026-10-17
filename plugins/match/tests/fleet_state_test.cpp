@@ -375,6 +375,14 @@ static void TestRulesetAssign() {
   CHECK(!fs::ValidateAssign(with(R"({"overrides":{"overtime":{"limit":-1}}})", veto), &err));
   CHECK(err.find("overtime.limit") != std::string::npos);
 
+  // rules.broadcast (tv.so's GOTV profile, libs/readyup/broadcast_profile.h): validated here too.
+  CHECK(fs::ValidateAssign(with(R"({"broadcast":{"allow_insecure_observers":true,"max_clients":8}})", veto), &err));
+  CHECK(!fs::ValidateAssign(with(R"({"broadcast":{"allow_insecure_observers":"yes"}})", veto), &err) &&
+        err.find("rules.broadcast") != std::string::npos);
+  CHECK(!fs::ValidateAssign(with(R"({"broadcast":{"tv_delay":105}})", veto), &err));
+  CHECK(!fs::ValidateAssign(with(R"({"ruleset":"valve","broadcast":{"delay_seconds":20}})", veto), &err) &&
+        err.find("below") != std::string::npos);
+
   const Json q = with(R"({"ruleset":"valve","overrides":{"freezetime":3,"overtime":{"startmoney":12500}}})", veto);
   CHECK(fs::ValidateAssign(q, &err));
   const Json mat = fs::AssignToMatConfig("ko-r1-m3", *q.Find("config"), nullptr);

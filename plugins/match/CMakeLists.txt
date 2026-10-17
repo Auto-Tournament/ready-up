@@ -80,6 +80,7 @@ set(MATCH_SOURCES
   readyup/wingman.cpp
   readyup/workers.cpp
   # Shared engine-free code (libs/readyup).
+  ${CMAKE_SOURCE_DIR}/libs/readyup/broadcast_profile.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/http_client.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/json_store.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp
@@ -128,7 +129,7 @@ set_tests_properties(match_host PROPERTIES TIMEOUT 120)
 # sha256 / base64, validators, resume blocks), workshop map names (readyup/map_names.h) and the stats rewind
 # of round restores (ctest `match_fleet_state`).
 add_executable(match_fleet_state_test tests/fleet_state_test.cpp readyup/fleet_state.cpp readyup/map_names.cpp
-  readyup/match_stats.cpp readyup/match_config_parser.cpp readyup/match_rules.cpp readyup/ruleset.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp
+  readyup/match_stats.cpp readyup/match_config_parser.cpp readyup/match_rules.cpp readyup/ruleset.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/broadcast_profile.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/steamid.cpp)
 target_include_directories(match_fleet_state_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs
   ${CMAKE_SOURCE_DIR}/core/include)
@@ -184,7 +185,7 @@ add_test(NAME match_ruleset COMMAND match_ruleset_test)
 # ctest `match_coach_rules`).
 add_executable(match_coach_rules_test tests/coach_rules_test.cpp readyup/coach_rules.cpp readyup/fleet_state.cpp
   readyup/map_names.cpp readyup/match_stats.cpp readyup/match_config_parser.cpp readyup/match_rules.cpp readyup/ruleset.cpp
-  ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/broadcast_profile.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/steamid.cpp)
 target_include_directories(match_coach_rules_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs
   ${CMAKE_SOURCE_DIR}/core/include)

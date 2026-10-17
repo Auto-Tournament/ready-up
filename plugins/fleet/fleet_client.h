@@ -84,6 +84,9 @@ struct HelloInfo {
   std::string pluginsDir;
   // hello.selftest: SelftestPayload() of the core's latest selftest; "" = none yet (left out).
   std::string selftestJson;
+  // hello.tv / state.snapshot.tv: the tv plugin's tvState (readyup.tv.v1, tv.defs.json); "" = no
+  // tv.so (left out).
+  std::string tvJson;
   // ping health
   int players = 0;
   // The connected humans' Steam ids (ping.health.steamids): the platform sends their skins on a

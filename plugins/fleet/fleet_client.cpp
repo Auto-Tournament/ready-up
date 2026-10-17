@@ -752,6 +752,11 @@ std::string Client::BuildHello() {
     json::Value st;
     if (json::Parse(h.selftestJson, &st) && st.IsObj()) p.Set("selftest", std::move(st));
   }
+  // GOTV state from the tv plugin (docs/design/tv-plugin.md); left out without tv.so.
+  if (!h.tvJson.empty()) {
+    json::Value tv;
+    if (json::Parse(h.tvJson, &tv) && tv.IsObj()) p.Set("tv", std::move(tv));
+  }
   return json::Dump(p);
 }
 
@@ -775,6 +780,10 @@ std::string Client::BuildSnapshot(const char* reason, const std::string& extraJs
   p.Set("availability", json::Value::Str(h.availability));
   p.Set("config_rev", json::Value::Int(configRev));
   p.Set("admins_rev", json::Value::Int(h.adminsRev > 0 ? h.adminsRev : 0));
+  if (!h.tvJson.empty()) {
+    json::Value tv;
+    if (json::Parse(h.tvJson, &tv) && tv.IsObj()) p.Set("tv", std::move(tv));
+  }
   // Extra members from the match plugin (map_stats), never overriding the ones above.
   json::Value extra;
   if (!extraJson.empty() && json::Parse(extraJson, &extra) && extra.IsObj()) {

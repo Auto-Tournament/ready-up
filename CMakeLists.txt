@@ -503,6 +503,9 @@ add_subdirectory(plugins/movement)
 # readyup-deathmatch (plugins/deathmatch): FFA / team deathmatch, plus its unit test.
 add_subdirectory(plugins/deathmatch)
 
+# readyup-tv (plugins/tv): GOTV broadcast settings, casters, plus its unit test.
+add_subdirectory(plugins/tv)
+
 # readyup-match (plugins/match): the match flow, plus its host test (after enable_testing()).
 add_subdirectory(plugins/match)
 

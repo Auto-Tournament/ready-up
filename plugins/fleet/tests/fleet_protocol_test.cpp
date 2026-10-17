@@ -70,7 +70,7 @@ int main() {
   for (const char* t : {"match.assign", "match.update", "match.unassign", "cmd", "cmd.result", "state.snapshot",
                         "state.patch", "state.request", "server.availability", "event.round_end", "event.map_result",
                         "event.backup", "event.phase", "event.pause", "event.demo", "event.series_end", "admins.set",
-                        "server.drain", "server.undrain", "server.cs2_update_required", "server.selftest", "skins.loadout", "skins.invalidate", "skins.stattrak", "movement.record", "event.admin_called", "event.chat"}) {
+                        "server.drain", "server.undrain", "server.cs2_update_required", "server.selftest", "skins.loadout", "skins.invalidate", "skins.stattrak", "movement.record", "event.admin_called", "event.chat", "server.tv"}) {
     CHECK(set.Has(kBase + "messages/" + t + ".json"));
   }
 
@@ -132,6 +132,23 @@ int main() {
     p->Get("plugins_state")->Get("disabled")->a[0] = Value::Str("../skins");
   }));
   CHECK(broken("hello.plugins_state.json", [](Value* p) { p->Get("plugins_state")->Set("extra", Value::Int(1)); }));
+
+  // GOTV (tv.so, docs/design/tv-plugin.md): rules.broadcast, cmd tv.set, server.tv / hello.tv.
+  CHECK(broken("match.assign.broadcast.json", [](Value* p) {
+    p->Get("config")->Get("rules")->Get("broadcast")->Set("delay_seconds", Value::Int(961));
+  }));
+  CHECK(broken("match.assign.broadcast.json", [](Value* p) {
+    p->Get("config")->Get("rules")->Get("broadcast")->Set("max_clients", Value::Int(129));
+  }));
+  CHECK(broken("match.assign.broadcast.json", [](Value* p) {
+    p->Get("config")->Get("rules")->Get("broadcast")->Set("allow_insecure_observers", Value::Str("yes"));
+  }));
+  CHECK(broken("cmd.tv.set.json", [](Value* p) { p->Set("name", Value::Str("tv.sett")); }));
+  CHECK(broken("server.tv.json", [](Value* p) { p->Set("password", Value::Str("s3cret")); }));  // never the password
+  CHECK(broken("server.tv.json", [](Value* p) { p->Set("clients", Value::Int(-1)); }));
+  CHECK(broken("server.tv.json", [](Value* p) { p->Get("profile")->Set("source", Value::Str("platform")); }));
+  CHECK(broken("server.tv.json", [](Value* p) { *p = Value::Object(); }));
+  CHECK(broken("hello.tv.json", [](Value* p) { p->Get("tv")->Set("secure_bypass", Value::Int(1)); }));
 
   // hello.host.public_addr (fleet.cfg public_addr / +ip / net_public_adr): optional string.
   CHECK(broken("hello.public_addr.json", [](Value* p) { p->Get("host")->Set("public_addr", Value::Int(27055)); }));
