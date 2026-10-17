@@ -550,8 +550,11 @@ Json BuildState() {
   const PauseSnapshot ps = PauseStateGet();
   if (ps.paused && CtxIsOurs(ctx)) {
     g_pauseSeen = true;
-    // The protocol's pause types have no "restore" (DoRestoreNow): the platform sees technical.
-    st["pause"]["type"] = ps.type.empty() ? std::string("admin") : ps.type == "restore" ? std::string("technical") : ps.type;
+    // The protocol's pause types have no "restore" (DoRestoreNow) or "engine" (an engine pause
+    // Ready Up did not start, match_features.cpp): the platform sees technical, by "server".
+    st["pause"]["type"] = ps.type.empty()                                ? std::string("admin")
+                          : ps.type == "restore" || ps.type == "engine" ? std::string("technical")
+                                                                         : ps.type;
     if (!ps.by.empty()) st["pause"]["by"] = ps.by;
   } else {
     g_pauseSeen = false;

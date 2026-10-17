@@ -43,6 +43,13 @@ double g_auto5v5CountAt = 0;  // the paused branch's side count, every 250 ms
 int g_auto5v5Ct = 0, g_auto5v5T = 0;
 double g_auto5v5FullSince = 0;  // when both sides were last seen full during an auto_5v5 pause (0: not)
 bool g_wasPaused = false;
+// Engine pauses Ready Up did not start (EnginePauseTick).
+ReadyUpMode g_epMode = ReadyUpMode::Idle;  // the mode at the last check
+double g_epWindowFrom = 0, g_epWindowUntil = 0;  // the go-live window (0: none)
+bool g_epCleared = false;                         // this window already sent mp_unpause_match
+double g_epNextAt = 0;
+double g_epUnmarkedSince = 0;  // engine paused, no Ready Up pause, since (0: not)
+double g_epEngineFreeSince = 0;  // an "engine" pause recorded, engine not paused, since (0: not)
 double g_effectiveAt = 0;  // technical: when the pause took effect (0 = waiting for freeze time)
 int g_rsSeqAtPause = 0;
 int g_feSeqAtPause = 0;
@@ -215,6 +222,89 @@ bool MaybeMarkAuto5v5Pause() {
   return true;
 }
 
+
+// The go-live window: from 1 s after the knife round starts / the map goes live / a resume goes
+// live (the go-live's own commands land first: the recovery gate sends mp_unpause_match itself)
+// until 10 s after.
+constexpr double kGoLiveWindowDelay = 1.0, kGoLiveWindowSeconds = 10.0;
+
+bool Playing(ReadyUpMode m) { return m == ReadyUpMode::MatchKnife || m == ReadyUpMode::MatchLive; }
+
+// An engine pause Ready Up did not start (match_rules.h DecideEnginePause): the map-load
+// auto_5v5 pause cleared at go-live, else recorded so the platform shows it and `.up` works.
+// Every 250 ms; game thread.
+void EnginePauseTick(double now) {
+  const ReadyUpMode mode = GetMode();
+  // From match warmup only: a plugin reload mid-map (Idle -> live) is no go-live.
+  if (Playing(mode) && g_epMode == ReadyUpMode::MatchWarmup) {
+    g_epWindowFrom = now + kGoLiveWindowDelay;
+    g_epWindowUntil = now + kGoLiveWindowDelay + kGoLiveWindowSeconds;
+    g_epCleared = false;
+  }
+  if (!Playing(mode)) g_epWindowUntil = 0;
+  g_epMode = mode;
+  if (now < g_epNextAt) return;
+  g_epNextAt = now + 0.25;
+  const auto ctx = WebhookGetMatchContext();
+  if (!ctx) {
+    g_epUnmarkedSince = g_epEngineFreeSince = 0;
+    return;
+  }
+  const int engine = EngineMatchPaused();
+  const PauseSnapshot ps = PauseStateGet();
+  // A recorded engine pause the engine no longer has (an admin's console unpause): over.
+  if (ps.paused && ps.type == "engine" && engine == 0) {
+    if (g_epEngineFreeSince == 0) g_epEngineFreeSince = now;
+    if (now - g_epEngineFreeSince >= 1.0) {
+      g_epEngineFreeSince = 0;
+      Unpause("the engine is not paused any more");
+    }
+    return;
+  }
+  g_epEngineFreeSince = 0;
+  if (engine == 1 && !ps.paused && Playing(mode)) {
+    if (g_epUnmarkedSince == 0) g_epUnmarkedSince = now;
+  } else {
+    g_epUnmarkedSince = 0;
+  }
+  if (now < g_epWindowFrom && g_epWindowUntil > 0) return;  // the go-live's own commands first
+  const bool window = !g_epCleared && g_epWindowUntil > 0 && now <= g_epWindowUntil;
+  int ct = 0, t = 0;
+  if (engine == 1 && !ps.paused) CountSides(&ct, &t);
+  const int full = ctx->players_per_team > 0 ? ctx->players_per_team : kFullTeamPlayers;
+  const EnginePauseAction a = DecideEnginePause(engine, ps.paused, Playing(mode), window, AutoPause5v5Enabled(), ct, t,
+                                                full, g_epUnmarkedSince > 0 ? now - g_epUnmarkedSince : 0);
+  if (a == EnginePauseAction::None) return;
+  if (a == EnginePauseAction::Clear) {
+    if (!EnqueueServerCommand("mp_unpause_match")) return;  // tried again next check
+    g_epCleared = true;
+    g_epUnmarkedSince = 0;
+    Print("pause: cleared a stale engine pause at go-live (auto_5v5 from map load): CT %d, T %d players, mode %s\n",
+          ct, t, mode == ReadyUpMode::MatchKnife ? "knife" : "live");
+    return;
+  }
+  const bool autoType = a == EnginePauseAction::MarkAuto5v5;
+  WebhookTeam shortTeam = WebhookTeam::Unknown;
+  if (ct < full || t < full) {
+    const int side = ct <= t ? 3 : 2;
+    shortTeam = CsSideOf(*ctx, WebhookTeam::Team1) == side ? WebhookTeam::Team1 : WebhookTeam::Team2;
+  }
+  PauseStateOnPaused(autoType ? "auto_5v5" : "engine", "server", shortTeam);
+  WebhookEmitMatchPaused(MatchStateGet().map_number, WebhookPlayer{0, "server", shortTeam}, /*is_tactical=*/false,
+                         /*is_admin=*/false, /*pause_time=*/0);
+  g_epUnmarkedSince = 0;
+  Print("pause: %s (engine paused, not by Ready Up%s): CT %d, T %d players%s%s\n", autoType ? "auto_5v5" : "engine",
+        window ? ", at go-live" : "", ct, t, shortTeam != WebhookTeam::Unknown ? "; short: " : "",
+        shortTeam != WebhookTeam::Unknown ? TeamKey(shortTeam) : "");
+  if (shortTeam != WebhookTeam::Unknown) {
+    SendToChat(("Ready Up: match paused - " + TeamName(*ctx, shortTeam) +
+                " is missing a player. To go on now, both teams type .up.")
+                   .c_str());
+  } else {
+    SendToChat("Ready Up: the game is paused. To go on, both teams type .up.");
+  }
+}
+
 }  // namespace
 
 // The ruleset (esports.h): preset, the match config and readyup.cfg keys, overrides.
@@ -338,9 +428,10 @@ void MatchFeaturesUnpause(WebhookTeam team, uint64_t steamid64, const std::strin
   }
   // The halftime pause (mp_halftime_pausematch, esports.h) and the engine's auto 5v5 pause
   // (sv_matchpause_auto_5v5) belong to nobody: both teams resume them.
-  // A restore pause (fleet_bridge DoRestoreNow) is nobody's either: both teams confirm.
+  // A restore pause (fleet_bridge DoRestoreNow) is nobody's either: both teams confirm, and so is
+  // an engine pause Ready Up did not start (EnginePauseTick).
   const bool both = rules.both_teams_unpause != 0 || cur.type == "halftime" || cur.type == "auto_5v5" ||
-                    cur.type == "restore";
+                    cur.type == "restore" || cur.type == "engine";
   const int teamsReady = (snap.team1_ready_to_unpause ? 1 : 0) + (snap.team2_ready_to_unpause ? 1 : 0);
   WebhookEmitUnpauseRequested(mapNumber, team, teamsReady, both ? 2 : 1);
   if (UnpauseSatisfied(snap.team1_ready_to_unpause, snap.team2_ready_to_unpause, both, TeamNum(cur.team))) {
@@ -513,6 +604,7 @@ void MatchFeaturesTick() {
     g_auto5v5NextAt = now + 0.25;
     if (MaybeMarkAuto5v5Pause()) g_auto5v5Pending = false;
   }
+  EnginePauseTick(now);
   const PauseSnapshot ps = PauseStateGet();
   const auto ctx = WebhookGetMatchContext();
   const MatchRules rules = EffectiveRules();

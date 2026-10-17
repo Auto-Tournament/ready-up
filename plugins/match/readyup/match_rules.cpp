@@ -138,6 +138,16 @@ Auto5v5Check Auto5v5Decide(bool ruleOn, bool liveMap, bool alreadyPaused, int en
   return Auto5v5ShortSide(ctPlayers, tPlayers) != 0 ? Auto5v5Check::Mark : Auto5v5Check::Done;
 }
 
+EnginePauseAction DecideEnginePause(int enginePaused, bool readyUpPause, bool playing, bool goLiveWindow,
+                                    bool autoRuleOn, int ct, int t, int fullTeam, double unmarkedForSeconds) {
+  if (enginePaused != 1 || readyUpPause || !playing) return EnginePauseAction::None;
+  const int full = fullTeam > 0 ? fullTeam : kFullTeamPlayers;
+  const bool shortSide = ct < full || t < full;
+  const EnginePauseAction mark = shortSide && autoRuleOn ? EnginePauseAction::MarkAuto5v5 : EnginePauseAction::MarkEngine;
+  if (goLiveWindow) return shortSide ? mark : EnginePauseAction::Clear;
+  return unmarkedForSeconds >= kEnginePauseMarkHoldSeconds ? mark : EnginePauseAction::None;
+}
+
 int Auto5v5ShortSide(int ctPlayers, int tPlayers) {
   if (ctPlayers >= kFullTeamPlayers && tPlayers >= kFullTeamPlayers) return 0;
   return ctPlayers <= tPlayers ? 3 : 2;
