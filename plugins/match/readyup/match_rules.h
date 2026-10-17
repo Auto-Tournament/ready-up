@@ -104,6 +104,27 @@ constexpr double kAuto5v5FullHoldSeconds = 5.0;
 std::string Auto5v5UnpauseReason(int ctPlayers, int tPlayers, double fullForSeconds, double pausedSeconds,
                                  int maxSeconds);
 
+// An engine pause Ready Up did not start (match_features.cpp tick, knife round or live map).
+// CS2 pauses at map load with sv_matchpause_auto_5v5 1 and nobody on a team yet; the pause
+// survives warmup and the go-live restart, and nothing in Ready Up knew about it, so `.up` said
+// "not paused" and the rounds never started (2026-10-17, a Bo3 final: an admin ran
+// mp_unpause_match after 3.5 minutes).
+//   enginePaused        CS2's pause state (1 / 0 / -1 unknown, match_status.h EngineMatchPaused)
+//   readyUpPause        Ready Up has a pause recorded (pause_state.h)
+//   playing             knife round or live map
+//   goLiveWindow        just after Ready Up started the knife round / went live / resumed
+//   autoRuleOn          sv_matchpause_auto_5v5 is on for the match
+//   ct, t, fullTeam     people per side and a full side (players_per_team, 5 by default)
+//   unmarkedForSeconds  how long the engine has been paused with no Ready Up pause
+// At go-live with both sides full the pause is stale: Clear (mp_unpause_match). A side short:
+// the engine pause is real, it is recorded (auto_5v5 with the rule on, else engine). Outside the
+// window an unmarked engine pause held for kEnginePauseMarkHoldSeconds is recorded too, so the
+// platform shows it and both teams `.unpause` it.
+enum class EnginePauseAction { None, Clear, MarkAuto5v5, MarkEngine };
+constexpr double kEnginePauseMarkHoldSeconds = 3.0;
+EnginePauseAction DecideEnginePause(int enginePaused, bool readyUpPause, bool playing, bool goLiveWindow,
+                                    bool autoRuleOn, int ct, int t, int fullTeam, double unmarkedForSeconds);
+
 // ---- .forceready -----------------------------------------------------------------------------
 
 // connected: roster players of the team on the server; rosterSize: the team's roster (substitutes

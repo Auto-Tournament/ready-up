@@ -83,6 +83,34 @@ static void TestPauses() {
   CHECK(!UnpauseSatisfied(false, false, false, 0));
 }
 
+// An engine pause Ready Up did not start: cleared at go-live when both sides are full (the stale
+// map-load pause, 2026-10-17), recorded when a side is short or outside the go-live window.
+static void TestEnginePause() {
+  using A = EnginePauseAction;
+  // The final: paused since map load, 5v5, live just started, no Ready Up pause -> clear it.
+  CHECK(DecideEnginePause(1, false, true, true, true, 5, 5, 5, 0) == A::Clear);
+  CHECK(DecideEnginePause(1, false, true, true, false, 5, 5, 5, 0) == A::Clear);
+  // A side short at go-live: a real auto_5v5 pause, recorded, not fought.
+  CHECK(DecideEnginePause(1, false, true, true, true, 4, 5, 5, 0) == A::MarkAuto5v5);
+  CHECK(DecideEnginePause(1, false, true, true, true, 5, 3, 5, 0) == A::MarkAuto5v5);
+  CHECK(DecideEnginePause(1, false, true, true, false, 4, 5, 5, 0) == A::MarkEngine);
+  // Ready Up's own pause, the engine not paused or unknown, warmup: nothing.
+  CHECK(DecideEnginePause(1, true, true, true, true, 5, 5, 5, 0) == A::None);
+  CHECK(DecideEnginePause(0, false, true, true, true, 5, 5, 5, 99) == A::None);
+  CHECK(DecideEnginePause(-1, false, true, true, true, 5, 5, 5, 99) == A::None);
+  CHECK(DecideEnginePause(1, false, false, true, true, 5, 5, 5, 99) == A::None);
+  // Outside the window: recorded once held for the hold time (Ready Up's own pause commands
+  // race the engine for a frame or two), never cleared.
+  CHECK(DecideEnginePause(1, false, true, false, true, 5, 5, 5, 0) == A::None);
+  CHECK(DecideEnginePause(1, false, true, false, true, 5, 5, 5, kEnginePauseMarkHoldSeconds - 0.1) == A::None);
+  CHECK(DecideEnginePause(1, false, true, false, true, 5, 5, 5, kEnginePauseMarkHoldSeconds) == A::MarkEngine);
+  CHECK(DecideEnginePause(1, false, true, false, true, 4, 5, 5, kEnginePauseMarkHoldSeconds) == A::MarkAuto5v5);
+  // Wingman: full is players_per_team (2), not 5.
+  CHECK(DecideEnginePause(1, false, true, true, false, 2, 2, 2, 0) == A::Clear);
+  CHECK(DecideEnginePause(1, false, true, true, false, 1, 2, 2, 0) == A::MarkEngine);
+  CHECK(DecideEnginePause(1, false, true, true, true, 5, 5, 0, 0) == A::Clear);  // 0 = 5
+}
+
 static void TestAuto5v5() {
   // Rule on, live, not paused: a side short of 5 players at a round start means the engine pauses.
   CHECK(!Auto5v5PauseExpected(true, true, false, 5, 5));
@@ -351,6 +379,7 @@ int main() {
   TestSpectators();
   TestPauses();
   TestAuto5v5();
+  TestEnginePause();
   TestForceReady();
   TestTeamReady();
   TestTeamHudStatus();

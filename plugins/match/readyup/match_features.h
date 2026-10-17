@@ -14,7 +14,11 @@
 //                      An admin pause only ends with .forceunpause.
 // Engine pauses Ready Up marks: "halftime" (mp_halftime_pausematch, esports.h) and "auto_5v5"
 // (sv_matchpause_auto_5v5: a side short of 5 players at a round start). Both teams .unpause them,
-// or an admin; neither is counted against a team.
+// or an admin; neither is counted against a team. An engine pause Ready Up did not start (the
+// map-load auto_5v5 pause, an admin's console mp_pause_match): at go-live (knife round, live,
+// resume) with both sides full it is stale and cleared (mp_unpause_match); otherwise it is
+// recorded ("auto_5v5" with a side short, else "engine"; the platform sees "engine" as technical)
+// and both teams .unpause it (match_rules.h DecideEnginePause).
 //   .forcepause .fp / .forceunpause .fup   admins (same as `.ru match pause` / `.ru match unpause`).
 // .forceready          (allow_force_ready) readies the caller's whole team in warmup once it has
 //                      min_players_to_ready connected (0 = the full roster).
@@ -81,7 +85,7 @@ bool MatchFeaturesRenameTeam(int team, const std::string& name, std::string* why
 // Center HUD while a map is live (ready_hud.cpp).
 struct LiveHudInfo {
   bool paused = false;
-  std::string type;            // "tactical" | "technical" | "admin" | "offline" | "halftime" | "auto_5v5"
+  std::string type;            // "tactical" | "technical" | "admin" | "offline" | "halftime" | "auto_5v5" | "engine"
   std::string byTeam;          // pausing team's name (empty for admins)
   bool pendingFreeze = false;  // technical: waiting for freeze time
   int secondsLeft = -1;        // technical auto-unpause countdown (-1 = none)
