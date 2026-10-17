@@ -18,6 +18,7 @@
 #include "readyup/demo_recorder.h"
 #include "readyup/engine.h"
 #include "readyup/esports.h"
+#include "readyup/roster_names.h"
 #include "readyup/fleet_bridge.h"
 #include "readyup/game_timers.h"
 #include "readyup/host.h"
@@ -588,6 +589,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     WarmupMoneyInstall(api);    // warmup money top-up
     WeaponCleanupInstall(api);  // dropped weapons in warmup
     EsportsInstall(api);  // default_models (player_spawn), halftime pause
+    RosterNamesInstall(api);  // roster players' in-game names
     api->set_admin_provider(api->self, &AdminProvider, nullptr);
     api->provide_interface(api->self, RU_MATCH_IFACE_NAME, RU_MATCH_IFACE_VERSION, const_cast<ru_match_v1*>(&g_matchIface));
     api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "match", RU_SELFTEST_IFACE_VERSION,
@@ -627,6 +629,7 @@ READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
   try {
     // Without the match flow nothing may keep rounds from ending.
     if (g_api) g_api->set_round_termination_suppressed(g_api->self, 0);
+    RosterNamesUninstall();  // players get their own names back
     workers::Shutdown();  // webhook sender, store writer (saves what is pending), admin refresh, demo uploads, ...
     ReloadStateSave();
     fleet_bridge::Uninstall();  // fleet.so cannot see this plugin unload (fleet_iface.h)

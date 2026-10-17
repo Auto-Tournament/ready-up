@@ -73,6 +73,7 @@ Json ContextToJson(const WebhookMatchContext& c) {
   j["playout"] = c.playout;
   j["whitelist"] = c.whitelist;
   j["autoready"] = c.autoready;
+  j["roster_names_rule"] = c.roster_names_rule;
   Json sides = Json::Array();
   for (const auto& s : c.map_sides) sides.Push(s);
   j["map_sides"] = std::move(sides);
@@ -155,6 +156,7 @@ WebhookMatchContext ContextFromJson(const Json& j) {
   c.playout = Int(&j, "playout", -1);
   c.whitelist = Int(&j, "whitelist", -1);
   c.autoready = Int(&j, "autoready", -1);
+  c.roster_names_rule = Int(&j, "roster_names_rule", -1);
   if (const Json* v = j.Find("map_sides")) for (const auto& s : v->Items()) c.map_sides.push_back(s.AsString());
   if (const Json* v = j.Find("maplist")) for (const auto& s : v->Items()) c.maplist.push_back(s.AsString());
   if (const Json* v = j.Find("spectators")) for (const auto& s : v->Items()) c.spectators.insert(ToU64(&s));

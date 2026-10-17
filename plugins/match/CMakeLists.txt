@@ -68,6 +68,8 @@ set(MATCH_SOURCES
   readyup/retention_rules.cpp
   readyup/round_restore.cpp
   readyup/round_restore_rules.cpp
+  readyup/roster_names.cpp
+  readyup/roster_names_rules.cpp
   readyup/ruleset.cpp
   readyup/scrim_flow.cpp
   readyup/server_settings.cpp
@@ -265,3 +267,16 @@ add_executable(match_chat_forward_test tests/chat_forward_test.cpp readyup/chat_
 target_include_directories(match_chat_forward_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(match_chat_forward_test PRIVATE -Wall -Wextra)
 add_test(NAME match_chat_forward COMMAND match_chat_forward_test)
+
+# Roster display names (readyup/roster_names_rules.h): name sanitizing, when the feature is on, the
+# name a player gets, write / restore decisions; the match config `roster_names` rule and coach names
+# (ctest `match_roster_names`).
+add_executable(match_roster_names_test tests/roster_names_test.cpp readyup/roster_names_rules.cpp
+  readyup/fleet_state.cpp readyup/map_names.cpp readyup/match_stats.cpp readyup/match_config_parser.cpp
+  readyup/match_rules.cpp readyup/ruleset.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/broadcast_profile.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/steamid.cpp)
+target_include_directories(match_roster_names_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs
+  ${CMAKE_SOURCE_DIR}/core/include)
+target_compile_options(match_roster_names_test PRIVATE -Wall -Wextra)
+add_test(NAME match_roster_names COMMAND match_roster_names_test)

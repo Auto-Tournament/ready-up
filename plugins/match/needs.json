@@ -86,6 +86,7 @@
     "bomb_planted",
     "item_purchase",
     "player_blind",
+    "player_changename",
     "player_death",
     "player_disconnect",
     "player_hurt",
