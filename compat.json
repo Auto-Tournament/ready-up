@@ -5,19 +5,19 @@
   "patch": "1.41.9.1"
  },
  "readyup": {
-  "version": "0.1.0-beta.70-dev.260f647",
-  "commit": "260f647deffeea527514260dbb23c0c3a0959032"
+  "version": "0.1.0-beta.70-dev.7632335",
+  "commit": "763233553d4e35f97cde296b32632ff0849e8854"
  },
  "run": {
-  "id": "39062975269",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/39062975269",
+  "id": "39065276244",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/39065276244",
   "trigger": "code_change",
   "stage": "live",
-  "state": "warn",
-  "started_at": "2026-10-17T19:33:31Z",
-  "finished_at": "2026-10-17T20:01:59Z"
+  "state": "pass",
+  "started_at": "2026-10-17T20:06:03Z",
+  "finished_at": "2026-10-17T20:34:39Z"
  },
- "overall": "warn",
+ "overall": "pass",
  "components": [
   {
    "id": "core",
@@ -239,7 +239,7 @@
   {
    "id": "match",
    "name": "Match",
-   "status": "warn",
+   "status": "pass",
    "checks": [
     {
      "kind": "signature",
@@ -292,12 +292,10 @@
     },
     {
      "kind": "selftest",
-     "status": "warn",
-     "passed": 1,
+     "status": "pass",
+     "passed": 2,
      "total": 2,
-     "failures": [
-      "round backups: server started without -allow_round_backup_files: no round backups, .restore finds none. CS2 writes round backups only when started with -allow_round_backup_files (csm 1.27.4+ adds it; restart the server)"
-     ]
+     "failures": []
     },
     {
      "kind": "livetest",
@@ -568,5 +566,5 @@
    ]
   }
  ],
- "checked_at": "2026-10-17T20:01:59Z"
+ "checked_at": "2026-10-17T20:34:39Z"
 }
