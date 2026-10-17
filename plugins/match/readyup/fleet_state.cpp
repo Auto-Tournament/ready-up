@@ -484,6 +484,8 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
   // Server settings the match sets for itself (server_settings.h); absent = the server's value.
   if (r.Find("playout")) cfg["playout"] = Bool(r, "playout", false);
   if (r.Find("whitelist")) cfg["whitelist"] = Bool(r, "whitelist", true);
+  // In-game names from the roster (roster_names.h); absent = on when players have names.
+  if (r.Find("roster_names")) cfg["roster_names"] = Bool(r, "roster_names", true);
   if (const Json* ff = Obj(r, "forfeit"); ff && ff->Find("team_absent_seconds")) {
     cfg["forfeit_after_seconds"] = Int(*ff, "team_absent_seconds", 240);
   }
