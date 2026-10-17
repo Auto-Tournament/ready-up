@@ -77,6 +77,22 @@ static void TestLiveStream() {
   CHECK(rev == 2);
   CHECK_STR(patch.Dump(), R"({"live_rev":2})");
 
+  // Rev only (event.chat): rev + 1, patch = live_rev only, even with a pending state change;
+  // that change still goes out with the next Advance().
+  Json pending = next;
+  pending["phase"] = "live";
+  CHECK(s.BumpRevOnly(&patch, &rev));
+  CHECK(rev == 3);
+  CHECK_STR(patch.Dump(), R"({"live_rev":3})");
+  CHECK(s.Advance(pending, false, &patch, &rev));
+  CHECK(rev == 4);
+  CHECK_STR(patch.Dump(), R"({"live_rev":4,"phase":"live"})");
+  {
+    fs::LiveStream empty;
+    CHECK(!empty.BumpRevOnly(&patch, &rev));  // no state yet: the caller uses Advance()
+    CHECK(empty.Rev() == 0);
+  }
+
   // A removed member becomes null; applying every patch in order reproduces the state.
   Json replay = fs::StripNulls(base);
   replay["live_rev"] = 0;

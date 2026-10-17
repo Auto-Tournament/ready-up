@@ -7,59 +7,73 @@ namespace readyup::chat_forward {
 
 namespace {
 
-// The <> groups of a player header: name<userid><steamid><team>.
-bool HeaderGroups(const std::string& header, std::string* name, std::string* id, std::string* team) {
-  const size_t a = header.find('<');
-  if (a == std::string::npos) return false;
-  const size_t b = header.find('>', a + 1);
-  const size_t c = b == std::string::npos ? std::string::npos : header.find('<', b + 1);
-  const size_t d = c == std::string::npos ? std::string::npos : header.find('>', c + 1);
-  const size_t e = d == std::string::npos ? std::string::npos : header.find('<', d + 1);
-  const size_t f = e == std::string::npos ? std::string::npos : header.find('>', e + 1);
-  if (f == std::string::npos) return false;
-  *name = header.substr(0, a);
-  *id = header.substr(c + 1, d - (c + 1));
-  *team = header.substr(e + 1, f - (e + 1));
+struct Candidate {
+  size_t uidLt;     // the `<` of `<userid>`: the name ends here
+  size_t msgStart;  // first byte of the message
+  int userid;
+  uint64_t steamid64;
+  std::string team;
+  bool teamOnly;
+};
+
+// The `<userid><steamid><team>` block whose last `>` is at `gt` (groups hold no `<` / `>`).
+bool BlockEndingAt(const std::string& line, size_t q, size_t gt, Candidate* c) {
+  const size_t teamLt = line.rfind('<', gt);
+  if (teamLt == std::string::npos || teamLt <= q || teamLt == 0 || line[teamLt - 1] != '>') return false;
+  const size_t idLt = line.rfind('<', teamLt - 2);
+  if (idLt == std::string::npos || idLt <= q || idLt == 0 || line[idLt - 1] != '>') return false;
+  const size_t uidLt = line.rfind('<', idLt - 2);
+  if (uidLt == std::string::npos || uidLt <= q) return false;
+  const std::string team = line.substr(teamLt + 1, gt - teamLt - 1);
+  const std::string id = line.substr(idLt + 1, teamLt - 1 - idLt - 1);
+  const std::string uid = line.substr(uidLt + 1, idLt - 1 - uidLt - 1);
+  if (team.find('>') != std::string::npos || id.find('>') != std::string::npos) return false;
+  if (uid.empty() || uid.size() > 9 || uid.find_first_not_of("0123456789") != std::string::npos) return false;
+  if (id == "BOT" || id == "Console") return false;
+  const uint64_t sid = ParseSteamId64Loose(id);
+  if (sid == 0) return false;
+  c->uidLt = uidLt;
+  c->userid = std::stoi(uid);
+  c->steamid64 = sid;
+  c->team = team;
   return true;
+}
+
+bool Connected(const Candidate& c, const std::vector<KnownHuman>& humans) {
+  for (const auto& h : humans) {
+    if (h.steamid64 == c.steamid64 && (h.userid < 0 || h.userid == c.userid)) return true;
+  }
+  return false;
 }
 
 }  // namespace
 
-std::optional<ChatLine> ParseChatLogLine(const std::string& line) {
-  // The header is the first quoted part; it ends right before `" say "` / `" say_team "`.
+std::optional<ChatLine> ParseChatLogLine(const std::string& line, const std::vector<KnownHuman>& humans) {
+  // The header opens at the line's first quote (the `L date - time: ` prefix holds none).
   const size_t q = line.find('"');
   if (q == std::string::npos) return std::nullopt;
-  static const std::string kSay = ">\" say \"", kSayTeam = ">\" say_team \"";
-  const size_t s1 = line.find(kSay, q + 1);
-  const size_t s2 = line.find(kSayTeam, q + 1);
-  size_t at = std::string::npos, msgStart = std::string::npos;
-  bool teamOnly = false;
-  if (s2 != std::string::npos && (s1 == std::string::npos || s2 < s1)) {
-    at = s2;
-    msgStart = s2 + kSayTeam.size();
-    teamOnly = true;
-  } else if (s1 != std::string::npos) {
-    at = s1;
-    msgStart = s1 + kSay.size();
-  } else {
-    return std::nullopt;
-  }
   // The message runs to the line's last quote (it may hold quotes itself).
   const size_t msgEnd = line.rfind('"');
-  if (msgEnd == std::string::npos || msgEnd < msgStart) return std::nullopt;
-
-  std::string name, id, team;
-  if (!HeaderGroups(line.substr(q + 1, at + 1 - (q + 1)), &name, &id, &team)) return std::nullopt;
-  if (id == "BOT" || id == "Console") return std::nullopt;
-  const uint64_t sid = ParseSteamId64Loose(id);
-  if (sid == 0) return std::nullopt;
-
+  static const std::string kSay = "\" say \"", kSayTeam = "\" say_team \"";
+  std::vector<Candidate> hits;
+  for (const std::string* kw : {&kSay, &kSayTeam}) {
+    for (size_t at = line.find(*kw, q + 1); at != std::string::npos; at = line.find(*kw, at + 1)) {
+      Candidate c{};
+      if (at == 0 || line[at - 1] != '>' || !BlockEndingAt(line, q, at - 1, &c)) continue;
+      c.msgStart = at + kw->size();
+      c.teamOnly = kw == &kSayTeam;
+      if (msgEnd == std::string::npos || msgEnd < c.msgStart) continue;
+      if (Connected(c, humans)) hits.push_back(std::move(c));
+    }
+  }
+  if (hits.size() != 1) return std::nullopt;
+  const Candidate& h = hits.front();
   ChatLine c;
-  c.steamid64 = sid;
-  c.name = name;
-  c.side = team == "CT" ? "ct" : team == "TERRORIST" ? "t" : "spec";
-  c.team_only = teamOnly;
-  c.message = line.substr(msgStart, msgEnd - msgStart);
+  c.steamid64 = h.steamid64;
+  c.name = line.substr(q + 1, h.uidLt - (q + 1));
+  c.side = h.team == "CT" ? "ct" : h.team == "TERRORIST" ? "t" : "spec";
+  c.team_only = h.teamOnly;
+  c.message = line.substr(h.msgStart, msgEnd - h.msgStart);
   return c;
 }
 

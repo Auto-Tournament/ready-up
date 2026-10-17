@@ -61,6 +61,18 @@ bool LiveStream::Advance(const Json& next, bool force, Json* patch, long long* r
   return true;
 }
 
+bool LiveStream::BumpRevOnly(Json* patch, long long* rev) {
+  if (!state_.IsObject()) return false;
+  ++rev_;
+  state_["live_rev"] = rev_;
+  if (patch) {
+    *patch = Json::Object();
+    (*patch)["live_rev"] = rev_;
+  }
+  if (rev) *rev = rev_;
+  return true;
+}
+
 // ---------------------------------------------------------------------------- fencing
 
 const char* VerdictCode(Verdict v) {
