@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 15
+#define READYUP_PLUGIN_API_VERSION_MINOR 16
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -736,8 +736,15 @@ typedef struct ru_api {
    * or -1 when matches may be loaded (always, without a key or with a key that doesn't verify).
    * Running matches are never stopped. Any thread. */
   int (*license_stopped)(ru_plugin* self, char* buf, uint32_t len);
+  /* ==== v1.16 ===========================================================
+   * Appended in 1.16. Require 1.16 in ru_plugin_info.api_version, or check RU_API_HAS().
+   */
+  /* The server's paid Auto Tournament license key, for the license check-in: its length (the key
+   * in buf, truncated to len-1), or -1 without a key, with a key that doesn't verify, or with a
+   * free key (nothing to count). Any thread. */
+  int (*license_key)(ru_plugin* self, char* buf, uint32_t len);
 
-  /* v1.15+: fields are appended here. Check RU_API_HAS() before use. */
+  /* v1.16+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

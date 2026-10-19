@@ -352,6 +352,20 @@ target_include_directories(readyup_match_flow_test PRIVATE ${CMAKE_SOURCE_DIR}/p
   ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(readyup_match_flow_test PRIVATE -Wall -Wextra)
 
+# Offline tests for the license check-in's helpers (the license id in a key, the port from the
+# command line). The HTTP client builds with the `curl` binary fallback here.
+add_executable(readyup_license_checkin_test
+  tests/license_checkin_test.cpp
+  plugins/match/readyup/license_checkin.cpp
+  plugins/match/readyup/workers.cpp
+  libs/readyup/http_client.cpp
+  libs/readyup/minijson.cpp
+)
+target_include_directories(readyup_license_checkin_test PRIVATE ${CMAKE_SOURCE_DIR}/plugins/match ${CMAKE_SOURCE_DIR}/libs
+  ${CMAKE_SOURCE_DIR}/core/include)
+target_compile_definitions(readyup_license_checkin_test PRIVATE READYUP_NO_CURL=1)
+target_link_libraries(readyup_license_checkin_test PRIVATE pthread)
+
 # Offline tests for the local status endpoint (docs/FLEET.md §17): HTTP parsing, routing,
 # auth, limits, SSE framing and merge patches, against a real server on an ephemeral port.
 add_executable(readyup_status_http_test
@@ -470,6 +484,7 @@ add_test(NAME license COMMAND readyup_license_test)
 add_test(NAME license_status COMMAND readyup_license_status_test)
 add_test(NAME load_order COMMAND readyup_load_order_test)
 add_test(NAME match_flow COMMAND readyup_match_flow_test)
+add_test(NAME license_checkin COMMAND readyup_license_checkin_test)
 add_test(NAME status_http COMMAND readyup_status_http_test)
 add_test(NAME json_store COMMAND readyup_json_store_test)
 add_test(NAME plugin_host_reload
