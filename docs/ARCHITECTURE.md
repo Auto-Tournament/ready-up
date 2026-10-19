@@ -280,7 +280,7 @@ The license check-in.
 
 | Member | Thread | Purpose |
 |---|---|---|
-| `license_key(self, buf, len)` | any | The server's paid license key (verified, not free), or -1. The match plugin's license check-in (`license_checkin.cpp`) posts it to the license server at startup and every 15 minutes, so the license server counts the game servers that really run |
+| `license_key(self, buf, len)` | any | The server's paid license key (verified, not free), or -1. The license check-in (`license_checkin.cpp`, in both the match and the fleet plugin; one server id per server, one sender at a time) posts it to the license server a minute after load and every 15 minutes, so the license server counts the game servers that really run |
 
 ### v1.15 (implemented)
 
