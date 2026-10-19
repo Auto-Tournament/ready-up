@@ -9,13 +9,13 @@
   "commit": "763233553d4e35f97cde296b32632ff0849e8854"
  },
  "run": {
-  "id": "39111016482",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/39111016482",
+  "id": "39228955246",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/39228955246",
   "trigger": "nightly",
   "stage": "live",
   "state": "pass",
-  "started_at": "2026-10-18T08:19:49Z",
-  "finished_at": "2026-10-18T08:45:25Z"
+  "started_at": "2026-10-19T09:17:40Z",
+  "finished_at": "2026-10-19T09:45:48Z"
  },
  "overall": "pass",
  "components": [
@@ -566,5 +566,5 @@
    ]
   }
  ],
- "checked_at": "2026-10-18T08:45:25Z"
+ "checked_at": "2026-10-19T09:45:48Z"
 }
