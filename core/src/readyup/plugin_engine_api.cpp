@@ -333,6 +333,16 @@ int ApiLicenseStopped(ru_plugin* self, char* buf, uint32_t len) {
   return static_cast<int>(why.size());
 }
 
+// ---- v1.16 --------------------------------------------------------------------------
+
+int ApiLicenseKey(ru_plugin* self, char* buf, uint32_t len) {
+  if (!self) return -1;
+  const std::string key = license::PaidKey();
+  if (key.empty()) return -1;
+  if (buf && len > 0) std::snprintf(buf, len, "%s", key.c_str());
+  return static_cast<int>(key.size());
+}
+
 // ---- v1.10 --------------------------------------------------------------------------
 
 int ApiSetCoreSetting(ru_plugin* self, const char* key, const char* value) {
@@ -484,6 +494,7 @@ void detail::FillEngineApi(ru_api* a) {
   a->entity_create = &ApiEntityCreate;
   a->entity_spawn = &ApiEntitySpawn;
   a->license_stopped = &ApiLicenseStopped;                        // v1.15
+  a->license_key = &ApiLicenseKey;                                // v1.16
 }
 
 }  // namespace readyup::plugins

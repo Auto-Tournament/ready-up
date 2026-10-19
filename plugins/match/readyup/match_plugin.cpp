@@ -7,6 +7,7 @@
 // and the ready HUD, and the match part of the local status endpoint (readyup.match.v1).
 // It talks to the engine only through ru_api (host.cpp); `ru plugin reload match` keeps the
 // match going (reload_state.h lists what survives).
+#include "readyup/license_checkin.h"
 #include "readyup/plugin_api.h"
 #include "readyup/match_iface.h"
 #include "readyup/selftest_iface.h"
@@ -566,7 +567,9 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     workers::Start();
     {
       const char* dir = RU_API_HAS(api, data_dir) ? api->data_dir(api->self) : nullptr;
-      local_store::Init(dir && *dir ? std::string(dir) : GetThisModuleDir() + "/../../plugins/match");
+      const std::string dataDir = dir && *dir ? std::string(dir) : GetThisModuleDir() + "/../../plugins/match";
+      local_store::Init(dataDir);
+      license_checkin::Start(api, dataDir);  // the license server counts the game servers that run (license_checkin.h)
     }
     (void)ReloadCfg(nullptr);
     match_settings::Install();  // server settings saved in state.json (server_settings.h)
