@@ -1,6 +1,13 @@
 #include "readyup/license_checkin.h"
 
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -10,9 +17,7 @@
 #include <regex>
 #include <string>
 
-#include "readyup/http_client.h"
 #include "readyup/minijson.h"
-#include "readyup/workers.h"
 
 namespace readyup::license_checkin {
 namespace {
@@ -45,7 +50,34 @@ std::string NewUuid() {
   return out;
 }
 
-// This server's own id: read from the data folder, or made and saved the first time.
+// The stop signal for the check-in thread (Stop()).
+std::mutex g_mu;
+std::condition_variable g_cv;
+bool g_stop = false;
+std::thread g_thread;
+int g_leadFd = -1;
+
+// Waits `d`, or less when Stop() is called: false once stopping.
+bool SleepFor(std::chrono::milliseconds d) {
+  std::unique_lock<std::mutex> lk(g_mu);
+  return !g_cv.wait_for(lk, d, [] { return g_stop; });
+}
+
+// The match and fleet plugins both run this; one of them sends (whoever holds the lock file),
+// the other takes over when that one unloads. Both send the same server anyway (same UUID file).
+bool Lead(const std::string& dir) {
+  if (g_leadFd >= 0) return true;
+  const int fd = open((dir + "/server_id.lock").c_str(), O_CREAT | O_RDWR | O_CLOEXEC, 0644);
+  if (fd < 0) return false;
+  if (flock(fd, LOCK_EX | LOCK_NB) == 0) {
+    g_leadFd = fd;
+    return true;
+  }
+  close(fd);
+  return false;
+}
+
+// This server's own id: read from the shared data folder, or made and saved the first time.
 std::string ServerUuid(const std::string& dir) {
   const std::string path = dir + "/server_id";
   std::string id;
@@ -81,13 +113,14 @@ std::string Base64UrlDecode(const std::string& in) {
   return out;
 }
 
-void Loop(const ru_api* api, std::string dir) {
-  if (!workers::SleepFor(kFirst)) return;
+void Loop(const ru_api* api, std::string dir, std::string version, PostFn post) {
+  if (!SleepFor(kFirst)) return;
   const char* env = std::getenv("READYUP_LICENSE_CHECKIN_URL");  // tests point it at a local server
   const std::string url = env && *env ? env : kDefaultUrl;
   const std::string uuid = ServerUuid(dir);
   const int port = PortFromCmdline(ReadCmdline());
   do {
+    if (!Lead(dir)) continue;
     char buf[4096];
     const int n = api->license_key(api->self, buf, sizeof(buf));
     if (n <= 0 || n >= static_cast<int>(sizeof(buf))) continue;
@@ -96,10 +129,10 @@ void Loop(const ru_api* api, std::string dir) {
     if (id.empty()) continue;
     // Key, id, UUID and version are [A-Za-z0-9._+-] only (checked by the key format and IsUuid), so no escaping.
     const std::string body = std::string("{\"token\":\"") + key + "\",\"key_id\":\"" + id + "\",\"instance_id\":\"" + uuid +
-                             "\",\"server_count\":1,\"platform_version\":\"" MATCH_VERSION "\",\"product\":\"readyup\",\"port\":" +
+                             "\",\"server_count\":1,\"platform_version\":\"" + version + "\",\"product\":\"readyup\",\"port\":" +
                              std::to_string(port) + "}";
-    (void)HttpPostJson(url, std::nullopt, body);  // best effort: the answer changes nothing here
-  } while (workers::SleepFor(kEvery));
+    post(url, body);  // best effort: the answer changes nothing here
+  } while (SleepFor(kEvery));
 }
 
 }  // namespace
@@ -133,9 +166,29 @@ int PortFromCmdline(const std::string& cmdline) {
   return 27015;
 }
 
-void Start(const ru_api* api, const std::string& dataDir) {
-  if (!RU_API_HAS(api, license_key) || !api->license_key) return;
-  (void)workers::Spawn("license check-in", [api, dataDir] { Loop(api, dataDir); });
+void Start(const ru_api* api, const std::string& dataDir, const std::string& version, PostFn post) {
+  if (!RU_API_HAS(api, license_key) || !api->license_key || g_thread.joinable()) return;
+  // The folder every plugin's data folder sits in: one server id and one lock per server.
+  const size_t slash = dataDir.find_last_of('/');
+  const std::string shared = slash == std::string::npos ? dataDir : dataDir.substr(0, slash);
+  {
+    std::lock_guard<std::mutex> lk(g_mu);
+    g_stop = false;
+  }
+  g_thread = std::thread([api, shared, version, post] { Loop(api, shared, version, post); });
+}
+
+void Stop() {
+  {
+    std::lock_guard<std::mutex> lk(g_mu);
+    g_stop = true;
+  }
+  g_cv.notify_all();
+  if (g_thread.joinable()) g_thread.join();
+  if (g_leadFd >= 0) {
+    close(g_leadFd);  // releases the lock: the other plugin takes over
+    g_leadFd = -1;
+  }
 }
 
 }  // namespace readyup::license_checkin
