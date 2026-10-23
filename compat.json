@@ -5,24 +5,24 @@
   "patch": "1.41.9.2"
  },
  "readyup": {
-  "version": "0.1.0-beta.70-dev.33a8404",
-  "commit": "33a8404d4aaa7d4e976cdedd811fa189e0fb79b5"
+  "version": "0.1.0-beta.70-dev.534d713",
+  "commit": "534d713cde64f7030dbfcba6a6c03429d23a2004"
  },
  "run": {
-  "id": "39918490047",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/39918490047",
+  "id": "39918682600",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/39918682600",
   "trigger": "code_change",
   "stage": "selftest",
   "state": "fail",
-  "started_at": "2026-10-23T07:33:01Z",
-  "finished_at": "2026-10-23T07:39:04Z"
+  "started_at": "2026-10-23T07:39:19Z",
+  "finished_at": "2026-10-23T07:44:25Z"
  },
  "overall": "fail",
  "components": [
   {
    "id": "core",
    "name": "Core",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -61,10 +61,12 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 103,
+     "status": "fail",
+     "passed": 102,
      "total": 103,
-     "failures": []
+     "failures": [
+      "fn CSmokeGrenadeProjectile_Create: - UNVERIFIED; signature matched 0 times (want 1)"
+     ]
     }
    ]
   },
@@ -568,5 +570,5 @@
    ]
   }
  ],
- "checked_at": "2026-10-23T07:39:04Z"
+ "checked_at": "2026-10-23T07:44:25Z"
 }
