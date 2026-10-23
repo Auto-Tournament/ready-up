@@ -1,6 +1,6 @@
 {
  "schemaVersion": 1,
  "label": "CS2 1.41.9.2",
- "message": "incompatible",
- "color": "red"
+ "message": "static ok",
+ "color": "yellow"
 }
