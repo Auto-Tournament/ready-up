@@ -5,33 +5,31 @@
   "patch": "1.41.9.2"
  },
  "readyup": {
-  "version": "0.1.0-beta.70-dev.be15832",
-  "commit": "be158320bcdadf57ef8b142d40efd47d2cc30292"
+  "version": "0.1.0-beta.70-dev.534d713",
+  "commit": "534d713cde64f7030dbfcba6a6c03429d23a2004"
  },
  "run": {
-  "id": "39917751900",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/39917751900",
-  "trigger": "code_change",
-  "stage": "selftest",
+  "id": "39918708278",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/39918708278",
+  "trigger": "surface_change",
+  "stage": "static",
   "state": "fail",
-  "started_at": "2026-10-23T07:26:36Z",
-  "finished_at": "2026-10-23T07:32:04Z"
+  "started_at": "2026-10-23T07:34:57Z",
+  "finished_at": "2026-10-23T07:36:14Z"
  },
  "overall": "fail",
  "components": [
   {
    "id": "core",
    "name": "Core",
-   "status": "fail",
+   "status": "pass",
    "checks": [
     {
      "kind": "signature",
-     "status": "fail",
-     "passed": 9,
+     "status": "pass",
+     "passed": 10,
      "total": 10,
-     "failures": [
-      "CBaseEntity_SetAbsOrigin: optional matches=1 ok caller_string \"Pushed player by %.2f over %d steps (push vector: %.2f, %.2f, %.2f)\\n\"; FAIL caller_string \"Method Entity.Move invoked with bad newValues value.\\n\" (70 call sites checked)"
-     ]
+     "failures": []
     },
     {
      "kind": "rtti",
@@ -63,9 +61,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 103,
-     "total": 103,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -105,9 +103,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -120,10 +118,9 @@
     {
      "kind": "signature",
      "status": "fail",
-     "passed": 16,
+     "passed": 17,
      "total": 18,
      "failures": [
-      "CBaseEntity_SetAbsOrigin: optional matches=1 ok caller_string \"Pushed player by %.2f over %d steps (push vector: %.2f, %.2f, %.2f)\\n\"; FAIL caller_string \"Method Entity.Move invoked with bad newValues value.\\n\" (70 call sites checked)",
       "CSmokeGrenadeProjectile_Create: optional matches=0 signature matched 0 times (want 1)"
      ]
     },
@@ -157,23 +154,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 32,
+     "status": "pending",
+     "passed": 0,
      "total": 32,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 6,
+     "status": "pending",
+     "passed": 0,
      "total": 6,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 2,
-     "total": 2,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -220,23 +217,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 36,
+     "status": "pending",
+     "passed": 0,
      "total": 36,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 6,
+     "status": "pending",
+     "passed": 0,
      "total": 6,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -283,23 +280,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 30,
+     "status": "pending",
+     "passed": 0,
      "total": 30,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 15,
+     "status": "pending",
+     "passed": 0,
      "total": 15,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 2,
-     "total": 2,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     },
     {
@@ -353,9 +350,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -402,23 +399,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 23,
+     "status": "pending",
+     "passed": 0,
      "total": 23,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 7,
+     "status": "pending",
+     "passed": 0,
      "total": 7,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -451,9 +448,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -500,16 +497,16 @@
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 1,
+     "status": "pending",
+     "passed": 0,
      "total": 1,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -556,9 +553,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     },
     {
@@ -571,5 +568,5 @@
    ]
   }
  ],
- "checked_at": "2026-10-23T07:32:04Z"
+ "checked_at": "2026-10-23T07:36:14Z"
 }
