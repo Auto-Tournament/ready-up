@@ -8,7 +8,10 @@ name: CS2 update watch
 # and verify gamedata/engine-surface.json with readyup_sigcheck + readyup_hookcheck.
 #
 #   fail -> failing job + markdown summary, open/refresh issue labeled `cs2-update`,
-#           Discord post if secret DISCORD_WEBHOOK_URL is set
+#           Discord post if secret DISCORD_WEBHOOK_URL is set; readyup_sigfix (tools/sigfix.h)
+#           tries to repair the failing signatures, and if it changed any, a PR on branch
+#           cs2-autofix/<buildid> carries them. Never merged automatically: a wrong match calls
+#           the wrong function, so a human reviews it.
 #   pass -> "CS2 build N verified" (on the open issue, which is closed; else on the commit)
 #
 #   both -> compat.json + badge.json (scripts/ci/compat-report.py): per-component result in the
@@ -115,6 +118,8 @@ jobs:
     outputs:
       verdict: ${{ steps.verify.outputs.verdict }}
       patch_version: ${{ steps.verify.outputs.patch_version }}
+      autofix: ${{ steps.autofix.outputs.changed }}
+      autofix_verified: ${{ steps.autofix.outputs.verified }}
     steps:
       - uses: actions/checkout@v4
 
@@ -141,11 +146,11 @@ jobs:
             --trigger "${{ needs.check.outputs.trigger }}" --started-at "${{ needs.check.outputs.started_at }}"
           python3 scripts/ci/compat-report.py post .ci/checking.json
 
-      - name: Build readyup_sigcheck + readyup_hookcheck
+      - name: Build readyup_sigcheck + readyup_hookcheck + readyup_sigfix
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           CC=gcc-14 CXX=g++-14 cmake -S . -B build-tools -DCMAKE_BUILD_TYPE=Release >/dev/null
-          cmake --build build-tools --target readyup_sigcheck readyup_hookcheck -j"$(nproc)"
+          cmake --build build-tools --target readyup_sigcheck readyup_hookcheck readyup_sigfix -j"$(nproc)"
 
       - name: sigcheck + hookcheck -> report.md, compat.json, badge.json
         id: verify
@@ -165,6 +170,55 @@ jobs:
             || echo "::warning::compat-report.py failed; the verdict below still stands"
           if [ $rc -eq 0 ]; then echo "verdict=pass" >> "$GITHUB_OUTPUT"; else echo "verdict=fail" >> "$GITHUB_OUTPUT"; fi
           exit $rc
+
+      # Repairs what it can in gamedata/ and re-verifies; the autofix job turns it into a PR.
+      - name: 'Autofix: readyup_sigfix, then verify again'
+        id: autofix
+        if: failure() && steps.verify.outputs.verdict == 'fail'
+        shell: bash
+        env:
+          BUILDID: ${{ needs.check.outputs.buildid }}
+          PATCH: ${{ steps.verify.outputs.patch_version }}
+        run: |
+          libs=()
+          for m in engine2 tier0 schemasystem; do
+            so="$CS2_DIR/game/bin/linuxsteamrt64/lib$m.so"
+            [ -f "$so" ] && libs+=(--lib "$m=$so")
+          done
+          set +e
+          build-tools/readyup_sigfix --game-version "$PATCH" --buildid "$BUILDID" \
+            "$CS2_DIR/game/csgo/bin/linuxsteamrt64/libserver.so" gamedata/engine-surface.json gamedata/engine-surface.*.json \
+            "${libs[@]}" > .ci/sigfix.md
+          scripts/ci/verify-cs2.sh "$CS2_DIR" build-tools .ci/report-fixed.md
+          rc=$?
+          set -e
+          cat .ci/sigfix.md >> "$GITHUB_STEP_SUMMARY"
+          if git diff --quiet -- gamedata; then echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          echo "verified=$([ $rc -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          mkdir -p .ci/autofix
+          cp gamedata/engine-surface*.json .ci/autofix/
+          {
+            echo "CS2 $PATCH (build $BUILDID) broke the engine surface, and \`readyup_sigfix\` rewrote what it could find again. Nothing merges this automatically: a wrong match calls the wrong function and crashes servers, so check every new signature."
+            echo
+            echo "Opened with the workflow token, so CI doesn't start by itself: close and reopen the PR to run it."
+            echo
+            cat .ci/sigfix.md
+            echo
+            echo "## Verify again with these files"
+            echo
+            cat .ci/report-fixed.md
+            echo
+            echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > .ci/autofix/body.md
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload autofix
+        if: always() && steps.autofix.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cs2-autofix-${{ needs.check.outputs.buildid }}
+          path: .ci/autofix/
+          retention-days: 90
 
       - name: Upload report
         if: always()
@@ -239,6 +293,49 @@ jobs:
         run: |
           echo "::error::CS2 build $BUILDID broke gamedata/engine-surface.json; see the verify job summary."
           exit 1
+
+  # readyup_sigfix changed gamedata: commit it to cs2-autofix/<buildid> and open (or refresh) a
+  # PR. Only opens it: never approves or merges.
+  autofix:
+    name: Open autofix PR
+    needs: [check, verify]
+    if: always() && needs.verify.outputs.autofix == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILDID: ${{ needs.check.outputs.buildid }}
+      PATCH: ${{ needs.verify.outputs.patch_version }}
+      VERIFIED: ${{ needs.verify.outputs.autofix_verified }}
+      BASE: ${{ github.event.repository.default_branch }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cs2-autofix-${{ needs.check.outputs.buildid }}
+          path: .ci/autofix
+
+      - name: Commit + open the PR
+        run: |
+          branch="cs2-autofix/$BUILDID"
+          title="fix(gamedata): signatures for CS2 $PATCH (autofix)"
+          [ "$VERIFIED" = "true" ] || title="fix(gamedata): signatures for CS2 $PATCH (autofix, still failing)"
+          cp .ci/autofix/engine-surface*.json gamedata/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git commit -am "$title" -m "Written by readyup_sigfix in $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          git push --force origin "$branch"
+          pr="$(gh pr list --head "$branch" --state open --json number -q '.[0].number')"
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --title "$title" --body-file .ci/autofix/body.md
+          else
+            gh pr create --head "$branch" --base "$BASE" --title "$title" --body-file .ci/autofix/body.md
+          fi
 
   # The verify job ended without a verdict (download error, runner problem): nothing is
   # recorded on cs2-build (the next run retries), but a listener still hears that this run is over.
