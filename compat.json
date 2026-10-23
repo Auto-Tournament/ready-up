@@ -5,17 +5,17 @@
   "patch": "1.41.9.2"
  },
  "readyup": {
-  "version": "0.1.0-beta.70-dev.29a2eeb",
-  "commit": "29a2eeb9dad5b6669f6fc126cc7498d6cdaad731"
+  "version": "0.1.0-beta.70-dev.8f3ecf5",
+  "commit": "8f3ecf50352c90754fa90239b9b5bb928df88fd7"
  },
  "run": {
-  "id": "39998206706",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/39998206706",
+  "id": "40002808523",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/40002808523",
   "trigger": "code_change",
   "stage": "live",
   "state": "pass",
-  "started_at": "2026-10-23T17:49:23Z",
-  "finished_at": "2026-10-23T18:16:49Z"
+  "started_at": "2026-10-23T18:22:57Z",
+  "finished_at": "2026-10-23T18:50:19Z"
  },
  "overall": "pass",
  "components": [
@@ -564,7 +564,84 @@
      "failures": []
     }
    ]
+  },
+  {
+   "id": "movement",
+   "name": "Movement",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "schema",
+     "status": "pass",
+     "passed": 13,
+     "total": 13,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "mapvote",
+   "name": "Map vote",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "selftest",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "community",
+   "name": "Community",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "schema",
+     "status": "pass",
+     "passed": 4,
+     "total": 4,
+     "failures": []
+    },
+    {
+     "kind": "event",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "tv",
+   "name": "TV",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "selftest",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    }
+   ]
   }
  ],
- "checked_at": "2026-10-23T18:16:49Z"
+ "checked_at": "2026-10-23T18:50:19Z"
 }
