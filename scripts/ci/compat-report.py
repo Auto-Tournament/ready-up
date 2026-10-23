@@ -663,7 +663,9 @@ def cmd_dynamic(args):
     if base and buildid and base.get("cs2", {}).get("buildid") not in ("", buildid):
         print("::warning::static verdict is for CS2 build %s, this server runs %s; static checks kept as-is"
               % (base["cs2"]["buildid"], buildid))
-    ids = [c["id"] for c in base.get("components") or []] or all_component_ids(surface_files(args.gamedata))
+    # the base is the last static run, which only reruns on a CS2 update: a component added since is not in it
+    ids = [c["id"] for c in base.get("components") or []]
+    ids += [c for c in all_component_ids(surface_files(args.gamedata)) if c not in ids]
     by_id = {c["id"]: c for c in base.get("components") or []}
     live = [(n, int(rc)) for n, _, rc in (x.partition("=") for x in args.livetest or [])]
     advisory = {n for x in args.livetest_advisory or [] for n in re.split(r"[\s,]+", x) if n}
