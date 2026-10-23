@@ -515,6 +515,20 @@ class CompatReportTest(unittest.TestCase):
         doc = self.dynamic("live", live=[("match", 0)])
         self.assertEqual(self.check(self.comp(doc, "fleet"), "livetest")["status"], "pending")
 
+    def test_dynamic_adds_components_the_base_lacks(self):
+        base, _ = self.result(plugins_dir=ROOT / "plugins")
+        base["components"] = [c for c in base["components"] if c["id"] != "tv"]
+        bp = self.tmp / "old-base.json"
+        bp.write_text(json.dumps(base))
+        sp = self.tmp / "readyup_selftest.txt"
+        sp.write_text(self.SELFTEST)
+        out = self.tmp / "dyn-old-base"
+        args = ["dynamic", "--stage", "selftest", "--base", str(bp), "--selftest", str(sp), "--out-dir", str(out),
+                "--gamedata", str(self.gamedata), "--plugins-dir", str(ROOT / "plugins")] + RUN
+        self.assertEqual(cr.main(args), 0)
+        doc = json.loads((out / "compat.json").read_text())
+        self.assertIn("tv", [c["id"] for c in doc["components"]])
+
     def test_dynamic_without_report_fails_core(self):
         doc = self.dynamic("selftest", selftest="")
         core = self.check(self.comp(doc, "core"), "selftest")
