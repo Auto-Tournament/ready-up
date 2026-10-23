@@ -939,6 +939,29 @@ static void TestBackupParts() {
   CHECK(!store.Take(sha, 202, &raw));
 }
 
+static void TestBackupPartsCap() {
+  // Four 4 MiB files fill the 16 MiB cap; sending one of them again replaces it and must not be
+  // refused for the copy it replaces.
+  const std::string big(4 * 1024 * 1024, 'x');
+  auto fake = [&](char c) {
+    Json b = BackupPart(big, 1, 1, big.size());
+    b["sha256"] = std::string(64, c);
+    return b;
+  };
+  fs::BackupParts store;
+  std::string why;
+  for (char c : {'a', 'b', 'c', 'd'}) CHECK(store.Add(fake(c), 0, &why));
+  CHECK(store.Add(fake('d'), 1, &why));
+  CHECK(!store.Add(fake('e'), 1, &why));  // a fifth file is over the cap
+  // Part and parts numbers beyond int range are refused, not wrapped into range.
+  Json wrapPart = BackupPart(big, 1, 1, big.size());
+  wrapPart["part"] = 4294967297LL;
+  CHECK(!store.Add(wrapPart, 2, &why));
+  Json wrapParts = BackupPart(big, 1, 1, big.size());
+  wrapParts["parts"] = 4294967297LL;
+  CHECK(!store.Add(wrapParts, 2, &why));
+}
+
 int main() {
   TestLiveStream();
   TestSubstitutes();
@@ -953,6 +976,7 @@ int main() {
   TestResume();
   TestServerConfigPlan();
   TestBackupParts();
+  TestBackupPartsCap();
   if (g_failures) {
     std::fprintf(stderr, "fleet_state_test: %d of %d checks FAILED\n", g_failures, g_checks);
     return 1;
