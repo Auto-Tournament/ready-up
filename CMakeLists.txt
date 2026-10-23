@@ -280,6 +280,32 @@ target_include_directories(readyup_hookcheck PRIVATE ${CMAKE_SOURCE_DIR}/core/sr
 target_compile_options(readyup_hookcheck PRIVATE -Wall -Wextra)
 target_link_libraries(readyup_hookcheck PRIVATE readyup_funchook)
 
+# Offline signature repair after a CS2 update (tools/sigfix.h): finds functions that fail
+# sigcheck again through their string anchors and rewrites their signatures. Usage:
+#   build/readyup_sigfix <path/to/libserver.so> gamedata/engine-surface.json [fragments...]
+# Uses distorm (built into readyup_funchook) to cut the new signature at instruction boundaries.
+add_executable(readyup_sigfix
+  tools/sigfix_main.cpp
+  tools/sigfix.cpp
+  core/src/readyup/engine_surface_core.cpp
+  libs/readyup/minijson.cpp
+)
+target_include_directories(readyup_sigfix PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs
+  ${CMAKE_SOURCE_DIR}/third_party/distorm/include)
+target_compile_options(readyup_sigfix PRIVATE -Wall -Wextra)
+target_link_libraries(readyup_sigfix PRIVATE readyup_funchook)
+
+add_executable(readyup_sigfix_test
+  tests/sigfix_test.cpp
+  tools/sigfix.cpp
+  core/src/readyup/engine_surface_core.cpp
+  libs/readyup/minijson.cpp
+)
+target_include_directories(readyup_sigfix_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs
+  ${CMAKE_SOURCE_DIR}/tools ${CMAKE_SOURCE_DIR}/third_party/distorm/include)
+target_compile_options(readyup_sigfix_test PRIVATE -Wall -Wextra)
+target_link_libraries(readyup_sigfix_test PRIVATE readyup_funchook)
+
 # ---- Plugins (docs/ARCHITECTURE.md) -----------------------------------------------
 # The public C ABI. Plugins link only this: no core sources, no engine SDK mirrors, no
 # funchook, no gamedata. Anything engine-facing is a function pointer in ru_api.
@@ -484,6 +510,7 @@ add_test(NAME match_flow COMMAND readyup_match_flow_test)
 add_test(NAME license_checkin COMMAND readyup_license_checkin_test)
 add_test(NAME status_http COMMAND readyup_status_http_test)
 add_test(NAME json_store COMMAND readyup_json_store_test)
+add_test(NAME sigfix COMMAND readyup_sigfix_test)
 add_test(NAME plugin_host_reload
   COMMAND readyup_plugin_host_test
     $<TARGET_FILE:readyup_plugin_hello> $<TARGET_FILE:readyup_plugin_hello_reload_test>)
