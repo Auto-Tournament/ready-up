@@ -9,15 +9,15 @@
   "commit": "8f3ecf50352c90754fa90239b9b5bb928df88fd7"
  },
  "run": {
-  "id": "40002808523",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/40002808523",
-  "trigger": "code_change",
-  "stage": "live",
-  "state": "pass",
-  "started_at": "2026-10-23T18:22:57Z",
-  "finished_at": "2026-10-23T18:50:19Z"
+  "id": "40009209880",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/40009209880",
+  "trigger": "surface_change",
+  "stage": "static",
+  "state": "warn",
+  "started_at": "2026-10-23T19:09:57Z",
+  "finished_at": "2026-10-23T19:11:11Z"
  },
- "overall": "pass",
+ "overall": "warn",
  "components": [
   {
    "id": "core",
@@ -61,9 +61,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 103,
-     "total": 103,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -103,9 +103,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -152,23 +152,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 32,
+     "status": "pending",
+     "passed": 0,
      "total": 32,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 6,
+     "status": "pending",
+     "passed": 0,
      "total": 6,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 2,
-     "total": 2,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -215,23 +215,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 36,
+     "status": "pending",
+     "passed": 0,
      "total": 36,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 6,
+     "status": "pending",
+     "passed": 0,
      "total": 6,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -278,30 +278,30 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 30,
+     "status": "pending",
+     "passed": 0,
      "total": 30,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 15,
+     "status": "pending",
+     "passed": 0,
      "total": 15,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 2,
-     "total": 2,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     },
     {
      "kind": "livetest",
-     "status": "pass",
-     "passed": 3,
-     "total": 3,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -348,9 +348,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -397,23 +397,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 23,
+     "status": "pending",
+     "passed": 0,
      "total": 23,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 7,
+     "status": "pending",
+     "passed": 0,
      "total": 7,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -446,9 +446,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -495,6 +495,104 @@
     },
     {
      "kind": "event",
+     "status": "pending",
+     "passed": 0,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "movement",
+   "name": "Movement",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "signature",
+     "status": "pass",
+     "passed": 5,
+     "total": 5,
+     "failures": []
+    },
+    {
+     "kind": "rtti",
+     "status": "pass",
+     "passed": 3,
+     "total": 3,
+     "failures": []
+    },
+    {
+     "kind": "vtable",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "hook_site",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "schema",
+     "status": "pending",
+     "passed": 0,
+     "total": 13,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "mapvote",
+   "name": "Map vote",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "signature",
+     "status": "pass",
+     "passed": 4,
+     "total": 4,
+     "failures": []
+    },
+    {
+     "kind": "rtti",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "vtable",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "hook_site",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "layout",
      "status": "pass",
      "passed": 1,
      "total": 1,
@@ -502,9 +600,107 @@
     },
     {
      "kind": "selftest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "community",
+   "name": "Community",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "signature",
+     "status": "pass",
+     "passed": 5,
+     "total": 5,
+     "failures": []
+    },
+    {
+     "kind": "rtti",
+     "status": "pass",
+     "passed": 3,
+     "total": 3,
+     "failures": []
+    },
+    {
+     "kind": "vtable",
      "status": "pass",
      "passed": 1,
      "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "hook_site",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "schema",
+     "status": "pending",
+     "passed": 0,
+     "total": 4,
+     "failures": []
+    },
+    {
+     "kind": "event",
+     "status": "pending",
+     "passed": 0,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": []
+    }
+   ]
+  },
+  {
+   "id": "tv",
+   "name": "TV",
+   "status": "pass",
+   "checks": [
+    {
+     "kind": "signature",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "vtable",
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
+    },
+    {
+     "kind": "hook_site",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "layout",
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -551,97 +747,20 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     },
     {
      "kind": "livetest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
-     "failures": []
-    }
-   ]
-  },
-  {
-   "id": "movement",
-   "name": "Movement",
-   "status": "pass",
-   "checks": [
-    {
-     "kind": "schema",
-     "status": "pass",
-     "passed": 13,
-     "total": 13,
-     "failures": []
-    },
-    {
-     "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
-     "failures": []
-    }
-   ]
-  },
-  {
-   "id": "mapvote",
-   "name": "Map vote",
-   "status": "pass",
-   "checks": [
-    {
-     "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
-     "failures": []
-    }
-   ]
-  },
-  {
-   "id": "community",
-   "name": "Community",
-   "status": "pass",
-   "checks": [
-    {
-     "kind": "schema",
-     "status": "pass",
-     "passed": 4,
-     "total": 4,
-     "failures": []
-    },
-    {
-     "kind": "event",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
-     "failures": []
-    },
-    {
-     "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
-     "failures": []
-    }
-   ]
-  },
-  {
-   "id": "tv",
-   "name": "TV",
-   "status": "pass",
-   "checks": [
-    {
-     "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
   }
  ],
- "checked_at": "2026-10-23T18:50:19Z"
+ "checked_at": "2026-10-23T19:11:11Z"
 }
