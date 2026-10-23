@@ -57,12 +57,15 @@ CORE_ID = "core"
 # Plugins whose static verdict comes from their plugins/<id>/needs.json (the engine-surface entries
 # its ru_api calls need), in display order. practice also owns a fragment
 # (engine-surface.practice.json), whose entries count for it too.
-RUNTIME_ONLY = ["match", "practice", "essentials", "midas", "whitelist", "deathmatch", "fleet"]
+RUNTIME_ONLY = ["match", "practice", "essentials", "midas", "whitelist", "deathmatch", "movement", "mapvote",
+                "community", "tv", "fleet"]
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Plugins whose manifest is checked (needs-check) and used for verdicts. hello is the example.
-NEEDS_PLUGINS = ["match", "practice", "essentials", "midas", "whitelist", "deathmatch", "fleet", "skins", "addons"]
+NEEDS_PLUGINS = ["match", "practice", "essentials", "midas", "whitelist", "deathmatch", "movement", "mapvote",
+                 "community", "tv", "fleet", "skins", "addons"]
 NAMES = {"core": "Core", "skins": "Skins", "match": "Match", "practice": "Practice",
          "essentials": "Essentials", "midas": "Midas", "whitelist": "Whitelist", "deathmatch": "Deathmatch",
+         "movement": "Movement", "mapvote": "Map vote", "community": "Community", "tv": "TV",
          "fleet": "Fleet", "addons": "Addons"}
 # The component whose `livetest` check a live test (compat-report.py dynamic --livetest NAME=RC)
 # reports to; every other name goes to LIVETEST_DEFAULT. A component listed here gets a pending
