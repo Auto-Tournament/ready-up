@@ -357,7 +357,8 @@ jobs:
           DYNAMIC: ${{ vars.CS2_DYNAMIC_ENABLED }}
         run: |
           run_and_wait() {  # <workflow file> <ref>
-            local since id=""
+            local since
+            id=""  # the run's id, for the caller
             since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             gh workflow run "$1" --ref "$2"
             for _ in $(seq 1 30); do
@@ -375,6 +376,24 @@ jobs:
           merged="$(gh pr view "$PR" --json mergeCommit -q .mergeCommit.oid)"
           if [ "$DYNAMIC" = "true" ]; then
             run_and_wait cs2-dynamic.yml "$BASE"
+            # The run succeeds even when its verdict fails, so read the compat.json it recorded on
+            # cs2-build. Its static checks (signature, ...) are copied from the watch's verdict from
+            # before the fix: only its own checks count. Another run recorded since -> no release.
+            git fetch -q --depth=1 origin refs/heads/cs2-build
+            git show FETCH_HEAD:compat.json > .ci/dynamic.json
+            python3 - .ci/dynamic.json "$id" <<'PY'
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          if d["run"]["id"] != sys.argv[2]:
+              sys.exit("::error::compat.json on cs2-build is from run %s, not %s" % (d["run"]["id"], sys.argv[2]))
+          own = [(c["id"], k["kind"], k["status"]) for c in d["components"] for k in c["checks"]
+                 if k["kind"] in ("selftest", "schema", "event", "livetest")]
+          for o in own:
+              print(*o)
+          selftests = [s for _, k, s in own if k == "selftest"]
+          if not selftests or any(s != "pass" for s in selftests) or any(s == "fail" for _, _, s in own):
+              sys.exit("::error::cs2-dynamic did not pass its own checks (above)")
+          PY
           else
             echo "::warning::cs2-dynamic is off (CS2_DYNAMIC_ENABLED): releasing without the real-server test"
           fi
