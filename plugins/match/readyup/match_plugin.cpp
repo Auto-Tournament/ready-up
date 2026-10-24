@@ -26,6 +26,7 @@
 #include "readyup/http_client.h"
 #include "readyup/idle_refresh.h"
 #include "readyup/warmup_money.h"
+#include "readyup/warmup_score.h"
 #include "readyup/weapon_cleanup.h"
 #include "readyup/local_store.h"
 #include "readyup/simulation.h"
@@ -291,6 +292,7 @@ void OnTick(void*, const ru_tick_info* t) {
         s.Run("damage", [] { DamageReportTick(); });     // damage reports built at round_end (damage_report.h)
         s.Run("votes", [&] { VotesTick(t->now); });      // .gg / .stop vote timeouts (votes.h)
         s.Run("warmup_money", [&] { WarmupMoneyTick(t->now); });  // warmup money top-up (warmup_money.h)
+        s.Run("warmup_score", [&] { WarmupScoreTick(t->now); });  // no round counts in warmup (warmup_score.h)
         s.Run("settings", [&] { match_settings::Tick(t->now); });  // autoready, kick_when_no_match_loaded
         s.Run("weapons", [&] { WeaponCleanupTick(t->now); });  // dropped weapons in warmup (weapon_cleanup.h)
         s.Run("coach", [&] { CoachTick(t->now); });            // coaches (coach.h)
@@ -614,6 +616,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     DamageReportInstall(api);   // end-of-round damage report
     VotesInstall(api);          // .gg / .stop
     WarmupMoneyInstall(api);    // warmup money top-up
+    WarmupScoreInstall(api);    // warmup score reset
     WeaponCleanupInstall(api);  // dropped weapons in warmup
     EsportsInstall(api);  // default_models (player_spawn), halftime pause
     RosterNamesInstall(api);  // roster players' in-game names
