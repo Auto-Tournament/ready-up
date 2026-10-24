@@ -32,6 +32,7 @@ set(MATCH_SOURCES
   readyup/result_card.cpp
   readyup/host.cpp
   readyup/idle_refresh.cpp
+  readyup/warmup_ammo.cpp
   readyup/warmup_money.cpp
   readyup/round_economy.cpp
   readyup/weapon_cleanup.cpp

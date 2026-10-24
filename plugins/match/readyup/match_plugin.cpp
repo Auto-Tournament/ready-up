@@ -25,6 +25,7 @@
 #include "readyup/host.h"
 #include "readyup/http_client.h"
 #include "readyup/idle_refresh.h"
+#include "readyup/warmup_ammo.h"
 #include "readyup/warmup_money.h"
 #include "readyup/weapon_cleanup.h"
 #include "readyup/local_store.h"
@@ -291,6 +292,7 @@ void OnTick(void*, const ru_tick_info* t) {
         s.Run("damage", [] { DamageReportTick(); });     // damage reports built at round_end (damage_report.h)
         s.Run("votes", [&] { VotesTick(t->now); });      // .gg / .stop vote timeouts (votes.h)
         s.Run("warmup_money", [&] { WarmupMoneyTick(t->now); });  // warmup money top-up (warmup_money.h)
+        s.Run("warmup_ammo", [] { WarmupAmmoTick(); });  // warmup reserve ammo (warmup_ammo.h)
         s.Run("settings", [&] { match_settings::Tick(t->now); });  // autoready, kick_when_no_match_loaded
         s.Run("weapons", [&] { WeaponCleanupTick(t->now); });  // dropped weapons in warmup (weapon_cleanup.h)
         s.Run("coach", [&] { CoachTick(t->now); });            // coaches (coach.h)
