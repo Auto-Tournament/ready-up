@@ -1,3 +1,12 @@
 {
-   "signedContributors": []
+  "signedContributors": [
+    {
+      "name": "harmdhast",
+      "id": 5670689,
+      "comment_id": 6383681234,
+      "created_at": "2026-10-24T11:31:30Z",
+      "repoId": 1386400360,
+      "pullRequestNo": 278
+    }
+  ]
 }
