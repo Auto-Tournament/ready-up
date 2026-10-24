@@ -68,7 +68,7 @@ Choices made where this document leaves room:
   on a re-run with the same outcome) hello carries the new one and `server.selftest` (reliable, same
   object, schema proposed in `plugins/fleet/protocol/v1/messages/server.selftest.json`) goes out.
 - `server.drain` / `server.undrain` (match plugin): drain is held in memory (a restart clears it); while
-  set the availability reads `draining` (a `server.availability` with reason `drain` is sent) and
+  set the availability reads `draining` (a `server.availability` with reason `draining` is sent) and
   `match.assign` is refused with `busy`; the running series finishes. `server.cs2_update_required`
   is sent once per new required version (Steam UpToDateCheck, every 30 min).
 - `hello.versions.plugins` lists only `fleet` for now (match is still compiled into the core).
@@ -779,6 +779,7 @@ only disables `match` or sends `practice.set {always}` to a server that has it.
 | `whitelist.set` | `{ enabled: boolean, steamids?: string[] }` | replaces the whitelist plugin's list and on/off (saved in `plugins/whitelist/whitelist.json`); `rejected unsupported` without whitelist.so. At most 1000 SteamID64 strings |
 | `settings.set` | `{ settings?: { [setting]: boolean \| number \| string } }` | server settings of the match plugin (`playout_enabled_default`, `minimum_ready_required`, `hostname_format`, `series_end_kick_delay_*`, ...; docs/INSTALL.md "Match server settings"), the same values `ru_<setting>` and `.ru settings set` change, saved across restarts. All or none: one bad name or value is `rejected bad_args` and nothing changes. `cmd.result.output`: every setting after the change (so `{}` reads them) |
 | `snapshot_now` | `{}` | reliable `state.request` |
+| `reset` | `{}` | not a match command (no `match_id`): ends whatever the server holds (the assignment, a match loaded on the server itself, one startup recovery would restore), the same as `ru match end` plus dropping the assignment; `cmd.result.result = { ended: assignment \| local \| none, match_id }`, then `server.availability` `available`. The platform settles its own match from the reply. |
 | `exec` | `{ command: string }` | **root admins only** (D10). The platform checks the web user's role and writes an audit row (user, server, match, command, time) before sending; the server rejects it unless `issued_by.root`, logs it as `fleet: exec by <user>: <command>`, runs it through `EnqueueServerCommand`, and returns captured console output (max 8 KB) in `cmd.result.output`. Single line, max 512 bytes, no `ru fleet …` (cannot change its own credentials). |
 
 ### 7.5 Server-level messages
@@ -883,8 +884,11 @@ applies `patch` when `rev == stored_rev + 1`; on a gap it sends `state.request`.
 | `chat` | `{ player: { steamid64, name, team: "team1"\|"team2"\|null, side: "ct"\|"t"\|"spec" }, message, team_only, at }` | a human's say / say_team that is not a command (`chat_forward.h`); at most 5 lines per player per 5 s, message ≤ 300 characters, `at` Unix ms | match chat for admins |
 | `error` | `{ code, message, fatal }` | any | alert admins |
 
-Server-level: `server.availability {availability, reason}` (a `ServerReset` from `match_end.h`
-→ `available`), `server.cs2_update_required {required_build}`, `server.selftest {pass, passed, total, failures}` (on every change of the outcome).
+Server-level: `server.availability {availability, reason, detail}` (a `ServerReset` from `match_end.h`
+→ `available`). A busy server says why in `reason`: `local_match` (detail = local slug),
+`awaiting_reset` (series over, waiting for the reset; detail = match id), `assigned` (detail = match
+id), `match_disabled` (no match plugin), `draining` (detail = drain reason). hello carries the same
+pair as `reason` / `detail`, state.snapshot as `availability_reason` / `availability_detail`. Also `server.cs2_update_required {required_build}`, `server.selftest {pass, passed, total, failures}` (on every change of the outcome).
 
 ### 8.2 Snapshot
 

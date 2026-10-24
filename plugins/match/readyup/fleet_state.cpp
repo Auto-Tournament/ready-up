@@ -1107,4 +1107,38 @@ bool SafeBackupFileName(const std::string& name) {
   return true;
 }
 
+AvailabilityInfo ComputeAvailability(const AvailabilityInputs& in) {
+  if (in.draining) return {"draining", "draining", in.drainReason, ""};
+  if (!in.assigned) {
+    if (in.localMatch) return {"busy", "local_match", in.localSlug, ""};
+    return {"available", "", "", "idle"};
+  }
+  if (in.serverReset) return {"available", "", "", "series_end"};
+  if (in.seriesOver) return {"busy", "awaiting_reset", in.matchId, ""};
+  return {"busy", "assigned", in.matchId, ""};
+}
+
+Json AvailabilityNotice(const AvailabilityInfo& a) {
+  Json p = Json::Object();
+  p["availability"] = a.availability;
+  p["reason"] = a.reason.empty() ? a.legacyReason : a.reason;
+  p["detail"] = a.detail.empty() ? Json() : Json(a.detail);
+  return p;
+}
+
+ResetOutcome PlanReset(bool assigned, const std::string& asgMatchId, bool localMatch, const std::string& localSlug,
+                       const std::string& pendingRecoverySlug) {
+  if (assigned) return {"assignment", asgMatchId};
+  if (localMatch) return {"local", localSlug};
+  if (!pendingRecoverySlug.empty()) return {"local", pendingRecoverySlug};
+  return {"none", ""};
+}
+
+Json ResetResultJson(const ResetOutcome& o) {
+  Json p = Json::Object();
+  p["ended"] = o.ended;
+  p["match_id"] = o.matchId.empty() ? Json() : Json(o.matchId);
+  return p;
+}
+
 }  // namespace readyup::fleetstate

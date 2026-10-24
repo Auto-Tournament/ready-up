@@ -890,6 +890,59 @@ static void TestSubstitutes() {
   CHECK(mat->players_per_team == 2);
 }
 
+static void TestAvailability() {
+  fs::AvailabilityInputs in;
+  in.localMatch = true;
+  in.localSlug = "cup-final";
+  auto a = fs::ComputeAvailability(in);
+  CHECK_STR(a.availability, "busy");
+  CHECK_STR(a.reason, "local_match");
+  CHECK_STR(a.detail, "cup-final");
+  in = {};
+  in.assigned = true;
+  in.seriesOver = true;
+  in.matchId = "m1";
+  CHECK_STR(fs::ComputeAvailability(in).reason, "awaiting_reset");
+  CHECK_STR(fs::ComputeAvailability(in).detail, "m1");
+  in.serverReset = true;
+  a = fs::ComputeAvailability(in);
+  CHECK_STR(a.availability, "available");
+  CHECK(a.reason.empty());
+  CHECK_STR(fs::AvailabilityNotice(a).Dump(), R"({"availability":"available","reason":"series_end","detail":null})");
+  in = {};
+  in.assigned = true;
+  in.matchId = "m2";
+  a = fs::ComputeAvailability(in);
+  CHECK_STR(a.availability, "busy");
+  CHECK_STR(a.reason, "assigned");
+  CHECK_STR(a.detail, "m2");
+  in = {};
+  a = fs::ComputeAvailability(in);
+  CHECK_STR(a.availability, "available");
+  CHECK_STR(fs::AvailabilityNotice(a).Dump(), R"({"availability":"available","reason":"idle","detail":null})");
+  in.draining = true;
+  in.localMatch = true;
+  in.drainReason = "cs2 update";
+  a = fs::ComputeAvailability(in);
+  CHECK_STR(a.availability, "draining");
+  CHECK_STR(a.reason, "draining");
+  CHECK_STR(a.detail, "cs2 update");
+}
+
+static void TestPlanReset() {
+  CHECK_STR(fs::ResetResultJson(fs::PlanReset(false, "", false, "", "")).Dump(), R"({"ended":"none","match_id":null})");
+  auto o = fs::PlanReset(true, "m1", true, "x", "");
+  CHECK_STR(o.ended, "assignment");
+  CHECK_STR(o.matchId, "m1");
+  o = fs::PlanReset(false, "", true, "cup-final", "");
+  CHECK_STR(o.ended, "local");
+  CHECK_STR(o.matchId, "cup-final");
+  o = fs::PlanReset(false, "", false, "", "cup-final");
+  CHECK_STR(o.ended, "local");
+  CHECK_STR(o.matchId, "cup-final");
+  CHECK_STR(fs::ResetResultJson(o).Dump(), R"({"ended":"local","match_id":"cup-final"})");
+}
+
 int main() {
   TestLiveStream();
   TestSubstitutes();
@@ -903,6 +956,8 @@ int main() {
   TestMapNames();
   TestResume();
   TestServerConfigPlan();
+  TestAvailability();
+  TestPlanReset();
   if (g_failures) {
     std::fprintf(stderr, "fleet_state_test: %d of %d checks FAILED\n", g_failures, g_checks);
     return 1;

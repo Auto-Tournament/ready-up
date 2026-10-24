@@ -221,4 +221,38 @@ int BackupRoundFromName(const std::string& fileName);
 // ends in .txt, [A-Za-z0-9_.-] only).
 bool SafeBackupFileName(const std::string& name);
 
+// ---------------------------------------------------------------------------- availability
+
+// What the server tells the platform about taking matches (server.availability, hello,
+// state.snapshot). `reason` is the busy reason (local_match | awaiting_reset | assigned |
+// draining; "" when available), `legacyReason` the free text sent with an available server
+// (idle | series_end), `detail` the match id, local slug or drain reason ("" = null).
+struct AvailabilityInputs {
+  bool draining = false, assigned = false, serverReset = false, seriesOver = false, localMatch = false;
+  std::string matchId, localSlug, drainReason;
+};
+struct AvailabilityInfo {
+  std::string availability, reason, detail, legacyReason;
+  bool operator==(const AvailabilityInfo& o) const {
+    return availability == o.availability && reason == o.reason && detail == o.detail && legacyReason == o.legacyReason;
+  }
+  bool operator!=(const AvailabilityInfo& o) const { return !(*this == o); }
+};
+AvailabilityInfo ComputeAvailability(const AvailabilityInputs& in);
+// {availability, reason: reason or legacyReason, detail|null}: the server.availability payload.
+Json AvailabilityNotice(const AvailabilityInfo& a);
+
+// ---------------------------------------------------------------------------- cmd reset
+
+// What `cmd reset` ends: the platform's assignment, else a match loaded on the server itself (or
+// one startup recovery is about to restore), else nothing. matchId "" = null.
+struct ResetOutcome {
+  std::string ended;  // assignment | local | none
+  std::string matchId;
+};
+ResetOutcome PlanReset(bool assigned, const std::string& asgMatchId, bool localMatch, const std::string& localSlug,
+                       const std::string& pendingRecoverySlug);
+// cmd.result `result`: {"ended": .., "match_id": ..|null}.
+Json ResetResultJson(const ResetOutcome& o);
+
 }  // namespace readyup::fleetstate
