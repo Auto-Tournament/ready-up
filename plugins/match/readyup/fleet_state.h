@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -220,5 +221,50 @@ int BackupRoundFromName(const std::string& fileName);
 // A backup file name from the platform that is safe to write into csgo/ (no directories,
 // ends in .txt, [A-Za-z0-9_.-] only).
 bool SafeBackupFileName(const std::string& name);
+
+// ---------------------------------------------------------------------------- availability
+
+// What the server tells the platform about taking matches (server.availability, hello,
+// state.snapshot). `reason` is the busy reason (local_match | awaiting_reset | assigned |
+// draining; "" when available), `legacyReason` the free text sent with an available server
+// (idle | series_end), `detail` the match id, local slug or drain reason ("" = null).
+struct AvailabilityInputs {
+  bool draining = false, assigned = false, serverReset = false, seriesOver = false, localMatch = false;
+  std::string matchId, localSlug, drainReason;
+};
+struct AvailabilityInfo {
+  std::string availability, reason, detail, legacyReason;
+  bool operator==(const AvailabilityInfo& o) const {
+    return availability == o.availability && reason == o.reason && detail == o.detail && legacyReason == o.legacyReason;
+  }
+  bool operator!=(const AvailabilityInfo& o) const { return !(*this == o); }
+};
+AvailabilityInfo ComputeAvailability(const AvailabilityInputs& in);
+// {availability, reason: reason or legacyReason, detail|null}: the server.availability payload.
+Json AvailabilityNotice(const AvailabilityInfo& a);
+
+// ---------------------------------------------------------------------------- cmd reset
+
+// What `cmd reset` ends: the platform's assignment, else a match loaded on the server itself (or
+// one startup recovery is about to restore), else nothing. matchId "" = null.
+struct ResetOutcome {
+  std::string ended;  // assignment | local | none
+  std::string matchId;
+};
+ResetOutcome PlanReset(bool assigned, const std::string& asgMatchId, bool localMatch, const std::string& localSlug,
+                       const std::string& pendingRecoverySlug);
+// cmd.result `result`: {"ended": .., "match_id": ..|null}.
+Json ResetResultJson(const ResetOutcome& o);
+
+// ---------------------------------------------------------------------------- players
+
+// CS2 team number -> state.snapshot players[].team: 1 spectator, 2 t, 3 ct, anything else none.
+const char* CsTeamName(int csTeam);
+// cmd add_time {seconds}: an integer 1..600 (bad_args), during a live or overtime round that is
+// past freeze time and not over (bad_phase).
+bool ValidateAddTime(const Json& args, const std::string& phase, bool roundOver, bool inFreeze, int* seconds,
+                     std::string* code, std::string* why);
+// state.snapshot `players`: the connected humans {steamid64, name, team} (steamid 0 left out).
+Json PlayersJson(const std::vector<std::tuple<uint64_t, std::string, int>>& humans);
 
 }  // namespace readyup::fleetstate

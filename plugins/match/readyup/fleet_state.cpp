@@ -1107,4 +1107,86 @@ bool SafeBackupFileName(const std::string& name) {
   return true;
 }
 
+AvailabilityInfo ComputeAvailability(const AvailabilityInputs& in) {
+  if (in.draining) return {"draining", "draining", in.drainReason, ""};
+  if (!in.assigned) {
+    if (in.localMatch) return {"busy", "local_match", in.localSlug, ""};
+    return {"available", "", "", "idle"};
+  }
+  if (in.serverReset) return {"available", "", "", "series_end"};
+  if (in.seriesOver) return {"busy", "awaiting_reset", in.matchId, ""};
+  return {"busy", "assigned", in.matchId, ""};
+}
+
+Json AvailabilityNotice(const AvailabilityInfo& a) {
+  Json p = Json::Object();
+  p["availability"] = a.availability;
+  p["reason"] = a.reason.empty() ? a.legacyReason : a.reason;
+  p["detail"] = a.detail.empty() ? Json() : Json(a.detail);
+  return p;
+}
+
+ResetOutcome PlanReset(bool assigned, const std::string& asgMatchId, bool localMatch, const std::string& localSlug,
+                       const std::string& pendingRecoverySlug) {
+  if (assigned) return {"assignment", asgMatchId};
+  if (localMatch) return {"local", localSlug};
+  if (!pendingRecoverySlug.empty()) return {"local", pendingRecoverySlug};
+  return {"none", ""};
+}
+
+Json ResetResultJson(const ResetOutcome& o) {
+  Json p = Json::Object();
+  p["ended"] = o.ended;
+  p["match_id"] = o.matchId.empty() ? Json() : Json(o.matchId);
+  return p;
+}
+
+const char* CsTeamName(int csTeam) {
+  switch (csTeam) {
+    case 1:
+      return "spectator";
+    case 2:
+      return "t";
+    case 3:
+      return "ct";
+    default:
+      return "none";
+  }
+}
+
+Json PlayersJson(const std::vector<std::tuple<uint64_t, std::string, int>>& humans) {
+  Json out = Json::Array();
+  for (const auto& [sid, name, team] : humans) {
+    if (sid == 0 || out.Items().size() >= 64) continue;
+    Json p = Json::Object();
+    p["steamid64"] = std::to_string(sid);
+    p["name"] = name.substr(0, 128);
+    p["team"] = CsTeamName(team);
+    out.Push(std::move(p));
+  }
+  return out;
+}
+
+bool ValidateAddTime(const Json& args, const std::string& phase, bool roundOver, bool inFreeze, int* seconds,
+                     std::string* code, std::string* why) {
+  const Json* v = args.Find("seconds");
+  if (!v || v->type() != Json::Type::Int || v->AsInt() < 1 || v->AsInt() > 600) {
+    *code = "bad_args";
+    *why = "seconds must be a whole number from 1 to 600";
+    return false;
+  }
+  if (phase != "live" && phase != "overtime") {
+    *code = "bad_phase";
+    *why = "add_time works during a live round only";
+    return false;
+  }
+  if (roundOver || inFreeze) {
+    *code = "bad_phase";
+    *why = "no round in progress";
+    return false;
+  }
+  *seconds = static_cast<int>(v->AsInt());
+  return true;
+}
+
 }  // namespace readyup::fleetstate
