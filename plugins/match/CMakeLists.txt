@@ -35,6 +35,7 @@ set(MATCH_SOURCES
   readyup/warmup_money.cpp
   readyup/round_economy.cpp
   readyup/weapon_cleanup.cpp
+  readyup/hud_steady.cpp
   readyup/knife_tracker.cpp
   readyup/local_store.cpp
   readyup/ru_commands.cpp
@@ -281,3 +282,8 @@ target_include_directories(match_roster_names_test PRIVATE ${CMAKE_CURRENT_SOURC
   ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(match_roster_names_test PRIVATE -Wall -Wextra)
 add_test(NAME match_roster_names COMMAND match_roster_names_test)
+# Center panel blink workaround decision (readyup/hud_steady_logic.h; ctest `match_hud_steady`).
+add_executable(match_hud_steady_test tests/hud_steady_test.cpp)
+target_include_directories(match_hud_steady_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(match_hud_steady_test PRIVATE -Wall -Wextra)
+add_test(NAME match_hud_steady COMMAND match_hud_steady_test)
