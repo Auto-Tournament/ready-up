@@ -149,6 +149,9 @@ bool g_resumeSnapshotPending = false;  // state.snapshot (restored) after match_
 // file when the round is played again after a restore, and the new version is sent too.
 std::mutex g_backupMu;
 std::set<std::string> g_sentBackups;
+// When the match went live (Unix ms of the file clock), -1 while it is not: the scan forwards only the files
+// written since (fs::LiveSessionBackup).
+long long g_liveSinceMs = -1;
 
 std::string BackupKey(const std::filesystem::path& p) {
   std::error_code ec;
@@ -770,8 +773,8 @@ std::string BackupPrefix(int mapNumber) { return BackupPrefixFor(g_asg.match_id,
 // Where CS2 writes and reads its round backups (backup_files.h). Any thread.
 std::vector<std::string> BackupDirs() { return backup_files::BackupDirs(); }
 
-// Worker thread: forwards backup files with `prefix` that were not sent yet.
-void ScanBackups(std::string prefix, int mapNumber, int team1, int team2) {
+// Worker thread: forwards this live session's backup files with `prefix` that were not sent yet.
+void ScanBackups(std::string prefix, int mapNumber, int team1, int team2, long long liveSinceMs) {
   struct Found {
     std::string name, path, key;
     int round;
@@ -782,9 +785,10 @@ void ScanBackups(std::string prefix, int mapNumber, int team1, int team2) {
     for (const auto& it : std::filesystem::directory_iterator(dir, ec)) {
       if (ec) break;
       const std::string fn = it.path().filename().string();
-      if (fn.compare(0, prefix.size(), prefix) != 0 || it.path().extension() != ".txt") continue;
+      std::error_code tec;
+      const auto mtime = it.last_write_time(tec);
+      if (tec || !fs::LiveSessionBackup(fn, prefix, fs::FileTimeUnixMs(mtime), liveSinceMs)) continue;
       const int r = fs::BackupRoundFromName(fn);
-      if (r < 0) continue;
       const std::string key = BackupKey(it.path());
       std::lock_guard<std::mutex> lk(g_backupMu);
       if (g_sentBackups.count(key)) continue;
@@ -842,6 +846,7 @@ void ScheduleBackupScan(double delay) {
 }
 
 void RunBackupScan() {
+  if (g_liveSinceMs < 0) return;
   const auto ms = MatchStateGet();
   const int mapNumber = ms.map_number <= 0 ? 1 : ms.map_number;
   const std::string prefix = BackupPrefix(mapNumber);
@@ -853,7 +858,10 @@ void RunBackupScan() {
       t2 = stats::Current().Team2Score();
     }
   }
-  workers::Spawn("fleet-backup", [prefix, mapNumber, t1, t2] { ScanBackups(prefix, mapNumber, t1, t2); });
+  const long long liveSinceMs = g_liveSinceMs;
+  workers::Spawn("fleet-backup", [prefix, mapNumber, t1, t2, liveSinceMs] {
+    ScanBackups(prefix, mapNumber, t1, t2, liveSinceMs);
+  });
 }
 
 // Finds a local backup file for `round` (1-based: the round it starts) on `mapNumber`; *dir = its
@@ -1151,6 +1159,7 @@ void ClearAssignment() {
   g_resumeActive = g_resumeSnapshotPending = g_resumeRestored = false;
   g_resumeRestoreAt = g_resumeUnpauseAt = -1;
   g_backupScanAt = -1;
+  g_liveSinceMs = -1;
   signals::SetEnabled(false);
   {
     std::lock_guard<std::mutex> lk(g_backupMu);
@@ -2134,6 +2143,11 @@ void Tick(double now) {
     BeginLoad();
   }
   CheckLoaded();
+  if (GetMode() != ReadyUpMode::MatchLive) {
+    g_liveSinceMs = -1;
+  } else if (g_liveSinceMs < 0) {
+    g_liveSinceMs = fs::FileTimeUnixMs(std::filesystem::file_time_type::clock::now());
+  }
   for (auto it = g_execs.begin(); it != g_execs.end();) {
     if (now < it->until) {
       ++it;
@@ -2310,6 +2324,7 @@ Json SnapshotJson() {
     for (const auto& s : g_sentBackups) sent.Push(s);
   }
   j["sent_backups"] = std::move(sent);
+  j["live_since_ms"] = g_liveSinceMs;
   j["resume_active"] = g_resumeActive;
   j["resume_restored"] = g_resumeRestored;
   j["restoring"] = g_restoring;
@@ -2337,6 +2352,7 @@ void RestoreJson(const Json& j) {
     std::lock_guard<std::mutex> lk(g_backupMu);
     for (const auto& v : s->Items()) g_sentBackups.insert(v.AsString());
   }
+  g_liveSinceMs = Int(j, "live_since_ms", -1);
   g_resumeActive = Bool(j, "resume_active");
   g_resumeRestored = Bool(j, "resume_restored");
   g_restoring = Bool(j, "restoring");

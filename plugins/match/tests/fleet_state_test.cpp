@@ -9,7 +9,9 @@
 #include "readyup/match_rules.h"
 #include "readyup/match_stats.h"
 
+#include <chrono>
 #include <cstdio>
+#include <filesystem>
 #include <string>
 
 using namespace readyup;
@@ -493,6 +495,27 @@ static void TestValidators() {
   CHECK(!fs::SafeBackupFileName("../x_round07.txt"));
   CHECK(!fs::SafeBackupFileName("x_round07.cfg"));
   CHECK(!fs::SafeBackupFileName(".hidden.txt"));
+
+  // Backup scan: only this map's files written since the match went live (live at t = 100 s).
+  const std::string pre = "readyup_backup_12_map1_";
+  CHECK(fs::LiveSessionBackup("readyup_backup_12_map1__round03.txt", pre, 130000, 100000));
+  CHECK(fs::LiveSessionBackup("readyup_backup_12_map1__round00.txt", pre, 99500, 100000));  // the go-live round's file
+  CHECK(!fs::LiveSessionBackup("readyup_backup_12_map1__round974.txt", pre, 60000, 100000));  // a warmup, a restart
+  CHECK(!fs::LiveSessionBackup("readyup_backup_12_map1__round03.txt", pre, 130000, -1));     // not live
+  CHECK(!fs::LiveSessionBackup("readyup_backup_12_map2__round03.txt", pre, 130000, 100000));
+  CHECK(!fs::LiveSessionBackup("readyup_resume_12_map1_round03.txt", pre, 130000, 100000));
+  CHECK(!fs::LiveSessionBackup("readyup_backup_12_map1__round03.txt.tmp", pre, 130000, 100000));
+  CHECK(!fs::LiveSessionBackup("readyup_backup_12_map1_.txt", pre, 130000, 100000));
+
+  // File times are Unix ms: libstdc++'s file clock counts from 2174, so its raw count is negative
+  // today and read as "not live" (-1 = not live).
+  const long long sysNow = std::chrono::duration_cast<std::chrono::milliseconds>(
+                               std::chrono::system_clock::now().time_since_epoch())
+                               .count();
+  const long long fileNow = fs::FileTimeUnixMs(std::filesystem::file_time_type::clock::now());
+  CHECK(fileNow > 0);
+  CHECK(fileNow - sysNow < 1000 && sysNow - fileNow < 1000);
+  CHECK(fs::LiveSessionBackup("readyup_backup_12_map1__round03.txt", pre, fileNow + 30000, fileNow));
 }
 
 // ---------------------------------------------------------------------------- stats rewind
