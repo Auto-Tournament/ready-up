@@ -800,6 +800,15 @@ int main(int argc, char** argv) {
       rp::TryDispatchRu(true, 0, "Console", "ru match start force");
       rp::Frame(true);
       Check(CountPrefix("tv_record \"") == 1, (std::string(exitCmd) + ": the map's demo started").c_str());
+      if (exitCmd == exits[0]) {
+        Check(FramesUntil([] { return Sent("mp_ignore_round_win_conditions 1"); }, 1500),
+              "force start: win conditions ignored through the restart");
+        Check(!Sent("mp_ignore_round_win_conditions 0"), "force start: still ignored before the live round starts");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));  // past the restart's own Round_Start
+        rp::PostLogLine("L 01/01/2026 - 00:00:19: World triggered \"Round_Start\"\n");
+        Check(FramesUntil([] { return Sent("mp_ignore_round_win_conditions 0"); }, 1500),
+              "force start: the live round start counts win conditions again");
+      }
       rp::TryDispatchRu(true, 0, "Console", "ru match start force");
       rp::Frame(true);
       Check(CountPrefix("tv_record \"") == 1, (std::string(exitCmd) + ": starting again does not start a second file").c_str());
