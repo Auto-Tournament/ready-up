@@ -37,6 +37,7 @@ set(MATCH_SOURCES
   readyup/weapon_cleanup.cpp
   readyup/knife_tracker.cpp
   readyup/local_store.cpp
+  readyup/log_relay.cpp
   readyup/ru_commands.cpp
   readyup/map_names.cpp
   readyup/mat_admins.cpp
@@ -281,3 +282,9 @@ target_include_directories(match_roster_names_test PRIVATE ${CMAKE_CURRENT_SOURC
   ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(match_roster_names_test PRIVATE -Wall -Wextra)
 add_test(NAME match_roster_names COMMAND match_roster_names_test)
+# Fleet live log (readyup/log_relay.h): redaction, line cap, ring, batching and expiry
+# (ctest `match_log_relay`).
+add_executable(match_log_relay_test tests/log_relay_test.cpp readyup/log_relay.cpp)
+target_include_directories(match_log_relay_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(match_log_relay_test PRIVATE -Wall -Wextra)
+add_test(NAME match_log_relay COMMAND match_log_relay_test)
