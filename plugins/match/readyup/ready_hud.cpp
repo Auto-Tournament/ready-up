@@ -4,6 +4,7 @@
 
 #include "readyup/admin_call.h"
 #include "readyup/engine.h"
+#include "readyup/hud_screens.h"
 #include "readyup/config.h"
 #include "readyup/logging.h"
 #include "readyup/match_events.h"
@@ -16,6 +17,7 @@
 #include "readyup/players.h"
 #include "readyup/server_settings.h"
 #include "readyup/webhook.h"
+#include "readyup/votes.h"
 #include "readyup/welcome.h"
 
 #include <algorithm>
@@ -417,6 +419,125 @@ static std::string LiveHtml(const LiveHudInfo& l) {
   return h;
 }
 
+// ---- the clickable HUD (hud_screens.h): one spec per player, same data as the HTML above ------
+
+static std::string L(const char* k, const std::string& v) { return std::string(k) + "=" + v + "\n"; }
+
+// Warmup: the card (left, above the chat) with Ready / Unready; the countdown in the centre.
+static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string& name, bool welcome) {
+  const int cd = b.scrim ? ScrimCountdownSecondsLeft() : -1;
+  if (cd >= 0) {
+    const bool knife = settings::Bool("knife_enabled_default");
+    return L("id", "countdown") + L("color", "live") + L("kind", "Everyone is ready") +
+           L("title", std::string(knife ? "Knife round (" : "Going live (") + std::to_string(cd) + ")");
+  }
+  const Entry* me = nullptr;
+  int ready[2] = {0, 0}, total[2] = {0, 0};  // [0] CT, [1] T
+  for (const auto& e : b.entries) {
+    if (e.sid == viewer) me = &e;
+    const int t = e.side == 3 ? 0 : 1;
+    ++total[t];
+    if (e.ready) ++ready[t];
+  }
+  ready[0] += b.botsCt;
+  total[0] += b.botsCt;
+  ready[1] += b.botsT;
+  total[1] += b.botsT;
+  std::string s = L("id", "warm") + L("where", "card");
+  std::string title, sub, btn;
+  bool ok = false;
+  if (b.teamView && me) {
+    const TeamHudState& st = b.teams[me->side == 3 ? 1 : 0].st;
+    ok = st.ready;
+    title = st.ready ? "Your team is ready" : st.allHere ? "Your team isn't ready" : "Waiting for your team";
+    if (!st.allHere) sub = std::to_string(st.here) + " / " + std::to_string(st.total) + " here";
+    if (st.ready) btn = "btn=Unready|ghost||.ur\n";
+    else if (st.allHere) btn = "btn=Ready|green||.r\n";
+    for (int t = 0; t < 2; ++t) {
+      const TeamHudState& ts = b.teams[t == 0 ? 1 : 0].st;
+      total[t] = ts.total;
+      ready[t] = ts.ready ? ts.total : 0;
+    }
+  } else if (me) {
+    ok = me->ready;
+    title = me->ready ? "You're ready" : "You're not ready";
+    btn = me->ready ? "btn=Unready|ghost||.ur\n" : "btn=Ready|green||.r\n";
+  } else {
+    title = b.scrim ? "Join CT or T to play" : "Spectating";
+  }
+  if (sub.empty() && !b.note.empty()) sub = b.note;
+  const std::string kind = welcome ? "Welcome, " + HudSpecText(name) : ok ? "Ready" : b.scrim ? "Scrim" : "Warmup";
+  s += L("color", ok ? "live" : "acc") + L("kind", kind) + L("title", title);
+  if (!sub.empty()) s += L("sub", HudSpecText(sub));
+  const std::string ctName = b.teamView && !b.teams[1].name.empty() ? HudSpecText(b.teams[1].name) : "CT";
+  const std::string tName = b.teamView && !b.teams[0].name.empty() ? HudSpecText(b.teams[0].name) : "T";
+  s += "teams=" + ctName + "|" + std::to_string(std::min(ready[0], 5)) + "|" + std::to_string(std::clamp(total[0], 1, 5)) +
+       "|" + tName + "|" + std::to_string(std::min(ready[1], 5)) + "|" + std::to_string(std::clamp(total[1], 1, 5)) + "\n";
+  s += L("counter", std::to_string(b.ready) + " / " + std::to_string(b.total));
+  if (!btn.empty()) s += btn + L("bw", "l") + L("hint", "Press B to click") + L("mouse", "b");
+  return s;
+}
+
+// Knife: "knives only" before the fight, then the side pick (winners) or the wait (everyone else).
+static std::string KnifeSpec(const KnifeHudInfo& k, int viewerSide) {
+  if (k.phase == KnifePhase::Starting) {
+    return L("id", "knife") + L("color", "live") + L("kind", "Knife round") + L("title", "Winners pick a side");
+  }
+  const std::string secs = std::to_string(std::max(0, k.secondsLeft));
+  if (viewerSide == k.winnerCs) {
+    return L("id", "pick") + L("color", "live") + L("kind", "You won the knife") + L("title", "Which side do you want?") +
+           L("timer", secs) + "btn=CT|ct||.ct\nbtn=T|t||.t\n" + L("mouse", "on");
+  }
+  const bool playing = viewerSide == 2 || viewerSide == 3;
+  return L("id", "lost") + L("kind", playing ? "You lost the knife" : "Knife round") +
+         L("title", HudSpecText(k.winnerName) + " is picking a side") + L("timer", secs);
+}
+
+// Live map: pauses (with the unpause button) and a missing team.
+static std::string LiveSpec(const LiveHudInfo& l, int viewerSide) {
+  const WebhookTeam mine = VotesTeamForSide(viewerSide);
+  const std::string t1 = HudSpecText(l.team1.empty() ? "Team 1" : l.team1);
+  const std::string t2 = HudSpecText(l.team2.empty() ? "Team 2" : l.team2);
+  auto confirmAndButton = [&](bool onlyPausing) {
+    std::string s = "confirm=" + t1 + "|" + (l.team1Confirmed ? "1" : "0") + "|" + t2 + "|" + (l.team2Confirmed ? "1" : "0") + "\n";
+    if (mine == WebhookTeam::Unknown) return s;
+    const std::string myName = mine == WebhookTeam::Team1 ? l.team1 : l.team2;
+    if (onlyPausing && !l.byTeam.empty() && myName != l.byTeam) return s;
+    const bool done = mine == WebhookTeam::Team1 ? l.team1Confirmed : l.team2Confirmed;
+    if (done) return s + "btn=Waiting for " + (mine == WebhookTeam::Team1 ? t2 : t1) + "|ghost|off|\n" + L("bw", "xl");
+    return s + "btn=Unpause|warn||.up\n" + L("bw", "l") + L("mouse", "on");
+  };
+  if (l.paused) {
+    if (l.type == "technical") {
+      std::string s = L("id", "pause") + L("color", "warn") + L("kind", "Tech pause") +
+                      L("title", l.byTeam.empty() ? std::string("Tech pause") : HudSpecText(l.byTeam) + " paused");
+      if (l.pendingFreeze) s += L("sub", "Pauses at freeze time");
+      else if (l.secondsLeft >= 0) s += L("sub", "Auto unpause (" + std::to_string(l.secondsLeft) + ")");
+      return s + confirmAndButton(!l.bothRequired);
+    }
+    if (l.type == "tactical") {
+      return L("id", "tac") + L("kind", "Timeout") +
+             L("title", l.byTeam.empty() ? std::string("Timeout") : HudSpecText(l.byTeam) + " timeout");
+    }
+    if (l.type == "halftime" || l.type == "auto_5v5" || l.type == "restore" || l.type == "engine") {
+      const char* kind = l.type == "halftime" ? "Halftime"
+                         : l.type == "restore" ? "Round restored"
+                         : l.type == "engine"  ? "Game paused"
+                                               : "Not 5v5";
+      std::string s = L("id", "pause_" + l.type) + L("color", l.type == "auto_5v5" ? "ban" : "warn") + L("kind", kind) +
+                      L("title", l.type == "auto_5v5" && !l.byTeam.empty() ? HudSpecText(l.byTeam) + " is short" : std::string("Paused"));
+      return s + confirmAndButton(false);
+    }
+    return L("id", "adminpause") + L("color", "warn") + L("kind", "Admin pause") + L("title", "Paused by an admin") +
+           L("sub", "Only an admin can unpause");
+  }
+  if (l.forfeit) {
+    return L("id", "missing") + L("color", "ban") + L("title", HudSpecText(l.forfeitTeam) + " is missing") +
+           L("sub", "Forfeit in (" + std::to_string(std::max(0, l.forfeitSecondsLeft)) + ")");
+  }
+  return {};
+}
+
 // `.ru hud test <n>` variants. Each one fits well under ~1 KB.
 static std::string TestHtml(int n) {
   const std::string title = Font(kGrey, "hudtest " + std::to_string(n)) + "<br>";
@@ -660,6 +781,7 @@ void ReadyHudTick() {
   What what = What::None;
   KnifeHudInfo knife;
   std::string liveHtml;
+  LiveHudInfo live;
   if (!enabled) {
     what = What::None;
   } else if (mode == ReadyUpMode::ScrimWarmup) {
@@ -684,8 +806,24 @@ void ReadyHudTick() {
       if (holding) knife.phase = KnifePhase::Starting;  // same "knives only" text while held
     }
   } else if (mode == ReadyUpMode::MatchLive) {
-    liveHtml = LiveHtml(MatchFeaturesHud());
+    live = MatchFeaturesHud();
+    liveHtml = LiveHtml(live);
     if (!liveHtml.empty()) what = What::Live;
+  }
+
+  // The clickable HUD draws these screens (and menus and votes on top) when it can; the center
+  // HTML then only carries `.ru hud test` panels.
+  if (enabled && HudScreensOn()) {
+    const Board hudBoard = what == What::Ready ? BuildBoard(mode, ctx, ListHumans()) : Board{};
+    HudScreensRun([&](const HumanIdentity& h) -> std::string {
+      const int slot = h.slot >= 0 ? h.slot : h.userid;
+      if (what == What::Ready) return ReadySpec(hudBoard, h.steamid64, h.name, WelcomeActiveFor(slot, h.steamid64));
+      if (what == What::Knife) return KnifeSpec(knife, h.team);
+      if (mode == ReadyUpMode::MatchLive) return LiveSpec(live, h.team);
+      return {};
+    });
+    g_showing.store(true, std::memory_order_relaxed);
+    what = What::None;
   }
   if (what == What::None && tests.empty()) {
     g_sent.clear();

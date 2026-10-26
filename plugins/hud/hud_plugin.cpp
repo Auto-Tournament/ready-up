@@ -21,6 +21,7 @@
 // The entity is ours alone: strays (a reload, a crash) are removed before the first one is made,
 // it is recreated after a map change, and the desired state is pushed again then and a few seconds
 // after a player takes a slot (the engine clears a slot's is-set flags when a player joins).
+#include "hud_screen.h"
 #include "hud_vec.h"
 
 #include "readyup/hud_iface.h"
@@ -419,8 +420,6 @@ int IfClearSlot(int hud, int slot) {
   return 1;
 }
 
-const ru_hud_v1 g_iface = {sizeof(ru_hud_v1), &IfAvailable, &IfOpen, &IfSetText, &IfSetClass, &IfClearSlot};
-
 // ---- clicks (proof of concept) ----------------------------------------------------------------
 //
 // A layout's Button panels become clickable while the server captures that player's cursor
@@ -540,6 +539,149 @@ int IfSetCapture(int hud, int slot, int on) {
   return 1;
 }
 
+// ---- screens (readyup.hud.v1 `screen`, at_ui.xml) ---------------------------------------------
+//
+// One screen per player at a time, in the card or the centre panel. A new id leaves first and
+// enters 0.3 s later so both animations play; the same id is rewritten in place. The cursor rules
+// live here and nowhere else: mouse=on captures at once, mouse=b only while the buy menu is open
+// (B), chips=1 never; a click, a new id, a hide or a disconnect gives the cursor back.
+
+const char* kUiLayout = "panorama/layout/custom_game/at_ui.xml";
+constexpr double kLeaveSeconds = 0.3;
+
+struct ScreenSlot {
+  std::string spec;          // last spec asked for
+  Screen cur;                // what is (or is about to be) drawn
+  bool shown = false;        // a panel is on
+  bool clicked = false;      // a button of this id was clicked: no cursor again until the id changes
+  bool dismissed = false;    // closed with a plain close button: hidden until the id changes
+  bool captured = false;
+  unsigned gen = 0;          // bumps on every new id, so a stale delayed enter does nothing
+  ru_hud_click_fn onClick = nullptr;
+  void* user = nullptr;
+};
+std::map<int, ScreenSlot> g_screens;
+std::set<int> g_buyOpen;  // slots whose buy menu is open (open_buymenu .. close_buymenu)
+
+std::string PanelOf(const Screen& s) { return s.where == "card" ? "ui_card" : "ui_mid"; }
+
+void UpdateCapture(int slot, bool force = false) {
+  auto it = g_screens.find(slot);
+  bool want = false;
+  if (it != g_screens.end()) {
+    const ScreenSlot& ss = it->second;
+    const Mouse m = ss.cur.mouse;
+    want = ss.shown && !ss.dismissed && !ss.clicked && !ss.cur.chips &&
+           (m == Mouse::On || (m == Mouse::B && g_buyOpen.count(slot)));
+  }
+  const bool had = it != g_screens.end() && it->second.captured;
+  if (want == had && !force) return;
+  if (IfSetCapture(IfOpen(kUiLayout), slot, want ? 1 : 0) && it != g_screens.end()) it->second.captured = want;
+}
+
+// Once a second: write the wanted capture again. The flag lives on the entity, so a map change
+// (new entity) or a player taking the slot would otherwise drop it.
+void CaptureSweep() {
+  static double next = 0;
+  if (g_now < next) return;
+  next = g_now + 1.0;
+  for (auto& kv : g_screens) UpdateCapture(kv.first, true);
+}
+
+void DrawScreen(int slot, ScreenSlot& ss) {
+  const int h = IfOpen(kUiLayout);
+  const std::string p = PanelOf(ss.cur);
+  for (const Write& w : RenderScreen(ss.cur, p)) {
+    if (w.isText) IfSetText(h, slot, w.panel.c_str(), w.name.c_str(), w.value.c_str());
+    else IfSetClass(h, slot, w.panel.c_str(), w.name.c_str(), w.on ? 1 : 0);
+  }
+  const bool show = !ss.dismissed && !ss.cur.empty();
+  IfSetClass(h, slot, p == "ui_card" ? "ui_mid" : "ui_card", "on", 0);
+  IfSetClass(h, slot, p.c_str(), "on", show ? 1 : 0);
+  ss.shown = show;
+  UpdateCapture(slot);
+}
+
+int IfScreen(int slot, const char* specIn, ru_hud_click_fn onClick, void* user) {
+  if (slot < 0 || slot > 63) return 0;
+  const std::string spec = specIn ? specIn : "";
+  ScreenSlot& ss = g_screens[slot];
+  ss.onClick = onClick;
+  ss.user = user;
+  if (spec == ss.spec) return 1;
+  ss.spec = spec;
+  Screen next = ParseScreen(spec);
+  const int h = IfOpen(kUiLayout);
+  const bool sameId = !next.empty() && !ss.cur.empty() && next.id == ss.cur.id && next.where == ss.cur.where;
+  if (sameId) {
+    ss.cur = std::move(next);
+    if (!ss.dismissed) DrawScreen(slot, ss);
+    else UpdateCapture(slot);
+    return 1;
+  }
+  // A new screen (or none): the old one leaves and gives the cursor back.
+  const bool wasShown = ss.shown;
+  if (wasShown) IfSetClass(h, slot, PanelOf(ss.cur).c_str(), "on", 0);
+  ss.shown = false;
+  ss.clicked = false;
+  ss.dismissed = false;
+  ss.cur = std::move(next);
+  UpdateCapture(slot);
+  if (ss.cur.empty()) return 1;
+  const unsigned gen = ++ss.gen;
+  if (!wasShown) {
+    DrawScreen(slot, ss);
+    return 1;
+  }
+  g_later.emplace_back(g_now + kLeaveSeconds, [slot, gen] {
+    auto it = g_screens.find(slot);
+    if (it != g_screens.end() && it->second.gen == gen) DrawScreen(slot, it->second);
+  });
+  return 1;
+}
+
+// A click on one of our at_ui buttons. True when it was one (handled or ignored).
+bool ScreenClick(int slot, const std::string& button) {
+  std::string panel;
+  int index = 0;
+  if (!ParseButtonId(button, &panel, &index)) return false;
+  auto it = g_screens.find(slot);
+  if (it == g_screens.end() || !it->second.shown || PanelOf(it->second.cur) != panel) return true;
+  ScreenSlot& ss = it->second;
+  std::string cmd;
+  if (index < 0) {
+    cmd = ss.cur.closeCmd;
+    if (cmd.empty()) {  // a plain close: hide until the caller shows another id
+      ss.dismissed = true;
+      IfSetClass(IfOpen(kUiLayout), slot, panel.c_str(), "on", 0);
+      ss.shown = false;
+    }
+  } else {
+    if (static_cast<size_t>(index) >= ss.cur.buttons.size()) return true;
+    const Button& b = ss.cur.buttons[static_cast<size_t>(index)];
+    if (b.state == "off" || b.cmd.empty()) return true;  // a label, not a choice
+    cmd = b.cmd;
+    IfSetClass(IfOpen(kUiLayout), slot, button.c_str(), "picked", 1);  // feedback until the caller redraws
+  }
+  ss.clicked = true;
+  UpdateCapture(slot);
+  if (cmd.empty()) return true;
+  if (ss.onClick) ss.onClick(ss.user, slot, cmd.c_str());
+  else if (RU_API_HAS(g_api, run_chat_command)) g_api->run_chat_command(g_api->self, slot, cmd.c_str());  // as if typed
+  return true;
+}
+
+void ScreenForget(int slot) {
+  g_screens.erase(slot);
+  g_buyOpen.erase(slot);
+  if (!g_layouts.empty()) {
+    for (size_t i = 0; i < g_layouts.size(); ++i)
+      if (g_layouts[i].path == kUiLayout) IfClearSlot(static_cast<int>(i) + 1, slot);
+  }
+}
+
+const ru_hud_v1 g_iface = {sizeof(ru_hud_v1), &IfAvailable, &IfOpen, &IfSetText, &IfSetClass, &IfClearSlot, &IfScreen};
+
 // `ru hudkit click [slot]`: the CT / T proof of concept for one player, or every human.
 const char* kClickLayout = "panorama/layout/custom_game/at_click.xml";
 std::set<int> g_clickOpen;  // slots that have it open
@@ -582,6 +724,7 @@ void DrainClicks() {
   }
   for (const Click& c : clicks) {
     ru_logf(g_api, RU_LOG_INFO, "click: slot %d button \"%s\" (layout handle 0x%x)", c.slot, c.button.c_str(), c.handle);
+    if (ScreenClick(c.slot, c.button)) continue;
     if (!g_clickOpen.count(c.slot)) continue;
     const int h = IfOpen(kClickLayout);
     if (c.button == "at_btn_close") {
@@ -615,8 +758,12 @@ void ClickOpenB(int slot) {
 }
 
 int OnBuyMenu(void*, int slot, uint64_t, const char* cmd, int, const char* const*) {
-  if (slot < 0 || !g_bMode.count(slot) || !g_clickOpen.count(slot)) return 0;  // never block the buy menu
+  if (slot < 0) return 0;
   const bool open = cmd && std::strcmp(cmd, "open_buymenu") == 0;
+  if (open) g_buyOpen.insert(slot);
+  else g_buyOpen.erase(slot);
+  UpdateCapture(slot);  // a mouse=b screen follows the buy menu
+  if (!g_bMode.count(slot) || !g_clickOpen.count(slot)) return 0;  // never block the buy menu
   const int h = IfOpen(kClickLayout);
   IfSetCapture(h, slot, open ? 1 : 0);
   IfSetText(h, slot, "ac_status", "text", open ? "Click a side" : "Press B for your mouse");
@@ -687,6 +834,7 @@ void OnTick(void*, const ru_tick_info* t) {
   g_now = t->now;
   if (!g_origSvcUm && g_eng.ok) InstallClickHook();
   DrainClicks();
+  CaptureSweep();
   ProbeTick();
   for (size_t i = 0; i < g_later.size();) {
     if (g_later[i].first <= g_now) {
@@ -734,8 +882,11 @@ void OnEvent(void*, const ru_event* ev) {
   if (ev->type == RU_EVENT_MAP_START) {
     g_mapStartedAt = g_now;
     for (auto& l : g_layouts) l.handle = kNoHandle;  // the map took the entity with it
+    for (auto& [slot, ss] : g_screens) ss.captured = false;
+    g_buyOpen.clear();
   } else if (ev->type == RU_EVENT_PLAYER_DISCONNECT && ev->slot >= 0) {
     g_clickOpen.erase(ev->slot);
+    ScreenForget(ev->slot);
   } else if (ev->type == RU_EVENT_PLAYER_CONNECT && ev->slot >= 0) {
     g_resendAt[ev->slot] = {g_now + 2.0, g_now + 5.0};
   }
@@ -971,6 +1122,210 @@ void Kit(const ru_command_ctx* ctx, const std::string& state) {
   Reply(ctx, "at_kit: " + state);
 }
 
+// `ru hudkit demo <screen> [slot]`: the screens of the design canvas (page Buttons (v2)) with
+// sample data, to check the addon and the cursor without a match. Buttons that lead to another
+// screen carry "#demo <name>"; any other click is echoed in chat.
+const std::map<std::string, std::string>& DemoScreens() {
+  static const std::map<std::string, std::string> k = {
+      {"notready", "id=warm
+where=card
+kind=Warmup
+title=You're not ready
+teams=CT|3|5|T|3|5
+btn=Ready|green||#demo ready
+bw=l
+hint=Press B to click
+mouse=b"},
+      {"ready", "id=warm
+where=card
+color=live
+kind=Ready
+title=You're ready
+teams=CT|4|5|T|3|5
+btn=Unready|ghost||#demo notready
+bw=l
+hint=Press B to click
+mouse=b"},
+      {"everyone", "id=everyone
+color=live
+kind=Everyone is ready
+title=Knife round (5)"},
+      {"pick", "id=pick
+color=live
+kind=You won the knife
+title=Which side do you want?
+timer=20
+btn=CT|ct||#demo pickedct
+btn=T|t||#demo pickedt
+mouse=on"},
+      {"pickedct", "id=pick
+color=live
+kind=You won the knife
+title=Sivert picked CT
+sub=Match starts (5)
+btn=CT|ct|picked|
+btn=T|t|off|"},
+      {"pickedt", "id=pick
+color=live
+kind=You won the knife
+title=Sivert picked T
+sub=Match starts (5)
+btn=CT|ct|off|
+btn=T|t|picked|"},
+      {"lost", "id=lost
+kind=You lost the knife
+title=Team A is picking a side
+timer=20"},
+      {"live", "id=live
+color=live
+kind=Match live
+title=Good luck, have fun
+cmd=Timeout|.tac
+cmd=Tech pause|.p"},
+      {"pause", "id=pause
+color=warn
+kind=Tech pause
+title=Team B paused
+sub=Auto unpause (252)
+confirm=Team A|0|Team B|0
+btn=Unpause|warn||#demo waiting
+bw=l
+counter=1 / 3 used
+mouse=on"},
+      {"waiting", "id=pause
+color=warn
+kind=Tech pause
+title=Team B paused
+sub=Auto unpause (245)
+confirm=Team A|1|Team B|0
+btn=Waiting for Team B|ghost|off|
+bw=xl
+counter=1 / 3 used"},
+      {"vote", "id=vote
+color=ban
+kind=Give up vote
+title=Sivert wants to give up
+timer=15
+btn=Yes|danger||#demo voted
+btn=No|ghost||#demo off
+bw=s
+counter=2 / 5 yes
+mouse=on"},
+      {"voted", "id=vote
+color=ban
+kind=Give up vote
+title=Sivert wants to give up
+timer=11
+btn=Yes|danger|picked|
+btn=No|ghost|off|
+bw=s
+counter=3 / 5 yes"},
+      {"chips", "id=vote
+color=ban
+kind=Give up vote
+title=Sivert wants to give up
+timer=15
+btn=Yes|danger||.gg
+btn=No|ghost||
+bw=s
+chips=1
+mouse=on"},
+      {"help", "id=help
+kind=Help
+title=What do you need?
+btn=Timeout|ghost||.tac
+btn=Tech pause|ghost||#demo pause
+btn=Give up vote|ghost||#demo vote
+btn=Replay round|ghost||.stop
+cols=2
+bw=l
+close=Close|
+mouse=on"},
+      {"admin", "id=admin
+kind=Admin
+title=Match controls
+btn=Pause|ghost||#demo pause
+btn=Unpause|ghost||#demo off
+btn=Replay a round|ghost||#demo rounds
+btn=Change map|ghost||#demo maps
+btn=Swap teams|ghost||
+btn=Force ready|ghost||#demo everyone
+btn=Restart map|ghost||
+btn=End match|danger||#demo confirm
+cols=2
+bw=l
+close=Close|
+mouse=on"},
+      {"maps", "id=maps
+kind=Admin Â· change map
+title=Pick a map
+btn=Mirage|ghost||
+btn=Inferno|ghost||
+btn=Nuke|ghost||
+btn=Ancient|ghost||
+btn=Anubis|ghost||
+btn=Dust2|ghost||
+btn=Train|ghost||
+btn=Overpass|ghost||
+cols=4
+bw=s
+close=Back|#demo admin
+mouse=on"},
+      {"rounds", "id=rounds
+kind=Admin Â· replay
+title=Back to which round?
+btn=Round 14|ghost||
+btn=Round 13|ghost||
+btn=Round 12|ghost||
+btn=Round 11|ghost||
+btn=Round 10|ghost||
+btn=Round 9|ghost||
+cols=3
+bw=s
+close=Back|#demo admin
+mouse=on"},
+      {"confirm", "id=confirm
+color=ban
+kind=Admin
+title=End the match?
+sub=Nobody wins. No undo.
+btn=End match|danger||#demo off
+btn=Cancel|ghost||#demo admin
+mouse=on"},
+      {"mapvote", "id=mapvote
+kind=Map vote
+title=Next map?
+timer=25
+btn=Mirage|ghost||#demo off|3
+btn=Inferno|ghost||#demo off|2
+btn=Nuke|ghost||#demo off|1
+btn=Ancient|ghost||#demo off|0
+btn=Anubis|ghost||#demo off|2
+btn=Dust2|ghost||#demo off|1
+cols=3
+bw=m
+mouse=on"},
+      {"missing", "id=missing
+color=ban
+title=Team B is missing
+sub=Forfeit win in (165)"},
+      {"off", ""},
+  };
+  return k;
+}
+
+void OnDemoClick(void*, int slot, const char* command) {
+  const std::string c = command ? command : "";
+  if (c.rfind("#demo ", 0) == 0) {
+    const auto& d = DemoScreens();
+    auto it = d.find(c.substr(6));
+    if (it != d.end()) IfScreen(slot, it->second.c_str(), &OnDemoClick, nullptr);
+    return;
+  }
+  const std::string line = "Ready Up hud: you clicked " + c;
+  g_api->chat_to_slot(g_api->self, slot, line.c_str());
+}
+
 void OnRu(void*, const ru_command_ctx* ctx) {
   if (ctx->slot >= 0 && !g_api->is_admin(g_api->self, ctx->steamid64)) {
     Reply(ctx, "admins only");
@@ -1012,12 +1367,31 @@ void OnRu(void*, const ru_command_ctx* ctx) {
     Reply(ctx, "click POC (B key) open for " + std::to_string(slots.size()) + " player(s); click hook " + g_clickHookStatus);
   } else if (sub == "kit") {
     Kit(ctx, ctx->argc > 3 ? ctx->argv[3] : "");
+  } else if (sub == "demo") {  // ru hudkit demo <screen> [slot]
+    const auto& d = DemoScreens();
+    auto it = d.find(ctx->argc > 3 ? ctx->argv[3] : "");
+    if (it == d.end()) {
+      std::string names;
+      for (const auto& kv : d) names += " " + kv.first;
+      return Reply(ctx, "demo screens:" + names);
+    }
+    std::vector<int> slots;
+    if (ctx->argc > 4) slots.push_back(std::atoi(ctx->argv[4]));
+    else g_api->for_each_player(g_api->self, &CollectHuman, &slots);
+    for (int slot : slots) IfScreen(slot, it->second.c_str(), &OnDemoClick, nullptr);
+    Reply(ctx, "demo " + it->first + " for " + std::to_string(slots.size()) + " player(s); click hook " + g_clickHookStatus);
+  } else if (sub == "screen" && ctx->argc >= 5) {  // ru hudkit screen <slot> <spec, lines split by ;>
+    std::string spec = Join(ctx, 4);
+    for (char& ch : spec)
+      if (ch == ';') ch = '
+';
+    Reply(ctx, IfScreen(std::atoi(ctx->argv[3]), spec.c_str(), &OnDemoClick, nullptr) ? "ok" : "failed");
   } else if (sub == "text" && ctx->argc >= 7) {  // ru hudkit text <hud#> <slot|all> <panel> <var> <value...>
     Reply(ctx, IfSetText(std::atoi(ctx->argv[3]), ParseSlot(ctx->argv[4]), ctx->argv[5], ctx->argv[6], Join(ctx, 7).c_str()) ? "ok" : "failed");
   } else if (sub == "class" && ctx->argc >= 8) {  // ru hudkit class <hud#> <slot|all> <panel> <class> <0|1>
     Reply(ctx, IfSetClass(std::atoi(ctx->argv[3]), ParseSlot(ctx->argv[4]), ctx->argv[5], ctx->argv[6], std::atoi(ctx->argv[7])) ? "ok" : "failed");
   } else {
-    Reply(ctx, "ru hudkit [status|info|click [slot]|bclick [slot]|hello <text>|kit <state>|text <hud#> <slot|all> <panel> <var> <value>|class <hud#> <slot|all> <panel> <class> <0|1>]");
+    Reply(ctx, "ru hudkit [status|info|demo <screen> [slot]|screen <slot> <k=v;k=v>|click [slot]|bclick [slot]|hello <text>|kit <state>|text <hud#> <slot|all> <panel> <var> <value>|class <hud#> <slot|all> <panel> <class> <0|1>]");
   }
 }
 
@@ -1055,6 +1429,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_later.clear();
   g_bMode.clear();
   g_clickOpen.clear();
+  g_screens.clear();
+  g_buyOpen.clear();
   g_straysCleared = false;
   g_mapStartedAt = -1;
   api->on_tick(api->self, &OnTick, nullptr);

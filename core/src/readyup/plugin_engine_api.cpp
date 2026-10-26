@@ -15,6 +15,7 @@
 #include "readyup/license_status.h"
 #include "readyup/plugin_loader.h"
 #include "readyup/practice_engine.h"
+#include "readyup/ru_router.h"
 #include "readyup/round_termination_hook.h"
 #include "readyup/schema.h"
 #include "readyup/sdk/igameevents.h"
@@ -288,6 +289,17 @@ const void* ApiSurfaceRttiVtable(ru_plugin* self, const char* key) {
   return reinterpret_cast<const void*>(*vt);
 }
 
+int ApiRunChatCommand(ru_plugin* self, int slot, const char* text) {
+  if (!CheckGameThread(self, "run_chat_command") || !text || !*text || slot < 0) return 0;
+  for (const auto& h : ListHumans()) {
+    if (h.slot == slot && h.steamid64 != 0) {
+      RouteChatCommand(h.steamid64, h.name, text, slot);
+      return 1;
+    }
+  }
+  return 0;
+}
+
 int ApiHookFunction(ru_plugin* self, const char* key, void* detour, void** trampoline) {
   if (!CheckGameThread(self, "hook_function")) return 0;
   return hooks::HookFunction(detail::PluginId(self), detail::PluginNameOf(self), key, detour, trampoline, nullptr) ? 1 : 0;
@@ -519,6 +531,7 @@ void detail::FillEngineApi(ru_api* a) {
   a->license_stopped = &ApiLicenseStopped;                        // v1.15
   a->license_key = &ApiLicenseKey;                                // v1.16
   a->surface_rtti_vtable = &ApiSurfaceRttiVtable;                 // v1.17
+  a->run_chat_command = &ApiRunChatCommand;                       // v1.18
 }
 
 }  // namespace readyup::plugins

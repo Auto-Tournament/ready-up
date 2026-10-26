@@ -1,0 +1,192 @@
+/*
+  Auto Tournament clickable HUD (at_ui.xml, buttons v2). Two panels with the same blocks: #ui_card
+  (left, above the chat) and #ui_mid (centre of the lower half). The server shows one at a time
+  and fills fixed slots; ids and classes are listed in hud/tools/gen_ui.py.
+
+  Panorama CSS: flow-children instead of flexbox, visibility: collapse to hide, px at 1080p. Motion:
+  cubic-bezier(0.2, 0.8, 0.2, 1) in, cubic-bezier(0.55, 0, 1, 0.45) out, all class-fired
+  transitions. Fonts every player has: Noto Sans, Noto Mono. Buttons are pills like the website
+  (radius = half the height). Buttons only take clicks while the server captures the cursor.
+  One selector per rule.
+*/
+
+.ui-root { width: 100%; height: 100%; font-family: "Noto Sans"; }
+.ui-cardwrap { width: 100%; height: 100%; }
+.ui-midwrap { width: 100%; height: 100%; }
+
+.ui-panel
+{
+	height: fit-children; overflow: clip;
+	background-color: #140e0cf7; border: 1px solid #322926; border-radius: 16px;
+	opacity: 0;
+	transition-property: opacity, transform; transition-duration: 0.2s;
+	transition-timing-function: cubic-bezier( 0.55, 0, 1, 0.45 );
+}
+.ui-card
+{
+	horizontal-align: left; vertical-align: bottom; margin-left: 24px; margin-bottom: 320px;
+	width: 420px; transform: translateX( -48px );
+}
+.ui-mid
+{
+	horizontal-align: center; vertical-align: top; margin-top: 600px;
+	width: fit-children; min-width: 540px; transform: translateY( 28px );
+}
+.ui-card.on
+{
+	opacity: 1; transform: translateX( 0px ); transition-duration: 0.38s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+.ui-mid.on
+{
+	opacity: 1; transform: translateY( 0px ); transition-duration: 0.38s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+.ui-flow { flow-children: down; horizontal-align: center; width: fit-children; min-width: 100%; height: fit-children; padding: 16px 32px 24px 32px; }
+
+.ui-brand { flow-children: right; horizontal-align: center; height: 16px; margin-bottom: 10px; }
+.ui-logo
+{
+	width: 16px; height: 16px; margin-right: 8px; vertical-align: center; border-radius: 4px;
+	background-image: url( "s2r://panorama/images/custom_game/at_logo.vtex" );
+	background-size: contain; background-position: 50% 50%; background-repeat: no-repeat;
+}
+.ui-brandname { font-family: "Noto Mono"; vertical-align: center; font-size: 10px; font-weight: bold; letter-spacing: 2px; color: #938a87; }
+
+/* Optional parts: has-kind, has-sub, has-teams, has-confirm, has-cmds, has-buttons, has-close,
+   has-hint, has-timer, has-counter on the panel. */
+.ui-kind { visibility: collapse; horizontal-align: center; margin-bottom: 6px; font-family: "Noto Mono"; font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: #ff6a3d; transition-property: color; transition-duration: 0.3s; }
+.ui-title { horizontal-align: center; text-align: center; font-size: 30px; font-weight: bold; color: #f4edeb; }
+.ui-card .ui-title { font-size: 26px; }
+.ui-sub { visibility: collapse; horizontal-align: center; text-align: center; margin-top: 6px; font-size: 16px; color: #c4bcb9; }
+.ui-hint { visibility: collapse; horizontal-align: center; margin-top: 12px; font-size: 13px; color: #938a87; }
+.ui-timer { visibility: collapse; horizontal-align: right; margin: 14px 18px 0px 0px; font-size: 22px; font-weight: bold; color: #ff6a3d; }
+.ui-counter { visibility: collapse; horizontal-align: right; vertical-align: bottom; margin: 0px 16px 12px 0px; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; color: #938a87; }
+.has-kind .ui-kind { visibility: visible; }
+.has-sub .ui-sub { visibility: visible; }
+.has-hint .ui-hint { visibility: visible; }
+.has-timer .ui-timer { visibility: visible; }
+.has-counter .ui-counter { visibility: visible; }
+
+.ui-line
+{
+	width: 100%; height: 4px; vertical-align: bottom; background-color: #ff6a3d;
+	transform-origin: 0% 50%; transform: scale3d( 0, 1, 1 );
+	transition-property: transform, background-color; transition-duration: 0.12s, 0.3s;
+}
+.ui-panel.on .ui-line
+{
+	transform: scale3d( 1, 1, 1 ); transition-duration: 0.7s, 0.3s; transition-delay: 0.2s, 0s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+
+/* Colours: accent by default; c-live, c-warn, c-ban, c-muted. */
+.c-live .ui-kind { color: #3fc168; }
+.c-warn .ui-kind { color: #e6b33c; }
+.c-ban .ui-kind { color: #f2645f; }
+.c-muted .ui-kind { color: #938a87; }
+.c-live .ui-timer { color: #3fc168; }
+.c-warn .ui-timer { color: #e6b33c; }
+.c-ban .ui-timer { color: #f2645f; }
+.c-live .ui-line { background-color: #3fc168; }
+.c-warn .ui-line { background-color: #e6b33c; }
+.c-ban .ui-line { background-color: #f2645f; }
+.c-muted .ui-line { background-color: #938a87; }
+
+/* Team dots */
+.ui-teams { visibility: collapse; flow-children: right; horizontal-align: center; margin-top: 12px; }
+.has-teams .ui-teams { visibility: visible; }
+.ui-team { flow-children: right; margin: 0px 14px; }
+.ui-teamname { vertical-align: center; margin-right: 8px; font-size: 14px; color: #c4bcb9; }
+.ui-dot { width: 10px; height: 10px; margin-right: 6px; vertical-align: center; border-radius: 5px; background-color: #322926; transition-property: background-color; transition-duration: 0.3s; }
+.ui-dot.on { background-color: #3fc168; }
+.ui-dot.gone { visibility: collapse; }
+
+/* Confirm chips (pauses) */
+.ui-confirm { visibility: collapse; flow-children: right; horizontal-align: center; margin-top: 12px; }
+.has-confirm .ui-confirm { visibility: visible; }
+.ui-chipbox { flow-children: right; height: 32px; margin: 0px 5px; padding: 0px 12px; border-radius: 16px; background-color: #211815; }
+.ui-chipteam { vertical-align: center; margin-right: 10px; font-size: 14px; color: #f4edeb; }
+.ui-chipstate { vertical-align: center; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; letter-spacing: 1px; color: #938a87; transition-property: color; transition-duration: 0.3s; }
+.ui-chipbox.ready .ui-chipstate { color: #3fc168; }
+
+/* Typed commands (mid-round, when buttons can't be clicked) */
+.ui-cmds { visibility: collapse; flow-children: right; horizontal-align: center; margin-top: 12px; }
+.has-cmds .ui-cmds { visibility: visible; }
+.ui-cmd { flow-children: right; margin: 0px 8px; }
+.ui-cmd.gone { visibility: collapse; }
+.ui-cmdlabel { vertical-align: center; margin-right: 6px; font-size: 15px; color: #c4bcb9; }
+.ui-kbd { padding: 2px 7px; border-radius: 5px; background-color: #211815; border: 1px solid #736966; }
+.ui-kbdtext { font-family: "Noto Mono"; font-size: 15px; font-weight: bold; color: #f4edeb; }
+
+/* Buttons: up to 8 in a wrapping row; the row's width comes from cols-N x bw-* on the panel. */
+.ui-buttons { visibility: collapse; flow-children: right-wrap; horizontal-align: center; margin-top: 14px; }
+.has-buttons .ui-buttons { visibility: visible; }
+.ui-btn
+{
+	visibility: collapse; flow-children: right; height: 48px; margin: 6px; border-radius: 24px;
+	background-color: #211815; border: 2px solid #736966;
+	transition-property: background-color, border, transform; transition-duration: 0.15s;
+}
+.ui-btn.show { visibility: visible; }
+.ui-btnlabel { horizontal-align: center; vertical-align: center; font-size: 18px; font-weight: bold; color: #f4edeb; }
+.ui-btnsub { visibility: collapse; vertical-align: center; margin-left: 8px; font-family: "Noto Mono"; font-size: 13px; font-weight: bold; color: #f4edeb; opacity: 0.7; }
+.ui-btn.has-sub .ui-btnsub { visibility: visible; }
+.ui-btn.has-sub .ui-btnlabel { horizontal-align: left; margin-left: 18px; }
+.ui-btn:hover { transform: scale3d( 1.04, 1.04, 1 ); border: 2px solid #c4bcb9; }
+.ui-btn.t-green { background-color: #3fc168; border: 2px solid #3fc168; }
+.ui-btn.t-ct { background-color: #7b9be0; border: 2px solid #7b9be0; }
+.ui-btn.t-t { background-color: #de9b35; border: 2px solid #de9b35; }
+.ui-btn.t-warn { background-color: #e6b33c; border: 2px solid #e6b33c; }
+.ui-btn.t-danger { background-color: #f2645f; border: 2px solid #f2645f; }
+.ui-btn.t-green:hover { background-color: #63d185; border: 2px solid #63d185; }
+.ui-btn.t-ct:hover { background-color: #9bb4ea; border: 2px solid #9bb4ea; }
+.ui-btn.t-t:hover { background-color: #e8b260; border: 2px solid #e8b260; }
+.ui-btn.t-warn:hover { background-color: #efc764; border: 2px solid #efc764; }
+.ui-btn.t-danger:hover { background-color: #f6847f; border: 2px solid #f6847f; }
+.t-green .ui-btnlabel { color: #140e0c; }
+.t-ct .ui-btnlabel { color: #140e0c; }
+.t-t .ui-btnlabel { color: #140e0c; }
+.t-warn .ui-btnlabel { color: #140e0c; }
+.t-danger .ui-btnlabel { color: #140e0c; }
+.t-green .ui-btnsub { color: #140e0c; }
+.t-ct .ui-btnsub { color: #140e0c; }
+.t-t .ui-btnsub { color: #140e0c; }
+.t-warn .ui-btnsub { color: #140e0c; }
+.t-danger .ui-btnsub { color: #140e0c; }
+.ui-btn.picked { transform: scale3d( 1.06, 1.06, 1 ); border: 2px solid #f4edeb; }
+.ui-btn.off { background-color: #1a1210; border: 2px solid #322926; }
+.ui-btn.off .ui-btnlabel { color: #938a87; }
+.ui-btn.off:hover { transform: scale3d( 1, 1, 1 ); border: 2px solid #322926; }
+
+/* Button widths (bw-*) and the row width for each column count (cols-N): N x (width + 12). */
+.bw-s .ui-btn { width: 120px; }
+.bw-m .ui-btn { width: 170px; }
+.bw-l .ui-btn { width: 210px; }
+.bw-xl .ui-btn { width: 260px; }
+.bw-s.cols-1 .ui-buttons { width: 132px; }
+.bw-s.cols-2 .ui-buttons { width: 264px; }
+.bw-s.cols-3 .ui-buttons { width: 396px; }
+.bw-s.cols-4 .ui-buttons { width: 528px; }
+.bw-m.cols-1 .ui-buttons { width: 182px; }
+.bw-m.cols-2 .ui-buttons { width: 364px; }
+.bw-m.cols-3 .ui-buttons { width: 546px; }
+.bw-m.cols-4 .ui-buttons { width: 728px; }
+.bw-l.cols-1 .ui-buttons { width: 222px; }
+.bw-l.cols-2 .ui-buttons { width: 444px; }
+.bw-l.cols-3 .ui-buttons { width: 666px; }
+.bw-l.cols-4 .ui-buttons { width: 888px; }
+.bw-xl.cols-1 .ui-buttons { width: 272px; }
+.bw-xl.cols-2 .ui-buttons { width: 544px; }
+.bw-xl.cols-3 .ui-buttons { width: 816px; }
+.bw-xl.cols-4 .ui-buttons { width: 1088px; }
+
+.ui-close
+{
+	visibility: collapse; horizontal-align: center; height: 44px; margin-top: 10px; padding: 0px 22px;
+	border-radius: 22px; background-color: #211815; border: 1px solid #736966;
+	transition-property: background-color, transform; transition-duration: 0.15s;
+}
+.has-close .ui-close { visibility: visible; }
+.ui-close:hover { background-color: #2b201c; transform: scale3d( 1.04, 1.04, 1 ); }
+.ui-closelabel { vertical-align: center; font-size: 15px; font-weight: bold; color: #c4bcb9; }

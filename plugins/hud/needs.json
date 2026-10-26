@@ -16,6 +16,7 @@
     "hook_vtable",
     "on_tick",
     "register_ru_subcommand",
+    "run_chat_command",
     "schema_offset",
     "subscribe",
     "surface_rtti_vtable"

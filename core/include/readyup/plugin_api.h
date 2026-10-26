@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 17
+#define READYUP_PLUGIN_API_VERSION_MINOR 18
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -753,8 +753,16 @@ typedef struct ru_api {
    * a custom_hud_layout. Never patch it. NULL = not listed, module not loaded or not found (reason
    * in the log). Game thread. */
   const void* (*surface_rtti_vtable)(ru_plugin* self, const char* key);
+  /* ==== v1.18 ===========================================================
+   * Appended in 1.18. Require 1.18 in ru_plugin_info.api_version, or check RU_API_HAS().
+   */
+  /* Runs `text` (e.g. ".r", ".ru match pause", ".map de_inferno") as if the player in `slot`
+   * had typed it in chat: the same routing, owners and permission checks, nothing printed in
+   * chat. For HUD buttons that stand for a chat command. 1 = routed, 0 = no such player or
+   * empty text. Game thread. */
+  int (*run_chat_command)(ru_plugin* self, int slot, const char* text);
 
-  /* v1.17+: fields are appended here. Check RU_API_HAS() before use. */
+  /* v1.18+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

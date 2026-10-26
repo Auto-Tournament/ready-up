@@ -27,6 +27,9 @@ extern "C" {
 /* Slot value meaning "everyone" (the layout's global state). */
 #define RU_HUD_ALL (-1)
 
+/* A button click on a `screen`: the button's command, e.g. ".r". Game thread. */
+typedef void (*ru_hud_click_fn)(void* user, int slot, const char* command);
+
 typedef struct ru_hud_v1 {
   uint32_t struct_size; /* sizeof(ru_hud_v1) of the provider */
   /* 1 when this server can draw custom HUDs (schema, entity create, allocator and the dialog
@@ -42,6 +45,16 @@ typedef struct ru_hud_v1 {
   int (*set_class)(int hud, int slot, const char* panel_id, const char* cls, int on);
   /* Forget everything set for `slot` (call on disconnect: slots are reused). 1 = done. */
   int (*clear_slot)(int hud, int slot);
+  /* v1.1 (check struct_size): the clickable HUD (at_ui.xml). Shows `spec` to `slot` (0-63): a
+   * whole screen as `key=value` lines, listed in plugins/hud/hud_screen.h (id, where, kind, title,
+   * buttons `btn=label|tone|state|command`, mouse off|b|on, ...). Call it as often as you like: the
+   * same spec costs nothing, the same id updates in place, a new id plays the leave / enter
+   * animation, "" hides. A click on a button calls `on_click(user, slot, command)` on the game
+   * thread with that button's command (typically the chat command it stands for, e.g. ".r"). The
+   * plugin owns the cursor: it captures it for mouse=on (or while the buy menu is open for
+   * mouse=b), never with chips=1, and gives it back on a click, a new id, "" or a disconnect.
+   * 1 = done. */
+  int (*screen)(int slot, const char* spec, ru_hud_click_fn on_click, void* user);
   /* v1.x: members are appended here. */
 } ru_hud_v1;
 

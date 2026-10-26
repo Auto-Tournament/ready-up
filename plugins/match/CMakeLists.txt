@@ -31,6 +31,7 @@ set(MATCH_SOURCES
   readyup/golive_card.cpp
   readyup/result_card.cpp
   readyup/host.cpp
+  readyup/hud_screens.cpp
   readyup/idle_refresh.cpp
   readyup/warmup_money.cpp
   readyup/round_economy.cpp
