@@ -10,12 +10,15 @@
 	</styles>
 	<Panel class="at-root" hittest="false">
 <Panel id="at_card" class="at-card" hittest="false">
-<Panel class="at-content" hittest="false">
+<Panel class="at-cardflow" hittest="false">
+<Panel class="at-brandrow" hittest="false">
 <Panel class="at-brand" hittest="false">
 <Panel class="at-brandlogo" hittest="false" />
 <Label class="at-brandname" text="AUTO TOURNAMENT" hittest="false" />
 </Panel>
-<Panel class="at-divider" hittest="false" />
+</Panel>
+<Panel class="at-divider at-carddivider" hittest="false" />
+<Panel class="at-content" hittest="false">
 <Panel class="at-head" hittest="false">
 <Panel class="at-dot" hittest="false" />
 <Panel class="at-lyrbox at-kindbox" hittest="false">
@@ -114,6 +117,7 @@
 <Label id="at_pct" class="at-pct" text="{s:text}" hittest="false" />
 </Panel>
 <Label class="at-chat" text="Press Y to chat" hittest="false" />
+</Panel>
 </Panel>
 <Panel class="at-line" hittest="false" />
 <Panel class="at-ring" hittest="false" />

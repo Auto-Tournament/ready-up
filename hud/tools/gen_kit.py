@@ -54,8 +54,11 @@ def card():
     bar = panel(cls="at-body at-bar", children=(
         panel(cls="at-segs", children="".join(panel(f"at_s{n}", "at-seg") for n in range(10))) + label("at_pct", "at-pct")))
     chat = label(cls="at-chat", text="Press Y to chat")
-    content = panel(cls="at-content", children=brand() + panel(cls="at-divider") + head + rules + line + dmg + bar + chat)
-    return panel("at_card", "at-card", content + panel(cls="at-line") + panel(cls="at-ring"))
+    # The divider runs edge to edge, so the brand row and the content carry their own padding.
+    flow = panel(cls="at-cardflow", children=(
+        panel(cls="at-brandrow", children=brand()) + panel(cls="at-divider at-carddivider")
+        + panel(cls="at-content", children=head + rules + line + dmg + bar + chat)))
+    return panel("at_card", "at-card", flow + panel(cls="at-line") + panel(cls="at-ring"))
 
 
 def mid():

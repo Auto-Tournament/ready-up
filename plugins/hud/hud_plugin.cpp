@@ -532,7 +532,7 @@ void Kit(const ru_command_ctx* ctx, const std::string& state) {
       cls(id, "hide", false);
       cls(id, "bold", k.find("bold") != std::string::npos);
       cls(id, "cmd", k.find("cmd") != std::string::npos);
-      for (const char* x : {"main", "warn", "side-ct", "side-t", "c-live", "c-ban"}) cls(id, x, k.find(x) != std::string::npos);
+      for (const char* x : {"main", "warn", "side-ct", "side-t", "c-live", "c-ban", "tight"}) cls(id, x, k.find(x) != std::string::npos);
     }
     for (; n < 5; ++n) cls(std::string(prefix) + std::to_string(n), "hide", true);
   };
@@ -576,11 +576,11 @@ void Kit(const ru_command_ctx* ctx, const std::string& state) {
     }
   } else if (state == "notready") {
     card("Warmup", "6 / 10 ready", nullptr, "b-line", true);
-    sentence("at_p", {{"You are", nullptr}, {"not ready,", "bold"}, {"type", nullptr}, {".r", "cmd main"}, {"to ready up", nullptr}});
+    sentence("at_p", {{"You are", nullptr}, {"not ready", "bold tight"}, {", type", nullptr}, {".r", "cmd main"}, {"to ready up", nullptr}});
     cls("at_card", "nudge", true);
   } else if (state == "ready") {
     card("Ready", "7 / 10 ready", "c-live", "b-line", true);
-    sentence("at_p", {{"You are", nullptr}, {"ready,", "bold c-live"}, {"type", nullptr}, {".ur", "cmd"}, {"to undo", nullptr}});
+    sentence("at_p", {{"You are", nullptr}, {"ready", "bold c-live tight"}, {", type", nullptr}, {".ur", "cmd"}, {"to undo", nullptr}});
   } else if (state == "everyone") {
     mid("Everyone is ready", "Knife round (5)", nullptr, "c-live");
     cls("at_mid", "go", true);
