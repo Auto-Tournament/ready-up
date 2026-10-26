@@ -1,0 +1,28 @@
+<!--
+  Click proof of concept: the server captures the player's cursor and shows real buttons.
+  A click comes back to the server as user message CS_UM_CustomHudClicked with the Button's id.
+  m_strLayout = "panorama/layout/custom_game/at_click.xml"; `ru hudkit click` opens it.
+-->
+<root>
+	<styles>
+		<include src="s2r://panorama/styles/custom_game/at_click.vcss_c" />
+	</styles>
+	<Panel class="ac-root" hittest="false">
+		<Panel id="ac_card" class="ac-card" hittest="true">
+			<Panel class="ac-flow" hittest="false">
+				<Panel class="ac-brand" hittest="false">
+					<Panel class="ac-logo" hittest="false" />
+					<Label class="ac-brandname" text="AUTO TOURNAMENT" hittest="false" />
+				</Panel>
+				<Label id="ac_title" class="ac-title" text="{s:text}" hittest="false" />
+				<Panel class="ac-buttons" hittest="false">
+					<Button id="at_btn_ct" class="ac-btn ac-ct"><Label class="ac-btntext" text="CT" hittest="false" /></Button>
+					<Button id="at_btn_t" class="ac-btn ac-t"><Label class="ac-btntext" text="T" hittest="false" /></Button>
+				</Panel>
+				<Label id="ac_status" class="ac-status" text="{s:text}" hittest="false" />
+				<Button id="at_btn_close" class="ac-close"><Label class="ac-closetext" text="Close" hittest="false" /></Button>
+			</Panel>
+			<Panel class="ac-line" hittest="false" />
+		</Panel>
+	</Panel>
+</root>

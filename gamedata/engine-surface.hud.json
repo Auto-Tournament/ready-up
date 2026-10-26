@@ -3,13 +3,32 @@
     "game_version": "1.41.9.2",
     "steam_buildid": 26144732,
     "binary": "game/csgo/bin/linuxsteamrt64/libserver.so",
-    "notes": "Owned by readyup-hud (plugins/hud, ships next to the core's engine-surface.json). The custom_hud_layout's dialog-variable elements (HUDPanelDialogVariableString_t) carry a vtable, so the plugin builds them with the class's own primary vtable, found through its RTTI typeinfo name (ru_api surface_rtti_vtable, API 1.17). Nothing is hooked or called through it. Everything else the plugin touches is schema (field offsets by name) plus entity_create / entity_spawn / entity_remove."
+    "notes": "Owned by readyup-hud (plugins/hud, ships next to the core's engine-surface.json). The custom_hud_layout's dialog-variable elements (HUDPanelDialogVariableString_t) carry a vtable, so the plugin builds them with the class's own primary vtable, found through its RTTI typeinfo name (ru_api surface_rtti_vtable, API 1.17). Nothing is called through it. The plugin patches one vtable slot, ISource2GameClients::ClientSvcUserMessage, to receive clicks on custom_hud_layout Buttons (user message 390); a slot that fails its anchors is never patched and clicks stay off. Everything else the plugin touches is schema (field offsets by name) plus entity_create / entity_spawn / entity_remove."
   },
   "functions": {},
   "rtti": {
     "HUDPanelDialogVariableString_t": {
       "typeinfo_name": "30HUDPanelDialogVariableString_t",
       "note": "Element of CCSCustomHudLayoutState::m_vecDialogVariableStrings; the plugin writes this vtable into each element it adds."
+    }
+  },
+  "vtable_indices": {
+    "ISource2GameClients::ClientSvcUserMessage": {
+      "linux": 38,
+      "class": "CSource2GameClients",
+      "note": "11 IAppSystem slots + 27. Patched by readyup-hud: user message 390 (CS_UM_CustomHudClicked) is a click on a custom_hud_layout Button. On 1.41.9.x the slot calls the handler that compares the type with 390; its own code loads the strings below.",
+      "anchors": [
+        {
+          "type": "string_ref",
+          "string": "./gameinterface.cpp",
+          "window": 256
+        },
+        {
+          "type": "string_ref",
+          "string": "CScriptedSequence",
+          "window": 1024
+        }
+      ]
     }
   }
 }

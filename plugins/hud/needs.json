@@ -11,6 +11,8 @@
     "entity_remove",
     "entity_spawn",
     "entity_system_status",
+    "for_each_player",
+    "hook_vtable",
     "on_tick",
     "register_ru_subcommand",
     "schema_offset",

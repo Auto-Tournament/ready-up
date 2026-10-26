@@ -1,0 +1,55 @@
+/* Click proof of concept (at_click.xml): pill buttons like the website (radius 999), side colours. */
+
+.ac-root { width: 100%; height: 100%; font-family: "Noto Sans"; }
+
+.ac-card
+{
+	horizontal-align: center; vertical-align: top; margin-top: 600px;
+	width: 520px; height: fit-children; overflow: clip;
+	background-color: #140e0cf7; border: 1px solid #322926; border-radius: 16px;
+	opacity: 0; transform: translateY( 28px );
+	transition-property: opacity, transform; transition-duration: 0.2s;
+	transition-timing-function: cubic-bezier( 0.55, 0, 1, 0.45 );
+}
+.ac-card.on
+{
+	opacity: 1; transform: translateY( 0px ); transition-duration: 0.38s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+.ac-flow { flow-children: down; width: 100%; height: fit-children; padding: 16px 32px 22px 32px; }
+
+.ac-brand { flow-children: right; horizontal-align: center; height: 16px; margin-bottom: 12px; }
+.ac-logo
+{
+	width: 16px; height: 16px; margin-right: 8px; vertical-align: center; border-radius: 4px;
+	background-image: url( "s2r://panorama/images/custom_game/at_logo.vtex" );
+	background-size: contain; background-repeat: no-repeat;
+}
+.ac-brandname { font-family: "Noto Mono"; vertical-align: center; font-size: 10px; font-weight: bold; letter-spacing: 2px; color: #938a87; }
+
+.ac-title { horizontal-align: center; font-size: 30px; font-weight: bold; color: #f4edeb; }
+
+.ac-buttons { flow-children: right; horizontal-align: center; margin-top: 16px; }
+.ac-btn
+{
+	width: 150px; height: 52px; margin: 0px 8px; border-radius: 26px;
+	transition-property: background-color, transform; transition-duration: 0.15s;
+}
+.ac-btntext { horizontal-align: center; vertical-align: center; font-size: 22px; font-weight: bold; color: #140e0c; }
+.ac-ct { background-color: #7b9be0; }
+.ac-t { background-color: #de9b35; }
+.ac-ct:hover { background-color: #9bb4ea; transform: scale3d( 1.04, 1.04, 1 ); }
+.ac-t:hover { background-color: #e8b260; transform: scale3d( 1.04, 1.04, 1 ); }
+.ac-btn.picked { transform: scale3d( 1.08, 1.08, 1 ); }
+
+.ac-status { horizontal-align: center; margin-top: 12px; font-size: 15px; color: #c4bcb9; }
+
+.ac-close
+{
+	horizontal-align: center; margin-top: 12px; padding: 6px 16px; border-radius: 16px;
+	background-color: #211815; border: 1px solid #736966;
+}
+.ac-close:hover { background-color: #2b201c; }
+.ac-closetext { font-size: 13px; color: #c4bcb9; }
+
+.ac-line { width: 100%; height: 4px; vertical-align: bottom; background-color: #3fc168; }

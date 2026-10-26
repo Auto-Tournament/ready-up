@@ -28,6 +28,7 @@
 #include "readyup/selftest_iface.h"
 
 #include <dlfcn.h>
+#include <link.h>
 
 #include <cstdarg>
 #include <cstdint>
@@ -419,10 +420,187 @@ int IfClearSlot(int hud, int slot) {
 
 const ru_hud_v1 g_iface = {sizeof(ru_hud_v1), &IfAvailable, &IfOpen, &IfSetText, &IfSetClass, &IfClearSlot};
 
+// ---- clicks (proof of concept) ----------------------------------------------------------------
+//
+// A layout's Button panels become clickable while the server captures that player's cursor
+// (CCSCustomHudLayoutState::m_bInputCaptureEnabled). Each click comes back as user message 390
+// (CS_UM_CustomHudClicked: field 1 the layout's packed entity handle, field 2 the Button's id),
+// which the engine hands to IServerGameClients::ClientSvcUserMessage (vtable slot 38 on CS2
+// 1.41.9.x, verified through engine-surface.hud.json before it is patched). Never capture during a
+// live round: the player can't aim or move while the cursor is out.
+
+constexpr int kCustomHudClicked = 390;
+
+struct Click {
+  int slot;
+  uint32_t handle;
+  std::string button;
+};
+std::mutex g_clickMu;
+std::vector<Click> g_clicks;  // filled by the hook, drained on the game thread
+using SvcUserMessageFn = void (*)(void*, int, int, uint32_t, const void*);
+void* g_origSvcUm = nullptr;
+std::string g_clickHookStatus = "not installed";
+
+// Minimal protobuf reader for CCSUsrMsg_CustomHudClicked.
+bool ParseClick(const uint8_t* p, uint32_t n, uint32_t* handle, std::string* button) {
+  uint32_t i = 0;
+  auto varint = [&](uint64_t* out) {
+    uint64_t v = 0;
+    for (int shift = 0; i < n && shift < 64; shift += 7) {
+      const uint8_t b = p[i++];
+      v |= static_cast<uint64_t>(b & 0x7f) << shift;
+      if (!(b & 0x80)) {
+        *out = v;
+        return true;
+      }
+    }
+    return false;
+  };
+  while (i < n) {
+    uint64_t key = 0, v = 0;
+    if (!varint(&key)) return false;
+    const uint32_t field = static_cast<uint32_t>(key >> 3), wire = static_cast<uint32_t>(key & 7);
+    if (wire == 0) {
+      if (!varint(&v)) return false;
+      if (field == 1) *handle = static_cast<uint32_t>(v);
+    } else if (wire == 2) {
+      if (!varint(&v) || v > n - i) return false;
+      if (field == 2) button->assign(reinterpret_cast<const char*>(p + i), static_cast<size_t>(v));
+      i += static_cast<uint32_t>(v);
+    } else {
+      return false;  // nothing else is in this message
+    }
+  }
+  return true;
+}
+
+void OnSvcUserMessage(void* self, int slot, int umType, uint32_t size, const void* buf) {
+  if (umType == kCustomHudClicked && buf && size < 4096) {
+    Click c{slot, kNoHandle, {}};
+    if (ParseClick(static_cast<const uint8_t*>(buf), size, &c.handle, &c.button) && !c.button.empty()) {
+      std::lock_guard<std::mutex> lk(g_clickMu);
+      if (g_clicks.size() < 256) g_clicks.push_back(std::move(c));
+    }
+  }
+  reinterpret_cast<SvcUserMessageFn>(g_origSvcUm)(self, slot, umType, size, buf);
+}
+
+int FindRealServer(struct dl_phdr_info* info, size_t, void* out) {
+  const char* name = info->dlpi_name;
+  if (name && std::strstr(name, "/csgo/bin/linuxsteamrt64/libserver.so") && !std::strstr(name, "/readyup/")) {
+    *static_cast<std::string*>(out) = name;
+    return 1;
+  }
+  return 0;
+}
+
+void InstallClickHook() {
+  if (g_origSvcUm || !RU_API_HAS(g_api, hook_vtable)) return;
+  std::string path;
+  dl_iterate_phdr(&FindRealServer, &path);
+  void* lib = path.empty() ? nullptr : dlopen(path.c_str(), RTLD_NOW | RTLD_NOLOAD);
+  using CreateInterfaceFn = void* (*)(const char*, int*);
+  auto ci = lib ? reinterpret_cast<CreateInterfaceFn>(dlsym(lib, "CreateInterface")) : nullptr;
+  void* clients = ci ? ci("Source2GameClients001", nullptr) : nullptr;
+  if (!clients) {
+    g_clickHookStatus = "Source2GameClients001 not found";
+    return;
+  }
+  void* orig = nullptr;
+  if (g_api->hook_vtable(g_api->self, "ISource2GameClients::ClientSvcUserMessage", clients,
+                         reinterpret_cast<void*>(&OnSvcUserMessage), &orig) && orig) {
+    g_origSvcUm = orig;
+    g_clickHookStatus = "ok";
+    ru_logf(g_api, RU_LOG_INFO, "click hook installed (ClientSvcUserMessage)");
+  } else {
+    g_clickHookStatus = "refused (see the log)";
+  }
+}
+
+int IfSetCapture(int hud, int slot, int on) {
+  Layout* l = LayoutOf(hud);
+  if (!l || slot < 0 || slot > 63 || g_eng.o.stCapture < 0) return 0;
+  void* e = Ensure(*l);
+  if (!e) return 0;
+  std::string why;
+  void* st = StateOf(e, slot, &why);
+  if (!st) {
+    l->lastError = why;
+    return 0;
+  }
+  *(static_cast<uint8_t*>(st) + g_eng.o.stCapture) = on ? 1 : 0;
+  l->changed = true;
+  return 1;
+}
+
+// `ru hudkit click [slot]`: the CT / T proof of concept for one player, or every human.
+const char* kClickLayout = "panorama/layout/custom_game/at_click.xml";
+std::set<int> g_clickOpen;  // slots that have it open
+
+void ClickOpen(int slot) {
+  const int h = IfOpen(kClickLayout);
+  IfSetText(h, slot, "ac_title", "text", "Which side do you want?");
+  IfSetText(h, slot, "ac_status", "text", "Click a side");
+  IfSetClass(h, slot, "at_btn_ct", "picked", 0);
+  IfSetClass(h, slot, "at_btn_t", "picked", 0);
+  IfSetClass(h, slot, "ac_card", "on", 1);
+  IfSetCapture(h, slot, 1);
+  g_clickOpen.insert(slot);
+  const double opened = g_now;
+  g_later.emplace_back(g_now + 30.0, [slot, opened] {  // never leave a cursor captured
+    if (g_clickOpen.count(slot)) {
+      const int hh = IfOpen(kClickLayout);
+      IfSetCapture(hh, slot, 0);
+      IfSetClass(hh, slot, "ac_card", "on", 0);
+      g_clickOpen.erase(slot);
+      ru_logf(g_api, RU_LOG_INFO, "click POC: slot %d timed out after %.0f s", slot, g_now - opened);
+    }
+  });
+}
+
+void ClickClose(int slot) {
+  const int h = IfOpen(kClickLayout);
+  IfSetCapture(h, slot, 0);
+  IfSetClass(h, slot, "ac_card", "on", 0);
+  g_clickOpen.erase(slot);
+}
+
+void DrainClicks() {
+  std::vector<Click> clicks;
+  {
+    std::lock_guard<std::mutex> lk(g_clickMu);
+    clicks.swap(g_clicks);
+  }
+  for (const Click& c : clicks) {
+    ru_logf(g_api, RU_LOG_INFO, "click: slot %d button \"%s\" (layout handle 0x%x)", c.slot, c.button.c_str(), c.handle);
+    if (!g_clickOpen.count(c.slot)) continue;
+    const int h = IfOpen(kClickLayout);
+    if (c.button == "at_btn_close") {
+      ClickClose(c.slot);
+    } else if (c.button == "at_btn_ct" || c.button == "at_btn_t") {
+      const bool ct = c.button == "at_btn_ct";
+      IfSetClass(h, c.slot, "at_btn_ct", "picked", ct ? 1 : 0);
+      IfSetClass(h, c.slot, "at_btn_t", "picked", ct ? 0 : 1);
+      IfSetText(h, c.slot, "ac_status", "text", ct ? "You picked CT" : "You picked T");
+      IfSetCapture(h, c.slot, 0);  // the choice is made: give the mouse back
+      const int slot = c.slot;
+      g_later.emplace_back(g_now + 1.5, [slot] { ClickClose(slot); });
+    }
+  }
+}
+
+int CollectHuman(void* user, const ru_player* p) {
+  if (!p->is_bot && p->connected && p->slot >= 0) static_cast<std::vector<int>*>(user)->push_back(p->slot);
+  return 1;
+}
+
 // ---- ticks and events ------------------------------------------------------------------------
 
 void OnTick(void*, const ru_tick_info* t) {
   g_now = t->now;
+  if (!g_origSvcUm && g_eng.ok) InstallClickHook();
+  DrainClicks();
   for (size_t i = 0; i < g_later.size();) {
     if (g_later[i].first <= g_now) {
       auto fn = std::move(g_later[i].second);
@@ -469,6 +647,10 @@ void OnEvent(void*, const ru_event* ev) {
   if (ev->type == RU_EVENT_MAP_START) {
     g_mapStartedAt = g_now;
     for (auto& l : g_layouts) l.handle = kNoHandle;  // the map took the entity with it
+  } else if (ev->type == RU_EVENT_ROUND_START) {
+    for (int slot : std::vector<int>(g_clickOpen.begin(), g_clickOpen.end())) ClickClose(slot);
+  } else if (ev->type == RU_EVENT_PLAYER_DISCONNECT && ev->slot >= 0) {
+    g_clickOpen.erase(ev->slot);
   } else if (ev->type == RU_EVENT_PLAYER_CONNECT && ev->slot >= 0) {
     g_resendAt[ev->slot] = {g_now + 2.0, g_now + 5.0};
   }
@@ -712,7 +894,7 @@ void OnRu(void*, const ru_command_ctx* ctx) {
   const std::string sub = ctx->argc > 2 ? ctx->argv[2] : "status";
   if (sub == "status") {
     Resolve();
-    Reply(ctx, g_eng.status + "; " + std::to_string(g_layouts.size()) + " layout(s)");
+    Reply(ctx, g_eng.status + "; " + std::to_string(g_layouts.size()) + " layout(s); click hook " + g_clickHookStatus);
     for (size_t i = 0; i < g_layouts.size(); ++i) {
       auto& l = g_layouts[i];
       Reply(ctx, Fmt("#%zu ", i + 1) + l.path + (EntityOf(l) ? " (live)" : " (no entity)") +
@@ -724,6 +906,12 @@ void OnRu(void*, const ru_command_ctx* ctx) {
     const int h = IfOpen("panorama/layout/custom_game/at_hello.xml");
     const std::string text = ctx->argc > 3 ? Join(ctx, 3) : "Hello from Auto Tournament";
     Reply(ctx, IfSetText(h, RU_HUD_ALL, "at_hello_text", "text", text.c_str()) ? "at_hello: " + text : "failed: " + LayoutOf(h)->lastError);
+  } else if (sub == "click") {  // ru hudkit click [slot]: the CT / T click proof of concept
+    std::vector<int> slots;
+    if (ctx->argc > 3) slots.push_back(std::atoi(ctx->argv[3]));
+    else g_api->for_each_player(g_api->self, &CollectHuman, &slots);
+    for (int slot : slots) ClickOpen(slot);
+    Reply(ctx, "click POC open for " + std::to_string(slots.size()) + " player(s); click hook " + g_clickHookStatus);
   } else if (sub == "kit") {
     Kit(ctx, ctx->argc > 3 ? ctx->argv[3] : "");
   } else if (sub == "text" && ctx->argc >= 7) {  // ru hudkit text <hud#> <slot|all> <panel> <var> <value...>
@@ -731,7 +919,7 @@ void OnRu(void*, const ru_command_ctx* ctx) {
   } else if (sub == "class" && ctx->argc >= 8) {  // ru hudkit class <hud#> <slot|all> <panel> <class> <0|1>
     Reply(ctx, IfSetClass(std::atoi(ctx->argv[3]), ParseSlot(ctx->argv[4]), ctx->argv[5], ctx->argv[6], std::atoi(ctx->argv[7])) ? "ok" : "failed");
   } else {
-    Reply(ctx, "ru hudkit [status|info|hello <text>|kit <state>|text <hud#> <slot|all> <panel> <var> <value>|class <hud#> <slot|all> <panel> <class> <0|1>]");
+    Reply(ctx, "ru hudkit [status|info|click [slot]|hello <text>|kit <state>|text <hud#> <slot|all> <panel> <var> <value>|class <hud#> <slot|all> <panel> <class> <0|1>]");
   }
 }
 
