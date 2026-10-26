@@ -151,7 +151,7 @@ echo "core:";       no_skins core;       check_manifests "$WORK/core" core; core
 echo "match:";      no_skins match;      check_manifests "$WORK/match" match; has_match match
 echo "fleet:";      no_skins fleet;      check_manifests "$WORK/fleet" fleet; has_fleet fleet
 if [[ -e "$WORK/fleet/readyup/plugins/match.so" ]]; then bad "fleet contains match.so"; else ok "fleet: no match.so"; fi
-echo "essentials:"; no_skins essentials; check_manifests "$WORK/essentials" core essentials match fleet practice mapvote; has_match essentials; has_fleet essentials; has_notices essentials
+echo "essentials:"; no_skins essentials; check_manifests "$WORK/essentials" core essentials match fleet practice mapvote hud; has_match essentials; has_fleet essentials; has_notices essentials
 echo "hello:";      no_skins hello;      check_manifests "$WORK/hello" hello
 echo "midas:";      no_skins midas;      check_manifests "$WORK/midas" midas
 echo "addons:";     no_skins addons;     check_manifests "$WORK/addons" addons; has_addons addons
@@ -162,6 +162,7 @@ echo "mapvote:";    no_skins mapvote;    check_manifests "$WORK/mapvote" mapvote
 echo "community:";  no_skins community;  check_manifests "$WORK/community" community
 echo "tv:";         no_skins tv;         check_manifests "$WORK/tv" tv
 echo "movement:";   no_skins movement;   check_manifests "$WORK/movement" movement
+echo "hud:";        no_skins hud;        check_manifests "$WORK/hud" hud
 echo "essentials-plugin:"; no_skins essentials-plugin; check_manifests "$WORK/essentials-plugin" essentials
 if [[ -e "$WORK/essentials/readyup/plugins/practice.so" ]]; then ok "essentials has practice.so"; else bad "essentials lacks practice.so"; fi
 for b in practice essentials; do  # its gamedata fragment (grenade spawning) ships with it; full is checked below
@@ -179,7 +180,7 @@ if [[ -e "$WORK/essentials/readyup/plugins/mapvote.so" ]]; then ok "essentials h
 if [[ -e "$WORK/match/readyup/cfg-templates/ReadyUp/addons.cfg" ]]; then bad "match ships addons.cfg"; else ok "match: no addons.cfg"; fi
 echo "skins:";      has_skins skins;     check_manifests "$WORK/skins" skins
 echo "full:";       has_skins full; has_match full; has_fleet full; has_notices full; has_addons full
-full_components=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community movement addons tv)
+full_components=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community movement addons tv hud)
 for f in readyup/plugins/deathmatch.so readyup/cfg-templates/ReadyUp/deathmatch.cfg readyup/plugins/mapvote.so readyup/cfg-templates/ReadyUp/mapvote.cfg readyup/plugins/community.so readyup/cfg-templates/ReadyUp/community.cfg readyup/plugins/tv.so readyup/cfg-templates/ReadyUp/tv.cfg readyup/plugins/movement.so readyup/cfg-templates/ReadyUp/movement.cfg readyup/bin/linuxsteamrt64/engine-surface.practice.json; do
   if [[ -f "$WORK/full/$f" ]]; then ok "full has $f"; else bad "full lacks $f"; fi
 done
