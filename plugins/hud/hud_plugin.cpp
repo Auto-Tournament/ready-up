@@ -585,7 +585,7 @@ void DrainClicks() {
     if (!g_clickOpen.count(c.slot)) continue;
     const int h = IfOpen(kClickLayout);
     if (c.button == "at_btn_close") {
-      ClickClose(c.slot);
+      continue;  // no way out without picking a side (the button goes in the next layout)
     } else if (c.button == "at_btn_ct" || c.button == "at_btn_t") {
       const bool ct = c.button == "at_btn_ct";
       IfSetClass(h, c.slot, "at_btn_ct", "picked", ct ? 1 : 0);
@@ -629,12 +629,65 @@ int CollectHuman(void* user, const ru_player* p) {
   return 1;
 }
 
+// `ru hudkit buttons [slot] [seconds]`: which keys reach the server. Reads the pawn's
+// CPlayer_MovementServices::m_nButtons (CInButtonState: m_pButtonStates[0] = held buttons) every
+// tick and logs each change, so a tester can press Tab / E / R / F / Shift and see what arrives.
+struct ButtonProbe {
+  int slot = -1;
+  double until = 0;
+  uint64_t last = ~0ull;
+} g_probe;
+
+const char* ButtonName(int bit) {
+  static const char* names[] = {"attack", "jump", "duck", "forward", "back", "use", "cancel", "left", "right",
+                                "moveleft", "moveright", "attack2", "run", "reload", "alt1", "alt2", "score",
+                                "speed", "walk", "zoom", "weapon1", "weapon2", "bullrush", "grenade1", "grenade2",
+                                "lookatweapon"};
+  return bit < static_cast<int>(sizeof(names) / sizeof(names[0])) ? names[bit] : "?";
+}
+
+void ProbeTick() {
+  if (g_probe.slot < 0) return;
+  if (g_now > g_probe.until) {
+    ru_logf(g_api, RU_LOG_INFO, "buttons: probe for slot %d done", g_probe.slot);
+    g_probe.slot = -1;
+    return;
+  }
+  static int ctrlPawn = -2, pawnMove = -2, moveButtons = -2, btnStates = -2;
+  if (ctrlPawn == -2) {
+    ctrlPawn = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_hPlayerPawn");
+    pawnMove = g_api->schema_offset(g_api->self, "CBasePlayerPawn", "m_pMovementServices");
+    moveButtons = g_api->schema_offset(g_api->self, "CPlayer_MovementServices", "m_nButtons");
+    btnStates = g_api->schema_offset(g_api->self, "CInButtonState", "m_pButtonStates");
+    ru_logf(g_api, RU_LOG_INFO, "buttons: offsets pawn=%d move=%d buttons=%d states=%d", ctrlPawn, pawnMove, moveButtons, btnStates);
+  }
+  if (ctrlPawn < 0 || pawnMove < 0 || moveButtons < 0 || btnStates < 0) return;
+  void* ctrl = g_api->entity_by_index(g_api->self, g_probe.slot + 1);
+  if (!ctrl) return;
+  uint32_t h = 0;
+  std::memcpy(&h, static_cast<uint8_t*>(ctrl) + ctrlPawn, sizeof(h));
+  void* pawn = g_api->entity_from_handle(g_api->self, h);
+  if (!pawn) return;
+  void* move = nullptr;
+  std::memcpy(&move, static_cast<uint8_t*>(pawn) + pawnMove, sizeof(move));
+  if (!move) return;
+  uint64_t held = 0;
+  std::memcpy(&held, static_cast<uint8_t*>(move) + moveButtons + btnStates, sizeof(held));
+  if (held == g_probe.last) return;
+  std::string on;
+  for (int b = 0; b < 64; ++b)
+    if (held & (1ull << b)) on += std::string(on.empty() ? "" : " ") + ButtonName(b) + "(" + std::to_string(b) + ")";
+  ru_logf(g_api, RU_LOG_INFO, "buttons: slot %d held 0x%llx [%s]", g_probe.slot, static_cast<unsigned long long>(held), on.c_str());
+  g_probe.last = held;
+}
+
 // ---- ticks and events ------------------------------------------------------------------------
 
 void OnTick(void*, const ru_tick_info* t) {
   g_now = t->now;
   if (!g_origSvcUm && g_eng.ok) InstallClickHook();
   DrainClicks();
+  ProbeTick();
   for (size_t i = 0; i < g_later.size();) {
     if (g_later[i].first <= g_now) {
       auto fn = std::move(g_later[i].second);
@@ -944,6 +997,13 @@ void OnRu(void*, const ru_command_ctx* ctx) {
     else g_api->for_each_player(g_api->self, &CollectHuman, &slots);
     for (int slot : slots) ClickOpen(slot);
     Reply(ctx, "click POC open for " + std::to_string(slots.size()) + " player(s); click hook " + g_clickHookStatus);
+  } else if (sub == "buttons") {  // ru hudkit buttons [slot] [seconds]
+    std::vector<int> slots;
+    if (ctx->argc > 3) slots.push_back(std::atoi(ctx->argv[3]));
+    else g_api->for_each_player(g_api->self, &CollectHuman, &slots);
+    if (slots.empty()) return Reply(ctx, "nobody to probe");
+    g_probe = ButtonProbe{slots[0], g_now + (ctx->argc > 4 ? std::atof(ctx->argv[4]) : 30.0), ~0ull};
+    Reply(ctx, "logging held buttons of slot " + std::to_string(slots[0]));
   } else if (sub == "bclick") {  // ru hudkit bclick [slot]: the same card, mouse on the B key
     std::vector<int> slots;
     if (ctx->argc > 3) slots.push_back(std::atoi(ctx->argv[3]));
