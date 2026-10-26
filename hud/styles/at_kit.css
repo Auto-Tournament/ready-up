@@ -63,6 +63,46 @@
 	padding: 12px 14px 15px 14px;
 }
 
+/* ---- Brand strip: the Auto Tournament watermark ------------------------------------------- */
+
+.at-brand
+{
+	flow-children: right;
+	horizontal-align: center;
+	height: 16px;
+	margin-bottom: 10px;
+}
+
+.at-brandlogo
+{
+	width: 16px;
+	height: 16px;
+	margin-right: 8px;
+	vertical-align: center;
+	border-radius: 4px;
+	background-image: url( "s2r://panorama/images/custom_game/at_logo.vtex" );
+	background-size: contain;
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+}
+
+.at-brandname
+{
+	vertical-align: center;
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 2px;
+	color: #938a87;
+}
+
+.at-divider
+{
+	width: 100%;
+	height: 1px;
+	margin-bottom: 12px;
+	background-color: #322926;
+}
+
 /* ---- Header: dot, kind, a few words ------------------------------------------------------ */
 
 .at-head

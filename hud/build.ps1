@@ -70,10 +70,30 @@ foreach ($job in $jobs) {
     }
 }
 
+# Images: the .png and its .vtex recipe (BGRA8888: DXT5 renders pink in Panorama) go into
+# panorama\images\custom_game; only the .vtex is compiled, to <name>.vtex_c.
+$imgDst = Join-Path $content "panorama\images\custom_game"
+New-Item -ItemType Directory -Force -Path $imgDst | Out-Null
+Copy-Item (Join-Path $here "images\*") $imgDst -Force
+foreach ($file in Get-ChildItem (Join-Path $here "images") -Filter "*.vtex") {
+    & $compiler -i (Join-Path $imgDst $file.Name) | Out-Host
+    $out = Join-Path $game ("panorama\images\custom_game\" + $file.BaseName + ".vtex_c")
+    if (Test-Path $out) {
+        Write-Output ("OK      {0} ({1} bytes)" -f $out, (Get-Item $out).Length)
+    } else {
+        Write-Output "FAILED  $out"
+        $failed++
+    }
+}
+
 # Tool caches must not end up in the Workshop upload.
-foreach ($junk in @("_bakeresourcecache", "tools_thumbnail_cache.sqlite3", "tools_asset_info.bin", "_iconcache")) {
+foreach ($junk in @("_bakeresourcecache", "tools_thumbnail_cache.sqlite3", "tools_thumbnail_cache.sqlite3-shm",
+                    "tools_thumbnail_cache.sqlite3-wal", "tools_asset_info.bin", "_iconcache")) {
     $p = Join-Path $game $junk
-    if (Test-Path $p) { Remove-Item $p -Recurse -Force; Write-Output "Removed $p" }
+    if (Test-Path $p) {
+        try { Remove-Item $p -Recurse -Force -ErrorAction Stop; Write-Output "Removed $p" }
+        catch { Write-Output "Could not remove $p (Workshop Tools open?). Close the tools and run again before publishing." }
+    }
 }
 
 if ($failed) { throw "$failed file(s) failed to compile." }

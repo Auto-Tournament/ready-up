@@ -20,6 +20,13 @@
 		<Panel id="at_card" class="at-card" hittest="false">
 			<Panel class="at-content" hittest="false">
 
+			<!-- Brand strip: our watermark, centered at the top of the card. -->
+			<Panel class="at-brand" hittest="false">
+				<Panel class="at-brandlogo" hittest="false" />
+				<Label class="at-brandname" text="AUTO TOURNAMENT" hittest="false" />
+			</Panel>
+			<Panel class="at-divider" hittest="false" />
+
 			<!-- Header: dot, kind, a few words. Two text layers (a/b) so the text rolls on change. -->
 			<Panel class="at-head" hittest="false">
 				<Panel class="at-dot" hittest="false" />
