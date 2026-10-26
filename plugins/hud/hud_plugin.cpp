@@ -29,6 +29,7 @@
 
 #include <dlfcn.h>
 #include <link.h>
+#include <climits>
 
 #include <cstdarg>
 #include <cstdint>
@@ -486,9 +487,14 @@ void OnSvcUserMessage(void* self, int slot, int umType, uint32_t size, const voi
   reinterpret_cast<SvcUserMessageFn>(g_origSvcUm)(self, slot, umType, size, buf);
 }
 
+// Valve's libserver.so, not Ready Up's (the core opens it through a relative path such as
+// .../readyup/bin/linuxsteamrt64/../../../bin/linuxsteamrt64/libserver.so, so resolve it first).
 int FindRealServer(struct dl_phdr_info* info, size_t, void* out) {
   const char* name = info->dlpi_name;
-  if (name && std::strstr(name, "/csgo/bin/linuxsteamrt64/libserver.so") && !std::strstr(name, "/readyup/")) {
+  if (!name || !std::strstr(name, "libserver.so")) return 0;
+  char resolved[PATH_MAX];
+  if (!realpath(name, resolved)) return 0;
+  if (std::strstr(resolved, "/csgo/bin/linuxsteamrt64/libserver.so") && !std::strstr(resolved, "/readyup/")) {
     *static_cast<std::string*>(out) = name;
     return 1;
   }
