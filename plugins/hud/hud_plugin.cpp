@@ -592,11 +592,11 @@ void Kit(const ru_command_ctx* ctx, const std::string& state) {
     for (const char* x : {"has-timer", "has-parts", "chat", "on"}) cls("at_mid", x, true);
   } else if (state == "live") {
     mid("Match live", "Good luck, have fun", nullptr, "c-live");
-    const char* cmds[3][2] = {{"Pause", ".p"}, {"Timeout", ".tac"}, {"Tech pause", ".tech"}};
+    const char* cmds[2][2] = {{"Timeout", ".tac"}, {"Tech pause", ".p"}};
     for (int i = 0; i < 4; ++i) {
       const std::string id = "at_mk" + std::to_string(i);
-      cls(id, "gone", i >= 3);
-      if (i < 3) {
+      cls(id, "gone", i >= 2);
+      if (i < 2) {
         txt(id + "_l", cmds[i][0]);
         txt(id + "_c", cmds[i][1]);
       }

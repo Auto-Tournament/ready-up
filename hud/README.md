@@ -75,7 +75,7 @@ scores, `at_e_where` (bottom left), `at_e_next` (bottom right), team headers `at
 row classes `me` (the viewer, by platform name) and `mvp`. End classes `won` / `lost` / `draw`.
 
 Copy rules: short and visual, say it once; only typed commands in a box; short commands (`.r`
-`.ur` `.p` `.up` `.tac` `.tech` `.ct` `.t`); platform display names, never "you" in lists;
+`.ur` `.p` `.up` `.tac` `.ct` `.t`; `.p` is the tech pause, `.tech` is never shown); platform display names, never "you" in lists;
 countdowns as seconds, `(45)`.
 
 ## Rules for layouts
