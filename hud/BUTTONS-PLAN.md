@@ -4,6 +4,32 @@ Design: canvas "Auto Tournament HUD kit", page **Buttons (v2)**
 (https://claude.ai/artifact/Nnt5WzmHAQbt8bXpoYKv97): the Play board (click through a match), the
 Kit board (tones, states, mouse rules) and the Every screen board (the spec, one panel per event).
 
+## Status (2026-10-27)
+
+Built and on instance 5 (Ready Up 0.1.0-hud.10): sections 2-4 below, except the map vote. The 57
+ctests pass, and `ru hudkit demo` draws on the server (the entity is made, slot state is written).
+Nothing has been seen in a client yet, because the addon update with `at_ui` isn't published.
+
+Instance 5 is now a plain scrim server: platform prefs are match + hud on, movement and practice
+off. Practice mode had made it boot into surf_utopia.
+
+### Tomorrow, in order
+
+1. Publish the addon update from Workshop Tools (at_hud, which now has at_ui), then unsubscribe and
+   resubscribe in CS2.
+2. Connect (`connect 192.168.50.196:27055`) and join CT or T. The warmup card shows bottom left with
+   Ready. Press B and click Ready. The card turns green with Unready.
+3. `ru hudkit demo <screen> <your slot>` for every screen: pick, pause, vote, help, admin → maps,
+   confirm, mapvote, chips. Check the layout, colours, animations and that the cursor comes and
+   goes.
+4. Type `.menu`: you get the admin menu, a real one this time (Change map runs `.map`).
+5. Run the section 1 tests below (Y chat, buy menu while captured, Tab / E / R probe).
+6. Play a knife round with a bot or a friend and pick a side with the buttons.
+
+Known gaps: the map vote (mapvote plugin) and the welcome / go-live / result cards still use center
+HTML. `.help` stays essentials' chat list, so the HUD menu opens with `.menu`. With
+`hud_screens=0` in readyup.cfg everything goes back to center HTML.
+
 ## 1. Test first (instance 5, scrim warmup on de_mirage)
 
 Run these before building anything:
