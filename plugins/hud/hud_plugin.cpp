@@ -566,6 +566,7 @@ void ClickOpen(int slot) {
 }
 
 void ClickClose(int slot) {
+  g_bMode.erase(slot);
   const int h = IfOpen(kClickLayout);
   IfSetCapture(h, slot, 0);
   IfSetClass(h, slot, "ac_card", "on", 0);
@@ -594,6 +595,33 @@ void DrainClicks() {
       g_later.emplace_back(g_now + 1.5, [slot] { ClickClose(slot); });
     }
   }
+}
+
+// B-key mode: the player decides when the mouse is out. The card shows without a capture; the
+// stock buy key B sends open_buymenu (the client does that by itself while buying is allowed), which
+// captures the cursor, and close_buymenu gives it back. No binds, no chat.
+std::set<int> g_bMode;  // slots whose open card waits for B
+
+void ClickOpenB(int slot) {
+  const int h = IfOpen(kClickLayout);
+  IfSetText(h, slot, "ac_title", "text", "Which side do you want?");
+  IfSetText(h, slot, "ac_status", "text", "Press B for your mouse");
+  IfSetClass(h, slot, "at_btn_ct", "picked", 0);
+  IfSetClass(h, slot, "at_btn_t", "picked", 0);
+  IfSetClass(h, slot, "ac_card", "on", 1);
+  IfSetCapture(h, slot, 0);
+  g_clickOpen.insert(slot);
+  g_bMode.insert(slot);
+}
+
+int OnBuyMenu(void*, int slot, uint64_t, const char* cmd, int, const char* const*) {
+  if (slot < 0 || !g_bMode.count(slot) || !g_clickOpen.count(slot)) return 0;  // never block the buy menu
+  const bool open = cmd && std::strcmp(cmd, "open_buymenu") == 0;
+  const int h = IfOpen(kClickLayout);
+  IfSetCapture(h, slot, open ? 1 : 0);
+  IfSetText(h, slot, "ac_status", "text", open ? "Click a side" : "Press B for your mouse");
+  ru_logf(g_api, RU_LOG_INFO, "click POC: slot %d %s the buy menu", slot, open ? "opened" : "closed");
+  return 0;
 }
 
 int CollectHuman(void* user, const ru_player* p) {
@@ -918,6 +946,12 @@ void OnRu(void*, const ru_command_ctx* ctx) {
     else g_api->for_each_player(g_api->self, &CollectHuman, &slots);
     for (int slot : slots) ClickOpen(slot);
     Reply(ctx, "click POC open for " + std::to_string(slots.size()) + " player(s); click hook " + g_clickHookStatus);
+  } else if (sub == "bclick") {  // ru hudkit bclick [slot]: the same card, mouse on the B key
+    std::vector<int> slots;
+    if (ctx->argc > 3) slots.push_back(std::atoi(ctx->argv[3]));
+    else g_api->for_each_player(g_api->self, &CollectHuman, &slots);
+    for (int slot : slots) ClickOpenB(slot);
+    Reply(ctx, "click POC (B key) open for " + std::to_string(slots.size()) + " player(s); click hook " + g_clickHookStatus);
   } else if (sub == "kit") {
     Kit(ctx, ctx->argc > 3 ? ctx->argv[3] : "");
   } else if (sub == "text" && ctx->argc >= 7) {  // ru hudkit text <hud#> <slot|all> <panel> <var> <value...>
@@ -925,7 +959,7 @@ void OnRu(void*, const ru_command_ctx* ctx) {
   } else if (sub == "class" && ctx->argc >= 8) {  // ru hudkit class <hud#> <slot|all> <panel> <class> <0|1>
     Reply(ctx, IfSetClass(std::atoi(ctx->argv[3]), ParseSlot(ctx->argv[4]), ctx->argv[5], ctx->argv[6], std::atoi(ctx->argv[7])) ? "ok" : "failed");
   } else {
-    Reply(ctx, "ru hudkit [status|info|click [slot]|hello <text>|kit <state>|text <hud#> <slot|all> <panel> <var> <value>|class <hud#> <slot|all> <panel> <class> <0|1>]");
+    Reply(ctx, "ru hudkit [status|info|click [slot]|bclick [slot]|hello <text>|kit <state>|text <hud#> <slot|all> <panel> <var> <value>|class <hud#> <slot|all> <panel> <class> <0|1>]");
   }
 }
 
@@ -961,11 +995,17 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_layouts.clear();
   g_resendAt.clear();
   g_later.clear();
+  g_bMode.clear();
+  g_clickOpen.clear();
   g_straysCleared = false;
   g_mapStartedAt = -1;
   api->on_tick(api->self, &OnTick, nullptr);
   api->subscribe(api->self, RU_EVENT_ANY, &OnEvent, nullptr);
   api->register_ru_subcommand(api->self, "hudkit", &OnRu, nullptr);
+  if (RU_API_HAS(api, filter_client_command)) {
+    api->filter_client_command(api->self, "open_buymenu", &OnBuyMenu, nullptr);
+    api->filter_client_command(api->self, "close_buymenu", &OnBuyMenu, nullptr);
+  }
   api->provide_interface(api->self, RU_HUD_IFACE_NAME, RU_HUD_IFACE_VERSION, const_cast<ru_hud_v1*>(&g_iface));
   api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "hud", RU_SELFTEST_IFACE_VERSION,
                          const_cast<ru_selftest_iface_v1*>(&g_selftestIface));

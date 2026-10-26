@@ -11,6 +11,7 @@
     "entity_remove",
     "entity_spawn",
     "entity_system_status",
+    "filter_client_command",
     "for_each_player",
     "hook_vtable",
     "on_tick",
