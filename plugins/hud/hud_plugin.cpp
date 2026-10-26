@@ -1127,188 +1127,26 @@ void Kit(const ru_command_ctx* ctx, const std::string& state) {
 // screen carry "#demo <name>"; any other click is echoed in chat.
 const std::map<std::string, std::string>& DemoScreens() {
   static const std::map<std::string, std::string> k = {
-      {"notready", "id=warm
-where=card
-kind=Warmup
-title=You're not ready
-teams=CT|3|5|T|3|5
-btn=Ready|green||#demo ready
-bw=l
-hint=Press B to click
-mouse=b"},
-      {"ready", "id=warm
-where=card
-color=live
-kind=Ready
-title=You're ready
-teams=CT|4|5|T|3|5
-btn=Unready|ghost||#demo notready
-bw=l
-hint=Press B to click
-mouse=b"},
-      {"everyone", "id=everyone
-color=live
-kind=Everyone is ready
-title=Knife round (5)"},
-      {"pick", "id=pick
-color=live
-kind=You won the knife
-title=Which side do you want?
-timer=20
-btn=CT|ct||#demo pickedct
-btn=T|t||#demo pickedt
-mouse=on"},
-      {"pickedct", "id=pick
-color=live
-kind=You won the knife
-title=Sivert picked CT
-sub=Match starts (5)
-btn=CT|ct|picked|
-btn=T|t|off|"},
-      {"pickedt", "id=pick
-color=live
-kind=You won the knife
-title=Sivert picked T
-sub=Match starts (5)
-btn=CT|ct|off|
-btn=T|t|picked|"},
-      {"lost", "id=lost
-kind=You lost the knife
-title=Team A is picking a side
-timer=20"},
-      {"live", "id=live
-color=live
-kind=Match live
-title=Good luck, have fun
-cmd=Timeout|.tac
-cmd=Tech pause|.p"},
-      {"pause", "id=pause
-color=warn
-kind=Tech pause
-title=Team B paused
-sub=Auto unpause (252)
-confirm=Team A|0|Team B|0
-btn=Unpause|warn||#demo waiting
-bw=l
-counter=1 / 3 used
-mouse=on"},
-      {"waiting", "id=pause
-color=warn
-kind=Tech pause
-title=Team B paused
-sub=Auto unpause (245)
-confirm=Team A|1|Team B|0
-btn=Waiting for Team B|ghost|off|
-bw=xl
-counter=1 / 3 used"},
-      {"vote", "id=vote
-color=ban
-kind=Give up vote
-title=Sivert wants to give up
-timer=15
-btn=Yes|danger||#demo voted
-btn=No|ghost||#demo off
-bw=s
-counter=2 / 5 yes
-mouse=on"},
-      {"voted", "id=vote
-color=ban
-kind=Give up vote
-title=Sivert wants to give up
-timer=11
-btn=Yes|danger|picked|
-btn=No|ghost|off|
-bw=s
-counter=3 / 5 yes"},
-      {"chips", "id=vote
-color=ban
-kind=Give up vote
-title=Sivert wants to give up
-timer=15
-btn=Yes|danger||.gg
-btn=No|ghost||
-bw=s
-chips=1
-mouse=on"},
-      {"help", "id=help
-kind=Help
-title=What do you need?
-btn=Timeout|ghost||.tac
-btn=Tech pause|ghost||#demo pause
-btn=Give up vote|ghost||#demo vote
-btn=Replay round|ghost||.stop
-cols=2
-bw=l
-close=Close|
-mouse=on"},
-      {"admin", "id=admin
-kind=Admin
-title=Match controls
-btn=Pause|ghost||#demo pause
-btn=Unpause|ghost||#demo off
-btn=Replay a round|ghost||#demo rounds
-btn=Change map|ghost||#demo maps
-btn=Swap teams|ghost||
-btn=Force ready|ghost||#demo everyone
-btn=Restart map|ghost||
-btn=End match|danger||#demo confirm
-cols=2
-bw=l
-close=Close|
-mouse=on"},
-      {"maps", "id=maps
-kind=Admin Â· change map
-title=Pick a map
-btn=Mirage|ghost||
-btn=Inferno|ghost||
-btn=Nuke|ghost||
-btn=Ancient|ghost||
-btn=Anubis|ghost||
-btn=Dust2|ghost||
-btn=Train|ghost||
-btn=Overpass|ghost||
-cols=4
-bw=s
-close=Back|#demo admin
-mouse=on"},
-      {"rounds", "id=rounds
-kind=Admin Â· replay
-title=Back to which round?
-btn=Round 14|ghost||
-btn=Round 13|ghost||
-btn=Round 12|ghost||
-btn=Round 11|ghost||
-btn=Round 10|ghost||
-btn=Round 9|ghost||
-cols=3
-bw=s
-close=Back|#demo admin
-mouse=on"},
-      {"confirm", "id=confirm
-color=ban
-kind=Admin
-title=End the match?
-sub=Nobody wins. No undo.
-btn=End match|danger||#demo off
-btn=Cancel|ghost||#demo admin
-mouse=on"},
-      {"mapvote", "id=mapvote
-kind=Map vote
-title=Next map?
-timer=25
-btn=Mirage|ghost||#demo off|3
-btn=Inferno|ghost||#demo off|2
-btn=Nuke|ghost||#demo off|1
-btn=Ancient|ghost||#demo off|0
-btn=Anubis|ghost||#demo off|2
-btn=Dust2|ghost||#demo off|1
-cols=3
-bw=m
-mouse=on"},
-      {"missing", "id=missing
-color=ban
-title=Team B is missing
-sub=Forfeit win in (165)"},
+      {"notready", "id=warm\nwhere=card\nkind=Warmup\ntitle=You're not ready\nteams=CT|3|5|T|3|5\nbtn=Ready|green||#demo ready\nbw=l\nhint=Press B to click\nmouse=b"},
+      {"ready", "id=warm\nwhere=card\ncolor=live\nkind=Ready\ntitle=You're ready\nteams=CT|4|5|T|3|5\nbtn=Unready|ghost||#demo notready\nbw=l\nhint=Press B to click\nmouse=b"},
+      {"everyone", "id=everyone\ncolor=live\nkind=Everyone is ready\ntitle=Knife round (5)"},
+      {"pick", "id=pick\ncolor=live\nkind=You won the knife\ntitle=Which side do you want?\ntimer=20\nbtn=CT|ct||#demo pickedct\nbtn=T|t||#demo pickedt\nmouse=on"},
+      {"pickedct", "id=pick\ncolor=live\nkind=You won the knife\ntitle=Sivert picked CT\nsub=Match starts (5)\nbtn=CT|ct|picked|\nbtn=T|t|off|"},
+      {"pickedt", "id=pick\ncolor=live\nkind=You won the knife\ntitle=Sivert picked T\nsub=Match starts (5)\nbtn=CT|ct|off|\nbtn=T|t|picked|"},
+      {"lost", "id=lost\nkind=You lost the knife\ntitle=Team A is picking a side\ntimer=20"},
+      {"live", "id=live\ncolor=live\nkind=Match live\ntitle=Good luck, have fun\ncmd=Timeout|.tac\ncmd=Tech pause|.p"},
+      {"pause", "id=pause\ncolor=warn\nkind=Tech pause\ntitle=Team B paused\nsub=Auto unpause (252)\nconfirm=Team A|0|Team B|0\nbtn=Unpause|warn||#demo waiting\nbw=l\ncounter=1 / 3 used\nmouse=on"},
+      {"waiting", "id=pause\ncolor=warn\nkind=Tech pause\ntitle=Team B paused\nsub=Auto unpause (245)\nconfirm=Team A|1|Team B|0\nbtn=Waiting for Team B|ghost|off|\nbw=xl\ncounter=1 / 3 used"},
+      {"vote", "id=vote\ncolor=ban\nkind=Give up vote\ntitle=Sivert wants to give up\ntimer=15\nbtn=Yes|danger||#demo voted\nbtn=No|ghost||#demo off\nbw=s\ncounter=2 / 5 yes\nmouse=on"},
+      {"voted", "id=vote\ncolor=ban\nkind=Give up vote\ntitle=Sivert wants to give up\ntimer=11\nbtn=Yes|danger|picked|\nbtn=No|ghost|off|\nbw=s\ncounter=3 / 5 yes"},
+      {"chips", "id=vote\ncolor=ban\nkind=Give up vote\ntitle=Sivert wants to give up\ntimer=15\nbtn=Yes|danger||.gg\nbtn=No|ghost||\nbw=s\nchips=1\nmouse=on"},
+      {"help", "id=help\nkind=Help\ntitle=What do you need?\nbtn=Timeout|ghost||.tac\nbtn=Tech pause|ghost||#demo pause\nbtn=Give up vote|ghost||#demo vote\nbtn=Replay round|ghost||.stop\ncols=2\nbw=l\nclose=Close|\nmouse=on"},
+      {"admin", "id=admin\nkind=Admin\ntitle=Match controls\nbtn=Pause|ghost||#demo pause\nbtn=Unpause|ghost||#demo off\nbtn=Replay a round|ghost||#demo rounds\nbtn=Change map|ghost||#demo maps\nbtn=Swap teams|ghost||\nbtn=Force ready|ghost||#demo everyone\nbtn=Restart map|ghost||\nbtn=End match|danger||#demo confirm\ncols=2\nbw=l\nclose=Close|\nmouse=on"},
+      {"maps", "id=maps\nkind=Admin Â· change map\ntitle=Pick a map\nbtn=Mirage|ghost||\nbtn=Inferno|ghost||\nbtn=Nuke|ghost||\nbtn=Ancient|ghost||\nbtn=Anubis|ghost||\nbtn=Dust2|ghost||\nbtn=Train|ghost||\nbtn=Overpass|ghost||\ncols=4\nbw=s\nclose=Back|#demo admin\nmouse=on"},
+      {"rounds", "id=rounds\nkind=Admin Â· replay\ntitle=Back to which round?\nbtn=Round 14|ghost||\nbtn=Round 13|ghost||\nbtn=Round 12|ghost||\nbtn=Round 11|ghost||\nbtn=Round 10|ghost||\nbtn=Round 9|ghost||\ncols=3\nbw=s\nclose=Back|#demo admin\nmouse=on"},
+      {"confirm", "id=confirm\ncolor=ban\nkind=Admin\ntitle=End the match?\nsub=Nobody wins. No undo.\nbtn=End match|danger||#demo off\nbtn=Cancel|ghost||#demo admin\nmouse=on"},
+      {"mapvote", "id=mapvote\nkind=Map vote\ntitle=Next map?\ntimer=25\nbtn=Mirage|ghost||#demo off|3\nbtn=Inferno|ghost||#demo off|2\nbtn=Nuke|ghost||#demo off|1\nbtn=Ancient|ghost||#demo off|0\nbtn=Anubis|ghost||#demo off|2\nbtn=Dust2|ghost||#demo off|1\ncols=3\nbw=m\nmouse=on"},
+      {"missing", "id=missing\ncolor=ban\ntitle=Team B is missing\nsub=Forfeit win in (165)"},
       {"off", ""},
   };
   return k;
@@ -1383,8 +1221,7 @@ void OnRu(void*, const ru_command_ctx* ctx) {
   } else if (sub == "screen" && ctx->argc >= 5) {  // ru hudkit screen <slot> <spec, lines split by ;>
     std::string spec = Join(ctx, 4);
     for (char& ch : spec)
-      if (ch == ';') ch = '
-';
+      if (ch == ';') ch = '\n';
     Reply(ctx, IfScreen(std::atoi(ctx->argv[3]), spec.c_str(), &OnDemoClick, nullptr) ? "ok" : "failed");
   } else if (sub == "text" && ctx->argc >= 7) {  // ru hudkit text <hud#> <slot|all> <panel> <var> <value...>
     Reply(ctx, IfSetText(std::atoi(ctx->argv[3]), ParseSlot(ctx->argv[4]), ctx->argv[5], ctx->argv[6], Join(ctx, 7).c_str()) ? "ok" : "failed");
