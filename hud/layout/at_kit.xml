@@ -1,0 +1,128 @@
+<!--
+  Auto Tournament HUD: one card above the chat, left side.
+  Design reference ("Play" board): https://claude.ai/artifact/Nnt5WzmHAQbt8bXpoYKv97
+
+  m_strLayout = "panorama/layout/custom_game/at_kit.xml"
+
+  The server drives everything with dialog variables ({s:text}) and classes on these ids.
+  The full list of ids and classes is in hud/README.md ("at_kit").
+
+  Rules: the root has no id. Only Panel and Label. hittest="false" everywhere: nothing here takes
+  the mouse. No inline style="". Lists are fixed slots: 5 players a side, 5 damage rows,
+  10 bar segments, 2 command chips.
+-->
+<root>
+	<styles>
+		<include src="s2r://panorama/styles/custom_game/at_kit.vcss_c" />
+	</styles>
+
+	<Panel class="at-root" hittest="false">
+		<Panel id="at_card" class="at-card" hittest="false">
+			<Panel class="at-content" hittest="false">
+
+			<!-- Header: dot, kind, a few words. Two text layers (a/b) so the text rolls on change. -->
+			<Panel class="at-head" hittest="false">
+				<Panel class="at-dot" hittest="false" />
+				<Panel class="at-lyrbox at-kindbox" hittest="false">
+					<Label id="at_kind_a" class="at-lyr at-kind cur" text="{s:text}" hittest="false" />
+					<Label id="at_kind_b" class="at-lyr at-kind old" text="{s:text}" hittest="false" />
+				</Panel>
+				<Panel class="at-lyrbox" hittest="false">
+					<Label id="at_text_a" class="at-lyr at-text cur" text="{s:text}" hittest="false" />
+					<Label id="at_text_b" class="at-lyr at-text old" text="{s:text}" hittest="false" />
+				</Panel>
+			</Panel>
+
+			<!-- Body: players (card class b-players) -->
+			<Panel class="at-body at-players" hittest="false">
+				<Panel class="at-team" hittest="false">
+					<Label id="at_team_a" class="at-teamname" text="{s:text}" hittest="false" />
+					<Panel id="at_pa0" class="at-prow" hittest="false"><Label id="at_pa0_name" class="at-pname" text="{s:text}" hittest="false" /><Panel class="at-pdot" hittest="false" /></Panel>
+					<Panel id="at_pa1" class="at-prow" hittest="false"><Label id="at_pa1_name" class="at-pname" text="{s:text}" hittest="false" /><Panel class="at-pdot" hittest="false" /></Panel>
+					<Panel id="at_pa2" class="at-prow" hittest="false"><Label id="at_pa2_name" class="at-pname" text="{s:text}" hittest="false" /><Panel class="at-pdot" hittest="false" /></Panel>
+					<Panel id="at_pa3" class="at-prow" hittest="false"><Label id="at_pa3_name" class="at-pname" text="{s:text}" hittest="false" /><Panel class="at-pdot" hittest="false" /></Panel>
+					<Panel id="at_pa4" class="at-prow" hittest="false"><Label id="at_pa4_name" class="at-pname" text="{s:text}" hittest="false" /><Panel class="at-pdot" hittest="false" /></Panel>
+				</Panel>
+				<Panel class="at-team" hittest="false">
+					<Label id="at_team_b" class="at-teamname" text="{s:text}" hittest="false" />
+					<Panel id="at_pb0" class="at-prow" hittest="false"><Label id="at_pb0_name" class="at-pname" text="{s:text}" hittest="false" /><Panel class="at-pdot" hittest="false" /></Panel>
+					<Panel id="at_pb1" class="at-prow" hittest="false"><Label id="at_pb1_name" class="at-pname" text="{s:text}" hittest="false" /><Panel class="at-pdot" hittest="false" /></Panel>
+					<Panel id="at_pb2" class="at-prow" hittest="false"><Label id="at_pb2_name" class="at-pname" text="{s:text}" hittest="false" /><Panel class="at-pdot" hittest="false" /></Panel>
+					<Panel id="at_pb3" class="at-prow" hittest="false"><Label id="at_pb3_name" class="at-pname" text="{s:text}" hittest="false" /><Panel class="at-pdot" hittest="false" /></Panel>
+					<Panel id="at_pb4" class="at-prow" hittest="false"><Label id="at_pb4_name" class="at-pname" text="{s:text}" hittest="false" /><Panel class="at-pdot" hittest="false" /></Panel>
+				</Panel>
+			</Panel>
+
+			<!-- Body: ready dots (card class b-dots) -->
+			<Panel class="at-body at-dots" hittest="false">
+				<Panel class="at-dotteam" hittest="false">
+					<Label class="at-dotlabel" text="A" hittest="false" />
+					<Panel id="at_da0" class="at-rdot" hittest="false" />
+					<Panel id="at_da1" class="at-rdot" hittest="false" />
+					<Panel id="at_da2" class="at-rdot" hittest="false" />
+					<Panel id="at_da3" class="at-rdot" hittest="false" />
+					<Panel id="at_da4" class="at-rdot" hittest="false" />
+				</Panel>
+				<Panel class="at-dotteam" hittest="false">
+					<Label class="at-dotlabel" text="B" hittest="false" />
+					<Panel id="at_db0" class="at-rdot" hittest="false" />
+					<Panel id="at_db1" class="at-rdot" hittest="false" />
+					<Panel id="at_db2" class="at-rdot" hittest="false" />
+					<Panel id="at_db3" class="at-rdot" hittest="false" />
+					<Panel id="at_db4" class="at-rdot" hittest="false" />
+				</Panel>
+			</Panel>
+
+			<!-- Body: round damage (card class b-dmg) -->
+			<Panel class="at-body at-dmg" hittest="false">
+				<Panel class="at-drow at-dhead" hittest="false">
+					<Label class="at-dname" text="" hittest="false" />
+					<Label class="at-dnum" text="GIVEN" hittest="false" />
+					<Label class="at-dnum" text="TAKEN" hittest="false" />
+					<Label class="at-dhp" text="HP" hittest="false" />
+				</Panel>
+				<Panel id="at_d0" class="at-drow" hittest="false"><Label id="at_d0_name" class="at-dname" text="{s:text}" hittest="false" /><Label id="at_d0_given" class="at-dnum at-given" text="{s:text}" hittest="false" /><Label id="at_d0_taken" class="at-dnum at-taken" text="{s:text}" hittest="false" /><Label id="at_d0_hp" class="at-dhp" text="{s:text}" hittest="false" /></Panel>
+				<Panel id="at_d1" class="at-drow" hittest="false"><Label id="at_d1_name" class="at-dname" text="{s:text}" hittest="false" /><Label id="at_d1_given" class="at-dnum at-given" text="{s:text}" hittest="false" /><Label id="at_d1_taken" class="at-dnum at-taken" text="{s:text}" hittest="false" /><Label id="at_d1_hp" class="at-dhp" text="{s:text}" hittest="false" /></Panel>
+				<Panel id="at_d2" class="at-drow" hittest="false"><Label id="at_d2_name" class="at-dname" text="{s:text}" hittest="false" /><Label id="at_d2_given" class="at-dnum at-given" text="{s:text}" hittest="false" /><Label id="at_d2_taken" class="at-dnum at-taken" text="{s:text}" hittest="false" /><Label id="at_d2_hp" class="at-dhp" text="{s:text}" hittest="false" /></Panel>
+				<Panel id="at_d3" class="at-drow" hittest="false"><Label id="at_d3_name" class="at-dname" text="{s:text}" hittest="false" /><Label id="at_d3_given" class="at-dnum at-given" text="{s:text}" hittest="false" /><Label id="at_d3_taken" class="at-dnum at-taken" text="{s:text}" hittest="false" /><Label id="at_d3_hp" class="at-dhp" text="{s:text}" hittest="false" /></Panel>
+				<Panel id="at_d4" class="at-drow" hittest="false"><Label id="at_d4_name" class="at-dname" text="{s:text}" hittest="false" /><Label id="at_d4_given" class="at-dnum at-given" text="{s:text}" hittest="false" /><Label id="at_d4_taken" class="at-dnum at-taken" text="{s:text}" hittest="false" /><Label id="at_d4_hp" class="at-dhp" text="{s:text}" hittest="false" /></Panel>
+			</Panel>
+
+			<!-- Body: download progress (card class b-bar) -->
+			<Panel class="at-body at-bar" hittest="false">
+				<Panel class="at-segs" hittest="false">
+					<Panel id="at_s0" class="at-seg" hittest="false" />
+					<Panel id="at_s1" class="at-seg" hittest="false" />
+					<Panel id="at_s2" class="at-seg" hittest="false" />
+					<Panel id="at_s3" class="at-seg" hittest="false" />
+					<Panel id="at_s4" class="at-seg" hittest="false" />
+					<Panel id="at_s5" class="at-seg" hittest="false" />
+					<Panel id="at_s6" class="at-seg" hittest="false" />
+					<Panel id="at_s7" class="at-seg" hittest="false" />
+					<Panel id="at_s8" class="at-seg" hittest="false" />
+					<Panel id="at_s9" class="at-seg" hittest="false" />
+				</Panel>
+				<Label id="at_pct" class="at-pct" text="{s:text}" hittest="false" />
+			</Panel>
+
+			<!-- Commands: two chips, each with two layers (a/b) of "cmd + meaning" -->
+			<Panel class="at-chips" hittest="false">
+				<Panel id="at_c0" class="at-chip" hittest="false">
+					<Panel id="at_c0_a" class="at-lyr at-chiplyr cur" hittest="false"><Label id="at_c0_a_cmd" class="at-cmd" text="{s:text}" hittest="false" /><Label id="at_c0_a_lbl" class="at-cmdlbl" text="{s:text}" hittest="false" /></Panel>
+					<Panel id="at_c0_b" class="at-lyr at-chiplyr old" hittest="false"><Label id="at_c0_b_cmd" class="at-cmd" text="{s:text}" hittest="false" /><Label id="at_c0_b_lbl" class="at-cmdlbl" text="{s:text}" hittest="false" /></Panel>
+				</Panel>
+				<Panel id="at_c1" class="at-chip" hittest="false">
+					<Panel id="at_c1_a" class="at-lyr at-chiplyr cur" hittest="false"><Label id="at_c1_a_cmd" class="at-cmd" text="{s:text}" hittest="false" /><Label id="at_c1_a_lbl" class="at-cmdlbl" text="{s:text}" hittest="false" /></Panel>
+					<Panel id="at_c1_b" class="at-lyr at-chiplyr old" hittest="false"><Label id="at_c1_b_cmd" class="at-cmd" text="{s:text}" hittest="false" /><Label id="at_c1_b_lbl" class="at-cmdlbl" text="{s:text}" hittest="false" /></Panel>
+				</Panel>
+			</Panel>
+
+			</Panel>
+
+			<!-- Decoration: accent line along the bottom, the "everyone ready" wipe, the pulse ring. -->
+			<Panel class="at-line" hittest="false" />
+			<Panel class="at-sweep" hittest="false" />
+			<Panel class="at-ring" hittest="false" />
+		</Panel>
+	</Panel>
+</root>

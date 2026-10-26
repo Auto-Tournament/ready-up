@@ -1,0 +1,558 @@
+/*
+  Auto Tournament HUD card (at_kit.xml). Panorama CSS: flow-children instead of flexbox,
+  visibility: collapse to hide, sizes in px at 1080p (Panorama scales with screen height).
+
+  Motion follows the highlights overlay (platform worker/card.go): cubic-bezier(0.2, 0.8, 0.2, 1)
+  in, cubic-bezier(0.55, 0, 1, 0.45) out. Everything is a transition fired by a class the server
+  toggles; the only @keyframes animate opacity (keyframes on transform don't run in a
+  custom_hud_layout). Width and height can't animate: the card snaps to its new size and the new
+  body fades in.
+
+  No font-family yet: whether an addon can ship Sora/Geist is a P2 test, so this uses CS2's font.
+  One selector per rule (comma selectors are best avoided in custom layouts).
+*/
+
+.at-root
+{
+	width: 100%;
+	height: 100%;
+}
+
+/* ---- The card ---------------------------------------------------------------------------- */
+
+.at-card
+{
+	horizontal-align: left;
+	vertical-align: bottom;
+	margin-left: 24px;
+	margin-bottom: 320px;
+	width: fit-children;
+	height: fit-children;
+	min-width: 300px;
+	overflow: clip;
+	background-color: #18110eeb;
+	border: 1px solid #322926;
+	border-radius: 12px;
+
+	opacity: 0;
+	transform: translateX( -48px );
+	transition-property: opacity, transform;
+	transition-duration: 0.2s;
+	transition-timing-function: cubic-bezier( 0.55, 0, 1, 0.45 );
+}
+
+.at-card.on
+{
+	opacity: 1;
+	transform: translateX( 0px );
+	transition-duration: 0.38s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+
+/* The game puts this class on the HUD root while the stock buy menu is open: get out of the way. */
+.HUD_BUYMENU_VISIBLE .at-card.on
+{
+	opacity: 0;
+}
+
+.at-content
+{
+	flow-children: down;
+	width: fit-children;
+	height: fit-children;
+	padding: 12px 14px 15px 14px;
+}
+
+/* ---- Header: dot, kind, a few words ------------------------------------------------------ */
+
+.at-head
+{
+	flow-children: right;
+	width: fit-children;
+	height: 20px;
+}
+
+.at-dot
+{
+	width: 10px;
+	height: 10px;
+	border-radius: 5px;
+	vertical-align: center;
+	margin-right: 10px;
+	background-color: #ff6a3d;
+	transition-property: background-color;
+	transition-duration: 0.3s;
+}
+
+/* Two stacked layers (a/b). The server writes the new text into the old layer, then swaps
+   "cur" and "old": the old text rolls up and out while the new text rolls up and in. */
+.at-lyrbox
+{
+	width: fit-children;
+	height: 20px;
+	margin-right: 10px;
+}
+
+.at-lyr
+{
+	opacity: 0;
+	transform: translateY( 10px );
+	transition-property: opacity, transform, color;
+	transition-duration: 0.26s;
+	transition-timing-function: cubic-bezier( 0.55, 0, 1, 0.45 );
+}
+
+.at-lyr.old
+{
+	transform: translateY( -10px );
+}
+
+.at-lyr.cur
+{
+	opacity: 1;
+	transform: translateY( 0px );
+	transition-duration: 0.36s;
+	transition-delay: 0.09s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+
+.at-kind
+{
+	vertical-align: center;
+	font-size: 11px;
+	font-weight: bold;
+	letter-spacing: 1.4px;
+	text-transform: uppercase;
+	color: #ff6a3d;
+}
+
+.at-text
+{
+	vertical-align: center;
+	font-size: 15px;
+	color: #f4edeb;
+}
+
+/* Colour of the state: c-accent (default), c-live, c-warn, c-info, c-ban on #at_card. */
+.c-live .at-dot { background-color: #3fc168; }
+.c-live .at-kind { color: #3fc168; }
+.c-live .at-line { background-color: #3fc168; }
+.c-warn .at-dot { background-color: #e6b33c; }
+.c-warn .at-kind { color: #e6b33c; }
+.c-warn .at-line { background-color: #e6b33c; }
+.c-info .at-dot { background-color: #4f9df2; }
+.c-info .at-kind { color: #4f9df2; }
+.c-info .at-line { background-color: #4f9df2; }
+.c-ban .at-dot { background-color: #f2645f; }
+.c-ban .at-kind { color: #f2645f; }
+.c-ban .at-line { background-color: #f2645f; }
+
+/* ---- Bodies: one at a time, picked by b-players / b-dots / b-dmg / b-bar on #at_card --------- */
+
+.at-body
+{
+	visibility: collapse;
+	opacity: 0;
+	margin-top: 12px;
+	transition-property: opacity;
+	transition-duration: 0.28s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+
+.b-players .at-players { visibility: visible; opacity: 1; }
+.b-dots .at-dots { visibility: visible; opacity: 1; }
+.b-dmg .at-dmg { visibility: visible; opacity: 1; }
+.b-bar .at-bar { visibility: visible; opacity: 1; }
+
+/* Players: name and a dot per row. Row classes: ok (ready), me (you). */
+.at-players
+{
+	flow-children: right;
+	width: fit-children;
+}
+
+.at-team
+{
+	flow-children: down;
+	width: 188px;
+	margin-right: 12px;
+}
+
+.at-teamname
+{
+	margin-bottom: 5px;
+	font-size: 11px;
+	font-weight: bold;
+	color: #938a87;
+}
+
+.at-prow
+{
+	flow-children: right;
+	width: 100%;
+	height: 26px;
+	margin-bottom: 5px;
+	padding: 0px 9px;
+	border-radius: 7px;
+	background-color: #211815;
+	border: 1px solid #211815;
+
+	opacity: 0;
+	transform: translateX( -16px );
+	transition-property: opacity, transform;
+	transition-duration: 0.3s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+
+.on .at-prow
+{
+	opacity: 1;
+	transform: translateX( 0px );
+}
+
+/* Rows come in one after another, like a kill feed. */
+#at_pa1 { transition-delay: 0.035s; }
+#at_pa2 { transition-delay: 0.07s; }
+#at_pa3 { transition-delay: 0.105s; }
+#at_pa4 { transition-delay: 0.14s; }
+#at_pb1 { transition-delay: 0.035s; }
+#at_pb2 { transition-delay: 0.07s; }
+#at_pb3 { transition-delay: 0.105s; }
+#at_pb4 { transition-delay: 0.14s; }
+
+.at-prow.me
+{
+	border: 1px solid #736966;
+}
+
+.at-pname
+{
+	width: fill-parent-flow( 1.0 );
+	vertical-align: center;
+	font-size: 13px;
+	color: #f4edeb;
+}
+
+.at-pdot
+{
+	width: 9px;
+	height: 9px;
+	border-radius: 4.5px;
+	vertical-align: center;
+	background-color: #4a3f3b;
+	transform: scale3d( 0.7, 0.7, 1 );
+	transition-property: background-color, transform;
+	transition-duration: 0.3s, 0.45s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ), cubic-bezier( 0.34, 1.56, 0.64, 1 );
+}
+
+.at-prow.ok .at-pdot
+{
+	background-color: #3fc168;
+	transform: scale3d( 1, 1, 1 );
+}
+
+/* Dots: one per player, class ok when ready. */
+.at-dots
+{
+	flow-children: right;
+	margin-left: 20px;
+}
+
+.at-dotteam
+{
+	flow-children: right;
+	margin-right: 18px;
+}
+
+.at-dotlabel
+{
+	vertical-align: center;
+	margin-right: 8px;
+	font-size: 11px;
+	font-weight: bold;
+	color: #938a87;
+}
+
+.at-rdot
+{
+	width: 11px;
+	height: 11px;
+	margin-right: 6px;
+	border-radius: 5.5px;
+	vertical-align: center;
+	background-color: #4a3f3b;
+	transform: scale3d( 0.7, 0.7, 1 );
+	transition-property: background-color, transform;
+	transition-duration: 0.3s, 0.45s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ), cubic-bezier( 0.34, 1.56, 0.64, 1 );
+}
+
+.at-rdot.ok
+{
+	background-color: #3fc168;
+	transform: scale3d( 1, 1, 1 );
+}
+
+/* Round damage: 5 rows. Row classes: hit (gave damage), big (100+), took (took damage), dead (hp 0). */
+.at-dmg
+{
+	flow-children: down;
+	width: 388px;
+}
+
+.at-drow
+{
+	flow-children: right;
+	width: 100%;
+	height: 28px;
+	margin-bottom: 5px;
+	padding: 0px 9px;
+	border-radius: 7px;
+	background-color: #211815;
+
+	opacity: 0;
+	transform: translateX( -16px );
+	transition-property: opacity, transform;
+	transition-duration: 0.3s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+
+.on .at-drow
+{
+	opacity: 1;
+	transform: translateX( 0px );
+}
+
+#at_d1 { transition-delay: 0.035s; }
+#at_d2 { transition-delay: 0.07s; }
+#at_d3 { transition-delay: 0.105s; }
+#at_d4 { transition-delay: 0.14s; }
+
+.at-drow.at-dhead
+{
+	height: 16px;
+	background-color: #00000000;
+}
+
+.at-dname
+{
+	width: fill-parent-flow( 1.0 );
+	vertical-align: center;
+	font-size: 13px;
+	color: #f4edeb;
+}
+
+.at-dnum
+{
+	width: 70px;
+	margin-left: 8px;
+	vertical-align: center;
+	text-align: right;
+	font-size: 13px;
+	color: #938a87;
+}
+
+.at-dhp
+{
+	width: 48px;
+	margin-left: 8px;
+	vertical-align: center;
+	text-align: right;
+	font-size: 13px;
+	font-weight: bold;
+	color: #c4bcb9;
+}
+
+.at-dhead .at-dnum
+{
+	font-size: 10px;
+	font-weight: bold;
+	letter-spacing: 1.2px;
+}
+
+.at-dhead .at-dhp
+{
+	font-size: 10px;
+	letter-spacing: 1.2px;
+	color: #938a87;
+}
+
+.hit .at-given { color: #f4edeb; }
+.big .at-given { color: #ff6a3d; }
+.took .at-taken { color: #f2645f; }
+.dead .at-dname { color: #938a87; }
+.dead .at-dhp { color: #f2645f; }
+
+/* Download bar: 10 segments, class fill on each done segment. */
+.at-bar
+{
+	flow-children: right;
+	width: 300px;
+	margin-left: 20px;
+}
+
+.at-segs
+{
+	flow-children: right;
+	width: fill-parent-flow( 1.0 );
+	vertical-align: center;
+}
+
+.at-seg
+{
+	width: 21px;
+	height: 6px;
+	margin-right: 3px;
+	border-radius: 2px;
+	background-color: #322926;
+	transition-property: background-color;
+	transition-duration: 0.22s;
+}
+
+.at-seg.fill
+{
+	background-color: #ff6a3d;
+}
+
+.at-pct
+{
+	width: 40px;
+	vertical-align: center;
+	text-align: right;
+	font-size: 12px;
+	font-weight: bold;
+	color: #ff6a3d;
+}
+
+/* ---- Commands: up to two chips. Card class "cmds" shows the row. ------------------------------
+   Chip classes: main (accent), side-ct, side-t (side colours), gone (unused slot). */
+
+.at-chips
+{
+	visibility: collapse;
+	flow-children: right;
+	margin-top: 12px;
+	margin-left: 20px;
+}
+
+.cmds .at-chips
+{
+	visibility: visible;
+}
+
+.at-chip
+{
+	width: fit-children;
+	height: 30px;
+	margin-right: 8px;
+	padding: 0px 10px;
+	border-radius: 6px;
+	background-color: #211815;
+	border: 1px solid #736966;
+	transition-property: background-color, border-color, opacity;
+	transition-duration: 0.32s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+
+.at-chip.main { background-color: #ff6a3d; border: 1px solid #ff6a3d; }
+.at-chip.side-ct { background-color: #7b9be0; border: 1px solid #7b9be0; }
+.at-chip.side-t { background-color: #de9b35; border: 1px solid #de9b35; }
+.at-chip.gone { opacity: 0; }
+
+.at-chiplyr
+{
+	flow-children: right;
+	height: 30px;
+}
+
+.at-cmd
+{
+	vertical-align: center;
+	margin-right: 6px;
+	font-size: 14px;
+	font-weight: bold;
+	color: #f4edeb;
+}
+
+.at-cmdlbl
+{
+	vertical-align: center;
+	font-size: 14px;
+	color: #c4bcb9;
+}
+
+.main .at-cmd { color: #140e0c; }
+.main .at-cmdlbl { color: #140e0cb8; }
+.side-ct .at-cmd { color: #140e0c; }
+.side-ct .at-cmdlbl { color: #140e0cb8; }
+.side-t .at-cmd { color: #140e0c; }
+.side-t .at-cmdlbl { color: #140e0cb8; }
+
+/* ---- Decoration ------------------------------------------------------------------------------ */
+
+/* Accent line drawing across the bottom. */
+.at-line
+{
+	width: 100%;
+	height: 3px;
+	vertical-align: bottom;
+	background-color: #ff6a3d;
+	transform-origin: 0% 50%;
+	transform: scale3d( 0, 1, 1 );
+	transition-property: transform, background-color;
+	transition-duration: 0.12s, 0.3s;
+}
+
+.at-card.on .at-line
+{
+	transform: scale3d( 1, 1, 1 );
+	transition-duration: 0.7s, 0.3s;
+	transition-delay: 0.2s, 0s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+
+/* The orange wipe from the highlight reels, once, when card class "go" is set (everyone ready).
+   No transition on the way back, so it snaps home unseen (clipped by the card). */
+.at-sweep
+{
+	width: 100%;
+	height: 100%;
+	background-color: #ff6a3d;
+	transform: translateX( -480px );
+}
+
+.at-card.go .at-sweep
+{
+	transform: translateX( 480px );
+	transition-property: transform;
+	transition-duration: 0.7s;
+	transition-delay: 0.15s;
+	transition-timing-function: cubic-bezier( 0.65, 0, 0.35, 1 );
+}
+
+/* Pulse ring while YOU are not ready (card class "nudge"). Opacity keyframes do run. */
+@keyframes 'at-pulse'
+{
+	0% { opacity: 0.15; }
+	50% { opacity: 1; }
+	100% { opacity: 0.15; }
+}
+
+.at-ring
+{
+	width: 100%;
+	height: 100%;
+	border: 2px solid #ff6a3d;
+	border-radius: 12px;
+	opacity: 0;
+}
+
+.at-card.on.nudge .at-ring
+{
+	animation-name: at-pulse;
+	animation-duration: 1.6s;
+	animation-delay: 0.8s;
+	animation-timing-function: ease-in-out;
+	animation-iteration-count: infinite;
+}
