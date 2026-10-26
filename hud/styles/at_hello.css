@@ -1,0 +1,44 @@
+/*
+  Panorama CSS, not web CSS: no display/flex, layout comes from flow-children and
+  horizontal-align / vertical-align. Colours are #rrggbb or #rrggbbaa.
+
+  The card is visible by default, so the spike needs nothing but the text. The server can
+  hide it with the "hidden" class on panel "at_hello".
+*/
+
+.at-screen
+{
+	width: 100%;
+	height: 100%;
+}
+
+.at-card
+{
+	horizontal-align: center;
+	vertical-align: center;
+	min-width: 320px;
+	max-width: 640px;
+	padding: 18px 28px;
+	flow-children: down;
+	background-color: #0d1117e6;
+	border: 1px solid #ffffff26;
+	border-radius: 6px;
+	transition-property: opacity;
+	transition-duration: 0.15s;
+	opacity: 1;
+}
+
+.at-card.hidden
+{
+	opacity: 0;
+	visibility: collapse;
+}
+
+.at-card-text
+{
+	horizontal-align: center;
+	color: #f2f2f2ff;
+	font-size: 22px;
+	font-weight: bold;
+	text-align: center;
+}
