@@ -543,6 +543,7 @@ int IfSetCapture(int hud, int slot, int on) {
 // `ru hudkit click [slot]`: the CT / T proof of concept for one player, or every human.
 const char* kClickLayout = "panorama/layout/custom_game/at_click.xml";
 std::set<int> g_clickOpen;  // slots that have it open
+std::set<int> g_bMode;      // slots whose open card waits for B (see ClickOpenB)
 
 void ClickOpen(int slot) {
   const int h = IfOpen(kClickLayout);
@@ -600,7 +601,6 @@ void DrainClicks() {
 // B-key mode: the player decides when the mouse is out. The card shows without a capture; the
 // stock buy key B sends open_buymenu (the client does that by itself while buying is allowed), which
 // captures the cursor, and close_buymenu gives it back. No binds, no chat.
-std::set<int> g_bMode;  // slots whose open card waits for B
 
 void ClickOpenB(int slot) {
   const int h = IfOpen(kClickLayout);
