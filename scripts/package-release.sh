@@ -57,7 +57,7 @@ trap 'rm -rf "$WORK"' EXIT
 EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 SUFFIX="$VERSION-linuxsteamrt64.zip"
 
-for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so plugins/practice.so plugins/essentials.so plugins/deathmatch.so plugins/mapvote.so plugins/community.so plugins/movement.so plugins/addons.so plugins/tv.so; do
+for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so plugins/practice.so plugins/essentials.so plugins/deathmatch.so plugins/mapvote.so plugins/community.so plugins/movement.so plugins/addons.so plugins/tv.so plugins/hud.so; do
   [[ -f "$BUILD/$f" ]] || { echo "package-release: missing $BUILD/$f" >&2; exit 1; }
 done
 
@@ -153,6 +153,10 @@ stage_component addons "Steam Workshop addons for the server (idle until worksho
   "$ROOT_DIR/plugins/addons/needs.json:plugins/addons.needs.json" \
   "$ROOT_DIR/gamedata/engine-surface.addons.json:bin/linuxsteamrt64/engine-surface.addons.json" \
   "$ROOT_DIR/cfg/ReadyUp/addons.cfg:cfg-templates/ReadyUp/addons.cfg"
+
+# Custom in-game HUDs (custom_hud_layout) for the Auto Tournament HUD workshop addon (repo hud/).
+# Draws only for players who have the addon; the match flow keeps its chat / center-HTML version.
+stage_component hud "In-game HUD card for Auto Tournament servers (needs the Auto Tournament HUD workshop addon)"   "$BUILD/plugins/hud.so:plugins/hud.so:755"   "$ROOT_DIR/plugins/hud/needs.json:plugins/hud.needs.json"   "$ROOT_DIR/gamedata/engine-surface.hud.json:bin/linuxsteamrt64/engine-surface.hud.json"
 
 # Server basics apart from the match flow: admins (admins.json) and map change / reload / restart.
 stage_component essentials "Server basics: admins (admins.json), map change / reload / restart, default maps per mode" \
@@ -250,11 +254,12 @@ make_zip "ready-up-mapvote-$SUFFIX" mapvote
 make_zip "ready-up-community-$SUFFIX" community
 make_zip "ready-up-movement-$SUFFIX" movement
 make_zip "ready-up-tv-$SUFFIX" tv
+make_zip "ready-up-hud-$SUFFIX" hud
 make_zip "ready-up-practice-$SUFFIX" practice
 make_zip "ready-up-essentials-plugin-$SUFFIX" essentials
 make_zip "ready-up-fleet-$SUFFIX" fleet
-make_zip "ready-up-essentials-$SUFFIX" core essentials match fleet practice mapvote
-full=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community movement addons tv)
+make_zip "ready-up-essentials-$SUFFIX" core essentials match fleet practice mapvote hud
+full=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community movement addons tv hud)
 [[ -d "$WORK/c/tools" ]] && full+=(tools)
 make_zip "ready-up-full-$SUFFIX" "${full[@]}"
 

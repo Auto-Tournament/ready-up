@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "plugin": "hud",
+  "api": [
+    "entity_by_index",
+    "entity_classname",
+    "entity_create",
+    "entity_from_handle",
+    "entity_handle_of",
+    "entity_mark_changed",
+    "entity_remove",
+    "entity_spawn",
+    "entity_system_status",
+    "on_tick",
+    "register_ru_subcommand",
+    "schema_offset",
+    "subscribe",
+    "surface_rtti_vtable"
+  ],
+  "surface": [
+    "CSchemaSystem",
+    "CSchemaSystemTypeScope",
+    "HUDPanelDialogVariableString_t",
+    "UTIL_Remove"
+  ],
+  "schema": [
+    "CCSCustomHudLayout.m_strLayout",
+    "CCSCustomHudLayout.m_vecPlayerLayoutStates",
+    "CCSCustomHudLayout.m_globalLayoutState",
+    "CCSCustomHudLayout.m_vecPanelIds",
+    "CCSCustomHudLayout.m_vecClassNames",
+    "CCSCustomHudLayout.m_vecDialogVariableNames",
+    "CCSCustomHudLayoutState.m_playerSlot",
+    "CCSCustomHudLayoutState.m_vecHasClasses",
+    "CCSCustomHudLayoutState.m_vecDialogVariableStrings",
+    "HUDPanelHasClass_t.m_nPanelIdIndex",
+    "HUDPanelHasClass_t.m_nClassNameIndex",
+    "HUDPanelHasClass_t.m_eClassStatus",
+    "HUDPanelDialogVariableString_t.m_nPanelIdIndex",
+    "HUDPanelDialogVariableString_t.m_nDialogVariableIndex",
+    "HUDPanelDialogVariableString_t.m_sValue",
+    "HUDPanelDialogVariableString_t.m_bIsSet"
+  ],
+  "schema_optional": [
+    "CCSCustomHudLayout.m_bObservable",
+    "CCSCustomHudLayoutState.m_bInputCaptureEnabled"
+  ],
+  "events": []
+}

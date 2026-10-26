@@ -524,6 +524,9 @@ add_subdirectory(plugins/practice)
 # readyup-midas (plugins/midas): fun plugin, plus its unit test (after enable_testing()).
 add_subdirectory(plugins/midas)
 
+# readyup-hud (plugins/hud): custom in-game HUDs (custom_hud_layout), plus its unit test.
+add_subdirectory(plugins/hud)
+
 # readyup-whitelist (plugins/whitelist), plus its unit test (after enable_testing()).
 add_subdirectory(plugins/whitelist)
 

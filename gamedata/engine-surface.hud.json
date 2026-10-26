@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "game_version": "1.41.9.2",
+    "steam_buildid": 26144732,
+    "binary": "game/csgo/bin/linuxsteamrt64/libserver.so",
+    "notes": "Owned by readyup-hud (plugins/hud, ships next to the core's engine-surface.json). The custom_hud_layout's dialog-variable elements (HUDPanelDialogVariableString_t) carry a vtable, so the plugin builds them with the class's own primary vtable, found through its RTTI typeinfo name (ru_api surface_rtti_vtable, API 1.17). Nothing is hooked or called through it. Everything else the plugin touches is schema (field offsets by name) plus entity_create / entity_spawn / entity_remove."
+  },
+  "functions": {},
+  "rtti": {
+    "HUDPanelDialogVariableString_t": {
+      "typeinfo_name": "30HUDPanelDialogVariableString_t",
+      "note": "Element of CCSCustomHudLayoutState::m_vecDialogVariableStrings; the plugin writes this vtable into each element it adds."
+    }
+  }
+}

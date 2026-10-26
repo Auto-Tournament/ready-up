@@ -163,5 +163,5 @@ Later (P2): publish from a script with `steamcmd +workshop_build_item <vdf>` ins
 | | |
 |---|---|
 | Name | Auto Tournament HUD |
-| Id | _not published yet_ |
-| Visibility | Unlisted |
+| Id | [3827905393](https://steamcommunity.com/sharedfiles/filedetails/?id=3827905393) |
+| Visibility | Public |

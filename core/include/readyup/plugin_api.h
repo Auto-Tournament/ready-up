@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 16
+#define READYUP_PLUGIN_API_VERSION_MINOR 17
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -743,8 +743,18 @@ typedef struct ru_api {
    * in buf, truncated to len-1), or -1 without a key, with a key that doesn't verify, or with a
    * free key (nothing to count). Any thread. */
   int (*license_key)(ru_plugin* self, char* buf, uint32_t len);
+  /* ==== v1.17 ===========================================================
+   * Appended in 1.17. Require 1.17 in ru_plugin_info.api_version, or check RU_API_HAS().
+   */
+  /* Primary vtable (its address point: the first virtual function slot) of the class in
+   * engine-surface "rtti" entry `key`, the core's or a plugin fragment's, found through its RTTI
+   * typeinfo name in the entry's module (exactly one primary vtable, else NULL). For plugins that
+   * build engine objects which carry a vtable, e.g. the HUDPanelDialogVariableString_t elements of
+   * a custom_hud_layout. Never patch it. NULL = not listed, module not loaded or not found (reason
+   * in the log). Game thread. */
+  const void* (*surface_rtti_vtable)(ru_plugin* self, const char* key);
 
-  /* v1.16+: fields are appended here. Check RU_API_HAS() before use. */
+  /* v1.17+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */
