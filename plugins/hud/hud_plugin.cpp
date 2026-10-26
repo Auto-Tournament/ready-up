@@ -508,113 +508,166 @@ void Info(const ru_command_ctx* ctx) {
   }
 }
 
-// `ru hudkit kit <warmup|ready|knife|pause|damage|map|off>`: the at_kit card in a sample state for
-// everyone, to check the addon and its animations on a server without a match.
+// `ru hudkit kit <state>`: the at_kit HUD in a sample state for everyone, to check the addon and its
+// animations on a server without a match. States follow the design canvas (hud/README.md).
 void Kit(const ru_command_ctx* ctx, const std::string& state) {
   const int h = IfOpen("panorama/layout/custom_game/at_kit.xml");
-  auto cls = [&](const char* panel, const char* c, bool on) { IfSetClass(h, RU_HUD_ALL, panel, c, on ? 1 : 0); };
-  auto txt = [&](const char* panel, const std::string& v) { IfSetText(h, RU_HUD_ALL, panel, "text", v.c_str()); };
-  const char* bodies[] = {"b-players", "b-dots", "b-dmg", "b-bar"};
-  const char* colours[] = {"c-live", "c-warn", "c-info", "c-ban"};
-  auto body = [&](const char* b) {
-    for (const char* x : bodies) cls("at_card", x, b && std::strcmp(x, b) == 0);
+  auto cls = [&](const std::string& panel, const char* c, bool on) { IfSetClass(h, RU_HUD_ALL, panel.c_str(), c, on ? 1 : 0); };
+  auto txt = [&](const std::string& panel, const std::string& v) { IfSetText(h, RU_HUD_ALL, panel.c_str(), "text", v.c_str()); };
+  auto only = [&](const std::string& panel, std::initializer_list<const char*> all, const char* keep) {
+    for (const char* c : all) cls(panel, c, keep && std::strcmp(c, keep) == 0);
   };
-  auto colour = [&](const char* c) {
-    for (const char* x : colours) cls("at_card", x, c && std::strcmp(x, c) == 0);
+  const auto colours = {"c-live", "c-warn", "c-info", "c-ban", "c-muted", "c-acc"};
+  // Sentence parts (prefix "at_p" on the card, "at_mp" in the centre): up to five, "" hides one.
+  struct Part {
+    const char* text;
+    const char* kind;  // nullptr = text, "bold", "bold c-live", "cmd main", "cmd warn", "cmd side-ct", "cmd side-t", "cmd"
   };
-  auto chip = [&](int i, const char* cmd, const char* lbl, const char* kind) {
-    const std::string id = "at_c" + std::to_string(i);
-    txt((id + "_a_cmd").c_str(), cmd ? cmd : "");
-    txt((id + "_a_lbl").c_str(), lbl ? lbl : "");
-    for (const char* k : {"main", "side-ct", "side-t", "gone"}) cls(id.c_str(), k, kind && std::strcmp(k, kind) == 0);
-    if (!cmd) cls(id.c_str(), "gone", true);
+  auto sentence = [&](const char* prefix, std::initializer_list<Part> parts) {
+    int n = 0;
+    for (const Part& p : parts) {
+      const std::string id = std::string(prefix) + std::to_string(n++);
+      txt(id + "_t", p.text);
+      const std::string k = p.kind ? p.kind : "";
+      cls(id, "hide", false);
+      cls(id, "bold", k.find("bold") != std::string::npos);
+      cls(id, "cmd", k.find("cmd") != std::string::npos);
+      for (const char* x : {"main", "warn", "side-ct", "side-t", "c-live", "c-ban"}) cls(id, x, k.find(x) != std::string::npos);
+    }
+    for (; n < 5; ++n) cls(std::string(prefix) + std::to_string(n), "hide", true);
   };
-  auto head = [&](const char* kind, const char* text) {
+  auto off = [&]() {
+    cls("at_card", "on", false);
+    cls("at_mid", "on", false);
+    cls("at_end", "on", false);
+  };
+  auto card = [&](const char* kind, const std::string& text, const char* colour, const char* body, bool chat) {
+    off();
     txt("at_kind_a", kind);
     txt("at_text_a", text);
     cls("at_kind_a", "cur", true);
     cls("at_text_a", "cur", true);
     cls("at_kind_b", "old", true);
     cls("at_text_b", "old", true);
+    only("at_card", colours, colour);
+    only("at_card", {"b-rules", "b-line", "b-dmg", "b-bar"}, body);
+    cls("at_card", "chat", chat);
+    cls("at_card", "nudge", false);
+    cls("at_card", "on", true);
   };
-  cls("at_card", "nudge", false);
-  cls("at_card", "go", false);
+  auto mid = [&](const char* kind, const std::string& text, const char* sub, const char* colour) {
+    off();
+    txt("at_mkind", kind ? kind : "");
+    txt("at_mtext", text);
+    txt("at_msub", sub ? sub : "");
+    only("at_mid", colours, colour);
+    cls("at_mid", "has-kind", kind != nullptr);
+    cls("at_mid", "has-sub", sub != nullptr);
+    for (const char* x : {"has-confirm", "has-parts", "has-cmds", "chat", "has-timer", "has-counter", "go"}) cls("at_mid", x, false);
+  };
   if (state == "off") {
-    cls("at_card", "on", false);
-  } else if (state == "warmup") {
-    head("Warmup", "6 / 10 ready");
-    colour(nullptr);
-    body("b-players");
-    txt("at_team_a", "TEAM A");
-    txt("at_team_b", "TEAM B");
-    for (int i = 0; i < 5; ++i) {
-      const std::string a = "at_pa" + std::to_string(i), b = "at_pb" + std::to_string(i);
-      txt((a + "_name").c_str(), i == 0 ? "you" : "player " + std::to_string(i + 1));
-      txt((b + "_name").c_str(), "player " + std::to_string(i + 6));
-      cls(a.c_str(), "ok", i >= 1 && i <= 3);
-      cls(a.c_str(), "me", i == 0);
-      cls(b.c_str(), "ok", i <= 2);
+    off();
+  } else if (state == "welcome") {
+    card("Team A vs Team B", "Welcome, Sivert", nullptr, "b-rules", false);
+    const char* rules[3][2] = {{"SERIES", "Best of 3"}, {"ROUNDS", "24 (first to 13)"}, {"OVERTIME", "Up to 3 (first to 4)"}};
+    for (int i = 0; i < 3; ++i) {
+      txt("at_r" + std::to_string(i) + "_k", rules[i][0]);
+      txt("at_r" + std::to_string(i) + "_v", rules[i][1]);
     }
-    cls("at_card", "cmds", true);
-    chip(0, ".r", "ready", "main");
-    chip(1, ".ur", "undo", nullptr);
+  } else if (state == "notready") {
+    card("Warmup", "6 / 10 ready", nullptr, "b-line", true);
+    sentence("at_p", {{"You are", nullptr}, {"not ready,", "bold"}, {"type", nullptr}, {".r", "cmd main"}, {"to ready up", nullptr}});
     cls("at_card", "nudge", true);
-    cls("at_card", "on", true);
   } else if (state == "ready") {
-    head("Ready", "10 / 10 ready");
-    colour("c-live");
-    body("b-dots");
-    for (int i = 0; i < 5; ++i) {
-      cls(("at_da" + std::to_string(i)).c_str(), "ok", true);
-      cls(("at_db" + std::to_string(i)).c_str(), "ok", true);
-    }
-    cls("at_card", "cmds", false);
-    cls("at_card", "go", true);
-    cls("at_card", "on", true);
+    card("Ready", "7 / 10 ready", "c-live", "b-line", true);
+    sentence("at_p", {{"You are", nullptr}, {"ready,", "bold c-live"}, {"type", nullptr}, {".ur", "cmd"}, {"to undo", nullptr}});
+  } else if (state == "everyone") {
+    mid("Everyone is ready", "Knife round (5)", nullptr, "c-live");
+    cls("at_mid", "go", true);
+    cls("at_mid", "on", true);
   } else if (state == "knife") {
-    head("Knife won", "Pick a side");
-    colour("c-live");
-    body(nullptr);
-    cls("at_card", "cmds", true);
-    chip(0, ".ct", "stay", "side-ct");
-    chip(1, ".t", "swap", "side-t");
-    cls("at_card", "on", true);
-  } else if (state == "pause") {
-    head("Tech pause", "Team B - 1 of 3");
-    colour("c-warn");
-    body(nullptr);
-    cls("at_card", "cmds", true);
-    chip(0, ".up", "resume", "main");
-    chip(1, nullptr, nullptr, nullptr);
-    cls("at_card", "on", true);
+    mid("You won the knife", "Which side do you want?", nullptr, "c-live");
+    txt("at_mtimer", "20");
+    sentence("at_mp", {{"Write", nullptr}, {".ct", "cmd side-ct"}, {"or", nullptr}, {".t", "cmd side-t"}});
+    for (const char* x : {"has-timer", "has-parts", "chat", "on"}) cls("at_mid", x, true);
+  } else if (state == "live") {
+    mid("Match live", "Good luck, have fun", nullptr, "c-live");
+    const char* cmds[3][2] = {{"Pause", ".p"}, {"Timeout", ".tac"}, {"Tech pause", ".tech"}};
+    for (int i = 0; i < 4; ++i) {
+      const std::string id = "at_mk" + std::to_string(i);
+      cls(id, "gone", i >= 3);
+      if (i < 3) {
+        txt(id + "_l", cmds[i][0]);
+        txt(id + "_c", cmds[i][1]);
+      }
+    }
+    for (const char* x : {"has-cmds", "chat", "on"}) cls("at_mid", x, true);
+  } else if (state == "pause" || state == "pause2") {
+    mid("Tech pause", "Team B used a tech pause", "Unpauses in (252)", "c-warn");
+    txt("at_mc0_team", "Team A");
+    txt("at_mc1_team", "Team B");
+    txt("at_mc0_state", state == "pause2" ? "READY" : "WAITING");
+    txt("at_mc1_state", "WAITING");
+    cls("at_mc0", "ok", state == "pause2");
+    cls("at_mc1", "ok", false);
+    sentence("at_mp", {{"Write", nullptr}, {".up", "cmd warn"}, {"to unpause", nullptr}});
+    txt("at_mcounter", "1 / 3 used");
+    for (const char* x : {"has-confirm", "has-parts", "chat", "has-counter", "on"}) cls("at_mid", x, true);
+  } else if (state == "missing") {
+    mid(nullptr, "Team B is missing", "You win by forfeit if they are not back in (165)", "c-ban");
+    cls("at_mid", "on", true);
   } else if (state == "damage") {
-    head("Round 14", "160 dmg given");
-    colour(nullptr);
-    body("b-dmg");
-    const int rows[5][6] = {{100, 3, 0, 0, 0, 0}, {42, 2, 25, 1, 58, 0}, {0, 0, 75, 1, 100, 0}, {0, 0, 0, 0, 100, 0}, {18, 1, 0, 0, 0, 0}};
+    card("Round 14", "160 damage", nullptr, "b-dmg", false);
+    const int rows[5][5] = {{100, 3, 0, 0, 0}, {42, 2, 25, 1, 58}, {0, 0, 75, 1, 100}, {0, 0, 0, 0, 100}, {18, 1, 0, 0, 0}};
     for (int i = 0; i < 5; ++i) {
       const std::string r = "at_d" + std::to_string(i);
-      txt((r + "_name").c_str(), "opponent " + std::to_string(i + 1));
-      txt((r + "_given").c_str(), std::to_string(rows[i][0]) + " /" + std::to_string(rows[i][1]));
-      txt((r + "_taken").c_str(), std::to_string(rows[i][2]) + " /" + std::to_string(rows[i][3]));
-      txt((r + "_hp").c_str(), rows[i][4] ? std::to_string(rows[i][4]) : "DEAD");
-      cls(r.c_str(), "hit", rows[i][0] > 0);
-      cls(r.c_str(), "big", rows[i][0] >= 100);
-      cls(r.c_str(), "took", rows[i][2] > 0);
-      cls(r.c_str(), "dead", rows[i][4] == 0);
+      txt(r + "_name", "opponent " + std::to_string(i + 1));
+      txt(r + "_given", std::to_string(rows[i][0]) + " /" + std::to_string(rows[i][1]));
+      txt(r + "_taken", std::to_string(rows[i][2]) + " /" + std::to_string(rows[i][3]));
+      txt(r + "_hp", rows[i][4] ? std::to_string(rows[i][4]) : "DEAD");
+      cls(r, "hit", rows[i][0] > 0);
+      cls(r, "big", rows[i][0] >= 100);
+      cls(r, "took", rows[i][2] > 0);
+      cls(r, "dead", rows[i][4] == 0);
     }
-    cls("at_card", "cmds", false);
-    cls("at_card", "on", true);
-  } else if (state == "map") {
-    head("Map 2 of 3", "de_ancient");
-    colour(nullptr);
-    body("b-bar");
-    for (int i = 0; i < 10; ++i) cls(("at_s" + std::to_string(i)).c_str(), "fill", i < 7);
-    txt("at_pct", "70%");
-    cls("at_card", "cmds", false);
-    cls("at_card", "on", true);
+  } else if (state == "end" || state == "endlost") {
+    off();
+    const bool lost = state == "endlost";
+    txt("at_e_head", lost ? "You lost" : "You won!");
+    txt("at_e_how", "By rounds");
+    txt("at_e_ta", "Team A");
+    txt("at_e_tb", "Team B");
+    txt("at_e_sa", lost ? "9" : "13");
+    txt("at_e_sb", lost ? "13" : "9");
+    txt("at_e_where", "MAP 2 OF 3");
+    txt("at_e_next", "Next map: Inferno (45)");
+    txt("at_ea_name", "TEAM A");
+    txt("at_eb_name", "TEAM B");
+    const int a[5][7] = {{27, 14, 6, 2464, 112, 82, 54}, {21, 15, 4, 2002, 91, 77, 41}, {18, 16, 9, 1848, 84, 73, 38}, {15, 17, 5, 1562, 71, 68, 47}, {11, 18, 7, 1276, 58, 64, 29}};
+    const int b[5][7] = {{22, 18, 3, 2112, 96, 68, 45}, {19, 19, 5, 1826, 83, 64, 52}, {16, 19, 6, 1628, 74, 59, 36}, {13, 20, 4, 1452, 66, 55, 31}, {10, 21, 6, 1144, 52, 50, 28}};
+    auto rows = [&](char side, const int (*t)[7], int nameFrom) {
+      for (int i = 0; i < 5; ++i) {
+        const std::string r = std::string("at_e") + side + std::to_string(i);
+        txt(r + "_n", side == 'a' && i == 1 ? "Sivert" : "player " + std::to_string(nameFrom + i));
+        const char cols[] = "kdagrsh";
+        for (int c = 0; c < 7; ++c) {
+          std::string v = std::to_string(t[i][c]);
+          if (c == 5 || c == 6) v += "%";
+          txt(r + "_" + cols[c], v);
+        }
+        cls(r, "me", side == 'a' && i == 1);
+        cls(r, "mvp", i == 0);
+      }
+    };
+    rows('a', a, 1);
+    rows('b', b, 6);
+    only("at_end", {"won", "lost", "draw"}, lost ? "lost" : "won");
+    cls("at_end", "how", true);
+    cls("at_end", "on", true);
+  } else if (state == "next") {
+    card("Next map", "Inferno (14)", nullptr, nullptr, false);
   } else {
-    Reply(ctx, "kit states: warmup ready knife pause damage map off");
+    Reply(ctx, "kit states: welcome notready ready everyone knife live damage pause pause2 missing end endlost next off");
     return;
   }
   Reply(ctx, "at_kit: " + state);
