@@ -89,10 +89,10 @@ and each layer has `at_c0_a_cmd` (`.r`) and `at_c0_a_lbl` (`ready`).
 |---|---|
 | none | secondary (dark) |
 | `main` | the step to take (accent) |
-| `side-ct` / `side-t` | the side the command gives you (`.stay CT`, `.switch T`) |
+| `side-ct` / `side-t` | the side the command gives you (`.ct`, `.t` in the knife pick) |
 | `gone` | unused slot (fades out) |
 
-Use the short commands (`.r`, `.ur`), at most two at a time.
+Always the short commands (`.r`, `.ur`, `.p`, `.up`, `.tac`, `.ct`, `.t`), at most two at a time.
 
 ## Rules for layouts
 

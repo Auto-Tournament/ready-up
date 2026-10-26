@@ -576,15 +576,15 @@ void Kit(const ru_command_ctx* ctx, const std::string& state) {
     colour("c-live");
     body(nullptr);
     cls("at_card", "cmds", true);
-    chip(0, ".stay", "CT", "side-ct");
-    chip(1, ".switch", "T", "side-t");
+    chip(0, ".ct", "stay", "side-ct");
+    chip(1, ".t", "swap", "side-t");
     cls("at_card", "on", true);
   } else if (state == "pause") {
     head("Tech pause", "Team B - 1 of 3");
     colour("c-warn");
     body(nullptr);
     cls("at_card", "cmds", true);
-    chip(0, ".unpause", "resume", "main");
+    chip(0, ".up", "resume", "main");
     chip(1, nullptr, nullptr, nullptr);
     cls("at_card", "on", true);
   } else if (state == "damage") {
