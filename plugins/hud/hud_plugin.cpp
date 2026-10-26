@@ -463,7 +463,7 @@ void OnEvent(void*, const ru_event* ev) {
   }
 }
 
-// ---- `ru hud` ----------------------------------------------------------------------------------
+// ---- `ru hudkit` (`ru hud` is the match plugin's center-HTML HUD) ----------------------------------------------------------------------------------
 
 void Reply(const ru_command_ctx* ctx, const std::string& msg) {
   const std::string line = "Ready Up hud: " + msg;
@@ -508,7 +508,7 @@ void Info(const ru_command_ctx* ctx) {
   }
 }
 
-// `ru hud kit <warmup|ready|knife|pause|damage|map|off>`: the at_kit card in a sample state for
+// `ru hudkit kit <warmup|ready|knife|pause|damage|map|off>`: the at_kit card in a sample state for
 // everyone, to check the addon and its animations on a server without a match.
 void Kit(const ru_command_ctx* ctx, const std::string& state) {
   const int h = IfOpen("panorama/layout/custom_game/at_kit.xml");
@@ -636,18 +636,18 @@ void OnRu(void*, const ru_command_ctx* ctx) {
     }
   } else if (sub == "info") {
     Info(ctx);
-  } else if (sub == "hello") {  // ru hud hello <text>: the P0 layout, for everyone
+  } else if (sub == "hello") {  // ru hudkit hello <text>: the P0 layout, for everyone
     const int h = IfOpen("panorama/layout/custom_game/at_hello.xml");
     const std::string text = ctx->argc > 3 ? Join(ctx, 3) : "Hello from Auto Tournament";
     Reply(ctx, IfSetText(h, RU_HUD_ALL, "at_hello_text", "text", text.c_str()) ? "at_hello: " + text : "failed: " + LayoutOf(h)->lastError);
   } else if (sub == "kit") {
     Kit(ctx, ctx->argc > 3 ? ctx->argv[3] : "");
-  } else if (sub == "text" && ctx->argc >= 7) {  // ru hud text <hud#> <slot|all> <panel> <var> <value...>
+  } else if (sub == "text" && ctx->argc >= 7) {  // ru hudkit text <hud#> <slot|all> <panel> <var> <value...>
     Reply(ctx, IfSetText(std::atoi(ctx->argv[3]), ParseSlot(ctx->argv[4]), ctx->argv[5], ctx->argv[6], Join(ctx, 7).c_str()) ? "ok" : "failed");
-  } else if (sub == "class" && ctx->argc >= 8) {  // ru hud class <hud#> <slot|all> <panel> <class> <0|1>
+  } else if (sub == "class" && ctx->argc >= 8) {  // ru hudkit class <hud#> <slot|all> <panel> <class> <0|1>
     Reply(ctx, IfSetClass(std::atoi(ctx->argv[3]), ParseSlot(ctx->argv[4]), ctx->argv[5], ctx->argv[6], std::atoi(ctx->argv[7])) ? "ok" : "failed");
   } else {
-    Reply(ctx, "ru hud [status|info|hello <text>|kit <state>|text <hud#> <slot|all> <panel> <var> <value>|class <hud#> <slot|all> <panel> <class> <0|1>]");
+    Reply(ctx, "ru hudkit [status|info|hello <text>|kit <state>|text <hud#> <slot|all> <panel> <var> <value>|class <hud#> <slot|all> <panel> <class> <0|1>]");
   }
 }
 
@@ -686,11 +686,11 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_mapStartedAt = -1;
   api->on_tick(api->self, &OnTick, nullptr);
   api->subscribe(api->self, RU_EVENT_ANY, &OnEvent, nullptr);
-  api->register_ru_subcommand(api->self, "hud", &OnRu, nullptr);
+  api->register_ru_subcommand(api->self, "hudkit", &OnRu, nullptr);
   api->provide_interface(api->self, RU_HUD_IFACE_NAME, RU_HUD_IFACE_VERSION, const_cast<ru_hud_v1*>(&g_iface));
   api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "hud", RU_SELFTEST_IFACE_VERSION,
                          const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
-  ru_logf(api, RU_LOG_INFO, "loaded " HUD_VERSION " (ru hud for status)");
+  ru_logf(api, RU_LOG_INFO, "loaded " HUD_VERSION " (ru hudkit for status)");
   return 0;
 }
 

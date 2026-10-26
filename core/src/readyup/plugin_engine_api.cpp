@@ -18,6 +18,7 @@
 #include "readyup/round_termination_hook.h"
 #include "readyup/schema.h"
 #include "readyup/sdk/igameevents.h"
+#include "readyup/engine_surface.h"
 #include "readyup/entity.h"
 #include "readyup/slot_registry.h"
 #include "readyup/status_feed.h"
@@ -270,21 +271,18 @@ const void* ApiSurfaceRttiVtable(ru_plugin* self, const char* key) {
   const es::EngineSurface* s = GetEngineSurface();
   const es::RttiSpec* rt = s ? s->FindRtti(key) : nullptr;
   if (!rt) {
-    Print("plugin[%s]: surface_rtti_vtable: no rtti entry \"%s\"
-", detail::PluginNameOf(self), key);
+    Print("plugin[%s]: surface_rtti_vtable: no rtti entry \"%s\"\n", detail::PluginNameOf(self), key);
     return nullptr;
   }
   const es::Image* img = ModuleImage(rt->module);
   if (!img) {
-    Print("plugin[%s]: surface_rtti_vtable %s: lib%s.so not loaded
-", detail::PluginNameOf(self), key, rt->module.c_str());
+    Print("plugin[%s]: surface_rtti_vtable %s: lib%s.so not loaded\n", detail::PluginNameOf(self), key, rt->module.c_str());
     return nullptr;
   }
   std::string why;
   const auto vt = es::FindVtableByRtti(*img, rt->typeinfo_name, &why);
   if (!vt) {
-    Print("plugin[%s]: surface_rtti_vtable %s: %s
-", detail::PluginNameOf(self), key, why.c_str());
+    Print("plugin[%s]: surface_rtti_vtable %s: %s\n", detail::PluginNameOf(self), key, why.c_str());
     return nullptr;
   }
   return reinterpret_cast<const void*>(*vt);

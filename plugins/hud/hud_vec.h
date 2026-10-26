@@ -51,7 +51,7 @@ int StringIndexOrAdd(RawVec* v, const char* s, const Allocator& a, std::string* 
 // Replaces the char* at `slot` with a tier0 copy of `s` (frees the old one). False if strdup fails.
 bool SetCUtlString(char** slot, const char* s, const Allocator& a);
 
-// Hex dump of n bytes, 16 per line (for `ru hud info`).
+// Hex dump of n bytes, 16 per line (for `ru hudkit info`).
 std::string HexDump(const void* p, size_t n);
 
 }  // namespace hud
