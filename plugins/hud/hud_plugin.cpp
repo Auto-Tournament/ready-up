@@ -681,8 +681,6 @@ void OnEvent(void*, const ru_event* ev) {
   if (ev->type == RU_EVENT_MAP_START) {
     g_mapStartedAt = g_now;
     for (auto& l : g_layouts) l.handle = kNoHandle;  // the map took the entity with it
-  } else if (ev->type == RU_EVENT_ROUND_START) {
-    for (int slot : std::vector<int>(g_clickOpen.begin(), g_clickOpen.end())) ClickClose(slot);
   } else if (ev->type == RU_EVENT_PLAYER_DISCONNECT && ev->slot >= 0) {
     g_clickOpen.erase(ev->slot);
   } else if (ev->type == RU_EVENT_PLAYER_CONNECT && ev->slot >= 0) {
