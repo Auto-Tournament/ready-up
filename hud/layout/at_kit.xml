@@ -196,6 +196,7 @@
 <Panel id="at_end" class="at-end" hittest="false">
 <Panel class="at-eblur" hittest="false" />
 <Panel class="at-ecard" hittest="false">
+<Panel class="at-ecardflow" hittest="false">
 <Panel class="at-brand" hittest="false">
 <Panel class="at-brandlogo" hittest="false" />
 <Label class="at-brandname" text="AUTO TOURNAMENT" hittest="false" />
@@ -371,6 +372,7 @@
 <Panel class="at-efoot" hittest="false">
 <Label id="at_e_where" class="at-ewhere" text="{s:text}" hittest="false" />
 <Label id="at_e_next" class="at-enext" text="{s:text}" hittest="false" />
+</Panel>
 </Panel>
 <Panel class="at-line" hittest="false" />
 </Panel>

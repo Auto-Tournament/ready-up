@@ -34,6 +34,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <map>
 #include <mutex>
 #include <set>
@@ -178,6 +179,7 @@ bool g_straysCleared = false;
 double g_now = 0;
 double g_mapStartedAt = -1;
 std::map<int, std::vector<double>> g_resendAt;  // slot -> times to push its state again
+std::vector<std::pair<double, std::function<void()>>> g_later;  // work to run at a time (game thread)
 std::mutex g_statusMu;                           // guards g_selftestLine for `ru selftest`
 std::string g_selftestLine = "not resolved";
 
@@ -421,6 +423,15 @@ const ru_hud_v1 g_iface = {sizeof(ru_hud_v1), &IfAvailable, &IfOpen, &IfSetText,
 
 void OnTick(void*, const ru_tick_info* t) {
   g_now = t->now;
+  for (size_t i = 0; i < g_later.size();) {
+    if (g_later[i].first <= g_now) {
+      auto fn = std::move(g_later[i].second);
+      g_later.erase(g_later.begin() + static_cast<long>(i));
+      fn();
+    } else {
+      ++i;
+    }
+  }
   for (auto it = g_resendAt.begin(); it != g_resendAt.end();) {
     auto& times = it->second;
     bool due = false;
@@ -510,7 +521,7 @@ void Info(const ru_command_ctx* ctx) {
 
 // `ru hudkit kit <state>`: the at_kit HUD in a sample state for everyone, to check the addon and its
 // animations on a server without a match. States follow the design canvas (hud/README.md).
-void Kit(const ru_command_ctx* ctx, const std::string& state) {
+bool KitApply(const std::string& state) {
   const int h = IfOpen("panorama/layout/custom_game/at_kit.xml");
   auto cls = [&](const std::string& panel, const char* c, bool on) { IfSetClass(h, RU_HUD_ALL, panel.c_str(), c, on ? 1 : 0); };
   auto txt = [&](const std::string& panel, const std::string& v) { IfSetText(h, RU_HUD_ALL, panel.c_str(), "text", v.c_str()); };
@@ -543,12 +554,19 @@ void Kit(const ru_command_ctx* ctx, const std::string& state) {
   };
   auto card = [&](const char* kind, const std::string& text, const char* colour, const char* body, bool chat) {
     off();
-    txt("at_kind_a", kind);
-    txt("at_text_a", text);
-    cls("at_kind_a", "cur", true);
-    cls("at_text_a", "cur", true);
-    cls("at_kind_b", "old", true);
-    cls("at_text_b", "old", true);
+    // The header rolls: the new text goes into the layer that is not showing, then they swap.
+    static bool useB = false;
+    useB = !useB;
+    const char* cur = useB ? "b" : "a";
+    const char* old = useB ? "a" : "b";
+    txt(std::string("at_kind_") + cur, kind);
+    txt(std::string("at_text_") + cur, text);
+    for (const char* f : {"at_kind_", "at_text_"}) {
+      cls(std::string(f) + cur, "cur", true);
+      cls(std::string(f) + cur, "old", false);
+      cls(std::string(f) + old, "cur", false);
+      cls(std::string(f) + old, "old", true);
+    }
     only("at_card", colours, colour);
     only("at_card", {"b-rules", "b-line", "b-dmg", "b-bar"}, body);
     cls("at_card", "chat", chat);
@@ -667,9 +685,22 @@ void Kit(const ru_command_ctx* ctx, const std::string& state) {
   } else if (state == "next") {
     card("Next map", "Inferno (14)", nullptr, nullptr, false);
   } else {
+    return false;
+  }
+  return true;
+}
+
+// Every element leaves first; the new state enters 0.35 s later, so both animations are seen.
+void Kit(const ru_command_ctx* ctx, const std::string& state) {
+  static const std::set<std::string> kStates = {"welcome", "notready", "ready", "everyone", "knife", "live", "damage",
+                                                "pause", "pause2", "missing", "end", "endlost", "next", "off"};
+  if (!kStates.count(state)) {
     Reply(ctx, "kit states: welcome notready ready everyone knife live damage pause pause2 missing end endlost next off");
     return;
   }
+  const int h = IfOpen("panorama/layout/custom_game/at_kit.xml");
+  for (const char* el : {"at_card", "at_mid", "at_end"}) IfSetClass(h, RU_HUD_ALL, el, "on", 0);
+  if (state != "off") g_later.emplace_back(g_now + 0.35, [state] { KitApply(state); });
   Reply(ctx, "at_kit: " + state);
 }
 
@@ -735,6 +766,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_eng = Engine{};
   g_layouts.clear();
   g_resendAt.clear();
+  g_later.clear();
   g_straysCleared = false;
   g_mapStartedAt = -1;
   api->on_tick(api->self, &OnTick, nullptr);

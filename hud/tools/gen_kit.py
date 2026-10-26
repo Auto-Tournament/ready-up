@@ -88,10 +88,11 @@ def end():
         label("at_e_ta", "at-eteamname at-ea") + label("at_e_sa", "at-enum at-ea") + label(cls="at-ecolon", text=":")
         + label("at_e_sb", "at-enum at-eb") + label("at_e_tb", "at-eteamname at-eb")))
     foot = panel(cls="at-efoot", children=label("at_e_where", "at-ewhere") + label("at_e_next", "at-enext"))
-    card_ = panel(cls="at-ecard", children=(
+    flow = panel(cls="at-ecardflow", children=(
         brand() + panel(cls="at-divider")
         + label("at_e_head", "at-ehead-text") + panel(cls="at-howbox", children=label("at_e_how", "at-how"))
-        + score + panel(cls="at-eteams", children=team("a") + team("b")) + foot + panel(cls="at-line")))
+        + score + panel(cls="at-eteams", children=team("a") + team("b")) + foot))
+    card_ = panel(cls="at-ecard", children=flow + panel(cls="at-line"))
     return panel("at_end", "at-end", panel(cls="at-eblur") + card_)
 
 

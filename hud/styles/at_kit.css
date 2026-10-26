@@ -180,7 +180,7 @@
 .at-mid
 {
 	horizontal-align: center; vertical-align: top; margin-top: 600px;
-	width: fit-children; height: fit-children; min-width: 520px; overflow: clip;
+	width: 640px; height: fit-children; overflow: clip;
 	background-color: #140e0cf7; border: 1px solid #322926; border-radius: 16px;
 	opacity: 0; transform: translateY( 28px );
 	transition-property: opacity, transform; transition-duration: 0.2s;
@@ -192,7 +192,7 @@
 	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
 }
 .HUD_BUYMENU_VISIBLE .at-mid.on { opacity: 0; }
-.at-midcontent { flow-children: down; horizontal-align: center; width: fit-children; height: fit-children; padding: 16px 36px 22px 36px; }
+.at-midcontent { flow-children: down; horizontal-align: center; width: 100%; height: fit-children; padding: 16px 36px 22px 36px; }
 .at-midcontent .at-brand { margin-bottom: 8px; }
 
 /* Optional parts, shown by classes on #at_mid: has-kind, has-sub, has-confirm, has-parts,
@@ -257,13 +257,14 @@
 
 .at-ecard
 {
-	horizontal-align: center; vertical-align: center; flow-children: down;
-	width: 1200px; height: fit-children; padding: 24px 36px 24px 36px; overflow: clip;
+	horizontal-align: center; vertical-align: center;
+	width: 1200px; height: fit-children; overflow: clip;
 	background-color: #100908f2; border: 1px solid #322926; border-radius: 18px;
 	transform: translateY( 16px ); transition-property: transform; transition-duration: 0.52s;
 	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
 }
 .at-end.on .at-ecard { transform: translateY( 0px ); }
+.at-ecardflow { flow-children: down; width: 100%; height: fit-children; padding: 24px 36px 24px 36px; }
 .at-ecard .at-brand { height: 22px; }
 .at-ecard .at-brandlogo { width: 22px; height: 22px; border-radius: 6px; }
 .at-ecard .at-brandname { font-size: 12px; letter-spacing: 2.4px; }
@@ -307,3 +308,64 @@
 .at-efoot { flow-children: right; width: 100%; margin-top: 20px; }
 .at-ewhere { font-family: "Noto Mono"; width: fill-parent-flow( 1.0 ); vertical-align: center; font-size: 12px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
 .at-enext { vertical-align: center; font-size: 15px; color: #c4bcb9; }
+
+/* ---- entries ----------------------------------------------------------------------------------
+   Every element enters when "on" is added and leaves when it is removed (the server waits ~0.35 s
+   between a leave and the next enter, so both are seen). Inside, rows and parts come in one after
+   another, like a kill feed. */
+
+.at-content { opacity: 0; transition-property: opacity; transition-duration: 0.15s; }
+.at-card.on .at-content { opacity: 1; transition-duration: 0.3s; transition-delay: 0.1s; }
+
+.at-drow { opacity: 0; transform: translateX( -16px ); transition-property: opacity, transform; transition-duration: 0.15s; }
+.at-card.on .at-drow { opacity: 1; transform: translateX( 0px ); transition-duration: 0.3s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+#at_d0 { transition-delay: 0.15s; }
+#at_d1 { transition-delay: 0.19s; }
+#at_d2 { transition-delay: 0.23s; }
+#at_d3 { transition-delay: 0.27s; }
+#at_d4 { transition-delay: 0.31s; }
+
+.at-rule { opacity: 0; transform: translateX( -12px ); transition-property: opacity, transform; transition-duration: 0.15s; }
+.at-card.on .at-rule { opacity: 1; transform: translateX( 0px ); transition-duration: 0.3s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+#at_r0 { transition-delay: 0.18s; }
+#at_r1 { transition-delay: 0.23s; }
+#at_r2 { transition-delay: 0.28s; }
+
+.at-part { opacity: 0; transform: translateY( 6px ); transition-property: opacity, transform; transition-duration: 0.15s; }
+.on .at-part { opacity: 1; transform: translateY( 0px ); transition-duration: 0.3s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+#at_p1 { transition-delay: 0.04s; }
+#at_p2 { transition-delay: 0.08s; }
+#at_p3 { transition-delay: 0.12s; }
+#at_p4 { transition-delay: 0.16s; }
+#at_mp1 { transition-delay: 0.04s; }
+#at_mp2 { transition-delay: 0.08s; }
+#at_mp3 { transition-delay: 0.12s; }
+#at_mp4 { transition-delay: 0.16s; }
+
+.at-mtext { opacity: 0; transform: translateY( 8px ); transition-property: opacity, transform; transition-duration: 0.15s; }
+.at-mid.on .at-mtext { opacity: 1; transform: translateY( 0px ); transition-duration: 0.36s; transition-delay: 0.08s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+.at-confirmrow { opacity: 0; transition-property: opacity; transition-duration: 0.15s; }
+.at-mid.on .at-confirmrow { opacity: 1; transition-duration: 0.3s; transition-delay: 0.2s; }
+.at-cmd { opacity: 0; transform: translateY( 6px ); transition-property: opacity, transform; transition-duration: 0.15s; }
+.at-mid.on .at-cmd { opacity: 1; transform: translateY( 0px ); transition-duration: 0.3s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+#at_mk0 { transition-delay: 0.18s; }
+#at_mk1 { transition-delay: 0.24s; }
+#at_mk2 { transition-delay: 0.30s; }
+#at_mk3 { transition-delay: 0.36s; }
+
+.at-ehead-text { opacity: 0; transform: translateY( 10px ); transition-property: opacity, transform; transition-duration: 0.2s; }
+.at-end.on .at-ehead-text { opacity: 1; transform: translateY( 0px ); transition-duration: 0.45s; transition-delay: 0.15s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+.at-escore { opacity: 0; transition-property: opacity; transition-duration: 0.2s; }
+.at-end.on .at-escore { opacity: 1; transition-duration: 0.4s; transition-delay: 0.3s; }
+.at-erow { opacity: 0; transform: translateX( -12px ); transition-property: opacity, transform; transition-duration: 0.2s; }
+.at-end.on .at-erow { opacity: 1; transform: translateX( 0px ); transition-duration: 0.32s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+#at_ea0 { transition-delay: 0.45s; }
+#at_ea1 { transition-delay: 0.49s; }
+#at_ea2 { transition-delay: 0.53s; }
+#at_ea3 { transition-delay: 0.57s; }
+#at_ea4 { transition-delay: 0.61s; }
+#at_eb0 { transition-delay: 0.65s; }
+#at_eb1 { transition-delay: 0.69s; }
+#at_eb2 { transition-delay: 0.73s; }
+#at_eb3 { transition-delay: 0.77s; }
+#at_eb4 { transition-delay: 0.81s; }
