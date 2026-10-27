@@ -139,7 +139,7 @@
 }
 .ui-btn.show { visibility: visible; }
 .ui-btnlabel { width: 100%; text-align: center; vertical-align: center; font-size: 18px; font-weight: bold; color: #f4edeb; }
-.ui-btnsub { visibility: collapse; horizontal-align: right; vertical-align: center; margin-right: 18px; font-family: "Noto Mono"; font-size: 13px; font-weight: bold; color: #f4edeb; opacity: 0.7; }
+.ui-btnsub { visibility: collapse; horizontal-align: right; vertical-align: center; margin-right: 18px; font-family: "Noto Mono"; font-size: 13px; font-weight: bold; color: #c4bcb9; }
 .ui-btn.has-sub .ui-btnsub { visibility: visible; }
 .ui-btn.has-sub .ui-btnlabel { width: fit-children; text-align: left; horizontal-align: left; margin-left: 18px; }
 .ui-btn:hover { transform: scale3d( 1.04, 1.04, 1 ); border: 2px solid #c4bcb9; }

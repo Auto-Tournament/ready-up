@@ -148,8 +148,8 @@
 .at-dname { width: fill-parent-flow( 1.0 ); vertical-align: center; font-size: 13px; color: #f4edeb; }
 .at-dnum { font-family: "Noto Mono"; width: 70px; margin-left: 8px; vertical-align: center; text-align: right; font-size: 13px; color: #938a87; }
 .at-dhp { font-family: "Noto Mono"; width: 48px; margin-left: 8px; vertical-align: center; text-align: right; font-size: 13px; font-weight: bold; color: #c4bcb9; }
-.at-dhead .at-dnum { font-size: 10px; font-weight: bold; letter-spacing: 1.2px; }
-.at-dhead .at-dhp { font-size: 10px; letter-spacing: 1.2px; color: #938a87; }
+.at-dhead .at-dnum { font-size: 11px; font-weight: bold; letter-spacing: 1.2px; }
+.at-dhead .at-dhp { font-size: 11px; letter-spacing: 1.2px; color: #938a87; }
 .hit .at-given { color: #f4edeb; }
 .big .at-given { color: #ff6a3d; }
 .took .at-taken { color: #f2645f; }
@@ -303,7 +303,7 @@
 /* Awards. */
 .at-eawards { flow-children: right; width: 100%; margin-bottom: 14px; }
 .at-aw { flow-children: down; width: fill-parent-flow( 1.0 ); margin-right: 10px; padding: 10px 14px; border-radius: 10px; background-color: #18110e; border: 1px solid #211815; }
-.at-awl { font-family: "Noto Mono"; font-size: 10px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
+.at-awl { font-family: "Noto Mono"; font-size: 11px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
 .at-awrow { flow-children: right; width: 100%; margin-top: 2px; }
 .at-awn { width: fill-parent-flow( 1.0 ); font-size: 15px; font-weight: bold; color: #f4edeb; }
 .at-awv { font-family: "Noto Mono"; font-size: 15px; font-weight: bold; color: #f4edeb; }
@@ -319,11 +319,11 @@
 .at-erow.at-ehead { overflow: noclip noclip; z-index: 5; height: 16px; background-color: #00000000; border: 0px solid #00000000; }
 .at-enbox { flow-children: right; width: fill-parent-flow( 1.0 ); vertical-align: center; }
 .at-en { vertical-align: center; font-size: 14px; color: #f4edeb; }
-.at-ehead .at-en { font-size: 10px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; width: fill-parent-flow( 1.0 ); }
+.at-ehead .at-en { font-size: 11px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; width: fill-parent-flow( 1.0 ); }
 .at-etag { visibility: collapse; vertical-align: center; margin-left: 8px; padding: 2px 6px; border-radius: 4px; font-family: "Noto Mono"; font-size: 10px; font-weight: bold; }
 .at-ec { font-family: "Noto Mono"; width: 40px; margin-left: 6px; vertical-align: center; text-align: right; font-size: 14px; color: #c4bcb9; }
 .at-ehc { width: 40px; height: 16px; margin-left: 6px; overflow: noclip noclip; z-index: 5; }
-.at-ehct { width: 100%; text-align: right; font-family: "Noto Mono"; font-size: 10px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; }
+.at-ehct { width: 100%; text-align: right; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; }
 .at-ehc:hover .at-ehct { color: #f4edeb; }
 .at-tip
 {

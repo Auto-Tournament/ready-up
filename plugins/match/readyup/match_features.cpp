@@ -657,7 +657,7 @@ void MatchFeaturesTick() {
           g_auto5v5FullSince = now;
           SendToChat("Ready Up: both teams are full again - live in 5 seconds.");
           if (HudScreensOn()) {
-            HudScreensNoticeAll("id=unpause\ncolor=live\nkind=Both teams full\ntitle=Live in 5 seconds\ntimer=5\n", 5.0);
+            HudScreensNoticeAll("id=unpause\ncolor=live\nkind=Both teams full\ntitle=Going live\ntimer=5\n", 5.0);
           }
         }
       } else {

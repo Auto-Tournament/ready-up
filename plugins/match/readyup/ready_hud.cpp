@@ -484,7 +484,8 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
     s += L("id", "ready") + L("kind", "Ready \xC2\xB7 " + count) + L("size", "mini") + btn + L("bw", "s") + L("mouse", "b");
     return s;
   }
-  s += L("counter", count);
+  // The team dots already say who is ready; the count only stands in when there are none (Miller).
+  if (total[0] == 0 && total[1] == 0) s += L("counter", count);
   if (!btn.empty()) s += btn + L("bw", "l") + L("hint", "Press B to click") + L("mouse", "b");
   return s;
 }
@@ -525,18 +526,18 @@ static std::string LiveSpec(const LiveHudInfo& l, int viewerSide) {
     const std::string myName = mine == WebhookTeam::Team1 ? l.team1 : mine == WebhookTeam::Team2 ? l.team2 : std::string();
     if (l.byTeam.empty() || myName != l.byTeam) return {};
     return L("id", "pausing") + L("where", "card") + L("color", "warn") +
-           L("kind", l.type == "tactical" ? "Timeout" : "Pause") + L("title", "Next freeze time");
+           L("kind", l.type == "tactical" ? "Timeout" : "Tech pause") + L("title", "Starts at freeze time");
   }
   if (l.paused) {
     if (l.type == "technical") {
       std::string s = L("id", "pause") + L("color", "warn") + L("kind", "Tech pause") +
-                      L("title", l.byTeam.empty() ? std::string("Tech pause") : HudSpecText(l.byTeam) + " paused");
+                      L("title", l.byTeam.empty() ? std::string("Paused") : HudSpecText(l.byTeam) + " paused");
       if (l.secondsLeft >= 0) s += L("sub", "Auto unpause (" + std::to_string(l.secondsLeft) + ")");
       return s + confirmAndButton(!l.bothRequired);
     }
     if (l.type == "tactical") {
       return L("id", "tac") + L("kind", "Timeout") +
-             L("title", l.byTeam.empty() ? std::string("Timeout") : HudSpecText(l.byTeam) + " timeout");
+             L("title", l.byTeam.empty() ? std::string("Paused") : HudSpecText(l.byTeam) + " called it");
     }
     if (l.type == "halftime" || l.type == "auto_5v5" || l.type == "restore" || l.type == "engine") {
       const char* kind = l.type == "halftime" ? "Halftime"
@@ -550,7 +551,7 @@ static std::string LiveSpec(const LiveHudInfo& l, int viewerSide) {
     return L("id", "adminpause") + L("color", "warn") + L("kind", "Admin pause") + L("title", "Paused by an admin");
   }
   if (l.forfeit) {
-    return L("id", "missing") + L("color", "ban") + L("title", HudSpecText(l.forfeitTeam) + " is missing") +
+    return L("id", "missing") + L("color", "ban") + L("kind", "Forfeit") + L("title", HudSpecText(l.forfeitTeam) + " is missing") +
            L("sub", "Forfeit in (" + std::to_string(std::max(0, l.forfeitSecondsLeft)) + ")");
   }
   return {};
