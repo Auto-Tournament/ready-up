@@ -36,6 +36,7 @@
 // Commands: `ru fleet status|enroll [url] <code|key> [--insecure]|reconnect` (console / RCON; also plain
 // `fleet ...`), `.fleet status|reconnect` / `.ru fleet ...` (admins, chat).
 #include "readyup/fleet_iface.h"
+#include "readyup/hud_iface.h"
 #include "readyup/license_checkin.h"
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
@@ -56,6 +57,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <map>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdarg>
@@ -119,6 +121,37 @@ std::atomic<bool> g_drainPosted{false};
 
 // Tick health and the offline timer (game thread).
 double g_lastTickNow = 0.0, g_lastHousekeeping = 0.0;
+
+// `say` with center_seconds on the Auto Tournament HUD (hud.so menu overlay "say"): a side card,
+// out of the way (the match plugin's hud_screens.h placement rule), closed when its time is up.
+std::map<int, double> g_sayUntil;  // slot -> when its card closes (game thread)
+int g_saySeq = 0;
+
+const ru_hud_v1* SayHud() {
+  const auto* h = static_cast<const ru_hud_v1*>(g_api->get_interface(g_api->self, RU_HUD_IFACE_NAME, 1));
+  if (!h || h->struct_size < offsetof(ru_hud_v1, menu) + sizeof(h->menu) || !h->menu) return nullptr;
+  return h;
+}
+
+std::string SaySpecText(std::string s) {
+  for (char& c : s) {
+    if (c == '\n' || c == '\r' || c == '|') c = ' ';
+  }
+  return s;
+}
+
+void SayTick(double now) {
+  if (g_sayUntil.empty()) return;
+  const ru_hud_v1* h = SayHud();
+  for (auto it = g_sayUntil.begin(); it != g_sayUntil.end();) {
+    if (now < it->second) {
+      ++it;
+      continue;
+    }
+    if (h) h->menu(it->first, "say", "", nullptr, nullptr);
+    it = g_sayUntil.erase(it);
+  }
+}
 std::vector<float> g_frameMs;
 size_t g_frameIdx = 0;
 int64_t g_offlineFiredFor = -1;
@@ -696,10 +729,21 @@ fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Valu
     const fleet::json::Value* centerArg = Member(args, "center_seconds");
     const int center = fleet::cmds::SayCenterSeconds(centerArg ? centerArg->AsInt(0) : 0);
     const std::string centerHtml = center ? fleet::cmds::SayCenterHtml(from.empty() ? text : from + ": " + text) : std::string();
+    const ru_hud_v1* hud = center ? SayHud() : nullptr;
+    const std::string card = hud ? "id=say-" + std::to_string(++g_saySeq) + "\nwhere=card\n" +
+                                       (admin ? "color=ct\nkind=" + (from.empty() ? std::string("Admin") : SaySpecText(from))
+                                              : std::string("kind=Tournament")) +
+                                       "\ntitle=" + SaySpecText(text) + "\n"
+                                 : std::string();
     auto toSlot = [&](int slot) {
       bool sent = false;
       for (const auto& l : out) sent = g_api->chat_to_slot(g_api->self, slot, l.c_str()) == 1 || sent;
-      if (sent && center) g_api->center_html_to_slot(g_api->self, slot, centerHtml.c_str(), center);
+      if (sent && hud) {
+        hud->menu(slot, "say", card.c_str(), nullptr, nullptr);
+        g_sayUntil[slot] = g_lastTickNow + center;
+      } else if (sent && center) {
+        g_api->center_html_to_slot(g_api->self, slot, centerHtml.c_str(), center);
+      }
       return sent;
     };
     // {to}: one player (a SteamID64 string), e.g. "your loadout is updated"; not on the server: nothing to do.
@@ -1395,6 +1439,7 @@ void OnTick(void*, const ru_tick_info* t) {
       else g_frameMs[g_frameIdx++ % 512] = static_cast<float>(ms);
     }
     g_lastTickNow = t->now;
+    SayTick(t->now);
     if (t->now - g_lastHousekeeping < 1.0) return;
     g_lastHousekeeping = t->now;
     auto c = Client();

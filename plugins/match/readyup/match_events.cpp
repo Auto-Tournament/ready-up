@@ -8,6 +8,7 @@
 #include "readyup/engine.h"
 #include "readyup/esports.h"
 #include "readyup/host.h"
+#include "readyup/hud_screens.h"
 #include "readyup/logging.h"
 #include "readyup/match_signals.h"
 #include "readyup/match_features.h"
@@ -61,6 +62,12 @@ void AnnounceOvertimeRules(int overtimeNumber, int seg) {
   }
   // Until the overtime's first round starts: in chat and in the middle of the screen.
   SendImportantToChat(msg.c_str(), 15);
+  if (HudScreensOn()) {
+    std::string s = "id=ot-" + std::to_string(overtimeNumber) + "\nkind=Overtime " + std::to_string(overtimeNumber) +
+                    "\ntitle=First to " + std::to_string(seg + 1) + "\n";
+    if (ctx->maxOvertimes > 0 && overtimeNumber >= ctx->maxOvertimes) s += "sub=Last overtime\n";
+    HudScreensNoticeAll(s, 8.0);
+  }
 }
 }  // namespace
 
@@ -585,6 +592,11 @@ void OnRoundStartLocked(const PendingRound& ev) {
       const int swapCountForThisRound = g_swapCount + 1;
       const bool team1IsCtNow = Team1IsCtWithSwapCount(mapNumber, swapCountForThisRound);
       WebhookEmitHalftimeStarted(mapNumber, team1Score, team2Score);
+      if (HudScreensOn() && sum == regHalf) {
+        HudScreensNoticeAll("id=half\nkind=Halftime\ntitle=Sides switch\nsub=" + std::to_string(team1Score) + " - " +
+                                std::to_string(team2Score) + "\n",
+                            8.0);
+      }
       if (sum == regHalf) EsportsOnHalftime();  // mp_halftime_pausematch (ruleset)
       WebhookEmitSideSwap(mapNumber, team1IsCtNow ? "CT" : "T", team1IsCtNow ? "T" : "CT");
       g_swapCount = swapCountForThisRound;

@@ -40,6 +40,15 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
 // Shows `spec` to `slot` instead of the base screen for `seconds` (menus and votes stay on top).
 // A card re-sent every frame keeps it up. Thread-safe.
 void HudScreensNotice(int slot, const std::string& spec, double seconds);
+// The same for everyone (csTeam 0), or one CS side (2 T, 3 CT). A player's own notice wins.
+// Thread-safe.
+void HudScreensNoticeAll(const std::string& spec, double seconds, int csTeam = 0);
+
+// Placement rule (Sivert, 2026-10-27): what must not block the view (personal, small, may come
+// mid-round: damage, a pending pause, "no timeouts left", admin replies and messages) goes on the
+// side card (where=card), with the warmup ready card; the big moments, which come while the game
+// is stopped anyway (halftime, overtime, round restored, sides chosen, unpausing, match end), go
+// in the centre.
 
 // Stop answering hud.so's `.menu` (plugin unload). Game thread.
 void HudScreensUninstall();

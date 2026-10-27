@@ -45,6 +45,8 @@ struct Notice {
 };
 std::mutex g_noticeMu;
 std::map<int, Notice> g_notices;          // slot -> card shown over the base screen
+Notice g_noticeAll;                       // shown to everyone (or one side) over the base screen
+int g_noticeAllTeam = 0;                  // 0 everyone, else the CS side it is for
 
 const ru_hud_v1* Hud() {
   const ru_api* a = host::Api();
@@ -322,6 +324,9 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
       } else if (n != g_notices.end()) {
         spec = n->second.spec;
       }
+      if (spec.empty() && now <= g_noticeAll.until && (g_noticeAllTeam == 0 || g_noticeAllTeam == h.team)) {
+        spec = g_noticeAll.spec;
+      }
     }
     if (spec.empty()) spec = baseFor(h);
     if (!spec.empty() && mid) spec += "chips=1\n";
@@ -341,6 +346,13 @@ void HudScreensNotice(int slot, const std::string& spec, double seconds) {
   if (slot < 0 || slot > 63 || spec.empty()) return;
   std::lock_guard<std::mutex> lk(g_noticeMu);
   g_notices[slot] = Notice{spec, host::NowSeconds() + seconds};
+}
+
+void HudScreensNoticeAll(const std::string& spec, double seconds, int csTeam) {
+  if (spec.empty()) return;
+  std::lock_guard<std::mutex> lk(g_noticeMu);
+  g_noticeAll = Notice{spec, host::NowSeconds() + seconds};
+  g_noticeAllTeam = csTeam;
 }
 
 void HudScreensUninstall() {

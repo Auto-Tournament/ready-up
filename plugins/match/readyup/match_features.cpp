@@ -7,6 +7,7 @@
 #include "readyup/esports.h"
 #include "readyup/fleet_bridge.h"
 #include "readyup/host.h"
+#include "readyup/hud_screens.h"
 #include "readyup/logging.h"
 #include "readyup/match_events.h"
 #include "readyup/match_state.h"
@@ -89,6 +90,11 @@ int CsSideOf(const WebhookMatchContext& ctx, WebhookTeam team) {
   if (MatchEventsSnapshot().swapCount % 2 != 0) team1Ct = !team1Ct;
   const bool ct = (team == WebhookTeam::Team1) == team1Ct;
   return ct ? 3 : 2;
+}
+
+// A side card for one team (refusals of .tech / .tac / .p: hud_screens.h placement rule).
+void TeamNotice(const WebhookMatchContext& ctx, WebhookTeam team, const std::string& spec) {
+  if (HudScreensOn() && team != WebhookTeam::Unknown) HudScreensNoticeAll(spec, 6.0, CsSideOf(ctx, team));
 }
 
 void Unpause(const char* why) {
@@ -333,7 +339,10 @@ bool MatchFeaturesRoundOver() { return g_roundOver.load(); }
 void MatchFeaturesTechPause(WebhookTeam team, uint64_t steamid64, const std::string& name) {
   const auto ctx = WebhookGetMatchContext();
   if (!ctx) return Reply(steamid64, "Ready Up: no match loaded.");
-  if (!LiveMap()) return Reply(steamid64, "Ready Up: pauses only work while the map is live.");
+  if (!LiveMap()) {
+    TeamNotice(*ctx, team, "id=notice\nwhere=card\ncolor=muted\nkind=Not now\ntitle=Works once the match is live\n");
+    return Reply(steamid64, "Ready Up: pauses only work while the map is live.");
+  }
   if (PauseStateGet().paused) return Reply(steamid64, "Ready Up: match is already paused.");
   const MatchRules rules = EffectiveRules();
   const int used = PauseStateUsed(team, "technical");
@@ -341,6 +350,9 @@ void MatchFeaturesTechPause(WebhookTeam team, uint64_t steamid64, const std::str
   if (!TechPauseAllowed(used, rules.tech_pauses_per_team)) {
     Print("pause: technical refused for %s (%d/%d used)\n", TeamKey(team), used, rules.tech_pauses_per_team);
     // "(3/3)" read as three left; say it in words (2026-10-15).
+    TeamNotice(*ctx, team, "id=notice\nwhere=card\ncolor=ban\nkind=Tech pause\ntitle=No tech pauses left\nsub=" +
+                               HudSpecText(tn) + " used " + std::to_string(used) + " / " +
+                               std::to_string(rules.tech_pauses_per_team) + "\n");
     return Reply(steamid64, "Ready Up: " + tn + " has used all " + std::to_string(rules.tech_pauses_per_team) +
                                 " technical pauses; none left.");
   }
@@ -360,7 +372,10 @@ void MatchFeaturesTechPause(WebhookTeam team, uint64_t steamid64, const std::str
 void MatchFeaturesTacticalTimeout(WebhookTeam team, uint64_t steamid64, const std::string& name) {
   const auto ctx = WebhookGetMatchContext();
   if (!ctx) return Reply(steamid64, "Ready Up: no match loaded.");
-  if (!LiveMap()) return Reply(steamid64, "Ready Up: timeouts only work while the map is live.");
+  if (!LiveMap()) {
+    TeamNotice(*ctx, team, "id=notice\nwhere=card\ncolor=muted\nkind=Not now\ntitle=Works once the match is live\n");
+    return Reply(steamid64, "Ready Up: timeouts only work while the map is live.");
+  }
   if (PauseStateGet().paused) return Reply(steamid64, "Ready Up: match is already paused.");
   // The caller's side (a player), else the team's side from the map sides and swaps.
   int side = 0;
@@ -375,6 +390,9 @@ void MatchFeaturesTacticalTimeout(WebhookTeam team, uint64_t steamid64, const st
   if (auto it = ctx->cvars.find("mp_team_timeout_max"); it != ctx->cvars.end()) {
     const int max = std::atoi(it->second.c_str());
     if (used >= max) {
+      TeamNotice(*ctx, team, "id=notice\nwhere=card\ncolor=ban\nkind=Timeout\ntitle=No timeouts left\nsub=" +
+                                 HudSpecText(TeamName(*ctx, team)) + " used " + std::to_string(used) + " / " +
+                                 std::to_string(max) + "\n");
       return Reply(steamid64, "Ready Up: " + TeamName(*ctx, team) + " has no tactical timeouts left.");
     }
   }
@@ -438,6 +456,7 @@ void MatchFeaturesUnpause(WebhookTeam team, uint64_t steamid64, const std::strin
     if (!EnqueueServerCommand("mp_unpause_match")) return Reply(steamid64, "Ready Up: unpause unavailable yet.");
     Unpause("players");
     SendToChat("Ready Up: unpause accepted.");
+    if (HudScreensOn()) HudScreensNoticeAll("id=unpause\ncolor=live\nkind=Both teams ready\ntitle=Unpausing\n", 3.0);
   } else if (both) {
     SendToChat(("Ready Up: " + TeamName(*ctx, team) + " wants to unpause (waiting for the other team).").c_str());
   } else {
@@ -637,6 +656,9 @@ void MatchFeaturesTick() {
         if (g_auto5v5FullSince == 0) {
           g_auto5v5FullSince = now;
           SendToChat("Ready Up: both teams are full again - live in 5 seconds.");
+          if (HudScreensOn()) {
+            HudScreensNoticeAll("id=unpause\ncolor=live\nkind=Both teams full\ntitle=Live in 5 seconds\ntimer=5\n", 5.0);
+          }
         }
       } else {
         g_auto5v5FullSince = 0;

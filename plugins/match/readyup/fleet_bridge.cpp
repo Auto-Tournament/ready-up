@@ -35,6 +35,7 @@
 #include "readyup/round_restore.h"
 #include "readyup/scrim_flow.h"
 #include "readyup/http_client.h"
+#include "readyup/hud_screens.h"
 #include "readyup/webhook.h"
 #include "readyup/workers.h"
 
@@ -1026,6 +1027,12 @@ bool DoRestore(int mapNumber, int round, const std::string& file, const std::str
 bool DoRestoreNow(int mapNumber, int round, const std::string& file, const std::string& sha, const std::string& by,
                   const std::string& reason, const Json& extra, int scoreT1, int scoreT2) {
   g_restoring = true;
+  if (HudScreensOn()) {
+    std::string s = "id=restored-" + std::to_string(round) + "\ncolor=ct\nkind=Round restored\ntitle=Back to round " +
+                    std::to_string(round) + "\n";
+    if (scoreT1 >= 0 && scoreT2 >= 0) s += "sub=" + std::to_string(scoreT1) + " - " + std::to_string(scoreT2) + "\n";
+    HudScreensNoticeAll(s, 8.0);
+  }
   MatchEventsIgnoreRoundEndsFor(5.0);  // the reload ends the current round as a draw
   (void)EnqueueServerCommand(("mp_backup_restore_load_file " + file).c_str());
   // mp_backup_restore_load_autopause 1 is meant to pause the restored round, but it does not
@@ -1590,6 +1597,7 @@ Result CmdEnd(const Json& args) {
   g_seriesOver = true;
   g_phaseReason = "cmd:end_match";
   SendToChat("Ready Up: the match was ended by a tournament admin.");
+  if (HudScreensOn()) HudScreensNoticeAll("id=ended\ncolor=ban\nkind=Match ended\ntitle=An admin ended the match\n", 10.0);
   return Ok();
 }
 

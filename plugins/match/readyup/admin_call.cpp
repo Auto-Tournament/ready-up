@@ -96,6 +96,11 @@ void AdminCallCommand(uint64_t steamid64, const std::string& playerName, const s
     std::lock_guard<std::mutex> lk(g_mu);
     if (!g_cooldown.TryCall(steamid64, host::NowSeconds(), Cfg().admin_call_cooldown_s, &left)) {
       Tell(slot, "you already called an admin - you can call again in " + std::to_string(left) + "s.");
+      if (HudScreensOn() && slot >= 0) {
+        HudScreensNotice(slot, "id=notice\nwhere=card\ncolor=muted\nkind=Admin\ntitle=Already called\nsub=Again in (" +
+                                   std::to_string(left) + ")\n",
+                         5.0);
+      }
       return;
     }
   }
@@ -160,6 +165,9 @@ void AdminCallCommand(uint64_t steamid64, const std::string& playerName, const s
   if (DebugEnabled()) Debug("admin-call: %d admin(s) in game notified\n", admins);
 
   Tell(slot, "admins notified.");
+  if (HudScreensOn() && slot >= 0) {
+    HudScreensNotice(slot, "id=notice\nwhere=card\ncolor=warn\nkind=Admin\ntitle=An admin is on the way\n", 6.0);
+  }
 }
 
 void AdminCallTick() {

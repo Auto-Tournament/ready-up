@@ -39,6 +39,7 @@
 #include "readyup/webhook.h"
 #include "readyup/wingman.h"
 #include "readyup/host.h"
+#include "readyup/hud_screens.h"
 #include "readyup/practice_iface.h"
 #include "readyup/whitelist_iface.h"
 
@@ -594,6 +595,14 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
                     "start on " + ((*winnerWantsCt) ? "CT" : "T") +
                     (stayed ? " (sides stay)" : " (teams swapped)") + " - LIVE after the restart.";
   SendToChat(msg.c_str());
+  if (HudScreensOn()) {
+    const bool timedOut = pickerName == "timeout";
+    const std::string side = *winnerWantsCt ? "CT" : "T";
+    HudScreensNoticeAll(std::string("id=sides\ncolor=") + (timedOut ? "muted" : (*winnerWantsCt ? "ct" : "t")) +
+                            "\nkind=" + (timedOut ? "Time is up" : "Sides chosen") + "\ntitle=" + HudSpecText(winnerName) +
+                            (stayed ? " stays " : " starts ") + side + "\n",
+                        8.0);
+  }
   return true;
 }
 
