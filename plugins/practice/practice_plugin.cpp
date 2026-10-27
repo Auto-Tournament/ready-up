@@ -2064,12 +2064,8 @@ std::string MenuSpec(int slot, uint64_t steamid64) {
         KindLabel(m.kind) + "\ntitle=Click to go there\n";
     for (int i = m.offset; i < to; ++i) {
       const auto& [owner, l] = list[static_cast<size_t>(i)];
-      // A guide's sub is how to throw it (its desc starts "jumpthrow", "runthrow", ...).
-      std::string sub = owner == kGuideOwner || owner == kGlobalOwner ? "" : "mine";
-      if (owner == kGuideOwner) {
-        const std::string how = Lower(l.desc.substr(0, l.desc.find_first_of(" ,")));
-        if (how.find("throw") != std::string::npos || how.find("click") != std::string::npos) sub = how;
-      }
+      // A guide's sub is how to throw it ("W + jumpthrow", practice_guides.h GuideThrow).
+      const std::string sub = owner == kGuideOwner ? l.how : owner == kGlobalOwner ? "" : "mine";
       s += MenuBtn(l.title.empty() ? l.name : l.title, "ghost", "#ln " + std::to_string(i), sub);
     }
     for (int i = to; i < m.offset + kLineupsPerPage; ++i) s += MenuBtn(" ", "ghost", "", "", "off");

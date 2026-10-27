@@ -204,6 +204,21 @@ std::string GuideKind(const std::string& t) {
   return "";
 }
 
+std::string GuideThrow(const std::string& desc, bool jumpFlag) {
+  std::string s;
+  for (char c : desc.substr(0, desc.find('\n'))) s += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  const auto has = [&](const char* w) { return s.find(w) != std::string::npos; };
+  const bool jump = jumpFlag || has("jump");
+  const bool left = has("lmb") || has("left click"), right = has("rmb") || has("right click");
+  const std::string mod = has("run") ? "W + " : has("shift") || has("walk") ? "Shift + " : has("step") ? "Step + " : "";
+  std::string base;
+  if (jump) base = left && right ? "Middle jumpthrow" : right ? "Right-click jumpthrow" : "Jumpthrow";
+  else if (has("throw") || left || right || !mod.empty()) base = left && right ? "Middle throw" : right ? "Right-click throw" : "Throw";
+  if (base.empty()) return "";  // only where to aim
+  if (!mod.empty()) base[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(base[0])));
+  return mod + base;
+}
+
 bool ParseGuideFile(const std::string& text, GuideFile* out, std::string* error) {
   *out = GuideFile{};
   Kv root;
@@ -235,12 +250,15 @@ bool ParseGuideFile(const std::string& text, GuideFile* out, std::string* error)
       continue;
     }
     const auto a = aimOf.find(n.Str("Id"));
+    std::string raw;
     if (a != aimOf.end() && a->second->Vec("Angles", &l.ang)) {
-      l.desc = OneLine(a->second->Text("Desc"));
+      raw = a->second->Text("Desc");
     } else if (!n.Vec("Angles", &l.ang)) {
       ++out->skipped;
       continue;
     }
+    l.desc = OneLine(raw);
+    l.how = GuideThrow(raw, n.Bool("JumpThrow", false));
     l.ang.z = 0;
     if (n.Bool("JumpThrow", false) && l.desc.find("jump") == std::string::npos) l.desc = "jumpthrow" + (l.desc.empty() ? "" : ", " + l.desc);
     // Unique names: the same title twice (one per side) gets -2, -3.

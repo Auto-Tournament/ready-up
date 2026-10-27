@@ -32,6 +32,11 @@ bool ParseGuideFile(const std::string& text, GuideFile* out, std::string* error)
 // "[INSTA] T window smoke" -> "insta-t-window-smoke" (ValidLineupName: at most 32 characters).
 std::string GuideSlug(const std::string& title);
 
+// How to throw, from the first line of an aim_target's Desc ("run + jumpthrow" -> "W + jumpthrow",
+// "lmb + rmb" -> "Middle throw", "shift + jumpthrow" -> "Shift + jumpthrow"); "" when it only says
+// where to aim. `jumpFlag`: the main node's JumpThrow.
+std::string GuideThrow(const std::string& desc, bool jumpFlag);
+
 // The grenade kind practice uses: "smoke", "flash", "molotov" (incendiary too), "hegrenade".
 std::string GuideKind(const std::string& grenadeType);
 

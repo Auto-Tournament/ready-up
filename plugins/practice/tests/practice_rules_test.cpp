@@ -238,7 +238,18 @@ int main() {
       CHECK(l.pos.x == 1.0f && l.pos.y == -2.5f && l.pos.z == 3.0f);
       CHECK(l.ang.x == -42.5f && l.ang.y == -173.9f);
       CHECK(l.desc == "runthrow, aim left");
+      CHECK(l.how == "W + throw");
     }
+    CHECK(GuideThrow("jumpthrow", false) == "Jumpthrow");
+    CHECK(GuideThrow("run + jumpthrow\nthen aim", false) == "W + jumpthrow");
+    CHECK(GuideThrow("shift (till the line) + jumpthrow", false) == "Shift + jumpthrow");
+    CHECK(GuideThrow("lmb + rmb", false) == "Middle throw");
+    CHECK(GuideThrow("rmb + lmb jumpthrow", false) == "Middle jumpthrow");
+    CHECK(GuideThrow("rmb + jumpthrow", false) == "Right-click jumpthrow");
+    CHECK(GuideThrow("very small step + throw", false) == "Step + throw");
+    CHECK(GuideThrow("throw", false) == "Throw");
+    CHECK(GuideThrow("aim at the lamp", false).empty());
+    CHECK(GuideThrow("", true) == "Jumpthrow");
     CHECK(!ParseGuideFile("{ MapName = ", &g, &err) && !err.empty());
     CHECK(GuideKind("incendiary") == "molotov" && GuideKind("he") == "hegrenade");
     CHECK(GuideSlug("A very long title that goes on and on forever").size() <= 32);
