@@ -712,6 +712,7 @@ void OnGameEvent(void* /*user*/, const char* name, const ru_game_event* ev) {
     WelcomeObserveRoundStart();     // the cards wait it out
     GoLiveCardObserveRoundStart();  // (golive_card.h)
     RoundEconomyOnRoundStart();     // money at the start (round_economy.h)
+    ModesObserveRoundStart();       // practice's warmup-end check (modes.h)
   }
   if (std::strcmp(name, "round_freeze_end") == 0) RoundEconomyOnFreezeEnd();  // the buys
   if (std::strcmp(name, "round_start") == 0 || std::strcmp(name, "round_freeze_end") == 0) {

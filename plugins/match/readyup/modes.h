@@ -227,6 +227,9 @@ bool WarmupInfiniteAmmoEnabled();
 // (mp_warmup_pausetimer 0, mp_warmuptime 0, mp_warmup_end). Thread-safe.
 void OnNativeWarmupStarted(const char* source);
 
+// round_start (match_events.cpp): practice checks that a round followed the warmup it ended.
+void ModesObserveRoundStart();
+
 // Tick from server thread (e.g. GameFrame hook).
 void Tick();
 
