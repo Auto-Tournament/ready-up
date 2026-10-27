@@ -760,7 +760,8 @@ void ScreenForget(int slot) {
   }
 }
 
-const ru_hud_v1 g_iface = {sizeof(ru_hud_v1), &IfAvailable, &IfOpen, &IfSetText, &IfSetClass, &IfClearSlot, &IfScreen, &IfMenu, &IfRegisterMenu};
+const ru_hud_v1 g_iface = {sizeof(ru_hud_v1), &IfAvailable, &IfOpen, &IfSetText, &IfSetClass, &IfClearSlot, &IfScreen, &IfMenu, &IfRegisterMenu,
+                            &IfSetCapture};
 
 // `ru hudkit click [slot]`: the CT / T proof of concept for one player, or every human.
 const char* kClickLayout = "panorama/layout/custom_game/at_click.xml";
@@ -1178,29 +1179,68 @@ bool KitApply(const std::string& state) {
     txt("at_e_tb", "Team B");
     txt("at_e_sa", lost ? "9" : "13");
     txt("at_e_sb", lost ? "13" : "9");
-    txt("at_e_where", "MAP 2 OF 3");
-    txt("at_e_next", "Next map: Inferno (45)");
-    txt("at_ea_name", "TEAM A");
-    txt("at_eb_name", "TEAM B");
-    const int a[5][7] = {{27, 14, 6, 2464, 112, 82, 54}, {21, 15, 4, 2002, 91, 77, 41}, {18, 16, 9, 1848, 84, 73, 38}, {15, 17, 5, 1562, 71, 68, 47}, {11, 18, 7, 1276, 58, 64, 29}};
-    const int b[5][7] = {{22, 18, 3, 2112, 96, 68, 45}, {19, 19, 5, 1826, 83, 64, 52}, {16, 19, 6, 1628, 74, 59, 36}, {13, 20, 4, 1452, 66, 55, 31}, {10, 21, 6, 1144, 52, 50, 28}};
-    auto rows = [&](char side, const int (*t)[7], int nameFrom) {
+    txt("at_e_where", "MAP 2 OF 3 \xC2\xB7 INFERNO");
+    txt("at_e_next", "Next map: Mirage (45)");
+    txt("at_ea_name", "Team A");
+    txt("at_eb_name", "Team B");
+    txt("at_e_sidea", "T 8 \xC2\xB7 CT 5");
+    txt("at_e_sideb", "T 5 \xC2\xB7 CT 4");
+    // K D A ADR KAST HS UD EK MVPs (the end_screen.cpp leaderboard, with made-up numbers).
+    const int a[5][9] = {{27, 14, 6, 112, 82, 54, 186, 6, 5}, {21, 15, 4, 91, 77, 41, 244, 3, 3}, {18, 16, 9, 84, 73, 38, 412, 2, 2}, {15, 17, 5, 71, 68, 47, 98, 4, 2}, {11, 18, 7, 58, 64, 29, 305, 1, 1}};
+    const int b[5][9] = {{22, 18, 3, 96, 68, 45, 132, 5, 4}, {19, 19, 5, 83, 64, 52, 276, 3, 2}, {16, 19, 6, 74, 59, 36, 188, 2, 2}, {13, 20, 4, 66, 55, 31, 94, 1, 1}, {10, 21, 6, 52, 50, 28, 351, 0, 0}};
+    auto rows = [&](char side, const int (*t)[9], int nameFrom) {
       for (int i = 0; i < 5; ++i) {
         const std::string r = std::string("at_e") + side + std::to_string(i);
+        const int* x = t[i];
+        cls(r, "empty", false);
         txt(r + "_n", side == 'a' && i == 1 ? "Sivert" : "player " + std::to_string(nameFrom + i));
-        const char cols[] = "kdagrsh";
-        for (int c = 0; c < 7; ++c) {
-          std::string v = std::to_string(t[i][c]);
-          if (c == 5 || c == 6) v += "%";
-          txt(r + "_" + cols[c], v);
-        }
+        txt(r + "_k", std::to_string(x[0]));
+        txt(r + "_d", std::to_string(x[1]));
+        txt(r + "_a", std::to_string(x[2]));
+        const int diff = x[0] - x[1];
+        txt(r + "_p", (diff > 0 ? "+" : "") + std::to_string(diff));
+        cls(r + "_p", "pos", diff > 0);
+        cls(r + "_p", "neg", diff < 0);
+        txt(r + "_r", std::to_string(x[3]));
+        cls(r + "_r", "top", x[3] >= 100);
+        txt(r + "_s", std::to_string(x[4]) + "%");
+        txt(r + "_h", std::to_string(x[5]) + "%");
+        txt(r + "_u", std::to_string(x[6]));
+        txt(r + "_e", std::to_string(x[7]));
+        txt(r + "_m", std::to_string(x[8]) + " MVP");
+        cls(r, "mvp", x[8] > 0);
         cls(r, "me", side == 'a' && i == 1);
-        cls(r, "mvp", i == 0);
       }
     };
     rows('a', a, 1);
     rows('b', b, 6);
+    // 22 rounds, 13 - 9: who won (a / b) and how.
+    const char* strip = "aEbEaEaBaEbBaEaDbEaEaTbEbEaEbBbEaEbBaDbEaEaE";
+    for (int i = 0; i < 30; ++i) {
+      const std::string r = "at_rt" + std::to_string(i);
+      const bool has = i < 22;
+      cls(r, "on", has);
+      if (!has) continue;
+      const bool wa = strip[i * 2] == 'a';
+      const std::string how(1, strip[i * 2 + 1]);
+      cls(r, "a", wa);
+      cls(r, "b", !wa);
+      cls(r, "half", i == 12);
+      txt(r + "_u", wa ? how : "");
+      txt(r + "_d", wa ? "" : how);
+    }
+    const char* aw[4][3] = {{"TOP FRAGGER", "player 1", "27 K"}, {"MOST DAMAGE", "player 1", "112 ADR"},
+                            {"ENTRY KILLS", "player 1", "6"}, {"UTILITY DAMAGE", "player 3", "412"}};
+    for (int i = 0; i < 4; ++i) {
+      const std::string w = "at_aw" + std::to_string(i);
+      cls(w, "empty", false);
+      txt(w + "_l", aw[i][0]);
+      txt(w + "_n", aw[i][1]);
+      txt(w + "_v", aw[i][2]);
+    }
     only("at_end", {"won", "lost", "draw"}, lost ? "lost" : "won");
+    only("at_end", {"wa", "wb"}, lost ? "wb" : "wa");
+    only("at_end", {"viewa", "viewb"}, "viewa");
     cls("at_end", "how", true);
     cls("at_end", "on", true);
   } else if (state == "next") {

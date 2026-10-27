@@ -258,7 +258,7 @@
 .at-ecard
 {
 	horizontal-align: center; vertical-align: center;
-	width: 1200px; height: fit-children; overflow: clip;
+	width: 1440px; height: fit-children; overflow: clip;
 	background-color: #100908f2; border: 1px solid #322926; border-radius: 18px;
 	transform: translateY( 16px ); transition-property: transform; transition-duration: 0.52s;
 	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
@@ -281,29 +281,65 @@
 .at-end.draw .at-line { background-color: #938a87; }
 
 .at-escore { flow-children: right; horizontal-align: center; margin: 8px 0px 18px 0px; }
-.at-eteamname { vertical-align: center; width: 260px; font-size: 24px; font-weight: bold; color: #f4edeb; }
-.at-eteamname.at-ea { text-align: right; margin-right: 28px; }
-.at-eteamname.at-eb { margin-left: 28px; }
+.at-eteambox { flow-children: down; vertical-align: center; width: 320px; }
+.at-eabox { margin-right: 28px; }
+.at-ebbox { margin-left: 28px; }
+.at-eteamname { width: 100%; font-size: 26px; font-weight: bold; color: #f4edeb; }
+.at-eteamname.at-ea { text-align: right; }
+.at-esides { width: 100%; margin-top: 4px; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
+.at-esides.at-right { text-align: right; }
 .at-enum { vertical-align: center; font-size: 64px; font-weight: bold; color: #f4edeb; }
 .at-ecolon { vertical-align: center; margin: 0px 18px; font-size: 30px; font-weight: bold; color: #4a3f3b; }
-.at-end.lost .at-ea { color: #938a87; }
-.at-end.won .at-eb { color: #938a87; }
+/* The losing team's name and score in grey, whoever is watching (wa / wb: who won). */
+.at-end.wb .at-ea { color: #938a87; }
+.at-end.wa .at-eb { color: #938a87; }
+.at-erow.empty { visibility: collapse; }
+.at-aw.empty { visibility: collapse; }
+.at-erounds.none { visibility: collapse; }
 
 .at-eteams { flow-children: right; width: 100%; }
-.at-eteam { flow-children: down; width: 550px; margin-right: 28px; }
+.at-eteam { flow-children: down; width: 670px; margin-right: 28px; }
 .at-erow { flow-children: right; width: 100%; height: 36px; margin-bottom: 5px; padding: 0px 12px; border-radius: 8px; background-color: #18110e; border: 1px solid #211815; }
-.at-erow.at-ehead { height: 16px; background-color: #00000000; border: 0px solid #00000000; }
+.at-erow.at-ehead { overflow: noclip; height: 16px; background-color: #00000000; border: 0px solid #00000000; }
 .at-erow.me { background-color: #f4edeb12; border: 1px solid #f4edeb66; }
 .at-erow.mvp { background-color: #ff6a3d10; border: 1px solid #ff6a3d44; }
 .at-enbox { flow-children: right; width: fill-parent-flow( 1.0 ); vertical-align: center; }
 .at-en { vertical-align: center; font-size: 14px; color: #f4edeb; }
 .at-ehead .at-en { font-size: 10px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; width: fill-parent-flow( 1.0 ); }
 .at-erow.me .at-en { font-weight: bold; }
-.at-mvp { visibility: collapse; vertical-align: center; margin-left: 8px; padding: 2px 6px; border-radius: 4px; background-color: #ff6a3d; font-size: 10px; font-weight: bold; color: #140e0c; }
+/* MVP rounds next to the name ("3 MVP"), only when there are any. */
+.at-mvp { visibility: collapse; vertical-align: center; margin-left: 8px; padding: 2px 6px; border-radius: 4px; background-color: #ff6a3d22; font-family: "Noto Mono"; font-size: 10px; font-weight: bold; color: #ff6a3d; }
 .at-erow.mvp .at-mvp { visibility: visible; }
-.at-ev { font-family: "Noto Mono"; width: 44px; margin-left: 6px; vertical-align: center; text-align: right; font-size: 14px; color: #c4bcb9; }
+.at-ev { font-family: "Noto Mono"; width: 40px; margin-left: 6px; vertical-align: center; text-align: right; font-size: 14px; color: #c4bcb9; }
 .at-ehead .at-ev { font-size: 10px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; }
 .at-erow.hi .at-ev { color: #f4edeb; }
+.at-ev-k, .at-ev-d, .at-ev-a, .at-ev-e { width: 30px; }
+.at-ev-s { width: 46px; }
+.at-ev-k { color: #f4edeb; font-weight: bold; }
+.at-ev.pos { color: #7fd7a8; font-weight: bold; }
+.at-ev.neg { color: #f2645f; font-weight: bold; }
+.at-ev.top { color: #ff6a3d; }
+.at-ehead .at-ev-k { color: #938a87; }
+
+/* Round history: one tick per round, team A's wins up, team B's down, the viewer's team in the accent. */
+.at-erounds { flow-children: right; horizontal-align: center; height: 64px; margin: 4px 0px 14px 0px; }
+.at-rt { visibility: collapse; flow-children: down; width: 26px; height: 64px; margin-left: 4px; }
+.at-rt.on { visibility: visible; }
+.at-rt.half { margin-left: 22px; }
+.at-rtu, .at-rtd { width: 26px; height: 26px; border-radius: 6px; text-align: center; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; padding-top: 5px; color: #00000000; background-color: #00000000; }
+.at-rtmid { width: 26px; height: 2px; margin: 4px 0px; background-color: #322926; }
+.at-rt.a .at-rtu { background-color: #4a3f3b; color: #f4edeb; }
+.at-rt.b .at-rtd { background-color: #4a3f3b; color: #f4edeb; }
+.at-end.viewa .at-rt.a .at-rtu { background-color: #ff6a3d; color: #140e0c; }
+.at-end.viewb .at-rt.b .at-rtd { background-color: #ff6a3d; color: #140e0c; }
+
+/* Awards: who led each stat this map. */
+.at-eawards { flow-children: right; width: 100%; margin-bottom: 14px; }
+.at-aw { flow-children: down; width: fill-parent-flow( 1.0 ); margin-right: 10px; padding: 10px 14px; border-radius: 10px; background-color: #18110e; border: 1px solid #211815; }
+.at-awl { font-family: "Noto Mono"; font-size: 10px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
+.at-awrow { flow-children: right; width: 100%; margin-top: 2px; }
+.at-awn { width: fill-parent-flow( 1.0 ); font-size: 15px; font-weight: bold; color: #f4edeb; }
+.at-awv { font-family: "Noto Mono"; font-size: 15px; font-weight: bold; color: #ff6a3d; }
 
 .at-efoot { flow-children: right; width: 100%; margin-top: 20px; }
 .at-ewhere { font-family: "Noto Mono"; width: fill-parent-flow( 1.0 ); vertical-align: center; font-size: 12px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
@@ -369,3 +405,18 @@
 #at_eb2 { transition-delay: 0.73s; }
 #at_eb3 { transition-delay: 0.77s; }
 #at_eb4 { transition-delay: 0.81s; }
+
+/* Column heads: hover one for what it means (the end screen holds the cursor). */
+.at-evh { width: 40px; height: 16px; margin-left: 6px; overflow: noclip; }
+.at-evt { width: 100%; text-align: right; font-family: "Noto Mono"; font-size: 10px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; }
+.at-evh:hover .at-evt { color: #f4edeb; }
+.at-tip
+{
+	visibility: collapse; opacity: 0; flow-children: down; width: 240px; height: fit-children;
+	horizontal-align: right; transform: translateY( -84px ); padding: 10px 12px; border-radius: 10px;
+	background-color: #1d1512; border: 1px solid #4a3f3b;
+	transition-property: opacity; transition-duration: 0.15s;
+}
+.at-evh:hover .at-tip { visibility: visible; opacity: 1; }
+.at-tipk { font-size: 14px; font-weight: bold; color: #f4edeb; }
+.at-tipv { margin-top: 3px; font-size: 12px; color: #c4bcb9; }

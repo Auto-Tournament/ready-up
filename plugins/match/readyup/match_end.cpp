@@ -7,6 +7,7 @@
 
 #include "readyup/engine.h"
 #include "readyup/demo_recorder.h"
+#include "readyup/end_screen.h"
 #include "readyup/game_timers.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
@@ -17,6 +18,7 @@
 #include "readyup/webhook.h"
 
 #include <algorithm>
+#include <cctype>
 #include <atomic>
 #include <cstdlib>
 #include <mutex>
@@ -213,6 +215,36 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
         in.mapNumber, recording ? 1 : 0, hasUpload ? 1 : 0, tvDelay, plan.restartDelay, plan.tvFlushDelay,
         in.seriesOver ? 1 : 0);
 
+  // The leaderboard (end_screen.h) instead of the result card when the HUD can draw it.
+  const auto ctxNow = WebhookGetMatchContext();
+  const int numMaps = ctxNow ? std::max(1, ctxNow->num_maps) : 1;
+  EndScreenInfo end;
+  end.team1 = base.team1Name.empty() ? std::string("Team 1") : base.team1Name;
+  end.team2 = base.team2Name.empty() ? std::string("Team 2") : base.team2Name;
+  end.stats = mapEv.stats;
+  if (ctxNow) {
+    end.maxRounds = std::max(2, ctxNow->maxRounds);
+    if (auto it = ctxNow->cvars.find("mp_overtime_maxrounds"); it != ctxNow->cvars.end()) {
+      end.overtimeRounds = std::max(2, std::atoi(it->second.c_str()));
+    }
+  }
+  const char* dot = " \xC2\xB7 ";
+  auto mapHow = [&]() -> std::string {
+    if (in.winner != "team1" && in.winner != "team2") return "";
+    if (in.decidedByDamage) return "By damage";
+    return in.team1Score + in.team2Score > end.maxRounds ? "In overtime" : "By rounds";
+  };
+  auto upper = [](std::string s) {
+    for (char& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    return s;
+  };
+  auto shortMap = [](std::string m) {
+    if (const size_t slash = m.rfind('/'); slash != std::string::npos) m = m.substr(slash + 1);
+    if (m.size() > 3 && m[2] == '_') m = m.substr(3);  // de_mirage -> mirage
+    if (!m.empty()) m[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(m[0])));
+    return m;
+  };
+
   ResultCardInfo card;
   card.team1 = base.team1Name;
   card.team2 = base.team2Name;
@@ -226,7 +258,17 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
     card.mapNumber = in.mapNumber;
     card.mapName = in.mapName;
     card.nextMap = in.nextMap;
-    ResultCardShow(MapResultCardHtml(card), MapResultCardSpec(card), std::max(1, plan.restartDelay - 1), "map result");
+    end.score1 = in.team1Score;
+    end.score2 = in.team2Score;
+    end.winner = card.winner;
+    end.how = mapHow();
+    end.where = "MAP " + std::to_string(in.mapNumber) + " OF " + std::to_string(numMaps) + dot + upper(shortMap(in.mapName));
+    end.nextLabel = "Next map:";
+    end.next = shortMap(in.nextMap);
+    end.seconds = std::max(1, plan.restartDelay - 1);
+    if (!EndScreenShow(end)) {
+      ResultCardShow(MapResultCardHtml(card), MapResultCardSpec(card), std::max(1, plan.restartDelay - 1), "map result");
+    }
     ScheduleNextMap(std::max(1, plan.restartDelay - 1), in.nextMap, gen);
     return plan;
   }
@@ -252,7 +294,22 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
   card.team1Score = in.team1SeriesScore;
   card.team2Score = in.team2SeriesScore;
   card.forfeit = !winnerName.empty() && !in.seriesWinner.empty();
-  ResultCardShow(SeriesResultCardHtml(card), SeriesResultCardSpec(card), resetIn, "series result");
+  end.winner = card.winner;
+  end.seconds = resetIn;
+  end.nextLabel = base.scrim ? "Back to warmup" : "Server closes";
+  if (numMaps == 1 && !card.forfeit) {
+    // One map: its own score and how it was won, not "1 : 0".
+    end.score1 = in.team1Score;
+    end.score2 = in.team2Score;
+    end.how = mapHow();
+    end.where = "MAP 1 OF 1" + std::string(dot) + upper(shortMap(in.mapName));
+  } else {
+    end.score1 = in.team1SeriesScore;
+    end.score2 = in.team2SeriesScore;
+    end.how = card.forfeit ? "By forfeit" : card.winner.empty() ? "" : "By maps";
+    end.where = "BEST OF " + std::to_string(numMaps);
+  }
+  if (!EndScreenShow(end)) ResultCardShow(SeriesResultCardHtml(card), SeriesResultCardSpec(card), resetIn, "series result");
 
   if (!winnerName.empty() && !in.seriesWinner.empty()) {
     SendToChat(("Ready Up: " + winnerName + " won the series by forfeit.").c_str());

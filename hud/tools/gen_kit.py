@@ -20,11 +20,12 @@ def label(id_=None, cls="", text="{s:text}"):
     return f'<Label{i} class="{cls}" text="{text}" hittest="false" />'
 
 
-def panel(id_=None, cls="", children=""):
+def panel(id_=None, cls="", children="", hit=False):
     i = f' id="{id_}"' if id_ else ""
+    h = "true" if hit else "false"
     if not children:
-        return f'<Panel{i} class="{cls}" hittest="false" />'
-    return f'<Panel{i} class="{cls}" hittest="false">{children}</Panel>'
+        return f'<Panel{i} class="{cls}" hittest="{h}" />'
+    return f'<Panel{i} class="{cls}" hittest="{h}">{children}</Panel>'
 
 
 def brand():
@@ -75,23 +76,59 @@ def mid():
     return panel(cls="at-midwrap", children=panel("at_mid", "at-mid", content + extras))
 
 
+# Leaderboard columns (v4): K D A +/- ADR KAST HS UD (utility damage) EK (entry kills); the row id
+# suffix of each. MVP rounds sit next to the name (at_e<side><n>_m, shown with class "mvp").
+END_COLS = (("K", "k"), ("D", "d"), ("A", "a"), ("+/-", "p"), ("ADR", "r"), ("KAST", "s"), ("HS", "h"), ("UD", "u"), ("EK", "e"))
+# Hovering a column head shows what it means (the end screen holds the cursor: set_capture).
+END_TIPS = {
+    "k": ("Kills", "Enemies killed this map"),
+    "d": ("Deaths", "Times killed this map"),
+    "a": ("Assists", "Helped kill an enemy, flashes included"),
+    "p": ("Kills minus deaths", "Above zero: more kills than deaths"),
+    "r": ("Average damage per round", "Damage dealt, divided by rounds played"),
+    "s": ("KAST", "Rounds with a kill, assist, survival or trade"),
+    "h": ("Headshots", "Share of kills that were headshots"),
+    "u": ("Utility damage", "Damage from HE grenades and fire"),
+    "e": ("Entry kills", "The first kill of a round"),
+}
+
+
+def head_cell(text, c):
+    name, what = END_TIPS[c]
+    tip = panel(cls="at-tip", children=label(cls="at-tipk", text=name) + label(cls="at-tipv", text=what))
+    return panel(cls=f"at-evh at-ev-{c}", children=label(cls="at-evt", text=text) + tip, hit=True)
+END_ROUNDS = 30  # round history slots (24 + two overtimes); unused ones stay hidden
+
+
 def end():
     def team(side):
         head = panel(cls="at-erow at-ehead", children=(
-            label(f"at_e{side}_name", "at-en") + "".join(label(cls="at-ev", text=t) for t in ("K", "D", "A", "DMG", "ADR", "KAST", "HS"))))
+            label(f"at_e{side}_name", "at-en") + "".join(head_cell(t, c) for t, c in END_COLS)))
         rows = "".join(panel(f"at_e{side}{n}", "at-erow", (
-            panel(cls="at-enbox", children=label(f"at_e{side}{n}_n", "at-en") + label(cls="at-mvp", text="MVP"))
-            + "".join(label(f"at_e{side}{n}_{c}", "at-ev") for c in "kdagrsh"))) for n in range(5))
+            panel(cls="at-enbox", children=label(f"at_e{side}{n}_n", "at-en") + label(f"at_e{side}{n}_m", "at-mvp"))
+            + "".join(label(f"at_e{side}{n}_{c}", f"at-ev at-ev-{c}") for _, c in END_COLS))) for n in range(5))
         return panel(cls="at-eteam", children=head + rows)
 
+    def teambox(side, align):
+        return panel(cls=f"at-eteambox at-e{side}box", children=(
+            label(f"at_e_t{side}", f"at-eteamname at-e{side}") + label(f"at_e_side{side}", f"at-esides {align}")))
+
     score = panel(cls="at-escore", children=(
-        label("at_e_ta", "at-eteamname at-ea") + label("at_e_sa", "at-enum at-ea") + label(cls="at-ecolon", text=":")
-        + label("at_e_sb", "at-enum at-eb") + label("at_e_tb", "at-eteamname at-eb")))
+        teambox("a", "at-right") + label("at_e_sa", "at-enum at-ea") + label(cls="at-ecolon", text=":")
+        + label("at_e_sb", "at-enum at-eb") + teambox("b", "at-left")))
+    # One tick per round: team A's wins on top, team B's below; the letter is how it ended
+    # (E elimination, B bomb, D defuse, T time). Classes: on, a / b (who won), half (gap before it).
+    rounds = panel("at_erounds", "at-erounds", "".join(
+        panel(f"at_rt{n}", "at-rt", label(f"at_rt{n}_u", "at-rtu") + panel(cls="at-rtmid") + label(f"at_rt{n}_d", "at-rtd"))
+        for n in range(END_ROUNDS)))
+    awards = panel("at_eawards", "at-eawards", "".join(
+        panel(f"at_aw{n}", "at-aw", label(f"at_aw{n}_l", "at-awl") + panel(cls="at-awrow", children=(
+            label(f"at_aw{n}_n", "at-awn") + label(f"at_aw{n}_v", "at-awv")))) for n in range(4)))
     foot = panel(cls="at-efoot", children=label("at_e_where", "at-ewhere") + label("at_e_next", "at-enext"))
     flow = panel(cls="at-ecardflow", children=(
         brand() + panel(cls="at-divider")
         + label("at_e_head", "at-ehead-text") + panel(cls="at-howbox", children=label("at_e_how", "at-how"))
-        + score + panel(cls="at-eteams", children=team("a") + team("b")) + foot))
+        + score + rounds + awards + panel(cls="at-eteams", children=team("a") + team("b")) + foot))
     card_ = panel(cls="at-ecard", children=flow + panel(cls="at-line"))
     return panel("at_end", "at-end", panel(cls="at-eblur") + card_)
 

@@ -70,6 +70,10 @@ typedef struct ru_hud_v1 {
    * owner again replaces it; active or open NULL unregisters it and closes its menus (call that on
    * unload). 1 = done. */
   int (*register_menu)(const char* owner, int priority, ru_hud_menu_active_fn active, ru_hud_menu_open_fn open, void* user);
+  /* v1.3 (check struct_size): the cursor for `slot` on a layout from `open` (each layout holds its
+   * own), on (1) or off (0): hover (CSS :hover, tooltips) needs it. Give it back when done and on
+   * disconnect. `screen` and `menu` manage at_ui's cursor themselves. 1 = done. */
+  int (*set_capture)(int hud, int slot, int on);
   /* v1.x: members are appended here. */
 } ru_hud_v1;
 

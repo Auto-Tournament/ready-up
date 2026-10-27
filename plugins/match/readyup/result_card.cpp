@@ -3,6 +3,7 @@
 #include "readyup/hud_screens.h"
 #include "readyup/admin_call.h"
 #include "readyup/config.h"
+#include "readyup/end_screen.h"
 #include "readyup/engine.h"
 #include "readyup/logging.h"
 #include "readyup/players.h"
@@ -47,6 +48,7 @@ void ResultCardClear() {
 }
 
 void ResultCardTick() {
+  EndScreenTick();  // the leaderboard's countdown and its end (end_screen.h)
   std::string html, spec;
   {
     std::lock_guard<std::mutex> lk(g_mu);
