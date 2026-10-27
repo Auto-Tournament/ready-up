@@ -1603,6 +1603,25 @@ double g_nextAlwaysCheck = 0;
 // again only after kHomeRetrySeconds.
 double g_homeAskedAt = -1e9;
 constexpr double kHomeRetrySeconds = 180.0;
+// What the home map turned out to be: the map loaded after we asked for it, 20 s on (a workshop
+// home is named by id; the addons plugin's remount reload could bind the id to the wrong name,
+// and an empty server then reloaded "home" every 3 minutes, 2026-10-27).
+std::string g_homeEntry;    // the entry we asked for
+std::string g_homeLanded;   // the map name it loaded as ("" = not known yet)
+int g_mapStarts = 0;        // map starts so far (OnMapStart)
+int g_mapStartsAtAsk = 0;
+
+bool AtHome(const std::string& home, const char* cur) {
+  if (!cur || !*cur) return false;
+  if (readyup::mapnames::EntryMatchesLoaded(home, cur)) return true;
+  return home == g_homeEntry && !g_homeLanded.empty() && g_homeLanded == cur;
+}
+
+void NoteHomeLanded(double now) {
+  if (g_homeEntry.empty() || !g_homeLanded.empty() || now - g_homeAskedAt < 20.0 || g_mapStarts <= g_mapStartsAtAsk) return;
+  const char* cur = g_api->current_map(g_api->self);
+  if (cur && *cur) g_homeLanded = cur;
+}
 
 bool AnyHumanOn() {
   bool any = false;
@@ -1663,13 +1682,14 @@ void ApplyHomeCvars() {
   if (!e || !e->default_map) return;
   const std::string home = e->default_map("practice");
   const char* cur = g_api->current_map(g_api->self);
-  if (home.empty() || !cur || !*cur || !readyup::mapnames::EntryMatchesLoaded(home, cur)) return;
+  if (home.empty() || !AtHome(home, cur)) return;
   g_homeCvarsApplied = true;
   for (const auto& l : HomeCvars()) Cmd(l);
   Log("practice: home map %s: %zu setting(s) applied", cur, HomeCvars().size());
 }
 
 void GoHomeIfEmpty(double now) {
+  NoteHomeLanded(now);
   if (!AlwaysOn() || now - g_homeAskedAt < kHomeRetrySeconds) return;
   const auto* e = static_cast<const ru_essentials_v1*>(
       g_api->get_interface(g_api->self, RU_ESSENTIALS_IFACE_NAME, RU_ESSENTIALS_IFACE_VERSION));
@@ -1677,9 +1697,12 @@ void GoHomeIfEmpty(double now) {
   const std::string home = e->default_map("practice");
   if (home.empty()) return;
   const char* cur = g_api->current_map(g_api->self);
-  if (cur && *cur && readyup::mapnames::EntryMatchesLoaded(home, cur)) return;
+  if (AtHome(home, cur)) return;
   if (AnyHumanOn()) return;
   g_homeAskedAt = now;
+  g_homeEntry = home;
+  g_homeLanded.clear();
+  g_mapStartsAtAsk = g_mapStarts;
   // The engine names a workshop map by its bsp only: remember which id this load is for.
   if (readyup::mapnames::MapRef ref; readyup::mapnames::ParseEntry(home, &ref) && !ref.workshop_id.empty()) {
     readyup::mapnames::NoteWorkshopLoad(ref.workshop_id);
@@ -1944,6 +1967,7 @@ void OnGameEvent(void*, const char* evName, const ru_game_event* ev) {
 }
 
 void OnMapStart(void*, const ru_event*) {
+  ++g_mapStarts;
   g_homeCvarsApplied = false;
   // Binds a workshop id to the map it loaded (EntryMatchesLoaded for the home map).
   if (const char* cur = g_api->current_map(g_api->self); cur && *cur) readyup::mapnames::NoteMapLoaded(cur);
