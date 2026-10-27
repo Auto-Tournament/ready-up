@@ -783,14 +783,46 @@
 .ui-root .ui-panel.bga-100 { background-color: #140e0cff; }
 
 /* ---- icons -------------------------------------------------------------------------------
-   ico-<name> on any part draws that white icon (hud/images/at_ico_*.png, hud/tools/gen_icons.py):
-   elim bomb defuse time star check cross pause skull. The part's text is best left empty. */
-.ui-root .ico-elim { background-image: url( "s2r://panorama/images/custom_game/at_ico_elim.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
-.ui-root .ico-bomb { background-image: url( "s2r://panorama/images/custom_game/at_ico_bomb.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
-.ui-root .ico-defuse { background-image: url( "s2r://panorama/images/custom_game/at_ico_defuse.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
-.ui-root .ico-time { background-image: url( "s2r://panorama/images/custom_game/at_ico_time.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
-.ui-root .ico-star { background-image: url( "s2r://panorama/images/custom_game/at_ico_star.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
-.ui-root .ico-check { background-image: url( "s2r://panorama/images/custom_game/at_ico_check.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
-.ui-root .ico-cross { background-image: url( "s2r://panorama/images/custom_game/at_ico_cross.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
-.ui-root .ico-pause { background-image: url( "s2r://panorama/images/custom_game/at_ico_pause.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
-.ui-root .ico-skull { background-image: url( "s2r://panorama/images/custom_game/at_ico_skull.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+   ico-<name> on any part draws one of CS2's own UI icons (panorama/images/icons/ui, in the game, not
+   shipped here). Names: elim headshot kill bomb c4 defuse time hostage star check cross pause play trophy mvp clock timer warning info ct t switch vote timeout surrender unpause map mic muted skull health armor money fire smoke flash grenade gg leader bot.
+   Leave the part's text empty. */
+.ui-root .ico-elim { background-image: url( "s2r://panorama/images/icons/ui/elimination.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-headshot { background-image: url( "s2r://panorama/images/icons/ui/elimination_headshot.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-kill { background-image: url( "s2r://panorama/images/icons/ui/kill.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-bomb { background-image: url( "s2r://panorama/images/icons/ui/bomb.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-c4 { background-image: url( "s2r://panorama/images/icons/ui/bomb_c4.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-defuse { background-image: url( "s2r://panorama/images/icons/ui/defuser_white.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-time { background-image: url( "s2r://panorama/images/icons/ui/hourglass.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-hostage { background-image: url( "s2r://panorama/images/icons/ui/hostage_rescued.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-star { background-image: url( "s2r://panorama/images/icons/ui/icon_star.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-check { background-image: url( "s2r://panorama/images/icons/ui/check.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-cross { background-image: url( "s2r://panorama/images/icons/ui/cancel.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-pause { background-image: url( "s2r://panorama/images/icons/ui/pause.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-play { background-image: url( "s2r://panorama/images/icons/ui/play.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-trophy { background-image: url( "s2r://panorama/images/icons/ui/trophy.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-mvp { background-image: url( "s2r://panorama/images/icons/ui/stat_mvps.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-clock { background-image: url( "s2r://panorama/images/icons/ui/clock.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-timer { background-image: url( "s2r://panorama/images/icons/ui/timer.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-warning { background-image: url( "s2r://panorama/images/icons/ui/warning.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-info { background-image: url( "s2r://panorama/images/icons/ui/info_i.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-ct { background-image: url( "s2r://panorama/images/icons/ui/ct_logo_1c.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-t { background-image: url( "s2r://panorama/images/icons/ui/t_logo_1c.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-switch { background-image: url( "s2r://panorama/images/icons/ui/switch_teams_dead.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-vote { background-image: url( "s2r://panorama/images/icons/ui/vote_check.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-timeout { background-image: url( "s2r://panorama/images/icons/ui/votestarttimeout.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-surrender { background-image: url( "s2r://panorama/images/icons/ui/votesurrender.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-unpause { background-image: url( "s2r://panorama/images/icons/ui/voteunpausematch.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-map { background-image: url( "s2r://panorama/images/icons/ui/votechangelevel.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-mic { background-image: url( "s2r://panorama/images/icons/ui/unmuted.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-muted { background-image: url( "s2r://panorama/images/icons/ui/muted.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-skull { background-image: url( "s2r://panorama/images/icons/ui/dominated_dead.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-health { background-image: url( "s2r://panorama/images/icons/ui/health.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-armor { background-image: url( "s2r://panorama/images/icons/ui/armor.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-money { background-image: url( "s2r://panorama/images/icons/ui/dollar_sign.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-fire { background-image: url( "s2r://panorama/images/icons/ui/chatwheel_fire.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-smoke { background-image: url( "s2r://panorama/images/icons/ui/chatwheel_smoke.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-flash { background-image: url( "s2r://panorama/images/icons/ui/chatwheel_flashbang.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-grenade { background-image: url( "s2r://panorama/images/icons/ui/chatwheel_grenade.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-gg { background-image: url( "s2r://panorama/images/icons/ui/thumbs_up.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-leader { background-image: url( "s2r://panorama/images/icons/ui/leader.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-bot { background-image: url( "s2r://panorama/images/icons/ui/bot.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
