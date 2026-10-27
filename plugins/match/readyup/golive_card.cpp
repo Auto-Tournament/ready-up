@@ -52,7 +52,9 @@ int64_t NowMs() {
   return std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now().time_since_epoch()).count();
 }
 
-int64_t RoundDelayMs() { return Cfg().welcome_round_delay_ms; }
+// The wait for CS2's "Match started" centre text to clear; the HUD has its own panel, so with it the
+// card shows the moment the live round starts (2026-10-27).
+int64_t RoundDelayMs() { return HudScreensOn() ? 0 : Cfg().welcome_round_delay_ms; }
 
 GoLiveCardInfo BuildInfo() {
   GoLiveCardInfo info;

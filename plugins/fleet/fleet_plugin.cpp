@@ -729,7 +729,10 @@ fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Valu
     const fleet::json::Value* centerArg = Member(args, "center_seconds");
     const int center = fleet::cmds::SayCenterSeconds(centerArg ? centerArg->AsInt(0) : 0);
     const std::string centerHtml = center ? fleet::cmds::SayCenterHtml(from.empty() ? text : from + ": " + text) : std::string();
-    const ru_hud_v1* hud = center ? SayHud() : nullptr;
+    // On the Auto Tournament HUD every platform message is also a side card (6 s, or center_seconds):
+    // the auto-start countdown ("starts in 10 seconds, ready or not") was only a chat line (2026-10-27).
+    const ru_hud_v1* hud = SayHud();
+    const int cardSeconds = center > 0 ? center : 6;
     const std::string card = hud ? "id=say-" + std::to_string(++g_saySeq) + "\nwhere=card\n" +
                                        (admin ? "color=ct\nkind=" + (from.empty() ? std::string("Admin") : SaySpecText(from))
                                               : std::string("kind=Tournament news")) +
@@ -740,7 +743,7 @@ fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Valu
       for (const auto& l : out) sent = g_api->chat_to_slot(g_api->self, slot, l.c_str()) == 1 || sent;
       if (sent && hud) {
         hud->menu(slot, "say", card.c_str(), nullptr, nullptr);
-        g_sayUntil[slot] = g_lastTickNow + center;
+        g_sayUntil[slot] = g_lastTickNow + cardSeconds;
       } else if (sent && center) {
         g_api->center_html_to_slot(g_api->self, slot, centerHtml.c_str(), center);
       }

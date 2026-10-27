@@ -13,8 +13,10 @@
 #include "readyup/modes.h"
 #include "readyup/players.h"
 
+#include <chrono>
 #include <cstring>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -30,29 +32,120 @@ struct Outgoing {
   bool human = false;
   std::string name;
   std::vector<std::string> lines;
-  std::string hud;  // the side card (hud_screens.h), "" without the HUD
+  bool card = false;  // the table card on the Auto Tournament HUD instead of chat lines
+  int total = 0;
+  struct Row {
+    std::string name, given, taken, hp;
+    int dmg = 0, took = 0, health = 0;
+  };
+  std::vector<Row> rows;
 };
 
-// The round's damage as a side card: the total given, then one line per opponent.
-std::string DamageCardSpec(int round, const DamageParticipant& self, const std::vector<DamageParticipant>& players,
-                           const DamageLedger& ledger) {
-  int total = 0;
-  std::string lines;
-  int n = 0;
-  for (const auto& o : players) {
-    if (o.key == self.key || (o.team != 2 && o.team != 3) || o.team == self.team) continue;
-    const auto to = ledger.Dealt(self.key, o.key);
-    const auto from = ledger.Dealt(o.key, self.key);
-    total += to.dmg;
-    if (++n > 5) continue;  // the card has five lines
-    std::string v = std::to_string(to.dmg) + " \xC2\xB7 " + std::to_string(to.hits) + (to.hits == 1 ? " hit" : " hits");
-    if (from.dmg > 0) v += " \xC2\xB7 took " + std::to_string(from.dmg);
-    lines += "line=" + HudSpecText(o.name) + "|" + v + "\n";
+// The round's damage as the table card (at_kit.xml #at_card, body b-dmg): one row per opponent,
+// given / taken (damage /hits) and their health left. The look the .dev menu showed as the
+// second variant (2026-10-27: the line card was "ugly").
+constexpr int kCardRows = 5;
+constexpr const char* kKitLayout = "panorama/layout/custom_game/at_kit.xml";
+constexpr double kCardSeconds = 12.0;
+
+void FillCard(Outgoing& o, const DamageParticipant& self, const std::vector<DamageParticipant>& players,
+              const DamageLedger& ledger) {
+  for (const auto& p : players) {
+    if (p.key == self.key || (p.team != 2 && p.team != 3) || p.team == self.team) continue;
+    const auto to = ledger.Dealt(self.key, p.key);
+    const auto from = ledger.Dealt(p.key, self.key);
+    o.total += to.dmg;
+    if (static_cast<int>(o.rows.size()) >= kCardRows) continue;
+    Outgoing::Row r;
+    r.name = p.name;
+    r.given = std::to_string(to.dmg) + " /" + std::to_string(to.hits);
+    r.taken = std::to_string(from.dmg) + " /" + std::to_string(from.hits);
+    r.dmg = to.dmg;
+    r.took = from.dmg;
+    r.health = ledger.Health(p.key);
+    r.hp = r.health > 0 ? std::to_string(r.health) : "DEAD";
+    o.rows.push_back(std::move(r));
   }
-  if (n == 0) return {};
-  return "id=damage-" + std::to_string(round) + "\nwhere=card\nkind=Round " + std::to_string(round) + "\ntitle=" +
-         std::to_string(total) + " damage\n" + lines;
+  o.card = !o.rows.empty();
 }
+
+const ru_hud_v1* KitHud() {
+  const ru_api* a = host::Api();
+  if (!a) return nullptr;
+  const auto* h = static_cast<const ru_hud_v1*>(a->get_interface(a->self, RU_HUD_IFACE_NAME, 1));
+  if (!h || !h->available || !h->available() || !h->open || !h->set_text || !h->set_class) return nullptr;
+  return h;
+}
+
+double NowSeconds() {
+  return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+std::unordered_map<int, double> g_cardUntil;  // slot -> when its card goes away
+
+bool ShowCard(const Outgoing& o, int round) {
+  const ru_hud_v1* h = KitHud();
+  if (!h) return false;
+  const int k = h->open(kKitLayout);
+  if (k <= 0) return false;
+  const int s = o.slot;
+  auto txt = [&](const std::string& id, const std::string& v) { h->set_text(k, s, id.c_str(), "text", v.c_str()); };
+  auto cls = [&](const std::string& id, const char* c, bool on) { h->set_class(k, s, id.c_str(), c, on ? 1 : 0); };
+  txt("at_kind_a", "Round " + std::to_string(round));
+  txt("at_text_a", std::to_string(o.total) + " damage");
+  for (const char* id : {"at_kind_a", "at_text_a"}) {
+    cls(id, "cur", true);
+    cls(id, "old", false);
+  }
+  for (const char* id : {"at_kind_b", "at_text_b"}) {
+    cls(id, "cur", false);
+    cls(id, "old", true);
+  }
+  for (const char* c : {"c-live", "c-warn", "c-info", "c-ban", "c-muted", "c-acc"}) cls("at_card", c, false);
+  for (const char* b : {"b-rules", "b-line", "b-bar"}) cls("at_card", b, false);
+  cls("at_card", "b-dmg", true);
+  cls("at_card", "chat", false);
+  cls("at_card", "nudge", false);
+  for (int i = 0; i < kCardRows; ++i) {
+    const std::string r = "at_d" + std::to_string(i);
+    const bool used = i < static_cast<int>(o.rows.size());
+    // Fewer than five opponents: the spare rows collapse. The published at_kit.css has no hide
+    // class for rows, so they borrow the sentence part's (.at-part.hide); .at-drow.gone is the
+    // proper one from the next addon publish on.
+    cls(r, "gone", !used);
+    cls(r, "at-part", !used);
+    cls(r, "hide", !used);
+    if (!used) continue;
+    const auto& row = o.rows[i];
+    txt(r + "_name", row.name);
+    txt(r + "_given", row.given);
+    txt(r + "_taken", row.taken);
+    txt(r + "_hp", row.hp);
+    cls(r, "hit", row.dmg > 0);
+    cls(r, "big", row.dmg >= 100);
+    cls(r, "took", row.took > 0);
+    cls(r, "dead", row.health == 0);
+  }
+  cls("at_card", "on", true);
+  g_cardUntil[s] = NowSeconds() + kCardSeconds;
+  return true;
+}
+
+void HideCards(bool all) {
+  if (g_cardUntil.empty()) return;
+  const ru_hud_v1* h = KitHud();
+  const int k = h ? h->open(kKitLayout) : 0;
+  const double now = NowSeconds();
+  for (auto it = g_cardUntil.begin(); it != g_cardUntil.end();) {
+    if (all || now >= it->second) {
+      if (k > 0) h->set_class(k, it->first, "at_card", "on", 0);
+      it = g_cardUntil.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
+
 std::vector<Outgoing> g_out;
 bool g_outReady = false;  // the next round started: send g_out
 int g_outRound = 0;
@@ -109,7 +202,7 @@ void BuildReports() {
     o.human = c.human[i] && (!g_haveRoundStart || g_roundStartSlots.count(o.slot) > 0);
     o.name = c.players[i].name;
     o.lines = FormatDamageReport(c.players[i], all, g_ledger);
-    if (o.human && HudScreensOn()) o.hud = DamageCardSpec(g_outRound, c.players[i], all, g_ledger);
+    if (o.human && HudScreensOn()) FillCard(o, c.players[i], all, g_ledger);
     if (!o.lines.empty()) g_out.push_back(std::move(o));
   }
 }
@@ -172,6 +265,7 @@ void DamageReportInstall(const ru_api* api) {
 }
 
 void DamageReportTick() {
+  HideCards(false);
   if (g_out.empty() || !g_outReady) return;  // built at round end, sent at the next round start
   g_outReady = false;
   int humans = 0, lines = 0;
@@ -179,9 +273,7 @@ void DamageReportTick() {
     lines += static_cast<int>(o.lines.size());
     if (o.human) {
       ++humans;
-      if (!o.hud.empty()) {
-        HudScreensNotice(o.slot, o.hud, 10.0);  // the card instead of chat lines, through freeze time
-      } else {
+      if (!(o.card && ShowCard(o, g_outRound))) {  // the card instead of chat lines, through freeze time
         (void)ClientPrintChat(o.slot, " \x04[ReadyUp]\x01 Damage report:");
         for (const auto& l : o.lines) (void)ClientPrintChat(o.slot, (" " + l).c_str());
       }
