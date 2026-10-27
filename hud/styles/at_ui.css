@@ -11,10 +11,17 @@
 */
 
 .ui-root { width: 100%; height: 100%; font-family: "Noto Sans"; }
-/* The whole HUD at 85 % (2026-10-27: it read large), each panel kept where it sits: the card
-   bottom right, the centre panel bottom centre. */
-.ui-cardwrap { width: 100%; height: 100%; transform-origin: 100% 100%; transform: scale3d( 0.85, 0.85, 1 ); }
-.ui-midwrap { width: 100%; height: 100%; transform-origin: 50% 100%; transform: scale3d( 0.85, 0.85, 1 ); }
+/* HUD scale, a class on both wraps (hud.so `ru hudkit scale`, default 85): each panel kept where it
+   sits, the card bottom right, the centre panel bottom centre. No class: 100 %. */
+.ui-cardwrap { width: 100%; height: 100%; transform-origin: 100% 100%; }
+.ui-midwrap { width: 100%; height: 100%; transform-origin: 50% 100%; }
+.ui-cardwrap.scale-70, .ui-midwrap.scale-70 { transform: scale3d( 0.7, 0.7, 1 ); }
+.ui-cardwrap.scale-75, .ui-midwrap.scale-75 { transform: scale3d( 0.75, 0.75, 1 ); }
+.ui-cardwrap.scale-80, .ui-midwrap.scale-80 { transform: scale3d( 0.8, 0.8, 1 ); }
+.ui-cardwrap.scale-85, .ui-midwrap.scale-85 { transform: scale3d( 0.85, 0.85, 1 ); }
+.ui-cardwrap.scale-90, .ui-midwrap.scale-90 { transform: scale3d( 0.9, 0.9, 1 ); }
+.ui-cardwrap.scale-95, .ui-midwrap.scale-95 { transform: scale3d( 0.95, 0.95, 1 ); }
+.ui-cardwrap.scale-100, .ui-midwrap.scale-100 { transform: scale3d( 1, 1, 1 ); }
 
 .ui-panel
 {

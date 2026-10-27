@@ -49,8 +49,12 @@ struct EndScreenData {
 };
 EndScreenData BuildEndScreenData(const EndScreenInfo& info);
 
-// Shows it to everyone on the server. False when the HUD can't draw it (then the result card).
-bool EndScreenShow(const EndScreenInfo& info);
+// Made-up numbers for a preview (.enddemo): 13 - 9 on Inferno, the viewer on team 1 (lost: 9 - 13).
+EndScreenInfo EndScreenDemoInfo(uint64_t viewer, const std::string& viewerName, bool lost);
+
+// Shows it to everyone on the server (target -1), or to one player as a preview (.enddemo). False
+// when the HUD can't draw it (then the result card).
+bool EndScreenShow(const EndScreenInfo& info, int target = -1);
 void EndScreenHide();
 // Once a tick (result_card.cpp): the countdown, and hiding it when its time is up.
 void EndScreenTick();

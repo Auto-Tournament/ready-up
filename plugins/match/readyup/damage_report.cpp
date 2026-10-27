@@ -54,6 +54,7 @@ std::string DamageCardSpec(int round, const DamageParticipant& self, const std::
          std::to_string(total) + " damage\n" + lines;
 }
 std::vector<Outgoing> g_out;
+bool g_outReady = false;  // the next round started: send g_out
 int g_outRound = 0;
 // Who was on a team when the round started: someone who joined mid-round gets no report
 // for it (it would be all zeros: a scrim player taking a bot's place saw one on joining).
@@ -117,6 +118,12 @@ void OnGameEvent(void*, const char* name, const ru_game_event* ev) {
   const ru_api* a = host::Api();
   if (!a || !name || !ev) return;
   if (std::strcmp(name, "round_start") == 0) {
+    // Last round's report goes out now, in freeze time: at round end players may still be running
+    // for an exit or saving (2026-10-27). A new map or a stopped match drops it.
+    if (!g_out.empty()) {
+      if (GetMode() == ReadyUpMode::MatchLive) g_outReady = true;
+      else g_out.clear();
+    }
     g_ledger.Reset();
     g_enemyDamage = false;
     Collect c;
@@ -165,14 +172,15 @@ void DamageReportInstall(const ru_api* api) {
 }
 
 void DamageReportTick() {
-  if (g_out.empty()) return;
+  if (g_out.empty() || !g_outReady) return;  // built at round end, sent at the next round start
+  g_outReady = false;
   int humans = 0, lines = 0;
   for (const auto& o : g_out) {
     lines += static_cast<int>(o.lines.size());
     if (o.human) {
       ++humans;
       if (!o.hud.empty()) {
-        HudScreensNotice(o.slot, o.hud, 7.0);  // the card instead of chat lines
+        HudScreensNotice(o.slot, o.hud, 10.0);  // the card instead of chat lines, through freeze time
       } else {
         (void)ClientPrintChat(o.slot, " \x04[ReadyUp]\x01 Damage report:");
         for (const auto& l : o.lines) (void)ClientPrintChat(o.slot, (" " + l).c_str());

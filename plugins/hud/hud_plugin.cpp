@@ -911,6 +911,21 @@ void ProbeTick() {
 
 // ---- ticks and events ------------------------------------------------------------------------
 
+// HUD scale (at_ui's wraps, scale-70 .. scale-100): `scale=` in the plugin's cfg, `ru hudkit scale`.
+int g_scale = 85;
+void ApplyScale() {
+  const int h = IfOpen(kUiLayout);
+  for (int pct = 70; pct <= 100; pct += 5) {
+    const std::string c = "scale-" + std::to_string(pct);
+    for (const char* wrap : {"ui_cardwrap", "ui_midwrap"}) IfSetClass(h, RU_HUD_ALL, wrap, c.c_str(), pct == g_scale ? 1 : 0);
+  }
+}
+int ParseScale(const std::string& s) {
+  const int v = std::atoi(s.c_str());
+  if (v < 70 || v > 100) return -1;
+  return (v + 2) / 5 * 5;  // the nearest step of 5
+}
+
 void OnTick(void*, const ru_tick_info* t) {
   g_now = t->now;
   if (!g_origSvcUm && g_eng.ok) InstallClickHook();
@@ -1170,79 +1185,6 @@ bool KitApply(const std::string& state) {
       cls(r, "took", rows[i][2] > 0);
       cls(r, "dead", rows[i][4] == 0);
     }
-  } else if (state == "end" || state == "endlost") {
-    off();
-    const bool lost = state == "endlost";
-    txt("at_e_head", lost ? "You lost" : "You won!");
-    txt("at_e_how", "By rounds");
-    txt("at_e_ta", "Team A");
-    txt("at_e_tb", "Team B");
-    txt("at_e_sa", lost ? "9" : "13");
-    txt("at_e_sb", lost ? "13" : "9");
-    txt("at_e_where", "MAP 2 OF 3 \xC2\xB7 INFERNO");
-    txt("at_e_next", "Next map: Mirage (45)");
-    txt("at_ea_name", "Team A");
-    txt("at_eb_name", "Team B");
-    txt("at_e_sidea", "T 8 \xC2\xB7 CT 5");
-    txt("at_e_sideb", "T 5 \xC2\xB7 CT 4");
-    // K D A ADR KAST HS UD EK MVPs (the end_screen.cpp leaderboard, with made-up numbers).
-    const int a[5][9] = {{27, 14, 6, 112, 82, 54, 186, 6, 5}, {21, 15, 4, 91, 77, 41, 244, 3, 3}, {18, 16, 9, 84, 73, 38, 412, 2, 2}, {15, 17, 5, 71, 68, 47, 98, 4, 2}, {11, 18, 7, 58, 64, 29, 305, 1, 1}};
-    const int b[5][9] = {{22, 18, 3, 96, 68, 45, 132, 5, 4}, {19, 19, 5, 83, 64, 52, 276, 3, 2}, {16, 19, 6, 74, 59, 36, 188, 2, 2}, {13, 20, 4, 66, 55, 31, 94, 1, 1}, {10, 21, 6, 52, 50, 28, 351, 0, 0}};
-    auto rows = [&](char side, const int (*t)[9], int nameFrom) {
-      for (int i = 0; i < 5; ++i) {
-        const std::string r = std::string("at_e") + side + std::to_string(i);
-        const int* x = t[i];
-        cls(r, "empty", false);
-        txt(r + "_n", side == 'a' && i == 1 ? "Sivert" : "player " + std::to_string(nameFrom + i));
-        txt(r + "_k", std::to_string(x[0]));
-        txt(r + "_d", std::to_string(x[1]));
-        txt(r + "_a", std::to_string(x[2]));
-        const int diff = x[0] - x[1];
-        txt(r + "_p", (diff > 0 ? "+" : "") + std::to_string(diff));
-        cls(r + "_p", "pos", diff > 0);
-        cls(r + "_p", "neg", diff < 0);
-        txt(r + "_r", std::to_string(x[3]));
-        cls(r + "_r", "top", x[3] >= 100);
-        txt(r + "_s", std::to_string(x[4]) + "%");
-        txt(r + "_h", std::to_string(x[5]) + "%");
-        txt(r + "_u", std::to_string(x[6]));
-        txt(r + "_e", std::to_string(x[7]));
-        txt(r + "_m", std::to_string(x[8]) + " MVP");
-        cls(r, "mvp", x[8] > 0);
-        cls(r, "me", side == 'a' && i == 1);
-      }
-    };
-    rows('a', a, 1);
-    rows('b', b, 6);
-    // 22 rounds, 13 - 9: who won (a / b) and how.
-    const char* strip = "aEbEaEaBaEbBaEaDbEaEaTbEbEaEbBbEaEbBaDbEaEaE";
-    for (int i = 0; i < 30; ++i) {
-      const std::string r = "at_rt" + std::to_string(i);
-      const bool has = i < 22;
-      cls(r, "on", has);
-      if (!has) continue;
-      const bool wa = strip[i * 2] == 'a';
-      const std::string how(1, strip[i * 2 + 1]);
-      cls(r, "a", wa);
-      cls(r, "b", !wa);
-      cls(r, "half", i == 12);
-      txt(r + "_u", wa ? how : "");
-      txt(r + "_d", wa ? "" : how);
-    }
-    const char* aw[4][3] = {{"TOP FRAGGER", "player 1", "27 K"}, {"MOST DAMAGE", "player 1", "112 ADR"},
-                            {"ENTRY KILLS", "player 1", "6"}, {"UTILITY DAMAGE", "player 3", "412"}};
-    for (int i = 0; i < 4; ++i) {
-      const std::string w = "at_aw" + std::to_string(i);
-      cls(w, "empty", false);
-      txt(w + "_l", aw[i][0]);
-      txt(w + "_n", aw[i][1]);
-      txt(w + "_v", aw[i][2]);
-    }
-    only("at_end", {"won", "lost", "draw"}, lost ? "lost" : "won");
-    only("at_end", {"wa", "wb"}, lost ? "wb" : "wa");
-    only("at_end", {"viewa", "viewb"}, "viewa");
-    cls("at_end", "how", true);
-    cls("at_end", "on", true);
   } else if (state == "next") {
     card("Next map", "Inferno (14)", nullptr, nullptr, false);
   } else {
@@ -1380,26 +1322,18 @@ void DemoShow(int slot, const std::string& name) {
 
 void MenuRefresh(int slot);
 
-bool KitDemoHolds(int slot);
-void KitDemoOff();
-
 void DemoEnd(int slot) {
   g_demos.erase(slot);
-  if (KitDemoHolds(slot)) KitDemoOff();  // the end-screen demo gives the cursor back
   MenuRefresh(slot);  // a menu if one is up, else what the match wants now
 }
 
 // The at_kit end screens (leaderboard) are for everyone at once, so a demo of one shows to all.
 bool g_kitDemo = false;
-std::set<int> g_kitCaptured;  // slots the end-screen demo holds the cursor for (tooltips on hover)
-bool KitDemoHolds(int slot) { return g_kitCaptured.count(slot) > 0; }
 void KitDemoOff() {
   if (!g_kitDemo) return;
   g_kitDemo = false;
   const int h = IfOpen("panorama/layout/custom_game/at_kit.xml");
   for (const char* el : {"at_card", "at_mid", "at_end"}) IfSetClass(h, RU_HUD_ALL, el, "on", 0);
-  for (int s : g_kitCaptured) IfSetCapture(h, s, 0);
-  g_kitCaptured.clear();
 }
 
 // Shows demo screen `i` (index into DemoScreens) to `slot`: at_ui screens to the slot, "kit:" ones
@@ -1410,16 +1344,16 @@ void DemoShowIndex(int slot, size_t i) {
     IfScreen(slot, "", &OnDemoClick, nullptr);
     KitDemoOff();
     const std::string state = kv.first.substr(4);
+    // The leaderboard is the match plugin's real end screen with made-up numbers (.enddemo,
+    // end_screen.cpp): it fills the toolkit layout, holds the cursor and closes itself.
+    if (state == "end" || state == "endlost") {
+      if (RU_API_HAS(g_api, run_chat_command)) g_api->run_chat_command(g_api->self, slot, state == "end" ? ".enddemo" : ".enddemo lost");
+      return;
+    }
     g_kitDemo = true;
     const int h = IfOpen("panorama/layout/custom_game/at_kit.xml");
     for (const char* el : {"at_card", "at_mid", "at_end"}) IfSetClass(h, RU_HUD_ALL, el, "on", 0);
     g_later.emplace_back(g_now + 0.35, [state] { KitApply(state); });
-    // The end screen holds the cursor, like the real one (end_screen.cpp): its column heads explain
-    // themselves on hover.
-    if (state == "end" || state == "endlost") {
-      IfSetCapture(h, slot, 1);
-      g_kitCaptured.insert(slot);
-    }
     return;
   }
   KitDemoOff();
@@ -1742,6 +1676,13 @@ void OnRu(void*, const ru_command_ctx* ctx) {
       DemoShow(slot, name);
     }
     Reply(ctx, "demo " + name + " for " + std::to_string(slots.size()) + " player(s) (60 s); click hook " + g_clickHookStatus);
+  } else if (sub == "scale") {  // ru hudkit scale [70..100]: the HUD's size (until a restart; cfg scale= keeps it)
+    if (ctx->argc < 4) return Reply(ctx, "HUD scale: " + std::to_string(g_scale) + "% (70 to 100, steps of 5)");
+    const int v = ParseScale(ctx->argv[3]);
+    if (v < 0) return Reply(ctx, "usage: ru hudkit scale <70..100>");
+    g_scale = v;
+    ApplyScale();
+    return Reply(ctx, "HUD scale: " + std::to_string(g_scale) + "%");
   } else if (sub == "dev") {  // ru hudkit dev: the clickable screen list (also .dev)
     if (ctx->slot < 0) return Reply(ctx, "dev: in game only");
     DevOpen(ctx->slot, 0);
@@ -1847,6 +1788,12 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_mapStartedAt = -1;
   g_pauseUntil = -1;
   g_repushAfterPause = false;
+  g_scale = 85;
+  if (RU_API_HAS(api, config_get)) {
+    char buf[16] = {};
+    if (api->config_get(api->self, "scale", buf, sizeof(buf)) > 0 && ParseScale(buf) > 0) g_scale = ParseScale(buf);
+  }
+  ApplyScale();
   api->on_tick(api->self, &OnTick, nullptr);
   if (!api->subscribe_game_event(api->self, "round_prestart", &OnRoundPrestart, nullptr))
     ru_logf(api, RU_LOG_WARN, "round_prestart not available: a round restart may crash the server while a HUD is shown");

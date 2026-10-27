@@ -8,7 +8,7 @@
 		<include src="s2r://panorama/styles/custom_game/at_ui.vcss_c" />
 	</styles>
 	<Panel class="ui-root" hittest="false">
-<Panel class="ui-cardwrap" hittest="false">
+<Panel id="ui_cardwrap" class="ui-cardwrap" hittest="false">
 <Panel id="ui_card" class="ui-panel ui-card" hittest="true">
 <Panel class="ui-wash" hittest="false" />
 <Panel class="ui-pixels" hittest="false">
@@ -232,7 +232,7 @@
 <Panel class="ui-flash" hittest="false" />
 </Panel>
 </Panel>
-<Panel class="ui-midwrap" hittest="false">
+<Panel id="ui_midwrap" class="ui-midwrap" hittest="false">
 <Panel id="ui_mid" class="ui-panel ui-mid" hittest="true">
 <Panel class="ui-wash" hittest="false" />
 <Panel class="ui-pixels" hittest="false">

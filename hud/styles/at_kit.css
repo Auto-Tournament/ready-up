@@ -244,7 +244,10 @@
 	transition-delay: 0.15s; transition-timing-function: cubic-bezier( 0.65, 0, 0.35, 1 );
 }
 
-/* ---- the end screen ------------------------------------------------------------------------ */
+/* ---- the end screen ------------------------------------------------------------------------
+   A toolkit, not a fixed design: neutral base styles, and everything the server may want to vary
+   is a utility class (below) it sets on the part. Text, headers, tooltips and which column is
+   how wide come from plugins/match/readyup/end_screen.cpp. */
 
 .at-end
 {
@@ -252,101 +255,166 @@
 	transition-property: opacity; transition-duration: 0.4s;
 }
 .at-end.on { visibility: visible; opacity: 1; }
-/* Blurs the game behind the leaderboard (end screen only, never while playing). */
-/* Light: the chat (bottom left) stays readable behind it. */
 .at-eblur { width: 100%; height: 100%; background-color: #00000024; world-blur: gaussian( 1, 1, 1 ); }
 
 .at-ecard
 {
 	horizontal-align: center; vertical-align: center;
-	width: 1440px; height: fit-children; overflow: clip;
+	width: 1440px; height: fit-children; overflow: noclip;
 	background-color: #100908f2; border: 1px solid #322926; border-radius: 18px;
-	/* At 85 %, like the rest of the HUD (translate3d then scale3d: the order Panorama animates). */
-	transform: translate3d( 0px, 16px, 0px ) scale3d( 0.85, 0.85, 1 ); transition-property: transform; transition-duration: 0.52s;
+	transform: translate3d( 0px, 16px, 0px ) scale3d( 1, 1, 1 ); transition-property: transform; transition-duration: 0.52s;
 	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
 }
-.at-end.on .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.85, 0.85, 1 ); }
+.at-end.on .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1, 1, 1 ); }
 .at-ecardflow { flow-children: down; width: 100%; height: fit-children; padding: 24px 36px 24px 36px; overflow: noclip; }
 .at-ecard .at-brand { height: 22px; }
 .at-ecard .at-brandlogo { width: 22px; height: 22px; border-radius: 6px; }
 .at-ecard .at-brandname { font-size: 12px; letter-spacing: 2.4px; }
 
-.at-ehead-text { horizontal-align: center; margin-top: 8px; font-size: 48px; font-weight: bold; color: #ff6a3d; }
-.at-end.lost .at-ehead-text { color: #f2645f; }
-.at-end.draw .at-ehead-text { color: #938a87; }
-.at-howbox { visibility: collapse; horizontal-align: center; margin-top: 8px; padding: 5px 12px; border-radius: 14px; background-color: #ff6a3d22; }
-.at-end.how .at-howbox { visibility: visible; }
-.at-end.lost .at-howbox { background-color: #f2645f22; }
-.at-how { font-family: "Noto Mono"; font-size: 13px; font-weight: bold; letter-spacing: 1.4px; text-transform: uppercase; color: #ff6a3d; }
-.at-end.lost .at-how { color: #f2645f; }
-.at-end.lost .at-line { background-color: #f2645f; }
-.at-end.draw .at-line { background-color: #938a87; }
+.at-ehead-text { horizontal-align: center; margin-top: 8px; font-size: 48px; font-weight: bold; color: #f4edeb; }
+.at-howbox { horizontal-align: center; margin-top: 8px; padding: 5px 12px; border-radius: 14px; background-color: #f4edeb14; }
+.at-how { font-family: "Noto Mono"; font-size: 13px; font-weight: bold; letter-spacing: 1.4px; text-transform: uppercase; color: #f4edeb; }
 
 .at-escore { flow-children: right; horizontal-align: center; margin: 8px 0px 18px 0px; }
 .at-eteambox { flow-children: down; vertical-align: center; width: 320px; }
 .at-eabox { margin-right: 28px; }
 .at-ebbox { margin-left: 28px; }
 .at-eteamname { width: 100%; font-size: 26px; font-weight: bold; color: #f4edeb; }
-.at-eteamname.at-ea { text-align: right; }
 .at-esides { width: 100%; margin-top: 4px; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
-.at-esides.at-right { text-align: right; }
+.at-right { text-align: right; }
 .at-enum { vertical-align: center; font-size: 64px; font-weight: bold; color: #f4edeb; }
 .at-ecolon { vertical-align: center; margin: 0px 18px; font-size: 30px; font-weight: bold; color: #4a3f3b; }
-/* The losing team's name and score in grey, whoever is watching (wa / wb: who won). */
-.at-end.wb .at-ea { color: #938a87; }
-.at-end.wa .at-eb { color: #938a87; }
-.at-erow.empty { visibility: collapse; }
-.at-aw.empty { visibility: collapse; }
-.at-erounds.none { visibility: collapse; }
 
-.at-eteams { flow-children: right; width: 100%; overflow: noclip; }
-.at-eteam { flow-children: down; width: 670px; margin-right: 28px; overflow: noclip; }
-.at-erow { flow-children: right; width: 100%; height: 36px; margin-bottom: 5px; padding: 0px 12px; border-radius: 8px; background-color: #18110e; border: 1px solid #211815; }
-.at-erow.at-ehead { overflow: noclip; height: 16px; background-color: #00000000; border: 0px solid #00000000; }
-/* Your own row, in the accent (nobody else is tinted). */
-.at-erow.me { background-color: #ff6a3d1f; border: 1px solid #ff6a3d99; }
-/* An MVP shows as the tag next to the name; only the viewer's own row is tinted. */
-.at-enbox { flow-children: right; width: fill-parent-flow( 1.0 ); vertical-align: center; }
-.at-en { vertical-align: center; font-size: 14px; color: #f4edeb; }
-.at-ehead .at-en { font-size: 10px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; width: fill-parent-flow( 1.0 ); }
-.at-erow.me .at-en { font-weight: bold; }
-/* MVP rounds next to the name ("3 MVP"), only when there are any. */
-.at-mvp { visibility: collapse; vertical-align: center; margin-left: 8px; padding: 2px 6px; border-radius: 4px; background-color: #ff6a3d22; font-family: "Noto Mono"; font-size: 10px; font-weight: bold; color: #ff6a3d; }
-.at-erow.mvp .at-mvp { visibility: visible; }
-.at-ev { font-family: "Noto Mono"; width: 40px; margin-left: 6px; vertical-align: center; text-align: right; font-size: 14px; color: #c4bcb9; }
-.at-ehead .at-ev { font-size: 10px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; }
-.at-erow.hi .at-ev { color: #f4edeb; }
-.at-ev-k, .at-ev-d, .at-ev-a, .at-ev-e { width: 30px; }
-.at-ev-s { width: 46px; }
-.at-ev-k { color: #f4edeb; font-weight: bold; }
-.at-ev.pos { color: #7fd7a8; font-weight: bold; }
-.at-ev.neg { color: #f2645f; font-weight: bold; }
-.at-ev.top { color: #ff6a3d; }
-.at-ehead .at-ev-k { color: #938a87; }
-
-/* Round history: one tick per round, team A's wins up, team B's down, the viewer's team in the accent. */
+/* Round strip: a tick per round (class on), a gap before it (half); the server fills each part
+   (fill-*) and letters it. */
 .at-erounds { flow-children: right; horizontal-align: center; height: 64px; margin: 4px 0px 14px 0px; }
 .at-rt { visibility: collapse; flow-children: down; width: 26px; height: 64px; margin-left: 4px; }
 .at-rt.on { visibility: visible; }
 .at-rt.half { margin-left: 22px; }
-.at-rtu, .at-rtd { width: 26px; height: 26px; border-radius: 6px; text-align: center; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; padding-top: 5px; color: #00000000; background-color: #00000000; }
+.at-rtp { width: 26px; height: 26px; border-radius: 6px; text-align: center; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; padding-top: 5px; color: #f4edeb; background-color: #00000000; }
 .at-rtmid { width: 26px; height: 2px; margin: 4px 0px; background-color: #322926; }
-.at-rt.a .at-rtu { background-color: #4a3f3b; color: #f4edeb; }
-.at-rt.b .at-rtd { background-color: #4a3f3b; color: #f4edeb; }
-.at-end.viewa .at-rt.a .at-rtu { background-color: #ff6a3d; color: #140e0c; }
-.at-end.viewb .at-rt.b .at-rtd { background-color: #ff6a3d; color: #140e0c; }
 
-/* Awards: who led each stat this map. */
+/* Awards. */
 .at-eawards { flow-children: right; width: 100%; margin-bottom: 14px; }
 .at-aw { flow-children: down; width: fill-parent-flow( 1.0 ); margin-right: 10px; padding: 10px 14px; border-radius: 10px; background-color: #18110e; border: 1px solid #211815; }
 .at-awl { font-family: "Noto Mono"; font-size: 10px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
 .at-awrow { flow-children: right; width: 100%; margin-top: 2px; }
 .at-awn { width: fill-parent-flow( 1.0 ); font-size: 15px; font-weight: bold; color: #f4edeb; }
-.at-awv { font-family: "Noto Mono"; font-size: 15px; font-weight: bold; color: #ff6a3d; }
+.at-awv { font-family: "Noto Mono"; font-size: 15px; font-weight: bold; color: #f4edeb; }
+
+/* Tables: a head row of cells (text + a tooltip on hover), then player rows. Cells are 40 px
+   until a cw-* class says otherwise; cw-off hides a column. */
+.at-eteams { flow-children: right; width: 100%; overflow: noclip; }
+.at-eteam { flow-children: down; width: fill-parent-flow( 1.0 ); margin-right: 14px; margin-left: 14px; overflow: noclip; }
+.at-erow { flow-children: right; width: 100%; height: 36px; margin-bottom: 5px; padding: 0px 12px; border-radius: 8px; background-color: #18110e; border: 1px solid #211815; }
+.at-erow.at-ehead { overflow: noclip; height: 16px; background-color: #00000000; border: 0px solid #00000000; }
+.at-enbox { flow-children: right; width: fill-parent-flow( 1.0 ); vertical-align: center; }
+.at-en { vertical-align: center; font-size: 14px; color: #f4edeb; }
+.at-ehead .at-en { font-size: 10px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; width: fill-parent-flow( 1.0 ); }
+.at-etag { visibility: collapse; vertical-align: center; margin-left: 8px; padding: 2px 6px; border-radius: 4px; font-family: "Noto Mono"; font-size: 10px; font-weight: bold; }
+.at-ec { font-family: "Noto Mono"; width: 40px; margin-left: 6px; vertical-align: center; text-align: right; font-size: 14px; color: #c4bcb9; }
+.at-ehc { width: 40px; height: 16px; margin-left: 6px; overflow: noclip; }
+.at-ehct { width: 100%; text-align: right; font-family: "Noto Mono"; font-size: 10px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; }
+.at-ehc:hover .at-ehct { color: #f4edeb; }
+.at-tip
+{
+	visibility: collapse; opacity: 0; flow-children: down; width: 240px; height: fit-children;
+	horizontal-align: right; transform: translate3d( 0px, -84px, 0px ); padding: 10px 12px; border-radius: 10px;
+	background-color: #1d1512; border: 1px solid #4a3f3b;
+	transition-property: opacity; transition-duration: 0.15s;
+}
+.at-ehc:hover .at-tip { visibility: visible; opacity: 1; }
+.at-ehc.notip:hover .at-tip { visibility: collapse; }
+.at-tipk { font-size: 14px; font-weight: bold; color: #f4edeb; }
+.at-tipv { margin-top: 3px; font-size: 12px; color: #c4bcb9; }
 
 .at-efoot { flow-children: right; width: 100%; margin-top: 20px; }
 .at-ewhere { font-family: "Noto Mono"; width: fill-parent-flow( 1.0 ); vertical-align: center; font-size: 12px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
 .at-enext { vertical-align: center; font-size: 15px; color: #c4bcb9; }
+
+/* ---- end screen utilities ------------------------------------------------------------------
+   Scoped to #at_end (".at-end .x") so they beat the base styles above. The server combines them:
+     text      tc-ink tc-soft tc-muted tc-acc tc-ban tc-pos tc-live tc-warn tc-ct tc-t, bold, normal
+     fill      fill-none fill-acc fill-muted fill-ban fill-live fill-ct fill-t   (round parts)
+     tint      tint-none tint-acc tint-ink tint-ban tint-live tint-ct tint-t     (rows, how box, awards)
+     tag       tag-acc tag-muted tag-live tag-ban (shown), none = hidden          (the tag by a name)
+     width     cw-xs cw-s cw-m cw-l cw-xl cw-off                                  (table cells)
+     line      line-acc line-ban line-muted line-live                             (on at_ecard)
+     on at_end blur-0..3, dim-0..3, scale-70 .. scale-100 (steps of 5)
+     any part  hide, empty (collapse) */
+
+.at-end .hide { visibility: collapse; }
+.at-end .empty { visibility: collapse; }
+
+.at-end .tc-ink { color: #f4edeb; }
+.at-end .tc-soft { color: #c4bcb9; }
+.at-end .tc-muted { color: #938a87; }
+.at-end .tc-acc { color: #ff6a3d; }
+.at-end .tc-ban { color: #f2645f; }
+.at-end .tc-pos { color: #7fd7a8; }
+.at-end .tc-live { color: #3fc168; }
+.at-end .tc-warn { color: #e6b33c; }
+.at-end .tc-ct { color: #7b9be0; }
+.at-end .tc-t { color: #de9b35; }
+.at-end .bold { font-weight: bold; }
+.at-end .normal { font-weight: normal; }
+
+.at-end .fill-none { background-color: #00000000; color: #00000000; }
+.at-end .fill-acc { background-color: #ff6a3d; color: #140e0c; }
+.at-end .fill-muted { background-color: #4a3f3b; color: #f4edeb; }
+.at-end .fill-ban { background-color: #f2645f; color: #140e0c; }
+.at-end .fill-live { background-color: #3fc168; color: #140e0c; }
+.at-end .fill-ct { background-color: #7b9be0; color: #140e0c; }
+.at-end .fill-t { background-color: #de9b35; color: #140e0c; }
+
+.at-end .tint-none { background-color: #18110e; border: 1px solid #211815; }
+.at-end .tint-acc { background-color: #ff6a3d1f; border: 1px solid #ff6a3d99; }
+.at-end .tint-ink { background-color: #f4edeb12; border: 1px solid #f4edeb66; }
+.at-end .tint-ban { background-color: #f2645f1f; border: 1px solid #f2645f99; }
+.at-end .tint-live { background-color: #3fc1681f; border: 1px solid #3fc16899; }
+.at-end .tint-ct { background-color: #7b9be01f; border: 1px solid #7b9be099; }
+.at-end .tint-t { background-color: #de9b351f; border: 1px solid #de9b3599; }
+
+.at-end .tag-acc { visibility: visible; background-color: #ff6a3d22; color: #ff6a3d; }
+.at-end .tag-muted { visibility: visible; background-color: #f4edeb14; color: #c4bcb9; }
+.at-end .tag-live { visibility: visible; background-color: #3fc16822; color: #3fc168; }
+.at-end .tag-ban { visibility: visible; background-color: #f2645f22; color: #f2645f; }
+
+.at-end .cw-xs { width: 24px; }
+.at-end .cw-s { width: 30px; }
+.at-end .cw-m { width: 40px; }
+.at-end .cw-l { width: 46px; }
+.at-end .cw-xl { width: 60px; }
+.at-end .cw-off { visibility: collapse; }
+
+.at-end .line-acc .at-line { background-color: #ff6a3d; }
+.at-end .line-ban .at-line { background-color: #f2645f; }
+.at-end .line-muted .at-line { background-color: #938a87; }
+.at-end .line-live .at-line { background-color: #3fc168; }
+
+.at-end.blur-0 .at-eblur { world-blur: gaussian( 0, 0, 0 ); }
+.at-end.blur-1 .at-eblur { world-blur: gaussian( 1, 1, 1 ); }
+.at-end.blur-2 .at-eblur { world-blur: gaussian( 2, 2, 2 ); }
+.at-end.blur-3 .at-eblur { world-blur: gaussian( 3, 3, 3 ); }
+.at-end.dim-0 .at-eblur { background-color: #00000000; }
+.at-end.dim-1 .at-eblur { background-color: #00000024; }
+.at-end.dim-2 .at-eblur { background-color: #00000048; }
+.at-end.dim-3 .at-eblur { background-color: #00000070; }
+
+.at-end.scale-70 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 0.7, 0.7, 1 ); }
+.at-end.on.scale-70 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.7, 0.7, 1 ); }
+.at-end.scale-75 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 0.75, 0.75, 1 ); }
+.at-end.on.scale-75 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.75, 0.75, 1 ); }
+.at-end.scale-80 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 0.8, 0.8, 1 ); }
+.at-end.on.scale-80 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.8, 0.8, 1 ); }
+.at-end.scale-85 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 0.85, 0.85, 1 ); }
+.at-end.on.scale-85 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.85, 0.85, 1 ); }
+.at-end.scale-90 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 0.9, 0.9, 1 ); }
+.at-end.on.scale-90 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.9, 0.9, 1 ); }
+.at-end.scale-95 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 0.95, 0.95, 1 ); }
+.at-end.on.scale-95 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.95, 0.95, 1 ); }
+.at-end.scale-100 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 1, 1, 1 ); }
+.at-end.on.scale-100 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1, 1, 1 ); }
 
 /* ---- entries ----------------------------------------------------------------------------------
    Every element enters when "on" is added and leaves when it is removed (the server waits ~0.35 s
@@ -408,18 +476,3 @@
 #at_eb2 { transition-delay: 0.73s; }
 #at_eb3 { transition-delay: 0.77s; }
 #at_eb4 { transition-delay: 0.81s; }
-
-/* Column heads: hover one for what it means (the end screen holds the cursor). */
-.at-evh { width: 40px; height: 16px; margin-left: 6px; overflow: noclip; }
-.at-evt { width: 100%; text-align: right; font-family: "Noto Mono"; font-size: 10px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; }
-.at-evh:hover .at-evt { color: #f4edeb; }
-.at-tip
-{
-	visibility: collapse; opacity: 0; flow-children: down; width: 240px; height: fit-children;
-	horizontal-align: right; transform: translateY( -84px ); padding: 10px 12px; border-radius: 10px;
-	background-color: #1d1512; border: 1px solid #4a3f3b;
-	transition-property: opacity; transition-duration: 0.15s;
-}
-.at-evh:hover .at-tip { visibility: visible; opacity: 1; }
-.at-tipk { font-size: 14px; font-weight: bold; color: #f4edeb; }
-.at-tipv { margin-top: 3px; font-size: 12px; color: #c4bcb9; }

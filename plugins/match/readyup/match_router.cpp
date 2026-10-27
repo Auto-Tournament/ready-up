@@ -21,6 +21,7 @@
 #include "readyup/match_settings.h"
 #include "readyup/match_signals.h"
 #include "readyup/match_state.h"
+#include "readyup/end_screen.h"
 #include "readyup/hud_screens.h"
 #include "readyup/modes.h"
 #include "readyup/pause_state.h"
@@ -147,7 +148,9 @@ const std::vector<std::string>& MatchPlayerChatCommands() {
       ".t",    ".help",  ".stop", ".admin", ".restore",
       // Admin shortcuts (match_settings.h, `.ru match ...`); `.settings` is for anyone.
       ".settings", ".readyrequired", ".playout", ".roundknife", ".rk", ".spec", ".whitelist", ".start", ".forcestart",
-      ".restart", ".rr", ".endmatch", ".forceend", ".team1", ".team2", ".asay"};
+      ".restart", ".rr", ".endmatch", ".forceend", ".team1", ".team2", ".asay",
+      // hud.so .dev: the end screen with made-up numbers (end_screen.h).
+      ".enddemo"};
   return k;
 }
 
@@ -241,6 +244,15 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   if ((first == ".switch" || first == ".swap") && !KnifeIsAwaitingPick() && IsReadyUpAdmin(steamid64)) {
     // No knife pick pending: an admin's `.switch` swaps the teams (a pick stays the players').
     return MatchRuCommand(steamid64, playerName, ".ru match swap", slot);
+  }
+  if (first == ".enddemo") {
+    // hud.so's .dev "Leaderboard" buttons: the real end screen (end_screen.h) with made-up numbers,
+    // for this player only, so the demo and the real screen never drift apart.
+    if (slot < 0) return;
+    if (!EndScreenShow(EndScreenDemoInfo(steamid64, playerName, RestAfterWords(text, 1) == "lost"), slot)) {
+      ReplyTo(slot, "The leaderboard needs the Auto Tournament HUD.");
+    }
+    return;
   }
   if (first == ".asay") {
     if (!IsReadyUpAdmin(steamid64)) return ReplyTo(slot, "not authorized");
