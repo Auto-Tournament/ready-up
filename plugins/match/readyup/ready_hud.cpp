@@ -470,8 +470,10 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
   if (!sub.empty()) s += L("sub", HudSpecText(sub));
   const std::string ctName = b.teamView && !b.teams[1].name.empty() ? HudSpecText(b.teams[1].name) : "CT";
   const std::string tName = b.teamView && !b.teams[0].name.empty() ? HudSpecText(b.teams[0].name) : "T";
-  s += "teams=" + ctName + "|" + std::to_string(std::min(ready[0], 5)) + "|" + std::to_string(std::clamp(total[0], 1, 5)) +
-       "|" + tName + "|" + std::to_string(std::min(ready[1], 5)) + "|" + std::to_string(std::clamp(total[1], 1, 5)) + "\n";
+  if (total[0] > 0 || total[1] > 0) {
+    s += "teams=" + ctName + "|" + std::to_string(std::min(ready[0], 5)) + "|" + std::to_string(std::clamp(total[0], 0, 5)) +
+         "|" + tName + "|" + std::to_string(std::min(ready[1], 5)) + "|" + std::to_string(std::clamp(total[1], 0, 5)) + "\n";
+  }
   const std::string count = std::to_string(b.ready) + " / " + std::to_string(b.total);
   if (ok && !welcome && !btn.empty()) {
     // Ready: the card shrinks to a one-line pill (dots, count, a small Unready).
@@ -533,8 +535,7 @@ static std::string LiveSpec(const LiveHudInfo& l, int viewerSide) {
                       L("title", l.type == "auto_5v5" && !l.byTeam.empty() ? HudSpecText(l.byTeam) + " is short" : std::string("Paused"));
       return s + confirmAndButton(false);
     }
-    return L("id", "adminpause") + L("color", "warn") + L("kind", "Admin pause") + L("title", "Paused by an admin") +
-           L("sub", "Only an admin can unpause");
+    return L("id", "adminpause") + L("color", "warn") + L("kind", "Admin pause") + L("title", "Paused by an admin");
   }
   if (l.forfeit) {
     return L("id", "missing") + L("color", "ban") + L("title", HudSpecText(l.forfeitTeam) + " is missing") +

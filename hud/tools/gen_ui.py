@@ -66,7 +66,7 @@ def block(p):
         panel(cls=f"ui-px p{n} px-{'abcd'[n % 4]}") for n in range(8)))
     flow = panel(f"{p}_flow", "ui-flow", children=(
         brand + label(f"{p}_kind", "ui-kind") + label(f"{p}_title", "ui-title") + label(f"{p}_sub", "ui-sub")
-        + teams + confirm + rows + cmds + buttons + close + label(f"{p}_hint", "ui-hint")))
+        + teams + confirm + rows + buttons + cmds + close + label(f"{p}_hint", "ui-hint")))
     extras = label(f"{p}_timer", "ui-timer") + label(f"{p}_counter", "ui-counter") + panel(cls="ui-line") + panel(cls="ui-flash")
     return panel(p, f"ui-panel ui-{p[3:]}", back + flow + extras, hit=True)
 

@@ -79,26 +79,6 @@
 <Label id="ui_card_n4_v" class="ui-rowv" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
-<Panel id="ui_card_cmds" class="ui-cmds" hittest="false">
-<Panel id="ui_card_k0" class="ui-cmd" hittest="false">
-<Label id="ui_card_k0_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
-<Panel class="ui-kbd" hittest="false">
-<Label id="ui_card_k0_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
-</Panel>
-</Panel>
-<Panel id="ui_card_k1" class="ui-cmd" hittest="false">
-<Label id="ui_card_k1_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
-<Panel class="ui-kbd" hittest="false">
-<Label id="ui_card_k1_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
-</Panel>
-</Panel>
-<Panel id="ui_card_k2" class="ui-cmd" hittest="false">
-<Label id="ui_card_k2_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
-<Panel class="ui-kbd" hittest="false">
-<Label id="ui_card_k2_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
-</Panel>
-</Panel>
-</Panel>
 <Panel id="ui_card_buttons" class="ui-buttons" hittest="false">
 <Button id="ui_card_b0" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
@@ -140,6 +120,26 @@
 <Label id="ui_card_b7_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b7_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
+</Panel>
+<Panel id="ui_card_cmds" class="ui-cmds" hittest="false">
+<Panel id="ui_card_k0" class="ui-cmd" hittest="false">
+<Label id="ui_card_k0_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-kbd" hittest="false">
+<Label id="ui_card_k0_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Panel id="ui_card_k1" class="ui-cmd" hittest="false">
+<Label id="ui_card_k1_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-kbd" hittest="false">
+<Label id="ui_card_k1_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Panel id="ui_card_k2" class="ui-cmd" hittest="false">
+<Label id="ui_card_k2_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-kbd" hittest="false">
+<Label id="ui_card_k2_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
 </Panel>
 <Button id="ui_card_close" class="ui-close">
 <Label id="ui_card_close_l" class="ui-closelabel" text="{s:text}" hittest="false" />
@@ -223,26 +223,6 @@
 <Label id="ui_mid_n4_v" class="ui-rowv" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
-<Panel id="ui_mid_cmds" class="ui-cmds" hittest="false">
-<Panel id="ui_mid_k0" class="ui-cmd" hittest="false">
-<Label id="ui_mid_k0_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
-<Panel class="ui-kbd" hittest="false">
-<Label id="ui_mid_k0_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
-</Panel>
-</Panel>
-<Panel id="ui_mid_k1" class="ui-cmd" hittest="false">
-<Label id="ui_mid_k1_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
-<Panel class="ui-kbd" hittest="false">
-<Label id="ui_mid_k1_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
-</Panel>
-</Panel>
-<Panel id="ui_mid_k2" class="ui-cmd" hittest="false">
-<Label id="ui_mid_k2_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
-<Panel class="ui-kbd" hittest="false">
-<Label id="ui_mid_k2_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
-</Panel>
-</Panel>
-</Panel>
 <Panel id="ui_mid_buttons" class="ui-buttons" hittest="false">
 <Button id="ui_mid_b0" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
@@ -284,6 +264,26 @@
 <Label id="ui_mid_b7_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b7_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
+</Panel>
+<Panel id="ui_mid_cmds" class="ui-cmds" hittest="false">
+<Panel id="ui_mid_k0" class="ui-cmd" hittest="false">
+<Label id="ui_mid_k0_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-kbd" hittest="false">
+<Label id="ui_mid_k0_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Panel id="ui_mid_k1" class="ui-cmd" hittest="false">
+<Label id="ui_mid_k1_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-kbd" hittest="false">
+<Label id="ui_mid_k1_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Panel id="ui_mid_k2" class="ui-cmd" hittest="false">
+<Label id="ui_mid_k2_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-kbd" hittest="false">
+<Label id="ui_mid_k2_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
 </Panel>
 <Button id="ui_mid_close" class="ui-close">
 <Label id="ui_mid_close_l" class="ui-closelabel" text="{s:text}" hittest="false" />

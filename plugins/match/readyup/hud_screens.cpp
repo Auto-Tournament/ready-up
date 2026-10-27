@@ -10,6 +10,7 @@
 #include "readyup/logging.h"
 #include "readyup/match_features.h"
 #include "readyup/match_state.h"
+#include "readyup/match_stats.h"
 #include "readyup/modes.h"
 #include "readyup/pause_state.h"
 #include "readyup/players.h"
@@ -102,7 +103,7 @@ std::string MenuSpec(const Menu& m, int csTeam) {
     s += Btn("Call an admin", "ghost", "", ".admin");
     s += Btn("Match info", "ghost", "", "#menu info") + Btn("Commands", "ghost", "", "#menu cmds");
     if (admin) s += Btn("Admin", "ghost", "", "#menu admin");
-    s += Line("cols", "2") + Line("bw", "l");
+    s += Line("cols", "3") + Line("bw", "m");
   } else if (m.which == "votes") {
     s = Line("id", "votes") + Line("kind", "Help \xC2\xB7 votes") + Line("title", "Start a vote");
     s += Btn("Give up", "danger", "", ".gg") + Btn("Replay round", "ghost", "", ".stop") + Btn("Timeout", "ghost", "", ".tac");
@@ -136,7 +137,7 @@ std::string MenuSpec(const Menu& m, int csTeam) {
     s += Btn("Replay a round", "ghost", "", "#menu rounds") + Btn("Change map", "ghost", "", "#menu maps");
     s += Btn("Swap teams", "ghost", "", ".ru match swap") + Btn("Force ready", "ghost", "", ".forceready");
     s += Btn("Restart map", "ghost", "", ".restart") + Btn("End match", "danger", "", "#menu endwho");
-    s += Line("cols", "2") + Line("bw", "l");
+    s += Line("cols", "4") + Line("bw", "m");
   } else if (m.which == "maps" && admin) {
     s = Line("id", "maps") + Line("kind", "Admin \xC2\xB7 change map") + Line("title", "Pick a map");
     for (const char* map : {"mirage", "inferno", "nuke", "ancient", "anubis", "dust2", "train", "overpass"}) {
@@ -148,8 +149,25 @@ std::string MenuSpec(const Menu& m, int csTeam) {
     const auto ms = MatchStateGet();
     const int cur = std::max(1, ms.team1_score + ms.team2_score + 1);
     s = Line("id", "rounds") + Line("kind", "Admin \xC2\xB7 replay") + Line("title", "Back to which round?");
-    for (int r = cur; r > 0 && r > cur - 6; --r) s += Btn("Round " + std::to_string(r), "ghost", "", ".ru match restore " + std::to_string(r));
-    return s + Line("cols", "3") + Line("bw", "s") + adminBack;
+    // Each round with the score it starts at: people remember "it was 7-6", not "round 14".
+    std::vector<stats::RoundSummary> played;
+    {
+      std::lock_guard<std::recursive_mutex> lk(stats::Mutex());
+      played = stats::Current().Snapshot().rounds;
+    }
+    auto scoreBefore = [&](int round) {
+      int t1 = 0, t2 = 0;
+      for (const auto& rs : played) {
+        if (rs.round_number >= round) break;
+        t1 = rs.team1_score;
+        t2 = rs.team2_score;
+      }
+      return std::to_string(t1) + "-" + std::to_string(t2);
+    };
+    for (int r = cur; r > 0 && r > cur - 6; --r) {
+      s += "btn=Round " + std::to_string(r) + "|ghost||.ru match restore " + std::to_string(r) + "|" + scoreBefore(r) + "\n";
+    }
+    return s + Line("cols", "3") + Line("bw", "m") + adminBack;
   } else if (m.which == "endwho" && admin) {
     s = Line("id", "endwho") + Line("color", "ban") + Line("kind", "Admin \xC2\xB7 end match") + Line("title", "Who won?");
     s += Btn(TeamName(WebhookTeam::Team1), "ghost", "", "#menu end:team1") + Btn(TeamName(WebhookTeam::Team2), "ghost", "", "#menu end:team2");

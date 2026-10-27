@@ -234,10 +234,6 @@ std::string RawTeam(const ResultCardInfo& info, const std::string& which) {
   const std::string& n = which == "team1" ? info.team1 : info.team2;
   return n.empty() ? (which == "team1" ? "Team 1" : "Team 2") : n;
 }
-std::string RawScore(const ResultCardInfo& info) {
-  return RawTeam(info, "team1") + "  " + std::to_string(info.team1Score) + " - " + std::to_string(info.team2Score) + "  " +
-         RawTeam(info, "team2");
-}
 std::string SideName(int side) { return side == 3 ? "CT" : side == 2 ? "T" : ""; }
 
 }  // namespace
@@ -264,7 +260,7 @@ std::string MapResultCardSpec(const ResultCardInfo& info) {
   const bool won = info.winner == "team1" || info.winner == "team2";
   std::string s = SpecLine("id", "mapresult") + SpecLine("color", "live") + SpecLine("kind", kind) +
                   SpecLine("title", won ? RawTeam(info, info.winner) + " wins the map" : std::string("Map drawn")) +
-                  SpecLine("sub", RawScore(info));
+                  SpecLine("sub", std::to_string(info.team1Score) + " - " + std::to_string(info.team2Score));
   if (info.decidedByDamage) {
     s += SpecLine("hint", "Tied: won on damage " + std::to_string(info.team1Damage) + " - " + std::to_string(info.team2Damage));
   } else if (!info.nextMap.empty()) {
@@ -277,7 +273,8 @@ std::string SeriesResultCardSpec(const ResultCardInfo& info) {
   const bool won = info.winner == "team1" || info.winner == "team2";
   return SpecLine("id", "seriesresult") + SpecLine("color", "live") + SpecLine("kind", "Series") +
          SpecLine("title", won ? RawTeam(info, info.winner) + " wins the series" : std::string("Series drawn")) +
-         SpecLine("sub", info.forfeit ? std::string("by forfeit") : RawScore(info));
+         SpecLine("sub", info.forfeit ? std::string("by forfeit")
+                                      : std::to_string(info.team1Score) + " - " + std::to_string(info.team2Score));
 }
 
 std::string AdminCallCardSpec(const std::string& name, const std::string& teamLabel, const std::string& message) {
