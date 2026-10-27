@@ -345,6 +345,7 @@
      tag       tag-acc tag-muted tag-live tag-ban (shown), none = hidden          (the tag by a name)
      width     cw-xs cw-s cw-m cw-l cw-xl cw-off                                  (table cells)
      line      line-acc line-ban line-muted line-live                             (on at_ecard)
+     bg        bg-100 bg-95 bg-90 bg-85 bg-80 bg-75 bg-70                       (on at_ecard)
      on at_end blur-0..3, dim-0..3, scale-70 .. scale-100 (steps of 5)
      any part  hide, empty (collapse) */
 
@@ -401,6 +402,14 @@
 .at-end.blur-1 .at-eblur { world-blur: gaussian( 1, 1, 1 ); }
 .at-end.blur-2 .at-eblur { world-blur: gaussian( 2, 2, 2 ); }
 .at-end.blur-3 .at-eblur { world-blur: gaussian( 3, 3, 3 ); }
+/* Card background (on at_ecard): solid down to 70 %. */
+.at-end .bg-100 { background-color: #100908ff; }
+.at-end .bg-95 { background-color: #100908f2; }
+.at-end .bg-90 { background-color: #100908e6; }
+.at-end .bg-85 { background-color: #100908d9; }
+.at-end .bg-80 { background-color: #100908cc; }
+.at-end .bg-75 { background-color: #100908bf; }
+.at-end .bg-70 { background-color: #100908b2; }
 .at-end.dim-0 .at-eblur { background-color: #00000000; }
 .at-end.dim-1 .at-eblur { background-color: #00000024; }
 .at-end.dim-2 .at-eblur { background-color: #00000048; }

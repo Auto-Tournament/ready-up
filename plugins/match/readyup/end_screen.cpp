@@ -171,6 +171,10 @@ constexpr const char* kScale = "scale-85";
 // No world blur or dimming: the card is solid on its own, the game stays clear around it (2026-10-27).
 constexpr const char* kBlur = "blur-0";
 constexpr const char* kDim = "dim-0";
+constexpr const char* kBg = "bg-75";  // the card, 75 % opaque (2026-10-27)
+// No cursor: players move, look around and type in chat ("gg") while it is up. Hover tooltips did
+// not show in CS2, so nothing needs the cursor (2026-10-27).
+constexpr bool kHoldCursor = false;
 
 const char* const kTextTones[] = {"tc-ink", "tc-soft", "tc-muted", "tc-acc", "tc-ban", "tc-pos", "tc-live", "tc-warn", "tc-ct", "tc-t"};
 const char* const kFills[] = {"fill-none", "fill-acc", "fill-muted", "fill-ban", "fill-live", "fill-ct", "fill-t"};
@@ -279,6 +283,7 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
   }
   for (const char* c : {"blur-0", "blur-1", "blur-2", "blur-3"}) w.Class(ALL, "at_end", c, std::string(c) == kBlur);
   for (const char* c : {"dim-0", "dim-1", "dim-2", "dim-3"}) w.Class(ALL, "at_end", c, std::string(c) == kDim);
+  for (const char* c : {"bg-100", "bg-95", "bg-90", "bg-85", "bg-80", "bg-75", "bg-70"}) w.Class(ALL, "at_ecard", c, std::string(c) == kBg);
 
   // Each player's own view: the headline and its colour, their row, their team's rounds, the cursor.
   std::lock_guard<std::mutex> lk(g_mu);
@@ -338,7 +343,7 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
       w.Only(slot, r + "_d", kFills, x.winner == 2 ? fill : "fill-none");
     }
     w.Class(slot, "at_end", "on", true);  // per player too: a preview may have left its own value
-    if (HasCapture(h) && h->set_capture(k, slot, 1)) g.captured.insert(slot);
+    if (kHoldCursor && HasCapture(h) && h->set_capture(k, slot, 1)) g.captured.insert(slot);
   }
   w.Class(ALL, "at_end", "on", true);
   if (target != RU_HUD_ALL) {
