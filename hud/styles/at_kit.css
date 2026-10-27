@@ -303,7 +303,8 @@
 .at-eteam { flow-children: down; width: 670px; margin-right: 28px; overflow: noclip; }
 .at-erow { flow-children: right; width: 100%; height: 36px; margin-bottom: 5px; padding: 0px 12px; border-radius: 8px; background-color: #18110e; border: 1px solid #211815; }
 .at-erow.at-ehead { overflow: noclip; height: 16px; background-color: #00000000; border: 0px solid #00000000; }
-.at-erow.me { background-color: #f4edeb12; border: 1px solid #f4edeb66; }
+/* Your own row, in the accent (nobody else is tinted). */
+.at-erow.me { background-color: #ff6a3d1f; border: 1px solid #ff6a3d99; }
 /* An MVP shows as the tag next to the name; only the viewer's own row is tinted. */
 .at-enbox { flow-children: right; width: fill-parent-flow( 1.0 ); vertical-align: center; }
 .at-en { vertical-align: center; font-size: 14px; color: #f4edeb; }
