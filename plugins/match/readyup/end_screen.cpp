@@ -171,7 +171,7 @@ constexpr const char* kScale = "scale-85";
 // No world blur or dimming: the card is solid on its own, the game stays clear around it (2026-10-27).
 constexpr const char* kBlur = "blur-0";
 constexpr const char* kDim = "dim-0";
-constexpr const char* kBg = "bg-75";  // the card, 75 % opaque (2026-10-27)
+constexpr const char* kBg = "bg-90";  // the card, 90 % opaque (2026-10-27: 75 was too see-through)
 // No cursor: players move, look around and type in chat ("gg") while it is up. Hover tooltips did
 // not show in CS2, so nothing needs the cursor (2026-10-27).
 constexpr bool kHoldCursor = false;
