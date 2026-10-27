@@ -75,12 +75,7 @@ void TestChips() {
 }
 
 void TestLinesAndMini() {
-  const auto s = hud::ParseScreen("kind=Ready
-title=x
-line=Format|Best of 3
-line=Ready|.r
-size=mini
-");
+  const auto s = hud::ParseScreen("kind=Ready\ntitle=x\nline=Format|Best of 3\nline=Ready|.r\nsize=mini\n");
   const auto w = hud::RenderScreen(s, "ui_card");
   CHECK(On(w, "ui_card", "mini"));
   CHECK(On(w, "ui_card", "has-lines"));
