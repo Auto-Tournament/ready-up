@@ -268,7 +268,9 @@
 	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
 }
 .at-end.on .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1, 1, 1 ); }
-.at-ecardflow { flow-children: down; width: 100%; height: fit-children; padding: 24px 36px 24px 36px; overflow: noclip; }
+/* A second layer of the card's background: CS2 draws one layer of #100908f7 at about 80 %, two read
+   as solid (2026-10-27). */
+.at-ecardflow { flow-children: down; width: 100%; height: fit-children; padding: 24px 36px 24px 36px; overflow: noclip; background-color: #100908f7; border-radius: 18px; }
 .at-ecard .at-brand { height: 22px; }
 .at-ecard .at-brandlogo { width: 22px; height: 22px; border-radius: 6px; }
 .at-ecard .at-brandname { font-size: 12px; letter-spacing: 2.4px; }
