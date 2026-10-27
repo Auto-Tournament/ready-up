@@ -5,9 +5,6 @@
     "center_html_all_prio",
     "chat_all",
     "chat_to_slot",
-    "for_each_player",
-    "get_interface",
-    "get_player",
     "on_tick",
     "register_chat_command",
     "register_ru_subcommand"

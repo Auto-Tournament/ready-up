@@ -16,7 +16,6 @@
     "entity_set_abs_origin",
     "entity_spawn",
     "entity_system_status",
-    "get_interface",
     "grenade_spawn",
     "grenade_spawn_available",
     "on_tick",
