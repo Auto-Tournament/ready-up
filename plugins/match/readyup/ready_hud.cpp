@@ -476,7 +476,7 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
   const std::string count = std::to_string(b.ready) + " / " + std::to_string(b.total);
   if (ok && !welcome && !btn.empty()) {
     // Ready: the card shrinks to a one-line pill (dots, count, a small Unready).
-    s += L("kind", "Ready \xC2\xB7 " + count) + L("size", "mini") + btn + L("bw", "s") + L("mouse", "b");
+    s += L("id", "ready") + L("kind", "Ready \xC2\xB7 " + count) + L("size", "mini") + btn + L("bw", "s") + L("mouse", "b");
     return s;
   }
   s += L("counter", count);

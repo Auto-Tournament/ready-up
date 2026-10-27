@@ -30,6 +30,7 @@
 
 #include <dlfcn.h>
 #include <link.h>
+#include <algorithm>
 #include <climits>
 
 #include <cstdarg>
@@ -542,8 +543,11 @@ int IfSetCapture(int hud, int slot, int on) {
     l->lastError = why;
     return 0;
   }
-  *(static_cast<uint8_t*>(st) + g_eng.o.stCapture) = on ? 1 : 0;
-  l->changed = true;
+  uint8_t* flag = static_cast<uint8_t*>(st) + g_eng.o.stCapture;
+  if (*flag != (on ? 1 : 0)) {  // the entity is only re-sent when something changed
+    *flag = on ? 1 : 0;
+    l->changed = true;
+  }
   return 1;
 }
 
@@ -849,6 +853,8 @@ void ProbeTick() {
 void OnTick(void*, const ru_tick_info* t) {
   g_now = t->now;
   if (!g_origSvcUm && g_eng.ok) InstallClickHook();
+  if (g_layouts.empty() || std::none_of(g_layouts.begin(), g_layouts.end(), [](const Layout& l) { return l.path == kUiLayout; }))
+    IfOpen(kUiLayout);
   DrainClicks();
   CaptureSweep();
   ProbeTick();
@@ -889,7 +895,10 @@ void OnTick(void*, const ru_tick_info* t) {
   }
   for (auto& l : g_layouts) {
     void* e = EntityOf(l);
-    if (!e && !l.slots.empty()) e = Ensure(l);  // recreate after a map change or round restart
+    // Recreate after a map change. at_ui always exists: an entity created after a player's first
+    // full update, followed by CS2's BeginMatch round restart, crashes the server
+    // ("WriteEnterPVS: GetEntServerClass failed").
+    if (!e && (!l.slots.empty() || l.path == kUiLayout)) e = Ensure(l);
     if (e && l.changed) {
       g_api->entity_mark_changed(g_api->self, e);
       l.changed = false;
