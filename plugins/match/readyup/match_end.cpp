@@ -226,7 +226,7 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
     card.mapNumber = in.mapNumber;
     card.mapName = in.mapName;
     card.nextMap = in.nextMap;
-    ResultCardShow(MapResultCardHtml(card), std::max(1, plan.restartDelay - 1), "map result");
+    ResultCardShow(MapResultCardHtml(card), MapResultCardSpec(card), std::max(1, plan.restartDelay - 1), "map result");
     ScheduleNextMap(std::max(1, plan.restartDelay - 1), in.nextMap, gen);
     return plan;
   }
@@ -252,7 +252,7 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
   card.team1Score = in.team1SeriesScore;
   card.team2Score = in.team2SeriesScore;
   card.forfeit = !winnerName.empty() && !in.seriesWinner.empty();
-  ResultCardShow(SeriesResultCardHtml(card), resetIn, "series result");
+  ResultCardShow(SeriesResultCardHtml(card), SeriesResultCardSpec(card), resetIn, "series result");
 
   if (!winnerName.empty() && !in.seriesWinner.empty()) {
     SendToChat(("Ready Up: " + winnerName + " won the series by forfeit.").c_str());

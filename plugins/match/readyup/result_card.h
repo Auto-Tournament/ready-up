@@ -11,8 +11,9 @@
 
 namespace readyup {
 
-// Show `html` to everyone for `seconds` (replaces a card already up). Thread-safe.
-void ResultCardShow(const std::string& html, int seconds, const char* what);
+// Show the card to everyone for `seconds` (replaces a card already up): `spec` on the clickable
+// HUD when it is on, else `html` in the center panel. Thread-safe.
+void ResultCardShow(const std::string& html, const std::string& spec, int seconds, const char* what);
 
 // Stop the card (a new map went live, the match was reset). Thread-safe.
 void ResultCardClear();

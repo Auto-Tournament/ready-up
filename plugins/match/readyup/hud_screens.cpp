@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <map>
+#include <mutex>
 #include <set>
 #include <string>
 #include <vector>
@@ -36,6 +37,12 @@ struct Menu {
 std::map<int, Menu> g_menus;              // slot -> open menu (game thread)
 std::map<int, std::string> g_dismissed;   // slot -> vote the player said no to ("gg:<deadline>")
 std::set<int> g_shown;                    // slots that got a screen last tick
+struct Notice {
+  std::string spec;
+  double until = 0;
+};
+std::mutex g_noticeMu;
+std::map<int, Notice> g_notices;          // slot -> card shown over the base screen
 
 const ru_hud_v1* Hud() {
   const ru_api* a = host::Api();
@@ -265,6 +272,15 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
     }
     if (m != g_menus.end()) spec = MenuSpec(m->second, h.team);
     if (spec.empty()) spec = VoteSpec(slot, h.steamid64, h.team);
+    if (spec.empty()) {
+      std::lock_guard<std::mutex> lk(g_noticeMu);
+      auto n = g_notices.find(slot);
+      if (n != g_notices.end() && now > n->second.until) {
+        g_notices.erase(n);
+      } else if (n != g_notices.end()) {
+        spec = n->second.spec;
+      }
+    }
     if (spec.empty()) spec = baseFor(h);
     if (!spec.empty() && mid) spec += "chips=1\n";
     hud->screen(slot, spec.c_str(), &OnClick, nullptr);
@@ -277,6 +293,12 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
     }
   }
   g_shown.swap(present);
+}
+
+void HudScreensNotice(int slot, const std::string& spec, double seconds) {
+  if (slot < 0 || slot > 63 || spec.empty()) return;
+  std::lock_guard<std::mutex> lk(g_noticeMu);
+  g_notices[slot] = Notice{spec, host::NowSeconds() + seconds};
 }
 
 bool HudScreensOpenMenu(int slot, uint64_t steamid64, const std::string& which) {

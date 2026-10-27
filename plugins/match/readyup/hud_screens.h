@@ -37,6 +37,10 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
 // `.menu` (and `.help` when essentials does not own it): opens "help" or "admin" (admins only)
 // for this player. False when it can't be shown (HUD off, mid-round, practice or another
 // plugin's mode): answer in chat instead.
+// Shows `spec` to `slot` instead of the base screen for `seconds` (menus and votes stay on top).
+// A card re-sent every frame keeps it up. Thread-safe.
+void HudScreensNotice(int slot, const std::string& spec, double seconds);
+
 bool HudScreensOpenMenu(int slot, uint64_t steamid64, const std::string& which);
 
 // A spec value: no line breaks, no '|' (it separates button fields).

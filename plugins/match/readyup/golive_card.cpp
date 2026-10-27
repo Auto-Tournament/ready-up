@@ -1,5 +1,6 @@
 #include "readyup/golive_card.h"
 
+#include "readyup/hud_screens.h"
 #include "readyup/admin_call.h"
 #include "readyup/card_html.h"
 #include "readyup/config.h"
@@ -38,6 +39,7 @@ struct Card {
   std::string reason;
   GoLiveCardClock clock;
   std::string html;  // built once at the first send; the same HTML every frame
+  std::string spec;  // the same card for the clickable HUD
   int sends = 0;     // ticks that sent the card (debug summary)
   int64_t firstSendMs = 0;
   std::unordered_map<int, std::string> skipped;  // slot -> why the card is held back (debug)
@@ -143,13 +145,14 @@ void GoLiveCardTick() {
   const LiveHudInfo hud = MatchFeaturesHud();
   const bool hudBusy = hud.paused || hud.forfeit;
   GoLiveCardInfo info;
-  std::string firstHtml;
+  std::string firstHtml, firstSpec;
   if (!started && live && !hudBusy) {
     info = BuildInfo();
     firstHtml = GoLiveCardHtml(info);
+    firstSpec = GoLiveCardSpec(info);
   }
 
-  std::string html;
+  std::string html, spec;
   std::string reason;
   bool first = false;
   {
@@ -168,13 +171,16 @@ void GoLiveCardTick() {
       g_card.firstSendMs = now;
       first = true;
       g_card.html = firstHtml;
+      g_card.spec = firstSpec;
     }
     g_card.clock.lastSendMs = now;
     ++g_card.sends;
     html = g_card.html;
+    spec = g_card.spec;
     reason = g_card.reason;
   }
 
+  const bool screens = HudScreensOn();
   int humans = 0;
   int ok = 0;
   std::unordered_map<int, std::string> skipped;
@@ -187,6 +193,11 @@ void GoLiveCardTick() {
                        : WelcomeActiveFor(slot, h.steamid64)     ? "welcome card"
                        : ReadyHudAnimActive(h.steamid64)         ? ".ru hud anim"
                                                                  : nullptr;
+    if (!skip && screens) {
+      HudScreensNotice(slot, spec, 1.0);
+      ++ok;
+      continue;
+    }
     if (!skip) {
       const int sent = SendCenterHtml(slot, html, Cfg().hud_duration_s, RU_HTML_PRIO_NOTICE);
       if (sent == 1) {
