@@ -168,8 +168,9 @@ constexpr int kUsedCols = static_cast<int>(sizeof(kColumns) / sizeof(kColumns[0]
 
 // The look, as utility classes on #at_end / #at_ecard (hud/styles/at_kit.css, end screen utilities).
 constexpr const char* kScale = "scale-85";
-constexpr const char* kBlur = "blur-1";
-constexpr const char* kDim = "dim-1";
+// No world blur or dimming: the card is solid on its own, the game stays clear around it (2026-10-27).
+constexpr const char* kBlur = "blur-0";
+constexpr const char* kDim = "dim-0";
 
 const char* const kTextTones[] = {"tc-ink", "tc-soft", "tc-muted", "tc-acc", "tc-ban", "tc-pos", "tc-live", "tc-warn", "tc-ct", "tc-t"};
 const char* const kFills[] = {"fill-none", "fill-acc", "fill-muted", "fill-ban", "fill-live", "fill-ct", "fill-t"};

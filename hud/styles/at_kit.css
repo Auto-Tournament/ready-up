@@ -310,23 +310,25 @@
 .at-eteam { flow-children: down; width: 670px; overflow: noclip; }
 #at_eta { margin-right: 28px; }
 .at-erow { flow-children: right; width: 100%; height: 36px; margin-bottom: 5px; padding: 0px 12px; border-radius: 8px; background-color: #18110e; border: 1px solid #211815; }
-.at-erow.at-ehead { overflow: noclip; height: 16px; background-color: #00000000; border: 0px solid #00000000; }
+.at-erow.at-ehead { overflow: noclip noclip; z-index: 5; height: 16px; background-color: #00000000; border: 0px solid #00000000; }
 .at-enbox { flow-children: right; width: fill-parent-flow( 1.0 ); vertical-align: center; }
 .at-en { vertical-align: center; font-size: 14px; color: #f4edeb; }
 .at-ehead .at-en { font-size: 10px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; width: fill-parent-flow( 1.0 ); }
 .at-etag { visibility: collapse; vertical-align: center; margin-left: 8px; padding: 2px 6px; border-radius: 4px; font-family: "Noto Mono"; font-size: 10px; font-weight: bold; }
 .at-ec { font-family: "Noto Mono"; width: 40px; margin-left: 6px; vertical-align: center; text-align: right; font-size: 14px; color: #c4bcb9; }
-.at-ehc { width: 40px; height: 16px; margin-left: 6px; overflow: noclip; }
+.at-ehc { width: 40px; height: 16px; margin-left: 6px; overflow: noclip noclip; z-index: 5; }
 .at-ehct { width: 100%; text-align: right; font-family: "Noto Mono"; font-size: 10px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; }
 .at-ehc:hover .at-ehct { color: #f4edeb; }
 .at-tip
 {
-	visibility: collapse; opacity: 0; flow-children: down; width: 240px; height: fit-children;
-	horizontal-align: right; transform: translate3d( 0px, -84px, 0px ); padding: 10px 12px; border-radius: 10px;
+	visibility: collapse; opacity: 0; flow-children: down; width: 240px; height: fit-children; min-height: 56px; z-index: 10;
+	horizontal-align: right; vertical-align: bottom; margin-bottom: 22px; overflow: noclip noclip; padding: 10px 12px; border-radius: 10px;
 	background-color: #1d1512; border: 1px solid #4a3f3b;
 	transition-property: opacity; transition-duration: 0.15s;
 }
 .at-ehc:hover .at-tip { visibility: visible; opacity: 1; }
+/* Forced open from the server (tip-show on the head cell): to check a tooltip without hovering. */
+.at-end .tip-show .at-tip { visibility: visible; opacity: 1; }
 .at-ehc.notip:hover .at-tip { visibility: collapse; }
 .at-tipk { font-size: 14px; font-weight: bold; color: #f4edeb; }
 .at-tipv { margin-top: 3px; font-size: 12px; color: #c4bcb9; }

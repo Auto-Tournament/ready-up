@@ -430,7 +430,7 @@
 .ui-card.mini .ui-px.p7 { margin: 30px 0px 0px 30px; }
 
 /* The pill in the centre panel too (warmup's ready card sits there since 2026-10-27). */
-.ui-mid.mini { width: fit-children; border-radius: 26px; }
+.ui-mid.mini { width: fit-children; min-width: 0px; border-radius: 26px; }
 .ui-mid.mini .ui-flow { flow-children: right; min-width: 0px; height: 52px; padding: 0px 8px 0px 18px; }
 .ui-mid.mini .ui-brand { visibility: collapse; }
 .ui-mid.mini .ui-title { visibility: collapse; }

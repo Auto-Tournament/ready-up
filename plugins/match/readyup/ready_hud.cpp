@@ -445,7 +445,9 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
   total[1] += b.botsT;
   // The centre panel: in the buy menu it sits in the empty dropped-weapons area under the grid
   // (Sivert, 2026-10-27; covering part of the menu is fine).
-  std::string s = L("id", "warm");
+  // No brand row and tight padding: short enough to sit under the buy grid, in the dropped-weapons
+  // area (the full card covered the grid's last row).
+  std::string s = L("id", "warm") + L("cls", "no-brand pad-s");
   std::string title, sub, btn;
   bool ok = false;
   if (b.teamView && me) {
