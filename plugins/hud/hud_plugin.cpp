@@ -974,6 +974,13 @@ void OnRoundPrestart(void*, const char*, const ru_game_event*) {
   g_repushAfterPause = true;
 }
 
+// Long enough for match.so's fallback restart (3 s, modes.h ModesObserveBeginMatch), whose
+// round_prestart pauses again.
+void OnBeginMatch(void*, const char*, const ru_game_event*) {
+  g_pauseUntil = g_now + 4.0;
+  g_repushAfterPause = true;
+}
+
 void OnEvent(void*, const ru_event* ev) {
   if (ev->type == RU_EVENT_MAP_START) {
     g_mapStartedAt = g_now;
@@ -1759,6 +1766,10 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   api->on_tick(api->self, &OnTick, nullptr);
   if (!api->subscribe_game_event(api->self, "round_prestart", &OnRoundPrestart, nullptr))
     ru_logf(api, RU_LOG_WARN, "round_prestart not available: a round restart may crash the server while a HUD is shown");
+  // CS2's BeginMatch (a warmup ending) cleans up the map too, sometimes with no round_prestart
+  // after it (surf_utopia_njv, 2026-10-27: "WriteEnterPVS" on a team change). Same pause.
+  if (!api->subscribe_game_event(api->self, "begin_new_match", &OnBeginMatch, nullptr))
+    ru_logf(api, RU_LOG_WARN, "begin_new_match not available");
   api->subscribe(api->self, RU_EVENT_ANY, &OnEvent, nullptr);
   api->register_ru_subcommand(api->self, "hudkit", &OnRu, nullptr);
   api->register_chat_command(api->self, ".dev", &OnDevChat, nullptr);

@@ -2569,6 +2569,20 @@ std::atomic<double> g_lastRoundStartAt{0};
 
 void ModesObserveRoundStart() { g_lastRoundStartAt = host::NowSeconds(); }
 
+// CS2's BeginMatch after the warmup end usually restarts the round. On some maps
+// (surf_utopia_njv, 2026-10-27) no round follows, and a player who joined stays in the team-select
+// view, unspawned, for good. Practice: no round_start within 3 s, restart it ourselves.
+void ModesObserveBeginMatch() {
+  const double at = host::NowSeconds();
+  ScheduleOnGameThread(3.0, [at]() {
+    if (g_lastRoundStartAt.load() >= at) return;
+    auto& st = St();
+    std::lock_guard<std::mutex> lk(st.mu);
+    if (st.mode != ReadyUpMode::Practice) return;
+    if (EnqueueServerCommand("mp_restartgame 1")) PrintLine("practice: no round after BeginMatch; mp_restartgame 1");
+  });
+}
+
 void OnNativeWarmupStarted(const char* source) {
   if (IsDisabled()) return;
   auto& st = St();
@@ -2597,19 +2611,6 @@ void OnNativeWarmupStarted(const char* source) {
     if (EnqueueServerCommand(c)) any = true;
   }
   if (any) st.lastNativeWarmupEnd = now;
-  // Practice: CS2's BeginMatch after the warmup end usually restarts the round. On some maps
-  // (surf_utopia_njv, 2026-10-27) no round follows, and a player who joined sits dead in the air
-  // for good. No round_start within 3 s: restart it ourselves.
-  if (m == ReadyUpMode::Practice && any) {
-    const double endedAt = host::NowSeconds();
-    ScheduleOnGameThread(3.0, [endedAt]() {
-      if (g_lastRoundStartAt.load() >= endedAt) return;
-      auto& st2 = St();
-      std::lock_guard<std::mutex> lk2(st2.mu);
-      if (st2.mode != ReadyUpMode::Practice) return;
-      if (EnqueueServerCommand("mp_restartgame 1")) Print("warmup: no round after the warmup end; mp_restartgame 1\n");
-    });
-  }
   // CS2's warmup starting (bots or the first player joining) and ending puts competitive defaults
   // back: no respawn, no buy anywhere, rounds end (2026-10-14, a match warmup that played like a
   // normal match). Ready Up's warmup rules go on again once the end has gone through.

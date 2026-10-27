@@ -707,6 +707,10 @@ void OnGameEvent(void* /*user*/, const char* name, const ru_game_event* ev) {
     OnNativeWarmupStarted("round_announce_warmup event");
     return;
   }
+  if (std::strcmp(name, "begin_new_match") == 0) {
+    ModesObserveBeginMatch();  // practice: a round must follow (modes.h)
+    return;
+  }
   if (std::strcmp(name, "round_end") == 0) MatchFeaturesOnGameEvent(name);  // restores wait (match_features.h)
   if (std::strcmp(name, "round_start") == 0) {
     WelcomeObserveRoundStart();     // the cards wait it out
@@ -789,7 +793,7 @@ void MatchEventsIgnoreRoundEndsFor(double seconds) {
 void MatchEventsInstall(const ru_api* api) {
   static const char* const kEvents[] = {
       "round_start", "round_end", "round_freeze_end", "round_announce_warmup", "player_spawn", "player_disconnect", "player_death",
-      "player_hurt", "player_blind", "bomb_planted", "bomb_defused", "round_mvp",
+      "player_hurt", "player_blind", "bomb_planted", "bomb_defused", "round_mvp", "begin_new_match",
   };
   for (const char* e : kEvents) {
     if (!api->subscribe_game_event(api->self, e, &OnGameEvent, nullptr)) {

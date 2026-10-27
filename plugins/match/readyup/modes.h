@@ -229,6 +229,9 @@ void OnNativeWarmupStarted(const char* source);
 
 // round_start (match_events.cpp): practice checks that a round followed the warmup it ended.
 void ModesObserveRoundStart();
+// begin_new_match (CS2's BeginMatch, after a warmup ends): in practice, no round_start within 3 s
+// restarts the round (on some maps none follows, and players stay unspawned).
+void ModesObserveBeginMatch();
 
 // Tick from server thread (e.g. GameFrame hook).
 void Tick();
