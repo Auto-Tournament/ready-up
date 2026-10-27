@@ -50,6 +50,11 @@ bool ResumeWaiting();
 bool EndedKickPending();
 // The enrolled fleet server id (fleet.so status), "" without fleet / before enrollment. Game thread.
 std::string FleetServerId();
+
+// Ends the platform's match with a winner ("team1" | "team2" | "none"), exactly as the platform's
+// end_match command does (series_end to the platform, server reset). False (and *why) when no
+// platform match is loaded here.
+bool EndMatchByAdmin(const std::string& winner, std::string* why);
 // The fleet MatchState (what state.snapshot / hello carry) while assigned; false otherwise.
 bool CurrentState(status::Json* out);
 // False while a demo of the assignment still uploads or the series is not over (FLEET.md §17).

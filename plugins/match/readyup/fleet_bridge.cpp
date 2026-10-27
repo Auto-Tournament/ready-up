@@ -2350,4 +2350,14 @@ void RestoreJson(const Json& j) {
 
 std::string FleetServerId() { return ServerId(); }
 
+bool EndMatchByAdmin(const std::string& winner, std::string* why) {
+  Json a = Json::Object();
+  a["winner"] = winner;
+  a["reason"] = "admin";
+  const Result r = CmdEnd(a);
+  if (r.status == "ok") return true;
+  if (why) *why = r.message;
+  return false;
+}
+
 }  // namespace readyup::fleet_bridge

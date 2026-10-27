@@ -74,6 +74,22 @@ void TestChips() {
   CHECK(!On(w, "ui_card", "has-hint"));
 }
 
+void TestLinesAndMini() {
+  const auto s = hud::ParseScreen("kind=Ready
+title=x
+line=Format|Best of 3
+line=Ready|.r
+size=mini
+");
+  const auto w = hud::RenderScreen(s, "ui_card");
+  CHECK(On(w, "ui_card", "mini"));
+  CHECK(On(w, "ui_card", "has-lines"));
+  CHECK(Text(w, "ui_card_n0_k") == "Format");
+  CHECK(!On(w, "ui_card_n0_v", "cmd"));
+  CHECK(On(w, "ui_card_n1_v", "cmd"));
+  CHECK(On(w, "ui_card_n2", "gone"));
+}
+
 void TestButtonIds() {
   std::string p;
   int i = 0;
@@ -89,6 +105,7 @@ int main() {
   TestParse();
   TestRender();
   TestChips();
+  TestLinesAndMini();
   TestButtonIds();
   if (g_fail) std::fprintf(stderr, "hud_screen: %d failure(s)\n", g_fail);
   else std::printf("hud_screen: ok\n");

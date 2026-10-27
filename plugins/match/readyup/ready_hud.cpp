@@ -473,7 +473,13 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
   const std::string tName = b.teamView && !b.teams[0].name.empty() ? HudSpecText(b.teams[0].name) : "T";
   s += "teams=" + ctName + "|" + std::to_string(std::min(ready[0], 5)) + "|" + std::to_string(std::clamp(total[0], 1, 5)) +
        "|" + tName + "|" + std::to_string(std::min(ready[1], 5)) + "|" + std::to_string(std::clamp(total[1], 1, 5)) + "\n";
-  s += L("counter", std::to_string(b.ready) + " / " + std::to_string(b.total));
+  const std::string count = std::to_string(b.ready) + " / " + std::to_string(b.total);
+  if (ok && !welcome && !btn.empty()) {
+    // Ready: the card shrinks to a one-line pill (dots, count, a small Unready).
+    s += L("kind", "Ready Â· " + count) + L("size", "mini") + btn + L("bw", "s") + L("mouse", "b");
+    return s;
+  }
+  s += L("counter", count);
   if (!btn.empty()) s += btn + L("bw", "l") + L("hint", "Press B to click") + L("mouse", "b");
   return s;
 }

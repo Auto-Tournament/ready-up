@@ -46,6 +46,28 @@
 <Label id="ui_card_c1_state" class="ui-chipstate" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
+<Panel class="ui-lines" hittest="false">
+<Panel id="ui_card_n0" class="ui-row" hittest="false">
+<Label id="ui_card_n0_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_card_n0_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_card_n1" class="ui-row" hittest="false">
+<Label id="ui_card_n1_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_card_n1_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_card_n2" class="ui-row" hittest="false">
+<Label id="ui_card_n2_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_card_n2_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_card_n3" class="ui-row" hittest="false">
+<Label id="ui_card_n3_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_card_n3_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_card_n4" class="ui-row" hittest="false">
+<Label id="ui_card_n4_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_card_n4_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
 <Panel class="ui-cmds" hittest="false">
 <Panel id="ui_card_k0" class="ui-cmd" hittest="false">
 <Label id="ui_card_k0_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
@@ -146,6 +168,28 @@
 <Panel id="ui_mid_c1" class="ui-chipbox" hittest="false">
 <Label id="ui_mid_c1_team" class="ui-chipteam" text="{s:text}" hittest="false" />
 <Label id="ui_mid_c1_state" class="ui-chipstate" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Panel class="ui-lines" hittest="false">
+<Panel id="ui_mid_n0" class="ui-row" hittest="false">
+<Label id="ui_mid_n0_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_mid_n0_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_mid_n1" class="ui-row" hittest="false">
+<Label id="ui_mid_n1_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_mid_n1_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_mid_n2" class="ui-row" hittest="false">
+<Label id="ui_mid_n2_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_mid_n2_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_mid_n3" class="ui-row" hittest="false">
+<Label id="ui_mid_n3_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_mid_n3_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_mid_n4" class="ui-row" hittest="false">
+<Label id="ui_mid_n4_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_mid_n4_v" class="ui-rowv" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
 <Panel class="ui-cmds" hittest="false">

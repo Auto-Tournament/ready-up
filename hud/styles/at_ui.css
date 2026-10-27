@@ -1,6 +1,6 @@
 /*
   Auto Tournament clickable HUD (at_ui.xml, buttons v2). Two panels with the same blocks: #ui_card
-  (left, above the chat) and #ui_mid (centre of the lower half). The server shows one at a time
+  (right, above the weapons) and #ui_mid (centre of the lower half). The server shows one at a time
   and fills fixed slots; ids and classes are listed in hud/tools/gen_ui.py.
 
   Panorama CSS: flow-children instead of flexbox, visibility: collapse to hide, px at 1080p. Motion:
@@ -120,6 +120,15 @@
 .ui-kbd { padding: 2px 7px; border-radius: 5px; background-color: #211815; border: 1px solid #736966; }
 .ui-kbdtext { font-family: "Noto Mono"; font-size: 15px; font-weight: bold; color: #f4edeb; }
 
+/* Info rows (label left, value right; a typed command gets a box) */
+.ui-lines { visibility: collapse; flow-children: down; width: 100%; margin-top: 12px; }
+.has-lines .ui-lines { visibility: visible; }
+.ui-row { flow-children: right; width: 100%; margin-top: 6px; }
+.ui-row.gone { visibility: collapse; }
+.ui-rowk { width: fill-parent-flow( 1.0 ); vertical-align: center; margin-right: 24px; font-size: 15px; color: #938a87; }
+.ui-rowv { vertical-align: center; font-size: 15px; font-weight: bold; color: #f4edeb; }
+.ui-rowv.cmd { font-family: "Noto Mono"; padding: 2px 8px; border-radius: 5px; background-color: #211815; border: 1px solid #736966; }
+
 /* Buttons: up to 8 in a wrapping row; the row's width comes from cols-N x bw-* on the panel. */
 .ui-buttons { visibility: collapse; flow-children: right-wrap; horizontal-align: center; margin-top: 14px; }
 .has-buttons .ui-buttons { visibility: visible; }
@@ -191,3 +200,26 @@
 .has-close .ui-close { visibility: visible; }
 .ui-close:hover { background-color: #2b201c; transform: scale3d( 1.04, 1.04, 1 ); }
 .ui-closelabel { vertical-align: center; font-size: 15px; font-weight: bold; color: #c4bcb9; }
+
+/* mini: the card as a one-line pill (ready in warmup): kind, team dots, one small button. */
+.ui-card.mini { width: fit-children; border-radius: 26px; }
+.ui-card.mini .ui-flow { flow-children: right; min-width: 0px; height: 52px; padding: 0px 8px 0px 18px; }
+.ui-card.mini .ui-brand { visibility: collapse; }
+.ui-card.mini .ui-title { visibility: collapse; }
+.ui-card.mini .ui-sub { visibility: collapse; }
+.ui-card.mini .ui-hint { visibility: collapse; }
+.ui-card.mini .ui-confirm { visibility: collapse; }
+.ui-card.mini .ui-lines { visibility: collapse; }
+.ui-card.mini .ui-cmds { visibility: collapse; }
+.ui-card.mini .ui-close { visibility: collapse; }
+.ui-card.mini .ui-timer { visibility: collapse; }
+.ui-card.mini .ui-counter { visibility: collapse; }
+.ui-card.mini .ui-line { visibility: collapse; }
+.ui-card.mini .ui-kind { vertical-align: center; margin: 0px 12px 0px 0px; }
+.ui-card.mini .ui-teams { vertical-align: center; margin-top: 0px; }
+.ui-card.mini .ui-team { margin: 0px 10px 0px 0px; }
+.ui-card.mini .ui-teamname { margin-right: 5px; font-size: 12px; }
+.ui-card.mini .ui-dot { width: 7px; height: 7px; margin-right: 4px; border-radius: 4px; }
+.ui-card.mini .ui-buttons { vertical-align: center; width: fit-children; margin-top: 0px; margin-left: 4px; }
+.ui-card.mini .ui-btn { width: 110px; height: 36px; margin: 0px; border-radius: 18px; }
+.ui-card.mini .ui-btnlabel { font-size: 14px; }

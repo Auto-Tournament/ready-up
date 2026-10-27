@@ -11,6 +11,7 @@
 #include "readyup/config.h"
 #include "readyup/engine.h"
 #include "readyup/esports.h"
+#include "readyup/fleet_bridge.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
 #include "readyup/map_names.h"
@@ -235,7 +236,9 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   // Admin shortcuts: each one is a `.ru` command, which checks the admin.
   if (first == ".start" || first == ".forcestart") return MatchRuCommand(steamid64, playerName, ".ru match start", slot);
   if (first == ".restart" || first == ".rr") return MatchRuCommand(steamid64, playerName, ".ru match restart", slot);
-  if (first == ".endmatch" || first == ".forceend") return MatchRuCommand(steamid64, playerName, ".ru match end", slot);
+  if (first == ".endmatch" || first == ".forceend") {
+    return MatchRuCommand(steamid64, playerName, ".ru match end " + RestAfterWords(text, 1), slot);
+  }
   if (first == ".team1" || first == ".team2") {
     return MatchRuCommand(steamid64, playerName, ".ru match " + first.substr(1) + " " + RestAfterWords(text, 1), slot);
   }
@@ -789,11 +792,21 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     (void)RestartMatch();
     sendAdmin("match restarted (back to warmup).");
   } else if (sub == "end") {
-    // Treat as a draw (winner=none) and clear the context so the allocator can reclaim the server.
-    WebhookEmitSeriesEnd(0, 0, "none", 0);
-    WebhookClearMatchContext();
-    (void)EndMatchResetServer();
-    sendAdmin("match ended (forced).");
+    // end [team1|team2|none]: no winner by default. A platform match ends through the platform's own
+    // end_match path (series_end with the winner); otherwise the webhook hears it and the context
+    // is cleared so the allocator can reclaim the server.
+    std::string winner = args.empty() ? std::string("none") : Lower(args[0]);
+    if (winner == "draw" || winner.empty()) winner = "none";
+    if (winner != "none" && winner != "team1" && winner != "team2") {
+      return replyPrivate("Ready Up: usage: .endmatch [team1|team2|none].");
+    }
+    std::string why;
+    if (!fleet_bridge::Assigned() || !fleet_bridge::EndMatchByAdmin(winner, &why)) {
+      WebhookEmitSeriesEnd(0, 0, winner.c_str(), 0);
+      WebhookClearMatchContext();
+      (void)EndMatchResetServer();
+    }
+    sendAdmin(winner == "none" ? std::string("match ended (no winner).") : "match ended: " + winner + " wins.");
   } else if (sub == "recover") {
     const int round = args.empty() ? 0 : std::max(0, std::atoi(args[0].c_str()));
     WebhookEmitRecoverRequested(MatchStateGet().map_number, round);

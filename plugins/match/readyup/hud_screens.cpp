@@ -29,7 +29,7 @@ namespace {
 constexpr double kMenuSeconds = 30.0;
 
 struct Menu {
-  std::string which;  // "help" | "admin" | "maps" | "rounds" | "confirm"
+  std::string which;  // help | votes | info | cmds | admin | maps | rounds | endwho | end:<winner>
   uint64_t steamid64 = 0;
   double until = 0;
 };
@@ -59,6 +59,20 @@ std::string TeamName(WebhookTeam t) {
   return t == WebhookTeam::Team1 ? "Team 1" : "Team 2";
 }
 
+// "de_dust2" -> "Dust2", workshop paths keep their last part.
+std::string MapLabel(std::string m) {
+  const size_t slash = m.find_last_of('/');
+  if (slash != std::string::npos) m = m.substr(slash + 1);
+  for (const char* pre : {"de_", "cs_", "ar_"}) {
+    if (m.rfind(pre, 0) == 0) {
+      m = m.substr(3);
+      break;
+    }
+  }
+  if (!m.empty() && m[0] >= 'a' && m[0] <= 'z') m[0] = static_cast<char>(m[0] - 'a' + 'A');
+  return m;
+}
+
 bool Warmup() {
   const ReadyUpMode m = GetMode();
   return m == ReadyUpMode::ScrimWarmup || m == ReadyUpMode::MatchWarmup;
@@ -66,51 +80,81 @@ bool Warmup() {
 
 std::string MenuSpec(const Menu& m, int csTeam) {
   const bool admin = IsReadyUpAdmin(m.steamid64);
+  const bool playing = csTeam == 2 || csTeam == 3;
+  const std::string back = Line("close", "Back|#menu help") + Line("mouse", "on");
+  const std::string adminBack = Line("close", "Back|#menu admin") + Line("mouse", "on");
   std::string s;
   if (m.which == "help") {
     s = Line("id", "help") + Line("kind", "Help") + Line("title", "What do you need?");
     if (Warmup()) {
-      s += IsReady(m.steamid64) ? Btn("Unready", "ghost", "", ".ur") : Btn("Ready", "green", "", ".r");
-      if (admin) s += Btn("Force start", "ghost", "", ".forceready");
-    } else {
-      s += Btn("Timeout", "ghost", "", ".tac");
-      s += PauseStateGet().paused ? Btn("Unpause", "ghost", "", ".up") : Btn("Tech pause", "ghost", "", ".p");
-      if (csTeam == 2 || csTeam == 3) {
-        s += Btn("Give up vote", "ghost", "", ".gg");
-        s += Btn("Replay round", "ghost", "", ".stop");
-      }
+      if (playing) s += IsReady(m.steamid64) ? Btn("Unready", "ghost", "", ".ur") : Btn("Ready", "green", "", ".r");
+    } else if (playing) {
+      s += PauseStateGet().paused ? Btn("Unpause", "warn", "", ".up") : Btn("Tech pause", "ghost", "", ".p");
+      s += Btn("Votes", "ghost", "", "#menu votes");
     }
-    if (admin) s += Btn("Admin menu", "ghost", "", "#menu admin");
+    s += Btn("Call an admin", "ghost", "", ".admin");
+    s += Btn("Match info", "ghost", "", "#menu info") + Btn("Commands", "ghost", "", "#menu cmds");
+    if (admin) s += Btn("Admin", "ghost", "", "#menu admin");
     s += Line("cols", "2") + Line("bw", "l");
+  } else if (m.which == "votes") {
+    s = Line("id", "votes") + Line("kind", "Help \xC2\xB7 votes") + Line("title", "Start a vote");
+    s += Btn("Give up", "danger", "", ".gg") + Btn("Replay round", "ghost", "", ".stop") + Btn("Timeout", "ghost", "", ".tac");
+    return s + Line("cols", "3") + Line("bw", "m") + back;
+  } else if (m.which == "info") {
+    const auto ctx = WebhookGetMatchContext();
+    const auto ms = MatchStateGet();
+    s = Line("id", "info") + Line("kind", "Help \xC2\xB7 match");
+    if (ctx) {
+      s += Line("title", HudSpecText(TeamName(WebhookTeam::Team1) + " vs " + TeamName(WebhookTeam::Team2)));
+      const int maps = std::max(1, ctx->num_maps);
+      s += Line("line", "Format|Best of " + std::to_string(maps) + " \xC2\xB7 " + std::to_string(ctx->maxRounds) + " rounds");
+      std::string list;
+      for (size_t i = 0; i < ctx->maplist.size() && i < 5; ++i) list += (i ? " \xE2\x86\x92 " : "") + MapLabel(ctx->maplist[i]);
+      if (!list.empty()) s += Line("line", "Maps|" + HudSpecText(list));
+      if (maps > 1) s += Line("line", "Map|" + std::to_string(ms.map_number) + " of " + std::to_string(maps));
+    } else {
+      s += Line("title", "Scrim");
+      if (!ms.current_map.empty()) s += Line("line", "Map|" + HudSpecText(MapLabel(ms.current_map)));
+    }
+    if (!Warmup()) s += Line("line", "Score|" + std::to_string(ms.team1_score) + " - " + std::to_string(ms.team2_score));
+    return s + back;
+  } else if (m.which == "cmds") {
+    s = Line("id", "cmds") + Line("kind", "Help \xC2\xB7 commands") + Line("title", "Prefer typing?");
+    s += Line("line", "Ready|.r") + Line("line", "Tech pause|.p") + Line("line", "Timeout|.tac") +
+         Line("line", "Give up|.gg") + Line("line", "Call an admin|.admin");
+    return s + back;
   } else if (m.which == "admin" && admin) {
     s = Line("id", "admin") + Line("kind", "Admin") + Line("title", "Match controls");
     s += Btn("Pause", "ghost", "", ".fp") + Btn("Unpause", "ghost", "", ".fup");
     s += Btn("Replay a round", "ghost", "", "#menu rounds") + Btn("Change map", "ghost", "", "#menu maps");
     s += Btn("Swap teams", "ghost", "", ".ru match swap") + Btn("Force ready", "ghost", "", ".forceready");
-    s += Btn("Restart map", "ghost", "", ".restart") + Btn("End match", "danger", "", "#menu confirm");
+    s += Btn("Restart map", "ghost", "", ".restart") + Btn("End match", "danger", "", "#menu endwho");
     s += Line("cols", "2") + Line("bw", "l");
   } else if (m.which == "maps" && admin) {
     s = Line("id", "maps") + Line("kind", "Admin \xC2\xB7 change map") + Line("title", "Pick a map");
     for (const char* map : {"mirage", "inferno", "nuke", "ancient", "anubis", "dust2", "train", "overpass"}) {
-      std::string label = map;
-      label[0] = static_cast<char>(label[0] - 'a' + 'A');
-      s += Btn(label, "ghost", "", std::string(".map de_") + map);
+      s += Btn(MapLabel(map), "ghost", "", std::string(".map de_") + map);
     }
-    s += Line("cols", "4") + Line("bw", "s") + Line("close", "Back|#menu admin");
-    return s + Line("mouse", "on");
+    s += Line("cmd", "Any other map or workshop id|.map <name or id>");
+    return s + Line("cols", "4") + Line("bw", "s") + adminBack;
   } else if (m.which == "rounds" && admin) {
     const auto ms = MatchStateGet();
     const int cur = std::max(1, ms.team1_score + ms.team2_score + 1);
     s = Line("id", "rounds") + Line("kind", "Admin \xC2\xB7 replay") + Line("title", "Back to which round?");
     for (int r = cur; r > 0 && r > cur - 6; --r) s += Btn("Round " + std::to_string(r), "ghost", "", ".ru match restore " + std::to_string(r));
-    s += Line("cols", "3") + Line("bw", "s") + Line("close", "Back|#menu admin");
-    return s + Line("mouse", "on");
-  } else if (m.which == "confirm" && admin) {
-    s = Line("id", "confirm") + Line("color", "ban") + Line("kind", "Admin") + Line("title", "End the match?") +
-        Line("sub", "Nobody wins. No undo.");
-    s += Btn("End match", "danger", "", ".endmatch") + Btn("Cancel", "ghost", "", "#menu admin");
-    s += Line("bw", "m");
-    return s + Line("mouse", "on");
+    return s + Line("cols", "3") + Line("bw", "s") + adminBack;
+  } else if (m.which == "endwho" && admin) {
+    s = Line("id", "endwho") + Line("color", "ban") + Line("kind", "Admin \xC2\xB7 end match") + Line("title", "Who won?");
+    s += Btn(TeamName(WebhookTeam::Team1), "ghost", "", "#menu end:team1") + Btn(TeamName(WebhookTeam::Team2), "ghost", "", "#menu end:team2");
+    s += Btn("No winner", "ghost", "", "#menu end:none");
+    return s + Line("cols", "3") + Line("bw", "m") + adminBack;
+  } else if (m.which.rfind("end:", 0) == 0 && admin) {
+    const std::string w = m.which.substr(4);
+    const std::string title = w == "team1" ? TeamName(WebhookTeam::Team1) + " wins?" : w == "team2" ? TeamName(WebhookTeam::Team2) + " wins?" : "End with no winner?";
+    s = Line("id", "end") + Line("color", "ban") + Line("kind", "Admin \xC2\xB7 end match") + Line("title", HudSpecText(title)) +
+        Line("sub", "Ends the match now. No undo.");
+    s += Btn("End match", "danger", "", ".endmatch " + w) + Btn("Cancel", "ghost", "", "#menu endwho");
+    return s + Line("bw", "m") + Line("mouse", "on");
   } else {
     return {};
   }

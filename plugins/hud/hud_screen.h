@@ -4,7 +4,7 @@
 //
 //   id=pick                      the screen's identity: a new id plays the leave / enter animation,
 //                                the same id updates in place (countdowns, ready dots)
-//   where=mid                    card (left, above the chat) | mid (centre of the lower half)
+//   where=mid                    card (right, above the weapons) | mid (centre of the lower half)
 //   color=live                   acc (default) | live | warn | ban | muted
 //   kind=You won the knife       small coloured label above the title
 //   title=Which side do you want?
@@ -15,6 +15,8 @@
 //   teams=CT|3|5|T|2|5           two teams: name | ready | dots (0-5)
 //   confirm=Team A|1|Team B|0    two chips: name | READY (1) or WAITING (0)
 //   cmd=Timeout|.tac             a typed command chip, up to 3
+//   line=Format|Best of 3        an info row, up to 5: label | value (a value starting with . is boxed)
+//   size=mini                    card only: a one-line pill (kind, team dots, the first button)
 //   btn=CT|ct||.ct               a button, up to 8: label | tone | state | command [| count]
 //                                tone: green ct t warn danger ghost; state: picked | off | (none)
 //   cols=2                       buttons per row (default: the number of buttons, at most 4)
@@ -47,6 +49,8 @@ struct Screen {
   std::string confirmName[2];
   bool confirmReady[2] = {false, false};
   std::vector<std::pair<std::string, std::string>> cmds;  // label, command
+  std::vector<std::pair<std::string, std::string>> lines;  // label, value
+  bool mini = false;
   std::vector<Button> buttons;
   int cols = 0;
   std::string bw = "m";

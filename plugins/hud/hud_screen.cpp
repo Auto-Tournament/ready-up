@@ -82,6 +82,11 @@ Screen ParseScreen(const std::string& spec) {
       s.closeCmd = At(p, 1);
     } else if (k == "mouse") {
       s.mouse = v == "on" ? Mouse::On : v == "b" ? Mouse::B : Mouse::Off;
+    } else if (k == "line") {
+      const auto p = SplitBar(v);
+      if (s.lines.size() < 5) s.lines.emplace_back(At(p, 0), At(p, 1));
+    } else if (k == "size") {
+      s.mini = v == "mini";
     } else if (k == "chips") {
       s.chips = v == "1";
     }
@@ -118,6 +123,17 @@ std::vector<Write> RenderScreen(const Screen& s, const std::string& p) {
       cls(d, "on", s.hasTeams && n < s.teamReady[t]);
       cls(d, "gone", n >= s.teamDots[t]);
     }
+  }
+
+  cls(p, "mini", s.mini);
+  cls(p, "has-lines", !s.lines.empty());
+  for (size_t i = 0; i < 5; ++i) {
+    const std::string r = p + "_n" + std::to_string(i);
+    const std::string v = i < s.lines.size() ? s.lines[i].second : std::string();
+    text(r + "_k", i < s.lines.size() ? s.lines[i].first : std::string());
+    text(r + "_v", v);
+    cls(r, "gone", i >= s.lines.size());
+    cls(r + "_v", "cmd", !v.empty() && v[0] == '.');
   }
 
   cls(p, "has-confirm", s.hasConfirm);

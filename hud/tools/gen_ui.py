@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """Writes hud/layout/at_ui.xml: the Auto Tournament clickable HUD (buttons, v2).
 
-One block set, drawn twice: `ui_card` (left, above the chat) and `ui_mid` (centre of the lower
+One block set, drawn twice: `ui_card` (right, above the weapons) and `ui_mid` (centre of the lower
 half). The server fills fixed slots, so new screens need no addon update:
 
   text      <p>_kind <p>_title <p>_sub <p>_timer <p>_counter <p>_hint     ({s:text}, has-* classes)
   teams     <p>_tA <p>_tB, dots <p>_dA0..4 <p>_dB0..4 (class on)          (has-teams)
   confirm   <p>_c0..1 with _team / _state (class ready)                    (has-confirm)
   chips     <p>_k0..2 with _l label / _c command                           (has-cmds)
+  rows      <p>_n0..4 with _k label / _v value (class gone; cmd boxes v)  (has-lines)
   buttons   <p>_b0..7 with _l label / _s count; classes show, t-<tone>, picked, off
             row classes on the panel: cols-1..4, bw-s / bw-m / bw-l / bw-xl (has-buttons)
   close     <p>_close with _l                                              (has-close)
 
-<p> is ui_card or ui_mid. Panel classes: on, c-live / c-warn / c-ban / c-muted (accent default).
+<p> is ui_card or ui_mid. Panel classes: on, c-live / c-warn / c-ban / c-muted (accent default),
+mini (the card as a one-line pill).
 Button ids are what CS_UM_CustomHudClicked carries back. Run after changing the structure:
 python hud/tools/gen_ui.py
 """
@@ -49,13 +51,16 @@ def block(p):
     cmds = panel(cls="ui-cmds", children="".join(
         panel(f"{p}_k{n}", "ui-cmd", label(f"{p}_k{n}_l", "ui-cmdlabel") + panel(cls="ui-kbd", children=label(f"{p}_k{n}_c", "ui-kbdtext")))
         for n in range(3)))
+    rows = panel(cls="ui-lines", children="".join(
+        panel(f"{p}_n{n}", "ui-row", label(f"{p}_n{n}_k", "ui-rowk") + label(f"{p}_n{n}_v", "ui-rowv"))
+        for n in range(5)))
     buttons = panel(cls="ui-buttons", children="".join(
         button(f"{p}_b{n}", "ui-btn", label(f"{p}_b{n}_l", "ui-btnlabel") + label(f"{p}_b{n}_s", "ui-btnsub"))
         for n in range(8)))
     close = button(f"{p}_close", "ui-close", label(f"{p}_close_l", "ui-closelabel"))
     flow = panel(cls="ui-flow", children=(
         brand + label(f"{p}_kind", "ui-kind") + label(f"{p}_title", "ui-title") + label(f"{p}_sub", "ui-sub")
-        + teams + confirm + cmds + buttons + close + label(f"{p}_hint", "ui-hint")))
+        + teams + confirm + rows + cmds + buttons + close + label(f"{p}_hint", "ui-hint")))
     extras = label(f"{p}_timer", "ui-timer") + label(f"{p}_counter", "ui-counter") + panel(cls="ui-line")
     return panel(p, f"ui-panel ui-{p[3:]}", flow + extras, hit=True)
 
