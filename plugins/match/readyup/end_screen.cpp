@@ -283,7 +283,10 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
   }
   for (const char* c : {"blur-0", "blur-1", "blur-2", "blur-3"}) w.Class(ALL, "at_end", c, std::string(c) == kBlur);
   for (const char* c : {"dim-0", "dim-1", "dim-2", "dim-3"}) w.Class(ALL, "at_end", c, std::string(c) == kDim);
-  for (const char* c : {"bg-100", "bg-95", "bg-90", "bg-85", "bg-80", "bg-75", "bg-70"}) w.Class(ALL, "at_ecard", c, std::string(c) == kBg);
+  for (int p = 0; p <= 100; p += 5) {
+    const std::string bg = "bg-" + std::to_string(p);
+    w.Class(ALL, "at_ecard", bg.c_str(), bg == kBg);
+  }
 
   // Each player's own view: the headline and its colour, their row, their team's rounds, the cursor.
   std::lock_guard<std::mutex> lk(g_mu);

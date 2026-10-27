@@ -345,7 +345,7 @@
      tag       tag-acc tag-muted tag-live tag-ban (shown), none = hidden          (the tag by a name)
      width     cw-xs cw-s cw-m cw-l cw-xl cw-off                                  (table cells)
      line      line-acc line-ban line-muted line-live                             (on at_ecard)
-     bg        bg-100 bg-95 bg-90 bg-85 bg-80 bg-75 bg-70                       (on at_ecard)
+     bg        bg-0 .. bg-100, steps of 5                                      (on at_ecard)
      on at_end blur-0..3, dim-0..3, scale-70 .. scale-100 (steps of 5)
      any part  hide, empty (collapse) */
 
@@ -402,14 +402,28 @@
 .at-end.blur-1 .at-eblur { world-blur: gaussian( 1, 1, 1 ); }
 .at-end.blur-2 .at-eblur { world-blur: gaussian( 2, 2, 2 ); }
 .at-end.blur-3 .at-eblur { world-blur: gaussian( 3, 3, 3 ); }
-/* Card background (on at_ecard): solid down to 70 %. */
-.at-end .bg-100 { background-color: #100908ff; }
-.at-end .bg-95 { background-color: #100908f2; }
-.at-end .bg-90 { background-color: #100908e6; }
-.at-end .bg-85 { background-color: #100908d9; }
-.at-end .bg-80 { background-color: #100908cc; }
-.at-end .bg-75 { background-color: #100908bf; }
+/* Card background (on at_ecard): bg-0 .. bg-100, steps of 5. */
+.at-end .bg-0 { background-color: #10090800; }
+.at-end .bg-5 { background-color: #1009080d; }
+.at-end .bg-10 { background-color: #1009081a; }
+.at-end .bg-15 { background-color: #10090826; }
+.at-end .bg-20 { background-color: #10090833; }
+.at-end .bg-25 { background-color: #10090840; }
+.at-end .bg-30 { background-color: #1009084c; }
+.at-end .bg-35 { background-color: #10090859; }
+.at-end .bg-40 { background-color: #10090866; }
+.at-end .bg-45 { background-color: #10090873; }
+.at-end .bg-50 { background-color: #10090880; }
+.at-end .bg-55 { background-color: #1009088c; }
+.at-end .bg-60 { background-color: #10090899; }
+.at-end .bg-65 { background-color: #100908a6; }
 .at-end .bg-70 { background-color: #100908b2; }
+.at-end .bg-75 { background-color: #100908bf; }
+.at-end .bg-80 { background-color: #100908cc; }
+.at-end .bg-85 { background-color: #100908d9; }
+.at-end .bg-90 { background-color: #100908e6; }
+.at-end .bg-95 { background-color: #100908f2; }
+.at-end .bg-100 { background-color: #100908ff; }
 .at-end.dim-0 .at-eblur { background-color: #00000000; }
 .at-end.dim-1 .at-eblur { background-color: #00000024; }
 .at-end.dim-2 .at-eblur { background-color: #00000048; }
@@ -490,3 +504,116 @@
 #at_eb2 { transition-delay: 0.73s; }
 #at_eb3 { transition-delay: 0.77s; }
 #at_eb4 { transition-delay: 0.81s; }
+
+/* ---- more end screen knobs ------------------------------------------------------------------
+   On at_ecard: mt- / mb-<0..400, steps of 10> move the card down / up; rad-<0..30, steps of 2>
+   its corners. On a row (at_e<side><n>): rh-<28..48, steps of 2> its height. */
+.at-end .at-ecard.mt-0 { margin-top: 0px; }
+.at-end .at-ecard.mt-10 { margin-top: 10px; }
+.at-end .at-ecard.mt-20 { margin-top: 20px; }
+.at-end .at-ecard.mt-30 { margin-top: 30px; }
+.at-end .at-ecard.mt-40 { margin-top: 40px; }
+.at-end .at-ecard.mt-50 { margin-top: 50px; }
+.at-end .at-ecard.mt-60 { margin-top: 60px; }
+.at-end .at-ecard.mt-70 { margin-top: 70px; }
+.at-end .at-ecard.mt-80 { margin-top: 80px; }
+.at-end .at-ecard.mt-90 { margin-top: 90px; }
+.at-end .at-ecard.mt-100 { margin-top: 100px; }
+.at-end .at-ecard.mt-110 { margin-top: 110px; }
+.at-end .at-ecard.mt-120 { margin-top: 120px; }
+.at-end .at-ecard.mt-130 { margin-top: 130px; }
+.at-end .at-ecard.mt-140 { margin-top: 140px; }
+.at-end .at-ecard.mt-150 { margin-top: 150px; }
+.at-end .at-ecard.mt-160 { margin-top: 160px; }
+.at-end .at-ecard.mt-170 { margin-top: 170px; }
+.at-end .at-ecard.mt-180 { margin-top: 180px; }
+.at-end .at-ecard.mt-190 { margin-top: 190px; }
+.at-end .at-ecard.mt-200 { margin-top: 200px; }
+.at-end .at-ecard.mt-210 { margin-top: 210px; }
+.at-end .at-ecard.mt-220 { margin-top: 220px; }
+.at-end .at-ecard.mt-230 { margin-top: 230px; }
+.at-end .at-ecard.mt-240 { margin-top: 240px; }
+.at-end .at-ecard.mt-250 { margin-top: 250px; }
+.at-end .at-ecard.mt-260 { margin-top: 260px; }
+.at-end .at-ecard.mt-270 { margin-top: 270px; }
+.at-end .at-ecard.mt-280 { margin-top: 280px; }
+.at-end .at-ecard.mt-290 { margin-top: 290px; }
+.at-end .at-ecard.mt-300 { margin-top: 300px; }
+.at-end .at-ecard.mt-310 { margin-top: 310px; }
+.at-end .at-ecard.mt-320 { margin-top: 320px; }
+.at-end .at-ecard.mt-330 { margin-top: 330px; }
+.at-end .at-ecard.mt-340 { margin-top: 340px; }
+.at-end .at-ecard.mt-350 { margin-top: 350px; }
+.at-end .at-ecard.mt-360 { margin-top: 360px; }
+.at-end .at-ecard.mt-370 { margin-top: 370px; }
+.at-end .at-ecard.mt-380 { margin-top: 380px; }
+.at-end .at-ecard.mt-390 { margin-top: 390px; }
+.at-end .at-ecard.mt-400 { margin-top: 400px; }
+.at-end .at-ecard.mb-0 { margin-bottom: 0px; }
+.at-end .at-ecard.mb-10 { margin-bottom: 10px; }
+.at-end .at-ecard.mb-20 { margin-bottom: 20px; }
+.at-end .at-ecard.mb-30 { margin-bottom: 30px; }
+.at-end .at-ecard.mb-40 { margin-bottom: 40px; }
+.at-end .at-ecard.mb-50 { margin-bottom: 50px; }
+.at-end .at-ecard.mb-60 { margin-bottom: 60px; }
+.at-end .at-ecard.mb-70 { margin-bottom: 70px; }
+.at-end .at-ecard.mb-80 { margin-bottom: 80px; }
+.at-end .at-ecard.mb-90 { margin-bottom: 90px; }
+.at-end .at-ecard.mb-100 { margin-bottom: 100px; }
+.at-end .at-ecard.mb-110 { margin-bottom: 110px; }
+.at-end .at-ecard.mb-120 { margin-bottom: 120px; }
+.at-end .at-ecard.mb-130 { margin-bottom: 130px; }
+.at-end .at-ecard.mb-140 { margin-bottom: 140px; }
+.at-end .at-ecard.mb-150 { margin-bottom: 150px; }
+.at-end .at-ecard.mb-160 { margin-bottom: 160px; }
+.at-end .at-ecard.mb-170 { margin-bottom: 170px; }
+.at-end .at-ecard.mb-180 { margin-bottom: 180px; }
+.at-end .at-ecard.mb-190 { margin-bottom: 190px; }
+.at-end .at-ecard.mb-200 { margin-bottom: 200px; }
+.at-end .at-ecard.mb-210 { margin-bottom: 210px; }
+.at-end .at-ecard.mb-220 { margin-bottom: 220px; }
+.at-end .at-ecard.mb-230 { margin-bottom: 230px; }
+.at-end .at-ecard.mb-240 { margin-bottom: 240px; }
+.at-end .at-ecard.mb-250 { margin-bottom: 250px; }
+.at-end .at-ecard.mb-260 { margin-bottom: 260px; }
+.at-end .at-ecard.mb-270 { margin-bottom: 270px; }
+.at-end .at-ecard.mb-280 { margin-bottom: 280px; }
+.at-end .at-ecard.mb-290 { margin-bottom: 290px; }
+.at-end .at-ecard.mb-300 { margin-bottom: 300px; }
+.at-end .at-ecard.mb-310 { margin-bottom: 310px; }
+.at-end .at-ecard.mb-320 { margin-bottom: 320px; }
+.at-end .at-ecard.mb-330 { margin-bottom: 330px; }
+.at-end .at-ecard.mb-340 { margin-bottom: 340px; }
+.at-end .at-ecard.mb-350 { margin-bottom: 350px; }
+.at-end .at-ecard.mb-360 { margin-bottom: 360px; }
+.at-end .at-ecard.mb-370 { margin-bottom: 370px; }
+.at-end .at-ecard.mb-380 { margin-bottom: 380px; }
+.at-end .at-ecard.mb-390 { margin-bottom: 390px; }
+.at-end .at-ecard.mb-400 { margin-bottom: 400px; }
+.at-end .at-ecard.rad-0 { border-radius: 0px; }
+.at-end .at-ecard.rad-2 { border-radius: 2px; }
+.at-end .at-ecard.rad-4 { border-radius: 4px; }
+.at-end .at-ecard.rad-6 { border-radius: 6px; }
+.at-end .at-ecard.rad-8 { border-radius: 8px; }
+.at-end .at-ecard.rad-10 { border-radius: 10px; }
+.at-end .at-ecard.rad-12 { border-radius: 12px; }
+.at-end .at-ecard.rad-14 { border-radius: 14px; }
+.at-end .at-ecard.rad-16 { border-radius: 16px; }
+.at-end .at-ecard.rad-18 { border-radius: 18px; }
+.at-end .at-ecard.rad-20 { border-radius: 20px; }
+.at-end .at-ecard.rad-22 { border-radius: 22px; }
+.at-end .at-ecard.rad-24 { border-radius: 24px; }
+.at-end .at-ecard.rad-26 { border-radius: 26px; }
+.at-end .at-ecard.rad-28 { border-radius: 28px; }
+.at-end .at-ecard.rad-30 { border-radius: 30px; }
+.at-end .at-erow.rh-28 { height: 28px; }
+.at-end .at-erow.rh-30 { height: 30px; }
+.at-end .at-erow.rh-32 { height: 32px; }
+.at-end .at-erow.rh-34 { height: 34px; }
+.at-end .at-erow.rh-36 { height: 36px; }
+.at-end .at-erow.rh-38 { height: 38px; }
+.at-end .at-erow.rh-40 { height: 40px; }
+.at-end .at-erow.rh-42 { height: 42px; }
+.at-end .at-erow.rh-44 { height: 44px; }
+.at-end .at-erow.rh-46 { height: 46px; }
+.at-end .at-erow.rh-48 { height: 48px; }
