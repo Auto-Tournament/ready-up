@@ -567,6 +567,7 @@ struct ScreenSlot {
   bool shown = false;        // a panel is on
   bool clicked = false;      // a button of this id was clicked: no cursor again until the id changes
   bool dismissed = false;    // closed with a plain close button: hidden until the id changes
+  std::set<std::pair<std::string, std::string>> utils;  // utility classes applied (element, class)
   bool captured = false;
   unsigned gen = 0;          // bumps on every new id, so a stale delayed enter does nothing
   ru_hud_click_fn onClick = nullptr;
@@ -603,14 +604,38 @@ void CaptureSweep() {
 void DrawScreen(int slot, ScreenSlot& ss) {
   const int h = IfOpen(kUiLayout);
   const std::string p = PanelOf(ss.cur);
+  const bool wasShown = ss.shown;
+  if (!wasShown) {
+    // A fresh entrance: drop the last exit so the panel snaps (unseen) to this screen's enter pose.
+    IfSetClass(h, slot, p.c_str(), "leaving", 0);
+    for (const auto& c : ExitClasses()) IfSetClass(h, slot, p.c_str(), c.c_str(), 0);
+  }
   for (const Write& w : RenderScreen(ss.cur, p)) {
     if (w.isText) IfSetText(h, slot, w.panel.c_str(), w.name.c_str(), w.value.c_str());
     else IfSetClass(h, slot, w.panel.c_str(), w.name.c_str(), w.on ? 1 : 0);
   }
+  // Utilities (cls= / cls.<part>=): off the ones this screen no longer has, on the new ones.
+  std::set<std::pair<std::string, std::string>> want;
+  for (auto& u : Utilities(ss.cur, p)) want.insert(std::move(u));
+  for (const auto& u : ss.utils)
+    if (!want.count(u)) IfSetClass(h, slot, u.first.c_str(), u.second.c_str(), 0);
+  for (const auto& u : want) IfSetClass(h, slot, u.first.c_str(), u.second.c_str(), 1);
+  ss.utils.swap(want);
   const bool show = !ss.dismissed && !ss.cur.empty();
   IfSetClass(h, slot, p == "ui_card" ? "ui_mid" : "ui_card", "on", 0);
-  IfSetClass(h, slot, p.c_str(), "on", show ? 1 : 0);
   ss.shown = show;
+  if (show && !wasShown) {
+    // `on` a moment later, so the client has the enter pose before it animates out of it.
+    const unsigned gen = ss.gen;
+    const std::string panel = p;
+    g_later.emplace_back(g_now + 0.06, [slot, gen, panel] {
+      auto it = g_screens.find(slot);
+      if (it != g_screens.end() && it->second.gen == gen && it->second.shown)
+        IfSetClass(IfOpen(kUiLayout), slot, panel.c_str(), "on", 1);
+    });
+  } else {
+    IfSetClass(h, slot, p.c_str(), "on", show ? 1 : 0);
+  }
   UpdateCapture(slot);
 }
 
@@ -620,9 +645,15 @@ std::string ButtonsKey(const Screen& s) {
   return k;
 }
 
+bool DemoActive(int slot);
+void TourTick();
+void DemoForget(int slot);
+bool DemoDefer(int slot, const std::string& spec, ru_hud_click_fn onClick, void* user);
+
 int IfScreen(int slot, const char* specIn, ru_hud_click_fn onClick, void* user) {
   if (slot < 0 || slot > 63) return 0;
   const std::string spec = specIn ? specIn : "";
+  if (DemoDefer(slot, spec, onClick, user)) return 1;
   ScreenSlot& ss = g_screens[slot];
   ss.onClick = onClick;
   ss.user = user;
@@ -654,7 +685,13 @@ int IfScreen(int slot, const char* specIn, ru_hud_click_fn onClick, void* user) 
   }
   // A new screen (or none): the old one leaves and gives the cursor back.
   const bool wasShown = ss.shown;
-  if (wasShown) IfSetClass(h, slot, PanelOf(ss.cur).c_str(), "on", 0);
+  if (wasShown) {
+    // Leave with the screen's exit: the exit pose plus leaving, then drop on.
+    const std::string old = PanelOf(ss.cur);
+    IfSetClass(h, slot, old.c_str(), ExitOf(ss.cur, old).c_str(), 1);
+    IfSetClass(h, slot, old.c_str(), "leaving", 1);
+    IfSetClass(h, slot, old.c_str(), "on", 0);
+  }
   ss.shown = false;
   ss.clicked = false;
   ss.dismissed = false;
@@ -706,6 +743,7 @@ bool ScreenClick(int slot, const std::string& button) {
 
 void ScreenForget(int slot) {
   g_screens.erase(slot);
+  DemoForget(slot);
   g_buyOpen.erase(slot);
   if (!g_layouts.empty()) {
     for (size_t i = 0; i < g_layouts.size(); ++i)
@@ -871,6 +909,7 @@ void OnTick(void*, const ru_tick_info* t) {
   DrainClicks();
   CaptureSweep();
   ProbeTick();
+  TourTick();
   for (size_t i = 0; i < g_later.size();) {
     if (g_later[i].first <= g_now) {
       auto fn = std::move(g_later[i].second);
@@ -1170,42 +1209,142 @@ void Kit(const ru_command_ctx* ctx, const std::string& state) {
   Reply(ctx, "at_kit: " + state);
 }
 
-// `ru hudkit demo <screen> [slot]`: the screens of the design canvas (page Buttons (v2)) with
-// sample data, to check the addon and the cursor without a match. Buttons that lead to another
-// screen carry "#demo <name>"; any other click is echoed in chat.
-const std::map<std::string, std::string>& DemoScreens() {
-  static const std::map<std::string, std::string> k = {
-      {"notready", "id=warm\nwhere=card\nkind=Warmup\ntitle=You're not ready\nteams=CT|3|5|T|3|5\nbtn=Ready|green||#demo ready\nbw=l\nhint=Press B to click\nmouse=b"},
-      {"ready", "id=warm\nwhere=card\ncolor=live\nkind=Ready\ntitle=You're ready\nteams=CT|4|5|T|3|5\nbtn=Unready|ghost||#demo notready\nbw=l\nhint=Press B to click\nmouse=b"},
-      {"everyone", "id=everyone\ncolor=live\nkind=Everyone is ready\ntitle=Knife round (5)"},
+// `ru hudkit demo <screen> [slot]` and `ru hudkit tour`: every screen of the design canvas (page
+// In game (v3)) with sample data, in match order, to review the addon without a match. They copy
+// what the match plugin sends today. Buttons that lead to another screen carry "#demo <name>"; any
+// other click is echoed in chat.
+const std::vector<std::pair<std::string, std::string>>& DemoScreens() {
+  static const std::vector<std::pair<std::string, std::string>> k = {
+      {"welcome", "id=warm\nwhere=card\nkind=Welcome, Simpert\ntitle=You're not ready\nteams=CT|0|1|T|0|1\nbtn=Ready|green|pulse|#demo ready\nbw=l\ncounter=0 / 1\nhint=Press B to click\nmouse=b"},
+      {"notready", "id=warm\nwhere=card\nkind=Scrim\ntitle=You're not ready\nteams=CT|3|5|T|3|5\nbtn=Ready|green|pulse|#demo ready\nbw=l\ncounter=6 / 10\nhint=Press B to click\nmouse=b"},
+      {"ready", "id=ready\nwhere=card\ncolor=live\nkind=Ready \xC2\xB7 7 / 10\nsize=mini\ntitle=You're ready\nteams=CT|4|5|T|3|5\nbtn=Unready|ghost||#demo notready\nbw=s\nmouse=b"},
+      {"everyone", "id=countdown\ncolor=live\nkind=Everyone is ready\ntitle=Knife round (5)"},
+      {"knife", "id=knife\ncolor=live\nkind=Knife round\ntitle=Winners pick a side"},
       {"pick", "id=pick\ncolor=live\nkind=You won the knife\ntitle=Which side do you want?\ntimer=20\nbtn=CT|ct||#demo pickedct\nbtn=T|t||#demo pickedt\nmouse=on"},
-      {"pickedct", "id=pick\ncolor=live\nkind=You won the knife\ntitle=Sivert picked CT\nsub=Match starts (5)\nbtn=CT|ct|picked|\nbtn=T|t|off|"},
-      {"pickedt", "id=pick\ncolor=live\nkind=You won the knife\ntitle=Sivert picked T\nsub=Match starts (5)\nbtn=CT|ct|off|\nbtn=T|t|picked|"},
+      {"pickurgent", "id=pick\ncolor=live\nkind=You won the knife\ntitle=Which side do you want?\ntimer=4\nbtn=CT|ct||#demo pickedct\nbtn=T|t||#demo pickedt\nmouse=on"},
+      {"pickedct", "id=pick\ncolor=live\nkind=You won the knife\ntitle=Simpert picked CT\nsub=Match starts (5)\nbtn=CT|ct|picked|\nbtn=T|t|off|"},
       {"lost", "id=lost\nkind=You lost the knife\ntitle=Team A is picking a side\ntimer=20"},
-      {"live", "id=live\ncolor=live\nkind=Match live\ntitle=Good luck, have fun\ncmd=Timeout|.tac\ncmd=Tech pause|.p"},
-      {"pause", "id=pause\ncolor=warn\nkind=Tech pause\ntitle=Team B paused\nsub=Auto unpause (252)\nconfirm=Team A|0|Team B|0\nbtn=Unpause|warn||#demo waiting\nbw=l\ncounter=1 / 3 used\nmouse=on"},
-      {"waiting", "id=pause\ncolor=warn\nkind=Tech pause\ntitle=Team B paused\nsub=Auto unpause (245)\nconfirm=Team A|1|Team B|0\nbtn=Waiting for Team B|ghost|off|\nbw=xl\ncounter=1 / 3 used"},
-      {"vote", "id=vote\ncolor=ban\nkind=Give up vote\ntitle=Sivert wants to give up\ntimer=15\nbtn=Yes|danger||#demo voted\nbtn=No|ghost||#demo off\nbw=s\ncounter=2 / 5 yes\nmouse=on"},
-      {"voted", "id=vote\ncolor=ban\nkind=Give up vote\ntitle=Sivert wants to give up\ntimer=11\nbtn=Yes|danger|picked|\nbtn=No|ghost|off|\nbw=s\ncounter=3 / 5 yes"},
-      {"chips", "id=vote\ncolor=ban\nkind=Give up vote\ntitle=Sivert wants to give up\ntimer=15\nbtn=Yes|danger||.gg\nbtn=No|ghost||\nbw=s\nchips=1\nmouse=on"},
-      {"help", "id=help\nkind=Help\ntitle=What do you need?\nbtn=Timeout|ghost||.tac\nbtn=Tech pause|ghost||#demo pause\nbtn=Give up vote|ghost||#demo vote\nbtn=Replay round|ghost||.stop\ncols=2\nbw=l\nclose=Close|\nmouse=on"},
-      {"admin", "id=admin\nkind=Admin\ntitle=Match controls\nbtn=Pause|ghost||#demo pause\nbtn=Unpause|ghost||#demo off\nbtn=Replay a round|ghost||#demo rounds\nbtn=Change map|ghost||#demo maps\nbtn=Swap teams|ghost||\nbtn=Force ready|ghost||#demo everyone\nbtn=Restart map|ghost||\nbtn=End match|danger||#demo confirm\ncols=2\nbw=l\nclose=Close|\nmouse=on"},
-      {"maps", "id=maps\nkind=Admin · change map\ntitle=Pick a map\nbtn=Mirage|ghost||\nbtn=Inferno|ghost||\nbtn=Nuke|ghost||\nbtn=Ancient|ghost||\nbtn=Anubis|ghost||\nbtn=Dust2|ghost||\nbtn=Train|ghost||\nbtn=Overpass|ghost||\ncols=4\nbw=s\nclose=Back|#demo admin\nmouse=on"},
-      {"rounds", "id=rounds\nkind=Admin · replay\ntitle=Back to which round?\nbtn=Round 14|ghost||\nbtn=Round 13|ghost||\nbtn=Round 12|ghost||\nbtn=Round 11|ghost||\nbtn=Round 10|ghost||\nbtn=Round 9|ghost||\ncols=3\nbw=s\nclose=Back|#demo admin\nmouse=on"},
-      {"confirm", "id=confirm\ncolor=ban\nkind=Admin\ntitle=End the match?\nsub=Nobody wins. No undo.\nbtn=End match|danger||#demo off\nbtn=Cancel|ghost||#demo admin\nmouse=on"},
+      {"golive", "id=golive\ncolor=live\nkind=Live\ntitle=Good luck, have fun\nsub=Team A (CT) vs Team B (T)\ncmd=Tech pause|.p\ncmd=Timeout|.tac\ncmd=Call an admin|.admin"},
+      {"pause", "id=pause\ncolor=warn\nkind=Tech pause\ntitle=Team B paused\nsub=Auto unpause (252)\nconfirm=Team A|0|Team B|0\nbtn=Unpause|warn|pulse|#demo waiting\nbw=l\nmouse=on"},
+      {"waiting", "id=pause\ncolor=warn\nkind=Tech pause\ntitle=Team B paused\nsub=Auto unpause (245)\nconfirm=Team A|1|Team B|0\nbtn=Waiting for Team B|ghost|off|\nbw=xl"},
+      {"timeout", "id=tac\nkind=Timeout\ntitle=Team A timeout"},
+      {"adminpause", "id=adminpause\ncolor=warn\nkind=Admin pause\ntitle=Paused by an admin\nsub=Only an admin can unpause"},
+      {"vote", "id=gg\ncolor=ban\nkind=Give up vote\ntitle=Give up this map?\ntimer=15\ncounter=2 / 5 yes\nbw=s\nbtn=Yes|danger||#demo voted\nbtn=No|ghost||#demo off\nmouse=on"},
+      {"voted", "id=gg\ncolor=ban\nkind=Give up vote\ntitle=Give up this map?\ntimer=11\ncounter=3 / 5 yes\nbw=s\nbtn=Yes|danger|picked|\nbtn=No|ghost|off|"},
+      {"chips", "id=gg\ncolor=ban\nkind=Give up vote\ntitle=Give up this map?\ntimer=15\ncounter=2 / 5 yes\nbw=s\nbtn=Yes|danger||.gg\nbtn=No|ghost||\nchips=1\nmouse=on"},
+      {"replay", "id=stop\nkind=Replay this round?\ntitle=Team A wants to replay it\ntimer=20\nbw=m\nbtn=Accept|green||#demo off\nbtn=Decline|ghost||#demo off\nmouse=on"},
+      {"missing", "id=missing\ncolor=ban\ntitle=Team B is missing\nsub=Forfeit in (165)"},
+      {"admincall", "id=admincall\nwhere=card\ncolor=ban\nkind=Admin called\ntitle=Oli (Team B) needs an admin\nsub=my game crashed"},
+      {"help", "id=help\nkind=Help\ntitle=What do you need?\nbtn=Ready|green||#demo ready\nbtn=Call an admin|ghost||\nbtn=Match info|ghost||#demo info\nbtn=Commands|ghost||#demo cmds\nbtn=Admin|ghost||#demo admin\ncols=2\nbw=l\nclose=Close|\nmouse=on"},
+      {"helplive", "id=help\nkind=Help\ntitle=What do you need?\nbtn=Tech pause|ghost||#demo pause\nbtn=Votes|ghost||#demo votes\nbtn=Call an admin|ghost||\nbtn=Match info|ghost||#demo info\nbtn=Commands|ghost||#demo cmds\nbtn=Admin|ghost||#demo admin\ncols=2\nbw=l\nclose=Close|\nmouse=on"},
+      {"votes", "id=votes\nkind=Help \xC2\xB7 votes\ntitle=Start a vote\nbtn=Give up|danger||#demo vote\nbtn=Replay round|ghost||#demo replay\nbtn=Timeout|ghost||#demo timeout\ncols=3\nbw=m\nclose=Back|#demo helplive\nmouse=on"},
+      {"info", "id=info\nkind=Help \xC2\xB7 match\ntitle=Team A vs Team B\nline=Format|Best of 3 \xC2\xB7 24 rounds\nline=Maps|Dust2 \xE2\x86\x92 Mirage \xE2\x86\x92 Inferno\nline=Map|1 of 3\nline=Score|7 - 5\nclose=Back|#demo help\nmouse=on"},
+      {"cmds", "id=cmds\nkind=Help \xC2\xB7 commands\ntitle=Prefer typing?\nline=Ready|.r\nline=Tech pause|.p\nline=Timeout|.tac\nline=Give up|.gg\nline=Call an admin|.admin\nclose=Back|#demo help\nmouse=on"},
+      {"admin", "id=admin\nkind=Admin\ntitle=Match controls\nbtn=Pause|ghost||#demo adminpause\nbtn=Unpause|ghost||#demo off\nbtn=Replay a round|ghost||#demo rounds\nbtn=Change map|ghost||#demo maps\nbtn=Swap teams|ghost||\nbtn=Force ready|ghost||#demo everyone\nbtn=Restart map|ghost||\nbtn=End match|danger||#demo endwho\ncols=2\nbw=l\nclose=Close|\nmouse=on"},
+      {"maps", "id=maps\nkind=Admin \xC2\xB7 change map\ntitle=Pick a map\nbtn=Mirage|ghost||\nbtn=Inferno|ghost||\nbtn=Nuke|ghost||\nbtn=Ancient|ghost||\nbtn=Anubis|ghost||\nbtn=Dust2|ghost||\nbtn=Train|ghost||\nbtn=Overpass|ghost||\ncmd=Any other map or workshop id|.map <name or id>\ncols=4\nbw=s\nclose=Back|#demo admin\nmouse=on"},
+      {"rounds", "id=rounds\nkind=Admin \xC2\xB7 replay\ntitle=Back to which round?\nbtn=Round 14|ghost||\nbtn=Round 13|ghost||\nbtn=Round 12|ghost||\nbtn=Round 11|ghost||\nbtn=Round 10|ghost||\nbtn=Round 9|ghost||\ncols=3\nbw=s\nclose=Back|#demo admin\nmouse=on"},
+      {"endwho", "id=endwho\ncolor=ban\nkind=Admin \xC2\xB7 end match\ntitle=Who won?\nbtn=Team A|ghost||#demo endconfirm\nbtn=Team B|ghost||#demo endconfirm\nbtn=No winner|ghost||#demo endconfirm\ncols=3\nbw=m\nclose=Back|#demo admin\nmouse=on"},
+      {"endconfirm", "id=end\ncolor=ban\nkind=Admin \xC2\xB7 end match\ntitle=Team A wins?\nsub=Ends the match now. No undo.\nbtn=End match|danger||#demo seriesresult\nbtn=Cancel|ghost||#demo endwho\nbw=m\nmouse=on"},
+      {"mapresult", "id=mapresult\ncolor=live\nkind=Map 1 \xC2\xB7 Dust2\ntitle=Team A wins the map\nsub=Team A  13 - 7  Team B\nhint=Next: Mirage"},
+      {"seriesresult", "id=seriesresult\ncolor=live\nkind=Series\ntitle=Team A wins the series\nsub=Team A  2 - 1  Team B"},
       {"mapvote", "id=mapvote\nkind=Map vote\ntitle=Next map?\ntimer=25\nbtn=Mirage|ghost||#demo off|3\nbtn=Inferno|ghost||#demo off|2\nbtn=Nuke|ghost||#demo off|1\nbtn=Ancient|ghost||#demo off|0\nbtn=Anubis|ghost||#demo off|2\nbtn=Dust2|ghost||#demo off|1\ncols=3\nbw=m\nmouse=on"},
-      {"missing", "id=missing\ncolor=ban\ntitle=Team B is missing\nsub=Forfeit win in (165)"},
       {"off", ""},
   };
   return k;
 }
 
+const std::string* DemoSpec(const std::string& name) {
+  for (const auto& kv : DemoScreens())
+    if (kv.first == name) return &kv.second;
+  return nullptr;
+}
+
+// A slot showing demos: the match plugin's screens wait (DemoDefer) until the demo ends.
+struct Demo {
+  double until = 0;     // a single `demo` keeps the slot for a while
+  int tour = -1;        // index into DemoScreens() while a tour runs
+  double next = 0;      // when the tour moves on (0 = paused)
+  double every = 0;     // seconds per screen
+};
+std::map<int, Demo> g_demos;
+struct Deferred {
+  std::string spec;
+  ru_hud_click_fn onClick = nullptr;
+  void* user = nullptr;
+};
+std::map<int, Deferred> g_deferred;
+
+void OnDemoClick(void*, int slot, const char* command);
+
+void DemoForget(int slot) {
+  g_demos.erase(slot);
+  g_deferred.erase(slot);
+}
+
+bool DemoActive(int slot) {
+  auto it = g_demos.find(slot);
+  return it != g_demos.end() && (it->second.tour >= 0 || g_now < it->second.until);
+}
+
+void DemoShow(int slot, const std::string& name) {
+  if (const std::string* spec = DemoSpec(name)) IfScreen(slot, spec->c_str(), &OnDemoClick, nullptr);
+}
+
+void DemoEnd(int slot) {
+  g_demos.erase(slot);
+  auto d = g_deferred.find(slot);
+  if (d == g_deferred.end()) {
+    IfScreen(slot, "", nullptr, nullptr);
+    return;
+  }
+  const Deferred back = d->second;
+  g_deferred.erase(d);
+  IfScreen(slot, back.spec.c_str(), back.onClick, back.user);  // what the match wants now
+}
+
+void TourStep(int slot, Demo& t) {
+  const auto& list = DemoScreens();
+  const int n = static_cast<int>(list.size()) - 1;  // "off" is not part of the tour
+  if (t.tour >= n) {
+    g_api->chat_to_slot(g_api->self, slot, "Ready Up hud: tour done.");
+    DemoEnd(slot);
+    return;
+  }
+  const auto& kv = list[static_cast<size_t>(t.tour)];
+  IfScreen(slot, kv.second.c_str(), &OnDemoClick, nullptr);
+  const std::string line = Fmt("Ready Up hud: tour %d/%d: ", t.tour + 1, n) + kv.first;
+  g_api->chat_to_slot(g_api->self, slot, line.c_str());
+  if (t.next > 0) t.next = g_now + t.every;
+}
+
+void TourTick() {
+  for (auto it = g_demos.begin(); it != g_demos.end();) {
+    const int slot = it->first;
+    Demo& t = it->second;
+    ++it;  // TourStep may end (erase) this slot's entry
+    if (t.tour < 0) {
+      if (g_now >= t.until) DemoEnd(slot);
+      continue;
+    }
+    if (t.next > 0 && g_now >= t.next) {
+      ++t.tour;
+      TourStep(slot, t);
+    }
+  }
+}
+
+bool DemoDefer(int slot, const std::string& spec, ru_hud_click_fn onClick, void* user) {
+  if (onClick == &OnDemoClick || !DemoActive(slot)) return false;
+  g_deferred[slot] = Deferred{spec, onClick, user};  // shown again when the demo ends
+  return true;
+}
+
 void OnDemoClick(void*, int slot, const char* command) {
   const std::string c = command ? command : "";
   if (c.rfind("#demo ", 0) == 0) {
-    const auto& d = DemoScreens();
-    auto it = d.find(c.substr(6));
-    if (it != d.end()) IfScreen(slot, it->second.c_str(), &OnDemoClick, nullptr);
+    auto t = g_demos.find(slot);
+    if (t != g_demos.end() && t->second.tour < 0) t->second.until = g_now + 60.0;
+    DemoShow(slot, c.substr(6));
     return;
   }
   const std::string line = "Ready Up hud: you clicked " + c;
@@ -1254,18 +1393,50 @@ void OnRu(void*, const ru_command_ctx* ctx) {
   } else if (sub == "kit") {
     Kit(ctx, ctx->argc > 3 ? ctx->argv[3] : "");
   } else if (sub == "demo") {  // ru hudkit demo <screen> [slot]
-    const auto& d = DemoScreens();
-    auto it = d.find(ctx->argc > 3 ? ctx->argv[3] : "");
-    if (it == d.end()) {
+    const std::string name = ctx->argc > 3 ? ctx->argv[3] : "";
+    if (!DemoSpec(name)) {
       std::string names;
-      for (const auto& kv : d) names += " " + kv.first;
+      for (const auto& kv : DemoScreens()) names += " " + kv.first;
       return Reply(ctx, "demo screens:" + names);
     }
     std::vector<int> slots;
     if (ctx->argc > 4) slots.push_back(std::atoi(ctx->argv[4]));
+    else if (ctx->slot >= 0) slots.push_back(ctx->slot);
     else g_api->for_each_player(g_api->self, &CollectHuman, &slots);
-    for (int slot : slots) IfScreen(slot, it->second.c_str(), &OnDemoClick, nullptr);
-    Reply(ctx, "demo " + it->first + " for " + std::to_string(slots.size()) + " player(s); click hook " + g_clickHookStatus);
+    for (int slot : slots) {
+      g_demos[slot] = Demo{g_now + 60.0, -1, 0, 0};
+      DemoShow(slot, name);
+    }
+    Reply(ctx, "demo " + name + " for " + std::to_string(slots.size()) + " player(s) (60 s); click hook " + g_clickHookStatus);
+  } else if (sub == "tour") {  // ru hudkit tour [seconds|next|back|pause|stop] [slot]
+    const std::string arg = ctx->argc > 3 ? ctx->argv[3] : "";
+    int slot = ctx->argc > 4 ? std::atoi(ctx->argv[4]) : ctx->slot;
+    if (slot < 0) {
+      std::vector<int> humans;
+      g_api->for_each_player(g_api->self, &CollectHuman, &humans);
+      if (humans.empty()) return Reply(ctx, "nobody to show the tour to");
+      slot = humans[0];
+    }
+    auto it = g_demos.find(slot);
+    const bool running = it != g_demos.end() && it->second.tour >= 0;
+    if (arg == "stop") {
+      if (running) DemoEnd(slot);
+      return Reply(ctx, "tour stopped");
+    }
+    if (running && (arg == "next" || arg == "back" || arg == "pause")) {
+      Demo& t = it->second;
+      if (arg == "pause") {
+        t.next = t.next > 0 ? 0 : g_now + t.every;
+        return Reply(ctx, t.next > 0 ? "tour playing" : "tour paused (next / back to step)");
+      }
+      t.tour = std::max(0, t.tour + (arg == "next" ? 1 : -1));
+      TourStep(slot, t);
+      return;
+    }
+    const double every = std::clamp(arg.empty() ? 6.0 : std::atof(arg.c_str()), 2.0, 60.0);
+    g_demos[slot] = Demo{0, 0, g_now + every, every};
+    TourStep(slot, g_demos[slot]);
+    Reply(ctx, Fmt("tour: %zu screens, %.0f s each (.ru hudkit tour pause / next / back / stop)", DemoScreens().size() - 1, every));
   } else if (sub == "screen" && ctx->argc >= 5) {  // ru hudkit screen <slot> <spec, lines split by ;>
     std::string spec = Join(ctx, 4);
     for (char& ch : spec)
@@ -1276,7 +1447,7 @@ void OnRu(void*, const ru_command_ctx* ctx) {
   } else if (sub == "class" && ctx->argc >= 8) {  // ru hudkit class <hud#> <slot|all> <panel> <class> <0|1>
     Reply(ctx, IfSetClass(std::atoi(ctx->argv[3]), ParseSlot(ctx->argv[4]), ctx->argv[5], ctx->argv[6], std::atoi(ctx->argv[7])) ? "ok" : "failed");
   } else {
-    Reply(ctx, "ru hudkit [status|info|demo <screen> [slot]|screen <slot> <k=v;k=v>|click [slot]|bclick [slot]|hello <text>|kit <state>|text <hud#> <slot|all> <panel> <var> <value>|class <hud#> <slot|all> <panel> <class> <0|1>]");
+    Reply(ctx, "ru hudkit [status|info|demo <screen> [slot]|tour [seconds|pause|next|back|stop]|screen <slot> <k=v;k=v>|click [slot]|bclick [slot]|hello <text>|kit <state>|text <hud#> <slot|all> <panel> <var> <value>|class <hud#> <slot|all> <panel> <class> <0|1>]");
   }
 }
 
@@ -1315,6 +1486,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_bMode.clear();
   g_clickOpen.clear();
   g_screens.clear();
+  g_demos.clear();
+  g_deferred.clear();
   g_buyOpen.clear();
   g_straysCleared = false;
   g_mapStartedAt = -1;

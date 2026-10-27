@@ -23,10 +23,20 @@ int IntAt(const std::vector<std::string>& v, size_t i, int def) {
   return i < v.size() && !v[i].empty() ? std::atoi(v[i].c_str()) : def;
 }
 
-const char* const kColours[] = {"c-live", "c-warn", "c-ban", "c-muted"};
+const char* const kColours[] = {"c-live", "c-warn", "c-ban", "c-muted", "c-ct", "c-t"};
 // How the centre panel enters (CS2 motion, at_ui.css): a decision flips in, an alert flashes,
 // everything else opens from the centre. The card always slides in from the right.
-const char* const kFx[] = {"fx-open", "fx-flip", "fx-alert"};
+const char* const kFx[] = {"fx-open", "fx-flip", "fx-alert", "fx-slide", "fx-slide-left", "fx-pop",
+                           "fx-zoom", "fx-fade", "fx-rise", "fx-drop", "fx-none"};
+const char* const kParts[] = {"brand", "kind", "title", "sub", "hint", "timer", "counter", "teams", "confirm",
+                              "lines", "cmds", "buttons", "close", "flow", "b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7"};
+
+bool UtilityName(const std::string& c) {
+  if (c.empty() || c.size() > 32) return false;
+  for (char ch : c)
+    if (!((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-')) return false;
+  return true;
+}
 const char* const kTones[] = {"t-green", "t-ct", "t-t", "t-warn", "t-danger"};
 const char* const kWidths[] = {"bw-s", "bw-m", "bw-l", "bw-xl"};
 
@@ -90,6 +100,26 @@ Screen ParseScreen(const std::string& spec) {
       if (s.lines.size() < 5) s.lines.emplace_back(At(p, 0), At(p, 1));
     } else if (k == "size") {
       s.mini = v == "mini";
+    } else if (k == "fx" || k == "enter") {
+      s.fx = v;
+    } else if (k == "exit") {
+      s.exit = v;
+    } else if (k == "cls" || k.rfind("cls.", 0) == 0) {
+      const std::string part = k.size() > 4 ? k.substr(4) : std::string();
+      size_t a = 0;
+      while (a < v.size()) {
+        size_t b = v.find(' ', a);
+        if (b == std::string::npos) b = v.size();
+        const std::string c = v.substr(a, b - a);
+        if (UtilityName(c) && s.utils.size() < 48) s.utils.emplace_back(part, c);
+        a = b + 1;
+      }
+    } else if (k == "wash") {
+      s.wash = v != "0";
+    } else if (k == "pixels") {
+      s.pixels = v != "0";
+    } else if (k == "blur") {
+      s.blur = v != "0";
     } else if (k == "chips") {
       s.chips = v == "1";
     }
@@ -129,10 +159,12 @@ std::vector<Write> RenderScreen(const Screen& s, const std::string& p) {
   }
 
   cls(p, "mini", s.mini);
-  const bool decision = s.mouse == Mouse::On && !s.buttons.empty() && !s.hasClose;
-  const std::string fx = decision ? "fx-flip" : s.color == "ban" ? "fx-alert" : "fx-open";
+  const std::string fx = EnterOf(s, p);
   for (const char* f : kFx) cls(p, f, fx == f);
   const int secs = s.timer.empty() ? -1 : std::atoi(s.timer.c_str());
+  cls(p, "no-wash", !s.wash);
+  cls(p, "no-px", !s.pixels);
+  cls(p, "blur", s.blur);
   cls(p, "urgent", secs >= 0 && secs <= 5 && s.timer.find_first_not_of("0123456789") == std::string::npos);
   cls(p, "has-lines", !s.lines.empty());
   for (size_t i = 0; i < 5; ++i) {
@@ -207,6 +239,48 @@ bool ParseButtonId(const std::string& id, std::string* panel, int* index) {
     }
   }
   return false;
+}
+
+std::string EnterOf(const Screen& s, const std::string& p) {
+  const std::string want = "fx-" + s.fx;
+  for (const char* f : kFx)
+    if (want == f) return want;
+  const bool decision = s.mouse == Mouse::On && !s.buttons.empty() && !s.hasClose;
+  if (s.mini) return "fx-pop";
+  if (p == "ui_card") return s.color == "ban" ? "fx-alert" : "fx-slide";
+  return decision ? "fx-flip" : s.color == "ban" ? "fx-alert" : "fx-open";
+}
+
+const std::vector<std::string>& ExitClasses() {
+  static const std::vector<std::string> k = {"out-fade", "out-close", "out-slide", "out-slide-left", "out-shrink",
+                                             "out-drop", "out-rise", "out-flip", "out-none"};
+  return k;
+}
+
+std::string ExitOf(const Screen& s, const std::string& p) {
+  const std::string want = "out-" + s.exit;
+  for (const auto& c : ExitClasses())
+    if (want == c) return want;
+  const std::string in = EnterOf(s, p);
+  if (in == "fx-open") return "out-close";
+  if (in == "fx-slide") return "out-slide";
+  if (in == "fx-slide-left") return "out-slide-left";
+  if (in == "fx-pop" || in == "fx-zoom") return "out-shrink";
+  if (in == "fx-none") return "out-none";
+  return "out-fade";
+}
+
+std::vector<std::pair<std::string, std::string>> Utilities(const Screen& s, const std::string& p) {
+  std::vector<std::pair<std::string, std::string>> out;
+  for (const auto& [part, c] : s.utils) {
+    if (part.empty()) {
+      out.emplace_back(p, c);
+      continue;
+    }
+    for (const char* known : kParts)
+      if (part == known) out.emplace_back(p + "_" + part, c);
+  }
+  return out;
 }
 
 }  // namespace hud

@@ -101,6 +101,27 @@ void TestMotionClasses() {
   CHECK(On(w, "ui_mid", "fx-alert"));
 }
 
+void TestUtilities() {
+  const auto s = hud::ParseScreen("title=x\nenter=drop\nexit=rise\ncls=edge glass-3 Bad! at-top\ncls.title=text-2xl tc-live\ncls.nope=bold\n");
+  CHECK(hud::EnterOf(s, "ui_mid") == "fx-drop");
+  CHECK(hud::ExitOf(s, "ui_mid") == "out-rise");
+  const auto u = hud::Utilities(s, "ui_mid");
+  auto has = [&](const char* el, const char* c) {
+    for (const auto& kv : u)
+      if (kv.first == el && kv.second == c) return true;
+    return false;
+  };
+  CHECK(has("ui_mid", "edge"));
+  CHECK(has("ui_mid", "at-top"));
+  CHECK(!has("ui_mid", "Bad!"));
+  CHECK(has("ui_mid_title", "text-2xl"));
+  CHECK(has("ui_mid_title", "tc-live"));
+  CHECK(u.size() == 5);  // the unknown part is dropped
+  // Exits follow the entrance by default.
+  CHECK(hud::ExitOf(hud::ParseScreen("title=x\n"), "ui_mid") == "out-close");
+  CHECK(hud::ExitOf(hud::ParseScreen("title=x\n"), "ui_card") == "out-slide");
+}
+
 void TestButtonIds() {
   std::string p;
   int i = 0;
@@ -118,6 +139,7 @@ int main() {
   TestChips();
   TestLinesAndMini();
   TestMotionClasses();
+  TestUtilities();
   TestButtonIds();
   if (g_fail) std::fprintf(stderr, "hud_screen: %d failure(s)\n", g_fail);
   else std::printf("hud_screen: ok\n");

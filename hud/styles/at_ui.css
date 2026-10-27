@@ -19,30 +19,20 @@
 	height: fit-children; overflow: clip;
 	background-color: #140e0cf7; border: 1px solid #322926; border-radius: 16px;
 	opacity: 0;
-	transition-property: opacity, transform; transition-duration: 0.2s;
-	transition-timing-function: cubic-bezier( 0.55, 0, 1, 0.45 );
+	/* Between screens the panel snaps to its next enter pose unseen; leaving and on carry the motion. */
+	transition-property: opacity, transform, brightness; transition-duration: 0s;
 }
 .ui-card
 {
 	horizontal-align: right; vertical-align: bottom; margin-right: 24px; margin-bottom: 320px;
-	width: 420px; transform: translateX( 460px );
+	width: 420px; transform: translate3d( 460px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 );
 }
 .ui-mid
 {
 	horizontal-align: center; vertical-align: bottom; margin-bottom: 190px;
-	width: fit-children; min-width: 540px; transform: translateY( 28px );
+	width: fit-children; min-width: 540px; transform: translate3d( 0px, 28px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 );
 }
 .ui-mid .ui-flow { min-width: 0px; }
-.ui-card.on
-{
-	opacity: 1; transform: translateX( 0px ); transition-duration: 0.38s;
-	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
-}
-.ui-mid.on
-{
-	opacity: 1; transform: translateY( 0px ); transition-duration: 0.38s;
-	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
-}
 .ui-flow { flow-children: down; horizontal-align: center; width: fit-children; min-width: 100%; height: fit-children; padding: 16px 32px 24px 32px; }
 
 .ui-brand { flow-children: right; horizontal-align: center; height: 16px; margin-bottom: 10px; }
@@ -224,85 +214,152 @@
 .ui-card.mini .ui-btn { width: 110px; height: 36px; margin: 0px; border-radius: 18px; }
 .ui-card.mini .ui-btnlabel { font-size: 14px; }
 
-/* ---- Motion -----------------------------------------------------------------------------------
-   Borrowed from CS2's own HUD (A-J) and from cs2-ui-kit (K-M, MIT, github.com/nvmxre/cs2-ui-kit).
-   Our own CSS; only the techniques are theirs. Design board: "Motion borrowed from CS2".
-   Custom HUD rules (cs2-ui-kit GOTCHAS): keyframes that move transform never run here, so every
-   move is a transition fired by a class; keyframes are only used on opacity; an animation and a
-   transition never share a property on one panel; keyframe names are quoted. */
+/* ==== at_ui utilities: "Tailwind for CS2" ==========================================================
+   Everything below is chosen per screen by the server (spec keys, plugins/hud/hud_screen.h), so a
+   new look is a server change, not an addon publish:
+     enter=<fx>  exit=<out>     how the panel arrives and leaves
+     cls=<utilities>            on the panel          cls.<part>=<utilities>  on one part
+   parts: brand kind title sub hint timer counter teams lines cmds buttons close flow b0..b7
 
-/* A: the centre panel unfolds sideways from its middle; a white flash fades off; the title settles
-   from 1.5x (round win panel). */
-.ui-mid.fx-open { transform: scale3d( 0, 1, 1 ); }
-.ui-mid.fx-open.on { transform: scale3d( 1, 1, 1 ); transition-duration: 0.25s; transition-timing-function: ease-in; }
-.ui-mid.fx-open .ui-title { transform: scale3d( 1.5, 1.5, 1 ); }
-.ui-mid.fx-open.on .ui-title
+   Motion borrowed from CS2's own HUD and from cs2-ui-kit (MIT, github.com/nvmxre/cs2-ui-kit); our
+   own CSS, only the techniques are theirs. Custom HUD rules (cs2-ui-kit GOTCHAS): keyframes that
+   move transform never run here, so every move is a transition fired by a class; keyframes only
+   touch opacity; an animation and a transition never share a property on one panel; keyframe
+   names are quoted. Every pose uses the same transform list (translate3d rotateX scale3d) so any
+   enter can tween to any exit. Utility selectors start with .ui-root .ui-panel so they beat the
+   base rules; later rules win between utilities. */
+
+/* ---- enter: the pose a panel comes from (class fx-<name>, spec enter=) ------------------------- */
+.ui-root .ui-panel.on
+{
+	opacity: 1; transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); brightness: 1;
+	transition-property: opacity, transform, brightness; transition-duration: 0.38s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+/* open: unfolds sideways from its middle, a white flash fades off, the title settles (round win panel) */
+.ui-root .ui-panel.fx-open { transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 0, 1, 1 ); }
+.ui-root .ui-panel.fx-open.on { transition-duration: 0.25s; transition-timing-function: ease-in; }
+.ui-root .ui-panel.fx-open .ui-title { transform: scale3d( 1.5, 1.5, 1 ); }
+.ui-root .ui-panel.fx-open.on .ui-title
 {
 	transform: scale3d( 1, 1, 1 );
 	transition-property: transform; transition-duration: 0.35s; transition-delay: 0.15s; transition-timing-function: ease-out;
 }
+/* flip: tips forward from flat, shrinks from 1.7x, bright to normal (Premier pick/ban phase) */
+.ui-root .ui-panel.fx-flip { transform: translate3d( 0px, 10px, 0px ) rotateX( 90deg ) scale3d( 1.7, 1.7, 1 ); brightness: 3; }
+.ui-root .ui-panel.fx-flip.on { transition-duration: 0.4s; }
+/* alert: rises a little; the white wash flashes twice (centre alerts) */
+.ui-root .ui-panel.fx-alert { transform: translate3d( 0px, 28px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+/* slide: all the way in from the right edge (vote panel) */
+.ui-root .ui-panel.fx-slide { transform: translate3d( 460px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+/* slide-left: from the left edge */
+.ui-root .ui-panel.fx-slide-left { transform: translate3d( -460px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+/* pop: half size, overshoots, settles (instructor hint) */
+.ui-root .ui-panel.fx-pop { transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 0.5, 0.5, 1 ); }
+.ui-root .ui-panel.fx-pop.on { transition-duration: 0.35s; transition-timing-function: cubic-bezier( 0.3, 1.6, 0.5, 1 ); }
+/* zoom: from 85% */
+.ui-root .ui-panel.fx-zoom { transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 0.85, 0.85, 1 ); }
+/* fade: a short rise */
+.ui-root .ui-panel.fx-fade { transform: translate3d( 0px, 28px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+/* rise: from well below; drop: from above */
+.ui-root .ui-panel.fx-rise { transform: translate3d( 0px, 80px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.fx-drop { transform: translate3d( 0px, -60px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+/* none: just there */
+.ui-root .ui-panel.fx-none { transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.fx-none.on { transition-duration: 0s; }
+
+/* ---- exit: the pose it leaves to (class out-<name> with leaving, spec exit=) --------------------- */
+.ui-root .ui-panel.leaving
+{
+	opacity: 0;
+	transition-property: opacity, transform, brightness; transition-duration: 0.25s;
+	transition-timing-function: cubic-bezier( 0.55, 0, 1, 0.45 );
+}
+.ui-root .ui-panel.leaving.out-fade { transform: translate3d( 0px, 16px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.leaving.out-close { transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 0, 1, 1 ); }
+.ui-root .ui-panel.leaving.out-slide { transform: translate3d( 460px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.leaving.out-slide-left { transform: translate3d( -460px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.leaving.out-shrink { transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 0.8, 0.8, 1 ); }
+.ui-root .ui-panel.leaving.out-drop { transform: translate3d( 0px, 60px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.leaving.out-rise { transform: translate3d( 0px, -40px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.leaving.out-flip { transform: translate3d( 0px, 10px, 0px ) rotateX( -90deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.leaving.out-none { transition-duration: 0s; }
+
+/* ---- speed and delay (both enter and exit) -------------------------------------------------- */
+.ui-root .ui-panel.speed-fast.on { transition-duration: 0.18s; }
+.ui-root .ui-panel.speed-fast.leaving { transition-duration: 0.12s; }
+.ui-root .ui-panel.speed-slow.on { transition-duration: 0.7s; }
+.ui-root .ui-panel.speed-slow.leaving { transition-duration: 0.45s; }
+.ui-root .ui-panel.delay-1.on { transition-delay: 0.1s; }
+.ui-root .ui-panel.delay-2.on { transition-delay: 0.2s; }
+.ui-root .ui-panel.delay-3.on { transition-delay: 0.4s; }
+
+/* ---- flash layer: white wash on arrival (open: one, alert: two; flash / flash-twice on any panel) */
 .ui-flash { width: 100%; height: 100%; background-color: #ffffff; opacity: 0; }
 @keyframes 'at-flash' { 0% { opacity: 0.85; } 45% { opacity: 0.85; } 100% { opacity: 0; } }
-.ui-mid.fx-open.on .ui-flash { animation-name: at-flash; animation-duration: 0.5s; animation-timing-function: ease-in; animation-iteration-count: 1; }
-
-/* B: a decision tips forward from flat, shrinks from 1.7x, bright to normal (pick/ban phase). */
-.ui-mid.fx-flip { transform: translateY( 10px ) rotateX( 90deg ) scale3d( 1.7, 1.7, 1 ); brightness: 3; }
-.ui-mid.fx-flip.on
-{
-	transform: translateY( 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); brightness: 1;
-	transition-property: opacity, transform, brightness; transition-duration: 0.4s;
-	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
-}
-
-/* F: an alert gets a white wash as it lands, twice (centre alerts). */
-.ui-mid.fx-alert { transform: translateY( 28px ); }
 @keyframes 'at-alert' { 0% { opacity: 0; } 8% { opacity: 0.85; } 22% { opacity: 0; } 36% { opacity: 0.6; } 52% { opacity: 0; } 100% { opacity: 0; } }
-.ui-mid.fx-alert.on .ui-flash { animation-name: at-alert; animation-duration: 1s; animation-timing-function: linear; animation-iteration-count: 1; }
-.ui-card.c-ban.on .ui-flash { animation-name: at-alert; animation-duration: 1s; animation-timing-function: linear; animation-iteration-count: 1; }
+.ui-root .ui-panel.fx-open.on .ui-flash { animation-name: at-flash; animation-duration: 0.5s; animation-timing-function: ease-in; animation-iteration-count: 1; }
+.ui-root .ui-panel.flash.on .ui-flash { animation-name: at-flash; animation-duration: 0.5s; animation-timing-function: ease-in; animation-iteration-count: 1; }
+.ui-root .ui-panel.fx-alert.on .ui-flash { animation-name: at-alert; animation-duration: 1s; animation-timing-function: linear; animation-iteration-count: 1; }
+.ui-root .ui-panel.flash-twice.on .ui-flash { animation-name: at-alert; animation-duration: 1s; animation-timing-function: linear; animation-iteration-count: 1; }
+.ui-root .ui-panel.no-flash .ui-flash { visibility: collapse; }
 
-/* I: the card slides all the way in from the right edge (vote panel): .ui-card's translate above. */
-
-/* E: the ready pill comes in at half size and overshoots before it settles (instructor hint). */
-.ui-card.mini { transform: scale3d( 0.5, 0.5, 1 ); }
-.ui-card.mini.on
-{
-	transform: scale3d( 1, 1, 1 );
-	transition-property: opacity, transform; transition-duration: 0.35s;
-	transition-timing-function: cubic-bezier( 0.3, 1.6, 0.5, 1 );
-}
-
-/* C: a click flashes the button bright before its ring settles (map draft). The bump to 1.06 is the
-   .picked transition above; the flash is the glow layer, opacity only. */
+/* ---- buttons: press flash (always), pulse = the one waiting, glow = a steady soft light -------- */
 .ui-btnglow { width: 100%; height: 100%; border-radius: 24px; background-color: #ffffff; opacity: 0; }
 @keyframes 'at-press' { 0% { opacity: 0; } 30% { opacity: 0.55; } 100% { opacity: 0; } }
-.ui-btn.picked .ui-btnglow { animation-name: at-press; animation-duration: 0.45s; animation-timing-function: ease-out; animation-iteration-count: 1; }
-
-/* D: the one button waiting for this player breathes (pick/ban active button), as a soft glow. */
 @keyframes 'at-needs' { 0% { opacity: 0; } 50% { opacity: 0.22; } 100% { opacity: 0; } }
+.ui-btn.picked .ui-btnglow { animation-name: at-press; animation-duration: 0.45s; animation-timing-function: ease-out; animation-iteration-count: 1; }
 .ui-btn.pulse .ui-btnglow { animation-name: at-needs; animation-duration: 1.2s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.ui-root .ui-panel .ui-btn.glow .ui-btnglow { opacity: 0.12; }
+.ui-root .ui-panel .ui-btn.btn-s { height: 36px; border-radius: 18px; }
+.ui-root .ui-panel .ui-btn.btn-l { height: 58px; border-radius: 29px; }
+.ui-root .ui-panel .ui-btn.btn-s .ui-btnlabel { font-size: 14px; }
+.ui-root .ui-panel .ui-btn.btn-l .ui-btnlabel { font-size: 22px; }
 
-/* G: the last 5 seconds of a countdown turn red and breathe (bomb timer). */
+/* ---- countdown: last 5 s red and breathing (bomb timer); breathe / blink on any part ------------ */
 @keyframes 'at-breathe' { 0% { opacity: 0.45; } 50% { opacity: 1; } 100% { opacity: 0.45; } }
 .urgent .ui-timer { color: #f2645f; animation-name: at-breathe; animation-duration: 0.5s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.ui-root .ui-panel .breathe { animation-name: at-breathe; animation-duration: 1.6s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.ui-root .ui-panel .blink { animation-name: at-breathe; animation-duration: 0.5s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
 
-/* H: a count that changed pops from 1.6x and eases back (money change): the server sets bump for a
-   moment; it jumps (no transition) and eases back when the class goes. */
+/* ---- count bump: the server sets bump for a moment; it jumps and eases back (money change) ------ */
 .ui-counter { transform: scale3d( 1, 1, 1 ); transition-property: transform; transition-duration: 0.4s; transition-timing-function: ease-out; }
 .ui-kind { transform: scale3d( 1, 1, 1 ); }
 .ui-card.mini .ui-kind { transition-property: color, transform; transition-duration: 0.3s, 0.4s; transition-timing-function: ease-out; }
 .bump { transform: scale3d( 1.6, 1.6, 1 ); transition-duration: 0s; }
 
-/* J + K: frosted glass. The game blurs behind every panel (cs2-ui-kit toasts, CS2's win panel). */
-.ui-panel { world-blur: gaussian( 6, 6, 1 ); }
+/* ---- glass: blur the game behind the panel (cs2-ui-kit toasts, CS2's win panel) ---------------- */
+.ui-panel.blur { world-blur: gaussian( 6, 6, 1 ); }
+.ui-root .ui-panel.glass-1 { world-blur: gaussian( 2, 2, 1 ); }
+.ui-root .ui-panel.glass-2 { world-blur: gaussian( 6, 6, 1 ); }
+.ui-root .ui-panel.glass-3 { world-blur: gaussian( 10, 10, 2 ); }
 
-/* L: a soft wash of the accent from the left edge (cs2-ui-kit toasts). */
+/* ---- surface ------------------------------------------------------------------------------- */
+.ui-root .ui-panel.bg-soft { background-color: #140e0cb8; }
+.ui-root .ui-panel.bg-solid { background-color: #140e0c; }
+.ui-root .ui-panel.bg-clear { background-color: #00000000; border: 0px solid #00000000; }
+.ui-root .ui-panel.edge { border-left: 3px solid #ff6a3d; }
+.ui-root .ui-panel.c-live.edge { border-left: 3px solid #3fc168; }
+.ui-root .ui-panel.c-warn.edge { border-left: 3px solid #e6b33c; }
+.ui-root .ui-panel.c-ban.edge { border-left: 3px solid #f2645f; }
+.ui-root .ui-panel.c-ct.edge { border-left: 3px solid #7b9be0; }
+.ui-root .ui-panel.c-t.edge { border-left: 3px solid #de9b35; }
+.ui-root .ui-panel.round-s { border-radius: 8px; }
+.ui-root .ui-panel.round-l { border-radius: 24px; }
+.ui-root .ui-panel.no-line .ui-line { visibility: collapse; }
+.ui-root .ui-panel.no-brand .ui-brand { visibility: collapse; }
+
+/* wash: a soft wash of the accent from the left (cs2-ui-kit toasts); no-wash turns it off */
 .ui-wash { width: 100%; height: 100%; background-color: gradient( linear, 0% 0%, 100% 0%, from( #ff6a3d26 ), color-stop( 0.5, #ff6a3d00 ), to( #ff6a3d00 ) ); }
 .c-live .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #3fc16826 ), color-stop( 0.5, #3fc16800 ), to( #3fc16800 ) ); }
 .c-warn .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #e6b33c26 ), color-stop( 0.5, #e6b33c00 ), to( #e6b33c00 ) ); }
 .c-ban .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #f2645f2e ), color-stop( 0.5, #f2645f00 ), to( #f2645f00 ) ); }
 .c-muted .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #938a871f ), color-stop( 0.5, #938a8700 ), to( #938a8700 ) ); }
+.c-ct .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #7b9be026 ), color-stop( 0.5, #7b9be000 ), to( #7b9be000 ) ); }
+.c-t .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #de9b3526 ), color-stop( 0.5, #de9b3500 ), to( #de9b3500 ) ); }
+.no-wash .ui-wash { visibility: collapse; }
 
-/* M: a few pixels of the accent breathe on their own cycles in the top right (cs2-ui-kit toasts). */
+/* pixels: a few pixels of the accent breathe on their own cycles (cs2-ui-kit toasts); no-px */
 .ui-pixels { width: 100%; height: 100%; }
 @keyframes 'at-px' { 0% { opacity: 0; } 50% { opacity: 0.32; } 100% { opacity: 0; } }
 .ui-px
@@ -314,6 +371,8 @@
 .c-warn .ui-px { background-color: #e6b33c; }
 .c-ban .ui-px { background-color: #f2645f; }
 .c-muted .ui-px { background-color: #938a87; }
+.c-ct .ui-px { background-color: #7b9be0; }
+.c-t .ui-px { background-color: #de9b35; }
 .ui-px.p0 { width: 5px; height: 5px; horizontal-align: right; margin: 14px 120px 0px 0px; }
 .ui-px.p1 { width: 4px; height: 4px; horizontal-align: right; margin: 40px 92px 0px 0px; }
 .ui-px.p2 { width: 6px; height: 6px; horizontal-align: right; margin: 10px 70px 0px 0px; }
@@ -336,3 +395,53 @@
 .ui-card.mini .ui-px.p5 { margin: 38px 0px 0px 210px; }
 .ui-card.mini .ui-px.p6 { margin: 14px 0px 0px 236px; }
 .ui-card.mini .ui-px.p7 { margin: 30px 0px 0px 30px; }
+.no-px .ui-pixels { visibility: collapse; }
+
+/* ---- team colours as accents (spec color=ct / color=t) ------------------------------------- */
+.c-ct .ui-kind { color: #7b9be0; }
+.c-t .ui-kind { color: #de9b35; }
+.c-ct .ui-timer { color: #7b9be0; }
+.c-t .ui-timer { color: #de9b35; }
+.c-ct .ui-line { background-color: #7b9be0; }
+.c-t .ui-line { background-color: #de9b35; }
+
+/* ---- size and place ------------------------------------------------------------------------ */
+.ui-root .ui-panel.w-280 { width: 280px; min-width: 0px; }
+.ui-root .ui-panel.w-340 { width: 340px; min-width: 0px; }
+.ui-root .ui-panel.w-420 { width: 420px; min-width: 0px; }
+.ui-root .ui-panel.w-520 { width: 520px; min-width: 0px; }
+.ui-root .ui-panel.w-640 { width: 640px; min-width: 0px; }
+.ui-root .ui-panel.w-760 { width: 760px; min-width: 0px; }
+.ui-root .ui-panel.w-fit { width: fit-children; min-width: 0px; }
+.ui-root .ui-panel.at-right { horizontal-align: right; vertical-align: bottom; margin: 0px 24px 320px 0px; }
+.ui-root .ui-panel.at-low { horizontal-align: center; vertical-align: bottom; margin: 0px 0px 190px 0px; }
+.ui-root .ui-panel.at-center { horizontal-align: center; vertical-align: center; margin: 0px 0px 0px 0px; }
+.ui-root .ui-panel.at-top { horizontal-align: center; vertical-align: top; margin: 150px 0px 0px 0px; }
+.ui-root .ui-panel.at-left { horizontal-align: left; vertical-align: center; margin: 0px 0px 0px 24px; }
+.ui-root .ui-panel.pad-s .ui-flow { padding: 10px 20px 14px 20px; }
+.ui-root .ui-panel.pad-l .ui-flow { padding: 24px 44px 32px 44px; }
+
+/* ---- text (on parts: cls.title=text-xl tc-live) -------------------------------------------- */
+.ui-root .ui-panel .text-xs { font-size: 12px; }
+.ui-root .ui-panel .text-s { font-size: 14px; }
+.ui-root .ui-panel .text-m { font-size: 16px; }
+.ui-root .ui-panel .text-l { font-size: 22px; }
+.ui-root .ui-panel .text-xl { font-size: 30px; }
+.ui-root .ui-panel .text-2xl { font-size: 40px; }
+.ui-root .ui-panel .bold { font-weight: bold; }
+.ui-root .ui-panel .normal { font-weight: normal; }
+.ui-root .ui-panel .upper { text-transform: uppercase; letter-spacing: 2px; }
+.ui-root .ui-panel .mono { font-family: "Noto Mono"; }
+.ui-root .ui-panel .left { horizontal-align: left; text-align: left; }
+.ui-root .ui-panel .center { horizontal-align: center; text-align: center; }
+.ui-root .ui-panel .right { horizontal-align: right; text-align: right; }
+.ui-root .ui-panel .tc-ink { color: #f4edeb; }
+.ui-root .ui-panel .tc-dim { color: #c4bcb9; }
+.ui-root .ui-panel .tc-faint { color: #938a87; }
+.ui-root .ui-panel .tc-acc { color: #ff6a3d; }
+.ui-root .ui-panel .tc-live { color: #3fc168; }
+.ui-root .ui-panel .tc-warn { color: #e6b33c; }
+.ui-root .ui-panel .tc-ban { color: #f2645f; }
+.ui-root .ui-panel .tc-ct { color: #7b9be0; }
+.ui-root .ui-panel .tc-t { color: #de9b35; }
+.ui-root .ui-panel .hide { visibility: collapse; }

@@ -5,7 +5,7 @@
 //   id=pick                      the screen's identity: a new id plays the leave / enter animation,
 //                                the same id updates in place (countdowns, ready dots)
 //   where=mid                    card (right, above the weapons) | mid (centre of the lower half)
-//   color=live                   acc (default) | live | warn | ban | muted
+//   color=live                   acc (default) | live | warn | ban | muted | ct | t
 //   kind=You won the knife       small coloured label above the title
 //   title=Which side do you want?
 //   sub=Match starts (5)         grey line under the title
@@ -17,6 +17,18 @@
 //   cmd=Timeout|.tac             a typed command chip, up to 3
 //   line=Format|Best of 3        an info row, up to 5: label | value (a value starting with . is boxed)
 //   size=mini                    card only: a one-line pill (kind, team dots, the first button)
+//   enter=flip (or fx=)          how it enters: open (unfold + flash) | flip (decisions) | alert (red
+//                                flash) | slide | slide-left | pop (overshoot) | zoom | fade | rise |
+//                                drop | none.
+//                                Default: card slide, mini pop, centre: a decision flips, red alerts,
+//                                the rest opens. Any fx works on either panel.
+//   exit=close                   how it leaves: fade | close | slide | slide-left | shrink | drop |
+//                                rise | flip | none. Default follows the entrance (open closes,
+//                                slide slides back, pop shrinks, the rest fade).
+//   wash=0 pixels=0 blur=0       turn off the colour wash, the breathing pixels, the blur behind
+//   cls=edge glass-3 at-top      utilities on the panel (hud/styles/at_ui.css, "Tailwind for CS2")
+//   cls.title=text-2xl tc-live   utilities on one part: brand kind title sub hint timer counter
+//                                teams confirm lines cmds buttons close flow b0..b7
 //   btn=CT|ct||.ct               a button, up to 8: label | tone | state | command [| count]
 //                                tone: green ct t warn danger ghost; state: picked | off | pulse | (none)
 //                                (pulse: the one button waiting for this player breathes)
@@ -52,6 +64,10 @@ struct Screen {
   std::vector<std::pair<std::string, std::string>> cmds;  // label, command
   std::vector<std::pair<std::string, std::string>> lines;  // label, value
   bool mini = false;
+  std::string fx;    // enter; empty: picked from the screen (RenderScreen)
+  std::string exit;  // empty: follows the entrance (ExitOf)
+  std::vector<std::pair<std::string, std::string>> utils;  // (part, "" = the panel; utility class)
+  bool wash = true, pixels = true, blur = true;
   std::vector<Button> buttons;
   int cols = 0;
   std::string bw = "m";
@@ -79,5 +95,16 @@ std::vector<Write> RenderScreen(const Screen& s, const std::string& p);
 // The panel a button id belongs to and the button's index: "ui_mid_b3" -> ("ui_mid", 3); the close
 // button -> index -1. False when the id is not one of ours.
 bool ParseButtonId(const std::string& id, std::string* panel, int* index);
+
+// The spec's utilities as (element id, class) for panel `p`: cls= on the panel, cls.<part>= on
+// that part. Names are [a-z0-9-] only; unknown parts are dropped.
+std::vector<std::pair<std::string, std::string>> Utilities(const Screen& s, const std::string& p);
+
+// The enter class RenderScreen picks ("fx-open" ...) and the exit class to leave with ("out-close" ...).
+std::string EnterOf(const Screen& s, const std::string& p);
+std::string ExitOf(const Screen& s, const std::string& p);
+
+// Every exit class, to clear them when the next screen comes in.
+const std::vector<std::string>& ExitClasses();
 
 }  // namespace hud

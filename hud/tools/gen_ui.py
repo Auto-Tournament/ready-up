@@ -14,8 +14,10 @@ half). The server fills fixed slots, so new screens need no addon update:
   close     <p>_close with _l                                              (has-close)
 
 <p> is ui_card or ui_mid. Panel classes: on, c-live / c-warn / c-ban / c-muted (accent default),
-mini (the card as a one-line pill), fx-open / fx-flip / fx-alert (how the centre panel enters),
-urgent (5 s or less on the timer). Buttons: pulse (the one waiting). Counter / kind: bump (briefly).
+mini (the card as a one-line pill), fx-<enter>, leaving + out-<exit>, urgent (5 s or less on the
+timer), and any utility from the spec's cls= (at_ui.css, "Tailwind for CS2"). Parts with ids take
+cls.<part>= utilities: _brand _kind _title _sub _hint _timer _counter _teams _confirm _lines _cmds
+_buttons _close _flow _b0.._b7. Buttons: pulse (the one waiting). Counter / kind: bump (briefly).
 Button ids are what CS_UM_CustomHudClicked carries back. Run after changing the structure:
 python hud/tools/gen_ui.py
 """
@@ -42,27 +44,27 @@ def button(id_, cls, children):
 
 
 def block(p):
-    brand = panel(cls="ui-brand", children=panel(cls="ui-logo") + label(cls="ui-brandname", text="AUTO TOURNAMENT"))
-    teams = panel(cls="ui-teams", children="".join(
+    brand = panel(f"{p}_brand", "ui-brand", children=panel(cls="ui-logo") + label(cls="ui-brandname", text="AUTO TOURNAMENT"))
+    teams = panel(f"{p}_teams", "ui-teams", children="".join(
         panel(cls="ui-team", children=label(f"{p}_t{t}", "ui-teamname") + "".join(panel(f"{p}_d{t}{n}", "ui-dot") for n in range(5)))
         for t in "AB"))
-    confirm = panel(cls="ui-confirm", children="".join(
+    confirm = panel(f"{p}_confirm", "ui-confirm", children="".join(
         panel(f"{p}_c{n}", "ui-chipbox", label(f"{p}_c{n}_team", "ui-chipteam") + label(f"{p}_c{n}_state", "ui-chipstate"))
         for n in range(2)))
-    cmds = panel(cls="ui-cmds", children="".join(
+    cmds = panel(f"{p}_cmds", "ui-cmds", children="".join(
         panel(f"{p}_k{n}", "ui-cmd", label(f"{p}_k{n}_l", "ui-cmdlabel") + panel(cls="ui-kbd", children=label(f"{p}_k{n}_c", "ui-kbdtext")))
         for n in range(3)))
-    rows = panel(cls="ui-lines", children="".join(
+    rows = panel(f"{p}_lines", "ui-lines", children="".join(
         panel(f"{p}_n{n}", "ui-row", label(f"{p}_n{n}_k", "ui-rowk") + label(f"{p}_n{n}_v", "ui-rowv"))
         for n in range(5)))
-    buttons = panel(cls="ui-buttons", children="".join(
+    buttons = panel(f"{p}_buttons", "ui-buttons", children="".join(
         button(f"{p}_b{n}", "ui-btn", panel(cls="ui-btnglow") + label(f"{p}_b{n}_l", "ui-btnlabel") + label(f"{p}_b{n}_s", "ui-btnsub"))
         for n in range(8)))
     close = button(f"{p}_close", "ui-close", label(f"{p}_close_l", "ui-closelabel"))
     # Behind the content: a wash of the accent from the left and a few breathing pixels (cs2-ui-kit).
     back = panel(cls="ui-wash") + panel(cls="ui-pixels", children="".join(
         panel(cls=f"ui-px p{n} px-{'abcd'[n % 4]}") for n in range(8)))
-    flow = panel(cls="ui-flow", children=(
+    flow = panel(f"{p}_flow", "ui-flow", children=(
         brand + label(f"{p}_kind", "ui-kind") + label(f"{p}_title", "ui-title") + label(f"{p}_sub", "ui-sub")
         + teams + confirm + rows + cmds + buttons + close + label(f"{p}_hint", "ui-hint")))
     extras = label(f"{p}_timer", "ui-timer") + label(f"{p}_counter", "ui-counter") + panel(cls="ui-line") + panel(cls="ui-flash")

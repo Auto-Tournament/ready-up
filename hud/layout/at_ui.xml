@@ -21,15 +21,15 @@
 <Panel class="ui-px p6 px-c" hittest="false" />
 <Panel class="ui-px p7 px-d" hittest="false" />
 </Panel>
-<Panel class="ui-flow" hittest="false">
-<Panel class="ui-brand" hittest="false">
+<Panel id="ui_card_flow" class="ui-flow" hittest="false">
+<Panel id="ui_card_brand" class="ui-brand" hittest="false">
 <Panel class="ui-logo" hittest="false" />
 <Label class="ui-brandname" text="AUTO TOURNAMENT" hittest="false" />
 </Panel>
 <Label id="ui_card_kind" class="ui-kind" text="{s:text}" hittest="false" />
 <Label id="ui_card_title" class="ui-title" text="{s:text}" hittest="false" />
 <Label id="ui_card_sub" class="ui-sub" text="{s:text}" hittest="false" />
-<Panel class="ui-teams" hittest="false">
+<Panel id="ui_card_teams" class="ui-teams" hittest="false">
 <Panel class="ui-team" hittest="false">
 <Label id="ui_card_tA" class="ui-teamname" text="{s:text}" hittest="false" />
 <Panel id="ui_card_dA0" class="ui-dot" hittest="false" />
@@ -47,7 +47,7 @@
 <Panel id="ui_card_dB4" class="ui-dot" hittest="false" />
 </Panel>
 </Panel>
-<Panel class="ui-confirm" hittest="false">
+<Panel id="ui_card_confirm" class="ui-confirm" hittest="false">
 <Panel id="ui_card_c0" class="ui-chipbox" hittest="false">
 <Label id="ui_card_c0_team" class="ui-chipteam" text="{s:text}" hittest="false" />
 <Label id="ui_card_c0_state" class="ui-chipstate" text="{s:text}" hittest="false" />
@@ -57,7 +57,7 @@
 <Label id="ui_card_c1_state" class="ui-chipstate" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
-<Panel class="ui-lines" hittest="false">
+<Panel id="ui_card_lines" class="ui-lines" hittest="false">
 <Panel id="ui_card_n0" class="ui-row" hittest="false">
 <Label id="ui_card_n0_k" class="ui-rowk" text="{s:text}" hittest="false" />
 <Label id="ui_card_n0_v" class="ui-rowv" text="{s:text}" hittest="false" />
@@ -79,7 +79,7 @@
 <Label id="ui_card_n4_v" class="ui-rowv" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
-<Panel class="ui-cmds" hittest="false">
+<Panel id="ui_card_cmds" class="ui-cmds" hittest="false">
 <Panel id="ui_card_k0" class="ui-cmd" hittest="false">
 <Label id="ui_card_k0_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
 <Panel class="ui-kbd" hittest="false">
@@ -99,7 +99,7 @@
 </Panel>
 </Panel>
 </Panel>
-<Panel class="ui-buttons" hittest="false">
+<Panel id="ui_card_buttons" class="ui-buttons" hittest="false">
 <Button id="ui_card_b0" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_card_b0_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
@@ -165,15 +165,15 @@
 <Panel class="ui-px p6 px-c" hittest="false" />
 <Panel class="ui-px p7 px-d" hittest="false" />
 </Panel>
-<Panel class="ui-flow" hittest="false">
-<Panel class="ui-brand" hittest="false">
+<Panel id="ui_mid_flow" class="ui-flow" hittest="false">
+<Panel id="ui_mid_brand" class="ui-brand" hittest="false">
 <Panel class="ui-logo" hittest="false" />
 <Label class="ui-brandname" text="AUTO TOURNAMENT" hittest="false" />
 </Panel>
 <Label id="ui_mid_kind" class="ui-kind" text="{s:text}" hittest="false" />
 <Label id="ui_mid_title" class="ui-title" text="{s:text}" hittest="false" />
 <Label id="ui_mid_sub" class="ui-sub" text="{s:text}" hittest="false" />
-<Panel class="ui-teams" hittest="false">
+<Panel id="ui_mid_teams" class="ui-teams" hittest="false">
 <Panel class="ui-team" hittest="false">
 <Label id="ui_mid_tA" class="ui-teamname" text="{s:text}" hittest="false" />
 <Panel id="ui_mid_dA0" class="ui-dot" hittest="false" />
@@ -191,7 +191,7 @@
 <Panel id="ui_mid_dB4" class="ui-dot" hittest="false" />
 </Panel>
 </Panel>
-<Panel class="ui-confirm" hittest="false">
+<Panel id="ui_mid_confirm" class="ui-confirm" hittest="false">
 <Panel id="ui_mid_c0" class="ui-chipbox" hittest="false">
 <Label id="ui_mid_c0_team" class="ui-chipteam" text="{s:text}" hittest="false" />
 <Label id="ui_mid_c0_state" class="ui-chipstate" text="{s:text}" hittest="false" />
@@ -201,7 +201,7 @@
 <Label id="ui_mid_c1_state" class="ui-chipstate" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
-<Panel class="ui-lines" hittest="false">
+<Panel id="ui_mid_lines" class="ui-lines" hittest="false">
 <Panel id="ui_mid_n0" class="ui-row" hittest="false">
 <Label id="ui_mid_n0_k" class="ui-rowk" text="{s:text}" hittest="false" />
 <Label id="ui_mid_n0_v" class="ui-rowv" text="{s:text}" hittest="false" />
@@ -223,7 +223,7 @@
 <Label id="ui_mid_n4_v" class="ui-rowv" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
-<Panel class="ui-cmds" hittest="false">
+<Panel id="ui_mid_cmds" class="ui-cmds" hittest="false">
 <Panel id="ui_mid_k0" class="ui-cmd" hittest="false">
 <Label id="ui_mid_k0_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
 <Panel class="ui-kbd" hittest="false">
@@ -243,7 +243,7 @@
 </Panel>
 </Panel>
 </Panel>
-<Panel class="ui-buttons" hittest="false">
+<Panel id="ui_mid_buttons" class="ui-buttons" hittest="false">
 <Button id="ui_mid_b0" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_mid_b0_l" class="ui-btnlabel" text="{s:text}" hittest="false" />

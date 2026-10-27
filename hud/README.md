@@ -52,8 +52,25 @@ Server code doesn't write these slots itself. It calls `readyup.hud.v1` `screen(
 animations, and owns the cursor. A button click runs the button's chat command as if the player
 had typed it.
 
-Try it without a match: `ru hudkit demo <screen> [slot]` (`ru hudkit demo` lists the screens), or
+Try it without a match: `.ru hudkit tour` in chat steps through every screen (`pause`, `next`,
+`back`, `stop`); `ru hudkit demo <screen> [slot]` shows one (`ru hudkit demo` lists them); or
 `ru hudkit screen <slot> title=Hi;btn=OK|green||.r;mouse=on`.
+
+### Utilities ("Tailwind for CS2")
+
+Every look the HUD can have ships in `styles/at_ui.css` once; the server picks per screen, so a new
+look needs no publish. In the spec:
+
+| key | what | values |
+|---|---|---|
+| `enter=` | how it arrives | `open` `flip` `alert` `slide` `slide-left` `pop` `zoom` `fade` `rise` `drop` `none` |
+| `exit=` | how it leaves | `fade` `close` `slide` `slide-left` `shrink` `drop` `rise` `flip` `none` |
+| `cls=` | utilities on the panel | motion `speed-fast` `speed-slow` `delay-1..3` `flash` `flash-twice` `no-flash`; glass `glass-1..3`; surface `bg-soft` `bg-solid` `bg-clear` `edge` `round-s` `round-l` `no-line` `no-brand` `no-wash` `no-px`; size `w-280` `w-340` `w-420` `w-520` `w-640` `w-760` `w-fit` `pad-s` `pad-l`; place `at-right` `at-low` `at-center` `at-top` `at-left` |
+| `cls.<part>=` | utilities on one part (`brand kind title sub hint timer counter teams confirm lines cmds buttons close flow b0..b7`) | text `text-xs` `text-s` `text-m` `text-l` `text-xl` `text-2xl` `bold` `normal` `upper` `mono` `left` `center` `right`; colour `tc-ink` `tc-dim` `tc-faint` `tc-acc` `tc-live` `tc-warn` `tc-ban` `tc-ct` `tc-t`; `breathe` `blink` `hide`; buttons `pulse` `glow` `btn-s` `btn-l` |
+| `color=` | accent | `acc` `live` `warn` `ban` `muted` `ct` `t` |
+
+Defaults: the card slides, the ready pill pops, a decision flips, red alerts flash, the rest opens;
+each leaves the way it came. Example: `enter=drop;exit=rise;cls=at-top edge glass-3;cls.title=text-2xl tc-live`.
 
 ## `at_kit`: the Auto Tournament HUD
 
