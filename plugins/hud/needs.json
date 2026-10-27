@@ -19,6 +19,7 @@
     "run_chat_command",
     "schema_offset",
     "subscribe",
+    "subscribe_game_event",
     "surface_rtti_vtable"
   ],
   "surface": [
@@ -49,5 +50,7 @@
     "CCSCustomHudLayout.m_bObservable",
     "CCSCustomHudLayoutState.m_bInputCaptureEnabled"
   ],
-  "events": []
+  "events": [
+    "round_prestart"
+  ]
 }

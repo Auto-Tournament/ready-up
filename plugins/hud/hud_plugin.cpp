@@ -181,13 +181,20 @@ std::vector<Layout> g_layouts;  // handle id = index + 1
 bool g_straysCleared = false;
 double g_now = 0;
 double g_mapStartedAt = -1;
+// A round restart (round_prestart, then CleanUpMap) deletes map entities, ours included. Marking
+// a dying entity changed puts it in the next snapshot after it is freed, and the engine dies
+// ("WriteEnterPVS: GetEntServerClass failed"). So the entity is left alone for a moment; state
+// set meanwhile is kept and pushed again afterwards.
+double g_pauseUntil = -1;
+bool g_repushAfterPause = false;
+bool Paused() { return g_now < g_pauseUntil; }
 std::map<int, std::vector<double>> g_resendAt;  // slot -> times to push its state again
 std::vector<std::pair<double, std::function<void()>>> g_later;  // work to run at a time (game thread)
 std::mutex g_statusMu;                           // guards g_selftestLine for `ru selftest`
 std::string g_selftestLine = "not resolved";
 
 void* EntityOf(Layout& l) {
-  if (l.handle == kNoHandle) return nullptr;
+  if (l.handle == kNoHandle || Paused()) return nullptr;
   void* e = g_api->entity_from_handle(g_api->self, l.handle);
   const char* cn = e ? g_api->entity_classname(g_api->self, e) : nullptr;
   if (!cn || std::strcmp(cn, kClass) != 0) {
@@ -316,6 +323,7 @@ bool Push(Layout& l, void* e, int onlySlot) {
 
 // The entity for `l`, created (and filled) when missing. nullptr while it cannot exist yet.
 void* Ensure(Layout& l) {
+  if (Paused()) return nullptr;
   if (void* e = EntityOf(l)) return e;
   Resolve();
   if (!g_eng.ok) return nullptr;
@@ -866,9 +874,14 @@ void OnTick(void*, const ru_tick_info* t) {
     }
     it = times.empty() ? g_resendAt.erase(it) : std::next(it);
   }
+  if (g_repushAfterPause && !Paused()) {
+    g_repushAfterPause = false;
+    for (auto& l : g_layouts)
+      if (void* e = EntityOf(l)) Push(l, e, -2);  // it survived the restart: catch up
+  }
   for (auto& l : g_layouts) {
     void* e = EntityOf(l);
-    if (!e && !l.slots.empty()) e = Ensure(l);  // recreate after a map change
+    if (!e && !l.slots.empty()) e = Ensure(l);  // recreate after a map change or round restart
     if (e && l.changed) {
       g_api->entity_mark_changed(g_api->self, e);
       l.changed = false;
@@ -876,6 +889,11 @@ void OnTick(void*, const ru_tick_info* t) {
   }
   std::lock_guard<std::mutex> lk(g_statusMu);
   g_selftestLine = g_eng.status + "; " + std::to_string(g_layouts.size()) + " layout(s)";
+}
+
+void OnRoundPrestart(void*, const char*, const ru_game_event*) {
+  g_pauseUntil = g_now + 1.0;
+  g_repushAfterPause = true;
 }
 
 void OnEvent(void*, const ru_event* ev) {
@@ -1270,7 +1288,11 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_buyOpen.clear();
   g_straysCleared = false;
   g_mapStartedAt = -1;
+  g_pauseUntil = -1;
+  g_repushAfterPause = false;
   api->on_tick(api->self, &OnTick, nullptr);
+  if (!api->subscribe_game_event(api->self, "round_prestart", &OnRoundPrestart, nullptr))
+    ru_logf(api, RU_LOG_WARN, "round_prestart not available: a round restart may crash the server while a HUD is shown");
   api->subscribe(api->self, RU_EVENT_ANY, &OnEvent, nullptr);
   api->register_ru_subcommand(api->self, "hudkit", &OnRu, nullptr);
   if (RU_API_HAS(api, filter_client_command)) {
