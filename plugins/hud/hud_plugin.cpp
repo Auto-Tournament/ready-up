@@ -986,8 +986,15 @@ void OnTick(void*, const ru_tick_info* t) {
 }
 
 void OnRoundPrestart(void*, const char*, const ru_game_event*) {
-  g_pauseUntil = g_now + 1.0;
+  g_pauseUntil = std::max(g_pauseUntil, g_now + 1.0);
   g_repushAfterPause = true;
+}
+
+// The map cleanup is done by round_poststart: the pause ends a few frames later instead of a
+// full second, so cards sent at round_start (the damage report) show at once (2026-10-27: ~1 s
+// late). A longer pause (BeginMatch's) is left alone.
+void OnRoundPoststart(void*, const char*, const ru_game_event*) {
+  if (g_pauseUntil > g_now && g_pauseUntil <= g_now + 1.0) g_pauseUntil = g_now + 0.1;
 }
 
 // Long enough for match.so's fallback restart (3 s, modes.h ModesObserveBeginMatch), whose
@@ -1255,7 +1262,6 @@ const std::vector<std::pair<std::string, std::string>>& DemoScreens() {
       {"timeup", "id=sides\ncolor=muted\nkind=Time is up\ntitle=Team A stays CT"},
       {"halftime", "id=half\nkind=Halftime\ntitle=Sides switch\nsub=7 - 5"},
       {"overtime", "id=ot\nkind=Overtime 1\ntitle=First to 4"},
-      {"damage", "id=damage\nwhere=card\nkind=Round 14\ntitle=160 damage\nline=Oli|100 \xC2\xB7 2 hits\nline=Frank|60 \xC2\xB7 1 hit\nline=Niles|0 \xC2\xB7 took 74"},
       {"pausepending", "id=notice\nwhere=card\ncolor=warn\nkind=Tech pause\ntitle=Pausing at the end of this round"},
       {"notimeouts", "id=notice\nwhere=card\ncolor=ban\nkind=Timeout\ntitle=No timeouts left\nsub=Team A used 3 / 3"},
       {"notech", "id=notice\nwhere=card\ncolor=ban\nkind=Tech pause\ntitle=No tech pauses left\nsub=Team A used 3 / 3"},
@@ -1406,13 +1412,13 @@ std::string DevLabel(const std::string& id) {
       {"mapresult", "Map result card"}, {"seriesresult", "Series result card"}, {"mapvote", "Map veto"},
       {"teamready", "Warmup: team ready"}, {"joinateam", "Warmup: join a team"}, {"spectating", "Warmup: spectating"},
       {"coach", "Warmup: coach"}, {"sidechosen", "Sides chosen"}, {"timeup", "Side pick timed out"},
-      {"halftime", "Halftime"}, {"overtime", "Overtime"}, {"damage", "Round damage"},
+      {"halftime", "Halftime"}, {"overtime", "Overtime"},
       {"pausepending", "Pause next freeze"}, {"notimeouts", "No timeouts left"}, {"notech", "No tech pauses left"},
       {"dropped", "Player dropped"}, {"missingours", "Our team missing"}, {"unpausing", "Unpausing"},
       {"admincalled", "Admin on the way"}, {"toosoon", "Admin: called already"}, {"notnow", "Not now (warmup)"},
       {"asay", "Admin message"}, {"tournament", "Tournament message"}, {"restored", "Round restored"},
       {"forcestart", "Admin force start"}, {"adminended", "Match ended (admin)"}, {"nextmap", "Next map"},
-      {"gg", "Server closing"}, {"download", "Map downloading"}, {"kit:damage", "Old: damage card"},
+      {"gg", "Server closing"}, {"download", "Map downloading"}, {"kit:damage", "Round damage"},
       {"kit:end", "Leaderboard: won"}, {"kit:endlost", "Leaderboard: lost"}, {"kit:next", "Old: next map card"},
   };
   const auto it = kLabels.find(id);
@@ -1804,6 +1810,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   api->on_tick(api->self, &OnTick, nullptr);
   if (!api->subscribe_game_event(api->self, "round_prestart", &OnRoundPrestart, nullptr))
     ru_logf(api, RU_LOG_WARN, "round_prestart not available: a round restart may crash the server while a HUD is shown");
+  if (!api->subscribe_game_event(api->self, "round_poststart", &OnRoundPoststart, nullptr))
+    ru_logf(api, RU_LOG_WARN, "round_poststart not available: cards wait 1 s after a round restart");
   // CS2's BeginMatch (a warmup ending) cleans up the map too, sometimes with no round_prestart
   // after it (surf_utopia_njv, 2026-10-27: "WriteEnterPVS" on a team change). Same pause.
   if (!api->subscribe_game_event(api->self, "begin_new_match", &OnBeginMatch, nullptr))

@@ -53,6 +53,7 @@
   ],
   "events": [
     "begin_new_match",
+    "round_poststart",
     "round_prestart"
   ]
 }
