@@ -167,8 +167,7 @@ std::string OneLine(const std::string& s) {
   int gap = 0;  // 1: a space before the next word, 2: a line break (", ")
   for (char c : s) {
     if (std::isspace(static_cast<unsigned char>(c))) {
-      gap = std::max(gap, c == '
-' ? 2 : 1);
+      gap = std::max(gap, c == '\n' ? 2 : 1);
       continue;
     }
     if (!out.empty() && gap) out += gap == 2 && out.back() != ',' && out.back() != '.' ? ", " : " ";
