@@ -621,3 +621,16 @@
 .at-end .at-erow.rh-44 { height: 44px; }
 .at-end .at-erow.rh-46 { height: 46px; }
 .at-end .at-erow.rh-48 { height: 48px; }
+
+/* ---- icons -------------------------------------------------------------------------------
+   ico-<name> on any part draws that white icon (hud/images/at_ico_*.png, hud/tools/gen_icons.py):
+   elim bomb defuse time star check cross pause skull. The part's text is best left empty. */
+.at-end .ico-elim { background-image: url( "s2r://panorama/images/custom_game/at_ico_elim.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-bomb { background-image: url( "s2r://panorama/images/custom_game/at_ico_bomb.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-defuse { background-image: url( "s2r://panorama/images/custom_game/at_ico_defuse.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-time { background-image: url( "s2r://panorama/images/custom_game/at_ico_time.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-star { background-image: url( "s2r://panorama/images/custom_game/at_ico_star.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-check { background-image: url( "s2r://panorama/images/custom_game/at_ico_check.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-cross { background-image: url( "s2r://panorama/images/custom_game/at_ico_cross.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-pause { background-image: url( "s2r://panorama/images/custom_game/at_ico_pause.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-skull { background-image: url( "s2r://panorama/images/custom_game/at_ico_skull.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }

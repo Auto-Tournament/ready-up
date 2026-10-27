@@ -781,3 +781,16 @@
 .ui-root .ui-panel.bga-90 { background-color: #140e0ce6; }
 .ui-root .ui-panel.bga-95 { background-color: #140e0cf2; }
 .ui-root .ui-panel.bga-100 { background-color: #140e0cff; }
+
+/* ---- icons -------------------------------------------------------------------------------
+   ico-<name> on any part draws that white icon (hud/images/at_ico_*.png, hud/tools/gen_icons.py):
+   elim bomb defuse time star check cross pause skull. The part's text is best left empty. */
+.ui-root .ico-elim { background-image: url( "s2r://panorama/images/custom_game/at_ico_elim.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-bomb { background-image: url( "s2r://panorama/images/custom_game/at_ico_bomb.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-defuse { background-image: url( "s2r://panorama/images/custom_game/at_ico_defuse.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-time { background-image: url( "s2r://panorama/images/custom_game/at_ico_time.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-star { background-image: url( "s2r://panorama/images/custom_game/at_ico_star.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-check { background-image: url( "s2r://panorama/images/custom_game/at_ico_check.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-cross { background-image: url( "s2r://panorama/images/custom_game/at_ico_cross.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-pause { background-image: url( "s2r://panorama/images/custom_game/at_ico_pause.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-skull { background-image: url( "s2r://panorama/images/custom_game/at_ico_skull.vtex" ); background-size: 64% 64%; background-position: 50% 50%; background-repeat: no-repeat; }

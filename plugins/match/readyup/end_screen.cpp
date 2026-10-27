@@ -182,6 +182,7 @@ const char* const kTints[] = {"tint-none", "tint-acc", "tint-ink", "tint-ban", "
 const char* const kTags[] = {"tag-acc", "tag-muted", "tag-live", "tag-ban"};
 const char* const kWidthsCw[] = {"cw-xs", "cw-s", "cw-m", "cw-l", "cw-xl", "cw-off"};
 const char* const kLines[] = {"line-acc", "line-ban", "line-muted", "line-live"};
+const char* const kIcons[] = {"ico-elim", "ico-bomb", "ico-defuse", "ico-time"};
 
 struct Writer {
   const ru_hud_v1* h;
@@ -259,10 +260,13 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
     w.Class(ALL, r, "on", has);
     if (!has) continue;
     const EndScreenRound& x = d.rounds[static_cast<size_t>(i)];
-    const std::string letter(1, x.how);
+    // An icon for how it ended (ico-*, hud/tools/gen_icons.py), no letter.
+    const char* icon = x.how == 'B' ? "ico-bomb" : x.how == 'D' ? "ico-defuse" : x.how == 'T' ? "ico-time" : "ico-elim";
     w.Class(ALL, r, "half", x.halfBefore);
-    w.Text(ALL, r + "_u", x.winner == 1 ? letter : "");
-    w.Text(ALL, r + "_d", x.winner == 2 ? letter : "");
+    w.Text(ALL, r + "_u", "");
+    w.Text(ALL, r + "_d", "");
+    w.Only(ALL, r + "_u", kIcons, x.winner == 1 ? icon : nullptr);
+    w.Only(ALL, r + "_d", kIcons, x.winner == 2 ? icon : nullptr);
   }
   w.Class(ALL, "at_erounds", "hide", d.rounds.empty());
   for (int i = 0; i < 4; ++i) {
