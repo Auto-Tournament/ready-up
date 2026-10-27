@@ -305,7 +305,9 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
   const bool mid = HudMidRound();
   std::set<int> present;
   for (const auto& h : ListHumans()) {
-    const int slot = h.slot;
+    // The log `<N>` is the slot in CS2: a player who just joined is drawn at once, not after the
+    // first event that names their slot (the warmup card came seconds late, 2026-10-27).
+    const int slot = h.slot >= 0 ? h.slot : h.userid;
     if (h.steamid64 == 0 || slot < 0 || slot > 63) continue;
     present.insert(slot);
     std::string spec;
