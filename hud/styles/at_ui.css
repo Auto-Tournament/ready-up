@@ -25,7 +25,7 @@
 .ui-card
 {
 	horizontal-align: right; vertical-align: bottom; margin-right: 24px; margin-bottom: 320px;
-	width: 420px; transform: translateX( 48px );
+	width: 420px; transform: translateX( 460px );
 }
 .ui-mid
 {
@@ -223,3 +223,108 @@
 .ui-card.mini .ui-buttons { vertical-align: center; width: fit-children; margin-top: 0px; margin-left: 4px; }
 .ui-card.mini .ui-btn { width: 110px; height: 36px; margin: 0px; border-radius: 18px; }
 .ui-card.mini .ui-btnlabel { font-size: 14px; }
+
+/* ---- Motion -----------------------------------------------------------------------------------
+   Borrowed from CS2's own HUD (A-J) and from cs2-ui-kit (K-M, MIT, github.com/nvmxre/cs2-ui-kit).
+   Our own CSS; only the techniques are theirs. Design board: "Motion borrowed from CS2".
+   Custom HUD rules (cs2-ui-kit GOTCHAS): keyframes that move transform never run here, so every
+   move is a transition fired by a class; keyframes are only used on opacity; an animation and a
+   transition never share a property on one panel; keyframe names are quoted. */
+
+/* A: the centre panel unfolds sideways from its middle; a white flash fades off; the title settles
+   from 1.5x (round win panel). */
+.ui-mid.fx-open { transform: scale3d( 0, 1, 1 ); }
+.ui-mid.fx-open.on { transform: scale3d( 1, 1, 1 ); transition-duration: 0.25s; transition-timing-function: ease-in; }
+.ui-mid.fx-open .ui-title { transform: scale3d( 1.5, 1.5, 1 ); }
+.ui-mid.fx-open.on .ui-title
+{
+	transform: scale3d( 1, 1, 1 );
+	transition-property: transform; transition-duration: 0.35s; transition-delay: 0.15s; transition-timing-function: ease-out;
+}
+.ui-flash { width: 100%; height: 100%; background-color: #ffffff; opacity: 0; }
+@keyframes 'at-flash' { 0% { opacity: 0.85; } 45% { opacity: 0.85; } 100% { opacity: 0; } }
+.ui-mid.fx-open.on .ui-flash { animation-name: at-flash; animation-duration: 0.5s; animation-timing-function: ease-in; animation-iteration-count: 1; }
+
+/* B: a decision tips forward from flat, shrinks from 1.7x, bright to normal (pick/ban phase). */
+.ui-mid.fx-flip { transform: translateY( 10px ) rotateX( 90deg ) scale3d( 1.7, 1.7, 1 ); brightness: 3; }
+.ui-mid.fx-flip.on
+{
+	transform: translateY( 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); brightness: 1;
+	transition-property: opacity, transform, brightness; transition-duration: 0.4s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+
+/* F: an alert gets a white wash as it lands, twice (centre alerts). */
+.ui-mid.fx-alert { transform: translateY( 28px ); }
+@keyframes 'at-alert' { 0% { opacity: 0; } 8% { opacity: 0.85; } 22% { opacity: 0; } 36% { opacity: 0.6; } 52% { opacity: 0; } 100% { opacity: 0; } }
+.ui-mid.fx-alert.on .ui-flash { animation-name: at-alert; animation-duration: 1s; animation-timing-function: linear; animation-iteration-count: 1; }
+.ui-card.c-ban.on .ui-flash { animation-name: at-alert; animation-duration: 1s; animation-timing-function: linear; animation-iteration-count: 1; }
+
+/* I: the card slides all the way in from the right edge (vote panel): .ui-card's translate above. */
+
+/* E: the ready pill comes in at half size and overshoots before it settles (instructor hint). */
+.ui-card.mini { transform: scale3d( 0.5, 0.5, 1 ); }
+.ui-card.mini.on
+{
+	transform: scale3d( 1, 1, 1 );
+	transition-property: opacity, transform; transition-duration: 0.35s;
+	transition-timing-function: cubic-bezier( 0.3, 1.6, 0.5, 1 );
+}
+
+/* C: a click flashes the button bright before its ring settles (map draft). The bump to 1.06 is the
+   .picked transition above; the flash is the glow layer, opacity only. */
+.ui-btnglow { width: 100%; height: 100%; border-radius: 24px; background-color: #ffffff; opacity: 0; }
+@keyframes 'at-press' { 0% { opacity: 0; } 30% { opacity: 0.55; } 100% { opacity: 0; } }
+.ui-btn.picked .ui-btnglow { animation-name: at-press; animation-duration: 0.45s; animation-timing-function: ease-out; animation-iteration-count: 1; }
+
+/* D: the one button waiting for this player breathes (pick/ban active button), as a soft glow. */
+@keyframes 'at-needs' { 0% { opacity: 0; } 50% { opacity: 0.22; } 100% { opacity: 0; } }
+.ui-btn.pulse .ui-btnglow { animation-name: at-needs; animation-duration: 1.2s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+
+/* G: the last 5 seconds of a countdown turn red and breathe (bomb timer). */
+@keyframes 'at-breathe' { 0% { opacity: 0.45; } 50% { opacity: 1; } 100% { opacity: 0.45; } }
+.urgent .ui-timer { color: #f2645f; animation-name: at-breathe; animation-duration: 0.5s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+
+/* H: a count that changed pops from 1.6x and eases back (money change): the server sets bump for a
+   moment; it jumps (no transition) and eases back when the class goes. */
+.ui-counter { transform: scale3d( 1, 1, 1 ); transition-property: transform; transition-duration: 0.4s; transition-timing-function: ease-out; }
+.ui-kind { transform: scale3d( 1, 1, 1 ); }
+.ui-card.mini .ui-kind { transition-property: color, transform; transition-duration: 0.3s, 0.4s; transition-timing-function: ease-out; }
+.bump { transform: scale3d( 1.6, 1.6, 1 ); transition-duration: 0s; }
+
+/* J + K: frosted glass. The game blurs behind every panel (cs2-ui-kit toasts, CS2's win panel). */
+.ui-panel { world-blur: gaussian( 6, 6, 1 ); }
+
+/* L: a soft wash of the accent from the left edge (cs2-ui-kit toasts). */
+.ui-wash { width: 100%; height: 100%; background-color: gradient( linear, 0% 0%, 100% 0%, from( #ff6a3d26 ), color-stop( 0.5, #ff6a3d00 ), to( #ff6a3d00 ) ); }
+.c-live .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #3fc16826 ), color-stop( 0.5, #3fc16800 ), to( #3fc16800 ) ); }
+.c-warn .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #e6b33c26 ), color-stop( 0.5, #e6b33c00 ), to( #e6b33c00 ) ); }
+.c-ban .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #f2645f2e ), color-stop( 0.5, #f2645f00 ), to( #f2645f00 ) ); }
+.c-muted .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #938a871f ), color-stop( 0.5, #938a8700 ), to( #938a8700 ) ); }
+
+/* M: a few pixels of the accent breathe on their own cycles in the top right (cs2-ui-kit toasts). */
+.ui-pixels { width: 100%; height: 100%; }
+@keyframes 'at-px' { 0% { opacity: 0; } 50% { opacity: 0.32; } 100% { opacity: 0; } }
+.ui-px
+{
+	opacity: 0; background-color: #ff6a3d;
+	animation-name: at-px; animation-timing-function: ease-in-out; animation-iteration-count: infinite;
+}
+.c-live .ui-px { background-color: #3fc168; }
+.c-warn .ui-px { background-color: #e6b33c; }
+.c-ban .ui-px { background-color: #f2645f; }
+.c-muted .ui-px { background-color: #938a87; }
+.ui-px.p0 { width: 5px; height: 5px; horizontal-align: right; margin: 14px 120px 0px 0px; }
+.ui-px.p1 { width: 4px; height: 4px; horizontal-align: right; margin: 40px 92px 0px 0px; }
+.ui-px.p2 { width: 6px; height: 6px; horizontal-align: right; margin: 10px 70px 0px 0px; }
+.ui-px.p3 { width: 4px; height: 4px; horizontal-align: right; margin: 52px 58px 0px 0px; }
+.ui-px.p4 { width: 7px; height: 7px; horizontal-align: right; margin: 22px 40px 0px 0px; }
+.ui-px.p5 { width: 4px; height: 4px; horizontal-align: right; margin: 60px 26px 0px 0px; }
+.ui-px.p6 { width: 6px; height: 6px; horizontal-align: right; margin: 12px 14px 0px 0px; }
+.ui-px.p7 { width: 5px; height: 5px; horizontal-align: right; margin: 44px 8px 0px 0px; }
+.px-a { animation-duration: 3.2s; animation-delay: 0s; }
+.px-b { animation-duration: 4.1s; animation-delay: 0.9s; }
+.px-c { animation-duration: 2.7s; animation-delay: 1.6s; }
+.px-d { animation-duration: 3.8s; animation-delay: 2.3s; }
+.ui-card.mini .ui-pixels { visibility: collapse; }
+.ui-card.mini .ui-wash { visibility: collapse; }

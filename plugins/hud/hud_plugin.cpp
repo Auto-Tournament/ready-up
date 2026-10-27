@@ -634,8 +634,21 @@ int IfScreen(int slot, const char* specIn, ru_hud_click_fn onClick, void* user) 
   if (sameId) {
     // New buttons (Ready became Unready) can be clicked again.
     if (ButtonsKey(next) != ButtonsKey(ss.cur)) ss.clicked = false;
+    const bool bump = next.counter != ss.cur.counter || (next.mini && next.kind != ss.cur.kind) ||
+                      next.teamReady[0] != ss.cur.teamReady[0] || next.teamReady[1] != ss.cur.teamReady[1];
     ss.cur = std::move(next);
     if (!ss.dismissed) DrawScreen(slot, ss);
+    if (bump && !ss.dismissed) {
+      // The count changed: pop it (CS2's money change). Keyframes on transform never run in a
+      // custom HUD, so `bump` jumps to 1.6x with no transition and dropping it eases back.
+      const std::string target = PanelOf(ss.cur) + (ss.cur.mini ? "_kind" : "_counter");
+      IfSetClass(h, slot, target.c_str(), "bump", 1);
+      const unsigned gen = ss.gen;
+      g_later.emplace_back(g_now + 0.12, [slot, gen, target] {
+        auto it = g_screens.find(slot);
+        if (it != g_screens.end() && it->second.gen == gen) IfSetClass(IfOpen(kUiLayout), slot, target.c_str(), "bump", 0);
+      });
+    }
     else UpdateCapture(slot);
     return 1;
   }

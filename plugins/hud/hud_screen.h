@@ -18,7 +18,8 @@
 //   line=Format|Best of 3        an info row, up to 5: label | value (a value starting with . is boxed)
 //   size=mini                    card only: a one-line pill (kind, team dots, the first button)
 //   btn=CT|ct||.ct               a button, up to 8: label | tone | state | command [| count]
-//                                tone: green ct t warn danger ghost; state: picked | off | (none)
+//                                tone: green ct t warn danger ghost; state: picked | off | pulse | (none)
+//                                (pulse: the one button waiting for this player breathes)
 //   cols=2                       buttons per row (default: the number of buttons, at most 4)
 //   bw=m                         button width: s m l xl (default m)
 //   close=Close|                 a close / back button: label | command (empty = just hide)

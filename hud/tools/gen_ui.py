@@ -14,7 +14,8 @@ half). The server fills fixed slots, so new screens need no addon update:
   close     <p>_close with _l                                              (has-close)
 
 <p> is ui_card or ui_mid. Panel classes: on, c-live / c-warn / c-ban / c-muted (accent default),
-mini (the card as a one-line pill).
+mini (the card as a one-line pill), fx-open / fx-flip / fx-alert (how the centre panel enters),
+urgent (5 s or less on the timer). Buttons: pulse (the one waiting). Counter / kind: bump (briefly).
 Button ids are what CS_UM_CustomHudClicked carries back. Run after changing the structure:
 python hud/tools/gen_ui.py
 """
@@ -55,14 +56,17 @@ def block(p):
         panel(f"{p}_n{n}", "ui-row", label(f"{p}_n{n}_k", "ui-rowk") + label(f"{p}_n{n}_v", "ui-rowv"))
         for n in range(5)))
     buttons = panel(cls="ui-buttons", children="".join(
-        button(f"{p}_b{n}", "ui-btn", label(f"{p}_b{n}_l", "ui-btnlabel") + label(f"{p}_b{n}_s", "ui-btnsub"))
+        button(f"{p}_b{n}", "ui-btn", panel(cls="ui-btnglow") + label(f"{p}_b{n}_l", "ui-btnlabel") + label(f"{p}_b{n}_s", "ui-btnsub"))
         for n in range(8)))
     close = button(f"{p}_close", "ui-close", label(f"{p}_close_l", "ui-closelabel"))
+    # Behind the content: a wash of the accent from the left and a few breathing pixels (cs2-ui-kit).
+    back = panel(cls="ui-wash") + panel(cls="ui-pixels", children="".join(
+        panel(cls=f"ui-px p{n} px-{'abcd'[n % 4]}") for n in range(8)))
     flow = panel(cls="ui-flow", children=(
         brand + label(f"{p}_kind", "ui-kind") + label(f"{p}_title", "ui-title") + label(f"{p}_sub", "ui-sub")
         + teams + confirm + rows + cmds + buttons + close + label(f"{p}_hint", "ui-hint")))
-    extras = label(f"{p}_timer", "ui-timer") + label(f"{p}_counter", "ui-counter") + panel(cls="ui-line")
-    return panel(p, f"ui-panel ui-{p[3:]}", flow + extras, hit=True)
+    extras = label(f"{p}_timer", "ui-timer") + label(f"{p}_counter", "ui-counter") + panel(cls="ui-line") + panel(cls="ui-flash")
+    return panel(p, f"ui-panel ui-{p[3:]}", back + flow + extras, hit=True)
 
 
 def main():

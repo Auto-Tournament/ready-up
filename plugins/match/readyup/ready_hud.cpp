@@ -452,7 +452,7 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
     title = st.ready ? "Your team is ready" : st.allHere ? "Your team isn't ready" : "Waiting for your team";
     if (!st.allHere) sub = std::to_string(st.here) + " / " + std::to_string(st.total) + " here";
     if (st.ready) btn = "btn=Unready|ghost||.ur\n";
-    else if (st.allHere) btn = "btn=Ready|green||.r\n";
+    else if (st.allHere) btn = "btn=Ready|green|pulse|.r\n";
     for (int t = 0; t < 2; ++t) {
       const TeamHudState& ts = b.teams[t == 0 ? 1 : 0].st;
       total[t] = ts.total;
@@ -461,7 +461,7 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
   } else if (me) {
     ok = me->ready;
     title = me->ready ? "You're ready" : "You're not ready";
-    btn = me->ready ? "btn=Unready|ghost||.ur\n" : "btn=Ready|green||.r\n";
+    btn = me->ready ? "btn=Unready|ghost||.ur\n" : "btn=Ready|green|pulse|.r\n";
   } else {
     title = b.scrim ? "Join CT or T to play" : "Spectating";
   }
@@ -511,7 +511,7 @@ static std::string LiveSpec(const LiveHudInfo& l, int viewerSide) {
     if (onlyPausing && !l.byTeam.empty() && myName != l.byTeam) return s;
     const bool done = mine == WebhookTeam::Team1 ? l.team1Confirmed : l.team2Confirmed;
     if (done) return s + "btn=Waiting for " + (mine == WebhookTeam::Team1 ? t2 : t1) + "|ghost|off|\n" + L("bw", "xl");
-    return s + "btn=Unpause|warn||.up\n" + L("bw", "l") + L("mouse", "on");
+    return s + "btn=Unpause|warn|pulse|.up\n" + L("bw", "l") + L("mouse", "on");
   };
   if (l.paused) {
     if (l.type == "technical") {

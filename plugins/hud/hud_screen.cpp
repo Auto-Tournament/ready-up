@@ -24,6 +24,9 @@ int IntAt(const std::vector<std::string>& v, size_t i, int def) {
 }
 
 const char* const kColours[] = {"c-live", "c-warn", "c-ban", "c-muted"};
+// How the centre panel enters (CS2 motion, at_ui.css): a decision flips in, an alert flashes,
+// everything else opens from the centre. The card always slides in from the right.
+const char* const kFx[] = {"fx-open", "fx-flip", "fx-alert"};
 const char* const kTones[] = {"t-green", "t-ct", "t-t", "t-warn", "t-danger"};
 const char* const kWidths[] = {"bw-s", "bw-m", "bw-l", "bw-xl"};
 
@@ -126,6 +129,11 @@ std::vector<Write> RenderScreen(const Screen& s, const std::string& p) {
   }
 
   cls(p, "mini", s.mini);
+  const bool decision = s.mouse == Mouse::On && !s.buttons.empty() && !s.hasClose;
+  const std::string fx = decision ? "fx-flip" : s.color == "ban" ? "fx-alert" : "fx-open";
+  for (const char* f : kFx) cls(p, f, fx == f);
+  const int secs = s.timer.empty() ? -1 : std::atoi(s.timer.c_str());
+  cls(p, "urgent", secs >= 0 && secs <= 5 && s.timer.find_first_not_of("0123456789") == std::string::npos);
   cls(p, "has-lines", !s.lines.empty());
   for (size_t i = 0; i < 5; ++i) {
     const std::string r = p + "_n" + std::to_string(i);
@@ -173,6 +181,7 @@ std::vector<Write> RenderScreen(const Screen& s, const std::string& p) {
     const std::string tone = btn ? "t-" + btn->tone : std::string();
     for (const char* t : kTones) cls(b, t, btn && btn->state != "off" && tone == t);
     cls(b, "picked", btn && btn->state == "picked");
+    cls(b, "pulse", btn && btn->state == "pulse");
     cls(b, "off", btn && btn->state == "off");
   }
 

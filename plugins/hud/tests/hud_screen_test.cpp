@@ -85,6 +85,22 @@ void TestLinesAndMini() {
   CHECK(On(w, "ui_card_n2", "gone"));
 }
 
+void TestMotionClasses() {
+  // A decision flips in, its waiting button pulses, and 5 s or less on the timer is urgent.
+  auto w = hud::RenderScreen(hud::ParseScreen("title=Which side?\ntimer=4\nbtn=CT|ct|pulse|.ct\nbtn=T|t||.t\nmouse=on\n"), "ui_mid");
+  CHECK(On(w, "ui_mid", "fx-flip"));
+  CHECK(!On(w, "ui_mid", "fx-open"));
+  CHECK(On(w, "ui_mid", "urgent"));
+  CHECK(On(w, "ui_mid_b0", "pulse"));
+  CHECK(!On(w, "ui_mid_b1", "pulse"));
+  // A menu (it has a close button) and a countdown open from the centre; red is an alert.
+  w = hud::RenderScreen(hud::ParseScreen("title=Help\nbtn=Ready|green||.r\nclose=Close|#close\nmouse=on\ntimer=20\n"), "ui_mid");
+  CHECK(On(w, "ui_mid", "fx-open"));
+  CHECK(!On(w, "ui_mid", "urgent"));
+  w = hud::RenderScreen(hud::ParseScreen("title=Team B is missing\ncolor=ban\n"), "ui_mid");
+  CHECK(On(w, "ui_mid", "fx-alert"));
+}
+
 void TestButtonIds() {
   std::string p;
   int i = 0;
@@ -101,6 +117,7 @@ int main() {
   TestRender();
   TestChips();
   TestLinesAndMini();
+  TestMotionClasses();
   TestButtonIds();
   if (g_fail) std::fprintf(stderr, "hud_screen: %d failure(s)\n", g_fail);
   else std::printf("hud_screen: ok\n");

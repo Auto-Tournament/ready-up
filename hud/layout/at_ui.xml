@@ -10,6 +10,17 @@
 	<Panel class="ui-root" hittest="false">
 <Panel class="ui-cardwrap" hittest="false">
 <Panel id="ui_card" class="ui-panel ui-card" hittest="true">
+<Panel class="ui-wash" hittest="false" />
+<Panel class="ui-pixels" hittest="false">
+<Panel class="ui-px p0 px-a" hittest="false" />
+<Panel class="ui-px p1 px-b" hittest="false" />
+<Panel class="ui-px p2 px-c" hittest="false" />
+<Panel class="ui-px p3 px-d" hittest="false" />
+<Panel class="ui-px p4 px-a" hittest="false" />
+<Panel class="ui-px p5 px-b" hittest="false" />
+<Panel class="ui-px p6 px-c" hittest="false" />
+<Panel class="ui-px p7 px-d" hittest="false" />
+</Panel>
 <Panel class="ui-flow" hittest="false">
 <Panel class="ui-brand" hittest="false">
 <Panel class="ui-logo" hittest="false" />
@@ -90,34 +101,42 @@
 </Panel>
 <Panel class="ui-buttons" hittest="false">
 <Button id="ui_card_b0" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_card_b0_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b0_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
 <Button id="ui_card_b1" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_card_b1_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b1_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
 <Button id="ui_card_b2" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_card_b2_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b2_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
 <Button id="ui_card_b3" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_card_b3_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b3_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
 <Button id="ui_card_b4" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_card_b4_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b4_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
 <Button id="ui_card_b5" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_card_b5_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b5_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
 <Button id="ui_card_b6" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_card_b6_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b6_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
 <Button id="ui_card_b7" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_card_b7_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b7_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
@@ -130,10 +149,22 @@
 <Label id="ui_card_timer" class="ui-timer" text="{s:text}" hittest="false" />
 <Label id="ui_card_counter" class="ui-counter" text="{s:text}" hittest="false" />
 <Panel class="ui-line" hittest="false" />
+<Panel class="ui-flash" hittest="false" />
 </Panel>
 </Panel>
 <Panel class="ui-midwrap" hittest="false">
 <Panel id="ui_mid" class="ui-panel ui-mid" hittest="true">
+<Panel class="ui-wash" hittest="false" />
+<Panel class="ui-pixels" hittest="false">
+<Panel class="ui-px p0 px-a" hittest="false" />
+<Panel class="ui-px p1 px-b" hittest="false" />
+<Panel class="ui-px p2 px-c" hittest="false" />
+<Panel class="ui-px p3 px-d" hittest="false" />
+<Panel class="ui-px p4 px-a" hittest="false" />
+<Panel class="ui-px p5 px-b" hittest="false" />
+<Panel class="ui-px p6 px-c" hittest="false" />
+<Panel class="ui-px p7 px-d" hittest="false" />
+</Panel>
 <Panel class="ui-flow" hittest="false">
 <Panel class="ui-brand" hittest="false">
 <Panel class="ui-logo" hittest="false" />
@@ -214,34 +245,42 @@
 </Panel>
 <Panel class="ui-buttons" hittest="false">
 <Button id="ui_mid_b0" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_mid_b0_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b0_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
 <Button id="ui_mid_b1" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_mid_b1_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b1_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
 <Button id="ui_mid_b2" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_mid_b2_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b2_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
 <Button id="ui_mid_b3" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_mid_b3_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b3_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
 <Button id="ui_mid_b4" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_mid_b4_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b4_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
 <Button id="ui_mid_b5" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_mid_b5_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b5_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
 <Button id="ui_mid_b6" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_mid_b6_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b6_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
 <Button id="ui_mid_b7" class="ui-btn">
+<Panel class="ui-btnglow" hittest="false" />
 <Label id="ui_mid_b7_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b7_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
@@ -254,6 +293,7 @@
 <Label id="ui_mid_timer" class="ui-timer" text="{s:text}" hittest="false" />
 <Label id="ui_mid_counter" class="ui-counter" text="{s:text}" hittest="false" />
 <Panel class="ui-line" hittest="false" />
+<Panel class="ui-flash" hittest="false" />
 </Panel>
 </Panel>
 </Panel>
