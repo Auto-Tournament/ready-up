@@ -24,6 +24,7 @@ char HowOf(int reason) {
   switch (reason) {
     case 1: return 'B';   // target bombed
     case 7: return 'D';   // bomb defused
+    case 11: return 'R';  // hostages rescued
     case 12: return 'T';  // target saved (time ran out)
     case 13: return 'T';  // hostages not rescued
     default: return 'E';  // eliminations (and anything else)
@@ -182,7 +183,8 @@ const char* const kTints[] = {"tint-none", "tint-acc", "tint-ink", "tint-ban", "
 const char* const kTags[] = {"tag-acc", "tag-muted", "tag-live", "tag-ban"};
 const char* const kWidthsCw[] = {"cw-xs", "cw-s", "cw-m", "cw-l", "cw-xl", "cw-off"};
 const char* const kLines[] = {"line-acc", "line-ban", "line-muted", "line-live"};
-const char* const kIcons[] = {"ico-elim", "ico-bomb", "ico-defuse", "ico-time"};
+// CS2's scoreboard timeline icons (gamerules_constants dictRoundResultImage).
+const char* const kIcons[] = {"ico-elim", "ico-bomb", "ico-defuse", "ico-time", "ico-hostage"};
 
 struct Writer {
   const ru_hud_v1* h;
@@ -261,7 +263,11 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
     if (!has) continue;
     const EndScreenRound& x = d.rounds[static_cast<size_t>(i)];
     // An icon for how it ended (ico-*, hud/tools/gen_icons.py), no letter.
-    const char* icon = x.how == 'B' ? "ico-bomb" : x.how == 'D' ? "ico-defuse" : x.how == 'T' ? "ico-time" : "ico-elim";
+    const char* icon = x.how == 'B'   ? "ico-bomb"
+                       : x.how == 'D' ? "ico-defuse"
+                       : x.how == 'T' ? "ico-time"
+                       : x.how == 'R' ? "ico-hostage"
+                                      : "ico-elim";
     w.Class(ALL, r, "half", x.halfBefore);
     w.Text(ALL, r + "_u", "");
     w.Text(ALL, r + "_d", "");

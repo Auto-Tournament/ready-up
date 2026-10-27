@@ -38,7 +38,7 @@ struct EndScreenAward {
 };
 struct EndScreenRound {
   int winner = 0;    // team slot 1 / 2
-  char how = 'E';    // E elimination, B bomb, D defuse, T time
+  char how = 'E';    // E elimination, B bomb, D defuse, T time, R hostages rescued
   bool halfBefore = false;
 };
 struct EndScreenData {
