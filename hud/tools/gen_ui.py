@@ -62,7 +62,8 @@ def block(p):
         for n in range(24)))
     close = button(f"{p}_close", "ui-close", label(f"{p}_close_l", "ui-closelabel"))
     # Behind the content: a wash of the accent from the left and a few breathing pixels (cs2-ui-kit).
-    back = panel(cls="ui-wash") + panel(cls="ui-pixels", children="".join(
+    # ui-back doubles the panel background: CS2 draws one layer of it see-through (2026-10-27).
+    back = panel(cls="ui-back") + panel(cls="ui-wash") + panel(cls="ui-pixels", children="".join(
         panel(cls=f"ui-px p{n} px-{'abcd'[n % 4]}") for n in range(8)))
     flow = panel(f"{p}_flow", "ui-flow", children=(
         brand + label(f"{p}_kind", "ui-kind") + label(f"{p}_title", "ui-title") + label(f"{p}_sub", "ui-sub")

@@ -156,7 +156,7 @@ const Column kColumns[] = {
      [](const EndScreenRow& r) { return r.k > r.d ? "tc-pos" : r.k < r.d ? "tc-ban" : "tc-muted"; }},
     {"ADR", "Average damage per round", "Damage dealt, divided by rounds played", "cw-m",
      [](const EndScreenRow& r) { return std::to_string(r.adr); },
-     [](const EndScreenRow& r) { return r.adr >= 100 ? "tc-acc" : "tc-soft"; }},
+     [](const EndScreenRow& r) { return r.adr >= 100 ? "tc-ink" : "tc-soft"; }},
     {"KAST", "KAST", "Rounds with a kill, assist, survival or trade", "cw-l",
      [](const EndScreenRow& r) { return std::to_string(r.kast) + "%"; }, Soft},
     {"HS", "Headshots", "Share of kills that were headshots", "cw-m",
@@ -283,7 +283,7 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
     w.Text(ALL, a + "_l", d.awards[static_cast<size_t>(i)].label);
     w.Text(ALL, a + "_n", d.awards[static_cast<size_t>(i)].name);
     w.Text(ALL, a + "_v", d.awards[static_cast<size_t>(i)].value);
-    w.Only(ALL, a + "_v", kTextTones, "tc-acc");
+    w.Only(ALL, a + "_v", kTextTones, "tc-ink");
   }
   w.Class(ALL, "at_eawards", "hide", d.awards.empty());
   w.Text(ALL, "at_e_where", info.where);
@@ -344,6 +344,15 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
         const std::string r = std::string("at_e") + (t == 0 ? 'a' : 'b') + std::to_string(i);
         w.Only(slot, r, kTints, me ? "tint-acc" : "tint-none");
         w.Class(slot, r + "_n", "bold", me);
+        // The accent is the viewer's alone (von Restorff): their MVP tag in orange, others' grey.
+        // On their orange row every number is ink: grey and red/green fail WCAG AA there (2.9-4.2:1).
+        if (i >= static_cast<int>(v.size())) continue;
+        const EndScreenRow& x = v[static_cast<size_t>(i)];
+        if (x.mvps > 0) w.Only(slot, r + "_g", kTags, me ? "tag-acc" : "tag-muted");
+        for (int c = 0; c < kUsedCols; ++c) {
+          const std::string cell = r + "_c" + std::to_string(c);
+          w.Only(slot, cell, kTextTones, me ? "tc-ink" : kColumns[c].tone(x));
+        }
       }
     }
     // The strip: the viewer's team's rounds in the accent (spectators: the winner's).
@@ -426,7 +435,7 @@ EndScreenInfo EndScreenDemoInfo(uint64_t viewer, const std::string& viewerName, 
   info.score1 = lost ? 9 : 13;
   info.score2 = lost ? 13 : 9;
   info.winner = lost ? "team2" : "team1";
-  info.how = "By rounds";
+  info.how = "";
   info.where = "MAP 2 OF 3 \xC2\xB7 INFERNO";
   info.nextLabel = "Next map:";
   info.next = "Mirage";

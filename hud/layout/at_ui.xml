@@ -10,6 +10,7 @@
 	<Panel class="ui-root" hittest="false">
 <Panel id="ui_cardwrap" class="ui-cardwrap" hittest="false">
 <Panel id="ui_card" class="ui-panel ui-card" hittest="true">
+<Panel class="ui-back" hittest="false" />
 <Panel class="ui-wash" hittest="false" />
 <Panel class="ui-pixels" hittest="false">
 <Panel class="ui-px p0 px-a" hittest="false" />
@@ -234,6 +235,7 @@
 </Panel>
 <Panel id="ui_midwrap" class="ui-midwrap" hittest="false">
 <Panel id="ui_mid" class="ui-panel ui-mid" hittest="true">
+<Panel class="ui-back" hittest="false" />
 <Panel class="ui-wash" hittest="false" />
 <Panel class="ui-pixels" hittest="false">
 <Panel class="ui-px p0 px-a" hittest="false" />

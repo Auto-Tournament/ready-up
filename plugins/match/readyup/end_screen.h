@@ -17,7 +17,7 @@ struct EndScreenInfo {
   std::string team1, team2;  // names
   int score1 = 0, score2 = 0;  // the map score, or the series score when the series is over
   std::string winner;          // "team1" | "team2" | "" (draw)
-  std::string how;             // "By rounds", "In overtime", "By damage", "By maps", "By forfeit", ""
+  std::string how;             // "In overtime", "By damage", "By forfeit"; "" for a normal win (no pill)
   std::string where;           // footer left: "MAP 2 OF 3 · INFERNO"
   std::string nextLabel;       // footer right: "Next map:" / "Server closes"
   std::string next;            // "Mirage", or ""

@@ -232,7 +232,8 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
   auto mapHow = [&]() -> std::string {
     if (in.winner != "team1" && in.winner != "team2") return "";
     if (in.decidedByDamage) return "By damage";
-    return in.team1Score + in.team2Score > end.maxRounds ? "In overtime" : "By rounds";
+    // A normal win says nothing: only the unusual ways get the pill (2026-10-27, "By rounds" read as noise).
+    return in.team1Score + in.team2Score > end.maxRounds ? "In overtime" : "";
   };
   auto upper = [](std::string s) {
     for (char& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
@@ -306,7 +307,7 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
   } else {
     end.score1 = in.team1SeriesScore;
     end.score2 = in.team2SeriesScore;
-    end.how = card.forfeit ? "By forfeit" : card.winner.empty() ? "" : "By maps";
+    end.how = card.forfeit ? "By forfeit" : "";  // a normal series win needs no pill
     end.where = "BEST OF " + std::to_string(numMaps);
   }
   if (!EndScreenShow(end)) ResultCardShow(SeriesResultCardHtml(card), SeriesResultCardSpec(card), resetIn, "series result");

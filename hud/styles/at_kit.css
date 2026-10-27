@@ -86,7 +86,8 @@
 	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
 }
 .HUD_BUYMENU_VISIBLE .at-card.on { opacity: 0; }
-.at-cardflow { flow-children: down; width: fit-children; height: fit-children; }
+/* A second layer of the card's background: one layer renders see-through in CS2 (as on #at_ecard). */
+.at-cardflow { flow-children: down; width: fit-children; height: fit-children; background-color: #140e0cf7; }
 .at-brandrow { width: 100%; padding: 12px 14px 0px 14px; }
 .at-carddivider { margin-bottom: 0px; }
 .at-content { flow-children: down; width: fit-children; height: fit-children; padding: 12px 14px 15px 14px; }

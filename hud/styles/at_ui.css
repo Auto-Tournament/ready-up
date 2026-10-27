@@ -382,6 +382,12 @@
 .ui-root .ui-panel.no-line .ui-line { visibility: collapse; }
 .ui-root .ui-panel.no-brand .ui-brand { visibility: collapse; }
 
+/* back: a second layer of the panel background. CS2 draws one #140e0cf7 layer at about 80 %, so
+   the map showed through and muted text fell under WCAG AA; two read as solid (2026-10-27). */
+.ui-back { width: 100%; height: 100%; background-color: #140e0cf7; }
+.ui-root .ui-panel.bg-soft .ui-back { background-color: #00000000; }
+.ui-root .ui-panel.bg-clear .ui-back { background-color: #00000000; }
+
 /* wash: a soft wash of the accent from the left (cs2-ui-kit toasts); no-wash turns it off */
 .ui-wash { width: 100%; height: 100%; background-color: gradient( linear, 0% 0%, 100% 0%, from( #ff6a3d26 ), color-stop( 0.5, #ff6a3d00 ), to( #ff6a3d00 ) ); }
 .c-live .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #3fc16826 ), color-stop( 0.5, #3fc16800 ), to( #3fc16800 ) ); }
