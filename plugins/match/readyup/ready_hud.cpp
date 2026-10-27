@@ -465,7 +465,6 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
   } else {
     title = b.scrim ? "Join CT or T to play" : "Spectating";
   }
-  if (sub.empty() && !b.note.empty()) sub = b.note;
   const std::string kind = welcome ? "Welcome, " + HudSpecText(name) : ok ? "Ready" : b.scrim ? "Scrim" : "Warmup";
   s += L("color", ok ? "live" : "acc") + L("kind", kind) + L("title", title);
   if (!sub.empty()) s += L("sub", HudSpecText(sub));
