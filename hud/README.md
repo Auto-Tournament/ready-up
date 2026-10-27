@@ -52,7 +52,7 @@ Server code doesn't write these slots itself. It calls `readyup.hud.v1` `screen(
 animations, and owns the cursor. A button click runs the button's chat command as if the player
 had typed it.
 
-Try it without a match: `.ru hudkit tour` in chat steps through every screen (`pause`, `next`,
+Try it without a match: `.dev` in chat lists every screen to click; `.ru hudkit tour` steps through them (`28` or a name holds one; `every 10`; `pause`, `next`,
 `back`, `stop`); `ru hudkit demo <screen> [slot]` shows one (`ru hudkit demo` lists them); or
 `ru hudkit screen <slot> title=Hi;btn=OK|green||.r;mouse=on`.
 

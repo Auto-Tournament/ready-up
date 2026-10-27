@@ -1248,6 +1248,38 @@ const std::vector<std::pair<std::string, std::string>>& DemoScreens() {
       {"mapresult", "id=mapresult\ncolor=live\nkind=Map 1 \xC2\xB7 Dust2\ntitle=Team A wins the map\nsub=13 - 7\nhint=Next: Mirage"},
       {"seriesresult", "id=seriesresult\ncolor=live\nkind=Series\ntitle=Team A wins the series\nsub=2 - 1"},
       {"mapvote", "id=mapvote\nkind=Map vote\ntitle=Next map?\ntimer=25\nbtn=Mirage|ghost||#demo off|3\nbtn=Inferno|ghost||#demo off|2\nbtn=Nuke|ghost||#demo off|1\nbtn=Ancient|ghost||#demo off|0\nbtn=Anubis|ghost||#demo off|2\nbtn=Dust2|ghost||#demo off|1\ncols=3\nbw=m\nmouse=on"},
+      // The rest of the drafts (v1 "Every event" board): screens the match does not send yet.
+      {"teamready", "id=warm\nwhere=card\ncolor=live\nkind=Ready\ntitle=Your team is ready\nsub=Waiting for Team B (3 / 5)\nteams=Team A|5|5|Team B|3|5"},
+      {"joinateam", "id=warm\nwhere=card\nkind=Scrim\ntitle=Join CT or T to play"},
+      {"spectating", "id=warm\nwhere=card\ncolor=muted\nkind=Spectating\ntitle=Not in this match"},
+      {"coach", "id=warm\nwhere=card\ncolor=ct\nkind=Coach\ntitle=Coaching Team A"},
+      {"sidechosen", "id=sides\ncolor=ct\nkind=Sides chosen\ntitle=You start as CT"},
+      {"timeup", "id=sides\ncolor=muted\nkind=Time is up\ntitle=Team A stays CT"},
+      {"halftime", "id=half\nkind=Halftime\ntitle=Sides switch\nsub=7 - 5"},
+      {"overtime", "id=ot\nkind=Overtime 1\ntitle=First to 4"},
+      {"damage", "id=damage\nwhere=card\nkind=Round 14\ntitle=160 damage\nline=Oli|100 \xC2\xB7 2 hits\nline=Frank|60 \xC2\xB7 1 hit\nline=Niles|0 \xC2\xB7 took 74"},
+      {"pausepending", "id=notice\nwhere=card\ncolor=warn\nkind=Tech pause\ntitle=Pausing at the end of this round"},
+      {"notimeouts", "id=notice\nwhere=card\ncolor=ban\nkind=Timeout\ntitle=No timeouts left\nsub=Team A used 3 / 3"},
+      {"notech", "id=notice\nwhere=card\ncolor=ban\nkind=Tech pause\ntitle=No tech pauses left\nsub=Team A used 3 / 3"},
+      {"dropped", "id=dropped\ncolor=warn\nkind=Paused\ntitle=Oli disconnected"},
+      {"missingours", "id=missing\ncolor=ban\ntitle=Your team is missing players\nsub=Forfeit in (165)"},
+      {"unpausing", "id=unpause\ncolor=live\nkind=Both teams ready\ntitle=Unpausing (3)"},
+      {"admincalled", "id=notice\nwhere=card\ncolor=warn\nkind=Admin\ntitle=An admin is on the way"},
+      {"toosoon", "id=notice\nwhere=card\ncolor=muted\nkind=Admin\ntitle=Already called\nsub=Again in (42)"},
+      {"notnow", "id=notice\nwhere=card\ncolor=muted\nkind=Not now\ntitle=Works once the match is live\ncmd=Timeout|.tac"},
+      {"asay", "id=asay\nwhere=card\ncolor=ct\nkind=Admin\ntitle=Server restarts after this map"},
+      {"tournament", "id=asay\nwhere=card\nkind=Tournament\ntitle=Semi-finals start at 20:00"},
+      {"restored", "id=restored\ncolor=ct\nkind=Round restored\ntitle=Back to round 14\nsub=7 - 6"},
+      {"forcestart", "id=countdown\ncolor=ct\nkind=Admin\ntitle=Match starts (5)"},
+      {"adminended", "id=ended\ncolor=ban\nkind=Match ended\ntitle=An admin ended the match"},
+      {"nextmap", "id=next\nwhere=card\nkind=Next map\ntitle=Inferno (14)"},
+      {"gg", "id=next\nwhere=card\ncolor=muted\nkind=GG\ntitle=Server closes (38)"},
+      {"download", "id=next\nwhere=card\nkind=Map 2 of 3\ntitle=Downloading the map\nsub=70%"},
+      // The end screen and the leaderboard live in the other layout (at_kit, v1 board "Match end").
+      {"kit:damage", ""},
+      {"kit:end", ""},
+      {"kit:endlost", ""},
+      {"kit:next", ""},
       {"off", ""},
   };
   return k;
@@ -1302,19 +1334,85 @@ void DemoEnd(int slot) {
   IfScreen(slot, back.spec.c_str(), back.onClick, back.user);  // what the match wants now
 }
 
+// The at_kit end screens (leaderboard) are for everyone at once, so a demo of one shows to all.
+bool g_kitDemo = false;
+void KitDemoOff() {
+  if (!g_kitDemo) return;
+  g_kitDemo = false;
+  const int h = IfOpen("panorama/layout/custom_game/at_kit.xml");
+  for (const char* el : {"at_card", "at_mid", "at_end"}) IfSetClass(h, RU_HUD_ALL, el, "on", 0);
+}
+
+// Shows demo screen `i` (index into DemoScreens) to `slot`: at_ui screens to the slot, "kit:" ones
+// through at_kit.
+void DemoShowIndex(int slot, size_t i) {
+  const auto& kv = DemoScreens()[i];
+  if (kv.first.rfind("kit:", 0) == 0) {
+    IfScreen(slot, "", &OnDemoClick, nullptr);
+    KitDemoOff();
+    const std::string state = kv.first.substr(4);
+    g_kitDemo = true;
+    const int h = IfOpen("panorama/layout/custom_game/at_kit.xml");
+    for (const char* el : {"at_card", "at_mid", "at_end"}) IfSetClass(h, RU_HUD_ALL, el, "on", 0);
+    g_later.emplace_back(g_now + 0.35, [state] { KitApply(state); });
+    return;
+  }
+  KitDemoOff();
+  IfScreen(slot, kv.second.c_str(), &OnDemoClick, nullptr);
+}
+
+// "28" (1-based, as the tour numbers them) or a screen name; -1 when neither.
+int DemoFind(const std::string& arg) {
+  const auto& list = DemoScreens();
+  const int n = static_cast<int>(list.size()) - 1;
+  if (!arg.empty() && arg.find_first_not_of("0123456789") == std::string::npos) {
+    const int i = std::atoi(arg.c_str()) - 1;
+    return i >= 0 && i < n ? i : -1;
+  }
+  for (int i = 0; i < n; ++i)
+    if (list[static_cast<size_t>(i)].first == arg) return i;
+  return -1;
+}
+
 void TourStep(int slot, Demo& t) {
   const auto& list = DemoScreens();
   const int n = static_cast<int>(list.size()) - 1;  // "off" is not part of the tour
   if (t.tour >= n) {
     g_api->chat_to_slot(g_api->self, slot, "Ready Up hud: tour done.");
+    KitDemoOff();
     DemoEnd(slot);
     return;
   }
-  const auto& kv = list[static_cast<size_t>(t.tour)];
-  IfScreen(slot, kv.second.c_str(), &OnDemoClick, nullptr);
-  const std::string line = Fmt("Ready Up hud: tour %d/%d: ", t.tour + 1, n) + kv.first;
+  DemoShowIndex(slot, static_cast<size_t>(t.tour));
+  const std::string line = Fmt("Ready Up hud: tour %d/%d: ", t.tour + 1, n) + list[static_cast<size_t>(t.tour)].first;
   g_api->chat_to_slot(g_api->self, slot, line.c_str());
   if (t.next > 0) t.next = g_now + t.every;
+}
+
+// `.dev`: a clickable list of every demo screen, five a page, plus Prev / Next / Tour.
+constexpr int kDevPerPage = 5;
+std::string DevMenuSpec(int page) {
+  const auto& list = DemoScreens();
+  const int n = static_cast<int>(list.size()) - 1;
+  const int pages = (n + kDevPerPage - 1) / kDevPerPage;
+  page = std::clamp(page, 0, pages - 1);
+  const int from = page * kDevPerPage;
+  const int to = std::min(n, from + kDevPerPage);
+  std::string s = "id=dev\nkind=Dev \xC2\xB7 " + std::to_string(from + 1) + "-" + std::to_string(to) + " of " + std::to_string(n) +
+                  "\ntitle=Show a screen\n";
+  for (int i = from; i < to; ++i)
+    s += "btn=" + list[static_cast<size_t>(i)].first + "|ghost||#devshow " + std::to_string(i) + "|" + std::to_string(i + 1) + "\n";
+  for (int i = to; i < from + kDevPerPage; ++i) s += "btn= |ghost|off|\n";  // keep the nav row in place
+  s += "btn=Prev|ghost|" + std::string(page == 0 ? "off" : "") + "|#devpage " + std::to_string(page - 1) + "\n";
+  s += "btn=Next|ghost|" + std::string(page + 1 >= pages ? "off" : "") + "|#devpage " + std::to_string(page + 1) + "\n";
+  s += "btn=Tour all|green||#devtour\n";
+  return s + "cols=4\nbw=m\nclose=Close|#devclose\nmouse=on\nenter=fade\n";
+}
+
+void DevOpen(int slot, int page) {
+  g_demos[slot] = Demo{g_now + 120.0, -1, 0, 0};
+  KitDemoOff();
+  IfScreen(slot, DevMenuSpec(page).c_str(), &OnDemoClick, nullptr);
 }
 
 void TourTick() {
@@ -1323,7 +1421,10 @@ void TourTick() {
     Demo& t = it->second;
     ++it;  // TourStep may end (erase) this slot's entry
     if (t.tour < 0) {
-      if (g_now >= t.until) DemoEnd(slot);
+      if (g_now >= t.until) {
+        KitDemoOff();
+        DemoEnd(slot);
+      }
       continue;
     }
     if (t.next > 0 && g_now >= t.next) {
@@ -1347,8 +1448,36 @@ void OnDemoClick(void*, int slot, const char* command) {
     DemoShow(slot, c.substr(6));
     return;
   }
+  if (c.rfind("#devpage ", 0) == 0) return DevOpen(slot, std::atoi(c.c_str() + 9));
+  if (c == "#devclose") {
+    KitDemoOff();
+    return DemoEnd(slot);
+  }
+  if (c == "#devtour") {
+    g_demos[slot] = Demo{0, 0, g_now + 6.0, 6.0};
+    return TourStep(slot, g_demos[slot]);
+  }
+  if (c.rfind("#devshow ", 0) == 0) {
+    const int i = std::atoi(c.c_str() + 9);
+    if (i < 0 || i >= static_cast<int>(DemoScreens().size()) - 1) return;
+    g_demos[slot] = Demo{g_now + 60.0, -1, 0, 0};
+    DemoShowIndex(slot, static_cast<size_t>(i));
+    const std::string line = Fmt("Ready Up hud: %d ", i + 1) + DemoScreens()[static_cast<size_t>(i)].first + " (.dev for the list)";
+    g_api->chat_to_slot(g_api->self, slot, line.c_str());
+    return;
+  }
   const std::string line = "Ready Up hud: you clicked " + c;
   g_api->chat_to_slot(g_api->self, slot, line.c_str());
+}
+
+// `.dev` (admins): the clickable list of every HUD screen.
+void OnDevChat(void*, const ru_command_ctx* ctx) {
+  if (ctx->slot < 0) return;
+  if (!g_api->is_admin(g_api->self, ctx->steamid64)) {
+    g_api->chat_to_slot(g_api->self, ctx->slot, "Ready Up hud: .dev is for admins");
+    return;
+  }
+  DevOpen(ctx->slot, 0);
 }
 
 void OnRu(void*, const ru_command_ctx* ctx) {
@@ -1408,9 +1537,19 @@ void OnRu(void*, const ru_command_ctx* ctx) {
       DemoShow(slot, name);
     }
     Reply(ctx, "demo " + name + " for " + std::to_string(slots.size()) + " player(s) (60 s); click hook " + g_clickHookStatus);
-  } else if (sub == "tour") {  // ru hudkit tour [seconds|next|back|pause|stop] [slot]
-    const std::string arg = ctx->argc > 3 ? ctx->argv[3] : "";
-    int slot = ctx->argc > 4 ? std::atoi(ctx->argv[4]) : ctx->slot;
+  } else if (sub == "dev") {  // ru hudkit dev: the clickable screen list (also .dev)
+    if (ctx->slot < 0) return Reply(ctx, "dev: in game only");
+    DevOpen(ctx->slot, 0);
+  } else if (sub == "tour") {  // ru hudkit tour [<n>|<name>|every <s>|next|back|pause|stop] [slot]
+    std::string arg = ctx->argc > 3 ? ctx->argv[3] : "";
+    double every = 6.0;
+    int argSlot = 4;
+    if (arg == "every") {
+      every = std::clamp(ctx->argc > 4 ? std::atof(ctx->argv[4]) : 6.0, 2.0, 60.0);
+      arg.clear();
+      argSlot = 5;
+    }
+    int slot = ctx->argc > argSlot ? std::atoi(ctx->argv[argSlot]) : ctx->slot;
     if (slot < 0) {
       std::vector<int> humans;
       g_api->for_each_player(g_api->self, &CollectHuman, &humans);
@@ -1420,8 +1559,17 @@ void OnRu(void*, const ru_command_ctx* ctx) {
     auto it = g_demos.find(slot);
     const bool running = it != g_demos.end() && it->second.tour >= 0;
     if (arg == "stop") {
+      KitDemoOff();
       if (running) DemoEnd(slot);
       return Reply(ctx, "tour stopped");
+    }
+    if (!arg.empty() && arg != "next" && arg != "back" && arg != "pause") {
+      // One screen, held: by its tour number or its name; next / back step from there.
+      const int i = DemoFind(arg);
+      if (i < 0) return Reply(ctx, "no screen \"" + arg + "\" (.dev lists them)");
+      g_demos[slot] = Demo{0, i, 0, every};
+      TourStep(slot, g_demos[slot]);
+      return Reply(ctx, "holding; .ru hudkit tour next / back / pause / stop");
     }
     if (running && (arg == "next" || arg == "back" || arg == "pause")) {
       Demo& t = it->second;
@@ -1433,7 +1581,6 @@ void OnRu(void*, const ru_command_ctx* ctx) {
       TourStep(slot, t);
       return;
     }
-    const double every = std::clamp(arg.empty() ? 6.0 : std::atof(arg.c_str()), 2.0, 60.0);
     g_demos[slot] = Demo{0, 0, g_now + every, every};
     TourStep(slot, g_demos[slot]);
     Reply(ctx, Fmt("tour: %zu screens, %.0f s each (.ru hudkit tour pause / next / back / stop)", DemoScreens().size() - 1, every));
@@ -1447,7 +1594,7 @@ void OnRu(void*, const ru_command_ctx* ctx) {
   } else if (sub == "class" && ctx->argc >= 8) {  // ru hudkit class <hud#> <slot|all> <panel> <class> <0|1>
     Reply(ctx, IfSetClass(std::atoi(ctx->argv[3]), ParseSlot(ctx->argv[4]), ctx->argv[5], ctx->argv[6], std::atoi(ctx->argv[7])) ? "ok" : "failed");
   } else {
-    Reply(ctx, "ru hudkit [status|info|demo <screen> [slot]|tour [seconds|pause|next|back|stop]|screen <slot> <k=v;k=v>|click [slot]|bclick [slot]|hello <text>|kit <state>|text <hud#> <slot|all> <panel> <var> <value>|class <hud#> <slot|all> <panel> <class> <0|1>]");
+    Reply(ctx, "ru hudkit [status|info|demo <screen> [slot]|dev|tour [<n>|<name>|every <s>|pause|next|back|stop]|screen <slot> <k=v;k=v>|click [slot]|bclick [slot]|hello <text>|kit <state>|text <hud#> <slot|all> <panel> <var> <value>|class <hud#> <slot|all> <panel> <class> <0|1>]");
   }
 }
 
@@ -1498,6 +1645,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     ru_logf(api, RU_LOG_WARN, "round_prestart not available: a round restart may crash the server while a HUD is shown");
   api->subscribe(api->self, RU_EVENT_ANY, &OnEvent, nullptr);
   api->register_ru_subcommand(api->self, "hudkit", &OnRu, nullptr);
+  api->register_chat_command(api->self, ".dev", &OnDevChat, nullptr);
   if (RU_API_HAS(api, filter_client_command)) {
     api->filter_client_command(api->self, "open_buymenu", &OnBuyMenu, nullptr);
     api->filter_client_command(api->self, "close_buymenu", &OnBuyMenu, nullptr);

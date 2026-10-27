@@ -15,6 +15,7 @@
     "for_each_player",
     "hook_vtable",
     "on_tick",
+    "register_chat_command",
     "register_ru_subcommand",
     "run_chat_command",
     "schema_offset",
