@@ -280,7 +280,8 @@ std::string SeriesResultCardSpec(const ResultCardInfo& info) {
 std::string AdminCallCardSpec(const std::string& name, const std::string& teamLabel, const std::string& message) {
   std::string who = name.empty() ? std::string("A player") : name;
   if (!teamLabel.empty()) who += " (" + teamLabel + ")";
-  std::string s = SpecLine("id", "admincall") + SpecLine("where", "card") + SpecLine("color", "ban") +
+  // An alert: the centre, like every notice (only warmup's own cards sit on the right).
+  std::string s = SpecLine("id", "admincall") + SpecLine("color", "ban") +
                   SpecLine("kind", "Admin called") + SpecLine("title", who + " needs an admin");
   if (!message.empty()) s += SpecLine("sub", message.substr(0, 120));
   return s;
