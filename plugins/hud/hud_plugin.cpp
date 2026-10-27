@@ -1324,7 +1324,7 @@ const std::vector<std::pair<std::string, std::string>>& DemoScreens() {
       {"toosoon", "id=notice\nwhere=card\ncolor=muted\nkind=Admin\ntitle=Already called\nsub=Again in (42)"},
       {"notnow", "id=notice\nwhere=card\ncolor=muted\nkind=Not now\ntitle=Works once the match is live\ncmd=Timeout|.tac"},
       {"asay", "id=asay\nwhere=card\ncolor=ct\nkind=Admin\ntitle=Server restarts after this map"},
-      {"tournament", "id=asay\nwhere=card\nkind=Tournament\ntitle=Semi-finals start at 20:00"},
+      {"tournament", "id=asay\nwhere=card\nkind=Tournament news\ntitle=Semi-finals start at 20:00"},
       {"restored", "id=restored\ncolor=ct\nkind=Round restored\ntitle=Back to round 14\nsub=7 - 6"},
       {"forcestart", "id=countdown\ncolor=ct\nkind=Admin\ntitle=Match starts (5)"},
       {"adminended", "id=ended\ncolor=ban\nkind=Match ended\ntitle=An admin ended the match"},

@@ -732,7 +732,7 @@ fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Valu
     const ru_hud_v1* hud = center ? SayHud() : nullptr;
     const std::string card = hud ? "id=say-" + std::to_string(++g_saySeq) + "\nwhere=card\n" +
                                        (admin ? "color=ct\nkind=" + (from.empty() ? std::string("Admin") : SaySpecText(from))
-                                              : std::string("kind=Tournament")) +
+                                              : std::string("kind=Tournament news")) +
                                        "\ntitle=" + SaySpecText(text) + "\n"
                                  : std::string();
     auto toSlot = [&](int slot) {
