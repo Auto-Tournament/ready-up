@@ -428,6 +428,40 @@
 .ui-card.mini .ui-px.p5 { margin: 38px 0px 0px 210px; }
 .ui-card.mini .ui-px.p6 { margin: 14px 0px 0px 236px; }
 .ui-card.mini .ui-px.p7 { margin: 30px 0px 0px 30px; }
+
+/* The pill in the centre panel too (warmup's ready card sits there since 2026-10-27). */
+.ui-mid.mini { width: fit-children; border-radius: 26px; }
+.ui-mid.mini .ui-flow { flow-children: right; min-width: 0px; height: 52px; padding: 0px 8px 0px 18px; }
+.ui-mid.mini .ui-brand { visibility: collapse; }
+.ui-mid.mini .ui-title { visibility: collapse; }
+.ui-mid.mini .ui-sub { visibility: collapse; }
+.ui-mid.mini .ui-hint { visibility: collapse; }
+.ui-mid.mini .ui-confirm { visibility: collapse; }
+.ui-mid.mini .ui-lines { visibility: collapse; }
+.ui-mid.mini .ui-cmds { visibility: collapse; }
+.ui-mid.mini .ui-close { visibility: collapse; }
+.ui-mid.mini .ui-timer { visibility: collapse; }
+.ui-mid.mini .ui-counter { visibility: collapse; }
+.ui-mid.mini .ui-line { visibility: collapse; }
+.ui-mid.mini .ui-kind { vertical-align: center; margin: 0px 12px 0px 0px; }
+.ui-mid.mini .ui-teams { vertical-align: center; margin-top: 0px; }
+.ui-mid.mini .ui-team { margin: 0px 10px 0px 0px; }
+.ui-mid.mini .ui-teamname { margin-right: 5px; font-size: 12px; }
+.ui-mid.mini .ui-dot { width: 7px; height: 7px; margin-right: 4px; border-radius: 4px; }
+.ui-mid.mini .ui-buttons { vertical-align: center; width: fit-children; margin-top: 0px; margin-left: 4px; }
+.ui-mid.mini .ui-btn { width: 110px; height: 36px; margin: 0px; border-radius: 18px; }
+.ui-mid.mini .ui-btnlabel { font-size: 14px; }
+.ui-mid.mini .ui-kind { transition-property: color, transform; transition-duration: 0.3s, 0.4s; transition-timing-function: ease-out; }
+.ui-mid.mini .ui-px { horizontal-align: left; }
+.ui-mid.mini .ui-px.p0 { margin: 6px 0px 0px 70px; }
+.ui-mid.mini .ui-px.p1 { margin: 34px 0px 0px 96px; }
+.ui-mid.mini .ui-px.p2 { margin: 10px 0px 0px 128px; }
+.ui-mid.mini .ui-px.p3 { margin: 40px 0px 0px 152px; }
+.ui-mid.mini .ui-px.p4 { margin: 8px 0px 0px 184px; }
+.ui-mid.mini .ui-px.p5 { margin: 38px 0px 0px 210px; }
+.ui-mid.mini .ui-px.p6 { margin: 14px 0px 0px 236px; }
+.ui-mid.mini .ui-px.p7 { margin: 30px 0px 0px 30px; }
+
 .no-px .ui-pixels { visibility: collapse; }
 
 /* ---- team colours as accents (spec color=ct / color=t) ------------------------------------- */

@@ -911,8 +911,8 @@ void ProbeTick() {
 
 // ---- ticks and events ------------------------------------------------------------------------
 
-// HUD scale (at_ui's wraps, scale-70 .. scale-100): `scale=` in the plugin's cfg, `ru hudkit scale`.
-int g_scale = 85;
+// HUD scale (at_ui's wraps, scale-70 .. scale-100): `scale=` in the plugin's cfg, `ru hudkit scale` (default 75).
+int g_scale = 75;
 void ApplyScale() {
   const int h = IfOpen(kUiLayout);
   for (int pct = 70; pct <= 100; pct += 5) {
@@ -1795,7 +1795,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_mapStartedAt = -1;
   g_pauseUntil = -1;
   g_repushAfterPause = false;
-  g_scale = 85;
+  g_scale = 75;
   if (RU_API_HAS(api, config_get)) {
     char buf[16] = {};
     if (api->config_get(api->self, "scale", buf, sizeof(buf)) > 0 && ParseScale(buf) > 0) g_scale = ParseScale(buf);
