@@ -230,12 +230,7 @@
    base rules; later rules win between utilities. */
 
 /* ---- enter: the pose a panel comes from (class fx-<name>, spec enter=) ------------------------- */
-.ui-root .ui-panel.on
-{
-	opacity: 1; transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); brightness: 1;
-	transition-property: opacity, transform, brightness; transition-duration: 0.38s;
-	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
-}
+/* (the shown pose, .on, comes after these: same specificity, so it must be later to win) */
 /* open: unfolds sideways from its middle, a white flash fades off, the title settles (round win panel) */
 .ui-root .ui-panel.fx-open { transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 0, 1, 1 ); }
 .ui-root .ui-panel.fx-open.on { transition-duration: 0.25s; transition-timing-function: ease-in; }
@@ -266,6 +261,17 @@
 .ui-root .ui-panel.fx-drop { transform: translate3d( 0px, -60px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
 /* none: just there */
 .ui-root .ui-panel.fx-none { transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.fx-none.on { transition-duration: 0s; }
+/* Shown: the same pose for every entrance. After the poses above so it wins over them. */
+.ui-root .ui-panel.on
+{
+	opacity: 1; transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); brightness: 1;
+	transition-property: opacity, transform, brightness; transition-duration: 0.38s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+.ui-root .ui-panel.fx-open.on { transition-duration: 0.25s; transition-timing-function: ease-in; }
+.ui-root .ui-panel.fx-flip.on { transition-duration: 0.4s; }
+.ui-root .ui-panel.fx-pop.on { transition-duration: 0.35s; transition-timing-function: cubic-bezier( 0.3, 1.6, 0.5, 1 ); }
 .ui-root .ui-panel.fx-none.on { transition-duration: 0s; }
 
 /* ---- exit: the pose it leaves to (class out-<name> with leaving, spec exit=) --------------------- */
