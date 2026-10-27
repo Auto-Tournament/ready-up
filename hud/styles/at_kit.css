@@ -260,8 +260,10 @@
 .at-ecard
 {
 	horizontal-align: center; vertical-align: center;
-	width: 1440px; height: fit-children; overflow: noclip;
-	background-color: #100908f2; border: 1px solid #322926; border-radius: 18px;
+	/* Hardcoded like the HUD cards (at_ui .ui-panel: clipped, 97 %): with overflow noclip CS2 drew
+	   this background see-through and ignored the bg-* classes (2026-10-27). */
+	width: 1440px; height: fit-children; overflow: clip;
+	background-color: #100908f7; border: 1px solid #322926; border-radius: 18px;
 	transform: translate3d( 0px, 16px, 0px ) scale3d( 1, 1, 1 ); transition-property: transform; transition-duration: 0.52s;
 	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
 }
