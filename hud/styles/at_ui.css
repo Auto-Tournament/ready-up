@@ -24,14 +24,15 @@
 }
 .ui-card
 {
-	horizontal-align: left; vertical-align: bottom; margin-left: 24px; margin-bottom: 320px;
-	width: 420px; transform: translateX( -48px );
+	horizontal-align: right; vertical-align: bottom; margin-right: 24px; margin-bottom: 320px;
+	width: 420px; transform: translateX( 48px );
 }
 .ui-mid
 {
-	horizontal-align: center; vertical-align: top; margin-top: 600px;
+	horizontal-align: center; vertical-align: bottom; margin-bottom: 190px;
 	width: fit-children; min-width: 540px; transform: translateY( 28px );
 }
+.ui-mid .ui-flow { min-width: 0px; }
 .ui-card.on
 {
 	opacity: 1; transform: translateX( 0px ); transition-duration: 0.38s;
@@ -124,15 +125,15 @@
 .has-buttons .ui-buttons { visibility: visible; }
 .ui-btn
 {
-	visibility: collapse; flow-children: right; height: 48px; margin: 6px; border-radius: 24px;
+	visibility: collapse; height: 48px; margin: 6px; border-radius: 24px;
 	background-color: #211815; border: 2px solid #736966;
 	transition-property: background-color, border, transform; transition-duration: 0.15s;
 }
 .ui-btn.show { visibility: visible; }
-.ui-btnlabel { horizontal-align: center; vertical-align: center; font-size: 18px; font-weight: bold; color: #f4edeb; }
-.ui-btnsub { visibility: collapse; vertical-align: center; margin-left: 8px; font-family: "Noto Mono"; font-size: 13px; font-weight: bold; color: #f4edeb; opacity: 0.7; }
+.ui-btnlabel { width: 100%; text-align: center; vertical-align: center; font-size: 18px; font-weight: bold; color: #f4edeb; }
+.ui-btnsub { visibility: collapse; horizontal-align: right; vertical-align: center; margin-right: 18px; font-family: "Noto Mono"; font-size: 13px; font-weight: bold; color: #f4edeb; opacity: 0.7; }
 .ui-btn.has-sub .ui-btnsub { visibility: visible; }
-.ui-btn.has-sub .ui-btnlabel { horizontal-align: left; margin-left: 18px; }
+.ui-btn.has-sub .ui-btnlabel { width: fit-children; text-align: left; horizontal-align: left; margin-left: 18px; }
 .ui-btn:hover { transform: scale3d( 1.04, 1.04, 1 ); border: 2px solid #c4bcb9; }
 .ui-btn.t-green { background-color: #3fc168; border: 2px solid #3fc168; }
 .ui-btn.t-ct { background-color: #7b9be0; border: 2px solid #7b9be0; }

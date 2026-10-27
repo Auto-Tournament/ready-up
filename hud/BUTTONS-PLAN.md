@@ -17,7 +17,7 @@ off. Practice mode had made it boot into surf_utopia.
 
 1. Publish the addon update from Workshop Tools (at_hud, which now has at_ui), then unsubscribe and
    resubscribe in CS2.
-2. Connect (`connect 192.168.50.196:27055`) and join CT or T. The warmup card shows bottom left with
+2. Connect (`connect 192.168.50.196:27055`) and join CT or T. The warmup card shows bottom right with
    Ready. Press B and click Ready. The card turns green with Unready.
 3. `ru hudkit demo <screen> <your slot>` for every screen: pick, pause, vote, help, admin → maps,
    confirm, mapvote, chips. Check the layout, colours, animations and that the cursor comes and

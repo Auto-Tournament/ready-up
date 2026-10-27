@@ -43,7 +43,7 @@ panorama/layout/custom_game/at_ui.xml
 ```
 
 Design: the canvas's "Buttons (v2)" page. Build plan and test list: `BUTTONS-PLAN.md`. Two panels
-with the same blocks: `ui_card` (left, above the chat) and `ui_mid` (centre of the lower half).
+with the same blocks: `ui_card` (bottom right, over the player model in the buy menu) and `ui_mid` (centre, just above the bottom HUD).
 The slots and classes are listed at the top of `tools/gen_ui.py`.
 
 Server code doesn't write these slots itself. It calls `readyup.hud.v1` `screen(slot, spec, ...)`
