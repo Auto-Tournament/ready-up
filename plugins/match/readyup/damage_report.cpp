@@ -6,6 +6,7 @@
 #include "readyup/engine.h"
 #include "readyup/esports.h"
 #include "readyup/host.h"
+#include "readyup/hud_screens.h"
 #include "readyup/logging.h"
 #include "readyup/match_events.h"
 #include "readyup/match_state.h"
@@ -29,7 +30,29 @@ struct Outgoing {
   bool human = false;
   std::string name;
   std::vector<std::string> lines;
+  std::string hud;  // the side card (hud_screens.h), "" without the HUD
 };
+
+// The round's damage as a side card: the total given, then one line per opponent.
+std::string DamageCardSpec(int round, const DamageParticipant& self, const std::vector<DamageParticipant>& players,
+                           const DamageLedger& ledger) {
+  int total = 0;
+  std::string lines;
+  int n = 0;
+  for (const auto& o : players) {
+    if (o.key == self.key || (o.team != 2 && o.team != 3) || o.team == self.team) continue;
+    const auto to = ledger.Dealt(self.key, o.key);
+    const auto from = ledger.Dealt(o.key, self.key);
+    total += to.dmg;
+    if (++n > 5) continue;  // the card has five lines
+    std::string v = std::to_string(to.dmg) + " \xC2\xB7 " + std::to_string(to.hits) + (to.hits == 1 ? " hit" : " hits");
+    if (from.dmg > 0) v += " \xC2\xB7 took " + std::to_string(from.dmg);
+    lines += "line=" + HudSpecText(o.name) + "|" + v + "\n";
+  }
+  if (n == 0) return {};
+  return "id=damage-" + std::to_string(round) + "\nwhere=card\nkind=Round " + std::to_string(round) + "\ntitle=" +
+         std::to_string(total) + " damage\n" + lines;
+}
 std::vector<Outgoing> g_out;
 int g_outRound = 0;
 // Who was on a team when the round started: someone who joined mid-round gets no report
@@ -85,6 +108,7 @@ void BuildReports() {
     o.human = c.human[i] && (!g_haveRoundStart || g_roundStartSlots.count(o.slot) > 0);
     o.name = c.players[i].name;
     o.lines = FormatDamageReport(c.players[i], all, g_ledger);
+    if (o.human && HudScreensOn()) o.hud = DamageCardSpec(g_outRound, c.players[i], all, g_ledger);
     if (!o.lines.empty()) g_out.push_back(std::move(o));
   }
 }
@@ -147,8 +171,12 @@ void DamageReportTick() {
     lines += static_cast<int>(o.lines.size());
     if (o.human) {
       ++humans;
-      (void)ClientPrintChat(o.slot, " \x04[ReadyUp]\x01 Damage report:");
-      for (const auto& l : o.lines) (void)ClientPrintChat(o.slot, (" " + l).c_str());
+      if (!o.hud.empty()) {
+        HudScreensNotice(o.slot, o.hud, 7.0);  // the card instead of chat lines
+      } else {
+        (void)ClientPrintChat(o.slot, " \x04[ReadyUp]\x01 Damage report:");
+        for (const auto& l : o.lines) (void)ClientPrintChat(o.slot, (" " + l).c_str());
+      }
     }
     for (const auto& l : o.lines) Debug("damage-report: %s: %s\n", o.name.c_str(), l.c_str());
   }
