@@ -610,6 +610,12 @@ void DrawScreen(int slot, ScreenSlot& ss) {
   UpdateCapture(slot);
 }
 
+std::string ButtonsKey(const Screen& s) {
+  std::string k;
+  for (const auto& b : s.buttons) k += b.label + '' + b.cmd + '';
+  return k;
+}
+
 int IfScreen(int slot, const char* specIn, ru_hud_click_fn onClick, void* user) {
   if (slot < 0 || slot > 63) return 0;
   const std::string spec = specIn ? specIn : "";
@@ -622,6 +628,8 @@ int IfScreen(int slot, const char* specIn, ru_hud_click_fn onClick, void* user) 
   const int h = IfOpen(kUiLayout);
   const bool sameId = !next.empty() && !ss.cur.empty() && next.id == ss.cur.id && next.where == ss.cur.where;
   if (sameId) {
+    // New buttons (Ready became Unready) can be clicked again.
+    if (ButtonsKey(next) != ButtonsKey(ss.cur)) ss.clicked = false;
     ss.cur = std::move(next);
     if (!ss.dismissed) DrawScreen(slot, ss);
     else UpdateCapture(slot);
