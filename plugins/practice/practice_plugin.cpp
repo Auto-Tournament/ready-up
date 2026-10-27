@@ -86,6 +86,7 @@
 // the flag itself. It publishes readyup.practice.v1 (the match plugin hands `.ru mode practice`
 // to it). Log lines: `practice: ...`.
 #include "practice_feedback.h"
+#include "practice_guides.h"
 #include "practice_lineups.h"
 #include "practice_rules.h"
 #include "readyup/map_names.h"
@@ -110,6 +111,9 @@
 #include <mutex>
 #include <thread>
 #include <cstdarg>
+#include <sstream>
+#include <fstream>
+#include <dirent.h>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -1256,6 +1260,44 @@ class LineupWriter {
 // blocks forever in glibc (the process would hang on exit).
 LineupWriter* g_lineupWriter = nullptr;
 
+// Guides: lineups from CS2 map annotation files in <data dir>/guides/*.txt (practice_guides.h),
+// the ones for the current map, read once per map. Read-only: .savenade never writes them.
+std::vector<Lineup> g_guides;
+std::string g_guidesMap;  // "" = not read yet
+
+const std::vector<Lineup>& Guides() {
+  const std::string map = CurrentMap();
+  if (g_guidesMap == map) return g_guides;
+  g_guidesMap = map;
+  g_guides.clear();
+  const char* d = g_api->data_dir(g_api->self);
+  const std::string dir = std::string(d ? d : ".") + "/guides/";
+  DIR* dp = opendir(dir.c_str());
+  if (!dp) return g_guides;
+  std::vector<std::string> files;
+  while (dirent* e = readdir(dp)) {
+    const std::string f = e->d_name;
+    if (f.size() > 4 && f[0] != '.' && f.compare(f.size() - 4, 4, ".txt") == 0) files.push_back(f);
+  }
+  closedir(dp);
+  std::sort(files.begin(), files.end());
+  for (const std::string& f : files) {
+    std::ifstream in(dir + f, std::ios::binary);
+    std::stringstream buf;
+    buf << in.rdbuf();
+    GuideFile g;
+    std::string err;
+    if (!ParseGuideFile(buf.str(), &g, &err)) {
+      Log("practice: guides: %s: %s", f.c_str(), err.c_str());
+      continue;
+    }
+    if (g.map != map) continue;
+    for (Lineup& l : g.lineups) g_guides.push_back(std::move(l));
+    Log("practice: guides: %zu lineups on %s from %s", g.lineups.size(), map.c_str(), f.c_str());
+  }
+  return g_guides;
+}
+
 void SaveLineups() {
   if (g_lineupWriter) g_lineupWriter->Queue(LineupsDir(), LineupsPath(g_lineupsMap), g_lineups.ToJson());
 }
@@ -1965,6 +2007,11 @@ std::vector<std::pair<std::string, Lineup>> MenuLineups(uint64_t steamid64, cons
   std::vector<std::pair<std::string, Lineup>> out;
   LineupBook& book = Lineups();
   const std::string mine = OwnerKey(steamid64);
+  if (kind != "mine") {
+    for (const Lineup& l : Guides()) {
+      if (kind.empty() || l.kind == kind) out.emplace_back(kGuideOwner, l);
+    }
+  }
   for (const std::string& owner : {std::string(kGlobalOwner), mine}) {
     if (kind == "mine" && owner != mine) continue;
     for (const Lineup* l : book.List(owner, "")) {
@@ -2017,8 +2064,13 @@ std::string MenuSpec(int slot, uint64_t steamid64) {
         KindLabel(m.kind) + "\ntitle=Click to go there\n";
     for (int i = m.offset; i < to; ++i) {
       const auto& [owner, l] = list[static_cast<size_t>(i)];
-      const std::string sub = owner == kGlobalOwner ? "" : "mine";
-      s += MenuBtn(l.name, "ghost", "#ln " + std::to_string(i), sub);
+      // A guide's sub is how to throw it (its desc starts "jumpthrow", "runthrow", ...).
+      std::string sub = owner == kGuideOwner || owner == kGlobalOwner ? "" : "mine";
+      if (owner == kGuideOwner) {
+        const std::string how = Lower(l.desc.substr(0, l.desc.find_first_of(" ,")));
+        if (how.find("throw") != std::string::npos || how.find("click") != std::string::npos) sub = how;
+      }
+      s += MenuBtn(l.title.empty() ? l.name : l.title, "ghost", "#ln " + std::to_string(i), sub);
     }
     for (int i = to; i < m.offset + kLineupsPerPage; ++i) s += MenuBtn(" ", "ghost", "", "", "off");
     s += MenuBtn("Prev", "ghost", "#page -1", "", m.offset == 0 ? "off" : "");
@@ -2069,7 +2121,7 @@ void OnMenuClick(void*, int slot, const char* command) {
     if (i < 0 || i >= static_cast<int>(list.size())) return;
     const Lineup l = list[static_cast<size_t>(i)].second;
     if (!TeleportRemembering(slot, sid, Vec3{l.pos.x, l.pos.y, l.pos.z}, &l.ang)) return Reply(slot, sid, kNoTeleport);
-    Reply(slot, sid, l.name + (l.kind.empty() ? "" : ": take your " + l.kind) + "." + (l.desc.empty() ? "" : " " + l.desc));
+    Reply(slot, sid, (l.title.empty() ? l.name : l.title) + (l.kind.empty() ? "" : ": take your " + l.kind) + "." + (l.desc.empty() ? "" : " " + l.desc));
     return;
   }
   if (c.empty() || c[0] != '.') return;

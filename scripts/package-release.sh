@@ -179,6 +179,11 @@ practice_files=("$BUILD/plugins/practice.so:plugins/practice.so:755"
 for f in "$ROOT_DIR"/plugins/practice/scenarios/*.json; do
   [[ -f "$f" ]] && practice_files+=("$f:plugins/practice/scenarios/$(basename "$f")")
 done
+# Guides: CS2 map annotation files (plugins/practice/guides/*.txt, credited in its README.md), the
+# lineups .menu offers on their maps.
+for f in "$ROOT_DIR"/plugins/practice/guides/*.txt; do
+  [[ -f "$f" ]] && practice_files+=("$f:plugins/practice/guides/$(basename "$f")")
+done
 stage_component practice "Practice mode and tools (.prac, .savepos/.loadpos, .spawn, .rethrow, .bot, .scen replays)" \
   "${practice_files[@]}"
 
