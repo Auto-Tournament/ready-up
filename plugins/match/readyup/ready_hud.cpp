@@ -515,11 +515,13 @@ static std::string LiveSpec(const LiveHudInfo& l, int viewerSide) {
     return s + "btn=Unpause|warn|pulse|.up\n" + L("bw", "l") + L("mouse", "on");
   };
   if (l.paused && l.pendingFreeze) {
-    // Asked for mid-round: the round goes on until freeze time. A notice only, no buttons and no
-    // cursor (the full card took the mouse mid-round, 2026-10-27).
-    const std::string who = l.byTeam.empty() ? std::string() : HudSpecText(l.byTeam) + " \xC2\xB7 ";
-    return L("id", "pausing") + L("color", "warn") + L("kind", who + (l.type == "tactical" ? "Timeout" : "Pause")) +
-           L("title", "Next freeze time");
+    // Asked for mid-round: the round goes on until freeze time. Only the pausing team is told, on
+    // the side card, with no buttons and no cursor (the full card took the mouse mid-round,
+    // 2026-10-27); everyone else sees the pause when it happens.
+    const std::string myName = mine == WebhookTeam::Team1 ? l.team1 : mine == WebhookTeam::Team2 ? l.team2 : std::string();
+    if (l.byTeam.empty() || myName != l.byTeam) return {};
+    return L("id", "pausing") + L("where", "card") + L("color", "warn") +
+           L("kind", l.type == "tactical" ? "Timeout" : "Pause") + L("title", "Next freeze time");
   }
   if (l.paused) {
     if (l.type == "technical") {
