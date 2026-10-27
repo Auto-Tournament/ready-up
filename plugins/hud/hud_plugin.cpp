@@ -741,9 +741,14 @@ bool ScreenClick(int slot, const std::string& button) {
   return true;
 }
 
+void MenuForget(int slot);
+int IfMenu(int slot, const char* owner, const char* spec, ru_hud_click_fn onClick, void* user);
+int IfRegisterMenu(const char* owner, int priority, ru_hud_menu_active_fn active, ru_hud_menu_open_fn open, void* user);
+
 void ScreenForget(int slot) {
   g_screens.erase(slot);
   DemoForget(slot);
+  MenuForget(slot);
   g_buyOpen.erase(slot);
   if (!g_layouts.empty()) {
     for (size_t i = 0; i < g_layouts.size(); ++i)
@@ -751,7 +756,7 @@ void ScreenForget(int slot) {
   }
 }
 
-const ru_hud_v1 g_iface = {sizeof(ru_hud_v1), &IfAvailable, &IfOpen, &IfSetText, &IfSetClass, &IfClearSlot, &IfScreen};
+const ru_hud_v1 g_iface = {sizeof(ru_hud_v1), &IfAvailable, &IfOpen, &IfSetText, &IfSetClass, &IfClearSlot, &IfScreen, &IfMenu, &IfRegisterMenu};
 
 // `ru hudkit click [slot]`: the CT / T proof of concept for one player, or every human.
 const char* kClickLayout = "panorama/layout/custom_game/at_click.xml";
@@ -1322,16 +1327,11 @@ void DemoShow(int slot, const std::string& name) {
   if (const std::string* spec = DemoSpec(name)) IfScreen(slot, spec->c_str(), &OnDemoClick, nullptr);
 }
 
+void MenuRefresh(int slot);
+
 void DemoEnd(int slot) {
   g_demos.erase(slot);
-  auto d = g_deferred.find(slot);
-  if (d == g_deferred.end()) {
-    IfScreen(slot, "", nullptr, nullptr);
-    return;
-  }
-  const Deferred back = d->second;
-  g_deferred.erase(d);
-  IfScreen(slot, back.spec.c_str(), back.onClick, back.user);  // what the match wants now
+  MenuRefresh(slot);  // a menu if one is up, else what the match wants now
 }
 
 // The at_kit end screens (leaderboard) are for everyone at once, so a demo of one shows to all.
@@ -1434,10 +1434,109 @@ void TourTick() {
   }
 }
 
+// ---- menus (readyup.hud.v1.2 `menu`, `register_menu`) -------------------------------------------
+//
+// A plugin's menu sits over the base screen (`screen`, the match's): the latest menu from any owner
+// is drawn, the base waits, and comes back when the last menu closes. A demo sits over both.
+
+struct MenuEntry {
+  std::string owner, spec;
+  ru_hud_click_fn onClick = nullptr;
+  void* user = nullptr;
+};
+std::map<int, std::vector<MenuEntry>> g_menus;  // slot -> open menus, the top one last
+bool g_drawingMenu = false;                       // IfScreen is drawing a menu, not a base screen
+
+void MenuForget(int slot) { g_menus.erase(slot); }
+
+bool HasMenu(int slot) {
+  auto it = g_menus.find(slot);
+  return it != g_menus.end() && !it->second.empty();
+}
+
 bool DemoDefer(int slot, const std::string& spec, ru_hud_click_fn onClick, void* user) {
-  if (onClick == &OnDemoClick || !DemoActive(slot)) return false;
-  g_deferred[slot] = Deferred{spec, onClick, user};  // shown again when the demo ends
+  if (g_drawingMenu || onClick == &OnDemoClick) return false;
+  if (!DemoActive(slot) && !HasMenu(slot)) return false;
+  g_deferred[slot] = Deferred{spec, onClick, user};  // shown again when the demo / menus end
   return true;
+}
+
+// Draws what `slot` should see now: nothing while a demo owns it, else the top menu, else the base.
+void MenuRefresh(int slot) {
+  if (DemoActive(slot)) return;
+  if (HasMenu(slot)) {
+    const MenuEntry top = g_menus[slot].back();
+    g_drawingMenu = true;
+    IfScreen(slot, top.spec.c_str(), top.onClick, top.user);
+    g_drawingMenu = false;
+    return;
+  }
+  g_menus.erase(slot);
+  auto d = g_deferred.find(slot);
+  if (d == g_deferred.end()) {
+    IfScreen(slot, "", nullptr, nullptr);
+    return;
+  }
+  const Deferred back = d->second;
+  g_deferred.erase(d);
+  IfScreen(slot, back.spec.c_str(), back.onClick, back.user);
+}
+
+int IfMenu(int slot, const char* ownerIn, const char* specIn, ru_hud_click_fn onClick, void* user) {
+  if (!ownerIn || !*ownerIn) return 0;
+  const std::string owner = ownerIn, spec = specIn ? specIn : "";
+  std::vector<int> slots;
+  if (slot == RU_HUD_ALL) {
+    for (const auto& kv : g_menus) slots.push_back(kv.first);
+  } else if (slot >= 0 && slot <= 63) {
+    slots.push_back(slot);
+  } else {
+    return 0;
+  }
+  for (int s : slots) {
+    auto& v = g_menus[s];
+    const bool wasTop = !v.empty() && v.back().owner == owner;
+    v.erase(std::remove_if(v.begin(), v.end(), [&](const MenuEntry& m) { return m.owner == owner; }), v.end());
+    if (!spec.empty() && slot != RU_HUD_ALL) v.push_back(MenuEntry{owner, spec, onClick, user});
+    if (!spec.empty() || wasTop) MenuRefresh(s);
+  }
+  return 1;
+}
+
+// `.menu` opens the menu that fits the server right now: the highest-priority provider that says
+// it is active (practice over movement over map vote over the match).
+struct MenuProvider {
+  std::string owner;
+  int priority = 0;
+  ru_hud_menu_active_fn active = nullptr;
+  ru_hud_menu_open_fn open = nullptr;
+  void* user = nullptr;
+};
+std::vector<MenuProvider> g_providers;
+
+int IfRegisterMenu(const char* ownerIn, int priority, ru_hud_menu_active_fn active, ru_hud_menu_open_fn open, void* user) {
+  if (!ownerIn || !*ownerIn) return 0;
+  const std::string owner = ownerIn;
+  g_providers.erase(std::remove_if(g_providers.begin(), g_providers.end(), [&](const MenuProvider& p) { return p.owner == owner; }),
+                    g_providers.end());
+  if (!active || !open) {
+    IfMenu(RU_HUD_ALL, ownerIn, "", nullptr, nullptr);  // unregistering: its menus close too
+    return 1;
+  }
+  g_providers.push_back(MenuProvider{owner, priority, active, open, user});
+  std::stable_sort(g_providers.begin(), g_providers.end(), [](const MenuProvider& a, const MenuProvider& b) { return a.priority > b.priority; });
+  return 1;
+}
+
+void OnMenuChat(void*, const ru_command_ctx* ctx) {
+  if (ctx->slot < 0) return;
+  for (const auto& p : g_providers) {
+    if (p.active(p.user, ctx->slot)) {
+      p.open(p.user, ctx->slot, ctx->steamid64);
+      return;
+    }
+  }
+  g_api->chat_to_slot(g_api->self, ctx->slot, "No menu on this server right now.");
 }
 
 void OnDemoClick(void*, int slot, const char* command) {
@@ -1635,6 +1734,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_screens.clear();
   g_demos.clear();
   g_deferred.clear();
+  g_menus.clear();
+  g_providers.clear();
   g_buyOpen.clear();
   g_straysCleared = false;
   g_mapStartedAt = -1;
@@ -1646,6 +1747,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   api->subscribe(api->self, RU_EVENT_ANY, &OnEvent, nullptr);
   api->register_ru_subcommand(api->self, "hudkit", &OnRu, nullptr);
   api->register_chat_command(api->self, ".dev", &OnDevChat, nullptr);
+  api->register_chat_command(api->self, ".menu", &OnMenuChat, nullptr);
   if (RU_API_HAS(api, filter_client_command)) {
     api->filter_client_command(api->self, "open_buymenu", &OnBuyMenu, nullptr);
     api->filter_client_command(api->self, "close_buymenu", &OnBuyMenu, nullptr);

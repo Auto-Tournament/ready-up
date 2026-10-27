@@ -6,6 +6,7 @@
 
 #include "readyup/admin_check.h"
 #include "readyup/config.h"
+#include "readyup/engine.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
 #include "readyup/match_features.h"
@@ -225,6 +226,28 @@ std::string VoteSpec(int slot, uint64_t steamid64, int csTeam) {
   return {};
 }
 
+// hud.so owns `.menu` and asks each plugin whose menu fits (ru_hud_v1 register_menu). Ours fits
+// whenever this plugin runs the server (not practice, not an external flow); between rounds it opens
+// the admin menu for admins, the help menu for everyone else.
+const ru_hud_v1* g_menuHud = nullptr;
+
+int MenuActive(void*, int) {
+  const ReadyUpMode m = GetMode();
+  return m != ReadyUpMode::Practice && m != ReadyUpMode::External;
+}
+
+void MenuOpen(void*, int slot, uint64_t steamid64) {
+  if (HudScreensOpenMenu(slot, steamid64, IsReadyUpAdmin(steamid64) ? "admin" : "help")) return;
+  if (slot >= 0) ClientPrintChat(slot, " \x04[ReadyUp]\x01 The menu opens between rounds. Try .help");
+}
+
+void EnsureMenuProvider(const ru_hud_v1* hud) {
+  if (hud == g_menuHud) return;
+  if (hud->struct_size < offsetof(ru_hud_v1, register_menu) + sizeof(hud->register_menu) || !hud->register_menu) return;
+  hud->register_menu("match", 0, &MenuActive, &MenuOpen, nullptr);
+  g_menuHud = hud;
+}
+
 void OnClick(void*, int slot, const char* command) {
   const std::string c = command ? command : "";
   if (c.rfind("#menu ", 0) == 0) {
@@ -275,6 +298,7 @@ bool HudMidRound() {
 void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseFor) {
   const ru_hud_v1* hud = Hud();
   if (!hud) return;
+  EnsureMenuProvider(hud);
   const double now = host::NowSeconds();
   const bool mid = HudMidRound();
   std::set<int> present;
@@ -317,6 +341,11 @@ void HudScreensNotice(int slot, const std::string& spec, double seconds) {
   if (slot < 0 || slot > 63 || spec.empty()) return;
   std::lock_guard<std::mutex> lk(g_noticeMu);
   g_notices[slot] = Notice{spec, host::NowSeconds() + seconds};
+}
+
+void HudScreensUninstall() {
+  if (const ru_hud_v1* hud = Hud(); hud && hud == g_menuHud) hud->register_menu("match", 0, nullptr, nullptr, nullptr);
+  g_menuHud = nullptr;
 }
 
 bool HudScreensOpenMenu(int slot, uint64_t steamid64, const std::string& which) {

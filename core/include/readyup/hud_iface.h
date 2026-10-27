@@ -29,6 +29,9 @@ extern "C" {
 
 /* A button click on a `screen`: the button's command, e.g. ".r". Game thread. */
 typedef void (*ru_hud_click_fn)(void* user, int slot, const char* command);
+/* `.menu` providers (register_menu): does this plugin's menu fit `slot` now; open it. Game thread. */
+typedef int (*ru_hud_menu_active_fn)(void* user, int slot);
+typedef void (*ru_hud_menu_open_fn)(void* user, int slot, uint64_t steamid64);
 
 typedef struct ru_hud_v1 {
   uint32_t struct_size; /* sizeof(ru_hud_v1) of the provider */
@@ -55,6 +58,18 @@ typedef struct ru_hud_v1 {
    * mouse=b), never with chips=1, and gives it back on a click, a new id, "" or a disconnect.
    * 1 = done. */
   int (*screen)(int slot, const char* spec, ru_hud_click_fn on_click, void* user);
+  /* v1.2 (check struct_size): menus from any plugin. A menu is drawn over what `screen` shows for
+   * `slot` while it is up: the latest menu from any owner wins, the base screen waits and comes
+   * back when the last menu closes. `owner` is a short plugin name ("practice"); spec "" closes
+   * that owner's menu; slot RU_HUD_ALL with "" closes it for everyone (call it on unload). Same
+   * spec format and cursor rules as `screen`. 1 = done. */
+  int (*menu)(int slot, const char* owner, const char* spec, ru_hud_click_fn on_click, void* user);
+  /* v1.2: what `.menu` opens. `.menu` (registered by hud.so) asks every provider, highest
+   * `priority` first, whether its menu fits this player now (`active`) and opens the first that
+   * does (`open`). Priorities in use: match 0, mapvote 10, movement 20, practice 30. Registering an
+   * owner again replaces it; active or open NULL unregisters it and closes its menus (call that on
+   * unload). 1 = done. */
+  int (*register_menu)(const char* owner, int priority, ru_hud_menu_active_fn active, ru_hud_menu_open_fn open, void* user);
   /* v1.x: members are appended here. */
 } ru_hud_v1;
 

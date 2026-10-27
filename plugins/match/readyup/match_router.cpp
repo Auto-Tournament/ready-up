@@ -144,7 +144,7 @@ const std::vector<std::string>& MatchPlayerChatCommands() {
       ".r",    ".ready", ".unready", ".ur",   ".notready", ".nr",    ".pause", ".p",     ".tech",
       ".tac",  ".forceready", ".forcepause", ".fp", ".forceunpause", ".fup",
       ".unpause", ".up", ".gg",      ".ff",   ".forfeit",  ".stay",  ".switch", ".swap", ".ct",
-      ".t",    ".help",  ".menu", ".stop", ".admin", ".restore",
+      ".t",    ".help",  ".stop", ".admin", ".restore",
       // Admin shortcuts (match_settings.h, `.ru match ...`); `.settings` is for anyone.
       ".settings", ".readyrequired", ".playout", ".roundknife", ".rk", ".spec", ".whitelist", ".start", ".forcestart",
       ".restart", ".rr", ".endmatch", ".forceend", ".team1", ".team2", ".asay"};
@@ -174,12 +174,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     return;
   }
 
-  // `.menu`: the HUD's admin menu for admins, the help menu for everyone else (hud_screens.h).
-  if (first == ".menu") {
-    if (HudScreensOpenMenu(slot, steamid64, IsReadyUpAdmin(steamid64) ? "admin" : "help")) return;
-    if (slot >= 0) ClientPrintChat(slot, " \x04[ReadyUp]\x01 The menu needs the Auto Tournament HUD, between rounds. Try .help");
-    return;
-  }
+  // `.menu` belongs to hud.so, which asks this plugin for its menu (hud_screens.h MenuProvider).
 
   if (first == ".help") {
     if (HudScreensOpenMenu(slot, steamid64, "help")) return;  // the HUD's clickable help

@@ -41,6 +41,9 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
 // A card re-sent every frame keeps it up. Thread-safe.
 void HudScreensNotice(int slot, const std::string& spec, double seconds);
 
+// Stop answering hud.so's `.menu` (plugin unload). Game thread.
+void HudScreensUninstall();
+
 bool HudScreensOpenMenu(int slot, uint64_t steamid64, const std::string& which);
 
 // A spec value: no line breaks, no '|' (it separates button fields).
