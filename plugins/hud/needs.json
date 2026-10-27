@@ -13,6 +13,7 @@
     "entity_system_status",
     "filter_client_command",
     "for_each_player",
+    "get_player",
     "hook_vtable",
     "on_tick",
     "register_chat_command",

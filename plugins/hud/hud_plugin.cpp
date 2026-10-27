@@ -710,6 +710,8 @@ int IfScreen(int slot, const char* specIn, ru_hud_click_fn onClick, void* user) 
   return 1;
 }
 
+bool OpenProviderMenu(int slot, const std::string& owner);
+
 // A click on one of our at_ui buttons. True when it was one (handled or ignored).
 bool ScreenClick(int slot, const std::string& button) {
   std::string panel;
@@ -736,6 +738,8 @@ bool ScreenClick(int slot, const std::string& button) {
   ss.clicked = true;
   UpdateCapture(slot);
   if (cmd.empty()) return true;
+  // `#open <owner>`: another plugin's menu (the movement menu's Maps button opens the map vote's).
+  if (cmd.rfind("#open ", 0) == 0 && OpenProviderMenu(slot, cmd.substr(6))) return true;
   if (ss.onClick) ss.onClick(ss.user, slot, cmd.c_str());
   else if (RU_API_HAS(g_api, run_chat_command)) g_api->run_chat_command(g_api->self, slot, cmd.c_str());  // as if typed
   return true;
@@ -1526,6 +1530,17 @@ int IfRegisterMenu(const char* ownerIn, int priority, ru_hud_menu_active_fn acti
   g_providers.push_back(MenuProvider{owner, priority, active, open, user});
   std::stable_sort(g_providers.begin(), g_providers.end(), [](const MenuProvider& a, const MenuProvider& b) { return a.priority > b.priority; });
   return 1;
+}
+
+bool OpenProviderMenu(int slot, const std::string& owner) {
+  ru_player p{};
+  if (!g_api->get_player(g_api->self, slot, &p)) return false;
+  for (const auto& m : g_providers) {
+    if (m.owner != owner || !m.active(m.user, slot)) continue;
+    m.open(m.user, slot, p.steamid64);
+    return true;
+  }
+  return false;
 }
 
 void OnMenuChat(void*, const ru_command_ctx* ctx) {
