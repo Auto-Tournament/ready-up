@@ -514,12 +514,18 @@ static std::string LiveSpec(const LiveHudInfo& l, int viewerSide) {
     if (done) return s + "btn=Waiting for " + (mine == WebhookTeam::Team1 ? t2 : t1) + "|ghost|off|\n" + L("bw", "xl");
     return s + "btn=Unpause|warn|pulse|.up\n" + L("bw", "l") + L("mouse", "on");
   };
+  if (l.paused && l.pendingFreeze) {
+    // Asked for mid-round: the round goes on until freeze time. A notice only, no buttons and no
+    // cursor (the full card took the mouse mid-round, 2026-10-27).
+    const std::string who = l.byTeam.empty() ? std::string() : HudSpecText(l.byTeam) + " \xC2\xB7 ";
+    return L("id", "pausing") + L("color", "warn") + L("kind", who + (l.type == "tactical" ? "Timeout" : "Pause")) +
+           L("title", "Next freeze time");
+  }
   if (l.paused) {
     if (l.type == "technical") {
       std::string s = L("id", "pause") + L("color", "warn") + L("kind", "Tech pause") +
                       L("title", l.byTeam.empty() ? std::string("Tech pause") : HudSpecText(l.byTeam) + " paused");
-      if (l.pendingFreeze) s += L("sub", "Pauses at freeze time");
-      else if (l.secondsLeft >= 0) s += L("sub", "Auto unpause (" + std::to_string(l.secondsLeft) + ")");
+      if (l.secondsLeft >= 0) s += L("sub", "Auto unpause (" + std::to_string(l.secondsLeft) + ")");
       return s + confirmAndButton(!l.bothRequired);
     }
     if (l.type == "tactical") {
