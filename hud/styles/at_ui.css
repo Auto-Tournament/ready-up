@@ -326,5 +326,13 @@
 .px-b { animation-duration: 4.1s; animation-delay: 0.9s; }
 .px-c { animation-duration: 2.7s; animation-delay: 1.6s; }
 .px-d { animation-duration: 3.8s; animation-delay: 2.3s; }
-.ui-card.mini .ui-pixels { visibility: collapse; }
-.ui-card.mini .ui-wash { visibility: collapse; }
+/* The pill keeps the wash and the pixels; the pixels sit low and left of the Unready button. */
+.ui-card.mini .ui-px { horizontal-align: left; }
+.ui-card.mini .ui-px.p0 { margin: 6px 0px 0px 70px; }
+.ui-card.mini .ui-px.p1 { margin: 34px 0px 0px 96px; }
+.ui-card.mini .ui-px.p2 { margin: 10px 0px 0px 128px; }
+.ui-card.mini .ui-px.p3 { margin: 40px 0px 0px 152px; }
+.ui-card.mini .ui-px.p4 { margin: 8px 0px 0px 184px; }
+.ui-card.mini .ui-px.p5 { margin: 38px 0px 0px 210px; }
+.ui-card.mini .ui-px.p6 { margin: 14px 0px 0px 236px; }
+.ui-card.mini .ui-px.p7 { margin: 30px 0px 0px 30px; }
