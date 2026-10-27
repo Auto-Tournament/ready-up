@@ -305,7 +305,10 @@
 /* Tables: a head row of cells (text + a tooltip on hover), then player rows. Cells are 40 px
    until a cw-* class says otherwise; cw-off hides a column. */
 .at-eteams { flow-children: right; width: 100%; overflow: noclip; }
-.at-eteam { flow-children: down; width: fill-parent-flow( 1.0 ); margin-right: 14px; margin-left: 14px; overflow: noclip; }
+/* Fixed widths: two tables of 670 px and a 28 px gap fill the card's 1368 px (fill-parent-flow here
+   let the first table take nearly everything, 2026-10-27). */
+.at-eteam { flow-children: down; width: 670px; overflow: noclip; }
+#at_eta { margin-right: 28px; }
 .at-erow { flow-children: right; width: 100%; height: 36px; margin-bottom: 5px; padding: 0px 12px; border-radius: 8px; background-color: #18110e; border: 1px solid #211815; }
 .at-erow.at-ehead { overflow: noclip; height: 16px; background-color: #00000000; border: 0px solid #00000000; }
 .at-enbox { flow-children: right; width: fill-parent-flow( 1.0 ); vertical-align: center; }
