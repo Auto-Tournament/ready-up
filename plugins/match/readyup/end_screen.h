@@ -56,6 +56,8 @@ EndScreenInfo EndScreenDemoInfo(uint64_t viewer, const std::string& viewerName, 
 // when the HUD can't draw it (then the result card).
 bool EndScreenShow(const EndScreenInfo& info, int target = -1);
 void EndScreenHide();
+// Closes a preview (.enddemo off, from hud.so's .dev); a real end screen stays.
+void EndScreenHidePreview();
 // Once a tick (result_card.cpp): the countdown, and hiding it when its time is up.
 void EndScreenTick();
 bool EndScreenActive();

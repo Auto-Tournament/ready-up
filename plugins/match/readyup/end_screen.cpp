@@ -38,6 +38,7 @@ struct State {
   int lastSecs = -1;
   std::string nextLabel, next;
   std::set<int> captured;  // slots holding the cursor
+  bool preview = false;    // .enddemo, not a real end of map
 };
 State g;
 std::mutex g_mu;
@@ -340,6 +341,7 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
   }
   w.Class(ALL, "at_end", "on", true);
   if (target != RU_HUD_ALL) {
+    g.preview = true;
     g.active = true;  // a preview closes like the real one
     g.until = host::NowSeconds() + info.seconds;
     g.lastSecs = info.seconds;
@@ -364,9 +366,12 @@ void EndScreenHide() {
   const int k = h->open(kKitLayout);
   if (k <= 0) return;
   h->set_class(k, RU_HUD_ALL, "at_end", "on", 0);
-  for (int slot : captured) {
-    h->set_class(k, slot, "at_end", "on", 0);
-    if (HasCapture(h)) h->set_capture(k, slot, 0);
+  // Per player too: the show set it per player (a preview only for one).
+  for (const auto& hu : ListHumans()) {
+    if (hu.slot >= 0 && hu.slot <= 63) h->set_class(k, hu.slot, "at_end", "on", 0);
+  }
+  if (HasCapture(h)) {
+    for (int slot : captured) h->set_capture(k, slot, 0);
   }
 }
 
@@ -448,6 +453,14 @@ EndScreenInfo EndScreenDemoInfo(uint64_t viewer, const std::string& viewerName, 
   info.stats.team2.score_t = lost ? 8 : 5;
   info.stats.team2.score_ct = lost ? 5 : 4;
   return info;
+}
+
+void EndScreenHidePreview() {
+  {
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (!g.active || !g.preview) return;
+  }
+  EndScreenHide();
 }
 
 bool EndScreenActive() {

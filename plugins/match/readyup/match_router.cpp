@@ -249,6 +249,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     // hud.so's .dev "Leaderboard" buttons: the real end screen (end_screen.h) with made-up numbers,
     // for this player only, so the demo and the real screen never drift apart.
     if (slot < 0) return;
+    if (RestAfterWords(text, 1) == "off") return EndScreenHidePreview();
     if (!EndScreenShow(EndScreenDemoInfo(steamid64, playerName, RestAfterWords(text, 1) == "lost"), slot)) {
       ReplyTo(slot, "The leaderboard needs the Auto Tournament HUD.");
     }

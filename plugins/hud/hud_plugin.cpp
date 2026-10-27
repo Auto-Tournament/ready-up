@@ -1616,6 +1616,13 @@ void OnDevChat(void*, const ru_command_ctx* ctx) {
     g_api->chat_to_slot(g_api->self, ctx->slot, "Ready Up hud: .dev is for admins");
     return;
   }
+  // The leaderboard preview belongs to the match plugin (.enddemo): `.dev` always closes it.
+  if (RU_API_HAS(g_api, run_chat_command)) g_api->run_chat_command(g_api->self, ctx->slot, ".enddemo off");
+  // `.dev` again closes the menu (or the demo it showed); else it opens.
+  if (DemoActive(ctx->slot)) {
+    KitDemoOff();
+    return DemoEnd(ctx->slot);
+  }
   DevOpen(ctx->slot, 0);
 }
 
