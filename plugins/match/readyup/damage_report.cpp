@@ -6,6 +6,7 @@
 #include "readyup/engine.h"
 #include "readyup/esports.h"
 #include "readyup/host.h"
+#include "readyup/hud_iface.h"
 #include "readyup/hud_screens.h"
 #include "readyup/logging.h"
 #include "readyup/match_events.h"
