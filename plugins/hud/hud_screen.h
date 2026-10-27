@@ -29,7 +29,7 @@
 //   cls=edge glass-3 at-top      utilities on the panel (hud/styles/at_ui.css, "Tailwind for CS2")
 //   cls.title=text-2xl tc-live   utilities on one part: brand kind title sub hint timer counter
 //                                teams confirm lines cmds buttons close flow b0..b7
-//   btn=CT|ct||.ct               a button, up to 8: label | tone | state | command [| count]
+//   btn=CT|ct||.ct               a button, up to 24 (kMaxButtons): label | tone | state | command [| count]
 //                                tone: green ct t warn danger ghost; state: picked | off | pulse | (none)
 //                                (pulse: the one button waiting for this player breathes)
 //   cols=2                       buttons per row (default: the number of buttons, at most 4)
@@ -46,6 +46,10 @@
 #include <vector>
 
 namespace hud {
+
+// Button slots per panel in at_ui.xml (hud/tools/gen_ui.py).
+constexpr int kMaxButtons = 24;
+
 
 enum class Mouse { Off, B, On };
 

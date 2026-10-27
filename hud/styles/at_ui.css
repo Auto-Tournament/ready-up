@@ -11,8 +11,10 @@
 */
 
 .ui-root { width: 100%; height: 100%; font-family: "Noto Sans"; }
-.ui-cardwrap { width: 100%; height: 100%; }
-.ui-midwrap { width: 100%; height: 100%; }
+/* The whole HUD at 85 % (2026-10-27: it read large), each panel kept where it sits: the card
+   bottom right, the centre panel bottom centre. */
+.ui-cardwrap { width: 100%; height: 100%; transform-origin: 100% 100%; transform: scale3d( 0.85, 0.85, 1 ); }
+.ui-midwrap { width: 100%; height: 100%; transform-origin: 50% 100%; transform: scale3d( 0.85, 0.85, 1 ); }
 
 .ui-panel
 {
@@ -119,7 +121,7 @@
 .ui-rowv { vertical-align: center; font-size: 15px; font-weight: bold; color: #f4edeb; }
 .ui-rowv.cmd { font-family: "Noto Mono"; padding: 2px 8px; border-radius: 5px; background-color: #211815; border: 1px solid #736966; }
 
-/* Buttons: up to 8 in a wrapping row; the row's width comes from cols-N x bw-* on the panel. */
+/* Buttons: up to 24 in a wrapping row; the row's width comes from cols-N x bw-* on the panel. */
 .ui-buttons { visibility: collapse; flow-children: right-wrap; horizontal-align: center; margin-top: 14px; }
 .has-buttons .ui-buttons { visibility: visible; }
 .ui-btn
@@ -160,6 +162,24 @@
 .ui-btn.off:hover { transform: scale3d( 1, 1, 1 ); border: 2px solid #322926; }
 
 /* Button widths (bw-*) and the row width for each column count (cols-N): N x (width + 12). */
+/* xs: dense pages (the .dev menu): small, many to a row. */
+.bw-xs .ui-btn { width: 150px; height: 34px; margin: 4px; border-radius: 17px; }
+.bw-xs .ui-btnlabel { font-size: 13px; }
+.bw-xs .ui-btnsub { margin-right: 10px; font-size: 11px; }
+.bw-xs.cols-1 .ui-buttons { width: 158px; }
+.bw-xs.cols-2 .ui-buttons { width: 316px; }
+.bw-xs.cols-3 .ui-buttons { width: 474px; }
+.bw-xs.cols-4 .ui-buttons { width: 632px; }
+.bw-xs.cols-5 .ui-buttons { width: 790px; }
+.bw-xs.cols-6 .ui-buttons { width: 948px; }
+.bw-s.cols-5 .ui-buttons { width: 660px; }
+.bw-s.cols-6 .ui-buttons { width: 792px; }
+.bw-m.cols-5 .ui-buttons { width: 910px; }
+.bw-m.cols-6 .ui-buttons { width: 1092px; }
+.bw-l.cols-5 .ui-buttons { width: 1110px; }
+.bw-l.cols-6 .ui-buttons { width: 1332px; }
+.bw-xl.cols-5 .ui-buttons { width: 1360px; }
+.bw-xl.cols-6 .ui-buttons { width: 1632px; }
 .bw-s .ui-btn { width: 120px; }
 .bw-m .ui-btn { width: 170px; }
 .bw-l .ui-btn { width: 210px; }

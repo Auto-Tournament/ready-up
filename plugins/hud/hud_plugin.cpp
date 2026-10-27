@@ -1380,18 +1380,26 @@ void DemoShow(int slot, const std::string& name) {
 
 void MenuRefresh(int slot);
 
+bool KitDemoHolds(int slot);
+void KitDemoOff();
+
 void DemoEnd(int slot) {
   g_demos.erase(slot);
+  if (KitDemoHolds(slot)) KitDemoOff();  // the end-screen demo gives the cursor back
   MenuRefresh(slot);  // a menu if one is up, else what the match wants now
 }
 
 // The at_kit end screens (leaderboard) are for everyone at once, so a demo of one shows to all.
 bool g_kitDemo = false;
+std::set<int> g_kitCaptured;  // slots the end-screen demo holds the cursor for (tooltips on hover)
+bool KitDemoHolds(int slot) { return g_kitCaptured.count(slot) > 0; }
 void KitDemoOff() {
   if (!g_kitDemo) return;
   g_kitDemo = false;
   const int h = IfOpen("panorama/layout/custom_game/at_kit.xml");
   for (const char* el : {"at_card", "at_mid", "at_end"}) IfSetClass(h, RU_HUD_ALL, el, "on", 0);
+  for (int s : g_kitCaptured) IfSetCapture(h, s, 0);
+  g_kitCaptured.clear();
 }
 
 // Shows demo screen `i` (index into DemoScreens) to `slot`: at_ui screens to the slot, "kit:" ones
@@ -1406,6 +1414,12 @@ void DemoShowIndex(int slot, size_t i) {
     const int h = IfOpen("panorama/layout/custom_game/at_kit.xml");
     for (const char* el : {"at_card", "at_mid", "at_end"}) IfSetClass(h, RU_HUD_ALL, el, "on", 0);
     g_later.emplace_back(g_now + 0.35, [state] { KitApply(state); });
+    // The end screen holds the cursor, like the real one (end_screen.cpp): its column heads explain
+    // themselves on hover.
+    if (state == "end" || state == "endlost") {
+      IfSetCapture(h, slot, 1);
+      g_kitCaptured.insert(slot);
+    }
     return;
   }
   KitDemoOff();
@@ -1441,7 +1455,36 @@ void TourStep(int slot, Demo& t) {
 }
 
 // `.dev`: a clickable list of every demo screen, five a page, plus Prev / Next / Tour.
-constexpr int kDevPerPage = 5;
+constexpr int kDevPerPage = 20;  // + Prev, Next, Tour all = 23 of the 24 button slots
+// What a demo screen is, for the .dev buttons (its id, e.g. "everyone", says little).
+std::string DevLabel(const std::string& id) {
+  static const std::map<std::string, std::string> kLabels = {
+      {"welcome", "Welcome"}, {"notready", "Warmup: not ready"}, {"ready", "Warmup: ready pill"},
+      {"everyone", "Everyone ready"}, {"knife", "Knife round"}, {"pick", "Knife: pick a side"},
+      {"pickurgent", "Knife: pick, hurry"}, {"pickedct", "Knife: picked CT"}, {"lost", "Knife: lost"},
+      {"golive", "Going live"}, {"pause", "Tech pause"}, {"waiting", "Tech pause: waiting"},
+      {"timeout", "Timeout"}, {"adminpause", "Admin pause"}, {"vote", "Surrender vote"},
+      {"voted", "Surrender: voted"}, {"chips", "Vote mid-round"}, {"replay", "Replay request"},
+      {"missing", "Team missing"}, {"admincall", "Admin called (admin)"}, {"help", "Help: warmup"},
+      {"helplive", "Help: live"}, {"votes", "Help: votes"}, {"info", "Help: match info"},
+      {"cmds", "Help: commands"}, {"admin", "Admin menu"}, {"maps", "Admin: change map"},
+      {"rounds", "Admin: replay round"}, {"endwho", "Admin: end, who won"}, {"endconfirm", "Admin: end, confirm"},
+      {"mapresult", "Map result card"}, {"seriesresult", "Series result card"}, {"mapvote", "Map veto"},
+      {"teamready", "Warmup: team ready"}, {"joinateam", "Warmup: join a team"}, {"spectating", "Warmup: spectating"},
+      {"coach", "Warmup: coach"}, {"sidechosen", "Sides chosen"}, {"timeup", "Side pick timed out"},
+      {"halftime", "Halftime"}, {"overtime", "Overtime"}, {"damage", "Round damage"},
+      {"pausepending", "Pause next freeze"}, {"notimeouts", "No timeouts left"}, {"notech", "No tech pauses left"},
+      {"dropped", "Player dropped"}, {"missingours", "Our team missing"}, {"unpausing", "Unpausing"},
+      {"admincalled", "Admin on the way"}, {"toosoon", "Admin: called already"}, {"notnow", "Not now (warmup)"},
+      {"asay", "Admin message"}, {"tournament", "Tournament message"}, {"restored", "Round restored"},
+      {"forcestart", "Admin force start"}, {"adminended", "Match ended (admin)"}, {"nextmap", "Next map"},
+      {"gg", "Server closing"}, {"download", "Map downloading"}, {"kit:damage", "Old: damage card"},
+      {"kit:end", "Leaderboard: won"}, {"kit:endlost", "Leaderboard: lost"}, {"kit:next", "Old: next map card"},
+  };
+  const auto it = kLabels.find(id);
+  return it != kLabels.end() ? it->second : id;
+}
+
 std::string DevMenuSpec(int page) {
   const auto& list = DemoScreens();
   const int n = static_cast<int>(list.size()) - 1;
@@ -1452,12 +1495,13 @@ std::string DevMenuSpec(int page) {
   std::string s = "id=dev\nkind=Dev \xC2\xB7 " + std::to_string(from + 1) + "-" + std::to_string(to) + " of " + std::to_string(n) +
                   "\ntitle=Show a screen\n";
   for (int i = from; i < to; ++i)
-    s += "btn=" + list[static_cast<size_t>(i)].first + "|ghost||#devshow " + std::to_string(i) + "|" + std::to_string(i + 1) + "\n";
+    s += "btn=" + DevLabel(list[static_cast<size_t>(i)].first) + "|ghost||#devshow " + std::to_string(i) + "|" +
+         std::to_string(i + 1) + "\n";
   for (int i = to; i < from + kDevPerPage; ++i) s += "btn= |ghost|off|\n";  // keep the nav row in place
   s += "btn=Prev|ghost|" + std::string(page == 0 ? "off" : "") + "|#devpage " + std::to_string(page - 1) + "\n";
   s += "btn=Next|ghost|" + std::string(page + 1 >= pages ? "off" : "") + "|#devpage " + std::to_string(page + 1) + "\n";
   s += "btn=Tour all|green||#devtour\n";
-  return s + "cols=4\nbw=m\nclose=Close|#devclose\nmouse=on\nenter=fade\n";
+  return s + "cols=5\nbw=xs\nclose=Close|#devclose\nmouse=on\nenter=fade\n";
 }
 
 void DevOpen(int slot, int page) {

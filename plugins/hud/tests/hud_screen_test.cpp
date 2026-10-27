@@ -127,7 +127,9 @@ void TestButtonIds() {
   int i = 0;
   CHECK(hud::ParseButtonId("ui_mid_b3", &p, &i) && p == "ui_mid" && i == 3);
   CHECK(hud::ParseButtonId("ui_card_close", &p, &i) && p == "ui_card" && i == -1);
-  CHECK(!hud::ParseButtonId("ui_mid_b8", &p, &i));
+  CHECK(hud::ParseButtonId("ui_mid_b23", &p, &i) && i == 23);
+  CHECK(!hud::ParseButtonId("ui_mid_b24", &p, &i));
+  CHECK(!hud::ParseButtonId("ui_mid_b", &p, &i));
   CHECK(!hud::ParseButtonId("at_btn_ct", &p, &i));
 }
 

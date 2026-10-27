@@ -59,7 +59,7 @@ def block(p):
         for n in range(5)))
     buttons = panel(f"{p}_buttons", "ui-buttons", children="".join(
         button(f"{p}_b{n}", "ui-btn", panel(cls="ui-btnglow") + label(f"{p}_b{n}_l", "ui-btnlabel") + label(f"{p}_b{n}_s", "ui-btnsub"))
-        for n in range(8)))
+        for n in range(24)))
     close = button(f"{p}_close", "ui-close", label(f"{p}_close_l", "ui-closelabel"))
     # Behind the content: a wash of the accent from the left and a few breathing pixels (cs2-ui-kit).
     back = panel(cls="ui-wash") + panel(cls="ui-pixels", children="".join(

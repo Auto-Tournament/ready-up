@@ -38,7 +38,7 @@ bool UtilityName(const std::string& c) {
   return true;
 }
 const char* const kTones[] = {"t-green", "t-ct", "t-t", "t-warn", "t-danger"};
-const char* const kWidths[] = {"bw-s", "bw-m", "bw-l", "bw-xl"};
+const char* const kWidths[] = {"bw-xs", "bw-s", "bw-m", "bw-l", "bw-xl"};
 
 }  // namespace
 
@@ -83,11 +83,11 @@ Screen ParseScreen(const std::string& spec) {
       if (s.cmds.size() < 3) s.cmds.emplace_back(At(p, 0), At(p, 1));
     } else if (k == "btn") {
       const auto p = SplitBar(v);
-      if (s.buttons.size() < 8) s.buttons.push_back(Button{At(p, 0), At(p, 1), At(p, 2), At(p, 3), At(p, 4)});
+      if (s.buttons.size() < static_cast<size_t>(kMaxButtons)) s.buttons.push_back(Button{At(p, 0), At(p, 1), At(p, 2), At(p, 3), At(p, 4)});
     } else if (k == "cols") {
-      s.cols = std::clamp(std::atoi(v.c_str()), 1, 4);
+      s.cols = std::clamp(std::atoi(v.c_str()), 1, 6);
     } else if (k == "bw") {
-      if (v == "s" || v == "m" || v == "l" || v == "xl") s.bw = v;
+      if (v == "xs" || v == "s" || v == "m" || v == "l" || v == "xl") s.bw = v;
     } else if (k == "close") {
       const auto p = SplitBar(v);
       s.hasClose = !At(p, 0).empty();
@@ -201,9 +201,9 @@ std::vector<Write> RenderScreen(const Screen& s, const std::string& p) {
   const size_t nb = s.chips ? 0 : s.buttons.size();
   cls(p, "has-buttons", nb > 0);
   const int cols = s.cols > 0 ? s.cols : static_cast<int>(std::clamp<size_t>(nb, 1, 4));
-  for (int c = 1; c <= 4; ++c) cls(p, "cols-" + std::to_string(c), c == cols);
+  for (int c = 1; c <= 6; ++c) cls(p, "cols-" + std::to_string(c), c == cols);
   for (const char* bw : kWidths) cls(p, bw, std::string("bw-") + s.bw == bw);
-  for (size_t i = 0; i < 8; ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(kMaxButtons); ++i) {
     const std::string b = p + "_b" + std::to_string(i);
     const Button* btn = i < nb ? &s.buttons[i] : nullptr;
     text(b + "_l", btn ? btn->label : std::string());
@@ -232,9 +232,12 @@ bool ParseButtonId(const std::string& id, std::string* panel, int* index) {
       *index = -1;
       return true;
     }
-    if (rest.size() == 2 && rest[0] == 'b' && rest[1] >= '0' && rest[1] <= '7') {
+    if (rest.size() >= 2 && rest.size() <= 3 && rest[0] == 'b' &&
+        rest.find_first_not_of("0123456789", 1) == std::string::npos) {
+      const int i = std::atoi(rest.c_str() + 1);
+      if (i >= kMaxButtons) return false;
       *panel = p;
-      *index = rest[1] - '0';
+      *index = i;
       return true;
     }
   }
