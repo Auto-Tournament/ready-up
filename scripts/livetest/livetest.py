@@ -1036,6 +1036,11 @@ class Runner:
                 self.quota_mode_set = True
                 self.srv.send("bot_quota_mode")  # echo, restored in cleanup
                 self.srv.send("mp_autoteambalance 0")
+                # In normal mode bot_quota counts every bot, not each team: raise it to the bots
+                # there first, or the switch drops the extra ones at random. Dropping the T bots
+                # left both teams empty and no forfeit to start (nightly 2026-10-28).
+                on = [n for n, hist in f.bot_sides.items() if hist and n not in f.bots_gone]
+                self.srv.send(f"bot_quota {len(on)}")
                 self.srv.send("bot_quota_mode normal")
                 self.srv.send("bot_join_team T")
                 names = ct_bots()

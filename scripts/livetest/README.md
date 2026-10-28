@@ -81,7 +81,7 @@ The match flow up to `match_live` with rules in the match config (`max_tech_paus
 | tech pause | `ru match tech team1` | `pause: technical by team1`, then `pause: ended (technical pause time is up)` |
 | tech limit | `ru match tech team1` again | `pause: technical refused for team1 (1/1 used)` |
 | tactical timeout | `ru match tac team2` (`timeout_terrorist_start`) | `pause: tactical timeout by team2`, then `pause: ended (tactical timeout over)` |
-| forfeit countdown | `bot_quota_mode normal`, `bot_join_team T`, `bot_kick "<name>"` per CT bot | `forfeit: team1 has nobody connected` |
+| forfeit countdown | `bot_quota <bots there>`, `bot_quota_mode normal`, `bot_join_team T`, `bot_kick "<name>"` per CT bot | `forfeit: team1 has nobody connected` |
 | cancel | `bot_add_ct` | `forfeit: team1 is back` |
 | forfeit | the CT bots kicked again, 20 s | `forfeit: team1 (team_absent) forfeits map 1`, then postgame and idle |
 
