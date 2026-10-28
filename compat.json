@@ -9,15 +9,15 @@
   "commit": "8f3ecf50352c90754fa90239b9b5bb928df88fd7"
  },
  "run": {
-  "id": "40479996168",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/40479996168",
+  "id": "40668612093",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/40668612093",
   "trigger": "nightly",
   "stage": "live",
-  "state": "pass",
-  "started_at": "2026-10-27T09:20:17Z",
-  "finished_at": "2026-10-27T09:48:19Z"
+  "state": "warn",
+  "started_at": "2026-10-28T10:00:10Z",
+  "finished_at": "2026-10-28T10:27:45Z"
  },
- "overall": "pass",
+ "overall": "warn",
  "components": [
   {
    "id": "core",
@@ -299,10 +299,12 @@
     },
     {
      "kind": "livetest",
-     "status": "pass",
-     "passed": 3,
-     "total": 3,
-     "failures": []
+     "status": "pending",
+     "passed": 2,
+     "total": 2,
+     "failures": [
+      "forfeit: failed (exit 1); advisory (not required yet), see the run"
+     ]
     }
    ]
   },
@@ -762,5 +764,5 @@
    ]
   }
  ],
- "checked_at": "2026-10-27T09:48:19Z"
+ "checked_at": "2026-10-28T10:27:45Z"
 }
