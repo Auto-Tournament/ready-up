@@ -30,7 +30,9 @@ set(MATCH_SOURCES
   readyup/game_timers.cpp
   readyup/golive_card.cpp
   readyup/result_card.cpp
+  readyup/end_screen.cpp
   readyup/host.cpp
+  readyup/hud_screens.cpp
   readyup/idle_refresh.cpp
   readyup/warmup_money.cpp
   readyup/round_economy.cpp

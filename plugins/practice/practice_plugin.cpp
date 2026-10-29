@@ -56,6 +56,8 @@
 //   .showspawns / .hidespawns   a vertical beam on every competitive spawn (CT blue, T orange), like
 //                         ME: ru_api 1.13 entity_create "beam" + entity_spawn; .hidespawns removes them
 //   .fas / .watchme       everyone else (humans) to the spectators: ru_api 1.13 player_change_team
+//   .menu                 (hud.so) while practice is on: the tools and this map's lineups as buttons;
+//                         a lineup click puts you on the spot looking the saved way (.loadnade)
 //   .savenade / .sn <name> [description]   save where you stand and look as a lineup of this map
 //                         (yours, or the global ones while .globalnades is on); the reply has its code
 //   .loadnade / .ln <name>   to your lineup with the nearest name (then a global one), looking where
@@ -84,6 +86,7 @@
 // the flag itself. It publishes readyup.practice.v1 (the match plugin hands `.ru mode practice`
 // to it). Log lines: `practice: ...`.
 #include "practice_feedback.h"
+#include "practice_guides.h"
 #include "practice_lineups.h"
 #include "practice_rules.h"
 #include "readyup/map_names.h"
@@ -97,6 +100,7 @@
 #include "readyup/essentials_iface.h"
 #include "readyup/practice_iface.h"
 #include "readyup/help_iface.h"
+#include "readyup/hud_iface.h"
 #include "readyup/selftest_iface.h"
 
 #include <algorithm>
@@ -107,6 +111,10 @@
 #include <mutex>
 #include <thread>
 #include <cstdarg>
+#include <sstream>
+#include <fstream>
+#include <dirent.h>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -1252,6 +1260,44 @@ class LineupWriter {
 // blocks forever in glibc (the process would hang on exit).
 LineupWriter* g_lineupWriter = nullptr;
 
+// Guides: lineups from CS2 map annotation files in <data dir>/guides/*.txt (practice_guides.h),
+// the ones for the current map, read once per map. Read-only: .savenade never writes them.
+std::vector<Lineup> g_guides;
+std::string g_guidesMap;  // "" = not read yet
+
+const std::vector<Lineup>& Guides() {
+  const std::string map = CurrentMap();
+  if (g_guidesMap == map) return g_guides;
+  g_guidesMap = map;
+  g_guides.clear();
+  const char* d = g_api->data_dir(g_api->self);
+  const std::string dir = std::string(d ? d : ".") + "/guides/";
+  DIR* dp = opendir(dir.c_str());
+  if (!dp) return g_guides;
+  std::vector<std::string> files;
+  while (dirent* e = readdir(dp)) {
+    const std::string f = e->d_name;
+    if (f.size() > 4 && f[0] != '.' && f.compare(f.size() - 4, 4, ".txt") == 0) files.push_back(f);
+  }
+  closedir(dp);
+  std::sort(files.begin(), files.end());
+  for (const std::string& f : files) {
+    std::ifstream in(dir + f, std::ios::binary);
+    std::stringstream buf;
+    buf << in.rdbuf();
+    GuideFile g;
+    std::string err;
+    if (!ParseGuideFile(buf.str(), &g, &err)) {
+      Log("practice: guides: %s: %s", f.c_str(), err.c_str());
+      continue;
+    }
+    if (g.map != map) continue;
+    for (Lineup& l : g.lineups) g_guides.push_back(std::move(l));
+    Log("practice: guides: %zu lineups on %s from %s", g.lineups.size(), map.c_str(), f.c_str());
+  }
+  return g_guides;
+}
+
 void SaveLineups() {
   if (g_lineupWriter) g_lineupWriter->Queue(LineupsDir(), LineupsPath(g_lineupsMap), g_lineups.ToJson());
 }
@@ -1557,6 +1603,25 @@ double g_nextAlwaysCheck = 0;
 // again only after kHomeRetrySeconds.
 double g_homeAskedAt = -1e9;
 constexpr double kHomeRetrySeconds = 180.0;
+// What the home map turned out to be: the map loaded after we asked for it, 20 s on (a workshop
+// home is named by id; the addons plugin's remount reload could bind the id to the wrong name,
+// and an empty server then reloaded "home" every 3 minutes, 2026-10-27).
+std::string g_homeEntry;    // the entry we asked for
+std::string g_homeLanded;   // the map name it loaded as ("" = not known yet)
+int g_mapStarts = 0;        // map starts so far (OnMapStart)
+int g_mapStartsAtAsk = 0;
+
+bool AtHome(const std::string& home, const char* cur) {
+  if (!cur || !*cur) return false;
+  if (readyup::mapnames::EntryMatchesLoaded(home, cur)) return true;
+  return home == g_homeEntry && !g_homeLanded.empty() && g_homeLanded == cur;
+}
+
+void NoteHomeLanded(double now) {
+  if (g_homeEntry.empty() || !g_homeLanded.empty() || now - g_homeAskedAt < 20.0 || g_mapStarts <= g_mapStartsAtAsk) return;
+  const char* cur = g_api->current_map(g_api->self);
+  if (cur && *cur) g_homeLanded = cur;
+}
 
 bool AnyHumanOn() {
   bool any = false;
@@ -1617,13 +1682,14 @@ void ApplyHomeCvars() {
   if (!e || !e->default_map) return;
   const std::string home = e->default_map("practice");
   const char* cur = g_api->current_map(g_api->self);
-  if (home.empty() || !cur || !*cur || !readyup::mapnames::EntryMatchesLoaded(home, cur)) return;
+  if (home.empty() || !AtHome(home, cur)) return;
   g_homeCvarsApplied = true;
   for (const auto& l : HomeCvars()) Cmd(l);
   Log("practice: home map %s: %zu setting(s) applied", cur, HomeCvars().size());
 }
 
 void GoHomeIfEmpty(double now) {
+  NoteHomeLanded(now);
   if (!AlwaysOn() || now - g_homeAskedAt < kHomeRetrySeconds) return;
   const auto* e = static_cast<const ru_essentials_v1*>(
       g_api->get_interface(g_api->self, RU_ESSENTIALS_IFACE_NAME, RU_ESSENTIALS_IFACE_VERSION));
@@ -1631,9 +1697,12 @@ void GoHomeIfEmpty(double now) {
   const std::string home = e->default_map("practice");
   if (home.empty()) return;
   const char* cur = g_api->current_map(g_api->self);
-  if (cur && *cur && readyup::mapnames::EntryMatchesLoaded(home, cur)) return;
+  if (AtHome(home, cur)) return;
   if (AnyHumanOn()) return;
   g_homeAskedAt = now;
+  g_homeEntry = home;
+  g_homeLanded.clear();
+  g_mapStartsAtAsk = g_mapStarts;
   // The engine names a workshop map by its bsp only: remember which id this load is for.
   if (readyup::mapnames::MapRef ref; readyup::mapnames::ParseEntry(home, &ref) && !ref.workshop_id.empty()) {
     readyup::mapnames::NoteWorkshopLoad(ref.workshop_id);
@@ -1898,6 +1967,7 @@ void OnGameEvent(void*, const char* evName, const ru_game_event* ev) {
 }
 
 void OnMapStart(void*, const ru_event*) {
+  ++g_mapStarts;
   g_homeCvarsApplied = false;
   // Binds a workshop id to the map it loaded (EntryMatchesLoaded for the home map).
   if (const char* cur = g_api->current_map(g_api->self); cur && *cur) readyup::mapnames::NoteMapLoaded(cur);
@@ -1911,7 +1981,213 @@ void OnMapStart(void*, const ru_event*) {
 }
 
 
+// ---- the practice menu (hud.so's `.menu`, readyup.hud.v1.2 menu / register_menu) ----------------
+//
+// While practice is on, `.menu` opens this instead of the match's menu: the everyday tools as
+// buttons, and the map's lineups (global and the player's own) to click: a click puts you on the
+// spot looking the saved way (the same as .loadnade). Every button is the typed command it stands
+// for; the menu only saves typing.
+
+constexpr const char* kMenuOwner = "practice";
+constexpr int kLineupsPerPage = 6;
+
+struct MenuState {
+  std::string page = "home";  // home | bots | toggles | spawns | lineups | list
+  std::string kind;           // list: "" all, "mine", or a GrenadeKind
+  int offset = 0;             // list: the first lineup shown
+};
+std::map<int, MenuState> g_menuState;
+const ru_hud_v1* g_menuHud = nullptr;
+
+const ru_hud_v1* MenuHud() {
+  if (!g_api) return nullptr;
+  const auto* h = static_cast<const ru_hud_v1*>(g_api->get_interface(g_api->self, RU_HUD_IFACE_NAME, 1));
+  if (!h || h->struct_size < offsetof(ru_hud_v1, register_menu) + sizeof(h->register_menu) || !h->menu) return nullptr;
+  return h;
+}
+
+// One spec value: no newlines, no '|'.
+std::string MenuText(const std::string& s) {
+  std::string out;
+  for (char ch : s) out += (ch == '\n' || ch == '\r' || ch == '|') ? ' ' : ch;
+  return out;
+}
+std::string MenuBtn(const std::string& label, const char* tone, const std::string& cmd, const std::string& sub = "",
+                    const char* state = "") {
+  return "btn=" + MenuText(label) + "|" + tone + "|" + state + "|" + cmd + (sub.empty() ? "" : "|" + MenuText(sub)) + "\n";
+}
+
+std::string KindLabel(const std::string& kind) {
+  if (kind == "smoke") return "Smokes";
+  if (kind == "flash") return "Flashes";
+  if (kind == "molotov") return "Molotovs";
+  if (kind == "hegrenade") return "HE grenades";
+  if (kind == "mine") return "Mine";
+  return "All lineups";
+}
+
+// The lineups a list page shows: the global ones, then the player's own, filtered by kind.
+std::vector<std::pair<std::string, Lineup>> MenuLineups(uint64_t steamid64, const std::string& kind) {
+  std::vector<std::pair<std::string, Lineup>> out;
+  LineupBook& book = Lineups();
+  const std::string mine = OwnerKey(steamid64);
+  if (kind != "mine") {
+    for (const Lineup& l : Guides()) {
+      if (kind.empty() || l.kind == kind) out.emplace_back(kGuideOwner, l);
+    }
+  }
+  for (const std::string& owner : {std::string(kGlobalOwner), mine}) {
+    if (kind == "mine" && owner != mine) continue;
+    for (const Lineup* l : book.List(owner, "")) {
+      if (!kind.empty() && kind != "mine" && l->kind != kind) continue;
+      out.emplace_back(owner, *l);
+    }
+  }
+  return out;
+}
+
+std::string MenuSpec(int slot, uint64_t steamid64) {
+  MenuState& m = g_menuState[slot];
+  const std::string map = MenuText(CurrentMap());
+  std::string s;
+  if (m.page == "bots") {
+    s = "id=prac-bots\nkind=Practice \xC2\xB7 bots\ntitle=Bots\n";
+    s += MenuBtn("Add a bot", "ghost", ".bot") + MenuBtn("Crouching bot", "ghost", ".cbot") + MenuBtn("Boost", "ghost", ".boost") +
+         MenuBtn("Crouch boost", "ghost", ".crouchboost") + MenuBtn("Kick bots", "danger", ".nobots");
+    return s + "cols=3\nbw=m\nclose=Back|#home\nmouse=on\n";
+  }
+  if (m.page == "toggles") {
+    s = "id=prac-toggles\nkind=Practice \xC2\xB7 toggles\ntitle=Turn on or off\n";
+    s += MenuBtn("No flash", "ghost", ".noflash") + MenuBtn("God mode", "ghost", ".god") + MenuBtn("Trajectory", "ghost", ".traj") +
+         MenuBtn("Impacts", "ghost", ".impacts") + MenuBtn("Solid teammates", "ghost", ".solid") + MenuBtn("Timer", "ghost", ".timer") +
+         MenuBtn("Break glass", "ghost", ".break") + MenuBtn("Clear grenades", "ghost", ".clear");
+    return s + "cols=4\nbw=m\nclose=Back|#home\nmouse=on\n";
+  }
+  if (m.page == "spawns") {
+    s = "id=prac-spawns\nkind=Practice \xC2\xB7 spawns\ntitle=Spawns\n";
+    s += MenuBtn("CT spawn", "ct", ".ctspawn") + MenuBtn("T spawn", "t", ".tspawn") + MenuBtn("Best spawn", "ghost", ".bestspawn") +
+         MenuBtn("Worst spawn", "ghost", ".worstspawn") + MenuBtn("Show spawns", "ghost", ".showspawns") +
+         MenuBtn("Hide spawns", "ghost", ".hidespawns");
+    return s + "cols=3\nbw=m\nclose=Back|#home\nmouse=on\n";
+  }
+  if (m.page == "lineups") {
+    const auto all = MenuLineups(steamid64, "");
+    s = "id=prac-lineups\nkind=Practice \xC2\xB7 lineups\ntitle=" + (all.empty() ? std::string("No lineups on ") + map + " yet" : "Lineups on " + map) + "\n";
+    for (const char* k : {"smoke", "flash", "molotov", "hegrenade", "", "mine"}) {
+      const size_t n = MenuLineups(steamid64, k).size();
+      s += MenuBtn(KindLabel(k), "ghost", std::string("#list ") + (*k ? k : "all"), std::to_string(n), n ? "" : "off");
+    }
+    if (all.empty()) s += "line=Save one|.savenade <name>\n";
+    return s + "cols=3\nbw=m\nclose=Back|#home\nmouse=on\n";
+  }
+  if (m.page == "list") {
+    const auto list = MenuLineups(steamid64, m.kind);
+    if (m.offset >= static_cast<int>(list.size())) m.offset = 0;
+    const int to = std::min(static_cast<int>(list.size()), m.offset + kLineupsPerPage);
+    s = "id=prac-list-" + (m.kind.empty() ? std::string("all") : m.kind) + "-" + std::to_string(m.offset) + "\nkind=Practice \xC2\xB7 " +
+        KindLabel(m.kind) + "\ntitle=Click to go there\n";
+    for (int i = m.offset; i < to; ++i) {
+      const auto& [owner, l] = list[static_cast<size_t>(i)];
+      // A guide's sub is how to throw it ("W + jumpthrow", practice_guides.h GuideThrow).
+      const std::string sub = owner == kGuideOwner ? l.how : owner == kGlobalOwner ? "" : "mine";
+      s += MenuBtn(l.title.empty() ? l.name : l.title, "ghost", "#ln " + std::to_string(i), sub);
+    }
+    for (int i = to; i < m.offset + kLineupsPerPage; ++i) s += MenuBtn(" ", "ghost", "", "", "off");
+    s += MenuBtn("Prev", "ghost", "#page -1", "", m.offset == 0 ? "off" : "");
+    s += MenuBtn("Next", "ghost", "#page 1", "", to >= static_cast<int>(list.size()) ? "off" : "");
+    return s + "cols=4\nbw=m\nclose=Back|#lineups\nmouse=on\n";
+  }
+  m.page = "home";
+  s = "id=prac-home\nkind=Practice \xC2\xB7 " + map + "\ntitle=What do you want to do?\n";
+  s += MenuBtn("Rethrow", "green", ".rt") + MenuBtn("Back to the throw", "ghost", ".last") + MenuBtn("Save spot", "ghost", ".savepos") +
+       MenuBtn("Back to spot", "ghost", ".loadpos") + MenuBtn("Lineups", "ghost", "#lineups") + MenuBtn("Bots", "ghost", "#bots") +
+       MenuBtn("Toggles", "ghost", "#toggles") + MenuBtn("Spawns", "ghost", "#spawns");
+  return s + "cols=4\nbw=m\nclose=Close|#close\nmouse=on\n";
+}
+
+void MenuDraw(int slot, uint64_t steamid64);
+
+void MenuClose(int slot) {
+  g_menuState.erase(slot);
+  if (const ru_hud_v1* h = MenuHud()) h->menu(slot, kMenuOwner, "", nullptr, nullptr);
+}
+
+void OnMenuClick(void*, int slot, const char* command) {
+  const std::string c = command ? command : "";
+  ru_player p{};
+  if (!PlayerBySlot(slot, &p) || p.is_bot) return MenuClose(slot);
+  const uint64_t sid = p.steamid64;
+  MenuState& m = g_menuState[slot];
+  if (c == "#close") return MenuClose(slot);
+  if (c == "#home" || c == "#bots" || c == "#toggles" || c == "#spawns" || c == "#lineups") {
+    m.page = c.substr(1);
+    return MenuDraw(slot, sid);
+  }
+  if (c.rfind("#list ", 0) == 0) {
+    m.page = "list";
+    m.kind = c.substr(6) == "all" ? std::string() : c.substr(6);
+    m.offset = 0;
+    return MenuDraw(slot, sid);
+  }
+  if (c.rfind("#page ", 0) == 0) {
+    m.offset = std::max(0, m.offset + std::atoi(c.c_str() + 6) * kLineupsPerPage);
+    return MenuDraw(slot, sid);
+  }
+  if (c.rfind("#ln ", 0) == 0) {
+    // The lineup by its place on the page the player saw: a typed name could match a different one.
+    const auto list = MenuLineups(sid, m.kind);
+    const int i = std::atoi(c.c_str() + 4);
+    MenuClose(slot);
+    if (i < 0 || i >= static_cast<int>(list.size())) return;
+    const Lineup l = list[static_cast<size_t>(i)].second;
+    if (!TeleportRemembering(slot, sid, Vec3{l.pos.x, l.pos.y, l.pos.z}, &l.ang)) return Reply(slot, sid, kNoTeleport);
+    Reply(slot, sid, (l.title.empty() ? l.name : l.title) + (l.kind.empty() ? "" : ": take your " + l.kind) + "." + (l.desc.empty() ? "" : " " + l.desc));
+    return;
+  }
+  if (c.empty() || c[0] != '.') return;
+  // A tool: run it as if typed. Toggles keep the menu up (several in a row); the rest close it.
+  std::vector<std::string> args;
+  for (size_t a = 0; a < c.size();) {
+    const size_t b = std::min(c.find(' ', a), c.size());
+    if (b > a) args.push_back(c.substr(a, b - a));
+    a = b + 1;
+  }
+  const bool keep = m.page == "toggles";
+  if (!keep) MenuClose(slot);
+  if (IsBotCommand(args[0])) RunBot(slot, sid, Lower(args[0]));
+  else RunTool(slot, sid, args);
+  if (keep) MenuDraw(slot, sid);
+}
+
+void MenuDraw(int slot, uint64_t steamid64) {
+  const ru_hud_v1* h = MenuHud();
+  if (!h) return;
+  h->menu(slot, kMenuOwner, MenuSpec(slot, steamid64).c_str(), &OnMenuClick, nullptr);
+}
+
+int OnMenuActive(void*, int) { return IsActive() ? 1 : 0; }
+
+void OnMenuOpen(void*, int slot, uint64_t steamid64) {
+  g_menuState[slot] = MenuState{};
+  MenuDraw(slot, steamid64);
+}
+
+// hud.so may load after us: offer the menu once it is there (each tick, cheap when done).
+void EnsureMenuProvider() {
+  const ru_hud_v1* h = MenuHud();
+  if (!h || h == g_menuHud) return;
+  h->register_menu(kMenuOwner, 30, &OnMenuActive, &OnMenuOpen, nullptr);
+  g_menuHud = h;
+}
+
+void MenuUninstall() {
+  if (const ru_hud_v1* h = MenuHud(); h && h == g_menuHud) h->register_menu(kMenuOwner, 30, nullptr, nullptr, nullptr);
+  g_menuHud = nullptr;
+  g_menuState.clear();
+}
+
 void OnTick(void*, const ru_tick_info* t) {
+  EnsureMenuProvider();
   if (t->now >= g_nextAlwaysCheck) {
     g_nextAlwaysCheck = t->now + 2.0;
     if (!g_manualOff && ShouldAutoEnter(AlwaysOn(), IsActive(), RuMode())) {
@@ -2061,6 +2337,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_lineups = LineupBook{};
   g_lineupsMap.clear();
   g_globalNades = false;
+  g_menuHud = nullptr;
+  g_menuState.clear();
   g_lineupWriter = new LineupWriter;
   g_lineupWriter->Start();
   (void)api->stash_get(api->self, "standalone_active", &g_standaloneActive, sizeof(g_standaloneActive));
@@ -2113,6 +2391,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
 READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
   // Hot reload keeps a standalone practice mode on; toggles are restored on the pawns.
   g_api->stash_put(g_api->self, "standalone_active", &g_standaloneActive, sizeof(g_standaloneActive));
+  MenuUninstall();  // hud.so's .menu stops asking us
   scenarios::Unload();
   ClearState(/*restorePawns=*/true);
   if (g_lineupWriter) {  // pending lineup files are written first

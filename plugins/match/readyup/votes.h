@@ -35,6 +35,18 @@ void VotesTick(double now);
 bool VotesGg(uint64_t voter, WebhookTeam team, const std::string& name);
 void VotesStop(uint64_t voter, WebhookTeam team, const std::string& name);
 
+// For the HUD (hud_screens.h): the running votes. Game thread.
+struct VotesHudInfo {
+  bool gg = false;            // a surrender vote of `ggTeam` is running
+  WebhookTeam ggTeam = WebhookTeam::Unknown;
+  int ggCount = 0, ggNeed = 0, ggSecondsLeft = 0;
+  bool ggVoted = false;       // `viewer` already voted
+  bool stop = false;          // a .stop request of `stopTeam` waits for the other team
+  WebhookTeam stopTeam = WebhookTeam::Unknown;
+  int stopSecondsLeft = 0;
+};
+VotesHudInfo VotesHud(WebhookTeam viewerTeam, uint64_t viewer);
+
 // The match team playing CS side `csTeam` (2 T / 3 CT) on the current map, Unknown if none.
 WebhookTeam VotesTeamForSide(int csTeam);
 

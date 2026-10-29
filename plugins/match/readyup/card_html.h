@@ -46,4 +46,10 @@ std::string SeriesResultCardHtml(const ResultCardInfo& info);
 // "<name> (<teamLabel>) needs an admin" + the message (if any), for admins.
 std::string AdminCallCardHtml(const std::string& name, const std::string& teamLabel, const std::string& message);
 
+// The same cards as clickable-HUD screens (spec lines, hud_screens.h / plugins/hud/hud_screen.h).
+std::string GoLiveCardSpec(const GoLiveCardInfo& info);
+std::string MapResultCardSpec(const ResultCardInfo& info);
+std::string SeriesResultCardSpec(const ResultCardInfo& info);
+std::string AdminCallCardSpec(const std::string& name, const std::string& teamLabel, const std::string& message);
+
 }  // namespace readyup

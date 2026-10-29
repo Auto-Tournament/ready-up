@@ -1,0 +1,834 @@
+/*
+  Auto Tournament clickable HUD (at_ui.xml, buttons v2). Two panels with the same blocks: #ui_card
+  (right, above the weapons) and #ui_mid (centre of the lower half). The server shows one at a time
+  and fills fixed slots; ids and classes are listed in hud/tools/gen_ui.py.
+
+  Panorama CSS: flow-children instead of flexbox, visibility: collapse to hide, px at 1080p. Motion:
+  cubic-bezier(0.2, 0.8, 0.2, 1) in, cubic-bezier(0.55, 0, 1, 0.45) out, all class-fired
+  transitions. Fonts every player has: Noto Sans, Noto Mono. Buttons are pills like the website
+  (radius = half the height). Buttons only take clicks while the server captures the cursor.
+  One selector per rule.
+*/
+
+.ui-root { width: 100%; height: 100%; font-family: "Noto Sans"; }
+/* HUD scale, a class on both wraps (hud.so `ru hudkit scale`, default 85): each panel kept where it
+   sits, the card bottom right, the centre panel bottom centre. No class: 100 %. */
+.ui-cardwrap { width: 100%; height: 100%; transform-origin: 100% 100%; }
+.ui-midwrap { width: 100%; height: 100%; transform-origin: 50% 100%; }
+.ui-cardwrap.scale-70, .ui-midwrap.scale-70 { transform: scale3d( 0.7, 0.7, 1 ); }
+.ui-cardwrap.scale-75, .ui-midwrap.scale-75 { transform: scale3d( 0.75, 0.75, 1 ); }
+.ui-cardwrap.scale-80, .ui-midwrap.scale-80 { transform: scale3d( 0.8, 0.8, 1 ); }
+.ui-cardwrap.scale-85, .ui-midwrap.scale-85 { transform: scale3d( 0.85, 0.85, 1 ); }
+.ui-cardwrap.scale-90, .ui-midwrap.scale-90 { transform: scale3d( 0.9, 0.9, 1 ); }
+.ui-cardwrap.scale-95, .ui-midwrap.scale-95 { transform: scale3d( 0.95, 0.95, 1 ); }
+.ui-cardwrap.scale-100, .ui-midwrap.scale-100 { transform: scale3d( 1, 1, 1 ); }
+
+.ui-panel
+{
+	height: fit-children; overflow: clip;
+	background-color: #140e0cf7; border: 1px solid #322926; border-radius: 16px;
+	opacity: 0;
+	/* Between screens the panel snaps to its next enter pose unseen; leaving and on carry the motion. */
+	transition-property: opacity, transform, brightness; transition-duration: 0s;
+}
+.ui-card
+{
+	horizontal-align: right; vertical-align: bottom; margin-right: 24px; margin-bottom: 320px;
+	width: 420px; transform: translate3d( 460px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 );
+}
+.ui-mid
+{
+	horizontal-align: center; vertical-align: bottom; margin-bottom: 190px;
+	width: fit-children; min-width: 540px; transform: translate3d( 0px, 28px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 );
+}
+.ui-mid .ui-flow { min-width: 0px; }
+.ui-flow { flow-children: down; horizontal-align: center; width: fit-children; min-width: 100%; height: fit-children; padding: 16px 32px 24px 32px; }
+
+.ui-brand { flow-children: right; horizontal-align: center; height: 16px; margin-bottom: 10px; }
+.ui-logo
+{
+	width: 16px; height: 16px; margin-right: 8px; vertical-align: center; border-radius: 4px;
+	background-image: url( "s2r://panorama/images/custom_game/at_logo.vtex" );
+	background-size: contain; background-position: 50% 50%; background-repeat: no-repeat;
+}
+.ui-brandname { font-family: "Noto Mono"; vertical-align: center; font-size: 10px; font-weight: bold; letter-spacing: 2px; color: #938a87; }
+
+/* Optional parts: has-kind, has-sub, has-teams, has-confirm, has-cmds, has-buttons, has-close,
+   has-hint, has-timer, has-counter on the panel. */
+.ui-kind { visibility: collapse; horizontal-align: center; margin-bottom: 6px; font-family: "Noto Mono"; font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: #ff6a3d; transition-property: color; transition-duration: 0.3s; }
+.ui-title { horizontal-align: center; text-align: center; font-size: 30px; font-weight: bold; color: #f4edeb; }
+.ui-card .ui-title { font-size: 26px; }
+.ui-sub { visibility: collapse; horizontal-align: center; text-align: center; margin-top: 6px; font-size: 16px; color: #c4bcb9; }
+.ui-hint { visibility: collapse; horizontal-align: center; margin-top: 12px; font-size: 13px; color: #938a87; }
+.ui-timer { visibility: collapse; horizontal-align: right; margin: 14px 18px 0px 0px; font-size: 22px; font-weight: bold; color: #ff6a3d; }
+.ui-counter { visibility: collapse; horizontal-align: right; vertical-align: bottom; margin: 0px 16px 12px 0px; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; color: #938a87; }
+.has-kind .ui-kind { visibility: visible; }
+.has-sub .ui-sub { visibility: visible; }
+.has-hint .ui-hint { visibility: visible; }
+.has-timer .ui-timer { visibility: visible; }
+.has-counter .ui-counter { visibility: visible; }
+
+.ui-line
+{
+	width: 100%; height: 4px; vertical-align: bottom; background-color: #ff6a3d;
+	transform-origin: 0% 50%; transform: scale3d( 0, 1, 1 );
+	transition-property: transform, background-color; transition-duration: 0.12s, 0.3s;
+}
+.ui-panel.on .ui-line
+{
+	transform: scale3d( 1, 1, 1 ); transition-duration: 0.7s, 0.3s; transition-delay: 0.2s, 0s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+
+/* Colours: accent by default; c-live, c-warn, c-ban, c-muted. */
+.c-live .ui-kind { color: #3fc168; }
+.c-warn .ui-kind { color: #e6b33c; }
+.c-ban .ui-kind { color: #f2645f; }
+.c-muted .ui-kind { color: #938a87; }
+.c-live .ui-timer { color: #3fc168; }
+.c-warn .ui-timer { color: #e6b33c; }
+.c-ban .ui-timer { color: #f2645f; }
+.c-live .ui-line { background-color: #3fc168; }
+.c-warn .ui-line { background-color: #e6b33c; }
+.c-ban .ui-line { background-color: #f2645f; }
+.c-muted .ui-line { background-color: #938a87; }
+
+/* Team dots */
+.ui-teams { visibility: collapse; flow-children: right; horizontal-align: center; margin-top: 12px; }
+.has-teams .ui-teams { visibility: visible; }
+.ui-team { flow-children: right; margin: 0px 14px; }
+.ui-teamname { vertical-align: center; margin-right: 8px; font-size: 14px; color: #c4bcb9; }
+.ui-dot { width: 10px; height: 10px; margin-right: 6px; vertical-align: center; border-radius: 5px; background-color: #322926; transition-property: background-color; transition-duration: 0.3s; }
+.ui-dot.on { background-color: #3fc168; }
+.ui-dot.gone { visibility: collapse; }
+
+/* Confirm chips (pauses) */
+.ui-confirm { visibility: collapse; flow-children: right; horizontal-align: center; margin-top: 12px; }
+.has-confirm .ui-confirm { visibility: visible; }
+.ui-chipbox { flow-children: right; height: 32px; margin: 0px 5px; padding: 0px 12px; border-radius: 16px; background-color: #211815; }
+.ui-chipteam { vertical-align: center; margin-right: 10px; font-size: 14px; color: #f4edeb; }
+.ui-chipstate { vertical-align: center; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; letter-spacing: 1px; color: #938a87; transition-property: color; transition-duration: 0.3s; }
+.ui-chipbox.ready .ui-chipstate { color: #3fc168; }
+
+/* Typed commands (mid-round, when buttons can't be clicked) */
+.ui-cmds { visibility: collapse; flow-children: right; horizontal-align: center; margin-top: 12px; }
+.has-cmds .ui-cmds { visibility: visible; }
+.ui-cmd { flow-children: right; margin: 0px 8px; }
+.ui-cmd.gone { visibility: collapse; }
+.ui-cmdlabel { vertical-align: center; margin-right: 6px; font-size: 15px; color: #c4bcb9; }
+.ui-kbd { padding: 2px 7px; border-radius: 5px; background-color: #211815; border: 1px solid #736966; }
+.ui-kbdtext { font-family: "Noto Mono"; font-size: 15px; font-weight: bold; color: #f4edeb; }
+
+/* Info rows (label left, value right; a typed command gets a box) */
+.ui-lines { visibility: collapse; flow-children: down; width: 100%; margin-top: 12px; }
+.has-lines .ui-lines { visibility: visible; }
+.ui-row { flow-children: right; width: 100%; margin-top: 6px; }
+.ui-row.gone { visibility: collapse; }
+.ui-rowk { width: fill-parent-flow( 1.0 ); vertical-align: center; margin-right: 24px; font-size: 15px; color: #938a87; }
+.ui-rowv { vertical-align: center; font-size: 15px; font-weight: bold; color: #f4edeb; }
+.ui-rowv.cmd { font-family: "Noto Mono"; padding: 2px 8px; border-radius: 5px; background-color: #211815; border: 1px solid #736966; }
+
+/* Buttons: up to 24 in a wrapping row; the row's width comes from cols-N x bw-* on the panel. */
+.ui-buttons { visibility: collapse; flow-children: right-wrap; horizontal-align: center; margin-top: 14px; }
+.has-buttons .ui-buttons { visibility: visible; }
+.ui-btn
+{
+	visibility: collapse; height: 48px; margin: 6px; border-radius: 24px;
+	background-color: #211815; border: 2px solid #736966;
+	transition-property: background-color, border, transform; transition-duration: 0.15s;
+}
+.ui-btn.show { visibility: visible; }
+.ui-btnlabel { width: 100%; text-align: center; vertical-align: center; font-size: 18px; font-weight: bold; color: #f4edeb; }
+.ui-btnsub { visibility: collapse; horizontal-align: right; vertical-align: center; margin-right: 18px; font-family: "Noto Mono"; font-size: 13px; font-weight: bold; color: #c4bcb9; }
+.ui-btn.has-sub .ui-btnsub { visibility: visible; }
+.ui-btn.has-sub .ui-btnlabel { width: fit-children; text-align: left; horizontal-align: left; margin-left: 18px; }
+.ui-btn:hover { transform: scale3d( 1.04, 1.04, 1 ); border: 2px solid #c4bcb9; }
+.ui-btn.t-green { background-color: #3fc168; border: 2px solid #3fc168; }
+.ui-btn.t-ct { background-color: #7b9be0; border: 2px solid #7b9be0; }
+.ui-btn.t-t { background-color: #de9b35; border: 2px solid #de9b35; }
+.ui-btn.t-warn { background-color: #e6b33c; border: 2px solid #e6b33c; }
+.ui-btn.t-danger { background-color: #f2645f; border: 2px solid #f2645f; }
+.ui-btn.t-green:hover { background-color: #63d185; border: 2px solid #63d185; }
+.ui-btn.t-ct:hover { background-color: #9bb4ea; border: 2px solid #9bb4ea; }
+.ui-btn.t-t:hover { background-color: #e8b260; border: 2px solid #e8b260; }
+.ui-btn.t-warn:hover { background-color: #efc764; border: 2px solid #efc764; }
+.ui-btn.t-danger:hover { background-color: #f6847f; border: 2px solid #f6847f; }
+.t-green .ui-btnlabel { color: #140e0c; }
+.t-ct .ui-btnlabel { color: #140e0c; }
+.t-t .ui-btnlabel { color: #140e0c; }
+.t-warn .ui-btnlabel { color: #140e0c; }
+.t-danger .ui-btnlabel { color: #140e0c; }
+.t-green .ui-btnsub { color: #140e0c; }
+.t-ct .ui-btnsub { color: #140e0c; }
+.t-t .ui-btnsub { color: #140e0c; }
+.t-warn .ui-btnsub { color: #140e0c; }
+.t-danger .ui-btnsub { color: #140e0c; }
+.ui-btn.picked { transform: scale3d( 1.06, 1.06, 1 ); border: 2px solid #f4edeb; }
+.ui-btn.off { background-color: #1a1210; border: 2px solid #322926; }
+.ui-btn.off .ui-btnlabel { color: #938a87; }
+.ui-btn.off:hover { transform: scale3d( 1, 1, 1 ); border: 2px solid #322926; }
+
+/* Button widths (bw-*) and the row width for each column count (cols-N): N x (width + 12). */
+/* xs: dense pages (the .dev menu): small, many to a row. */
+.bw-xs .ui-btn { width: 150px; height: 34px; margin: 4px; border-radius: 17px; }
+.bw-xs .ui-btnlabel { font-size: 13px; }
+.bw-xs .ui-btnsub { margin-right: 10px; font-size: 11px; }
+.bw-xs.cols-1 .ui-buttons { width: 158px; }
+.bw-xs.cols-2 .ui-buttons { width: 316px; }
+.bw-xs.cols-3 .ui-buttons { width: 474px; }
+.bw-xs.cols-4 .ui-buttons { width: 632px; }
+.bw-xs.cols-5 .ui-buttons { width: 790px; }
+.bw-xs.cols-6 .ui-buttons { width: 948px; }
+.bw-s.cols-5 .ui-buttons { width: 660px; }
+.bw-s.cols-6 .ui-buttons { width: 792px; }
+.bw-m.cols-5 .ui-buttons { width: 910px; }
+.bw-m.cols-6 .ui-buttons { width: 1092px; }
+.bw-l.cols-5 .ui-buttons { width: 1110px; }
+.bw-l.cols-6 .ui-buttons { width: 1332px; }
+.bw-xl.cols-5 .ui-buttons { width: 1360px; }
+.bw-xl.cols-6 .ui-buttons { width: 1632px; }
+.bw-s .ui-btn { width: 120px; }
+.bw-m .ui-btn { width: 170px; }
+.bw-l .ui-btn { width: 210px; }
+.bw-xl .ui-btn { width: 260px; }
+.bw-s.cols-1 .ui-buttons { width: 132px; }
+.bw-s.cols-2 .ui-buttons { width: 264px; }
+.bw-s.cols-3 .ui-buttons { width: 396px; }
+.bw-s.cols-4 .ui-buttons { width: 528px; }
+.bw-m.cols-1 .ui-buttons { width: 182px; }
+.bw-m.cols-2 .ui-buttons { width: 364px; }
+.bw-m.cols-3 .ui-buttons { width: 546px; }
+.bw-m.cols-4 .ui-buttons { width: 728px; }
+.bw-l.cols-1 .ui-buttons { width: 222px; }
+.bw-l.cols-2 .ui-buttons { width: 444px; }
+.bw-l.cols-3 .ui-buttons { width: 666px; }
+.bw-l.cols-4 .ui-buttons { width: 888px; }
+.bw-xl.cols-1 .ui-buttons { width: 272px; }
+.bw-xl.cols-2 .ui-buttons { width: 544px; }
+.bw-xl.cols-3 .ui-buttons { width: 816px; }
+.bw-xl.cols-4 .ui-buttons { width: 1088px; }
+
+.ui-close
+{
+	visibility: collapse; horizontal-align: center; height: 44px; margin-top: 10px; padding: 0px 22px;
+	border-radius: 22px; background-color: #211815; border: 1px solid #736966;
+	transition-property: background-color, transform; transition-duration: 0.15s;
+}
+.has-close .ui-close { visibility: visible; }
+.ui-close:hover { background-color: #2b201c; transform: scale3d( 1.04, 1.04, 1 ); }
+.ui-closelabel { vertical-align: center; font-size: 15px; font-weight: bold; color: #c4bcb9; }
+
+/* mini: the card as a one-line pill (ready in warmup): kind, team dots, one small button. */
+.ui-card.mini { width: fit-children; border-radius: 26px; }
+.ui-card.mini .ui-flow { flow-children: right; min-width: 0px; height: 52px; padding: 0px 8px 0px 18px; }
+.ui-card.mini .ui-brand { visibility: collapse; }
+.ui-card.mini .ui-title { visibility: collapse; }
+.ui-card.mini .ui-sub { visibility: collapse; }
+.ui-card.mini .ui-hint { visibility: collapse; }
+.ui-card.mini .ui-confirm { visibility: collapse; }
+.ui-card.mini .ui-lines { visibility: collapse; }
+.ui-card.mini .ui-cmds { visibility: collapse; }
+.ui-card.mini .ui-close { visibility: collapse; }
+.ui-card.mini .ui-timer { visibility: collapse; }
+.ui-card.mini .ui-counter { visibility: collapse; }
+.ui-card.mini .ui-line { visibility: collapse; }
+.ui-card.mini .ui-kind { vertical-align: center; margin: 0px 12px 0px 0px; }
+.ui-card.mini .ui-teams { vertical-align: center; margin-top: 0px; }
+.ui-card.mini .ui-team { margin: 0px 10px 0px 0px; }
+.ui-card.mini .ui-teamname { margin-right: 5px; font-size: 12px; }
+.ui-card.mini .ui-dot { width: 7px; height: 7px; margin-right: 4px; border-radius: 4px; }
+.ui-card.mini .ui-buttons { vertical-align: center; width: fit-children; margin-top: 0px; margin-left: 4px; }
+.ui-card.mini .ui-btn { width: 110px; height: 36px; margin: 0px; border-radius: 18px; }
+.ui-card.mini .ui-btnlabel { font-size: 14px; }
+
+/* ==== at_ui utilities: "Tailwind for CS2" ==========================================================
+   Everything below is chosen per screen by the server (spec keys, plugins/hud/hud_screen.h), so a
+   new look is a server change, not an addon publish:
+     enter=<fx>  exit=<out>     how the panel arrives and leaves
+     cls=<utilities>            on the panel          cls.<part>=<utilities>  on one part
+   parts: brand kind title sub hint timer counter teams lines cmds buttons close flow b0..b7
+
+   Motion borrowed from CS2's own HUD and from cs2-ui-kit (MIT, github.com/nvmxre/cs2-ui-kit); our
+   own CSS, only the techniques are theirs. Custom HUD rules (cs2-ui-kit GOTCHAS): keyframes that
+   move transform never run here, so every move is a transition fired by a class; keyframes only
+   touch opacity; an animation and a transition never share a property on one panel; keyframe
+   names are quoted. Every pose uses the same transform list (translate3d rotateX scale3d) so any
+   enter can tween to any exit. Utility selectors start with .ui-root .ui-panel so they beat the
+   base rules; later rules win between utilities. */
+
+/* ---- enter: the pose a panel comes from (class fx-<name>, spec enter=) ------------------------- */
+/* (the shown pose, .on, comes after these: same specificity, so it must be later to win) */
+/* open: unfolds sideways from its middle, a white flash fades off, the title settles (round win panel) */
+.ui-root .ui-panel.fx-open { transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 0, 1, 1 ); }
+.ui-root .ui-panel.fx-open.on { transition-duration: 0.25s; transition-timing-function: ease-in; }
+.ui-root .ui-panel.fx-open .ui-title { transform: scale3d( 1.5, 1.5, 1 ); }
+.ui-root .ui-panel.fx-open.on .ui-title
+{
+	transform: scale3d( 1, 1, 1 );
+	transition-property: transform; transition-duration: 0.35s; transition-delay: 0.15s; transition-timing-function: ease-out;
+}
+/* flip: tips forward from flat, shrinks from 1.7x, bright to normal (Premier pick/ban phase) */
+.ui-root .ui-panel.fx-flip { transform: translate3d( 0px, 10px, 0px ) rotateX( 90deg ) scale3d( 1.7, 1.7, 1 ); brightness: 3; }
+.ui-root .ui-panel.fx-flip.on { transition-duration: 0.4s; }
+/* alert: rises a little; the white wash flashes twice (centre alerts) */
+.ui-root .ui-panel.fx-alert { transform: translate3d( 0px, 28px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+/* slide: all the way in from the right edge (vote panel) */
+.ui-root .ui-panel.fx-slide { transform: translate3d( 460px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+/* slide-left: from the left edge */
+.ui-root .ui-panel.fx-slide-left { transform: translate3d( -460px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+/* pop: half size, overshoots, settles (instructor hint) */
+.ui-root .ui-panel.fx-pop { transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 0.5, 0.5, 1 ); }
+.ui-root .ui-panel.fx-pop.on { transition-duration: 0.35s; transition-timing-function: cubic-bezier( 0.3, 1.6, 0.5, 1 ); }
+/* zoom: from 85% */
+.ui-root .ui-panel.fx-zoom { transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 0.85, 0.85, 1 ); }
+/* fade: a short rise */
+.ui-root .ui-panel.fx-fade { transform: translate3d( 0px, 28px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+/* rise: from well below; drop: from above */
+.ui-root .ui-panel.fx-rise { transform: translate3d( 0px, 80px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.fx-drop { transform: translate3d( 0px, -60px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+/* none: just there */
+.ui-root .ui-panel.fx-none { transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.fx-none.on { transition-duration: 0s; }
+/* Shown: the same pose for every entrance. After the poses above so it wins over them. */
+.ui-root .ui-panel.on
+{
+	opacity: 1; transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); brightness: 1;
+	transition-property: opacity, transform, brightness; transition-duration: 0.38s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+.ui-root .ui-panel.fx-open.on { transition-duration: 0.25s; transition-timing-function: ease-in; }
+.ui-root .ui-panel.fx-flip.on { transition-duration: 0.4s; }
+.ui-root .ui-panel.fx-pop.on { transition-duration: 0.35s; transition-timing-function: cubic-bezier( 0.3, 1.6, 0.5, 1 ); }
+.ui-root .ui-panel.fx-none.on { transition-duration: 0s; }
+
+/* ---- exit: the pose it leaves to (class out-<name> with leaving, spec exit=) --------------------- */
+.ui-root .ui-panel.leaving
+{
+	opacity: 0;
+	transition-property: opacity, transform, brightness; transition-duration: 0.25s;
+	transition-timing-function: cubic-bezier( 0.55, 0, 1, 0.45 );
+}
+.ui-root .ui-panel.leaving.out-fade { transform: translate3d( 0px, 16px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.leaving.out-close { transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 0, 1, 1 ); }
+.ui-root .ui-panel.leaving.out-slide { transform: translate3d( 460px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.leaving.out-slide-left { transform: translate3d( -460px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.leaving.out-shrink { transform: translate3d( 0px, 0px, 0px ) rotateX( 0deg ) scale3d( 0.8, 0.8, 1 ); }
+.ui-root .ui-panel.leaving.out-drop { transform: translate3d( 0px, 60px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.leaving.out-rise { transform: translate3d( 0px, -40px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.leaving.out-flip { transform: translate3d( 0px, 10px, 0px ) rotateX( -90deg ) scale3d( 1, 1, 1 ); }
+.ui-root .ui-panel.leaving.out-none { transition-duration: 0s; }
+
+/* ---- speed and delay (both enter and exit) -------------------------------------------------- */
+.ui-root .ui-panel.speed-fast.on { transition-duration: 0.18s; }
+.ui-root .ui-panel.speed-fast.leaving { transition-duration: 0.12s; }
+.ui-root .ui-panel.speed-slow.on { transition-duration: 0.7s; }
+.ui-root .ui-panel.speed-slow.leaving { transition-duration: 0.45s; }
+.ui-root .ui-panel.delay-1.on { transition-delay: 0.1s; }
+.ui-root .ui-panel.delay-2.on { transition-delay: 0.2s; }
+.ui-root .ui-panel.delay-3.on { transition-delay: 0.4s; }
+
+/* ---- flash layer: white wash on arrival (open: one, alert: two; flash / flash-twice on any panel) */
+.ui-flash { width: 100%; height: 100%; background-color: #ffffff; opacity: 0; }
+@keyframes 'at-flash' { 0% { opacity: 0.85; } 45% { opacity: 0.85; } 100% { opacity: 0; } }
+@keyframes 'at-alert' { 0% { opacity: 0; } 8% { opacity: 0.85; } 22% { opacity: 0; } 36% { opacity: 0.6; } 52% { opacity: 0; } 100% { opacity: 0; } }
+.ui-root .ui-panel.fx-open.on .ui-flash { animation-name: at-flash; animation-duration: 0.5s; animation-timing-function: ease-in; animation-iteration-count: 1; }
+.ui-root .ui-panel.flash.on .ui-flash { animation-name: at-flash; animation-duration: 0.5s; animation-timing-function: ease-in; animation-iteration-count: 1; }
+.ui-root .ui-panel.fx-alert.on .ui-flash { animation-name: at-alert; animation-duration: 1s; animation-timing-function: linear; animation-iteration-count: 1; }
+.ui-root .ui-panel.flash-twice.on .ui-flash { animation-name: at-alert; animation-duration: 1s; animation-timing-function: linear; animation-iteration-count: 1; }
+.ui-root .ui-panel.no-flash .ui-flash { visibility: collapse; }
+
+/* ---- buttons: press flash (always), pulse = the one waiting, glow = a steady soft light -------- */
+.ui-btnglow { width: 100%; height: 100%; border-radius: 24px; background-color: #ffffff; opacity: 0; }
+@keyframes 'at-press' { 0% { opacity: 0; } 30% { opacity: 0.55; } 100% { opacity: 0; } }
+@keyframes 'at-needs' { 0% { opacity: 0; } 50% { opacity: 0.22; } 100% { opacity: 0; } }
+.ui-btn.picked .ui-btnglow { animation-name: at-press; animation-duration: 0.45s; animation-timing-function: ease-out; animation-iteration-count: 1; }
+.ui-btn.pulse .ui-btnglow { animation-name: at-needs; animation-duration: 1.2s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.ui-root .ui-panel .ui-btn.glow .ui-btnglow { opacity: 0.12; }
+.ui-root .ui-panel .ui-btn.btn-s { height: 36px; border-radius: 18px; }
+.ui-root .ui-panel .ui-btn.btn-l { height: 58px; border-radius: 29px; }
+.ui-root .ui-panel .ui-btn.btn-s .ui-btnlabel { font-size: 14px; }
+.ui-root .ui-panel .ui-btn.btn-l .ui-btnlabel { font-size: 22px; }
+
+/* ---- countdown: last 5 s red and breathing (bomb timer); breathe / blink on any part ------------ */
+@keyframes 'at-breathe' { 0% { opacity: 0.45; } 50% { opacity: 1; } 100% { opacity: 0.45; } }
+.urgent .ui-timer { color: #f2645f; animation-name: at-breathe; animation-duration: 0.5s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.ui-root .ui-panel .breathe { animation-name: at-breathe; animation-duration: 1.6s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.ui-root .ui-panel .blink { animation-name: at-breathe; animation-duration: 0.5s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+
+/* ---- count bump: the server sets bump for a moment; it jumps and eases back (money change) ------ */
+.ui-counter { transform: scale3d( 1, 1, 1 ); transition-property: transform; transition-duration: 0.4s; transition-timing-function: ease-out; }
+.ui-kind { transform: scale3d( 1, 1, 1 ); }
+.ui-card.mini .ui-kind { transition-property: color, transform; transition-duration: 0.3s, 0.4s; transition-timing-function: ease-out; }
+.bump { transform: scale3d( 1.6, 1.6, 1 ); transition-duration: 0s; }
+
+/* ---- glass: blur the game behind the panel (cs2-ui-kit toasts, CS2's win panel) ---------------- */
+.ui-panel.blur { world-blur: gaussian( 6, 6, 1 ); }
+.ui-root .ui-panel.glass-1 { world-blur: gaussian( 2, 2, 1 ); }
+.ui-root .ui-panel.glass-2 { world-blur: gaussian( 6, 6, 1 ); }
+.ui-root .ui-panel.glass-3 { world-blur: gaussian( 10, 10, 2 ); }
+
+/* ---- surface ------------------------------------------------------------------------------- */
+.ui-root .ui-panel.bg-soft { background-color: #140e0cb8; }
+.ui-root .ui-panel.bg-solid { background-color: #140e0c; }
+.ui-root .ui-panel.bg-clear { background-color: #00000000; border: 0px solid #00000000; }
+.ui-root .ui-panel.edge { border-left: 3px solid #ff6a3d; }
+.ui-root .ui-panel.c-live.edge { border-left: 3px solid #3fc168; }
+.ui-root .ui-panel.c-warn.edge { border-left: 3px solid #e6b33c; }
+.ui-root .ui-panel.c-ban.edge { border-left: 3px solid #f2645f; }
+.ui-root .ui-panel.c-ct.edge { border-left: 3px solid #7b9be0; }
+.ui-root .ui-panel.c-t.edge { border-left: 3px solid #de9b35; }
+.ui-root .ui-panel.round-s { border-radius: 8px; }
+.ui-root .ui-panel.round-l { border-radius: 24px; }
+.ui-root .ui-panel.no-line .ui-line { visibility: collapse; }
+.ui-root .ui-panel.no-brand .ui-brand { visibility: collapse; }
+
+/* back: a second layer of the panel background. CS2 draws one #140e0cf7 layer at about 80 %, so
+   the map showed through and muted text fell under WCAG AA; two read as solid (2026-10-27). */
+.ui-back { width: 100%; height: 100%; background-color: #140e0cf7; }
+.ui-root .ui-panel.bg-soft .ui-back { background-color: #00000000; }
+.ui-root .ui-panel.bg-clear .ui-back { background-color: #00000000; }
+
+/* wash: a soft wash of the accent from the left (cs2-ui-kit toasts); no-wash turns it off */
+.ui-wash { width: 100%; height: 100%; background-color: gradient( linear, 0% 0%, 100% 0%, from( #ff6a3d26 ), color-stop( 0.5, #ff6a3d00 ), to( #ff6a3d00 ) ); }
+.c-live .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #3fc16826 ), color-stop( 0.5, #3fc16800 ), to( #3fc16800 ) ); }
+.c-warn .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #e6b33c26 ), color-stop( 0.5, #e6b33c00 ), to( #e6b33c00 ) ); }
+.c-ban .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #f2645f2e ), color-stop( 0.5, #f2645f00 ), to( #f2645f00 ) ); }
+.c-muted .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #938a871f ), color-stop( 0.5, #938a8700 ), to( #938a8700 ) ); }
+.c-ct .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #7b9be026 ), color-stop( 0.5, #7b9be000 ), to( #7b9be000 ) ); }
+.c-t .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #de9b3526 ), color-stop( 0.5, #de9b3500 ), to( #de9b3500 ) ); }
+.no-wash .ui-wash { visibility: collapse; }
+
+/* pixels: a few pixels of the accent breathe on their own cycles (cs2-ui-kit toasts); no-px */
+.ui-pixels { width: 100%; height: 100%; }
+@keyframes 'at-px' { 0% { opacity: 0; } 50% { opacity: 0.32; } 100% { opacity: 0; } }
+.ui-px
+{
+	opacity: 0; background-color: #ff6a3d;
+	animation-name: at-px; animation-timing-function: ease-in-out; animation-iteration-count: infinite;
+}
+.c-live .ui-px { background-color: #3fc168; }
+.c-warn .ui-px { background-color: #e6b33c; }
+.c-ban .ui-px { background-color: #f2645f; }
+.c-muted .ui-px { background-color: #938a87; }
+.c-ct .ui-px { background-color: #7b9be0; }
+.c-t .ui-px { background-color: #de9b35; }
+.ui-px.p0 { width: 5px; height: 5px; horizontal-align: right; margin: 14px 120px 0px 0px; }
+.ui-px.p1 { width: 4px; height: 4px; horizontal-align: right; margin: 40px 92px 0px 0px; }
+.ui-px.p2 { width: 6px; height: 6px; horizontal-align: right; margin: 10px 70px 0px 0px; }
+.ui-px.p3 { width: 4px; height: 4px; horizontal-align: right; margin: 52px 58px 0px 0px; }
+.ui-px.p4 { width: 7px; height: 7px; horizontal-align: right; margin: 22px 40px 0px 0px; }
+.ui-px.p5 { width: 4px; height: 4px; horizontal-align: right; margin: 60px 26px 0px 0px; }
+.ui-px.p6 { width: 6px; height: 6px; horizontal-align: right; margin: 12px 14px 0px 0px; }
+.ui-px.p7 { width: 5px; height: 5px; horizontal-align: right; margin: 44px 8px 0px 0px; }
+.px-a { animation-duration: 3.2s; animation-delay: 0s; }
+.px-b { animation-duration: 4.1s; animation-delay: 0.9s; }
+.px-c { animation-duration: 2.7s; animation-delay: 1.6s; }
+.px-d { animation-duration: 3.8s; animation-delay: 2.3s; }
+/* The pill keeps the wash and the pixels; the pixels sit low and left of the Unready button. */
+.ui-card.mini .ui-px { horizontal-align: left; }
+.ui-card.mini .ui-px.p0 { margin: 6px 0px 0px 70px; }
+.ui-card.mini .ui-px.p1 { margin: 34px 0px 0px 96px; }
+.ui-card.mini .ui-px.p2 { margin: 10px 0px 0px 128px; }
+.ui-card.mini .ui-px.p3 { margin: 40px 0px 0px 152px; }
+.ui-card.mini .ui-px.p4 { margin: 8px 0px 0px 184px; }
+.ui-card.mini .ui-px.p5 { margin: 38px 0px 0px 210px; }
+.ui-card.mini .ui-px.p6 { margin: 14px 0px 0px 236px; }
+.ui-card.mini .ui-px.p7 { margin: 30px 0px 0px 30px; }
+
+/* The pill in the centre panel too (warmup's ready card sits there since 2026-10-27). */
+.ui-mid.mini { width: fit-children; min-width: 0px; border-radius: 26px; }
+.ui-mid.mini .ui-flow { flow-children: right; min-width: 0px; height: 52px; padding: 0px 8px 0px 18px; }
+.ui-mid.mini .ui-brand { visibility: collapse; }
+.ui-mid.mini .ui-title { visibility: collapse; }
+.ui-mid.mini .ui-sub { visibility: collapse; }
+.ui-mid.mini .ui-hint { visibility: collapse; }
+.ui-mid.mini .ui-confirm { visibility: collapse; }
+.ui-mid.mini .ui-lines { visibility: collapse; }
+.ui-mid.mini .ui-cmds { visibility: collapse; }
+.ui-mid.mini .ui-close { visibility: collapse; }
+.ui-mid.mini .ui-timer { visibility: collapse; }
+.ui-mid.mini .ui-counter { visibility: collapse; }
+.ui-mid.mini .ui-line { visibility: collapse; }
+.ui-mid.mini .ui-kind { vertical-align: center; margin: 0px 12px 0px 0px; }
+.ui-mid.mini .ui-teams { vertical-align: center; margin-top: 0px; }
+.ui-mid.mini .ui-team { margin: 0px 10px 0px 0px; }
+.ui-mid.mini .ui-teamname { margin-right: 5px; font-size: 12px; }
+.ui-mid.mini .ui-dot { width: 7px; height: 7px; margin-right: 4px; border-radius: 4px; }
+.ui-mid.mini .ui-buttons { vertical-align: center; width: fit-children; margin-top: 0px; margin-left: 4px; }
+.ui-mid.mini .ui-btn { width: 110px; height: 36px; margin: 0px; border-radius: 18px; }
+.ui-mid.mini .ui-btnlabel { font-size: 14px; }
+.ui-mid.mini .ui-kind { transition-property: color, transform; transition-duration: 0.3s, 0.4s; transition-timing-function: ease-out; }
+.ui-mid.mini .ui-px { horizontal-align: left; }
+.ui-mid.mini .ui-px.p0 { margin: 6px 0px 0px 70px; }
+.ui-mid.mini .ui-px.p1 { margin: 34px 0px 0px 96px; }
+.ui-mid.mini .ui-px.p2 { margin: 10px 0px 0px 128px; }
+.ui-mid.mini .ui-px.p3 { margin: 40px 0px 0px 152px; }
+.ui-mid.mini .ui-px.p4 { margin: 8px 0px 0px 184px; }
+.ui-mid.mini .ui-px.p5 { margin: 38px 0px 0px 210px; }
+.ui-mid.mini .ui-px.p6 { margin: 14px 0px 0px 236px; }
+.ui-mid.mini .ui-px.p7 { margin: 30px 0px 0px 30px; }
+
+.no-px .ui-pixels { visibility: collapse; }
+
+/* ---- team colours as accents (spec color=ct / color=t) ------------------------------------- */
+.c-ct .ui-kind { color: #7b9be0; }
+.c-t .ui-kind { color: #de9b35; }
+.c-ct .ui-timer { color: #7b9be0; }
+.c-t .ui-timer { color: #de9b35; }
+.c-ct .ui-line { background-color: #7b9be0; }
+.c-t .ui-line { background-color: #de9b35; }
+
+/* ---- size and place ------------------------------------------------------------------------ */
+.ui-root .ui-panel.w-280 { width: 280px; min-width: 0px; }
+.ui-root .ui-panel.w-340 { width: 340px; min-width: 0px; }
+.ui-root .ui-panel.w-420 { width: 420px; min-width: 0px; }
+.ui-root .ui-panel.w-520 { width: 520px; min-width: 0px; }
+.ui-root .ui-panel.w-640 { width: 640px; min-width: 0px; }
+.ui-root .ui-panel.w-760 { width: 760px; min-width: 0px; }
+.ui-root .ui-panel.w-fit { width: fit-children; min-width: 0px; }
+.ui-root .ui-panel.at-right { horizontal-align: right; vertical-align: bottom; margin: 0px 24px 320px 0px; }
+.ui-root .ui-panel.at-low { horizontal-align: center; vertical-align: bottom; margin: 0px 0px 190px 0px; }
+.ui-root .ui-panel.at-center { horizontal-align: center; vertical-align: center; margin: 0px 0px 0px 0px; }
+.ui-root .ui-panel.at-top { horizontal-align: center; vertical-align: top; margin: 150px 0px 0px 0px; }
+.ui-root .ui-panel.at-left { horizontal-align: left; vertical-align: center; margin: 0px 0px 0px 24px; }
+.ui-root .ui-panel.pad-s .ui-flow { padding: 10px 20px 14px 20px; }
+.ui-root .ui-panel.pad-l .ui-flow { padding: 24px 44px 32px 44px; }
+
+/* ---- text (on parts: cls.title=text-xl tc-live) -------------------------------------------- */
+.ui-root .ui-panel .text-xs { font-size: 12px; }
+.ui-root .ui-panel .text-s { font-size: 14px; }
+.ui-root .ui-panel .text-m { font-size: 16px; }
+.ui-root .ui-panel .text-l { font-size: 22px; }
+.ui-root .ui-panel .text-xl { font-size: 30px; }
+.ui-root .ui-panel .text-2xl { font-size: 40px; }
+.ui-root .ui-panel .bold { font-weight: bold; }
+.ui-root .ui-panel .normal { font-weight: normal; }
+.ui-root .ui-panel .upper { text-transform: uppercase; letter-spacing: 2px; }
+.ui-root .ui-panel .mono { font-family: "Noto Mono"; }
+.ui-root .ui-panel .left { horizontal-align: left; text-align: left; }
+.ui-root .ui-panel .center { horizontal-align: center; text-align: center; }
+.ui-root .ui-panel .right { horizontal-align: right; text-align: right; }
+.ui-root .ui-panel .tc-ink { color: #f4edeb; }
+.ui-root .ui-panel .tc-dim { color: #c4bcb9; }
+.ui-root .ui-panel .tc-faint { color: #938a87; }
+.ui-root .ui-panel .tc-acc { color: #ff6a3d; }
+.ui-root .ui-panel .tc-live { color: #3fc168; }
+.ui-root .ui-panel .tc-warn { color: #e6b33c; }
+.ui-root .ui-panel .tc-ban { color: #f2645f; }
+.ui-root .ui-panel .tc-ct { color: #7b9be0; }
+.ui-root .ui-panel .tc-t { color: #de9b35; }
+.ui-root .ui-panel .hide { visibility: collapse; }
+
+/* ---- position and background knobs (2026-10-27: no publish for a nudge) ----------------------
+   On a panel (cls=), after the at-* anchors so they win: mt- mb- ml- mr-<0..600, steps of 10> set
+   one margin; bga-<0..100, steps of 5> the background's opacity. */
+.ui-root .ui-panel.mt-0 { margin-top: 0px; }
+.ui-root .ui-panel.mt-10 { margin-top: 10px; }
+.ui-root .ui-panel.mt-20 { margin-top: 20px; }
+.ui-root .ui-panel.mt-30 { margin-top: 30px; }
+.ui-root .ui-panel.mt-40 { margin-top: 40px; }
+.ui-root .ui-panel.mt-50 { margin-top: 50px; }
+.ui-root .ui-panel.mt-60 { margin-top: 60px; }
+.ui-root .ui-panel.mt-70 { margin-top: 70px; }
+.ui-root .ui-panel.mt-80 { margin-top: 80px; }
+.ui-root .ui-panel.mt-90 { margin-top: 90px; }
+.ui-root .ui-panel.mt-100 { margin-top: 100px; }
+.ui-root .ui-panel.mt-110 { margin-top: 110px; }
+.ui-root .ui-panel.mt-120 { margin-top: 120px; }
+.ui-root .ui-panel.mt-130 { margin-top: 130px; }
+.ui-root .ui-panel.mt-140 { margin-top: 140px; }
+.ui-root .ui-panel.mt-150 { margin-top: 150px; }
+.ui-root .ui-panel.mt-160 { margin-top: 160px; }
+.ui-root .ui-panel.mt-170 { margin-top: 170px; }
+.ui-root .ui-panel.mt-180 { margin-top: 180px; }
+.ui-root .ui-panel.mt-190 { margin-top: 190px; }
+.ui-root .ui-panel.mt-200 { margin-top: 200px; }
+.ui-root .ui-panel.mt-210 { margin-top: 210px; }
+.ui-root .ui-panel.mt-220 { margin-top: 220px; }
+.ui-root .ui-panel.mt-230 { margin-top: 230px; }
+.ui-root .ui-panel.mt-240 { margin-top: 240px; }
+.ui-root .ui-panel.mt-250 { margin-top: 250px; }
+.ui-root .ui-panel.mt-260 { margin-top: 260px; }
+.ui-root .ui-panel.mt-270 { margin-top: 270px; }
+.ui-root .ui-panel.mt-280 { margin-top: 280px; }
+.ui-root .ui-panel.mt-290 { margin-top: 290px; }
+.ui-root .ui-panel.mt-300 { margin-top: 300px; }
+.ui-root .ui-panel.mt-310 { margin-top: 310px; }
+.ui-root .ui-panel.mt-320 { margin-top: 320px; }
+.ui-root .ui-panel.mt-330 { margin-top: 330px; }
+.ui-root .ui-panel.mt-340 { margin-top: 340px; }
+.ui-root .ui-panel.mt-350 { margin-top: 350px; }
+.ui-root .ui-panel.mt-360 { margin-top: 360px; }
+.ui-root .ui-panel.mt-370 { margin-top: 370px; }
+.ui-root .ui-panel.mt-380 { margin-top: 380px; }
+.ui-root .ui-panel.mt-390 { margin-top: 390px; }
+.ui-root .ui-panel.mt-400 { margin-top: 400px; }
+.ui-root .ui-panel.mt-410 { margin-top: 410px; }
+.ui-root .ui-panel.mt-420 { margin-top: 420px; }
+.ui-root .ui-panel.mt-430 { margin-top: 430px; }
+.ui-root .ui-panel.mt-440 { margin-top: 440px; }
+.ui-root .ui-panel.mt-450 { margin-top: 450px; }
+.ui-root .ui-panel.mt-460 { margin-top: 460px; }
+.ui-root .ui-panel.mt-470 { margin-top: 470px; }
+.ui-root .ui-panel.mt-480 { margin-top: 480px; }
+.ui-root .ui-panel.mt-490 { margin-top: 490px; }
+.ui-root .ui-panel.mt-500 { margin-top: 500px; }
+.ui-root .ui-panel.mt-510 { margin-top: 510px; }
+.ui-root .ui-panel.mt-520 { margin-top: 520px; }
+.ui-root .ui-panel.mt-530 { margin-top: 530px; }
+.ui-root .ui-panel.mt-540 { margin-top: 540px; }
+.ui-root .ui-panel.mt-550 { margin-top: 550px; }
+.ui-root .ui-panel.mt-560 { margin-top: 560px; }
+.ui-root .ui-panel.mt-570 { margin-top: 570px; }
+.ui-root .ui-panel.mt-580 { margin-top: 580px; }
+.ui-root .ui-panel.mt-590 { margin-top: 590px; }
+.ui-root .ui-panel.mt-600 { margin-top: 600px; }
+.ui-root .ui-panel.mb-0 { margin-bottom: 0px; }
+.ui-root .ui-panel.mb-10 { margin-bottom: 10px; }
+.ui-root .ui-panel.mb-20 { margin-bottom: 20px; }
+.ui-root .ui-panel.mb-30 { margin-bottom: 30px; }
+.ui-root .ui-panel.mb-40 { margin-bottom: 40px; }
+.ui-root .ui-panel.mb-50 { margin-bottom: 50px; }
+.ui-root .ui-panel.mb-60 { margin-bottom: 60px; }
+.ui-root .ui-panel.mb-70 { margin-bottom: 70px; }
+.ui-root .ui-panel.mb-80 { margin-bottom: 80px; }
+.ui-root .ui-panel.mb-90 { margin-bottom: 90px; }
+.ui-root .ui-panel.mb-100 { margin-bottom: 100px; }
+.ui-root .ui-panel.mb-110 { margin-bottom: 110px; }
+.ui-root .ui-panel.mb-120 { margin-bottom: 120px; }
+.ui-root .ui-panel.mb-130 { margin-bottom: 130px; }
+.ui-root .ui-panel.mb-140 { margin-bottom: 140px; }
+.ui-root .ui-panel.mb-150 { margin-bottom: 150px; }
+.ui-root .ui-panel.mb-160 { margin-bottom: 160px; }
+.ui-root .ui-panel.mb-170 { margin-bottom: 170px; }
+.ui-root .ui-panel.mb-180 { margin-bottom: 180px; }
+.ui-root .ui-panel.mb-190 { margin-bottom: 190px; }
+.ui-root .ui-panel.mb-200 { margin-bottom: 200px; }
+.ui-root .ui-panel.mb-210 { margin-bottom: 210px; }
+.ui-root .ui-panel.mb-220 { margin-bottom: 220px; }
+.ui-root .ui-panel.mb-230 { margin-bottom: 230px; }
+.ui-root .ui-panel.mb-240 { margin-bottom: 240px; }
+.ui-root .ui-panel.mb-250 { margin-bottom: 250px; }
+.ui-root .ui-panel.mb-260 { margin-bottom: 260px; }
+.ui-root .ui-panel.mb-270 { margin-bottom: 270px; }
+.ui-root .ui-panel.mb-280 { margin-bottom: 280px; }
+.ui-root .ui-panel.mb-290 { margin-bottom: 290px; }
+.ui-root .ui-panel.mb-300 { margin-bottom: 300px; }
+.ui-root .ui-panel.mb-310 { margin-bottom: 310px; }
+.ui-root .ui-panel.mb-320 { margin-bottom: 320px; }
+.ui-root .ui-panel.mb-330 { margin-bottom: 330px; }
+.ui-root .ui-panel.mb-340 { margin-bottom: 340px; }
+.ui-root .ui-panel.mb-350 { margin-bottom: 350px; }
+.ui-root .ui-panel.mb-360 { margin-bottom: 360px; }
+.ui-root .ui-panel.mb-370 { margin-bottom: 370px; }
+.ui-root .ui-panel.mb-380 { margin-bottom: 380px; }
+.ui-root .ui-panel.mb-390 { margin-bottom: 390px; }
+.ui-root .ui-panel.mb-400 { margin-bottom: 400px; }
+.ui-root .ui-panel.mb-410 { margin-bottom: 410px; }
+.ui-root .ui-panel.mb-420 { margin-bottom: 420px; }
+.ui-root .ui-panel.mb-430 { margin-bottom: 430px; }
+.ui-root .ui-panel.mb-440 { margin-bottom: 440px; }
+.ui-root .ui-panel.mb-450 { margin-bottom: 450px; }
+.ui-root .ui-panel.mb-460 { margin-bottom: 460px; }
+.ui-root .ui-panel.mb-470 { margin-bottom: 470px; }
+.ui-root .ui-panel.mb-480 { margin-bottom: 480px; }
+.ui-root .ui-panel.mb-490 { margin-bottom: 490px; }
+.ui-root .ui-panel.mb-500 { margin-bottom: 500px; }
+.ui-root .ui-panel.mb-510 { margin-bottom: 510px; }
+.ui-root .ui-panel.mb-520 { margin-bottom: 520px; }
+.ui-root .ui-panel.mb-530 { margin-bottom: 530px; }
+.ui-root .ui-panel.mb-540 { margin-bottom: 540px; }
+.ui-root .ui-panel.mb-550 { margin-bottom: 550px; }
+.ui-root .ui-panel.mb-560 { margin-bottom: 560px; }
+.ui-root .ui-panel.mb-570 { margin-bottom: 570px; }
+.ui-root .ui-panel.mb-580 { margin-bottom: 580px; }
+.ui-root .ui-panel.mb-590 { margin-bottom: 590px; }
+.ui-root .ui-panel.mb-600 { margin-bottom: 600px; }
+.ui-root .ui-panel.ml-0 { margin-left: 0px; }
+.ui-root .ui-panel.ml-10 { margin-left: 10px; }
+.ui-root .ui-panel.ml-20 { margin-left: 20px; }
+.ui-root .ui-panel.ml-30 { margin-left: 30px; }
+.ui-root .ui-panel.ml-40 { margin-left: 40px; }
+.ui-root .ui-panel.ml-50 { margin-left: 50px; }
+.ui-root .ui-panel.ml-60 { margin-left: 60px; }
+.ui-root .ui-panel.ml-70 { margin-left: 70px; }
+.ui-root .ui-panel.ml-80 { margin-left: 80px; }
+.ui-root .ui-panel.ml-90 { margin-left: 90px; }
+.ui-root .ui-panel.ml-100 { margin-left: 100px; }
+.ui-root .ui-panel.ml-110 { margin-left: 110px; }
+.ui-root .ui-panel.ml-120 { margin-left: 120px; }
+.ui-root .ui-panel.ml-130 { margin-left: 130px; }
+.ui-root .ui-panel.ml-140 { margin-left: 140px; }
+.ui-root .ui-panel.ml-150 { margin-left: 150px; }
+.ui-root .ui-panel.ml-160 { margin-left: 160px; }
+.ui-root .ui-panel.ml-170 { margin-left: 170px; }
+.ui-root .ui-panel.ml-180 { margin-left: 180px; }
+.ui-root .ui-panel.ml-190 { margin-left: 190px; }
+.ui-root .ui-panel.ml-200 { margin-left: 200px; }
+.ui-root .ui-panel.ml-210 { margin-left: 210px; }
+.ui-root .ui-panel.ml-220 { margin-left: 220px; }
+.ui-root .ui-panel.ml-230 { margin-left: 230px; }
+.ui-root .ui-panel.ml-240 { margin-left: 240px; }
+.ui-root .ui-panel.ml-250 { margin-left: 250px; }
+.ui-root .ui-panel.ml-260 { margin-left: 260px; }
+.ui-root .ui-panel.ml-270 { margin-left: 270px; }
+.ui-root .ui-panel.ml-280 { margin-left: 280px; }
+.ui-root .ui-panel.ml-290 { margin-left: 290px; }
+.ui-root .ui-panel.ml-300 { margin-left: 300px; }
+.ui-root .ui-panel.ml-310 { margin-left: 310px; }
+.ui-root .ui-panel.ml-320 { margin-left: 320px; }
+.ui-root .ui-panel.ml-330 { margin-left: 330px; }
+.ui-root .ui-panel.ml-340 { margin-left: 340px; }
+.ui-root .ui-panel.ml-350 { margin-left: 350px; }
+.ui-root .ui-panel.ml-360 { margin-left: 360px; }
+.ui-root .ui-panel.ml-370 { margin-left: 370px; }
+.ui-root .ui-panel.ml-380 { margin-left: 380px; }
+.ui-root .ui-panel.ml-390 { margin-left: 390px; }
+.ui-root .ui-panel.ml-400 { margin-left: 400px; }
+.ui-root .ui-panel.ml-410 { margin-left: 410px; }
+.ui-root .ui-panel.ml-420 { margin-left: 420px; }
+.ui-root .ui-panel.ml-430 { margin-left: 430px; }
+.ui-root .ui-panel.ml-440 { margin-left: 440px; }
+.ui-root .ui-panel.ml-450 { margin-left: 450px; }
+.ui-root .ui-panel.ml-460 { margin-left: 460px; }
+.ui-root .ui-panel.ml-470 { margin-left: 470px; }
+.ui-root .ui-panel.ml-480 { margin-left: 480px; }
+.ui-root .ui-panel.ml-490 { margin-left: 490px; }
+.ui-root .ui-panel.ml-500 { margin-left: 500px; }
+.ui-root .ui-panel.ml-510 { margin-left: 510px; }
+.ui-root .ui-panel.ml-520 { margin-left: 520px; }
+.ui-root .ui-panel.ml-530 { margin-left: 530px; }
+.ui-root .ui-panel.ml-540 { margin-left: 540px; }
+.ui-root .ui-panel.ml-550 { margin-left: 550px; }
+.ui-root .ui-panel.ml-560 { margin-left: 560px; }
+.ui-root .ui-panel.ml-570 { margin-left: 570px; }
+.ui-root .ui-panel.ml-580 { margin-left: 580px; }
+.ui-root .ui-panel.ml-590 { margin-left: 590px; }
+.ui-root .ui-panel.ml-600 { margin-left: 600px; }
+.ui-root .ui-panel.mr-0 { margin-right: 0px; }
+.ui-root .ui-panel.mr-10 { margin-right: 10px; }
+.ui-root .ui-panel.mr-20 { margin-right: 20px; }
+.ui-root .ui-panel.mr-30 { margin-right: 30px; }
+.ui-root .ui-panel.mr-40 { margin-right: 40px; }
+.ui-root .ui-panel.mr-50 { margin-right: 50px; }
+.ui-root .ui-panel.mr-60 { margin-right: 60px; }
+.ui-root .ui-panel.mr-70 { margin-right: 70px; }
+.ui-root .ui-panel.mr-80 { margin-right: 80px; }
+.ui-root .ui-panel.mr-90 { margin-right: 90px; }
+.ui-root .ui-panel.mr-100 { margin-right: 100px; }
+.ui-root .ui-panel.mr-110 { margin-right: 110px; }
+.ui-root .ui-panel.mr-120 { margin-right: 120px; }
+.ui-root .ui-panel.mr-130 { margin-right: 130px; }
+.ui-root .ui-panel.mr-140 { margin-right: 140px; }
+.ui-root .ui-panel.mr-150 { margin-right: 150px; }
+.ui-root .ui-panel.mr-160 { margin-right: 160px; }
+.ui-root .ui-panel.mr-170 { margin-right: 170px; }
+.ui-root .ui-panel.mr-180 { margin-right: 180px; }
+.ui-root .ui-panel.mr-190 { margin-right: 190px; }
+.ui-root .ui-panel.mr-200 { margin-right: 200px; }
+.ui-root .ui-panel.mr-210 { margin-right: 210px; }
+.ui-root .ui-panel.mr-220 { margin-right: 220px; }
+.ui-root .ui-panel.mr-230 { margin-right: 230px; }
+.ui-root .ui-panel.mr-240 { margin-right: 240px; }
+.ui-root .ui-panel.mr-250 { margin-right: 250px; }
+.ui-root .ui-panel.mr-260 { margin-right: 260px; }
+.ui-root .ui-panel.mr-270 { margin-right: 270px; }
+.ui-root .ui-panel.mr-280 { margin-right: 280px; }
+.ui-root .ui-panel.mr-290 { margin-right: 290px; }
+.ui-root .ui-panel.mr-300 { margin-right: 300px; }
+.ui-root .ui-panel.mr-310 { margin-right: 310px; }
+.ui-root .ui-panel.mr-320 { margin-right: 320px; }
+.ui-root .ui-panel.mr-330 { margin-right: 330px; }
+.ui-root .ui-panel.mr-340 { margin-right: 340px; }
+.ui-root .ui-panel.mr-350 { margin-right: 350px; }
+.ui-root .ui-panel.mr-360 { margin-right: 360px; }
+.ui-root .ui-panel.mr-370 { margin-right: 370px; }
+.ui-root .ui-panel.mr-380 { margin-right: 380px; }
+.ui-root .ui-panel.mr-390 { margin-right: 390px; }
+.ui-root .ui-panel.mr-400 { margin-right: 400px; }
+.ui-root .ui-panel.mr-410 { margin-right: 410px; }
+.ui-root .ui-panel.mr-420 { margin-right: 420px; }
+.ui-root .ui-panel.mr-430 { margin-right: 430px; }
+.ui-root .ui-panel.mr-440 { margin-right: 440px; }
+.ui-root .ui-panel.mr-450 { margin-right: 450px; }
+.ui-root .ui-panel.mr-460 { margin-right: 460px; }
+.ui-root .ui-panel.mr-470 { margin-right: 470px; }
+.ui-root .ui-panel.mr-480 { margin-right: 480px; }
+.ui-root .ui-panel.mr-490 { margin-right: 490px; }
+.ui-root .ui-panel.mr-500 { margin-right: 500px; }
+.ui-root .ui-panel.mr-510 { margin-right: 510px; }
+.ui-root .ui-panel.mr-520 { margin-right: 520px; }
+.ui-root .ui-panel.mr-530 { margin-right: 530px; }
+.ui-root .ui-panel.mr-540 { margin-right: 540px; }
+.ui-root .ui-panel.mr-550 { margin-right: 550px; }
+.ui-root .ui-panel.mr-560 { margin-right: 560px; }
+.ui-root .ui-panel.mr-570 { margin-right: 570px; }
+.ui-root .ui-panel.mr-580 { margin-right: 580px; }
+.ui-root .ui-panel.mr-590 { margin-right: 590px; }
+.ui-root .ui-panel.mr-600 { margin-right: 600px; }
+.ui-root .ui-panel.bga-0 { background-color: #140e0c00; }
+.ui-root .ui-panel.bga-5 { background-color: #140e0c0d; }
+.ui-root .ui-panel.bga-10 { background-color: #140e0c1a; }
+.ui-root .ui-panel.bga-15 { background-color: #140e0c26; }
+.ui-root .ui-panel.bga-20 { background-color: #140e0c33; }
+.ui-root .ui-panel.bga-25 { background-color: #140e0c40; }
+.ui-root .ui-panel.bga-30 { background-color: #140e0c4c; }
+.ui-root .ui-panel.bga-35 { background-color: #140e0c59; }
+.ui-root .ui-panel.bga-40 { background-color: #140e0c66; }
+.ui-root .ui-panel.bga-45 { background-color: #140e0c73; }
+.ui-root .ui-panel.bga-50 { background-color: #140e0c80; }
+.ui-root .ui-panel.bga-55 { background-color: #140e0c8c; }
+.ui-root .ui-panel.bga-60 { background-color: #140e0c99; }
+.ui-root .ui-panel.bga-65 { background-color: #140e0ca6; }
+.ui-root .ui-panel.bga-70 { background-color: #140e0cb2; }
+.ui-root .ui-panel.bga-75 { background-color: #140e0cbf; }
+.ui-root .ui-panel.bga-80 { background-color: #140e0ccc; }
+.ui-root .ui-panel.bga-85 { background-color: #140e0cd9; }
+.ui-root .ui-panel.bga-90 { background-color: #140e0ce6; }
+.ui-root .ui-panel.bga-95 { background-color: #140e0cf2; }
+.ui-root .ui-panel.bga-100 { background-color: #140e0cff; }
+
+/* ---- icons -------------------------------------------------------------------------------
+   ico-<name> on any part draws one of CS2's own icons (panorama/images/icons, in the game, not shipped
+   here). elim / bomb / defuse / time / hostage are the scoreboard timeline's (gamerules_constants). Names: elim headshot kill bomb c4 defuse time hostage star check cross pause play trophy mvp clock timer warning info ct t switch vote timeout surrender unpause map mic muted skull health armor money fire smoke flash grenade gg leader bot.
+   Leave the part's text empty. */
+.ui-root .ico-elim { background-image: url( "s2r://panorama/images/icons/ui/kill.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-headshot { background-image: url( "s2r://panorama/images/icons/ui/elimination_headshot.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-kill { background-image: url( "s2r://panorama/images/icons/ui/kill.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-bomb { background-image: url( "s2r://panorama/images/icons/ui/bomb.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-c4 { background-image: url( "s2r://panorama/images/icons/ui/bomb_c4.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-defuse { background-image: url( "s2r://panorama/images/icons/equipment/defuser.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-time { background-image: url( "s2r://panorama/images/icons/ui/timer.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-hostage { background-image: url( "s2r://panorama/images/icons/ui/rescue.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-star { background-image: url( "s2r://panorama/images/icons/ui/icon_star.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-check { background-image: url( "s2r://panorama/images/icons/ui/check.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-cross { background-image: url( "s2r://panorama/images/icons/ui/cancel.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-pause { background-image: url( "s2r://panorama/images/icons/ui/pause.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-play { background-image: url( "s2r://panorama/images/icons/ui/play.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-trophy { background-image: url( "s2r://panorama/images/icons/ui/trophy.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-mvp { background-image: url( "s2r://panorama/images/icons/ui/stat_mvps.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-clock { background-image: url( "s2r://panorama/images/icons/ui/clock.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-timer { background-image: url( "s2r://panorama/images/icons/ui/timer.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-warning { background-image: url( "s2r://panorama/images/icons/ui/warning.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-info { background-image: url( "s2r://panorama/images/icons/ui/info_i.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-ct { background-image: url( "s2r://panorama/images/icons/ui/ct_logo_1c.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-t { background-image: url( "s2r://panorama/images/icons/ui/t_logo_1c.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-switch { background-image: url( "s2r://panorama/images/icons/ui/switch_teams_dead.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-vote { background-image: url( "s2r://panorama/images/icons/ui/vote_check.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-timeout { background-image: url( "s2r://panorama/images/icons/ui/votestarttimeout.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-surrender { background-image: url( "s2r://panorama/images/icons/ui/votesurrender.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-unpause { background-image: url( "s2r://panorama/images/icons/ui/voteunpausematch.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-map { background-image: url( "s2r://panorama/images/icons/ui/votechangelevel.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-mic { background-image: url( "s2r://panorama/images/icons/ui/unmuted.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-muted { background-image: url( "s2r://panorama/images/icons/ui/muted.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-skull { background-image: url( "s2r://panorama/images/icons/ui/dominated_dead.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-health { background-image: url( "s2r://panorama/images/icons/ui/health.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-armor { background-image: url( "s2r://panorama/images/icons/ui/armor.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-money { background-image: url( "s2r://panorama/images/icons/ui/dollar_sign.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-fire { background-image: url( "s2r://panorama/images/icons/ui/chatwheel_fire.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-smoke { background-image: url( "s2r://panorama/images/icons/ui/chatwheel_smoke.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-flash { background-image: url( "s2r://panorama/images/icons/ui/chatwheel_flashbang.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-grenade { background-image: url( "s2r://panorama/images/icons/ui/chatwheel_grenade.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-gg { background-image: url( "s2r://panorama/images/icons/ui/thumbs_up.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-leader { background-image: url( "s2r://panorama/images/icons/ui/leader.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-root .ico-bot { background-image: url( "s2r://panorama/images/icons/ui/bot.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }

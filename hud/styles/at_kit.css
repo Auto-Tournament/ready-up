@@ -1,0 +1,672 @@
+/*
+  Auto Tournament HUD (at_kit.xml). Three elements; the server shows one at a time:
+    #at_card  left, above the chat      routine information
+    #at_mid   centre of the lower half  moments everyone must see
+    #at_end   the leaderboard           a map or series is over (blurs the world)
+
+  Panorama CSS: flow-children instead of flexbox, visibility: collapse to hide, sizes in px at
+  1080p. Motion follows the highlights overlay: cubic-bezier(0.2, 0.8, 0.2, 1) in,
+  cubic-bezier(0.55, 0, 1, 0.45) out. Everything is a transition fired by a class; the only
+  @keyframes animate opacity. Width and height can't animate: elements snap to their new size.
+  Fonts: CS2 loads fonts with fontconfig from fixed folders on disk, never from addons, so the HUD
+  uses fonts every player has: Noto Sans for text, Noto Mono for labels and commands. One selector
+  per rule.
+*/
+
+.at-root { width: 100%; height: 100%; font-family: "Noto Sans"; }
+
+/* ---- shared pieces ------------------------------------------------------------------------ */
+
+.at-brand { flow-children: right; horizontal-align: center; height: 16px; margin-bottom: 10px; }
+.at-brandlogo
+{
+	width: 16px; height: 16px; margin-right: 8px; vertical-align: center; border-radius: 4px;
+	background-image: url( "s2r://panorama/images/custom_game/at_logo.vtex" );
+	background-size: contain; background-position: 50% 50%; background-repeat: no-repeat;
+}
+.at-brandname { font-family: "Noto Mono"; vertical-align: center; font-size: 10px; font-weight: bold; letter-spacing: 2px; color: #938a87; }
+.at-divider { width: 100%; height: 1px; margin-bottom: 12px; background-color: #322926; }
+.at-chat { visibility: collapse; margin-top: 8px; font-size: 12px; color: #938a87; }
+
+.at-line
+{
+	width: 100%; height: 3px; vertical-align: bottom; background-color: #ff6a3d;
+	transform-origin: 0% 50%; transform: scale3d( 0, 1, 1 );
+	transition-property: transform, background-color; transition-duration: 0.12s, 0.3s;
+}
+.on .at-line
+{
+	transform: scale3d( 1, 1, 1 );
+	transition-duration: 0.7s, 0.3s; transition-delay: 0.2s, 0s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+
+/* Colour of the state on #at_card / #at_mid / #at_end: c-live, c-warn, c-info, c-ban, c-muted. */
+.c-live .at-line { background-color: #3fc168; }
+.c-warn .at-line { background-color: #e6b33c; }
+.c-info .at-line { background-color: #4f9df2; }
+.c-ban .at-line { background-color: #f2645f; }
+.c-muted .at-line { background-color: #938a87; }
+
+/* A sentence: five parts (text, bold, text, command, text). Part classes: hide, bold, cmd, and for
+   a command main / warn / side-ct / side-t; for bold text c-live / c-ban. */
+.at-sentence { flow-children: right; }
+.at-part { margin-right: 6px; vertical-align: center; }
+.at-part.hide { visibility: collapse; }
+.at-part.tight { margin-right: 0px; }
+.at-parttext { font-size: 17px; color: #f4edeb; vertical-align: center; }
+.at-part.bold .at-parttext { font-weight: bold; color: #ff6a3d; }
+.at-part.bold.c-live .at-parttext { color: #3fc168; }
+.at-part.bold.c-ban .at-parttext { color: #f2645f; }
+.at-part.cmd { padding: 1px 7px; border-radius: 5px; background-color: #211815; border: 1px solid #736966; }
+.at-part.cmd .at-parttext { font-family: "Noto Mono"; font-size: 15px; font-weight: bold; }
+.at-part.cmd.main { background-color: #ff6a3d; border: 1px solid #ff6a3d; }
+.at-part.cmd.warn { background-color: #e6b33c; border: 1px solid #e6b33c; }
+.at-part.cmd.side-ct { background-color: #7b9be0; border: 1px solid #7b9be0; }
+.at-part.cmd.side-t { background-color: #de9b35; border: 1px solid #de9b35; }
+.at-part.cmd.main .at-parttext { color: #140e0c; }
+.at-part.cmd.warn .at-parttext { color: #140e0c; }
+.at-part.cmd.side-ct .at-parttext { color: #140e0c; }
+.at-part.cmd.side-t .at-parttext { color: #140e0c; }
+
+/* ---- the card ------------------------------------------------------------------------------ */
+
+.at-card
+{
+	horizontal-align: left; vertical-align: bottom; margin-left: 24px; margin-bottom: 320px;
+	width: fit-children; height: fit-children; min-width: 300px; overflow: clip;
+	background-color: #140e0cf7; border: 1px solid #322926; border-radius: 12px;
+	opacity: 0; transform: translateX( -48px );
+	transition-property: opacity, transform; transition-duration: 0.2s;
+	transition-timing-function: cubic-bezier( 0.55, 0, 1, 0.45 );
+}
+.at-card.on
+{
+	opacity: 1; transform: translateX( 0px ); transition-duration: 0.38s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+.HUD_BUYMENU_VISIBLE .at-card.on { opacity: 0; }
+/* A second layer of the card's background: one layer renders see-through in CS2 (as on #at_ecard). */
+.at-cardflow { flow-children: down; width: fit-children; height: fit-children; background-color: #140e0cf7; }
+.at-brandrow { width: 100%; padding: 12px 14px 0px 14px; }
+.at-carddivider { margin-bottom: 0px; }
+.at-content { flow-children: down; width: fit-children; height: fit-children; padding: 12px 14px 15px 14px; }
+.at-card.chat .at-chat { visibility: visible; margin-left: 20px; }
+
+.at-head { flow-children: right; width: fit-children; height: 20px; }
+.at-dot
+{
+	width: 10px; height: 10px; border-radius: 5px; vertical-align: center; margin-right: 10px;
+	background-color: #ff6a3d; transition-property: background-color; transition-duration: 0.3s;
+}
+.c-live .at-dot { background-color: #3fc168; }
+.c-warn .at-dot { background-color: #e6b33c; }
+.c-info .at-dot { background-color: #4f9df2; }
+.c-ban .at-dot { background-color: #f2645f; }
+.c-muted .at-dot { background-color: #938a87; }
+
+/* Header text rolls: write the new text into the "old" layer, then swap cur / old on both. */
+.at-lyrbox { width: fit-children; height: 20px; margin-right: 10px; }
+.at-lyr
+{
+	opacity: 0; transform: translateY( 10px );
+	transition-property: opacity, transform, color; transition-duration: 0.26s;
+	transition-timing-function: cubic-bezier( 0.55, 0, 1, 0.45 );
+}
+.at-lyr.old { transform: translateY( -10px ); }
+.at-lyr.cur
+{
+	opacity: 1; transform: translateY( 0px ); transition-duration: 0.36s; transition-delay: 0.09s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+.at-kind { font-family: "Noto Mono"; vertical-align: center; font-size: 11px; font-weight: bold; letter-spacing: 1.4px; text-transform: uppercase; color: #ff6a3d; }
+.c-live .at-kind { color: #3fc168; }
+.c-warn .at-kind { color: #e6b33c; }
+.c-info .at-kind { color: #4f9df2; }
+.c-ban .at-kind { color: #f2645f; }
+.c-muted .at-kind { color: #938a87; }
+.at-text { vertical-align: center; font-size: 15px; color: #f4edeb; }
+
+/* Bodies: b-rules, b-line, b-dmg, b-bar on #at_card. */
+.at-body { visibility: collapse; opacity: 0; margin-top: 12px; transition-property: opacity; transition-duration: 0.28s; }
+.b-rules .at-rules { visibility: visible; opacity: 1; }
+.b-line .at-line-body { visibility: visible; opacity: 1; }
+.b-dmg .at-dmg { visibility: visible; opacity: 1; }
+.b-bar .at-bar { visibility: visible; opacity: 1; }
+
+.at-rules { flow-children: down; margin-left: 20px; }
+.at-rule { flow-children: right; margin-bottom: 5px; }
+.at-rulek { font-family: "Noto Mono"; width: 86px; vertical-align: center; font-size: 10px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; }
+.at-rulev { vertical-align: center; font-size: 15px; color: #f4edeb; }
+
+.at-line-body { margin-left: 20px; }
+
+.at-dmg { flow-children: down; width: 388px; }
+.at-drow { flow-children: right; width: 100%; height: 28px; margin-bottom: 5px; padding: 0px 9px; border-radius: 7px; background-color: #211815; }
+.at-drow.gone { visibility: collapse; }
+.at-drow.at-dhead { height: 16px; background-color: #00000000; }
+.at-dname { width: fill-parent-flow( 1.0 ); vertical-align: center; font-size: 13px; color: #f4edeb; }
+.at-dnum { font-family: "Noto Mono"; width: 70px; margin-left: 8px; vertical-align: center; text-align: right; font-size: 13px; color: #938a87; }
+.at-dhp { font-family: "Noto Mono"; width: 48px; margin-left: 8px; vertical-align: center; text-align: right; font-size: 13px; font-weight: bold; color: #c4bcb9; }
+.at-dhead .at-dnum { font-size: 11px; font-weight: bold; letter-spacing: 1.2px; }
+.at-dhead .at-dhp { font-size: 11px; letter-spacing: 1.2px; color: #938a87; }
+.hit .at-given { color: #f4edeb; }
+.big .at-given { color: #ff6a3d; }
+.took .at-taken { color: #f2645f; }
+.dead .at-dname { color: #938a87; }
+.dead .at-dhp { color: #f2645f; }
+
+.at-bar { flow-children: right; width: 300px; margin-left: 20px; }
+.at-segs { flow-children: right; width: fill-parent-flow( 1.0 ); vertical-align: center; }
+.at-seg { width: 21px; height: 6px; margin-right: 3px; border-radius: 2px; background-color: #322926; transition-property: background-color; transition-duration: 0.22s; }
+.at-seg.fill { background-color: #ff6a3d; }
+.at-pct { font-family: "Noto Mono"; width: 40px; vertical-align: center; text-align: right; font-size: 12px; font-weight: bold; color: #ff6a3d; }
+
+/* The pulse ring while this player still has to act (card class "nudge"). */
+@keyframes 'at-pulse'
+{
+	0% { opacity: 0.15; }
+	50% { opacity: 1; }
+	100% { opacity: 0.15; }
+}
+.at-ring { width: 100%; height: 100%; border: 2px solid #ff6a3d; border-radius: 12px; opacity: 0; }
+.at-card.on.nudge .at-ring
+{
+	animation-name: at-pulse; animation-duration: 1.6s; animation-delay: 0.8s;
+	animation-timing-function: ease-in-out; animation-iteration-count: infinite;
+}
+
+/* ---- the centre panel ---------------------------------------------------------------------- */
+
+.at-midwrap { width: 100%; height: 100%; }
+.at-mid
+{
+	horizontal-align: center; vertical-align: top; margin-top: 600px;
+	width: 640px; height: fit-children; overflow: clip;
+	background-color: #140e0cf7; border: 1px solid #322926; border-radius: 16px;
+	opacity: 0; transform: translateY( 28px );
+	transition-property: opacity, transform; transition-duration: 0.2s;
+	transition-timing-function: cubic-bezier( 0.55, 0, 1, 0.45 );
+}
+.at-mid.on
+{
+	opacity: 1; transform: translateY( 0px ); transition-duration: 0.38s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+.HUD_BUYMENU_VISIBLE .at-mid.on { opacity: 0; }
+.at-midcontent { flow-children: down; horizontal-align: center; width: 100%; height: fit-children; padding: 16px 36px 22px 36px; }
+.at-midcontent .at-brand { margin-bottom: 8px; }
+
+/* Optional parts, shown by classes on #at_mid: has-kind, has-sub, has-confirm, has-parts,
+   has-cmds, chat, has-timer, has-counter. */
+.at-mkind { font-family: "Noto Mono"; visibility: collapse; horizontal-align: center; margin-bottom: 6px; font-size: 13px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: #3fc168; }
+.at-mid.has-kind .at-mkind { visibility: visible; }
+.c-warn .at-mkind { color: #e6b33c; }
+.c-info .at-mkind { color: #4f9df2; }
+.c-ban .at-mkind { color: #f2645f; }
+.c-acc .at-mkind { color: #ff6a3d; }
+.c-muted .at-mkind { color: #938a87; }
+.at-mtext { horizontal-align: center; font-size: 32px; font-weight: bold; color: #f4edeb; }
+.at-msub { visibility: collapse; horizontal-align: center; margin-top: 6px; font-size: 17px; color: #c4bcb9; }
+.at-mid.has-sub .at-msub { visibility: visible; }
+
+.at-confirm { visibility: collapse; flow-children: right; horizontal-align: center; margin-top: 10px; }
+.at-mid.has-confirm .at-confirm { visibility: visible; }
+.at-confirmrow { flow-children: right; height: 32px; margin-right: 10px; padding: 0px 12px; border-radius: 8px; background-color: #211815; }
+.at-confirmteam { vertical-align: center; margin-right: 10px; font-size: 14px; color: #f4edeb; }
+.at-confirmstate { font-family: "Noto Mono"; vertical-align: center; font-size: 11px; font-weight: bold; letter-spacing: 1px; color: #938a87; transition-property: color; transition-duration: 0.3s; }
+.at-confirmrow.ok .at-confirmstate { color: #3fc168; }
+
+.at-midcontent .at-sentence { visibility: collapse; horizontal-align: center; margin-top: 10px; }
+.at-mid.has-parts .at-sentence { visibility: visible; }
+.at-midcontent .at-parttext { color: #c4bcb9; }
+
+.at-cmds { visibility: collapse; flow-children: right; horizontal-align: center; margin-top: 10px; }
+.at-mid.has-cmds .at-cmds { visibility: visible; }
+.at-cmd { flow-children: right; margin-right: 16px; }
+.at-cmd.gone { visibility: collapse; }
+.at-cmdlabel { vertical-align: center; margin-right: 6px; font-size: 15px; color: #c4bcb9; }
+.at-chip { vertical-align: center; padding: 2px 7px; border-radius: 5px; background-color: #211815; border: 1px solid #736966; }
+.at-chiptext { font-family: "Noto Mono"; font-size: 15px; font-weight: bold; color: #f4edeb; }
+
+.at-mid.chat .at-chat { visibility: visible; horizontal-align: center; }
+
+.at-mtimer { visibility: collapse; horizontal-align: right; vertical-align: top; margin: 14px 16px 0px 0px; font-size: 22px; font-weight: bold; color: #3fc168; }
+.at-mid.has-timer .at-mtimer { visibility: visible; }
+.c-warn .at-mtimer { color: #e6b33c; }
+.c-ban .at-mtimer { color: #f2645f; }
+.at-mcounter { font-family: "Noto Mono"; visibility: collapse; horizontal-align: right; vertical-align: bottom; margin: 0px 16px 12px 0px; font-size: 11px; font-weight: bold; color: #938a87; }
+.at-mid.has-counter .at-mcounter { visibility: visible; }
+
+/* The orange wipe from the highlight reels, once (class "go"): everyone is ready. */
+.at-sweep { width: 100%; height: 100%; background-color: #ff6a3d; transform: translateX( -560px ); }
+.at-mid.go .at-sweep
+{
+	transform: translateX( 560px ); transition-property: transform; transition-duration: 0.7s;
+	transition-delay: 0.15s; transition-timing-function: cubic-bezier( 0.65, 0, 0.35, 1 );
+}
+
+/* ---- the end screen ------------------------------------------------------------------------
+   A toolkit, not a fixed design: neutral base styles, and everything the server may want to vary
+   is a utility class (below) it sets on the part. Text, headers, tooltips and which column is
+   how wide come from plugins/match/readyup/end_screen.cpp. */
+
+.at-end
+{
+	width: 100%; height: 100%; visibility: collapse; opacity: 0;
+	transition-property: opacity; transition-duration: 0.4s;
+}
+.at-end.on { visibility: visible; opacity: 1; }
+.at-eblur { width: 100%; height: 100%; background-color: #00000024; world-blur: gaussian( 1, 1, 1 ); }
+
+.at-ecard
+{
+	horizontal-align: center; vertical-align: center;
+	/* Hardcoded like the HUD cards (at_ui .ui-panel: clipped, 97 %): with overflow noclip CS2 drew
+	   this background see-through and ignored the bg-* classes (2026-10-27). */
+	width: 1440px; height: fit-children; overflow: clip;
+	background-color: #100908f7; border: 1px solid #322926; border-radius: 18px;
+	transform: translate3d( 0px, 16px, 0px ) scale3d( 1, 1, 1 ); transition-property: transform; transition-duration: 0.52s;
+	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+}
+.at-end.on .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1, 1, 1 ); }
+/* A second layer of the card's background: CS2 draws one layer of #100908f7 at about 80 %, two read
+   as solid (2026-10-27). */
+.at-ecardflow { flow-children: down; width: 100%; height: fit-children; padding: 24px 36px 24px 36px; overflow: noclip; background-color: #100908f7; border-radius: 18px; }
+.at-ecard .at-brand { height: 22px; }
+.at-ecard .at-brandlogo { width: 22px; height: 22px; border-radius: 6px; }
+.at-ecard .at-brandname { font-size: 12px; letter-spacing: 2.4px; }
+
+.at-ehead-text { horizontal-align: center; margin-top: 8px; font-size: 48px; font-weight: bold; color: #f4edeb; }
+.at-howbox { horizontal-align: center; margin-top: 8px; padding: 5px 12px; border-radius: 14px; background-color: #f4edeb14; }
+.at-how { font-family: "Noto Mono"; font-size: 13px; font-weight: bold; letter-spacing: 1.4px; text-transform: uppercase; color: #f4edeb; }
+
+.at-escore { flow-children: right; horizontal-align: center; margin: 8px 0px 18px 0px; }
+.at-eteambox { flow-children: down; vertical-align: center; width: 320px; }
+.at-eabox { margin-right: 28px; }
+.at-ebbox { margin-left: 28px; }
+.at-eteamname { width: 100%; font-size: 26px; font-weight: bold; color: #f4edeb; }
+.at-esides { width: 100%; margin-top: 4px; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
+.at-right { text-align: right; }
+.at-enum { vertical-align: center; font-size: 64px; font-weight: bold; color: #f4edeb; }
+.at-ecolon { vertical-align: center; margin: 0px 18px; font-size: 30px; font-weight: bold; color: #4a3f3b; }
+
+/* Round strip: a tick per round (class on), a gap before it (half); the server fills each part
+   (fill-*) and letters it. */
+.at-erounds { flow-children: right; horizontal-align: center; height: 64px; margin: 4px 0px 14px 0px; }
+.at-rt { visibility: collapse; flow-children: down; width: 26px; height: 64px; margin-left: 4px; }
+.at-rt.on { visibility: visible; }
+.at-rt.half { margin-left: 22px; }
+.at-rtp { width: 26px; height: 26px; border-radius: 6px; text-align: center; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; padding-top: 5px; color: #f4edeb; background-color: #00000000; }
+.at-rtmid { width: 26px; height: 2px; margin: 4px 0px; background-color: #322926; }
+
+/* Awards. */
+.at-eawards { flow-children: right; width: 100%; margin-bottom: 14px; }
+.at-aw { flow-children: down; width: fill-parent-flow( 1.0 ); margin-right: 10px; padding: 10px 14px; border-radius: 10px; background-color: #18110e; border: 1px solid #211815; }
+.at-awl { font-family: "Noto Mono"; font-size: 11px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
+.at-awrow { flow-children: right; width: 100%; margin-top: 2px; }
+.at-awn { width: fill-parent-flow( 1.0 ); font-size: 15px; font-weight: bold; color: #f4edeb; }
+.at-awv { font-family: "Noto Mono"; font-size: 15px; font-weight: bold; color: #f4edeb; }
+
+/* Tables: a head row of cells (text + a tooltip on hover), then player rows. Cells are 40 px
+   until a cw-* class says otherwise; cw-off hides a column. */
+.at-eteams { flow-children: right; width: 100%; overflow: noclip; }
+/* Fixed widths: two tables of 670 px and a 28 px gap fill the card's 1368 px (fill-parent-flow here
+   let the first table take nearly everything, 2026-10-27). */
+.at-eteam { flow-children: down; width: 670px; overflow: noclip; }
+#at_eta { margin-right: 28px; }
+.at-erow { flow-children: right; width: 100%; height: 36px; margin-bottom: 5px; padding: 0px 12px; border-radius: 8px; background-color: #18110e; border: 1px solid #211815; }
+.at-erow.at-ehead { overflow: noclip noclip; z-index: 5; height: 16px; background-color: #00000000; border: 0px solid #00000000; }
+.at-enbox { flow-children: right; width: fill-parent-flow( 1.0 ); vertical-align: center; }
+.at-en { vertical-align: center; font-size: 14px; color: #f4edeb; }
+.at-ehead .at-en { font-size: 11px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; width: fill-parent-flow( 1.0 ); }
+.at-etag { visibility: collapse; vertical-align: center; margin-left: 8px; padding: 2px 6px; border-radius: 4px; font-family: "Noto Mono"; font-size: 10px; font-weight: bold; }
+.at-ec { font-family: "Noto Mono"; width: 40px; margin-left: 6px; vertical-align: center; text-align: right; font-size: 14px; color: #c4bcb9; }
+.at-ehc { width: 40px; height: 16px; margin-left: 6px; overflow: noclip noclip; z-index: 5; }
+.at-ehct { width: 100%; text-align: right; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; }
+.at-ehc:hover .at-ehct { color: #f4edeb; }
+.at-tip
+{
+	visibility: collapse; opacity: 0; flow-children: down; width: 240px; height: fit-children; min-height: 56px; z-index: 10;
+	horizontal-align: right; vertical-align: bottom; margin-bottom: 22px; overflow: noclip noclip; padding: 10px 12px; border-radius: 10px;
+	background-color: #1d1512; border: 1px solid #4a3f3b;
+	transition-property: opacity; transition-duration: 0.15s;
+}
+.at-ehc:hover .at-tip { visibility: visible; opacity: 1; }
+/* Forced open from the server (tip-show on the head cell): to check a tooltip without hovering. */
+.at-end .tip-show .at-tip { visibility: visible; opacity: 1; }
+.at-ehc.notip:hover .at-tip { visibility: collapse; }
+.at-tipk { font-size: 14px; font-weight: bold; color: #f4edeb; }
+.at-tipv { margin-top: 3px; font-size: 12px; color: #c4bcb9; }
+
+.at-efoot { flow-children: right; width: 100%; margin-top: 20px; }
+.at-ewhere { font-family: "Noto Mono"; width: fill-parent-flow( 1.0 ); vertical-align: center; font-size: 12px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
+.at-enext { vertical-align: center; font-size: 15px; color: #c4bcb9; }
+
+/* ---- end screen utilities ------------------------------------------------------------------
+   Scoped to #at_end (".at-end .x") so they beat the base styles above. The server combines them:
+     text      tc-ink tc-soft tc-muted tc-acc tc-ban tc-pos tc-live tc-warn tc-ct tc-t, bold, normal
+     fill      fill-none fill-acc fill-muted fill-ban fill-live fill-ct fill-t   (round parts)
+     tint      tint-none tint-acc tint-ink tint-ban tint-live tint-ct tint-t     (rows, how box, awards)
+     tag       tag-acc tag-muted tag-live tag-ban (shown), none = hidden          (the tag by a name)
+     width     cw-xs cw-s cw-m cw-l cw-xl cw-off                                  (table cells)
+     line      line-acc line-ban line-muted line-live                             (on at_ecard)
+     bg        bg-0 .. bg-100, steps of 5                                      (on at_ecard)
+     on at_end blur-0..3, dim-0..3, scale-70 .. scale-100 (steps of 5)
+     any part  hide, empty (collapse) */
+
+.at-end .hide { visibility: collapse; }
+.at-end .empty { visibility: collapse; }
+
+.at-end .tc-ink { color: #f4edeb; }
+.at-end .tc-soft { color: #c4bcb9; }
+.at-end .tc-muted { color: #938a87; }
+.at-end .tc-acc { color: #ff6a3d; }
+.at-end .tc-ban { color: #f2645f; }
+.at-end .tc-pos { color: #7fd7a8; }
+.at-end .tc-live { color: #3fc168; }
+.at-end .tc-warn { color: #e6b33c; }
+.at-end .tc-ct { color: #7b9be0; }
+.at-end .tc-t { color: #de9b35; }
+.at-end .bold { font-weight: bold; }
+.at-end .normal { font-weight: normal; }
+
+.at-end .fill-none { background-color: #00000000; color: #00000000; }
+.at-end .fill-acc { background-color: #ff6a3d; color: #140e0c; }
+.at-end .fill-muted { background-color: #4a3f3b; color: #f4edeb; }
+.at-end .fill-ban { background-color: #f2645f; color: #140e0c; }
+.at-end .fill-live { background-color: #3fc168; color: #140e0c; }
+.at-end .fill-ct { background-color: #7b9be0; color: #140e0c; }
+.at-end .fill-t { background-color: #de9b35; color: #140e0c; }
+
+.at-end .tint-none { background-color: #18110e; border: 1px solid #211815; }
+.at-end .tint-acc { background-color: #ff6a3d1f; border: 1px solid #ff6a3d99; }
+.at-end .tint-ink { background-color: #f4edeb12; border: 1px solid #f4edeb66; }
+.at-end .tint-ban { background-color: #f2645f1f; border: 1px solid #f2645f99; }
+.at-end .tint-live { background-color: #3fc1681f; border: 1px solid #3fc16899; }
+.at-end .tint-ct { background-color: #7b9be01f; border: 1px solid #7b9be099; }
+.at-end .tint-t { background-color: #de9b351f; border: 1px solid #de9b3599; }
+
+.at-end .tag-acc { visibility: visible; background-color: #ff6a3d22; color: #ff6a3d; }
+.at-end .tag-muted { visibility: visible; background-color: #f4edeb14; color: #c4bcb9; }
+.at-end .tag-live { visibility: visible; background-color: #3fc16822; color: #3fc168; }
+.at-end .tag-ban { visibility: visible; background-color: #f2645f22; color: #f2645f; }
+
+.at-end .cw-xs { width: 24px; }
+.at-end .cw-s { width: 30px; }
+.at-end .cw-m { width: 40px; }
+.at-end .cw-l { width: 46px; }
+.at-end .cw-xl { width: 60px; }
+.at-end .cw-off { visibility: collapse; }
+
+.at-end .line-acc .at-line { background-color: #ff6a3d; }
+.at-end .line-ban .at-line { background-color: #f2645f; }
+.at-end .line-muted .at-line { background-color: #938a87; }
+.at-end .line-live .at-line { background-color: #3fc168; }
+
+.at-end.blur-0 .at-eblur { world-blur: gaussian( 0, 0, 0 ); }
+.at-end.blur-1 .at-eblur { world-blur: gaussian( 1, 1, 1 ); }
+.at-end.blur-2 .at-eblur { world-blur: gaussian( 2, 2, 2 ); }
+.at-end.blur-3 .at-eblur { world-blur: gaussian( 3, 3, 3 ); }
+/* Card background (on at_ecard): bg-0 .. bg-100, steps of 5. */
+.at-end .bg-0 { background-color: #10090800; }
+.at-end .bg-5 { background-color: #1009080d; }
+.at-end .bg-10 { background-color: #1009081a; }
+.at-end .bg-15 { background-color: #10090826; }
+.at-end .bg-20 { background-color: #10090833; }
+.at-end .bg-25 { background-color: #10090840; }
+.at-end .bg-30 { background-color: #1009084c; }
+.at-end .bg-35 { background-color: #10090859; }
+.at-end .bg-40 { background-color: #10090866; }
+.at-end .bg-45 { background-color: #10090873; }
+.at-end .bg-50 { background-color: #10090880; }
+.at-end .bg-55 { background-color: #1009088c; }
+.at-end .bg-60 { background-color: #10090899; }
+.at-end .bg-65 { background-color: #100908a6; }
+.at-end .bg-70 { background-color: #100908b2; }
+.at-end .bg-75 { background-color: #100908bf; }
+.at-end .bg-80 { background-color: #100908cc; }
+.at-end .bg-85 { background-color: #100908d9; }
+.at-end .bg-90 { background-color: #100908e6; }
+.at-end .bg-95 { background-color: #100908f2; }
+.at-end .bg-100 { background-color: #100908ff; }
+.at-end.dim-0 .at-eblur { background-color: #00000000; }
+.at-end.dim-1 .at-eblur { background-color: #00000024; }
+.at-end.dim-2 .at-eblur { background-color: #00000048; }
+.at-end.dim-3 .at-eblur { background-color: #00000070; }
+
+.at-end.scale-70 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 0.7, 0.7, 1 ); }
+.at-end.on.scale-70 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.7, 0.7, 1 ); }
+.at-end.scale-75 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 0.75, 0.75, 1 ); }
+.at-end.on.scale-75 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.75, 0.75, 1 ); }
+.at-end.scale-80 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 0.8, 0.8, 1 ); }
+.at-end.on.scale-80 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.8, 0.8, 1 ); }
+.at-end.scale-85 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 0.85, 0.85, 1 ); }
+.at-end.on.scale-85 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.85, 0.85, 1 ); }
+.at-end.scale-90 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 0.9, 0.9, 1 ); }
+.at-end.on.scale-90 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.9, 0.9, 1 ); }
+.at-end.scale-95 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 0.95, 0.95, 1 ); }
+.at-end.on.scale-95 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.95, 0.95, 1 ); }
+.at-end.scale-100 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 1, 1, 1 ); }
+.at-end.on.scale-100 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1, 1, 1 ); }
+
+/* ---- entries ----------------------------------------------------------------------------------
+   Every element enters when "on" is added and leaves when it is removed (the server waits ~0.35 s
+   between a leave and the next enter, so both are seen). Inside, rows and parts come in one after
+   another, like a kill feed. */
+
+.at-content { opacity: 0; transition-property: opacity; transition-duration: 0.15s; }
+.at-card.on .at-content { opacity: 1; transition-duration: 0.3s; transition-delay: 0.1s; }
+
+.at-drow { opacity: 0; transform: translateX( -16px ); transition-property: opacity, transform; transition-duration: 0.15s; }
+.at-card.on .at-drow { opacity: 1; transform: translateX( 0px ); transition-duration: 0.3s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+#at_d0 { transition-delay: 0.15s; }
+#at_d1 { transition-delay: 0.19s; }
+#at_d2 { transition-delay: 0.23s; }
+#at_d3 { transition-delay: 0.27s; }
+#at_d4 { transition-delay: 0.31s; }
+
+.at-rule { opacity: 0; transform: translateX( -12px ); transition-property: opacity, transform; transition-duration: 0.15s; }
+.at-card.on .at-rule { opacity: 1; transform: translateX( 0px ); transition-duration: 0.3s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+#at_r0 { transition-delay: 0.18s; }
+#at_r1 { transition-delay: 0.23s; }
+#at_r2 { transition-delay: 0.28s; }
+
+.at-part { opacity: 0; transform: translateY( 6px ); transition-property: opacity, transform; transition-duration: 0.15s; }
+.on .at-part { opacity: 1; transform: translateY( 0px ); transition-duration: 0.3s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+#at_p1 { transition-delay: 0.04s; }
+#at_p2 { transition-delay: 0.08s; }
+#at_p3 { transition-delay: 0.12s; }
+#at_p4 { transition-delay: 0.16s; }
+#at_mp1 { transition-delay: 0.04s; }
+#at_mp2 { transition-delay: 0.08s; }
+#at_mp3 { transition-delay: 0.12s; }
+#at_mp4 { transition-delay: 0.16s; }
+
+.at-mtext { opacity: 0; transform: translateY( 8px ); transition-property: opacity, transform; transition-duration: 0.15s; }
+.at-mid.on .at-mtext { opacity: 1; transform: translateY( 0px ); transition-duration: 0.36s; transition-delay: 0.08s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+.at-confirmrow { opacity: 0; transition-property: opacity; transition-duration: 0.15s; }
+.at-mid.on .at-confirmrow { opacity: 1; transition-duration: 0.3s; transition-delay: 0.2s; }
+.at-cmd { opacity: 0; transform: translateY( 6px ); transition-property: opacity, transform; transition-duration: 0.15s; }
+.at-mid.on .at-cmd { opacity: 1; transform: translateY( 0px ); transition-duration: 0.3s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+#at_mk0 { transition-delay: 0.18s; }
+#at_mk1 { transition-delay: 0.24s; }
+#at_mk2 { transition-delay: 0.30s; }
+#at_mk3 { transition-delay: 0.36s; }
+
+.at-ehead-text { opacity: 0; transform: translateY( 10px ); transition-property: opacity, transform; transition-duration: 0.2s; }
+.at-end.on .at-ehead-text { opacity: 1; transform: translateY( 0px ); transition-duration: 0.45s; transition-delay: 0.15s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+.at-escore { opacity: 0; transition-property: opacity; transition-duration: 0.2s; }
+.at-end.on .at-escore { opacity: 1; transition-duration: 0.4s; transition-delay: 0.3s; }
+.at-erow { opacity: 0; transform: translateX( -12px ); transition-property: opacity, transform; transition-duration: 0.2s; }
+.at-end.on .at-erow { opacity: 1; transform: translateX( 0px ); transition-duration: 0.32s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+#at_ea0 { transition-delay: 0.45s; }
+#at_ea1 { transition-delay: 0.49s; }
+#at_ea2 { transition-delay: 0.53s; }
+#at_ea3 { transition-delay: 0.57s; }
+#at_ea4 { transition-delay: 0.61s; }
+#at_eb0 { transition-delay: 0.65s; }
+#at_eb1 { transition-delay: 0.69s; }
+#at_eb2 { transition-delay: 0.73s; }
+#at_eb3 { transition-delay: 0.77s; }
+#at_eb4 { transition-delay: 0.81s; }
+
+/* ---- more end screen knobs ------------------------------------------------------------------
+   On at_ecard: mt- / mb-<0..400, steps of 10> move the card down / up; rad-<0..30, steps of 2>
+   its corners. On a row (at_e<side><n>): rh-<28..48, steps of 2> its height. */
+.at-end .at-ecard.mt-0 { margin-top: 0px; }
+.at-end .at-ecard.mt-10 { margin-top: 10px; }
+.at-end .at-ecard.mt-20 { margin-top: 20px; }
+.at-end .at-ecard.mt-30 { margin-top: 30px; }
+.at-end .at-ecard.mt-40 { margin-top: 40px; }
+.at-end .at-ecard.mt-50 { margin-top: 50px; }
+.at-end .at-ecard.mt-60 { margin-top: 60px; }
+.at-end .at-ecard.mt-70 { margin-top: 70px; }
+.at-end .at-ecard.mt-80 { margin-top: 80px; }
+.at-end .at-ecard.mt-90 { margin-top: 90px; }
+.at-end .at-ecard.mt-100 { margin-top: 100px; }
+.at-end .at-ecard.mt-110 { margin-top: 110px; }
+.at-end .at-ecard.mt-120 { margin-top: 120px; }
+.at-end .at-ecard.mt-130 { margin-top: 130px; }
+.at-end .at-ecard.mt-140 { margin-top: 140px; }
+.at-end .at-ecard.mt-150 { margin-top: 150px; }
+.at-end .at-ecard.mt-160 { margin-top: 160px; }
+.at-end .at-ecard.mt-170 { margin-top: 170px; }
+.at-end .at-ecard.mt-180 { margin-top: 180px; }
+.at-end .at-ecard.mt-190 { margin-top: 190px; }
+.at-end .at-ecard.mt-200 { margin-top: 200px; }
+.at-end .at-ecard.mt-210 { margin-top: 210px; }
+.at-end .at-ecard.mt-220 { margin-top: 220px; }
+.at-end .at-ecard.mt-230 { margin-top: 230px; }
+.at-end .at-ecard.mt-240 { margin-top: 240px; }
+.at-end .at-ecard.mt-250 { margin-top: 250px; }
+.at-end .at-ecard.mt-260 { margin-top: 260px; }
+.at-end .at-ecard.mt-270 { margin-top: 270px; }
+.at-end .at-ecard.mt-280 { margin-top: 280px; }
+.at-end .at-ecard.mt-290 { margin-top: 290px; }
+.at-end .at-ecard.mt-300 { margin-top: 300px; }
+.at-end .at-ecard.mt-310 { margin-top: 310px; }
+.at-end .at-ecard.mt-320 { margin-top: 320px; }
+.at-end .at-ecard.mt-330 { margin-top: 330px; }
+.at-end .at-ecard.mt-340 { margin-top: 340px; }
+.at-end .at-ecard.mt-350 { margin-top: 350px; }
+.at-end .at-ecard.mt-360 { margin-top: 360px; }
+.at-end .at-ecard.mt-370 { margin-top: 370px; }
+.at-end .at-ecard.mt-380 { margin-top: 380px; }
+.at-end .at-ecard.mt-390 { margin-top: 390px; }
+.at-end .at-ecard.mt-400 { margin-top: 400px; }
+.at-end .at-ecard.mb-0 { margin-bottom: 0px; }
+.at-end .at-ecard.mb-10 { margin-bottom: 10px; }
+.at-end .at-ecard.mb-20 { margin-bottom: 20px; }
+.at-end .at-ecard.mb-30 { margin-bottom: 30px; }
+.at-end .at-ecard.mb-40 { margin-bottom: 40px; }
+.at-end .at-ecard.mb-50 { margin-bottom: 50px; }
+.at-end .at-ecard.mb-60 { margin-bottom: 60px; }
+.at-end .at-ecard.mb-70 { margin-bottom: 70px; }
+.at-end .at-ecard.mb-80 { margin-bottom: 80px; }
+.at-end .at-ecard.mb-90 { margin-bottom: 90px; }
+.at-end .at-ecard.mb-100 { margin-bottom: 100px; }
+.at-end .at-ecard.mb-110 { margin-bottom: 110px; }
+.at-end .at-ecard.mb-120 { margin-bottom: 120px; }
+.at-end .at-ecard.mb-130 { margin-bottom: 130px; }
+.at-end .at-ecard.mb-140 { margin-bottom: 140px; }
+.at-end .at-ecard.mb-150 { margin-bottom: 150px; }
+.at-end .at-ecard.mb-160 { margin-bottom: 160px; }
+.at-end .at-ecard.mb-170 { margin-bottom: 170px; }
+.at-end .at-ecard.mb-180 { margin-bottom: 180px; }
+.at-end .at-ecard.mb-190 { margin-bottom: 190px; }
+.at-end .at-ecard.mb-200 { margin-bottom: 200px; }
+.at-end .at-ecard.mb-210 { margin-bottom: 210px; }
+.at-end .at-ecard.mb-220 { margin-bottom: 220px; }
+.at-end .at-ecard.mb-230 { margin-bottom: 230px; }
+.at-end .at-ecard.mb-240 { margin-bottom: 240px; }
+.at-end .at-ecard.mb-250 { margin-bottom: 250px; }
+.at-end .at-ecard.mb-260 { margin-bottom: 260px; }
+.at-end .at-ecard.mb-270 { margin-bottom: 270px; }
+.at-end .at-ecard.mb-280 { margin-bottom: 280px; }
+.at-end .at-ecard.mb-290 { margin-bottom: 290px; }
+.at-end .at-ecard.mb-300 { margin-bottom: 300px; }
+.at-end .at-ecard.mb-310 { margin-bottom: 310px; }
+.at-end .at-ecard.mb-320 { margin-bottom: 320px; }
+.at-end .at-ecard.mb-330 { margin-bottom: 330px; }
+.at-end .at-ecard.mb-340 { margin-bottom: 340px; }
+.at-end .at-ecard.mb-350 { margin-bottom: 350px; }
+.at-end .at-ecard.mb-360 { margin-bottom: 360px; }
+.at-end .at-ecard.mb-370 { margin-bottom: 370px; }
+.at-end .at-ecard.mb-380 { margin-bottom: 380px; }
+.at-end .at-ecard.mb-390 { margin-bottom: 390px; }
+.at-end .at-ecard.mb-400 { margin-bottom: 400px; }
+.at-end .at-ecard.rad-0 { border-radius: 0px; }
+.at-end .at-ecard.rad-2 { border-radius: 2px; }
+.at-end .at-ecard.rad-4 { border-radius: 4px; }
+.at-end .at-ecard.rad-6 { border-radius: 6px; }
+.at-end .at-ecard.rad-8 { border-radius: 8px; }
+.at-end .at-ecard.rad-10 { border-radius: 10px; }
+.at-end .at-ecard.rad-12 { border-radius: 12px; }
+.at-end .at-ecard.rad-14 { border-radius: 14px; }
+.at-end .at-ecard.rad-16 { border-radius: 16px; }
+.at-end .at-ecard.rad-18 { border-radius: 18px; }
+.at-end .at-ecard.rad-20 { border-radius: 20px; }
+.at-end .at-ecard.rad-22 { border-radius: 22px; }
+.at-end .at-ecard.rad-24 { border-radius: 24px; }
+.at-end .at-ecard.rad-26 { border-radius: 26px; }
+.at-end .at-ecard.rad-28 { border-radius: 28px; }
+.at-end .at-ecard.rad-30 { border-radius: 30px; }
+.at-end .at-erow.rh-28 { height: 28px; }
+.at-end .at-erow.rh-30 { height: 30px; }
+.at-end .at-erow.rh-32 { height: 32px; }
+.at-end .at-erow.rh-34 { height: 34px; }
+.at-end .at-erow.rh-36 { height: 36px; }
+.at-end .at-erow.rh-38 { height: 38px; }
+.at-end .at-erow.rh-40 { height: 40px; }
+.at-end .at-erow.rh-42 { height: 42px; }
+.at-end .at-erow.rh-44 { height: 44px; }
+.at-end .at-erow.rh-46 { height: 46px; }
+.at-end .at-erow.rh-48 { height: 48px; }
+
+/* ---- icons -------------------------------------------------------------------------------
+   ico-<name> on any part draws one of CS2's own icons (panorama/images/icons, in the game, not shipped
+   here). elim / bomb / defuse / time / hostage are the scoreboard timeline's (gamerules_constants). Names: elim headshot kill bomb c4 defuse time hostage star check cross pause play trophy mvp clock timer warning info ct t switch vote timeout surrender unpause map mic muted skull health armor money fire smoke flash grenade gg leader bot.
+   Leave the part's text empty. */
+.at-end .ico-elim { background-image: url( "s2r://panorama/images/icons/ui/kill.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-headshot { background-image: url( "s2r://panorama/images/icons/ui/elimination_headshot.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-kill { background-image: url( "s2r://panorama/images/icons/ui/kill.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-bomb { background-image: url( "s2r://panorama/images/icons/ui/bomb.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-c4 { background-image: url( "s2r://panorama/images/icons/ui/bomb_c4.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-defuse { background-image: url( "s2r://panorama/images/icons/equipment/defuser.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-time { background-image: url( "s2r://panorama/images/icons/ui/timer.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-hostage { background-image: url( "s2r://panorama/images/icons/ui/rescue.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-star { background-image: url( "s2r://panorama/images/icons/ui/icon_star.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-check { background-image: url( "s2r://panorama/images/icons/ui/check.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-cross { background-image: url( "s2r://panorama/images/icons/ui/cancel.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-pause { background-image: url( "s2r://panorama/images/icons/ui/pause.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-play { background-image: url( "s2r://panorama/images/icons/ui/play.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-trophy { background-image: url( "s2r://panorama/images/icons/ui/trophy.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-mvp { background-image: url( "s2r://panorama/images/icons/ui/stat_mvps.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-clock { background-image: url( "s2r://panorama/images/icons/ui/clock.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-timer { background-image: url( "s2r://panorama/images/icons/ui/timer.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-warning { background-image: url( "s2r://panorama/images/icons/ui/warning.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-info { background-image: url( "s2r://panorama/images/icons/ui/info_i.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-ct { background-image: url( "s2r://panorama/images/icons/ui/ct_logo_1c.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-t { background-image: url( "s2r://panorama/images/icons/ui/t_logo_1c.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-switch { background-image: url( "s2r://panorama/images/icons/ui/switch_teams_dead.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-vote { background-image: url( "s2r://panorama/images/icons/ui/vote_check.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-timeout { background-image: url( "s2r://panorama/images/icons/ui/votestarttimeout.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-surrender { background-image: url( "s2r://panorama/images/icons/ui/votesurrender.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-unpause { background-image: url( "s2r://panorama/images/icons/ui/voteunpausematch.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-map { background-image: url( "s2r://panorama/images/icons/ui/votechangelevel.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-mic { background-image: url( "s2r://panorama/images/icons/ui/unmuted.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-muted { background-image: url( "s2r://panorama/images/icons/ui/muted.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-skull { background-image: url( "s2r://panorama/images/icons/ui/dominated_dead.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-health { background-image: url( "s2r://panorama/images/icons/ui/health.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-armor { background-image: url( "s2r://panorama/images/icons/ui/armor.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-money { background-image: url( "s2r://panorama/images/icons/ui/dollar_sign.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-fire { background-image: url( "s2r://panorama/images/icons/ui/chatwheel_fire.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-smoke { background-image: url( "s2r://panorama/images/icons/ui/chatwheel_smoke.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-flash { background-image: url( "s2r://panorama/images/icons/ui/chatwheel_flashbang.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-grenade { background-image: url( "s2r://panorama/images/icons/ui/chatwheel_grenade.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-gg { background-image: url( "s2r://panorama/images/icons/ui/thumbs_up.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-leader { background-image: url( "s2r://panorama/images/icons/ui/leader.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.at-end .ico-bot { background-image: url( "s2r://panorama/images/icons/ui/bot.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+/* Icons in the round strip's 26 px ticks: 16 px. */
+.at-end .at-rt .at-rtp { background-size: 16px 16px; }

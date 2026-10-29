@@ -33,6 +33,9 @@ struct ReadyUpCfg {
   int admin_call_cooldown_s = 60;
   // Per-player center-HTML ready list during scrim/match warmup + knife side pick.
   bool ready_hud = true;
+  // The clickable Panorama HUD (hud.so + the Auto Tournament HUD addon, hud_screens.h) in place of
+  // the center-HTML ready list, knife and pause panels. Off, or without hud.so: center HTML.
+  bool hud_screens = true;
   // Center-panel refresh tuning (ms / s).
   int hud_tick_ms = 0;
   int hud_resend_ms = 0;

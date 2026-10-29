@@ -216,4 +216,75 @@ std::string AdminCallCardHtml(const std::string& name, const std::string& teamLa
   return h;
 }
 
+// ---- HUD screen specs ---------------------------------------------------------------------
+
+namespace {
+
+// One spec value: no newlines, no '|', no control bytes (chat colours).
+std::string SpecText(const std::string& in) {
+  std::string out;
+  for (char c : in) {
+    if (c == '\n' || c == '\r') out += ' ';
+    else if (c != '|' && static_cast<unsigned char>(c) >= 0x20) out += c;
+  }
+  return out;
+}
+std::string SpecLine(const char* k, const std::string& v) { return std::string(k) + "=" + SpecText(v) + "\n"; }
+std::string RawTeam(const ResultCardInfo& info, const std::string& which) {
+  const std::string& n = which == "team1" ? info.team1 : info.team2;
+  return n.empty() ? (which == "team1" ? "Team 1" : "Team 2") : n;
+}
+std::string SideName(int side) { return side == 3 ? "CT" : side == 2 ? "T" : ""; }
+
+}  // namespace
+
+std::string GoLiveCardSpec(const GoLiveCardInfo& info) {
+  std::string s = SpecLine("id", "golive") + SpecLine("color", "live") + SpecLine("kind", "Live") +
+                  SpecLine("title", "Good luck, have fun");
+  if (!info.team1.empty() || !info.team2.empty()) {
+    const int side2 = info.team1Side == 3 ? 2 : info.team1Side == 2 ? 3 : 0;
+    auto part = [](const std::string& name, int side) {
+      return SideName(side).empty() ? name : name + " (" + SideName(side) + ")";
+    };
+    s += SpecLine("sub", part(info.team1.empty() ? "Team 1" : info.team1, info.team1Side) + " vs " +
+                             part(info.team2.empty() ? "Team 2" : info.team2, side2));
+  }
+  if (info.pauses) s += "cmd=Tech pause|.p\ncmd=Timeout|.tac\n";
+  if (info.adminCall) s += "cmd=Call an admin|.admin\n";
+  return s;
+}
+
+std::string MapResultCardSpec(const ResultCardInfo& info) {
+  std::string kind = "Map " + std::to_string(std::max(1, info.mapNumber));
+  if (!info.mapName.empty()) kind += " \xC2\xB7 " + PrettyMap(info.mapName);
+  const bool won = info.winner == "team1" || info.winner == "team2";
+  std::string s = SpecLine("id", "mapresult") + SpecLine("color", "live") + SpecLine("kind", kind) +
+                  SpecLine("title", won ? RawTeam(info, info.winner) + " wins the map" : std::string("Map drawn")) +
+                  SpecLine("sub", std::to_string(info.team1Score) + " - " + std::to_string(info.team2Score));
+  if (info.decidedByDamage) {
+    s += SpecLine("hint", "Tied: won on damage " + std::to_string(info.team1Damage) + " - " + std::to_string(info.team2Damage));
+  } else if (!info.nextMap.empty()) {
+    s += SpecLine("hint", "Next: " + PrettyMap(info.nextMap));
+  }
+  return s;
+}
+
+std::string SeriesResultCardSpec(const ResultCardInfo& info) {
+  const bool won = info.winner == "team1" || info.winner == "team2";
+  return SpecLine("id", "seriesresult") + SpecLine("color", "live") + SpecLine("kind", "Series") +
+         SpecLine("title", won ? RawTeam(info, info.winner) + " wins the series" : std::string("Series drawn")) +
+         SpecLine("sub", info.forfeit ? std::string("by forfeit")
+                                      : std::to_string(info.team1Score) + " - " + std::to_string(info.team2Score));
+}
+
+std::string AdminCallCardSpec(const std::string& name, const std::string& teamLabel, const std::string& message) {
+  std::string who = name.empty() ? std::string("A player") : name;
+  if (!teamLabel.empty()) who += " (" + teamLabel + ")";
+  // It may come mid-round: the side card, out of the way (hud_screens.h placement rule).
+  std::string s = SpecLine("id", "admincall") + SpecLine("where", "card") + SpecLine("color", "ban") +
+                  SpecLine("kind", "Admin called") + SpecLine("title", who + " needs an admin");
+  if (!message.empty()) s += SpecLine("sub", message.substr(0, 120));
+  return s;
+}
+
 }  // namespace readyup

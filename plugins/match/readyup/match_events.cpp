@@ -8,6 +8,7 @@
 #include "readyup/engine.h"
 #include "readyup/esports.h"
 #include "readyup/host.h"
+#include "readyup/hud_screens.h"
 #include "readyup/logging.h"
 #include "readyup/match_signals.h"
 #include "readyup/match_features.h"
@@ -61,6 +62,12 @@ void AnnounceOvertimeRules(int overtimeNumber, int seg) {
   }
   // Until the overtime's first round starts: in chat and in the middle of the screen.
   SendImportantToChat(msg.c_str(), 15);
+  if (HudScreensOn()) {
+    std::string s = "id=ot-" + std::to_string(overtimeNumber) + "\nkind=Overtime " + std::to_string(overtimeNumber) +
+                    "\ntitle=First to " + std::to_string(seg + 1) + "\n";
+    if (ctx->maxOvertimes > 0 && overtimeNumber >= ctx->maxOvertimes) s += "sub=Last overtime\n";
+    HudScreensNoticeAll(s, 8.0);
+  }
 }
 }  // namespace
 
@@ -585,6 +592,11 @@ void OnRoundStartLocked(const PendingRound& ev) {
       const int swapCountForThisRound = g_swapCount + 1;
       const bool team1IsCtNow = Team1IsCtWithSwapCount(mapNumber, swapCountForThisRound);
       WebhookEmitHalftimeStarted(mapNumber, team1Score, team2Score);
+      if (HudScreensOn() && sum == regHalf) {
+        HudScreensNoticeAll("id=half\nkind=Halftime\ntitle=Sides switch\nsub=" + std::to_string(team1Score) + " - " +
+                                std::to_string(team2Score) + "\n",
+                            8.0);
+      }
       if (sum == regHalf) EsportsOnHalftime();  // mp_halftime_pausematch (ruleset)
       WebhookEmitSideSwap(mapNumber, team1IsCtNow ? "CT" : "T", team1IsCtNow ? "T" : "CT");
       g_swapCount = swapCountForThisRound;
@@ -707,11 +719,16 @@ void OnGameEvent(void* /*user*/, const char* name, const ru_game_event* ev) {
     OnNativeWarmupStarted("round_announce_warmup event");
     return;
   }
+  if (std::strcmp(name, "begin_new_match") == 0) {
+    ModesObserveBeginMatch();  // practice: a round must follow (modes.h)
+    return;
+  }
   if (std::strcmp(name, "round_end") == 0) MatchFeaturesOnGameEvent(name);  // restores wait (match_features.h)
   if (std::strcmp(name, "round_start") == 0) {
     WelcomeObserveRoundStart();     // the cards wait it out
     GoLiveCardObserveRoundStart();  // (golive_card.h)
     RoundEconomyOnRoundStart();     // money at the start (round_economy.h)
+    ModesObserveRoundStart();       // practice's warmup-end check (modes.h)
   }
   if (std::strcmp(name, "round_freeze_end") == 0) RoundEconomyOnFreezeEnd();  // the buys
   if (std::strcmp(name, "round_start") == 0 || std::strcmp(name, "round_freeze_end") == 0) {
@@ -788,7 +805,7 @@ void MatchEventsIgnoreRoundEndsFor(double seconds) {
 void MatchEventsInstall(const ru_api* api) {
   static const char* const kEvents[] = {
       "round_start", "round_end", "round_freeze_end", "round_announce_warmup", "player_spawn", "player_disconnect", "player_death",
-      "player_hurt", "player_blind", "bomb_planted", "bomb_defused", "round_mvp",
+      "player_hurt", "player_blind", "bomb_planted", "bomb_defused", "round_mvp", "begin_new_match",
   };
   for (const char* e : kEvents) {
     if (!api->subscribe_game_event(api->self, e, &OnGameEvent, nullptr)) {

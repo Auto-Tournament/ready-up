@@ -1,5 +1,6 @@
 #include "readyup/admin_call.h"
 
+#include "readyup/hud_screens.h"
 #include "readyup/admin_call_logic.h"
 #include "readyup/admin_check.h"
 #include "readyup/card_html.h"
@@ -35,7 +36,7 @@ constexpr int kSendDurationSeconds = 2;
 constexpr const char* kPrivatePrefix = " \x04[ReadyUp]\x01 ";
 
 struct AdminCard {
-  std::string html;
+  std::string html, spec;
   Clock::time_point startAt{};
   Clock::time_point nextSend{};
 };
@@ -95,6 +96,11 @@ void AdminCallCommand(uint64_t steamid64, const std::string& playerName, const s
     std::lock_guard<std::mutex> lk(g_mu);
     if (!g_cooldown.TryCall(steamid64, host::NowSeconds(), Cfg().admin_call_cooldown_s, &left)) {
       Tell(slot, "you already called an admin - you can call again in " + std::to_string(left) + "s.");
+      if (HudScreensOn() && slot >= 0) {
+        HudScreensNotice(slot, "id=notice\nwhere=card\ncolor=muted\nkind=Admin\ntitle=Already called\nsub=Again in (" +
+                                   std::to_string(left) + ")\n",
+                         5.0);
+      }
       return;
     }
   }
@@ -145,6 +151,7 @@ void AdminCallCommand(uint64_t steamid64, const std::string& playerName, const s
   // In-game admins: a private chat line and the card.
   const std::string line = "\x07" "ADMIN CALL\x01 " + who + " needs an admin" + (e.message.empty() ? "." : ": " + e.message);
   const std::string html = AdminCallCardHtml(e.player.name, label, e.message);
+  const std::string spec = AdminCallCardSpec(e.player.name, label, e.message);
   int admins = 0;
   const auto now = Clock::now();
   for (const auto& h : ListHumans()) {
@@ -153,18 +160,21 @@ void AdminCallCommand(uint64_t steamid64, const std::string& playerName, const s
     ++admins;
     (void)ClientPrintChat(s, (kPrivatePrefix + line).c_str());
     std::lock_guard<std::mutex> lk(g_mu);
-    g_cards[s] = AdminCard{html, now, now};
+    g_cards[s] = AdminCard{html, spec, now, now};
   }
   if (DebugEnabled()) Debug("admin-call: %d admin(s) in game notified\n", admins);
 
   Tell(slot, "admins notified.");
+  if (HudScreensOn() && slot >= 0) {
+    HudScreensNotice(slot, "id=notice\nwhere=card\ncolor=warn\nkind=Admin\ntitle=An admin is on the way\n", 6.0);
+  }
 }
 
 void AdminCallTick() {
   const auto now = Clock::now();
   struct Send {
     int slot;
-    std::string html;
+    std::string html, spec;
   };
   std::vector<Send> sends;
   {
@@ -177,13 +187,17 @@ void AdminCallTick() {
         continue;
       }
       if (now >= c.nextSend && now - c.startAt <= kCardSendFor) {
-        sends.push_back(Send{it->first, c.html});
+        sends.push_back(Send{it->first, c.html, c.spec});
         c.nextSend = now + kResendEvery;
       }
       ++it;
     }
   }
-  for (const auto& s : sends) (void)SendCenterHtml(s.slot, s.html, kSendDurationSeconds, RU_HTML_PRIO_ALERT);
+  const bool screens = HudScreensOn();
+  for (const auto& s : sends) {
+    if (screens) HudScreensNotice(s.slot, s.spec, kSendDurationSeconds);
+    else (void)SendCenterHtml(s.slot, s.html, kSendDurationSeconds, RU_HTML_PRIO_ALERT);
+  }
 }
 
 bool AdminCallCardActiveFor(int slot) {

@@ -39,6 +39,7 @@
 #include "readyup/webhook.h"
 #include "readyup/wingman.h"
 #include "readyup/host.h"
+#include "readyup/hud_screens.h"
 #include "readyup/practice_iface.h"
 #include "readyup/whitelist_iface.h"
 
@@ -594,6 +595,14 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
                     "start on " + ((*winnerWantsCt) ? "CT" : "T") +
                     (stayed ? " (sides stay)" : " (teams swapped)") + " - LIVE after the restart.";
   SendToChat(msg.c_str());
+  if (HudScreensOn()) {
+    const bool timedOut = pickerName == "timeout";
+    const std::string side = *winnerWantsCt ? "CT" : "T";
+    HudScreensNoticeAll(std::string("id=sides\ncolor=") + (timedOut ? "muted" : (*winnerWantsCt ? "ct" : "t")) +
+                            "\nkind=" + (timedOut ? "Time is up" : "Sides chosen") + "\ntitle=" + HudSpecText(winnerName) +
+                            (stayed ? " stays " : " starts ") + side + "\n",
+                        8.0);
+  }
   return true;
 }
 
@@ -2563,6 +2572,33 @@ bool WarmupInfiniteAmmoEnabled() {
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
   return st.warmupInfiniteAmmo;
+}
+
+std::atomic<double> g_lastRoundStartAt{0};
+
+void ModesObserveRoundStart() { g_lastRoundStartAt = host::NowSeconds(); }
+
+// CS2's BeginMatch after the warmup end usually restarts the round. On some maps
+// (surf_utopia_njv, 2026-10-27) no round follows, and a player who joined stays in the team-select
+// view, unspawned, for good. Practice: no round_start within 3 s, restart it ourselves.
+// round_start fires just before begin_new_match in the same frame, so "after" allows a second; and
+// our own restart's BeginMatch never restarts again (at most one per 10 s).
+std::atomic<double> g_lastFallbackRestartAt{-100};
+
+void ModesObserveBeginMatch() {
+  const double at = host::NowSeconds();
+  ScheduleOnGameThread(3.0, [at]() {
+    if (g_lastRoundStartAt.load() >= at - 1.0) return;
+    const double now = host::NowSeconds();
+    if (now - g_lastFallbackRestartAt.load() < 10.0) return;
+    auto& st = St();
+    std::lock_guard<std::mutex> lk(st.mu);
+    if (st.mode != ReadyUpMode::Practice) return;
+    if (EnqueueServerCommand("mp_restartgame 1")) {
+      g_lastFallbackRestartAt = now;
+      PrintLine("practice: no round after BeginMatch; mp_restartgame 1");
+    }
+  });
 }
 
 void OnNativeWarmupStarted(const char* source) {

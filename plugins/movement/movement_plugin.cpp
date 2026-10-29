@@ -8,6 +8,7 @@
 //   .cp / .tp            kz: save a checkpoint / teleport to it, with where you looked (the run
 //                        counts its teleports)
 //   .timerhud            your timer panel on / off (.timer is practice's)
+//   .menu                (hud.so) restart, bonuses, checkpoints, the timer and top times as buttons
 //
 // Chat: the runner hears when the timer starts and stops (left the start, died, noclip) and
 // their time. Others hear a finish per movement.cfg finish_chat (default: only server records).
@@ -25,6 +26,7 @@
 
 #include "readyup/essentials_iface.h"
 #include "readyup/help_iface.h"
+#include "readyup/hud_iface.h"
 #include "readyup/fleet_iface.h"
 #include "readyup/json_store.h"
 #include "readyup/match_iface.h"
@@ -432,11 +434,14 @@ void SpawnFirstPlayer(double now) {
   (void)g_api->server_command(g_api->self, "mp_restartgame 1");
 }
 
+void EnsureMenuProvider();
+
 void OnTick(void*, const ru_tick_info* t) {
   const double now = t->now;
   // A match server (match.so on): movement.so stays out of the way entirely. The full bundle
   // installs it on every server; only the Movement preset (match off) runs it.
   if (MatchPluginLoaded()) return;
+  EnsureMenuProvider();
   GoHomeIfEmpty(now);
   // Teams and spawns belong to match.so where it runs (a match's rosters, warmup).
   if (Active() && !MatchPluginLoaded()) AutoTeam(now);
@@ -624,6 +629,131 @@ void OnTimer(void*, const ru_command_ctx* c) {
   Reply(c, r.hud ? "Timer panel on." : "Timer panel off.");
 }
 
+
+// ---- the movement menu (hud.so's `.menu`, readyup.hud.v1.2) ---------------------------------------
+//
+// On a surf, bhop or kz map `.menu` opens: restart, the bonuses, kz checkpoints, the timer panel and
+// the map's top 5 with your own best. Each button runs the typed command's handler.
+
+constexpr const char* kMenuOwner = "movement";
+const ru_hud_v1* g_menuHud = nullptr;
+std::string g_menuPage[64];
+
+const ru_hud_v1* MenuHud() {
+  if (!g_api) return nullptr;
+  const auto* h = static_cast<const ru_hud_v1*>(g_api->get_interface(g_api->self, RU_HUD_IFACE_NAME, 1));
+  if (!h || h->struct_size < offsetof(ru_hud_v1, register_menu) + sizeof(h->register_menu) || !h->menu) return nullptr;
+  return h;
+}
+
+std::string MenuText(const std::string& s) {
+  std::string out;
+  for (char ch : s) out += (ch == '\n' || ch == '\r' || ch == '|') ? ' ' : ch;
+  return out;
+}
+std::string MenuBtn(const std::string& label, const char* tone, const std::string& cmd) {
+  return "btn=" + MenuText(label) + "|" + tone + "||" + cmd + "\n";
+}
+
+int Bonuses() {
+  int n = 0;
+  for (const Zone& z : g.zones) n = std::max(n, z.course);
+  return n;
+}
+
+std::string MenuSpec(int slot, uint64_t steamid64) {
+  const std::string mode = ModeName(g.mode);
+  const auto all = Top(g.records, g.map, CourseKey(mode, 0), 100000);
+  std::string best = "No time on this map yet";
+  for (size_t i = 0; i < all.size(); ++i) {
+    if (all[i].steamid64 == steamid64) {
+      best = "Your best " + FormatTime(all[i].rec.ms) + ", rank " + std::to_string(i + 1) + " of " + std::to_string(all.size());
+      break;
+    }
+  }
+  const std::string kindLine = "kind=" + MenuText(mode + " \xC2\xB7 " + g.map) + "\n";
+  if (g_menuPage[slot] == "top") {
+    std::string s = "id=move-top\n" + kindLine + "title=Top times\nsub=" + MenuText(best) + "\n";
+    for (size_t i = 0; i < all.size() && i < 5; ++i) {
+      s += "line=" + std::to_string(i + 1) + ". " + MenuText(all[i].rec.name) + "|" + FormatTime(all[i].rec.ms) + "\n";
+    }
+    if (all.empty()) s += "line=No times yet|be the first\n";
+    return s + "close=Back|#home\nmouse=on\n";
+  }
+  g_menuPage[slot] = "home";
+  std::string s = "id=move-home\n" + kindLine + "title=" + MenuText(best) + "\n";
+  s += MenuBtn("Restart", "green", ".rs");
+  const int bonuses = std::min(Bonuses(), 4);
+  for (int b = 1; b <= bonuses; ++b) s += MenuBtn("Bonus " + std::to_string(b), "ghost", ".b " + std::to_string(b));
+  if (g.mode == Mode::Kz) s += MenuBtn("Checkpoint", "ghost", ".cp") + MenuBtn("Teleport", "ghost", ".tp");
+  s += MenuBtn("Top times", "ghost", "#top");
+  s += MenuBtn("Maps", "ghost", "#open mapvote");  // hud.so opens the map vote's menu
+  s += MenuBtn(g.runs[slot].hud ? "Hide timer" : "Show timer", "ghost", ".timerhud");
+  return s + "cols=4\nbw=m\nclose=Close|#close\nmouse=on\n";
+}
+
+void MenuDraw(int slot, uint64_t steamid64);
+
+void MenuClose(int slot) {
+  if (const ru_hud_v1* h = MenuHud()) h->menu(slot, kMenuOwner, "", nullptr, nullptr);
+}
+
+// A button's command run through its chat handler, as if the player typed it.
+void RunAsTyped(int slot, const ru_player& p, const std::string& line) {
+  std::vector<std::string> words;
+  std::istringstream in(line);
+  for (std::string w; in >> w;) words.push_back(w);
+  if (words.empty()) return;
+  std::vector<const char*> argv;
+  for (const std::string& w : words) argv.push_back(w.c_str());
+  const ru_command_ctx c{sizeof(ru_command_ctx), p.steamid64, slot, 0, p.name, line.c_str(), static_cast<int>(argv.size()), argv.data()};
+  const std::string& cmd = words[0];
+  if (cmd == ".rs") OnRestart(nullptr, &c);
+  else if (cmd == ".b") OnBonus(nullptr, &c);
+  else if (cmd == ".cp") OnCheckpoint(nullptr, &c);
+  else if (cmd == ".tp") OnTeleport(nullptr, &c);
+  else if (cmd == ".timerhud") OnTimer(nullptr, &c);
+}
+
+void OnMenuClick(void*, int slot, const char* command) {
+  if (slot < 0 || slot > 63) return;
+  const std::string c = command ? command : "";
+  ru_player p{};
+  if (!g_api->get_player(g_api->self, slot, &p)) return MenuClose(slot);
+  if (c == "#close") return MenuClose(slot);
+  if (c == "#home" || c == "#top") {
+    g_menuPage[slot] = c.substr(1);
+    return MenuDraw(slot, p.steamid64);
+  }
+  if (c.empty() || c[0] != '.') return;
+  MenuClose(slot);  // the run goes on: the cursor goes back at once
+  RunAsTyped(slot, p, c);
+}
+
+void MenuDraw(int slot, uint64_t steamid64) {
+  if (const ru_hud_v1* h = MenuHud()) h->menu(slot, kMenuOwner, MenuSpec(slot, steamid64).c_str(), &OnMenuClick, nullptr);
+}
+
+int OnMenuActive(void*, int) { return Active() ? 1 : 0; }
+
+void OnMenuOpen(void*, int slot, uint64_t steamid64) {
+  if (slot < 0 || slot > 63) return;
+  g_menuPage[slot] = "home";
+  MenuDraw(slot, steamid64);
+}
+
+void EnsureMenuProvider() {
+  const ru_hud_v1* h = MenuHud();
+  if (!h || h == g_menuHud) return;
+  h->register_menu(kMenuOwner, 20, &OnMenuActive, &OnMenuOpen, nullptr);
+  g_menuHud = h;
+}
+
+void MenuUninstall() {
+  if (const ru_hud_v1* h = MenuHud(); h && h == g_menuHud) h->register_menu(kMenuOwner, 20, nullptr, nullptr, nullptr);
+  g_menuHud = nullptr;
+}
+
 }  // namespace
 }  // namespace movement
 
@@ -648,6 +778,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_api = api;
   g = State{};
   g_off = Off{};
+  g_menuHud = nullptr;
   const char* dir = api->data_dir(api->self);
   const std::string data = dir && *dir ? dir : ".";
   std::string err;
@@ -688,6 +819,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
 
 READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
   SaveRecords();
+  MenuUninstall();  // hud.so's .menu stops asking us
   if (g_api) ru_logf(g_api, RU_LOG_INFO, "unloaded");
   g_api = nullptr;
 }

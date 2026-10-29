@@ -11,6 +11,7 @@
 #include "readyup/config.h"
 #include "readyup/engine.h"
 #include "readyup/esports.h"
+#include "readyup/fleet_bridge.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
 #include "readyup/map_names.h"
@@ -20,6 +21,8 @@
 #include "readyup/match_settings.h"
 #include "readyup/match_signals.h"
 #include "readyup/match_state.h"
+#include "readyup/end_screen.h"
+#include "readyup/hud_screens.h"
 #include "readyup/modes.h"
 #include "readyup/pause_state.h"
 #include "readyup/persisted_match_state.h"
@@ -145,7 +148,9 @@ const std::vector<std::string>& MatchPlayerChatCommands() {
       ".t",    ".help",  ".stop", ".admin", ".restore",
       // Admin shortcuts (match_settings.h, `.ru match ...`); `.settings` is for anyone.
       ".settings", ".readyrequired", ".playout", ".roundknife", ".rk", ".spec", ".whitelist", ".start", ".forcestart",
-      ".restart", ".rr", ".endmatch", ".forceend", ".team1", ".team2", ".asay"};
+      ".restart", ".rr", ".endmatch", ".forceend", ".team1", ".team2", ".asay",
+      // hud.so .dev: the end screen with made-up numbers (end_screen.h).
+      ".enddemo"};
   return k;
 }
 
@@ -172,7 +177,10 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     return;
   }
 
+  // `.menu` belongs to hud.so, which asks this plugin for its menu (hud_screens.h MenuProvider).
+
   if (first == ".help") {
+    if (HudScreensOpenMenu(slot, steamid64, "help")) return;  // the HUD's clickable help
     if (GetMode() == ReadyUpMode::Practice) {
       if (const ru_practice_v1* p = Practice()) SendToChat(p->help());
       SendLicenseLine();
@@ -226,7 +234,9 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   // Admin shortcuts: each one is a `.ru` command, which checks the admin.
   if (first == ".start" || first == ".forcestart") return MatchRuCommand(steamid64, playerName, ".ru match start", slot);
   if (first == ".restart" || first == ".rr") return MatchRuCommand(steamid64, playerName, ".ru match restart", slot);
-  if (first == ".endmatch" || first == ".forceend") return MatchRuCommand(steamid64, playerName, ".ru match end", slot);
+  if (first == ".endmatch" || first == ".forceend") {
+    return MatchRuCommand(steamid64, playerName, ".ru match end " + RestAfterWords(text, 1), slot);
+  }
   if (first == ".team1" || first == ".team2") {
     return MatchRuCommand(steamid64, playerName, ".ru match " + first.substr(1) + " " + RestAfterWords(text, 1), slot);
   }
@@ -235,12 +245,23 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     // No knife pick pending: an admin's `.switch` swaps the teams (a pick stays the players').
     return MatchRuCommand(steamid64, playerName, ".ru match swap", slot);
   }
+  if (first == ".enddemo") {
+    // hud.so's .dev "Leaderboard" buttons: the real end screen (end_screen.h) with made-up numbers,
+    // for this player only, so the demo and the real screen never drift apart.
+    if (slot < 0) return;
+    if (RestAfterWords(text, 1) == "off") return EndScreenHidePreview();
+    if (!EndScreenShow(EndScreenDemoInfo(steamid64, playerName, RestAfterWords(text, 1) == "lost"), slot)) {
+      ReplyTo(slot, "The leaderboard needs the Auto Tournament HUD.");
+    }
+    return;
+  }
   if (first == ".asay") {
     if (!IsReadyUpAdmin(steamid64)) return ReplyTo(slot, "not authorized");
     const std::string msg = RestAfterWords(text, 1);
     if (msg.empty()) return ReplyTo(slot, "usage: .asay <message>");
     Print("chat: .asay by %s: %s\n", playerName.c_str(), msg.c_str());
     SendAdmin(msg);
+    if (HudScreensOn()) HudScreensNoticeAll("id=asay\nwhere=card\ncolor=ct\nkind=Admin\ntitle=" + HudSpecText(msg) + "\n", 8.0);
     return;
   }
   if (const settings::SettingInfo* si = settings::FindChat(first)) {
@@ -780,11 +801,22 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     (void)RestartMatch();
     sendAdmin("match restarted (back to warmup).");
   } else if (sub == "end") {
-    // Treat as a draw (winner=none) and clear the context so the allocator can reclaim the server.
-    WebhookEmitSeriesEnd(0, 0, "none", 0);
-    WebhookClearMatchContext();
-    (void)EndMatchResetServer();
-    sendAdmin("match ended (forced).");
+    // end [team1|team2|none]: no winner by default. A platform match ends through the platform's own
+    // end_match path (series_end with the winner); otherwise the webhook hears it and the context
+    // is cleared so the allocator can reclaim the server.
+    std::string winner = args.empty() ? std::string("none") : Lower(args[0]);
+    if (winner == "draw" || winner.empty()) winner = "none";
+    if (winner != "none" && winner != "team1" && winner != "team2") {
+      return replyPrivate("Ready Up: usage: .endmatch [team1|team2|none].");
+    }
+    std::string why;
+    if (!fleet_bridge::Assigned() || !fleet_bridge::EndMatchByAdmin(winner, &why)) {
+      WebhookEmitSeriesEnd(0, 0, winner.c_str(), 0);
+      WebhookClearMatchContext();
+      (void)EndMatchResetServer();
+      if (HudScreensOn()) HudScreensNoticeAll("id=ended\ncolor=ban\nkind=Match ended\ntitle=An admin ended the match\n", 10.0);
+    }
+    sendAdmin(winner == "none" ? std::string("match ended (no winner).") : "match ended: " + winner + " wins.");
   } else if (sub == "recover") {
     const int round = args.empty() ? 0 : std::max(0, std::atoi(args[0].c_str()));
     WebhookEmitRecoverRequested(MatchStateGet().map_number, round);
