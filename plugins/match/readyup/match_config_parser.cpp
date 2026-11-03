@@ -241,6 +241,21 @@ std::optional<WebhookMatchContext> ParseWebhookMatchContextFromJson(const std::s
     }
   }
   if (auto fill = parseBool(cfg->get("bot_fill"))) ctx.bot_fill = *fill;
+  // The full-team timer and the walkover choice (walkover.h).
+  if (auto d = AsInt(cfg->get("full_team_deadline_ms")); d && *d > 0) ctx.full_team_deadline_ms = *d;
+  if (auto s = AsString(cfg->get("walkover_short"))) {
+    ctx.walkover_short = *s == "team1" ? WebhookTeam::Team1 : *s == "team2" ? WebhookTeam::Team2 : WebhookTeam::Unknown;
+  }
+  if (auto e = AsInt(cfg->get("walkover_expires_ms")); e && *e > 0) ctx.walkover_expires_ms = *e;
+  if (const Value* c = cfg->get("walkover_choosers"); c && c->type == Value::Type::Array) {
+    for (const auto& id : c->arr) {
+      if (id.type != Value::Type::String) continue;
+      try {
+        ctx.walkover_choosers.insert(std::stoull(id.str));
+      } catch (...) {
+      }
+    }
+  }
   // Mixed matches always run in real time and retain human roster identities.
   if (ctx.bot_fill) { ctx.simulation = false; ctx.simulation_timescale = 1.0; }
   if (ctx.wingman) {

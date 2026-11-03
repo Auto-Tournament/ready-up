@@ -18,6 +18,7 @@
 #include "readyup/server_settings.h"
 #include "readyup/webhook.h"
 #include "readyup/votes.h"
+#include "readyup/walkover.h"
 #include "readyup/welcome.h"
 
 #include <algorithm>
@@ -494,6 +495,16 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
   return s;
 }
 
+// The viewer's team is not full on the server (the full-team timer shows on their card). Without
+// the team tally (scrims, bot fill) everyone sees it.
+static bool ViewerTeamShort(const Board& b, uint64_t viewer) {
+  if (!b.teamView) return true;
+  for (const auto& e : b.entries) {
+    if (e.sid == viewer) return !b.teams[e.side == 3 ? 1 : 0].st.allHere;
+  }
+  return false;
+}
+
 // Knife: "knives only" before the fight, then the side pick (winners) or the wait (everyone else).
 static std::string KnifeSpec(const KnifeHudInfo& k, int viewerSide) {
   if (k.phase == KnifePhase::Starting) {
@@ -840,7 +851,17 @@ void ReadyHudTick() {
     const Board hudBoard = what == What::Ready ? BuildBoard(mode, ctx, ListHumans()) : Board{};
     HudScreensRun([&](const HumanIdentity& h) -> std::string {
       const int slot = h.slot >= 0 ? h.slot : h.userid;
-      if (what == What::Ready) return ReadySpec(hudBoard, h.steamid64, h.name, WelcomeActiveFor(slot, h.steamid64));
+      // The walkover choice can't be skipped: it replaces the ready card (walkover.h).
+      if (ctx && mode == ReadyUpMode::MatchWarmup) {
+        if (std::string w = WalkoverHudSpec(*ctx, h.steamid64); !w.empty()) return w;
+      }
+      if (what == What::Ready) {
+        std::string s = ReadySpec(hudBoard, h.steamid64, h.name, WelcomeActiveFor(slot, h.steamid64));
+        // The platform's full-team timer: the countdown on the card while the viewer's team isn't full.
+        const long long left = ctx ? FullTeamSecondsLeft(*ctx) : -1;
+        if (left >= 0 && ViewerTeamShort(hudBoard, h.steamid64)) s += L("timer", std::to_string(left));
+        return s;
+      }
       if (what == What::Knife) return KnifeSpec(knife, h.team);
       if (mode == ReadyUpMode::MatchLive) return LiveSpec(live, h.team);
       return {};

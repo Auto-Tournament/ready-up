@@ -461,6 +461,21 @@ Json AssignToMatConfig(const std::string& matchId, const Json& config, std::vect
       cfg["simulation_timescale"] = ts->type() == Json::Type::Int ? static_cast<double>(ts->AsInt()) : ts->AsDouble();
     }
   }
+  // The platform's full-team timer and walkover choice (walkover.h).
+  if (const Json* ft = Obj(r, "full_team")) {
+    cfg["full_team_deadline_ms"] = Int(*ft, "deadline_ms", 0);
+    if (const Json* w = Obj(*ft, "walkover")) {
+      cfg["walkover_short"] = Str(*w, "short");
+      cfg["walkover_expires_ms"] = Int(*w, "expires_ms", 0);
+      Json ids = Json::Array();
+      if (const Json* c = Arr(*w, "choosers")) {
+        for (const auto& id : c->Items()) {
+          if (id.type() == Json::Type::String) ids.Push(id.AsString());
+        }
+      }
+      cfg["walkover_choosers"] = std::move(ids);
+    }
+  }
   if (const Json* fill = Obj(r, "bot_fill")) {
     cfg["bot_fill"] = true;
     cfg["players_per_team"] = Int(*fill, "players_per_team", 5);

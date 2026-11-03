@@ -164,6 +164,14 @@ struct WebhookMatchContext {
   // `simulation: true`: bots play the match (simulation.h); `simulation_timescale` (0.1 .. 4)
   // is host_timescale while a map is live.
   bool bot_fill = false;  // anonymous fillers alongside real roster players
+  // `full_team` (fleet rules.full_team, the platform's "Getting on the server"; walkover.h): each
+  // team must have a full team on the server by `full_team_deadline_ms` (unix ms, 0 = no timer).
+  // Then, with one team short, the full team chooses until `walkover_expires_ms`: `.walkover` or
+  // `.play`. Only `walkover_choosers` (its owner and captains) may; Unknown = no choice open.
+  long long full_team_deadline_ms = 0;
+  WebhookTeam walkover_short = WebhookTeam::Unknown;
+  long long walkover_expires_ms = 0;
+  std::unordered_set<uint64_t> walkover_choosers;
   bool simulation = false;
   double simulation_timescale = 1.0;
 };
