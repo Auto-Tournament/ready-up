@@ -56,10 +56,11 @@ bool HasCapture(const ru_hud_v1* h) {
   return h->struct_size >= offsetof(ru_hud_v1, set_capture) + sizeof(h->set_capture) && h->set_capture;
 }
 
+// "Server closes in 4s", "Next map in 45s: Mirage".
 std::string Footer(const std::string& label, const std::string& next, int secs) {
-  std::string s = label;
-  if (!next.empty()) s += " " + next;
-  return s + " (" + std::to_string(std::max(0, secs)) + ")";
+  std::string s = label + " in " + std::to_string(std::max(0, secs)) + "s";
+  if (!next.empty()) s += ": " + next;
+  return s;
 }
 
 }  // namespace
@@ -441,7 +442,7 @@ EndScreenInfo EndScreenDemoInfo(uint64_t viewer, const std::string& viewerName, 
   info.winner = lost ? "team2" : "team1";
   info.how = "";
   info.where = "MAP 2 OF 3 \xC2\xB7 INFERNO";
-  info.nextLabel = "Next map:";
+  info.nextLabel = "Next map";
   info.next = "Mirage";
   info.seconds = 45;
   // K D A ADR KAST HS UD EK MVPs per player; the viewer is team 1's second row.

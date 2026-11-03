@@ -20,7 +20,7 @@ struct EndScreenInfo {
   std::string winner;          // "team1" | "team2" | "" (draw)
   std::string how;             // "In overtime", "By damage", "By forfeit"; "" for a normal win (no pill)
   std::string where;           // footer left: "MAP 2 OF 3 · INFERNO"
-  std::string nextLabel;       // footer right: "Next map:" / "Server closes"
+  std::string nextLabel;       // footer right: "Next map" / "Server closes" ("… in 4s")
   std::string next;            // "Mirage", or ""
   int seconds = 30;            // how long it stays up (the footer counts down)
   int maxRounds = 24;          // regulation, for the halftime gaps on the round strip

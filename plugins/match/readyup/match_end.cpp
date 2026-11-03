@@ -264,7 +264,7 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
     end.winner = card.winner;
     end.how = mapHow();
     end.where = "MAP " + std::to_string(in.mapNumber) + " OF " + std::to_string(numMaps) + dot + upper(shortMap(in.mapName));
-    end.nextLabel = "Next map:";
+    end.nextLabel = "Next map";
     end.next = shortMap(in.nextMap);
     end.seconds = std::max(1, plan.restartDelay - 1);
     if (!EndScreenShow(end)) {

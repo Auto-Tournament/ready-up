@@ -289,7 +289,7 @@
 .at-esides { width: 100%; margin-top: 4px; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
 .at-right { text-align: right; }
 .at-enum { vertical-align: center; font-size: 64px; font-weight: bold; color: #f4edeb; }
-.at-ecolon { vertical-align: center; margin: 0px 18px; font-size: 30px; font-weight: bold; color: #4a3f3b; }
+.at-ecolon { vertical-align: center; margin: 0px 18px; font-size: 30px; font-weight: bold; color: #938a87; }
 
 /* Round strip: a tick per round (class on), a gap before it (half); the server fills each part
    (fill-*) and letters it. */
