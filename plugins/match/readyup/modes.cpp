@@ -297,6 +297,8 @@ static void ApplyKnifeRulesLocked(State& st) {
       "mp_respawn_on_death_ct 0",
       "mp_respawn_on_death_t 0",
       "mp_buy_anywhere 0",
+      "mp_respawn_immunitytime 0",
+      "mp_buy_during_immunity 0",
       "mp_buytime 0",
       "mp_startmoney 0",
       "mp_maxmoney 0",
@@ -957,6 +959,9 @@ static void ApplyWarmupRulesLocked(State& st) {
   if (EnqueueServerCommand(startMoneyCmd.c_str())) any = true;
   if (EnqueueServerCommand(maxMoneyCmd.c_str())) any = true;
   if (EnqueueServerCommand(buyAny.c_str())) any = true;
+  // Spawn protection, buying allowed (warmup.cfg: a spawn killer can't keep anyone from Ready).
+  if (EnqueueServerCommand("mp_respawn_immunitytime 20")) any = true;
+  if (EnqueueServerCommand("mp_buy_during_immunity 1")) any = true;
   // Warmup runs for hours: nothing drops on death (weapon_cleanup.h).
   for (const char* c : kWarmupNoDropCmds) {
     if (EnqueueServerCommand(c)) any = true;
@@ -1014,6 +1019,9 @@ static void ApplyScrimWarmupRulesLocked(State& st) {
       "mp_respawn_on_death_ct 1",
       "mp_respawn_on_death_t 1",
       "mp_buy_anywhere 1",
+      // Spawn protection, buying allowed (warmup.cfg: a spawn killer can't keep anyone from Ready).
+      "mp_respawn_immunitytime 20",
+      "mp_buy_during_immunity 1",
       "mp_buytime 9999",
       "mp_startmoney 16000",
       "mp_maxmoney 16000",
@@ -1188,6 +1196,8 @@ static void ApplyLiveRulesAndRestartLocked(State& st, const WebhookMatchContext&
         "mp_respawn_on_death_t 0",
         "mp_ignore_round_win_conditions 0",
         "mp_buy_anywhere 0",
+        "mp_respawn_immunitytime 0",
+        "mp_buy_during_immunity 0",
         "mp_buytime 20",
         "sv_infinite_ammo 0",
         "sv_cheats 0",
@@ -1227,6 +1237,8 @@ static bool ResetServerRulesAndRestartLocked(State& st) {
       "mp_respawn_on_death_t 0",
       "mp_ignore_round_win_conditions 0",
       "mp_buy_anywhere 0",
+      "mp_respawn_immunitytime 0",
+      "mp_buy_during_immunity 0",
       "mp_buytime 20",
       "sv_infinite_ammo 0",
       "sv_cheats 0",
@@ -1364,6 +1376,8 @@ static void ResetPracticeRulesLocked(State& st) {
       "mp_respawn_on_death_t 0",
       "mp_ignore_round_win_conditions 0",
       "mp_buy_anywhere 0",
+      "mp_respawn_immunitytime 0",
+      "mp_buy_during_immunity 0",
       "mp_buytime 20",
       "sv_infinite_ammo 0",
       "sv_cheats 0",
