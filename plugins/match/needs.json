@@ -82,6 +82,7 @@
     "CSMatchStats_t.m_iKills"
   ],
   "events": [
+    "begin_new_match",
     "bomb_defused",
     "bomb_planted",
     "item_purchase",

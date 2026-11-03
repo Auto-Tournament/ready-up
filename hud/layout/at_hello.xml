@@ -1,0 +1,24 @@
+<!--
+  P0 spike: one centered card with one server-driven line of text.
+
+  Server side: spawn custom_hud_layout with
+    m_strLayout = "panorama/layout/custom_game/at_hello.xml"
+  then set the dialog variable "text" on panel "at_hello_text".
+
+  Rules this file follows:
+  - The root panel has no id (the resource compiler rejects one). Ids go on children.
+  - Only Panel, Label, Image and Button. Anything else and the client refuses the layout.
+  - hittest="false" everywhere, so the card never takes the mouse from the game.
+  - No inline style="" attributes; sizes live in the stylesheet.
+-->
+<root>
+	<styles>
+		<include src="s2r://panorama/styles/custom_game/at_hello.vcss_c" />
+	</styles>
+
+	<Panel class="at-screen" hittest="false">
+		<Panel id="at_hello" class="at-card" hittest="false">
+			<Label id="at_hello_text" class="at-card-text" text="{s:text}" hittest="false" />
+		</Panel>
+	</Panel>
+</root>

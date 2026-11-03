@@ -1,10 +1,13 @@
 // Offline tests for plugins/practice/practice_rules.h. ctest `practice_rules`.
 #include "practice_feedback.h"
+#include "practice_guides.h"
 #include "practice_lineups.h"
 #include "practice_rules.h"
 #include "practice_tools.h"
 
 #include <cstdio>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -209,6 +212,62 @@ int main() {
   for (const char* bad : {"", "sv_cheats", "quit 1", "sv_a 1; quit", "sv_a 1 2", "rcon_password 1", "sv_A 1",
                           "sv_a x", "sv_a 1.2.3", "mp_ 1"}) {
     CHECK(!ValidHomeCvar(bad));
+  }
+
+  // Guides: CS2 map annotation files (practice_guides.h).
+  {
+    const std::string kv = "<!-- kv3 encoding:text:version{e21c7f3c} -->\n{\n\tMapName = \"de_test\"\n"
+                           "\tMapAnnotationNode0 = \n\t{\n\t\tType = \"grenade\"\n\t\tId = \"a\"\n\t\tSubType = \"main\"\n"
+                           "\t\tPosition = [ 1.0, -2.5, 3.0 ]\n\t\tAngles = [ 0.0, 90.0, 0.0 ]\n"
+                           "\t\tTitle = \n\t\t{\n\t\t\tText = \"[INSTA] T window smoke\"\n\t\t}\n\t\tJumpThrow = false\n"
+                           "\t\tGrenadeType = \"smoke\"\n\t}\n"
+                           "\tMapAnnotationNode1 = \n\t{\n\t\tType = \"grenade\"\n\t\tSubType = \"aim_target\"\n"
+                           "\t\tAngles = [ -42.5, -173.9, 0.0 ]\n\t\tDesc = { Text = \"runthrow \\n\\n aim left\" }\n"
+                           "\t\tMasterNodeId = \"a\"\n\t}\n"
+                           "\tMapAnnotationNode2 = { Type = \"line\" Enabled = true }\n}\n";
+    GuideFile g;
+    std::string err;
+    CHECK(ParseGuideFile(kv, &g, &err));
+    CHECK(g.map == "de_test");
+    CHECK(g.lineups.size() == 1);
+    if (g.lineups.size() == 1) {
+      const Lineup& l = g.lineups[0];
+      CHECK(l.name == "insta-t-window-smoke" && ValidLineupName(l.name));
+      CHECK(l.title == "[INSTA] T window smoke");
+      CHECK(l.kind == "smoke");
+      CHECK(l.pos.x == 1.0f && l.pos.y == -2.5f && l.pos.z == 3.0f);
+      CHECK(l.ang.x == -42.5f && l.ang.y == -173.9f);
+      CHECK(l.desc == "runthrow, aim left");
+      CHECK(l.how == "W + throw");
+    }
+    CHECK(GuideThrow("jumpthrow", false) == "Jumpthrow");
+    CHECK(GuideThrow("run + jumpthrow\nthen aim", false) == "W + jumpthrow");
+    CHECK(GuideThrow("shift (till the line) + jumpthrow", false) == "Shift + jumpthrow");
+    CHECK(GuideThrow("lmb + rmb", false) == "Middle throw");
+    CHECK(GuideThrow("rmb + lmb jumpthrow", false) == "Middle jumpthrow");
+    CHECK(GuideThrow("rmb + jumpthrow", false) == "Right-click jumpthrow");
+    CHECK(GuideThrow("very small step + throw", false) == "Step + throw");
+    CHECK(GuideThrow("throw", false) == "Throw");
+    CHECK(GuideThrow("aim at the lamp", false).empty());
+    CHECK(GuideThrow("", true) == "Jumpthrow");
+    CHECK(!ParseGuideFile("{ MapName = ", &g, &err) && !err.empty());
+    CHECK(GuideKind("incendiary") == "molotov" && GuideKind("he") == "hegrenade");
+    CHECK(GuideSlug("A very long title that goes on and on forever").size() <= 32);
+#ifdef PRACTICE_GUIDE_DIR
+    // Every shipped guide parses into lineups with valid names.
+    for (const char* f : {"zhork9_ancient.txt", "zhork9_cache.txt", "zhork9_dust2.txt", "zhork9_inferno.txt", "zhork9_mirage.txt"}) {
+      std::ifstream in(std::string(PRACTICE_GUIDE_DIR) + "/" + f, std::ios::binary);
+      std::stringstream buf;
+      buf << in.rdbuf();
+      GuideFile s;
+      const bool ok = ParseGuideFile(buf.str(), &s, &err);
+      CHECK(ok);
+      CHECK(s.map.rfind("de_", 0) == 0);
+      CHECK(s.lineups.size() >= 20);
+      for (const Lineup& l : s.lineups) CHECK(ValidLineupName(l.name) && !l.kind.empty());
+      std::printf("guide %s: %s, %zu lineups, %d skipped %s\n", f, s.map.c_str(), s.lineups.size(), s.skipped, ok ? "" : err.c_str());
+    }
+#endif
   }
 
   std::printf("practice_rules_test: %s\n", g_failures ? "FAIL" : "PASS");

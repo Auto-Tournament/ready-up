@@ -113,6 +113,28 @@ void OnGameEvent(void*, const char* name, const ru_game_event*) {
 
 }  // namespace
 
+VotesHudInfo VotesHud(WebhookTeam viewerTeam, uint64_t viewer) {
+  VotesHudInfo v;
+  const auto ctx = WebhookGetMatchContext();
+  if (!ctx) return v;
+  const double now = host::NowSeconds();
+  const int ti = TeamIdx(viewerTeam);
+  if (ti != 0 && g_gg[ti].Running()) {
+    v.gg = true;
+    v.ggTeam = viewerTeam;
+    v.ggCount = g_gg[ti].Count();
+    v.ggNeed = GgVotesNeeded(EligibleVoters(*ctx, viewerTeam), EffectiveRules().gg_threshold_pct);
+    v.ggSecondsLeft = std::max(0, static_cast<int>(g_gg[ti].Deadline() - now + 0.999));
+    v.ggVoted = g_gg[ti].Voted(viewer);
+  }
+  if (const int st = g_stop.Pending()) {
+    v.stop = true;
+    v.stopTeam = st == 1 ? WebhookTeam::Team1 : WebhookTeam::Team2;
+    v.stopSecondsLeft = std::max(0, static_cast<int>(g_stop.Deadline() - now + 0.999));
+  }
+  return v;
+}
+
 WebhookTeam VotesTeamForSide(int csTeam) {
   const auto ctx = WebhookGetMatchContext();
   if (!ctx || (csTeam != 2 && csTeam != 3)) return WebhookTeam::Unknown;

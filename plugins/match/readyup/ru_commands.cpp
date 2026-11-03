@@ -12,7 +12,7 @@ const std::vector<RuMainCommand>& MatchRuCommands() {
            {"load", "<url>", "load a match config", true},
            {"start", "[force]", "force-start the loaded match (force: valve without GOTV)", true},
            {"restart", "", "the loaded match back to warmup (everyone readies again)", true},
-           {"end", "", "end the loaded match (winner none) and reset the server", true},
+           {"end", "[team1|team2|none]", "end the loaded match (no winner unless given) and reset the server", true},
            {"recover", "[round]", "ask the platform to recover the match", true},
            {"restore", "<round>", "play <round> of this map again from its start (also .restore)", true},
            {"backups", "", "this match's round backups on the server", true},

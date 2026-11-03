@@ -28,6 +28,8 @@ struct Lineup {
   Vec3f ang;
   std::string kind;  // GrenadeKind() of the thrower's last grenade, "" when unknown
   std::string desc;
+  std::string title;  // guides (practice_guides.h): the name as the guide wrote it; not stored
+  std::string how;    // guides: how to throw it ("Jumpthrow", "W + throw", "Middle throw"), "" when not said
 };
 
 class LineupBook {

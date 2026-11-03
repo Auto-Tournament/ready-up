@@ -28,6 +28,7 @@ class GgVote {
   bool Running() const { return !voters_.empty(); }
   int Count() const { return static_cast<int>(voters_.size()); }
   double Deadline() const { return deadline_; }
+  bool Voted(uint64_t voter) const { return voters_.count(voter) != 0; }
 
  private:
   std::set<uint64_t> voters_;
@@ -47,6 +48,11 @@ class StopVote {
   void Reset();
   // The team whose request is pending (0 = none).
   int Pending() const;
+  // When the pending request runs out (0 = none).
+  double Deadline() const {
+    const int t = Pending();
+    return t ? at_[t] + window_ : 0;
+  }
 
  private:
   double at_[3] = {0, 0, 0};  // request time per team (0 = none)

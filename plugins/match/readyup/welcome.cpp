@@ -1,5 +1,6 @@
 #include "readyup/welcome.h"
 
+#include "readyup/hud_screens.h"
 #include "readyup/admin_call.h"
 #include "readyup/card_html.h"
 #include "readyup/engine.h"
@@ -369,8 +370,9 @@ void WelcomeTick() {
   }
 
   static std::atomic<bool> s_warnedUnavailable{false};
+  const bool screens = HudScreensOn();  // the clickable HUD's warmup card says "Welcome, <name>"
   for (const auto& snd : sends) {
-    const bool ok = PrintCenterHtmlToClientOnly(snd.slot, snd.html, Cfg().hud_duration_s, RU_HTML_PRIO_NOTICE);
+    const bool ok = screens || PrintCenterHtmlToClientOnly(snd.slot, snd.html, Cfg().hud_duration_s, RU_HTML_PRIO_NOTICE);
     std::lock_guard<std::mutex> lk(g_mu);
     auto it = g_slots.find(snd.slot);
     if (it == g_slots.end()) continue;

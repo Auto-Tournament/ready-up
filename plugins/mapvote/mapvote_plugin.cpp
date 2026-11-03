@@ -9,7 +9,9 @@
 //   .maps                the map pool
 //   .nextmap             the map that comes next, once a vote picked it
 //   .timeleft            time left on this map (map_time_minutes)
-//   .1 .. .9             vote on the open ballot (the center panel shows the numbers)
+//   .1 .. .9             vote on the open ballot (the center panel shows the numbers; with the
+//                        Auto Tournament HUD the ballot is buttons)
+//   .menu                (hud.so) change map, nominate from the pool; the ballot while it is open
 //
 // With map_time_minutes, a vote starts vote_before_end_seconds before the time runs out; its
 // winner loads when the time is up ("Extend" adds extend_minutes, max_extends times).
@@ -24,10 +26,13 @@
 
 #include "readyup/essentials_iface.h"
 #include "readyup/help_iface.h"
+#include "readyup/hud_iface.h"
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdlib>
 #include <cstdint>
 #include <cstring>
 #include <ctime>
@@ -136,6 +141,10 @@ bool LoadMap(const std::string& entry) {
 
 // ---- the vote -----------------------------------------------------------------------------------
 
+bool BallotAll();
+void BallotClose();
+bool HasHud();
+
 std::string BallotHtml(double now) {
   std::vector<int> tally(g.vote.options.size(), 0);
   for (const auto& kv : g.vote.votes) {
@@ -171,7 +180,7 @@ void StartVote(bool endOfMap, double now) {
     return;
   }
   g.vote.endsAt = now + g.s.voteSeconds;
-  ChatAll("Map vote: type the number of the map you want (.1 to ." + std::to_string(g.vote.options.size()) + ").");
+  if (!HasHud()) ChatAll("Map vote: type the number of the map you want (.1 to ." + std::to_string(g.vote.options.size()) + ").");
   ru_logf(g_api, RU_LOG_INFO, "vote started (%s), %zu option(s)", endOfMap ? "end of map" : "rtv", g.vote.options.size());
 }
 
@@ -182,6 +191,7 @@ void FinishVote(double now) {
   const std::vector<std::string> options = g.vote.options;
   g.vote = Vote{};
   g_api->center_html_release(g_api->self, -1);
+  BallotClose();
   g.rtv.clear();
   if (w < 0) return;
   if (options[static_cast<size_t>(w)].empty()) {
@@ -324,6 +334,186 @@ void OnVoteNumber(void* user, const ru_command_ctx* c) {
   Reply(c, "You voted for " + (o.empty() ? std::string("extending this map") : MapDisplayName(o)) + ".");
 }
 
+// ---- the HUD (hud.so, readyup.hud.v1.2) ---------------------------------------------------------
+//
+// With the Auto Tournament HUD the ballot is buttons: click a map, see the counts move. `.menu`
+// (when no higher menu fits, or the movement menu's Maps button) opens rtv, the next map and the
+// pool to nominate from. Without the HUD everything stays chat and the center panel.
+
+constexpr const char* kMenuOwner = "mapvote";
+constexpr int kMapsPerPage = 6;
+const ru_hud_v1* g_menuHud = nullptr;
+std::map<int, std::string> g_menuPage;  // slot -> "home" | "pool <offset>"
+
+const ru_hud_v1* MenuHud() {
+  if (!g_api) return nullptr;
+  const auto* h = static_cast<const ru_hud_v1*>(g_api->get_interface(g_api->self, RU_HUD_IFACE_NAME, 1));
+  if (!h || h->struct_size < offsetof(ru_hud_v1, register_menu) + sizeof(h->register_menu) || !h->menu) return nullptr;
+  return h;
+}
+
+bool HasHud() { return MenuHud() != nullptr; }
+
+std::string MenuText(const std::string& s) {
+  std::string out;
+  for (char ch : s) out += (ch == '\n' || ch == '\r' || ch == '|') ? ' ' : ch;
+  return out;
+}
+std::string MenuBtn(const std::string& label, const char* tone, const std::string& cmd, const std::string& sub = "",
+                    const char* state = "") {
+  return "btn=" + MenuText(label) + "|" + tone + "|" + state + "|" + cmd + (sub.empty() ? "" : "|" + MenuText(sub)) + "\n";
+}
+
+std::string BallotSpec(uint64_t steamid64, double now) {
+  std::vector<int> tally(g.vote.options.size(), 0);
+  for (const auto& kv : g.vote.votes) {
+    if (kv.second >= 0 && kv.second < static_cast<int>(tally.size())) ++tally[static_cast<size_t>(kv.second)];
+  }
+  const auto mine = g.vote.votes.find(steamid64);
+  const int picked = mine == g.vote.votes.end() ? -1 : mine->second;
+  std::string s = "id=mapvote-ballot\ncolor=acc\nkind=Map vote\ntitle=Next map\ntimer=" +
+                  std::to_string(std::max(0, static_cast<int>(g.vote.endsAt - now + 0.99))) + "\n";
+  for (size_t i = 0; i < g.vote.options.size() && i < 8; ++i) {
+    const std::string name = g.vote.options[i].empty() ? "Extend" : MapDisplayName(g.vote.options[i]);
+    s += MenuBtn(name, "ghost", "#vote " + std::to_string(i + 1), std::to_string(tally[i]),
+                 static_cast<int>(i) == picked ? "picked" : "");
+  }
+  // The cursor only until the player has voted: the map goes on under the ballot.
+  return s + "cols=" + std::string(g.vote.options.size() > 4 ? "4" : "2") + "\nbw=m\nmouse=" + (picked < 0 ? "on" : "off") + "\n";
+}
+
+std::string HomeSpec(uint64_t steamid64) {
+  const int left = SecondsLeft(g.s, g.mapStartedAt, g.extends, Now());
+  const std::string title = !g.nextMap.empty() ? "Next: " + MapDisplayName(g.nextMap)
+                            : left >= 0        ? FormatClock(left) + " left"
+                                               : MapDisplayName(g.currentMap);
+  std::string s = "id=mapvote-home\nkind=" + MenuText("Maps \xC2\xB7 " + MapDisplayName(g.currentMap)) + "\ntitle=" + MenuText(title) + "\n";
+  const std::string bar = std::to_string(g.rtv.size()) + " / " + std::to_string(RtvNeeded(Humans(), g.s.rtvRatio));
+  if (g.rtv.count(steamid64)) s += MenuBtn("Take back", "ghost", ".unrtv", bar, "picked");
+  else s += MenuBtn("Change map", "green", ".rtv", bar, g.voted && !g.nextMap.empty() ? "off" : "");
+  std::string nominated;
+  for (const auto& n : g.nominations) {
+    if (n.first == steamid64) nominated = MapDisplayName(n.second);
+  }
+  s += MenuBtn("Nominate", "ghost", "#pool 0", nominated);
+  return s + "cols=2\nbw=l\nclose=Close|#close\nmouse=on\n";
+}
+
+std::string PoolSpec(uint64_t steamid64, int offset) {
+  const int n = static_cast<int>(g.s.maps.size());
+  if (offset >= n || offset < 0) offset = 0;
+  const int to = std::min(n, offset + kMapsPerPage);
+  std::string mine;
+  for (const auto& nm : g.nominations) {
+    if (nm.first == steamid64) mine = nm.second;
+  }
+  std::string s = "id=mapvote-pool-" + std::to_string(offset) + "\nkind=Maps \xC2\xB7 nominate\ntitle=Pick one\n";
+  for (int i = offset; i < to; ++i) {
+    const std::string& e = g.s.maps[static_cast<size_t>(i)];
+    const bool current = e == g.currentMap || MapDisplayName(e) == MapDisplayName(g.currentMap);
+    s += MenuBtn(MapDisplayName(e), "ghost", "#nom " + std::to_string(i), current ? "now" : "",
+                 current ? "off" : e == mine ? "picked" : "");
+  }
+  for (int i = to; i < offset + kMapsPerPage; ++i) s += MenuBtn(" ", "ghost", "", "", "off");
+  s += MenuBtn("Prev", "ghost", "#pool " + std::to_string(std::max(0, offset - kMapsPerPage)), "", offset == 0 ? "off" : "");
+  s += MenuBtn("Next", "ghost", "#pool " + std::to_string(to), "", to >= n ? "off" : "");
+  return s + "cols=4\nbw=m\nclose=Back|#home\nmouse=on\n";
+}
+
+void OnMenuClick(void*, int slot, const char* command);
+
+void MenuDraw(int slot, uint64_t steamid64) {
+  const ru_hud_v1* h = MenuHud();
+  if (!h) return;
+  std::string spec;
+  if (g.vote.open) spec = BallotSpec(steamid64, Now());
+  else if (g_menuPage[slot].rfind("pool ", 0) == 0) spec = PoolSpec(steamid64, std::atoi(g_menuPage[slot].c_str() + 5));
+  else spec = HomeSpec(steamid64);
+  h->menu(slot, kMenuOwner, spec.c_str(), &OnMenuClick, nullptr);
+}
+
+void MenuClose(int slot) {
+  g_menuPage.erase(slot);
+  if (const ru_hud_v1* h = MenuHud()) h->menu(slot, kMenuOwner, "", nullptr, nullptr);
+}
+
+void OnMenuClick(void*, int slot, const char* command) {
+  const std::string c = command ? command : "";
+  ru_player p{};
+  if (!g_api->get_player(g_api->self, slot, &p) || p.steamid64 == 0) return MenuClose(slot);
+  if (c == "#close") return MenuClose(slot);
+  std::string line = c;
+  if (c.rfind("#vote ", 0) == 0) {
+    line = "." + c.substr(6);
+  } else if (c.rfind("#nom ", 0) == 0) {
+    const int i = std::atoi(c.c_str() + 5);
+    if (i < 0 || i >= static_cast<int>(g.s.maps.size())) return;
+    line = ".nominate " + MapDisplayName(g.s.maps[static_cast<size_t>(i)]);
+    g_menuPage[slot] = "home";
+  } else if (c == "#home" || c.rfind("#pool ", 0) == 0) {
+    g_menuPage[slot] = c.substr(1);
+    return MenuDraw(slot, p.steamid64);
+  } else if (c.empty() || c[0] != '.') {
+    return;
+  }
+  // The button's command through its chat handler, as if typed.
+  std::vector<std::string> words;
+  for (size_t a = 0; a < line.size();) {
+    const size_t b = std::min(line.find(' ', a), line.size());
+    if (b > a) words.push_back(line.substr(a, b - a));
+    a = b + 1;
+  }
+  if (words.empty()) return;
+  std::vector<const char*> argv;
+  for (const std::string& w : words) argv.push_back(w.c_str());
+  const ru_command_ctx ctx{sizeof(ru_command_ctx), p.steamid64, slot, 0, p.name, line.c_str(), static_cast<int>(argv.size()), argv.data()};
+  const std::string& cmd = words[0];
+  if (cmd == ".rtv") OnRtv(nullptr, &ctx);
+  else if (cmd == ".unrtv") OnUnrtv(nullptr, &ctx);
+  else if (cmd == ".nominate") OnNominate(nullptr, &ctx);
+  else if (cmd.size() == 2 && cmd[1] >= '1' && cmd[1] <= '9') OnVoteNumber(reinterpret_cast<void*>(static_cast<intptr_t>(cmd[1] - '0')), &ctx);
+  if (g.vote.open) return;  // the ballot redraws for everyone (the tick)
+  MenuDraw(slot, p.steamid64);  // the new rtv count / nomination
+}
+
+// The ballot on every human's HUD; false when there is no HUD (the center panel then).
+bool BallotAll() {
+  if (!MenuHud()) return false;
+  g_api->for_each_player(
+      g_api->self,
+      [](void*, const ru_player* p) {
+        if (!p->is_bot && p->connected && p->steamid64 != 0 && p->slot >= 0) MenuDraw(p->slot, p->steamid64);
+        return 1;
+      },
+      nullptr);
+  return true;
+}
+
+void BallotClose() {
+  if (const ru_hud_v1* h = MenuHud()) h->menu(RU_HUD_ALL, kMenuOwner, "", nullptr, nullptr);
+  g_menuPage.clear();
+}
+
+int OnMenuActive(void*, int) { return Active() ? 1 : 0; }
+
+void OnMenuOpen(void*, int slot, uint64_t steamid64) {
+  g_menuPage[slot] = "home";
+  MenuDraw(slot, steamid64);
+}
+
+void EnsureMenuProvider() {
+  const ru_hud_v1* h = MenuHud();
+  if (!h || h == g_menuHud) return;
+  h->register_menu(kMenuOwner, 10, &OnMenuActive, &OnMenuOpen, nullptr);
+  g_menuHud = h;
+}
+
+void MenuUninstall() {
+  if (const ru_hud_v1* h = MenuHud(); h && h == g_menuHud) h->register_menu(kMenuOwner, 10, nullptr, nullptr, nullptr);
+  g_menuHud = nullptr;
+  g_menuPage.clear();
+}
+
 // ---- ru mapvote ---------------------------------------------------------------------------------
 
 void OnRu(void*, const ru_command_ctx* c) {
@@ -354,6 +544,7 @@ void OnRu(void*, const ru_command_ctx* c) {
     g.nextMap.clear();
     g.voted = false;
     g_api->center_html_release(g_api->self, -1);
+    BallotClose();
     ChatAll("Map vote cancelled by an admin.");
     return;
   }
@@ -393,17 +584,19 @@ void OnMapStart(void*, const ru_event*) {
 
 void OnTick(void*, const ru_tick_info* t) {
   const double now = t->now;
+  EnsureMenuProvider();
   if (g.vote.open) {
     if (!Active()) {
       g.vote = Vote{};
       g_api->center_html_release(g_api->self, -1);
+      BallotClose();
       return;
     }
     if (now >= g.vote.endsAt) {
       FinishVote(now);
     } else if (now >= g.vote.nextHud) {
       g.vote.nextHud = now + 1.0;
-      g_api->center_html_all_prio(g_api->self, BallotHtml(now).c_str(), 2, RU_HTML_PRIO_NOTICE);
+      if (!BallotAll()) g_api->center_html_all_prio(g_api->self, BallotHtml(now).c_str(), 2, RU_HTML_PRIO_NOTICE);
     }
     return;
   }
@@ -461,6 +654,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   }
   g_api = api;
   g = State{};
+  g_menuHud = nullptr;
   const char* cm = api->current_map(api->self);
   g.currentMap = cm ? cm : "";
   LoadSettings();  // after the map: an empty pool follows it (DefaultPool)
@@ -494,6 +688,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
 }
 
 READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
+  if (g_api) MenuUninstall();  // hud.so's .menu stops asking us
   if (g_api && g.vote.open) g_api->center_html_release(g_api->self, -1);
   if (g_api) ru_logf(g_api, RU_LOG_INFO, "unloaded");
   g_api = nullptr;

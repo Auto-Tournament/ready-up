@@ -7,6 +7,7 @@
 // and the ready HUD, and the match part of the local status endpoint (readyup.match.v1).
 // It talks to the engine only through ru_api (host.cpp); `ru plugin reload match` keeps the
 // match going (reload_state.h lists what survives).
+#include "readyup/hud_screens.h"
 #include "readyup/license_checkin.h"
 #include "readyup/plugin_api.h"
 #include "readyup/match_iface.h"
@@ -658,6 +659,7 @@ READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
     // Without the match flow nothing may keep rounds from ending.
     if (g_api) g_api->set_round_termination_suppressed(g_api->self, 0);
     RosterNamesUninstall();  // players get their own names back
+    HudScreensUninstall();   // hud.so's .menu stops asking us
     license_checkin::Stop();
     workers::Shutdown();  // webhook sender, store writer (saves what is pending), admin refresh, demo uploads, ...
     ReloadStateSave();
