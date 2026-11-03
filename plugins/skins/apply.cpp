@@ -234,13 +234,17 @@ bool WriteMeshGroupMask(void* ent, uint64_t mask) {
   return true;
 }
 
-bool ApplyLegacyBody(void* weapon, uint64_t steamid64) {
-  const bool masked = WriteMeshGroupMask(weapon, 2);  // mesh group 1 = the legacy model
-  const auto r = SetBodygroupByName(weapon, "body", 1);
+// The weapon's model for its paint: the legacy one for a legacy kit, else the CS2 one. Set both
+// ways, as WeaponPaints does: a weapon that had a legacy paint (or came with the legacy body) kept
+// it under a CS2-model skin (M4A4 | Falak on the old M4A4, 2026-11-03).
+bool ApplyModelBody(void* weapon, uint64_t steamid64, bool legacy) {
+  const bool masked = WriteMeshGroupMask(weapon, legacy ? 2 : 1);  // mesh group 1 = the legacy model
+  const auto r = SetBodygroupByName(weapon, "body", legacy ? 1 : 0);
   if (r == RU_BODYGROUP_NO_MODEL && !masked) return false;
   if (DebugOn()) {
-    Log(RU_LOG_DEBUG, "legacy model for %s owner=%llu: mask %s, body=1 %s", EntityDesignerName(weapon),
-          static_cast<unsigned long long>(steamid64), masked ? "2" : "unavailable", BodygroupResultName(r));
+    Log(RU_LOG_DEBUG, "%s model for %s owner=%llu: mask %s, body=%d %s", legacy ? "legacy" : "cs2",
+          EntityDesignerName(weapon), static_cast<unsigned long long>(steamid64),
+          masked ? (legacy ? "2" : "1") : "unavailable", legacy ? 1 : 0, BodygroupResultName(r));
   }
   return true;
 }
@@ -352,7 +356,8 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
         paintUsed = paint.paint_id;
         wearUsed = paint.wear;
         changed = true;
-        if (IsLegacyPaintKit(paint.paint_id) && !ApplyLegacyBody(weapon, steamid64)) *legacyPending = true;
+        const bool legacy = IsLegacyPaintKit(paint.paint_id);
+        if (!ApplyModelBody(weapon, steamid64, legacy) && legacy) *legacyPending = true;
       }
     }
   } else if (const auto skin = FindWeaponSkin(steamid64, team, defindex)) {
@@ -360,7 +365,8 @@ WeaponResult ProcessWeapon(void* weapon, uint64_t steamid64, int team, bool late
       paintUsed = skin->paint_id;
       wearUsed = skin->wear;
       changed = true;
-      if (IsLegacyPaintKit(skin->paint_id) && !ApplyLegacyBody(weapon, steamid64)) *legacyPending = true;
+      const bool legacy = IsLegacyPaintKit(skin->paint_id);
+      if (!ApplyModelBody(weapon, steamid64, legacy) && legacy) *legacyPending = true;
     }
   }
 
@@ -731,7 +737,7 @@ void ProcessPlayer(int slot, void* controller) {
     if (!weapon) continue;
     if (st.done) {
       // Legacy bodygroup retry (the weapon model wasn't loaded when we painted it).
-      if (ApplyLegacyBody(weapon, steamid64)) {
+      if (ApplyModelBody(weapon, steamid64, /*legacy=*/true)) {
         st.legacyPending = false;
         MarkEntityFullyChanged(weapon);
       } else if (g_tick - st.firstSeen > kRetryTicks) {
@@ -835,7 +841,7 @@ bool PaintWeaponExternal(uint32_t handle, uint64_t steamid64, int paintKit, floa
     st.done = true;
     st.external = true;
     st.externalLegacy = IsLegacyPaintKit(paintKit);
-    st.legacyPending = st.externalLegacy && !ApplyLegacyBody(weapon, steamid64);
+    st.legacyPending = !ApplyModelBody(weapon, steamid64, st.externalLegacy) && st.externalLegacy;
   } else {
     // Hand back: stock paint now; processed again like a new weapon (the holder's loadout, if
     // any, on the next tick, re-networked because firstSeen < that tick).
