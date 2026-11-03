@@ -97,8 +97,8 @@ void AdminCallCommand(uint64_t steamid64, const std::string& playerName, const s
     if (!g_cooldown.TryCall(steamid64, host::NowSeconds(), Cfg().admin_call_cooldown_s, &left)) {
       Tell(slot, "you already called an admin - you can call again in " + std::to_string(left) + "s.");
       if (HudScreensOn() && slot >= 0) {
-        HudScreensNotice(slot, "id=notice\nwhere=card\ncolor=muted\nkind=Admin\ntitle=Already called\nsub=Again in (" +
-                                   std::to_string(left) + ")\n",
+        HudScreensNotice(slot, "id=notice\nwhere=card\ncolor=muted\nkind=Admin\ntitle=Already called\nsub=Again in " +
+                                   std::to_string(left) + "s\n",
                          5.0);
       }
       return;
