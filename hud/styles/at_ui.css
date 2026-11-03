@@ -64,6 +64,12 @@
 .ui-counter { visibility: collapse; horizontal-align: right; vertical-align: bottom; margin: 0px 16px 12px 0px; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; color: #938a87; }
 .has-kind .ui-kind { visibility: visible; }
 .has-sub .ui-sub { visibility: visible; }
+/* Two team names around "vs", each in its side's colour (tc-ct / tc-t, set by the server). */
+.ui-vs { visibility: collapse; flow-children: right; horizontal-align: center; margin-top: 6px; }
+.has-vs .ui-vs { visibility: visible; }
+.ui-vsname { font-size: 16px; font-weight: bold; color: #c4bcb9; }
+.ui-vsmid { font-size: 16px; color: #938a87; margin: 0px 8px; }
+.ui-card.mini .ui-vs, .ui-mid.mini .ui-vs { visibility: collapse; }
 .has-hint .ui-hint { visibility: visible; }
 .has-timer .ui-timer { visibility: visible; }
 .has-counter .ui-counter { visibility: visible; }

@@ -234,7 +234,6 @@ std::string RawTeam(const ResultCardInfo& info, const std::string& which) {
   const std::string& n = which == "team1" ? info.team1 : info.team2;
   return n.empty() ? (which == "team1" ? "Team 1" : "Team 2") : n;
 }
-std::string SideName(int side) { return side == 3 ? "CT" : side == 2 ? "T" : ""; }
 
 }  // namespace
 
@@ -242,12 +241,11 @@ std::string GoLiveCardSpec(const GoLiveCardInfo& info) {
   std::string s = SpecLine("id", "golive") + SpecLine("color", "live") + SpecLine("kind", "Live") +
                   SpecLine("title", "Good luck, have fun");
   if (!info.team1.empty() || !info.team2.empty()) {
+    // The names in their side's colour say who is CT and T (2026-11-03: "Simpert (CT) vs Bots (T)").
     const int side2 = info.team1Side == 3 ? 2 : info.team1Side == 2 ? 3 : 0;
-    auto part = [](const std::string& name, int side) {
-      return SideName(side).empty() ? name : name + " (" + SideName(side) + ")";
-    };
-    s += SpecLine("sub", part(info.team1.empty() ? "Team 1" : info.team1, info.team1Side) + " vs " +
-                             part(info.team2.empty() ? "Team 2" : info.team2, side2));
+    auto side = [](int s) { return s == 3 ? "ct" : s == 2 ? "t" : ""; };
+    s += std::string("vs=") + SpecText(info.team1.empty() ? "Team 1" : info.team1) + "|" + side(info.team1Side) + "|" +
+         SpecText(info.team2.empty() ? "Team 2" : info.team2) + "|" + side(side2) + "\n";
   }
   if (info.pauses) s += "cmd=Tech pause|.p\ncmd=Timeout|.tac\n";
   if (info.adminCall) s += "cmd=Call an admin|.admin\n";

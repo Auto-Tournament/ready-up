@@ -28,7 +28,7 @@ const char* const kColours[] = {"c-live", "c-warn", "c-ban", "c-muted", "c-ct", 
 // everything else opens from the centre. The card always slides in from the right.
 const char* const kFx[] = {"fx-open", "fx-flip", "fx-alert", "fx-slide", "fx-slide-left", "fx-pop",
                            "fx-zoom", "fx-fade", "fx-rise", "fx-drop", "fx-none"};
-const char* const kParts[] = {"brand", "kind", "title", "sub", "hint", "timer", "counter", "teams", "confirm",
+const char* const kParts[] = {"brand", "kind", "title", "sub", "hint", "timer", "counter", "teams", "confirm", "vs",
                               "lines", "cmds", "buttons", "close", "flow", "b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7"};
 
 bool UtilityName(const std::string& c) {
@@ -77,6 +77,14 @@ Screen ParseScreen(const std::string& spec) {
       for (int t = 0; t < 2; ++t) {
         s.confirmName[t] = At(p, t * 2);
         s.confirmReady[t] = IntAt(p, t * 2 + 1, 0) != 0;
+      }
+    } else if (k == "vs") {
+      const auto p = SplitBar(v);
+      s.hasVs = true;
+      for (int t = 0; t < 2; ++t) {
+        s.vsName[t] = At(p, t * 2);
+        const std::string side = At(p, t * 2 + 1);
+        s.vsSide[t] = side == "ct" || side == "t" ? side : std::string();
       }
     } else if (k == "cmd") {
       const auto p = SplitBar(v);
@@ -182,6 +190,14 @@ std::vector<Write> RenderScreen(const Screen& s, const std::string& p) {
     text(c + "_team", s.confirmName[t]);
     text(c + "_state", s.confirmReady[t] ? "READY" : "WAITING");
     cls(c, "ready", s.confirmReady[t]);
+  }
+
+  cls(p, "has-vs", s.hasVs);
+  for (int t = 0; t < 2; ++t) {
+    const std::string n = p + (t == 0 ? "_vsA" : "_vsB");
+    text(n, s.vsName[t]);
+    cls(n, "tc-ct", s.vsSide[t] == "ct");
+    cls(n, "tc-t", s.vsSide[t] == "t");
   }
 
   // Mid-round the cursor never comes out: the buttons that run a typed command become chips.

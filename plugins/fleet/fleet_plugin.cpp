@@ -729,12 +729,13 @@ fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Valu
     const fleet::json::Value* centerArg = Member(args, "center_seconds");
     const int center = fleet::cmds::SayCenterSeconds(centerArg ? centerArg->AsInt(0) : 0);
     const std::string centerHtml = center ? fleet::cmds::SayCenterHtml(from.empty() ? text : from + ": " + text) : std::string();
-    // On the Auto Tournament HUD every platform message is also a side card (6 s, or center_seconds):
+    // On the Auto Tournament HUD every platform message is also a side card (6 s, or center_seconds),
+    // an admin's in red like their [ADMIN] chat line (blue read as the CT side, 2026-11-03):
     // the auto-start countdown ("starts in 10 seconds, ready or not") was only a chat line (2026-10-27).
     const ru_hud_v1* hud = SayHud();
     const int cardSeconds = center > 0 ? center : 6;
     const std::string card = hud ? "id=say-" + std::to_string(++g_saySeq) + "\nwhere=card\n" +
-                                       (admin ? "color=ct\nkind=" + (from.empty() ? std::string("Admin") : SaySpecText(from))
+                                       (admin ? "color=ban\nkind=" + (from.empty() ? std::string("Admin") : SaySpecText(from))
                                               : std::string("kind=Tournament news")) +
                                        "\ntitle=" + SaySpecText(text) + "\n"
                                  : std::string();

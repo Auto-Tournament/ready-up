@@ -145,7 +145,8 @@
 .at-drow { flow-children: right; width: 100%; height: 28px; margin-bottom: 5px; padding: 0px 9px; border-radius: 7px; background-color: #211815; }
 .at-drow.gone { visibility: collapse; }
 .at-drow.at-dhead { height: 16px; background-color: #00000000; }
-.at-dname { width: fill-parent-flow( 1.0 ); vertical-align: center; font-size: 13px; color: #f4edeb; }
+/* Grey unless you hit them: white names are the players you damaged (2026-11-03). */
+.at-dname { width: fill-parent-flow( 1.0 ); vertical-align: center; font-size: 13px; color: #938a87; }
 .at-dnum { font-family: "Noto Mono"; width: 70px; margin-left: 8px; vertical-align: center; text-align: right; font-size: 13px; color: #938a87; }
 .at-dhp { font-family: "Noto Mono"; width: 48px; margin-left: 8px; vertical-align: center; text-align: right; font-size: 13px; font-weight: bold; color: #c4bcb9; }
 .at-dhead .at-dnum { font-size: 11px; font-weight: bold; letter-spacing: 1.2px; }
@@ -154,7 +155,8 @@
 .big .at-given { color: #ff6a3d; }
 .took .at-taken { color: #f2645f; }
 .dead .at-dname { color: #938a87; }
-.dead .at-dhp { color: #f2645f; }
+.hit .at-dname { color: #f4edeb; }
+.dead .at-dhp { color: #938a87; }
 
 .at-bar { flow-children: right; width: 300px; margin-left: 20px; }
 .at-segs { flow-children: right; width: fill-parent-flow( 1.0 ); vertical-align: center; }
@@ -289,7 +291,7 @@
 .at-esides { width: 100%; margin-top: 4px; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
 .at-right { text-align: right; }
 .at-enum { vertical-align: center; font-size: 64px; font-weight: bold; color: #f4edeb; }
-.at-ecolon { vertical-align: center; margin: 0px 18px; font-size: 30px; font-weight: bold; color: #4a3f3b; }
+.at-ecolon { vertical-align: center; margin: 0px 18px; font-size: 30px; font-weight: bold; color: #938a87; }
 
 /* Round strip: a tick per round (class on), a gap before it (half); the server fills each part
    (fill-*) and letters it. */
@@ -352,7 +354,7 @@
      width     cw-xs cw-s cw-m cw-l cw-xl cw-off                                  (table cells)
      line      line-acc line-ban line-muted line-live                             (on at_ecard)
      bg        bg-0 .. bg-100, steps of 5                                      (on at_ecard)
-     on at_end blur-0..3, dim-0..3, scale-70 .. scale-100 (steps of 5)
+     on at_end blur-0..3, dim-0..3 | dim-solid, scale-70 .. scale-120 (steps of 5)
      any part  hide, empty (collapse) */
 
 .at-end .hide { visibility: collapse; }
@@ -434,6 +436,8 @@
 .at-end.dim-1 .at-eblur { background-color: #00000024; }
 .at-end.dim-2 .at-eblur { background-color: #00000048; }
 .at-end.dim-3 .at-eblur { background-color: #00000070; }
+/* The game hidden: the design system's ember paper, only the leaderboard on screen. */
+.at-end.dim-solid .at-eblur { background-color: #100908; }
 
 .at-end.scale-70 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 0.7, 0.7, 1 ); }
 .at-end.on.scale-70 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.7, 0.7, 1 ); }
@@ -449,6 +453,14 @@
 .at-end.on.scale-95 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.95, 0.95, 1 ); }
 .at-end.scale-100 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 1, 1, 1 ); }
 .at-end.on.scale-100 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1, 1, 1 ); }
+.at-end.scale-105 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 1.05, 1.05, 1 ); }
+.at-end.on.scale-105 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1.05, 1.05, 1 ); }
+.at-end.scale-110 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 1.1, 1.1, 1 ); }
+.at-end.on.scale-110 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1.1, 1.1, 1 ); }
+.at-end.scale-115 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 1.15, 1.15, 1 ); }
+.at-end.on.scale-115 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1.15, 1.15, 1 ); }
+.at-end.scale-120 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 1.2, 1.2, 1 ); }
+.at-end.on.scale-120 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1.2, 1.2, 1 ); }
 
 /* ---- entries ----------------------------------------------------------------------------------
    Every element enters when "on" is added and leaves when it is removed (the server waits ~0.35 s

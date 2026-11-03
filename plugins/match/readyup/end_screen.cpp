@@ -56,10 +56,11 @@ bool HasCapture(const ru_hud_v1* h) {
   return h->struct_size >= offsetof(ru_hud_v1, set_capture) + sizeof(h->set_capture) && h->set_capture;
 }
 
+// "Server closes in 4s", "Next map in 45s: Mirage".
 std::string Footer(const std::string& label, const std::string& next, int secs) {
-  std::string s = label;
-  if (!next.empty()) s += " " + next;
-  return s + " (" + std::to_string(std::max(0, secs)) + ")";
+  std::string s = label + " in " + std::to_string(std::max(0, secs)) + "s";
+  if (!next.empty()) s += ": " + next;
+  return s;
 }
 
 }  // namespace
@@ -168,10 +169,13 @@ const Column kColumns[] = {
 constexpr int kUsedCols = static_cast<int>(sizeof(kColumns) / sizeof(kColumns[0]));
 
 // The look, as utility classes on #at_end / #at_ecard (hud/styles/at_kit.css, end screen utilities).
-constexpr const char* kScale = "scale-90";
-// No world blur or dimming: the card is solid on its own, the game stays clear around it (2026-10-27).
+// 110 %: with the game hidden the card can be bigger, its text read small at 90 % (2026-11-03).
+// Only the leaderboard scales; the other HUDs keep their size.
+constexpr const char* kScale = "scale-110";
+// No world blur: the game is hidden behind the brand background, so only our leaderboard shows
+// (2026-11-03; before, the card sat on the clear game).
 constexpr const char* kBlur = "blur-0";
-constexpr const char* kDim = "dim-0";
+constexpr const char* kDim = "dim-solid";
 constexpr const char* kBg = "";  // none: the card's background is hardcoded in at_kit.css (bg-* had no effect)
 // No cursor: players move, look around and type in chat ("gg") while it is up. Hover tooltips did
 // not show in CS2, so nothing needs the cursor (2026-10-27).
@@ -288,11 +292,12 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
   w.Class(ALL, "at_eawards", "hide", d.awards.empty());
   w.Text(ALL, "at_e_where", info.where);
   w.Text(ALL, "at_e_next", Footer(info.nextLabel, info.next, info.seconds));
-  for (const char* c : {"scale-70", "scale-75", "scale-80", "scale-85", "scale-90", "scale-95", "scale-100"}) {
+  for (const char* c : {"scale-70", "scale-75", "scale-80", "scale-85", "scale-90", "scale-95", "scale-100", "scale-105",
+                        "scale-110", "scale-115", "scale-120"}) {
     w.Class(ALL, "at_end", c, std::string(c) == kScale);
   }
   for (const char* c : {"blur-0", "blur-1", "blur-2", "blur-3"}) w.Class(ALL, "at_end", c, std::string(c) == kBlur);
-  for (const char* c : {"dim-0", "dim-1", "dim-2", "dim-3"}) w.Class(ALL, "at_end", c, std::string(c) == kDim);
+  for (const char* c : {"dim-0", "dim-1", "dim-2", "dim-3", "dim-solid"}) w.Class(ALL, "at_end", c, std::string(c) == kDim);
   for (int p = 0; p <= 100; p += 5) {
     const std::string bg = "bg-" + std::to_string(p);
     w.Class(ALL, "at_ecard", bg.c_str(), bg == kBg);
@@ -437,7 +442,7 @@ EndScreenInfo EndScreenDemoInfo(uint64_t viewer, const std::string& viewerName, 
   info.winner = lost ? "team2" : "team1";
   info.how = "";
   info.where = "MAP 2 OF 3 \xC2\xB7 INFERNO";
-  info.nextLabel = "Next map:";
+  info.nextLabel = "Next map";
   info.next = "Mirage";
   info.seconds = 45;
   // K D A ADR KAST HS UD EK MVPs per player; the viewer is team 1's second row.
