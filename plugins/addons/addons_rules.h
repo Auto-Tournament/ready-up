@@ -10,6 +10,12 @@ namespace addons {
 // that are not plain positive integers skipped (*bad counts them).
 std::vector<uint64_t> ParseIds(const std::string& text, int* bad);
 
+// The Auto Tournament HUD addon (repo hud/, Workshop 3827905393): every player needs it, so the
+// server mounts it whenever the HUD plugin (hud.so) runs, whatever workshop_addons lists.
+constexpr uint64_t kHudAddon = 3827905393ull;
+// `ids` with the HUD addon first when `hudLoaded` (and not listed already).
+std::vector<uint64_t> WithHudAddon(std::vector<uint64_t> ids, bool hudLoaded);
+
 // ISteamUGC::GetItemState bits (EItemState).
 enum ItemState : uint32_t {
   kItemSubscribed = 1,

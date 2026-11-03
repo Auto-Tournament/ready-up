@@ -25,6 +25,12 @@ int main() {
   CHECK(bad == 2);  // "x9" and "0"
   CHECK(ParseIds("99999999999999999999999", &bad).empty() && bad == 1);  // too long
 
+  // The HUD addon: first while hud.so runs, never twice, nothing added without it.
+  CHECK(WithHudAddon({}, true) == std::vector<uint64_t>{kHudAddon});
+  CHECK((WithHudAddon({123}, true) == std::vector<uint64_t>{kHudAddon, 123}));
+  CHECK((WithHudAddon({123, kHudAddon}, true) == std::vector<uint64_t>{123, kHudAddon}));
+  CHECK((WithHudAddon({123}, false) == std::vector<uint64_t>{123}));
+
   CHECK(ItemStateText(0) == "not installed");
   CHECK(ItemStateText(kItemInstalled) == "installed");
   CHECK(ItemStateText(kItemInstalled | kItemNeedsUpdate) == "installed, update available");
