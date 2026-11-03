@@ -126,6 +126,11 @@ static void TestCommands() {
   CHECK(!IsCommand("gg."));
   CHECK(!IsCommand(""));
   CHECK(!IsCommand("ok"));
+  CHECK(!IsCommand(".walkover"));
+  CHECK(!IsCommand("  !play"));
+  CHECK(!IsCommand(".play now"));
+  CHECK(IsCommand(".player"));
+  CHECK(IsCommand(".walkovers"));
 }
 
 static void TestRateLimit() {

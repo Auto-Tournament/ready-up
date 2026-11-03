@@ -80,7 +80,11 @@ std::optional<ChatLine> ParseChatLogLine(const std::string& line, const std::vec
 bool IsCommand(const std::string& message) {
   const size_t i = message.find_first_not_of(' ');
   if (i == std::string::npos || i + 1 >= message.size()) return false;
-  return message[i] == '.' || message[i] == '!';
+  if (message[i] != '.' && message[i] != '!') return false;
+  // The platform's own: the full team's walkover choice (it acts on the chat line).
+  const size_t end = message.find(' ', i);
+  const std::string word = message.substr(i + 1, end == std::string::npos ? std::string::npos : end - i - 1);
+  return word != "walkover" && word != "play";
 }
 
 bool RateLimiter::Allow(uint64_t steamid64, double now) {
