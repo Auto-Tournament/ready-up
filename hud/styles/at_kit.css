@@ -145,7 +145,8 @@
 .at-drow { flow-children: right; width: 100%; height: 28px; margin-bottom: 5px; padding: 0px 9px; border-radius: 7px; background-color: #211815; }
 .at-drow.gone { visibility: collapse; }
 .at-drow.at-dhead { height: 16px; background-color: #00000000; }
-.at-dname { width: fill-parent-flow( 1.0 ); vertical-align: center; font-size: 13px; color: #f4edeb; }
+/* Grey unless you hit them: white names are the players you damaged (2026-11-03). */
+.at-dname { width: fill-parent-flow( 1.0 ); vertical-align: center; font-size: 13px; color: #938a87; }
 .at-dnum { font-family: "Noto Mono"; width: 70px; margin-left: 8px; vertical-align: center; text-align: right; font-size: 13px; color: #938a87; }
 .at-dhp { font-family: "Noto Mono"; width: 48px; margin-left: 8px; vertical-align: center; text-align: right; font-size: 13px; font-weight: bold; color: #c4bcb9; }
 .at-dhead .at-dnum { font-size: 11px; font-weight: bold; letter-spacing: 1.2px; }
@@ -154,6 +155,7 @@
 .big .at-given { color: #ff6a3d; }
 .took .at-taken { color: #f2645f; }
 .dead .at-dname { color: #938a87; }
+.hit .at-dname { color: #f4edeb; }
 .dead .at-dhp { color: #938a87; }
 
 .at-bar { flow-children: right; width: 300px; margin-left: 20px; }
