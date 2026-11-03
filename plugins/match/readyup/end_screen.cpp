@@ -168,7 +168,9 @@ const Column kColumns[] = {
 constexpr int kUsedCols = static_cast<int>(sizeof(kColumns) / sizeof(kColumns[0]));
 
 // The look, as utility classes on #at_end / #at_ecard (hud/styles/at_kit.css, end screen utilities).
-constexpr const char* kScale = "scale-90";
+// 110 %: with the game hidden the card can be bigger, its text read small at 90 % (2026-11-03).
+// Only the leaderboard scales; the other HUDs keep their size.
+constexpr const char* kScale = "scale-110";
 // No world blur: the game is hidden behind the brand background, so only our leaderboard shows
 // (2026-11-03; before, the card sat on the clear game).
 constexpr const char* kBlur = "blur-0";
@@ -289,7 +291,8 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
   w.Class(ALL, "at_eawards", "hide", d.awards.empty());
   w.Text(ALL, "at_e_where", info.where);
   w.Text(ALL, "at_e_next", Footer(info.nextLabel, info.next, info.seconds));
-  for (const char* c : {"scale-70", "scale-75", "scale-80", "scale-85", "scale-90", "scale-95", "scale-100"}) {
+  for (const char* c : {"scale-70", "scale-75", "scale-80", "scale-85", "scale-90", "scale-95", "scale-100", "scale-105",
+                        "scale-110", "scale-115", "scale-120"}) {
     w.Class(ALL, "at_end", c, std::string(c) == kScale);
   }
   for (const char* c : {"blur-0", "blur-1", "blur-2", "blur-3"}) w.Class(ALL, "at_end", c, std::string(c) == kBlur);

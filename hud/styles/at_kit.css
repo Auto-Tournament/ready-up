@@ -352,7 +352,7 @@
      width     cw-xs cw-s cw-m cw-l cw-xl cw-off                                  (table cells)
      line      line-acc line-ban line-muted line-live                             (on at_ecard)
      bg        bg-0 .. bg-100, steps of 5                                      (on at_ecard)
-     on at_end blur-0..3, dim-0..3 | dim-solid, scale-70 .. scale-100 (steps of 5)
+     on at_end blur-0..3, dim-0..3 | dim-solid, scale-70 .. scale-120 (steps of 5)
      any part  hide, empty (collapse) */
 
 .at-end .hide { visibility: collapse; }
@@ -451,6 +451,14 @@
 .at-end.on.scale-95 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 0.95, 0.95, 1 ); }
 .at-end.scale-100 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 1, 1, 1 ); }
 .at-end.on.scale-100 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1, 1, 1 ); }
+.at-end.scale-105 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 1.05, 1.05, 1 ); }
+.at-end.on.scale-105 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1.05, 1.05, 1 ); }
+.at-end.scale-110 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 1.1, 1.1, 1 ); }
+.at-end.on.scale-110 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1.1, 1.1, 1 ); }
+.at-end.scale-115 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 1.15, 1.15, 1 ); }
+.at-end.on.scale-115 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1.15, 1.15, 1 ); }
+.at-end.scale-120 .at-ecard { transform: translate3d( 0px, 16px, 0px ) scale3d( 1.2, 1.2, 1 ); }
+.at-end.on.scale-120 .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1.2, 1.2, 1 ); }
 
 /* ---- entries ----------------------------------------------------------------------------------
    Every element enters when "on" is added and leaves when it is removed (the server waits ~0.35 s
