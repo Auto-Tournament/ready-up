@@ -2237,7 +2237,10 @@ void Tick(double now) {
 }
 
 bool Assigned() { return g_asg.active; }
-bool ResumeWaiting() { return g_resumeActive && !g_resumeRestored; }
+// A resume from warmup (round 0) restores nothing: the normal ready-up holds it. Waiting for the
+// whole roster there never started a bot-fill match moved during warmup, whose bot team holds a
+// placeholder player who never joins (2026-11-03).
+bool ResumeWaiting() { return g_resumeActive && !g_resumeRestored && g_resume.round >= 1; }
 bool EndedKickPending() { return !g_kicks.empty(); }
 
 bool RestoreRoundFromLocalBackup(int round, const std::string& by, const std::string& reason, std::string* err,
