@@ -14,6 +14,7 @@
 //   hint=Press B to click        small grey line at the bottom
 //   teams=CT|3|5|T|2|5           two teams: name | ready | dots (0-5)
 //   confirm=Team A|1|Team B|0    two chips: name | READY (1) or WAITING (0)
+//   vs=Team A|ct|Team B|t        two team names around "vs", each in its side's colour (ct | t | none)
 //   cmd=Timeout|.tac             a typed command chip, up to 3
 //   line=Format|Best of 3        an info row, up to 5: label | value (a value starting with . is boxed)
 //   size=mini                    card only: a one-line pill (kind, team dots, the first button)
@@ -64,6 +65,8 @@ struct Screen {
   int teamReady[2] = {0, 0}, teamDots[2] = {5, 5};
   bool hasConfirm = false;
   std::string confirmName[2];
+  bool hasVs = false;
+  std::string vsName[2], vsSide[2];  // vsSide: "ct", "t" or empty
   bool confirmReady[2] = {false, false};
   std::vector<std::pair<std::string, std::string>> cmds;  // label, command
   std::vector<std::pair<std::string, std::string>> lines;  // label, value

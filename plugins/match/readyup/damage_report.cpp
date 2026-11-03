@@ -1,4 +1,5 @@
 // End-of-round damage report (see damage_report.h).
+#include <algorithm>
 #include "readyup/damage_report.h"
 
 #include "readyup/config.h"
@@ -42,8 +43,9 @@ struct Outgoing {
   std::vector<Row> rows;
 };
 
-// The round's damage as the table card (at_kit.xml #at_card, body b-dmg): one row per opponent,
-// given / taken (damage /hits) and their health left. The look the .dev menu showed as the
+// The round's damage as the table card (at_kit.xml #at_card, body b-dmg): one row per opponent you
+// hit or who hit you (the others were noise, 2026-11-03), given / taken ("60 in 2") and their
+// health left. The look the .dev menu showed as the
 // second variant (2026-10-27: the line card was "ugly").
 constexpr int kCardRows = 5;
 constexpr const char* kKitLayout = "panorama/layout/custom_game/at_kit.xml";
@@ -56,18 +58,26 @@ void FillCard(Outgoing& o, const DamageParticipant& self, const std::vector<Dama
     const auto to = ledger.Dealt(self.key, p.key);
     const auto from = ledger.Dealt(p.key, self.key);
     o.total += to.dmg;
-    if (static_cast<int>(o.rows.size()) >= kCardRows) continue;
+    if (to.hits == 0 && from.hits == 0) continue;
+    auto inHits = [](const DamageLedger::Pair& d) {
+      return d.hits == 0 ? std::string("0") : std::to_string(d.dmg) + " in " + std::to_string(d.hits);
+    };
     Outgoing::Row r;
     r.name = p.name;
-    r.given = std::to_string(to.dmg) + " /" + std::to_string(to.hits);
-    r.taken = std::to_string(from.dmg) + " /" + std::to_string(from.hits);
+    r.given = inHits(to);
+    r.taken = inHits(from);
     r.dmg = to.dmg;
     r.took = from.dmg;
     r.health = ledger.Health(p.key);
     r.hp = r.health > 0 ? std::to_string(r.health) : "DEAD";
     o.rows.push_back(std::move(r));
   }
-  o.card = !o.rows.empty();
+  // Who you hit most first, then who hit you most.
+  std::stable_sort(o.rows.begin(), o.rows.end(), [](const Outgoing::Row& x, const Outgoing::Row& y) {
+    return x.dmg != y.dmg ? x.dmg > y.dmg : x.took > y.took;
+  });
+  if (static_cast<int>(o.rows.size()) > kCardRows) o.rows.resize(kCardRows);
+  o.card = true;  // a round without a fight still gets its card ("0 damage"), not chat lines
 }
 
 const ru_hud_v1* KitHud() {

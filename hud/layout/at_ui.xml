@@ -30,6 +30,11 @@
 <Label id="ui_card_kind" class="ui-kind" text="{s:text}" hittest="false" />
 <Label id="ui_card_title" class="ui-title" text="{s:text}" hittest="false" />
 <Label id="ui_card_sub" class="ui-sub" text="{s:text}" hittest="false" />
+<Panel id="ui_card_vs" class="ui-vs" hittest="false">
+<Label id="ui_card_vsA" class="ui-vsname" text="{s:text}" hittest="false" />
+<Label class="ui-vsmid" text="vs" hittest="false" />
+<Label id="ui_card_vsB" class="ui-vsname" text="{s:text}" hittest="false" />
+</Panel>
 <Panel id="ui_card_teams" class="ui-teams" hittest="false">
 <Panel class="ui-team" hittest="false">
 <Label id="ui_card_tA" class="ui-teamname" text="{s:text}" hittest="false" />
@@ -255,6 +260,11 @@
 <Label id="ui_mid_kind" class="ui-kind" text="{s:text}" hittest="false" />
 <Label id="ui_mid_title" class="ui-title" text="{s:text}" hittest="false" />
 <Label id="ui_mid_sub" class="ui-sub" text="{s:text}" hittest="false" />
+<Panel id="ui_mid_vs" class="ui-vs" hittest="false">
+<Label id="ui_mid_vsA" class="ui-vsname" text="{s:text}" hittest="false" />
+<Label class="ui-vsmid" text="vs" hittest="false" />
+<Label id="ui_mid_vsB" class="ui-vsname" text="{s:text}" hittest="false" />
+</Panel>
 <Panel id="ui_mid_teams" class="ui-teams" hittest="false">
 <Panel class="ui-team" hittest="false">
 <Label id="ui_mid_tA" class="ui-teamname" text="{s:text}" hittest="false" />

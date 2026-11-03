@@ -154,7 +154,7 @@
 .big .at-given { color: #ff6a3d; }
 .took .at-taken { color: #f2645f; }
 .dead .at-dname { color: #938a87; }
-.dead .at-dhp { color: #f2645f; }
+.dead .at-dhp { color: #938a87; }
 
 .at-bar { flow-children: right; width: 300px; margin-left: 20px; }
 .at-segs { flow-children: right; width: fill-parent-flow( 1.0 ); vertical-align: center; }

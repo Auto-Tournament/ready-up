@@ -51,6 +51,8 @@ def block(p):
     confirm = panel(f"{p}_confirm", "ui-confirm", children="".join(
         panel(f"{p}_c{n}", "ui-chipbox", label(f"{p}_c{n}_team", "ui-chipteam") + label(f"{p}_c{n}_state", "ui-chipstate"))
         for n in range(2)))
+    vs = panel(f"{p}_vs", "ui-vs", children=label(f"{p}_vsA", "ui-vsname") + label(cls="ui-vsmid", text="vs")
+               + label(f"{p}_vsB", "ui-vsname"))
     cmds = panel(f"{p}_cmds", "ui-cmds", children="".join(
         panel(f"{p}_k{n}", "ui-cmd", label(f"{p}_k{n}_l", "ui-cmdlabel") + panel(cls="ui-kbd", children=label(f"{p}_k{n}_c", "ui-kbdtext")))
         for n in range(3)))
@@ -66,7 +68,7 @@ def block(p):
     back = panel(cls="ui-back") + panel(cls="ui-wash") + panel(cls="ui-pixels", children="".join(
         panel(cls=f"ui-px p{n} px-{'abcd'[n % 4]}") for n in range(8)))
     flow = panel(f"{p}_flow", "ui-flow", children=(
-        brand + label(f"{p}_kind", "ui-kind") + label(f"{p}_title", "ui-title") + label(f"{p}_sub", "ui-sub")
+        brand + label(f"{p}_kind", "ui-kind") + label(f"{p}_title", "ui-title") + label(f"{p}_sub", "ui-sub") + vs
         + teams + confirm + rows + buttons + cmds + close + label(f"{p}_hint", "ui-hint")))
     extras = label(f"{p}_timer", "ui-timer") + label(f"{p}_counter", "ui-counter") + panel(cls="ui-line") + panel(cls="ui-flash")
     return panel(p, f"ui-panel ui-{p[3:]}", back + flow + extras, hit=True)

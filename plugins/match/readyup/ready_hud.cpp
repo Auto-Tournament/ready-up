@@ -486,7 +486,11 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
   }
   // The team dots already say who is ready; the count only stands in when there are none (Miller).
   if (total[0] == 0 && total[1] == 0) s += L("counter", count);
-  if (!btn.empty()) s += btn + L("bw", "l") + L("hint", "Press B to click") + L("mouse", "b");
+  // Ready can be typed as well: the button needs the buy menu (B), which a dead player can't open.
+  if (!btn.empty()) {
+    s += btn + L("bw", "l") + L("hint", "Press B to click") +
+         L("cmd", me && me->ready ? "Or type|.ur" : "Or type|.r") + L("mouse", "b");
+  }
   return s;
 }
 

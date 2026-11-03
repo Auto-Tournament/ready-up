@@ -65,6 +65,13 @@ void TestRender() {
 }
 
 void TestChips() {
+  {
+    // vs: two names in their side's colour, a missing side left plain.
+    const auto v = hud::RenderScreen(hud::ParseScreen("title=Live\nvs=Simpert|ct|Bots|x\n"), "ui_mid");
+    CHECK(On(v, "ui_mid", "has-vs"));
+    CHECK(Text(v, "ui_mid_vsA") == "Simpert" && On(v, "ui_mid_vsA", "tc-ct") && !On(v, "ui_mid_vsA", "tc-t"));
+    CHECK(Text(v, "ui_mid_vsB") == "Bots" && !On(v, "ui_mid_vsB", "tc-t") && !On(v, "ui_mid_vsB", "tc-ct"));
+  }
   const auto s = hud::ParseScreen("title=Vote\nbtn=Yes|danger||.gg\nbtn=No|ghost||\nhint=Press B to click\nchips=1\n");
   const auto w = hud::RenderScreen(s, "ui_card");
   CHECK(!On(w, "ui_card", "has-buttons"));
