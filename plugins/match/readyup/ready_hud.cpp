@@ -178,7 +178,7 @@ static Board BuildBoard(ReadyUpMode mode, const std::optional<WebhookMatchContex
       b.note = DevBotsReadyEnabled() ? "need players (or bots) on both CT and T" : "need players on both CT and T";
     }
     const int cd = ScrimCountdownSecondsLeft();
-    if (cd >= 0) b.countdown = std::string(settings::Bool("knife_enabled_default") ? "knife in " : "live in ") + std::to_string(cd);
+    if (cd >= 0) b.countdown = std::string(settings::Bool("knife_enabled_default") ? "knife in " : "live in ") + std::to_string(cd) + "s";
   } else {
     b.scrim = (ctx->slug == "scrim");
     b.title = RecoveryGateEnabled() ? "recovered match" : (b.scrim ? "scrim" : "match warmup");
@@ -429,7 +429,7 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
   if (cd >= 0) {
     const bool knife = settings::Bool("knife_enabled_default");
     return L("id", "countdown") + L("color", "live") + L("kind", "Everyone is ready") +
-           L("title", std::string(knife ? "Knife round (" : "Going live (") + std::to_string(cd) + ")");
+           L("title", std::string(knife ? "Knife round in " : "Going live in ") + std::to_string(cd) + "s");
   }
   const Entry* me = nullptr;
   int ready[2] = {0, 0}, total[2] = {0, 0};  // [0] CT, [1] T
@@ -532,7 +532,7 @@ static std::string LiveSpec(const LiveHudInfo& l, int viewerSide) {
     if (l.type == "technical") {
       std::string s = L("id", "pause") + L("color", "warn") + L("kind", "Tech pause") +
                       L("title", l.byTeam.empty() ? std::string("Paused") : HudSpecText(l.byTeam) + " paused");
-      if (l.secondsLeft >= 0) s += L("sub", "Auto unpause (" + std::to_string(l.secondsLeft) + ")");
+      if (l.secondsLeft >= 0) s += L("sub", "Auto unpause in " + std::to_string(l.secondsLeft) + "s");
       return s + confirmAndButton(!l.bothRequired);
     }
     if (l.type == "tactical") {
@@ -552,7 +552,7 @@ static std::string LiveSpec(const LiveHudInfo& l, int viewerSide) {
   }
   if (l.forfeit) {
     return L("id", "missing") + L("color", "ban") + L("kind", "Forfeit") + L("title", HudSpecText(l.forfeitTeam) + " is missing") +
-           L("sub", "Forfeit in (" + std::to_string(std::max(0, l.forfeitSecondsLeft)) + ")");
+           L("sub", "Forfeit in " + std::to_string(std::max(0, l.forfeitSecondsLeft)) + "s");
   }
   return {};
 }

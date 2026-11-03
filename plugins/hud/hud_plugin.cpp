@@ -1144,7 +1144,7 @@ bool KitApply(const std::string& state) {
     card("Ready", "7 / 10 ready", "c-live", "b-line", true);
     sentence("at_p", {{"You are", nullptr}, {"ready", "bold c-live tight"}, {", type", nullptr}, {".ur", "cmd"}, {"to undo", nullptr}});
   } else if (state == "everyone") {
-    mid("Everyone is ready", "Knife round (5)", nullptr, "c-live");
+    mid("Everyone is ready", "Knife round in 5s", nullptr, "c-live");
     cls("at_mid", "go", true);
     cls("at_mid", "on", true);
   } else if (state == "knife") {
@@ -1223,22 +1223,22 @@ const std::vector<std::pair<std::string, std::string>>& DemoScreens() {
       {"welcome", "id=warm\nwhere=card\nkind=Welcome, Simpert\ntitle=You're not ready\nbtn=Ready|green|pulse|#demo ready\nbw=l\ncounter=0 / 1\nhint=Press B to click\nmouse=b"},
       {"notready", "id=warm\nwhere=card\nkind=Scrim\ntitle=You're not ready\nteams=CT|3|5|T|3|5\nbtn=Ready|green|pulse|#demo ready\nbw=l\ncounter=6 / 10\nhint=Press B to click\nmouse=b"},
       {"ready", "id=ready\nwhere=card\ncolor=live\nkind=Ready \xC2\xB7 7 / 10\nsize=mini\ntitle=You're ready\nteams=CT|4|5|T|3|5\nbtn=Unready|ghost||#demo notready\nbw=s\nmouse=b"},
-      {"everyone", "id=countdown\ncolor=live\nkind=Everyone is ready\ntitle=Knife round (5)"},
+      {"everyone", "id=countdown\ncolor=live\nkind=Everyone is ready\ntitle=Knife round in 5s"},
       {"knife", "id=knife\ncolor=live\nkind=Knife round\ntitle=Winners pick a side"},
       {"pick", "id=pick\ncolor=live\nkind=You won the knife\ntitle=Which side do you want?\ntimer=20\nbtn=CT|ct||#demo pickedct\nbtn=T|t||#demo pickedt\nmouse=on"},
       {"pickurgent", "id=pick\ncolor=live\nkind=You won the knife\ntitle=Which side do you want?\ntimer=4\nbtn=CT|ct||#demo pickedct\nbtn=T|t||#demo pickedt\nmouse=on"},
       {"pickedct", "id=pick\ncolor=live\nkind=You won the knife\ntitle=Simpert picked CT\nsub=Match starts (5)\nbtn=CT|ct|picked|\nbtn=T|t|off|"},
       {"lost", "id=lost\nkind=You lost the knife\ntitle=Team A is picking a side\ntimer=20"},
       {"golive", "id=golive\ncolor=live\nkind=Live\ntitle=Good luck, have fun\nsub=Team A (CT) vs Team B (T)\ncmd=Tech pause|.p\ncmd=Timeout|.tac\ncmd=Call an admin|.admin"},
-      {"pause", "id=pause\ncolor=warn\nkind=Tech pause\ntitle=Team B paused\nsub=Auto unpause (252)\nconfirm=Team A|0|Team B|0\nbtn=Unpause|warn|pulse|#demo waiting\nbw=l\nmouse=on"},
-      {"waiting", "id=pause\ncolor=warn\nkind=Tech pause\ntitle=Team B paused\nsub=Auto unpause (245)\nconfirm=Team A|1|Team B|0\nbtn=Waiting for Team B|ghost|off|\nbw=xl"},
+      {"pause", "id=pause\ncolor=warn\nkind=Tech pause\ntitle=Team B paused\nsub=Auto unpause in 252s\nconfirm=Team A|0|Team B|0\nbtn=Unpause|warn|pulse|#demo waiting\nbw=l\nmouse=on"},
+      {"waiting", "id=pause\ncolor=warn\nkind=Tech pause\ntitle=Team B paused\nsub=Auto unpause in 245s\nconfirm=Team A|1|Team B|0\nbtn=Waiting for Team B|ghost|off|\nbw=xl"},
       {"timeout", "id=tac\nkind=Timeout\ntitle=Team A timeout"},
       {"adminpause", "id=adminpause\ncolor=warn\nkind=Admin pause\ntitle=Paused by an admin"},
       {"vote", "id=gg\ncolor=ban\nkind=Give up vote\ntitle=Give up this map?\ntimer=15\ncounter=2 / 5 yes\nbw=s\nbtn=Yes|danger||#demo voted\nbtn=No|ghost||#demo off\nmouse=on"},
       {"voted", "id=gg\ncolor=ban\nkind=Give up vote\ntitle=Give up this map?\ntimer=11\ncounter=3 / 5 yes\nbw=s\nbtn=Yes|danger|picked|\nbtn=No|ghost|off|"},
       {"chips", "id=gg\ncolor=ban\nkind=Give up vote\ntitle=Give up this map?\ntimer=15\ncounter=2 / 5 yes\nbw=s\nbtn=Yes|danger||.gg\nbtn=No|ghost||\nchips=1\nmouse=on"},
       {"replay", "id=stop\nkind=Replay this round?\ntitle=Team A wants to replay it\ntimer=20\nbw=m\nbtn=Accept|green||#demo off\nbtn=Decline|ghost||#demo off\nmouse=on"},
-      {"missing", "id=missing\ncolor=ban\ntitle=Team B is missing\nsub=Forfeit in (165)"},
+      {"missing", "id=missing\ncolor=ban\ntitle=Team B is missing\nsub=Forfeit in 165s"},
       {"admincall", "id=admincall\nwhere=card\ncolor=ban\nkind=Admin called\ntitle=Oli (Team B) needs an admin\nsub=my game crashed"},
       {"help", "id=help\nkind=Help\ntitle=What do you need?\nbtn=Ready|green||#demo ready\nbtn=Call an admin|ghost||\nbtn=Match info|ghost||#demo info\nbtn=Commands|ghost||#demo cmds\nbtn=Admin|ghost||#demo admin\ncols=3\nbw=m\nclose=Close|\nmouse=on"},
       {"helplive", "id=help\nkind=Help\ntitle=What do you need?\nbtn=Tech pause|ghost||#demo pause\nbtn=Votes|ghost||#demo votes\nbtn=Call an admin|ghost||\nbtn=Match info|ghost||#demo info\nbtn=Commands|ghost||#demo cmds\nbtn=Admin|ghost||#demo admin\ncols=3\nbw=m\nclose=Close|\nmouse=on"},
@@ -1266,7 +1266,7 @@ const std::vector<std::pair<std::string, std::string>>& DemoScreens() {
       {"notimeouts", "id=notice\nwhere=card\ncolor=ban\nkind=Timeout\ntitle=No timeouts left\nsub=Team A used 3 / 3"},
       {"notech", "id=notice\nwhere=card\ncolor=ban\nkind=Tech pause\ntitle=No tech pauses left\nsub=Team A used 3 / 3"},
       {"dropped", "id=dropped\ncolor=warn\nkind=Paused\ntitle=Oli disconnected"},
-      {"missingours", "id=missing\ncolor=ban\ntitle=Your team is missing players\nsub=Forfeit in (165)"},
+      {"missingours", "id=missing\ncolor=ban\ntitle=Your team is missing players\nsub=Forfeit in 165s"},
       {"unpausing", "id=unpause\ncolor=live\nkind=Both teams ready\ntitle=Unpausing (3)"},
       {"admincalled", "id=notice\nwhere=card\ncolor=warn\nkind=Admin\ntitle=An admin is on the way"},
       {"toosoon", "id=notice\nwhere=card\ncolor=muted\nkind=Admin\ntitle=Already called\nsub=Again in (42)"},
