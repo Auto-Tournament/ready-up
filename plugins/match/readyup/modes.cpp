@@ -298,6 +298,8 @@ static void ApplyKnifeRulesLocked(State& st) {
       "mp_respawn_on_death_ct 0",
       "mp_respawn_on_death_t 0",
       "mp_buy_anywhere 0",
+      "mp_respawn_immunitytime 0",
+      "mp_buy_during_immunity 0",
       "mp_buytime 0",
       "mp_startmoney 0",
       "mp_maxmoney 0",
@@ -863,31 +865,11 @@ static bool GoLiveCheckLocked(State& st, const WebhookMatchContext& ctx, std::st
       return false;
     }
   }
-  // Bot fill: a rostered player who has not joined yet is waited for (kBotFillRosterGraceSeconds
-  // from when the team was first seen short), not filled with a bot: a teammate's .r started a
-  // shuffle match while the other player was still connecting (2026-10-15). Past the grace a bot
-  // plays for the no-show; an admin start is the way on sooner.
-  static std::chrono::steady_clock::time_point shortSince[2];
-  static bool shortSeen[2] = {false, false};
-  if (ctx.bot_fill && wasEmpty) shortSeen[0] = shortSeen[1] = false;
   for (int t = 0; t < 2; ++t) {
-    // Bot fill: bots are always ready, so only the connected humans hold a team up.
+    // Bot fill: bots are always ready, so only the connected humans hold a team up. A rostered
+    // player who is not on the server is not waited for once everyone here is ready: a bot team's
+    // placeholder player never joins, so every bot-fill match needed an admin start (2026-11-03).
     if (ctx.bot_fill) {
-      if (present[t] < roster[t]) {
-        const auto nowTp = std::chrono::steady_clock::now();
-        if (!shortSeen[t]) {
-          shortSeen[t] = true;
-          shortSince[t] = nowTp;
-        }
-        const double waited = std::chrono::duration<double>(nowTp - shortSince[t]).count();
-        if (waited < kBotFillRosterGraceSeconds) {
-          *why = std::string(t == 0 ? "team1" : "team2") + ": waiting for " +
-                 std::to_string(roster[t] - present[t]) + " rostered player(s) to join";
-          return false;
-        }
-      } else {
-        shortSeen[t] = false;
-      }
       if (!BotFillTeamReady(present[t], ready[t])) {
         *why = std::string(t == 0 ? "team1" : "team2") + ": " + std::to_string(ready[t]) + "/" +
                std::to_string(present[t]) + " connected players ready";
@@ -986,6 +968,9 @@ static void ApplyWarmupRulesLocked(State& st) {
   if (EnqueueServerCommand(startMoneyCmd.c_str())) any = true;
   if (EnqueueServerCommand(maxMoneyCmd.c_str())) any = true;
   if (EnqueueServerCommand(buyAny.c_str())) any = true;
+  // Spawn protection, buying allowed (warmup.cfg: a spawn killer can't keep anyone from Ready).
+  if (EnqueueServerCommand("mp_respawn_immunitytime 20")) any = true;
+  if (EnqueueServerCommand("mp_buy_during_immunity 1")) any = true;
   // Warmup runs for hours: nothing drops on death (weapon_cleanup.h).
   for (const char* c : kWarmupNoDropCmds) {
     if (EnqueueServerCommand(c)) any = true;
@@ -1043,6 +1028,9 @@ static void ApplyScrimWarmupRulesLocked(State& st) {
       "mp_respawn_on_death_ct 1",
       "mp_respawn_on_death_t 1",
       "mp_buy_anywhere 1",
+      // Spawn protection, buying allowed (warmup.cfg: a spawn killer can't keep anyone from Ready).
+      "mp_respawn_immunitytime 20",
+      "mp_buy_during_immunity 1",
       "mp_buytime 9999",
       "mp_startmoney 16000",
       "mp_maxmoney 16000",
@@ -1217,6 +1205,8 @@ static void ApplyLiveRulesAndRestartLocked(State& st, const WebhookMatchContext&
         "mp_respawn_on_death_t 0",
         "mp_ignore_round_win_conditions 0",
         "mp_buy_anywhere 0",
+        "mp_respawn_immunitytime 0",
+        "mp_buy_during_immunity 0",
         "mp_buytime 20",
         "sv_infinite_ammo 0",
         "sv_cheats 0",
@@ -1256,6 +1246,8 @@ static bool ResetServerRulesAndRestartLocked(State& st) {
       "mp_respawn_on_death_t 0",
       "mp_ignore_round_win_conditions 0",
       "mp_buy_anywhere 0",
+      "mp_respawn_immunitytime 0",
+      "mp_buy_during_immunity 0",
       "mp_buytime 20",
       "sv_infinite_ammo 0",
       "sv_cheats 0",
@@ -1393,6 +1385,8 @@ static void ResetPracticeRulesLocked(State& st) {
       "mp_respawn_on_death_t 0",
       "mp_ignore_round_win_conditions 0",
       "mp_buy_anywhere 0",
+      "mp_respawn_immunitytime 0",
+      "mp_buy_during_immunity 0",
       "mp_buytime 20",
       "sv_infinite_ammo 0",
       "sv_cheats 0",

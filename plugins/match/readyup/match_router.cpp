@@ -643,7 +643,8 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       if (wasScrimWarmup) {
         // Leave the paused CS2 warmup so the server really is plain CS2 again.
         const char* cmds[] = {"mp_warmup_pausetimer 0", "mp_warmup_end", "mp_buy_anywhere 0", "mp_buytime 20",
-                              "mp_respawn_on_death_ct 0", "mp_respawn_on_death_t 0"};
+                              "mp_respawn_on_death_ct 0", "mp_respawn_on_death_t 0",
+                              "mp_respawn_immunitytime 0", "mp_buy_during_immunity 0"};
         for (const char* c : cmds) (void)EnqueueServerCommand(c);
         for (const char* c : kLiveDropCmds) (void)EnqueueServerCommand(c);  // weapon_cleanup.h
       }

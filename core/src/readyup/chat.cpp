@@ -174,13 +174,13 @@ static void SendToChatImpl(const char* msg) {
   // CS2 / CounterStrikeSharp-style chat color control bytes.
   const std::string coloredPrefix = ChatPrefix() + " ";
   Debug("chat: SendToChatImpl msg=\"%s\"\n", s.c_str());
-  SendSayPayload(coloredPrefix + HighlightChatText(s));
+  SendSayPayload(coloredPrefix + HighlightChatText(WithoutReadyUpLeadIn(s)));
 }
 
 void SendImportantToChat(const char* msg) {
   std::string s = Trim(StripNewlines(msg ? msg : ""));
   if (s.empty()) return;
-  const std::string line = ChatPrefix() + " " + std::string(1, ChatColors::Gold) + s;
+  const std::string line = ChatPrefix() + " " + std::string(1, ChatColors::Gold) + WithoutReadyUpLeadIn(s);
   for (int i = 0; i < 3; ++i) SendSayPayload(line);
 }
 
@@ -195,7 +195,7 @@ void SendToChat(const char* msg) {
 
 bool SendToSlotChat(int slot, const char* msg) {
   if (slot < 0 || !msg || !*msg) return false;
-  const std::string p = SanitizeForSay(ChatPrefix() + " " + HighlightChatText(Trim(StripNewlines(msg))));
+  const std::string p = SanitizeForSay(ChatPrefix() + " " + HighlightChatText(WithoutReadyUpLeadIn(Trim(StripNewlines(msg)))));
   return !p.empty() && ClientPrintChat(slot, p.c_str());
 }
 
