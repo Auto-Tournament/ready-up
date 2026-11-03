@@ -880,6 +880,7 @@ applies `patch` when `rev == stored_rev + 1`; on a gap it sends `state.request`.
 | `match_restored` | `{ map_number, round, backup_sha256 }` | restore | failover confirmation |
 | `forfeit` / `gg` | `{ team, reason }` | match | |
 | `admin_called` | `{ call_id, player: { steamid64, name, team: "team1"\|"team2"\|"spectator"\|null, side: "ct"\|"t"\|null }, message, called_at }` | `.admin [message]` (`admin_call.h`, [ADMINS.md](ADMINS.md)) | admin notification; the platform resolves it |
+| `walkover_choice` | `{ player: { steamid64, name }, take }` | `.walkover` / `.play` (or the HUD buttons) from a full team's owner or captain while `rules.full_team.walkover` is open (`walkover.h`) | the platform takes the walkover (`take: true`) or lets the match go ahead |
 | `chat` | `{ player: { steamid64, name, team: "team1"\|"team2"\|null, side: "ct"\|"t"\|"spec" }, message, team_only, at }` | a human's say / say_team that is not a command (`chat_forward.h`); at most 5 lines per player per 5 s, message ≤ 300 characters, `at` Unix ms | match chat for admins |
 | `error` | `{ code, message, fatal }` | any | alert admins |
 
