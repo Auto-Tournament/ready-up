@@ -169,9 +169,10 @@ constexpr int kUsedCols = static_cast<int>(sizeof(kColumns) / sizeof(kColumns[0]
 
 // The look, as utility classes on #at_end / #at_ecard (hud/styles/at_kit.css, end screen utilities).
 constexpr const char* kScale = "scale-90";
-// No world blur or dimming: the card is solid on its own, the game stays clear around it (2026-10-27).
+// No world blur: the game is hidden behind the brand background, so only our leaderboard shows
+// (2026-11-03; before, the card sat on the clear game).
 constexpr const char* kBlur = "blur-0";
-constexpr const char* kDim = "dim-0";
+constexpr const char* kDim = "dim-solid";
 constexpr const char* kBg = "";  // none: the card's background is hardcoded in at_kit.css (bg-* had no effect)
 // No cursor: players move, look around and type in chat ("gg") while it is up. Hover tooltips did
 // not show in CS2, so nothing needs the cursor (2026-10-27).
@@ -292,7 +293,7 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
     w.Class(ALL, "at_end", c, std::string(c) == kScale);
   }
   for (const char* c : {"blur-0", "blur-1", "blur-2", "blur-3"}) w.Class(ALL, "at_end", c, std::string(c) == kBlur);
-  for (const char* c : {"dim-0", "dim-1", "dim-2", "dim-3"}) w.Class(ALL, "at_end", c, std::string(c) == kDim);
+  for (const char* c : {"dim-0", "dim-1", "dim-2", "dim-3", "dim-solid"}) w.Class(ALL, "at_end", c, std::string(c) == kDim);
   for (int p = 0; p <= 100; p += 5) {
     const std::string bg = "bg-" + std::to_string(p);
     w.Class(ALL, "at_ecard", bg.c_str(), bg == kBg);

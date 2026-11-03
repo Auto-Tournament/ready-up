@@ -4,8 +4,9 @@
 // HUD addon). Design: canvas "Auto Tournament HUD kit", page In game (v3), "Leaderboard v4".
 //
 // Each player sees it from their own side: "You won!" / "You lost" / "Draw" (spectators: who won),
-// their row marked, their team's rounds in the accent on the round strip. The world is blurred and
-// the cursor is held while it is up, so the column heads explain themselves on hover.
+// their row marked, their team's rounds in the accent on the round strip. The game is hidden behind
+// the brand background while it is up: after a map until the next one loads, after the series
+// until the server sends everyone off ("Server closes").
 
 #include "readyup/match_stats.h"
 
