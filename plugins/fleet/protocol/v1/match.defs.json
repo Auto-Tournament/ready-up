@@ -419,7 +419,8 @@
               "description": "Unix ms; 0 = no timer"
             },
             "walkover": {
-              "type": "object",
+              "type": ["object", "null"],
+              "description": "the open choice; null in a set_rules patch closes it",
               "additionalProperties": false,
               "required": [
                 "short",
