@@ -42,8 +42,7 @@ struct KnownHuman {
 // say vs say_team all come from that one block.
 std::optional<ChatLine> ParseChatLogLine(const std::string& line, const std::vector<KnownHuman>& humans);
 
-// A chat command (`.ready`, `!admin`): never forwarded. Leading spaces are ignored. `.walkover`
-// and `.play` are the platform's (the full team's walkover choice), so they are forwarded.
+// A chat command (`.ready`, `!admin`): never forwarded. Leading spaces are ignored.
 bool IsCommand(const std::string& message);
 
 // At most `maxLines` per player per `windowSeconds` (sliding window).
