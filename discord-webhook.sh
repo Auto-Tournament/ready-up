@@ -89,7 +89,12 @@ echo ""
 get_changelog() {
   local current_tag="v${NEW_VERSION}"
   local prev_tag
-  prev_tag="$(git tag --sort=-v:refname | grep -vxF "$current_tag" | sed -n '1p' || true)"
+  # A stable release counts from the previous stable one: its betas often share its commit, so
+  # "since the last tag" would list nothing.
+  local tags
+  tags="$(git tag --sort=-v:refname | grep -vxF "$current_tag" || true)"
+  if [[ "$NEW_VERSION" != *-* ]]; then tags="$(grep -vF -- '-' <<<"$tags" || true)"; fi
+  prev_tag="$(sed -n '1p' <<<"$tags")"
 
   # Stop at the release tag when it exists (HEAD may be past it), otherwise at HEAD.
   local end="HEAD"
