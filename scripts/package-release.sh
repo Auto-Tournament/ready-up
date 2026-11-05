@@ -148,14 +148,15 @@ stage_component midas "Fun: weapons picked up by chosen players turn gold (off b
 # Steam Workshop addons (downloaded, mounted with every map change, their models precached). Idle
 # without workshop_addons: the template is all comments, so it downloads nothing and never reloads
 # the map. Its gamedata fragment ships next to the core's engine-surface.json, like the skins one.
-stage_component addons "Steam Workshop addons for the server (idle until workshop_addons is set in addons.cfg)" \
+stage_component addons "Steam Workshop addons for the server: the Auto Tournament HUD addon every player needs, plus workshop_addons in addons.cfg (always on)" \
   "$BUILD/plugins/addons.so:plugins/addons.so:755" \
   "$ROOT_DIR/plugins/addons/needs.json:plugins/addons.needs.json" \
   "$ROOT_DIR/gamedata/engine-surface.addons.json:bin/linuxsteamrt64/engine-surface.addons.json" \
   "$ROOT_DIR/cfg/ReadyUp/addons.cfg:cfg-templates/ReadyUp/addons.cfg"
 
 # Custom in-game HUDs (custom_hud_layout) for the Auto Tournament HUD workshop addon (repo hud/).
-# Draws only for players who have the addon; the match flow keeps its chat / center-HTML version.
+# Every player needs the addon: the addons plugin mounts it on every server and is always on
+# (the core never disables it, the installer always installs it with core).
 stage_component hud "In-game HUD card for Auto Tournament servers (needs the Auto Tournament HUD workshop addon)"   "$BUILD/plugins/hud.so:plugins/hud.so:755"   "$ROOT_DIR/plugins/hud/needs.json:plugins/hud.needs.json"   "$ROOT_DIR/gamedata/engine-surface.hud.json:bin/linuxsteamrt64/engine-surface.hud.json"
 
 # Server basics apart from the match flow: admins (admins.json) and map change / reload / restart.
@@ -263,7 +264,7 @@ make_zip "ready-up-hud-$SUFFIX" hud
 make_zip "ready-up-practice-$SUFFIX" practice
 make_zip "ready-up-essentials-plugin-$SUFFIX" essentials
 make_zip "ready-up-fleet-$SUFFIX" fleet
-make_zip "ready-up-essentials-$SUFFIX" core essentials match fleet practice mapvote hud
+make_zip "ready-up-essentials-$SUFFIX" core essentials match fleet practice mapvote hud addons
 full=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community movement addons tv hud)
 [[ -d "$WORK/c/tools" ]] && full+=(tools)
 make_zip "ready-up-full-$SUFFIX" "${full[@]}"

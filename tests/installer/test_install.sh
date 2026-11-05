@@ -127,7 +127,7 @@ for mm in 0 1; do
   check "mapvote.so installed (essentials bundle)" test -x "$CS/readyup/plugins/mapvote.so"
   check "prac.cfg seeded by the practice component" test -f "$CS/cfg/ReadyUp/prac.cfg"
   check "practice.cfg seeded, all comments (always off)" idle_cfg "$CS/cfg/ReadyUp/practice.cfg"
-  check "installed.json lists core essentials fleet match practice" test "$(installed "$S")" = "core essentials fleet hud mapvote match practice"
+  check "installed.json lists addons core essentials fleet match practice" test "$(installed "$S")" = "addons core essentials fleet hud mapvote match practice"
   for gi in gameinfo.gi gameinfo_branchspecific.gi; do
     check "$gi: exactly one readyup line" test "$(count_ru "$CS/$gi")" = 1
     check "$gi: readyup before Game csgo" test "$(line_of "$CS/$gi" csgo/readyup)" -lt "$(line_of "$CS/$gi" csgo)"
@@ -169,7 +169,7 @@ run --dir "$S" --remove skins >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove s
 check "skins.so removed" test ! -e "$CS/readyup/plugins/skins.so"
 check "skins gamedata removed" test ! -e "$CS/readyup/bin/linuxsteamrt64/engine-surface.skins.json"
 check "core still installed" test -f "$CS/readyup/bin/linuxsteamrt64/libserver.so"
-check "installed.json back to core essentials fleet match practice" test "$(installed "$S")" = "core essentials fleet hud mapvote match practice"
+check "installed.json back to core essentials fleet match practice" test "$(installed "$S")" = "addons core essentials fleet hud mapvote match practice"
 
 echo "== add midas from the full zip (off by default), then remove it"
 run --dir "$S" --zip "$FULL" midas >"$T/out" 2>&1 || { cat "$T/out"; fail "midas install exited non-zero"; }
@@ -191,14 +191,13 @@ check "deathmatch.cfg seeded, all comments (defaults)" idle_cfg "$CS/cfg/ReadyUp
 run --dir "$S" --remove deathmatch >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove deathmatch exited non-zero"; }
 check "deathmatch.so removed" test ! -e "$CS/readyup/plugins/deathmatch.so"
 
-echo "== add addons from the full zip (idle until workshop_addons is set), then remove it"
-run --dir "$S" --zip "$FULL" addons >"$T/out" 2>&1 || { cat "$T/out"; fail "addons install exited non-zero"; }
+echo "== addons comes with core (the HUD addon every player needs) and can't be removed"
 check "addons.so installed" test -x "$CS/readyup/plugins/addons.so"
 check "addons gamedata next to the core" test -f "$CS/readyup/bin/linuxsteamrt64/engine-surface.addons.json"
 check "addons.cfg seeded, all comments (no workshop_addons)" idle_cfg "$CS/cfg/ReadyUp/addons.cfg"
-run --dir "$S" --remove addons >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove addons exited non-zero"; }
-check "addons.so removed" test ! -e "$CS/readyup/plugins/addons.so"
-check "addons gamedata removed" test ! -e "$CS/readyup/bin/linuxsteamrt64/engine-surface.addons.json"
+if run --dir "$S" --remove addons >"$T/out" 2>&1; then fail "--remove addons should be refused"; fi
+check "--remove addons says why" grep -q "addons can't be removed" "$T/out"
+check "addons.so still there" test -x "$CS/readyup/plugins/addons.so"
 
 echo "== remove fleet (its data dir and user fleet.cfg stay), add it back from the fleet zip"
 mkdir -p "$CS/readyup/plugins/fleet" && echo '{}' >"$CS/readyup/plugins/fleet/credentials.json"
@@ -207,11 +206,11 @@ run --dir "$S" --remove fleet >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove f
 check "fleet.so removed" test ! -e "$CS/readyup/plugins/fleet.so"
 check "fleet credentials kept" test -f "$CS/readyup/plugins/fleet/credentials.json"
 check "user fleet.cfg kept" grep -q "t.example.com" "$CS/cfg/ReadyUp/fleet.cfg"
-check "installed.json is core essentials match practice" test "$(installed "$S")" = "core essentials hud mapvote match practice"
+check "installed.json is core essentials match practice" test "$(installed "$S")" = "addons core essentials hud mapvote match practice"
 run --dir "$S" --zip "$(ls "$DIST"/ready-up-fleet-*.zip)" fleet >"$T/out" 2>&1 || { cat "$T/out"; fail "fleet install exited non-zero"; }
 check "fleet.so back" test -x "$CS/readyup/plugins/fleet.so"
 check "user fleet.cfg not overwritten" grep -q "t.example.com" "$CS/cfg/ReadyUp/fleet.cfg"
-check "installed.json is core essentials fleet match practice again" test "$(installed "$S")" = "core essentials fleet hud mapvote match practice"
+check "installed.json is core essentials fleet match practice again" test "$(installed "$S")" = "addons core essentials fleet hud mapvote match practice"
 
 echo "== older install (core + match, before practice / essentials were split out) -> update adds both"
 S3="$T/server-old"
@@ -224,7 +223,7 @@ run --dir "$S3" --zip "$ESS" -y >"$T/out" 2>&1 || { cat "$T/out"; fail "update o
 check "update added practice.so" test -x "$CS3/readyup/plugins/practice.so"
 check "update added essentials.so" test -x "$CS3/readyup/plugins/essentials.so"
 check "update did not add fleet (not asked for)" test ! -e "$CS3/readyup/plugins/fleet.so"
-check "installed.json is core essentials match practice" test "$(installed "$S3")" = "core essentials match practice"
+check "installed.json is addons core essentials match practice" test "$(installed "$S3")" = "addons core essentials match practice"
 
 echo "== full bundle by name"
 S4="$T/server-full"
@@ -314,7 +313,7 @@ PY
   check "release mode installed core" test -f "$S/game/csgo/readyup/bin/linuxsteamrt64/libserver.so"
   check "release mode: essentials.so from ready-up-essentials-plugin-*" test -x "$S/game/csgo/readyup/plugins/essentials.so"
   check "release mode installed core essentials fleet match practice" \
-    test "$(installed "$S")" = "core essentials fleet hud mapvote match practice"
+    test "$(installed "$S")" = "addons core essentials fleet hud mapvote match practice"
   check "release mode printed the release notes" grep -q "Test release notes line 1" "$T/out"
   # Pretend an older core is installed: the update shows old -> new.
   python3 -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["components"]["core"]="0.0.1"; json.dump(d,open(p,"w"))' \

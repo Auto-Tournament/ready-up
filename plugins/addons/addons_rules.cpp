@@ -52,8 +52,8 @@ Action NextAction(uint32_t s, bool mounted, bool downloadAsked) {
   return Action::kMount;
 }
 
-std::vector<uint64_t> WithHudAddon(std::vector<uint64_t> ids, bool hudLoaded) {
-  if (hudLoaded && std::find(ids.begin(), ids.end(), kHudAddon) == ids.end()) ids.insert(ids.begin(), kHudAddon);
+std::vector<uint64_t> WithHudAddon(std::vector<uint64_t> ids) {
+  if (std::find(ids.begin(), ids.end(), kHudAddon) == ids.end()) ids.insert(ids.begin(), kHudAddon);
   return ids;
 }
 

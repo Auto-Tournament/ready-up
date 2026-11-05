@@ -11,7 +11,7 @@
 #
 # Usage: install.sh [BUNDLE|COMPONENT ...] [options]
 #
-#   essentials   core + essentials + match + fleet + practice + mapvote + hud (default for a fresh install; no skins)
+#   essentials   core + essentials + match + fleet + practice + mapvote + hud + addons (default for a fresh install; no skins)
 #   full         core + essentials + match + fleet + practice + skins + midas + whitelist + deathmatch + mapvote + community + movement + addons + tv + hud
 #   core | match | fleet | practice | skins | hello | midas | whitelist | deathmatch | mapvote | community | movement | addons | tv | hud   single components
 #                (the essentials plugin comes with the bundles; --remove essentials drops it) (core is always included).
@@ -65,7 +65,7 @@ declare -A NOTE=([core]="required" [match]="ready-up, knife, pauses, webhooks"
   [community]=".rank, .top, .speclist and admin .kick"
   [movement]="surf / bhop / kz timers and records (on surf_, bhop_, kz_ maps)"
   [tv]="GOTV broadcast settings, insecure observers for HUD tools, casters (idle until set)"
-  [addons]="Steam Workshop addons (idle until workshop_addons is set)"
+  [addons]="Steam Workshop addons: the Auto Tournament HUD addon every player needs (always installed)"
   [hud]="in-game HUD card (players need the Auto Tournament HUD workshop addon)")
 
 DIR="."
@@ -120,7 +120,7 @@ while [[ $# -gt 0 ]]; do
       if [[ -f "$0" ]]; then usage; else say "See https://github.com/$REPO#install"; fi
       exit 0
       ;;
-    essentials) WANT+=(core essentials match fleet practice mapvote hud); BUNDLE_FLEET=1; shift ;;
+    essentials) WANT+=(core essentials match fleet practice mapvote hud addons); BUNDLE_FLEET=1; shift ;;
     full) WANT+=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community movement addons tv hud); WANT_FULL=1; BUNDLE_FLEET=1; shift ;;
     core | match | fleet | skins | hello | midas | whitelist | practice | deathmatch | mapvote | community | movement | addons | tv | hud) WANT+=("$1"); shift ;;
     *) die "unknown argument: $1 (see --help)" ;;
@@ -138,7 +138,7 @@ case "$ACCEPT_LICENSE" in
   *) die "--accept-license must be noncommercial or commercial (got: $ACCEPT_LICENSE)" ;;
 esac
 for c in "${REMOVE[@]}"; do
-  case "$c" in match | fleet | skins | hello | midas | whitelist | practice | essentials | deathmatch | mapvote | community | movement | addons | tv | hud) ;; core) die "core can't be removed on its own; use --uninstall" ;; *) die "unknown component: $c" ;; esac
+  case "$c" in match | fleet | skins | hello | midas | whitelist | practice | essentials | deathmatch | mapvote | community | movement | tv | hud) ;; core) die "core can't be removed on its own; use --uninstall" ;; addons) die "addons can't be removed: it mounts the HUD addon every player needs" ;; *) die "unknown component: $c" ;; esac
 done
 
 # ---- requirements ---------------------------------------------------------------------------
@@ -728,9 +728,9 @@ if [[ $TTY_OK -eq 1 ]]; then
   say "${B}Ready Up${N} ${D}installer · $CSGO${N}" >&3
   if [[ "${TERM:-dumb}" == "dumb" || -n "${READYUP_PLAIN:-}" ]]; then plain_select; else tui_select; fi
   for c in "${COMPONENTS[@]}"; do
-    if [[ "${SEL[$c]}" == 1 ]]; then
+    if [[ "${SEL[$c]}" == 1 || ( "$c" == addons && "${SEL[core]}" == 1 ) ]]; then  # addons comes with core
       TO_INSTALL+=("$c")
-    elif [[ -n "${INSTALLED[$c]:-}" ]]; then
+    elif [[ -n "${INSTALLED[$c]:-}" && "$c" != addons ]]; then
       TO_REMOVE+=("$c")
     fi
   done
@@ -746,7 +746,8 @@ else
   elif [[ ${#REMOVE[@]} -eq 0 ]]; then
     for c in "${COMPONENTS[@]}"; do [[ "${SEL[$c]}" == 1 ]] && pick[$c]=1; done
   fi
-  if [[ ${#pick[@]} -gt 0 || ${#INSTALLED[@]} -eq 0 ]]; then pick[core]=1; fi
+  # addons comes with core: it mounts the HUD addon every player needs (always on).
+  if [[ ${#pick[@]} -gt 0 || ${#INSTALLED[@]} -eq 0 ]]; then pick[core]=1; pick[addons]=1; fi
   for c in "${COMPONENTS[@]}"; do [[ -n "${pick[$c]:-}" ]] && TO_INSTALL+=("$c"); done
   TO_REMOVE=("${REMOVE[@]}")
   say "${B}Ready Up${N} ${D}installer · $CSGO${N}"
@@ -758,6 +759,7 @@ keep=()
 for c in "${TO_INSTALL[@]}"; do
   if [[ -z "${AVAIL[$c]:-}" ]]; then
     [[ ( "$c" == fleet || "$c" == practice || "$c" == essentials ) && $BUNDLE_FLEET -eq 1 ]] && continue
+    [[ "$c" == addons ]] && continue  # a single component zip, or a release from before addons shipped
     [[ "$c" == core && -n "${INSTALLED[core]:-}" ]] && continue
   fi
   keep+=("$c")

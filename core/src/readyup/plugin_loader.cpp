@@ -1132,7 +1132,10 @@ void LoadAllFromDir() {
   closedir(d);
   std::sort(names.begin(), names.end());
   Print("plugin: %zu plugin file(s) in %s\n", names.size(), dir.c_str());
-  const std::set<std::string> disabled = LoadDisabled(PluginStatePath(dir));
+  std::set<std::string> disabled = LoadDisabled(PluginStatePath(dir));
+  // addons mounts the Auto Tournament HUD addon every player needs: always on, whatever
+  // plugins.json says.
+  if (disabled.erase("addons")) Print("plugin: addons is always on (it mounts the HUD addon every player needs)\n");
   // needs.json first, for every plugin, so the list of plugins this build cannot run is complete
   // before any plugin loads (fleet reports it in hello).
   std::set<std::string> unmet;
@@ -1161,6 +1164,10 @@ void RunOp(const PendingOp& op) {
     const std::string path = PluginStatePath(PluginsDir());
     std::set<std::string> disabled = LoadDisabled(path);
     const bool disable = op.verb == "disable";
+    if (disable && op.name == "addons") {
+      Reply("addons is always on: it mounts the HUD addon every player needs", op.replyToChat, op.slot);
+      return;
+    }
     if (disable) disabled.insert(op.name);
     else disabled.erase(op.name);
     if (!SaveDisabled(path, disabled)) {
