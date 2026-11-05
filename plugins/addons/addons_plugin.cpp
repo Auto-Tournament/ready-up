@@ -1,7 +1,8 @@
 // readyup-addons (plugins/addons, addons.so): Steam Workshop addons for the server.
 //
-// The server downloads the addons listed in cfg/ReadyUp/addons.cfg (`workshop_addons=<id>,...`)
-// and the engine mounts them on the next map change, like it mounts a workshop map. Making
+// The server downloads the addons listed in cfg/ReadyUp/addons.cfg (`workshop_addons=<id>,...`),
+// plus the Auto Tournament HUD addon every player needs (addons_rules.h kHudAddon), and the
+// engine mounts them on the next map change, like it mounts a workshop map. Making
 // connecting players download them comes next (the connect / signon flow).
 //
 // Engine access, all verified before use:
@@ -428,7 +429,8 @@ void OnTick(void*, const ru_tick_info* t) {
   if (t->now - g_lastConfig >= 5.0) {
     g_lastConfig = t->now;
     int bad = 0;
-    auto ids = ParseIds(ConfigValue("workshop_addons"), &bad);
+    // The HUD addon, which every player needs, first.
+    auto ids = WithHudAddon(ParseIds(ConfigValue("workshop_addons"), &bad));
     if (ids != g_ids) {
       g_ids = std::move(ids);
       ru_logf(g_api, RU_LOG_INFO, "workshop_addons: %zu addon(s)%s", g_ids.size(), bad ? " (some entries are not workshop ids)" : "");

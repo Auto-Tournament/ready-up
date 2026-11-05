@@ -11,9 +11,9 @@
 #   - match / essentials / full contain plugins/match.so (+ the cfg/ReadyUp templates); the core
 #     zip does not, and its libserver.so has no match flow in it (it must run without match.so)
 #   - practice / essentials / full contain engine-surface.practice.json (grenade spawning); core does not
-#   - addons / full contain plugins/addons.so + engine-surface.addons.json + an all-comments
-#     addons.cfg template (no workshop_addons: nothing downloaded, no map reload); core /
-#     essentials do not, and match does not ship addons.cfg
+#   - addons / essentials / full contain plugins/addons.so + engine-surface.addons.json + an
+#     all-comments addons.cfg template (no workshop_addons: it mounts only the HUD addon); core does
+#     not (the installer adds the addons component to every install), and match does not ship addons.cfg
 #
 #   scripts/ci/check-bundles.sh <dist-dir> <version>
 set -euo pipefail
@@ -151,7 +151,7 @@ echo "core:";       no_skins core;       check_manifests "$WORK/core" core; core
 echo "match:";      no_skins match;      check_manifests "$WORK/match" match; has_match match
 echo "fleet:";      no_skins fleet;      check_manifests "$WORK/fleet" fleet; has_fleet fleet
 if [[ -e "$WORK/fleet/readyup/plugins/match.so" ]]; then bad "fleet contains match.so"; else ok "fleet: no match.so"; fi
-echo "essentials:"; no_skins essentials; check_manifests "$WORK/essentials" core essentials match fleet practice mapvote hud; has_match essentials; has_fleet essentials; has_notices essentials
+echo "essentials:"; no_skins essentials; check_manifests "$WORK/essentials" core essentials match fleet practice mapvote hud addons; has_match essentials; has_addons essentials; has_fleet essentials; has_notices essentials
 echo "hello:";      no_skins hello;      check_manifests "$WORK/hello" hello
 echo "midas:";      no_skins midas;      check_manifests "$WORK/midas" midas
 echo "addons:";     no_skins addons;     check_manifests "$WORK/addons" addons; has_addons addons
@@ -172,8 +172,8 @@ if [[ -e "$WORK/core/readyup/bin/linuxsteamrt64/engine-surface.practice.json" ]]
 for b in core essentials; do
   if [[ -e "$WORK/$b/readyup/plugins/midas.so" ]]; then bad "$b contains midas.so"; else ok "$b: no midas.so"; fi
   if [[ -e "$WORK/$b/readyup/plugins/deathmatch.so" ]]; then bad "$b contains deathmatch.so"; else ok "$b: no deathmatch.so"; fi
-  if [[ -e "$WORK/$b/readyup/plugins/addons.so" ]]; then bad "$b contains addons.so"; else ok "$b: no addons.so"; fi
 done
+if [[ -e "$WORK/core/readyup/plugins/addons.so" ]]; then bad "core contains addons.so"; else ok "core: no addons.so"; fi
 if [[ -e "$WORK/match/readyup/cfg-templates/ReadyUp/deathmatch.cfg" ]]; then bad "match ships deathmatch.cfg"; else ok "match: no deathmatch.cfg"; fi
 if [[ -e "$WORK/match/readyup/cfg-templates/ReadyUp/mapvote.cfg" ]]; then bad "match ships mapvote.cfg"; else ok "match: no mapvote.cfg"; fi
 if [[ -e "$WORK/essentials/readyup/plugins/mapvote.so" ]]; then ok "essentials has mapvote.so"; else bad "essentials lacks mapvote.so"; fi
