@@ -379,4 +379,6 @@ jobs:
 
       - name: Announce on Discord
         if: env.DISCORD_WEBHOOK_URL != ''
-        run: ./discord-webhook.sh "${{ needs.build.outputs.version }}" || echo "::warning::Discord announcement failed"
+        # No `|| echo`: a failed post is a red step, not a warning nobody sees (it failed on every
+        # release until 0.1.0 because the script was not executable).
+        run: bash ./discord-webhook.sh "${{ needs.build.outputs.version }}"
