@@ -6,6 +6,7 @@
 #include "readyup/match_router.h"
 
 #include "readyup/admin_call.h"
+#include "readyup/walkover.h"
 #include "readyup/admin_check.h"
 #include "readyup/coach.h"
 #include "readyup/config.h"
@@ -145,7 +146,7 @@ const std::vector<std::string>& MatchPlayerChatCommands() {
       ".r",    ".ready", ".unready", ".ur",   ".notready", ".nr",    ".pause", ".p",     ".tech",
       ".tac",  ".forceready", ".forcepause", ".fp", ".forceunpause", ".fup",
       ".unpause", ".up", ".gg",      ".ff",   ".forfeit",  ".stay",  ".switch", ".swap", ".ct",
-      ".t",    ".help",  ".stop", ".admin", ".restore",
+      ".t",    ".help",  ".stop", ".admin", ".restore", ".walkover", ".play",
       // Admin shortcuts (match_settings.h, `.ru match ...`); `.settings` is for anyone.
       ".settings", ".readyrequired", ".playout", ".roundknife", ".rk", ".spec", ".whitelist", ".start", ".forcestart",
       ".restart", ".rr", ".endmatch", ".forceend", ".team1", ".team2", ".asay",
@@ -174,6 +175,12 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   if (first == ".admin") {
     // Anyone (roster or not, any mode): admin_call.h.
     AdminCallCommand(steamid64, playerName, text);
+    return;
+  }
+
+  if (first == ".walkover" || first == ".play") {
+    // The full team's choice after the platform's full-team timer: walkover.h.
+    WalkoverCommand(steamid64, playerName, first == ".walkover", slot);
     return;
   }
 

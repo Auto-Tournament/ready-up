@@ -7,6 +7,8 @@
 set(MATCH_SOURCES
   readyup/admin_call.cpp
   readyup/admin_call_logic.cpp
+  readyup/walkover.cpp
+  readyup/walkover_logic.cpp
   readyup/admin_check.cpp
   readyup/at_payloads.cpp
   readyup/backup_files.cpp
@@ -270,6 +272,13 @@ add_executable(match_chat_forward_test tests/chat_forward_test.cpp readyup/chat_
 target_include_directories(match_chat_forward_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(match_chat_forward_test PRIVATE -Wall -Wextra)
 add_test(NAME match_chat_forward COMMAND match_chat_forward_test)
+
+# The walkover choice's HUD screen and event data (readyup/walkover_logic.h) (ctest `match_walkover`).
+add_executable(match_walkover_test tests/walkover_test.cpp readyup/walkover_logic.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp)
+target_include_directories(match_walkover_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
+target_compile_options(match_walkover_test PRIVATE -Wall -Wextra)
+add_test(NAME match_walkover COMMAND match_walkover_test)
 
 # Roster display names (readyup/roster_names_rules.h): name sanitizing, when the feature is on, the
 # name a player gets, write / restore decisions; the match config `roster_names` rule and coach names
