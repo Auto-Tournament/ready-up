@@ -1,5 +1,7 @@
 #include "readyup/damage_ledger.h"
 
+#include "readyup/text.h"
+
 #include <algorithm>
 
 namespace readyup {
@@ -35,16 +37,17 @@ DamageLedger::Pair DamageLedger::Dealt(int attacker, int victim) const {
 }
 
 std::vector<std::string> FormatDamageReport(const DamageParticipant& self, const std::vector<DamageParticipant>& players,
-                                            const DamageLedger& ledger) {
+                                            const DamageLedger& ledger, const std::string& lang) {
   std::vector<std::string> out;
   if (self.team != 2 && self.team != 3) return out;
   for (const auto& o : players) {
     if (o.key == self.key || (o.team != 2 && o.team != 3) || o.team == self.team) continue;
     const auto to = ledger.Dealt(self.key, o.key);
     const auto from = ledger.Dealt(o.key, self.key);
-    out.push_back("Given: " + std::to_string(to.dmg) + " in " + std::to_string(to.hits) + " | Taken: " +
-                  std::to_string(from.dmg) + " in " + std::to_string(from.hits) + " \xE2\x80\x94 " + o.name + " (" +
-                  std::to_string(ledger.Health(o.key)) + " hp)");
+    out.push_back(text::ForLang(lang, "dmg.line",
+                                {{"given", std::to_string(to.dmg)}, {"given_hits", std::to_string(to.hits)},
+                                 {"taken", std::to_string(from.dmg)}, {"taken_hits", std::to_string(from.hits)},
+                                 {"name", o.name}, {"hp", std::to_string(ledger.Health(o.key))}}));
   }
   return out;
 }

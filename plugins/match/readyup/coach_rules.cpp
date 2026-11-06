@@ -35,18 +35,17 @@ std::string CoachTeamLabel(int team, const std::string& team1Name, const std::st
 CoachDecision DecideCoach(const CoachRequest& r, const std::string& team1Name, const std::string& team2Name) {
   CoachDecision d;
   auto label = [&](int team) { return CoachTeamLabel(team, team1Name, team2Name); };
-  auto refuse = [&](std::string why) {
+  auto refuse = [&](std::string key, text::Args args = {}) {
     d.ok = false;
     d.team = 0;
-    d.reason = std::move(why);
+    d.reason = {std::move(key), std::move(args)};
     return d;
   };
 
-  if (!r.coaching_possible) return refuse("coaching needs a match or a scrim (not in practice or idle mode)");
-  if (!r.admitted) return refuse("coaches are not admitted in this match (online, lan false, coaches_online false)");
+  if (!r.coaching_possible) return refuse("coach.no_match");
+  if (!r.admitted) return refuse("coach.not_admitted");
   if (r.roster_team == 1 || r.roster_team == 2) {
-    return refuse((r.by_admin ? std::string("they are") : std::string("you are")) + " on " + label(r.roster_team) +
-                  "'s roster: players cannot coach");
+    return refuse(r.by_admin ? "coach.on_roster_they" : "coach.on_roster_you", {{"team", label(r.roster_team)}});
   }
 
   int target = 0;
@@ -60,14 +59,14 @@ CoachDecision DecideCoach(const CoachRequest& r, const std::string& team1Name, c
       break;
     case CoachArg::Invalid: break;
   }
-  if (target == 0) return refuse(r.by_admin ? "usage: ru match coach <player> team1|team2|ct|t" : "usage: .coach ct|t");
+  if (target == 0) return refuse(r.by_admin ? "coach.usage_admin" : "coach.usage");
 
   const bool listedForTarget = r.listed && (r.listed_team == 0 || r.listed_team == target);
   if (r.listed && r.listed_team != 0 && r.listed_team != target && !r.by_admin) {
-    return refuse("you are listed as " + label(r.listed_team) + "'s coach");
+    return refuse("coach.listed_as", {{"team", label(r.listed_team)}});
   }
   if (!r.listed && !r.scrim && !r.by_admin) {
-    return refuse("only the coaches in the match config can coach (an admin can add you: .admin)");
+    return refuse("coach.config_only");
   }
 
   if (r.current_team == target) {
@@ -80,7 +79,7 @@ CoachDecision DecideCoach(const CoachRequest& r, const std::string& team1Name, c
   if (!listedForTarget && r.per_team_limit > 0) {
     const int n = target == 1 ? r.coaches_team1 : r.coaches_team2;
     if (n >= r.per_team_limit) {
-      return refuse(label(target) + " already has " + std::to_string(n) + " coach" + (n == 1 ? "" : "es"));
+      return refuse("coach.team_full", {{"team", label(target)}, {"count", std::to_string(n)}});
     }
   }
   d.ok = true;

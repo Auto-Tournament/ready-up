@@ -21,7 +21,7 @@ struct WalkoverView {
 // The screen for one viewer: the choice (buttons, cursor forced on: it can't be skipped) for a
 // chooser, "your captain chooses" for the rest of the full team, the wait for the short team and
 // spectators.
-std::string WalkoverSpec(const WalkoverView& v);
+std::string WalkoverSpec(const WalkoverView& v, const std::string& lang);
 
 // Seconds until `untilMs` (unix ms) from `nowMs`, at least 0; -1 when `untilMs` is 0 (none).
 long long SecondsUntil(long long untilMs, long long nowMs);

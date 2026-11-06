@@ -64,23 +64,23 @@ static void TestReport() {
   l.OnHurt(2, 1, 5, 0);     // team damage on a dead player: not in the report either way
   const std::vector<DamageParticipant> players = {
       {1, "Me", 3}, {2, "Mate", 3}, {5, "Bob", 2}, {6, "Eve", 2}, {9, "Spec", 1}};
-  const auto lines = FormatDamageReport(players[0], players, l);
+  const auto lines = FormatDamageReport(players[0], players, l, "en");
   CHECK(lines.size() == 2);
   if (lines.size() == 2) {
     CHECK(lines[0] == std::string("Given: 30 in 1 | Taken: 25 in 1") + kDash + "Bob (70 hp)");
     CHECK(lines[1] == std::string("Given: 0 in 0 | Taken: 75 in 1") + kDash + "Eve (100 hp)");
   }
   // Bob's view: one opponent line per CT player.
-  const auto bob = FormatDamageReport(players[2], players, l);
+  const auto bob = FormatDamageReport(players[2], players, l, "en");
   CHECK(bob.size() == 2);
   if (bob.size() == 2) {
     CHECK(bob[0] == std::string("Given: 25 in 1 | Taken: 30 in 1") + kDash + "Me (0 hp)");
     CHECK(bob[1] == std::string("Given: 0 in 0 | Taken: 0 in 0") + kDash + "Mate (100 hp)");
   }
   // Spectators get nothing.
-  CHECK(FormatDamageReport(players[4], players, l).empty());
+  CHECK(FormatDamageReport(players[4], players, l, "en").empty());
   // No opponents: nothing.
-  CHECK(FormatDamageReport(players[0], {players[0], players[1]}, l).empty());
+  CHECK(FormatDamageReport(players[0], {players[0], players[1]}, l, "en").empty());
 }
 
 static void TestGgMath() {

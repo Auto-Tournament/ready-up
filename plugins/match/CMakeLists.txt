@@ -176,7 +176,8 @@ add_test(NAME match_server_settings COMMAND match_server_settings_test)
 # Damage report bookkeeping (readyup/damage_ledger.h), the .gg / .stop vote logic
 # (readyup/vote_logic.h) and their rules (ctest `match_damage_votes`).
 add_executable(match_damage_votes_test tests/damage_votes_test.cpp readyup/damage_ledger.cpp readyup/vote_logic.cpp
-  readyup/match_rules.cpp)
+  readyup/match_rules.cpp readyup/text_lang.cpp)
+readyup_embed_locales(match_damage_votes_test ${CMAKE_CURRENT_SOURCE_DIR}/locales)
 target_include_directories(match_damage_votes_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(match_damage_votes_test PRIVATE -Wall -Wextra)
 add_test(NAME match_damage_votes COMMAND match_damage_votes_test)
@@ -198,6 +199,7 @@ add_executable(match_coach_rules_test tests/coach_rules_test.cpp readyup/coach_r
   readyup/map_names.cpp readyup/match_stats.cpp readyup/match_config_parser.cpp readyup/match_rules.cpp readyup/ruleset.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/broadcast_profile.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/steamid.cpp)
+readyup_embed_locales(match_coach_rules_test ${CMAKE_CURRENT_SOURCE_DIR}/locales)
 target_include_directories(match_coach_rules_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs
   ${CMAKE_SOURCE_DIR}/core/include)
 target_compile_options(match_coach_rules_test PRIVATE -Wall -Wextra)
@@ -279,8 +281,9 @@ target_compile_options(match_chat_forward_test PRIVATE -Wall -Wextra)
 add_test(NAME match_chat_forward COMMAND match_chat_forward_test)
 
 # The walkover choice's HUD screen and event data (readyup/walkover_logic.h) (ctest `match_walkover`).
-add_executable(match_walkover_test tests/walkover_test.cpp readyup/walkover_logic.cpp
+add_executable(match_walkover_test tests/walkover_test.cpp readyup/walkover_logic.cpp readyup/text_lang.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp)
+readyup_embed_locales(match_walkover_test ${CMAKE_CURRENT_SOURCE_DIR}/locales)
 target_include_directories(match_walkover_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(match_walkover_test PRIVATE -Wall -Wextra)
 add_test(NAME match_walkover COMMAND match_walkover_test)

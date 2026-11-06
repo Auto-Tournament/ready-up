@@ -1,5 +1,6 @@
 // Round restore commands and the steps after every restore (see round_restore.h).
 #include "readyup/round_restore.h"
+#include "readyup/text.h"
 
 #include "readyup/backup_files.h"
 #include "readyup/config.h"
@@ -69,13 +70,18 @@ std::string Restore(int round, const std::string& by, const Reply& announce) {
   bool autoUnpause = false;
   if (!fleet_bridge::RestoreRoundFromLocalBackup(round, by, "admin", &err, &autoUnpause)) return restore::ExplainRestoreError(err) + ".";
   Print("restore: round %d restored by %s%s\n", round, by.c_str(), autoUnpause ? " (live in 3 s)" : "");
+  // Everyone in their language (admin prefix); `announce` gets the English line.
+  auto say = [&](const char* key) {
+    const text::Args a{{"round", std::to_string(round)}, {"by", by}};
+    announce(text::ForLang("en", key, a));
+    text::ChatAllFn([key, a](const std::string& lang) { return AdminPrefix() + " " + text::ForLang(lang, key, a); });
+  };
   if (autoUnpause) {
-    announce("round " + std::to_string(round) + " restored by " + by + ". Live in 3 seconds.");
+    say("restore.restored_live");
   } else {
     // Like `.stop`: the players resume it (.unpause, both teams by default); admins can .fup.
     PauseStateOnPaused("technical", "restore:" + by);
-    announce("round " + std::to_string(round) + " restored by " + by +
-             ". The match is paused; type .unpause when ready.");
+    say("restore.restored_paused");
   }
   return {};
 }
@@ -166,10 +172,7 @@ bool HandleConsoleLine(const std::string& line) {
             std::max(1, MatchStateGet().map_number));
       return true;
     }
-    const std::string why = Restore(b.round, "Console", [](const std::string& s) {
-      PrintLine(s.c_str());
-      SendToChat((AdminPrefix() + " " + s).c_str());
-    });
+    const std::string why = Restore(b.round, "Console", [](const std::string& s) { PrintLine(s.c_str()); });
     if (!why.empty()) Print("restore: %s refused: %s\n", file.c_str(), why.c_str());
     return true;
   }

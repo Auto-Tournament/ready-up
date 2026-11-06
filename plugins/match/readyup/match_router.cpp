@@ -777,9 +777,9 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   }
   if (sub == "coach" || sub == "uncoach") {
     // Admin / console: `ru match coach <player> team1|team2|ct|t`, `ru match uncoach <player>` (coach.h).
-    std::string announce;
+    text::Msg announce;
     replyPrivate(CoachAdminCommand(sub, args, &announce));
-    if (!announce.empty()) SendToChat(("Ready Up: " + announce).c_str());
+    if (!announce.key.empty()) text::ChatAll(announce.key, announce.args);
     return;
   }
   if (sub == "tech" || sub == "tac") {
@@ -845,7 +845,6 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     // Everyone is told (chat, admin prefix); the console sees it too.
     round_restore::RestoreCommand(args, who, replyPrivate, [&](const std::string& msg) {
       if (steamid64 == 0) PrintLine(msg.c_str());
-      SendAdmin(msg);
     });
   } else if (sub == "backups") {
     round_restore::BackupsCommand(replyPrivate);

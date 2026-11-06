@@ -1,4 +1,5 @@
 #include "readyup/walkover.h"
+#include "readyup/text.h"
 
 #include "readyup/engine.h"
 #include "readyup/match_signals.h"
@@ -23,22 +24,23 @@ bool Open(const WebhookMatchContext& ctx) {
   return ctx.walkover_short != WebhookTeam::Unknown && ctx.walkover_expires_ms > NowMs();
 }
 
-void Tell(int slot, const char* msg) {
-  if (slot < 0 || !ClientPrintChat(slot, msg)) SendToChat(msg);
+void Tell(int slot, const char* key) {
+  if (slot >= 0) text::ChatSlot(slot, key);
+  else text::ChatAll(key);
 }
 
 }  // namespace
 
 void WalkoverCommand(uint64_t steamid64, const std::string& playerName, bool take, int slot) {
   const auto ctx = WebhookGetMatchContext();
-  if (!ctx || !Open(*ctx)) return Tell(slot, " \x04[ReadyUp]\x01 there is no walkover to choose right now.");
+  if (!ctx || !Open(*ctx)) return Tell(slot, "walkover.none");
   if (!ctx->walkover_choosers.count(steamid64)) {
-    return Tell(slot, " \x04[ReadyUp]\x01 only the full team's owner or a captain can choose.");
+    return Tell(slot, "walkover.not_chooser");
   }
   signals::Emit("walkover_choice", WalkoverChoiceData(steamid64, playerName, take));
 }
 
-std::string WalkoverHudSpec(const WebhookMatchContext& ctx, uint64_t viewer) {
+std::string WalkoverHudSpec(const WebhookMatchContext& ctx, uint64_t viewer, const std::string& lang) {
   if (!Open(ctx)) return {};
   const WebhookTeam shortTeam = ctx.walkover_short;
   const WebhookTeam mine = TeamOf(ctx, viewer);
@@ -49,7 +51,7 @@ std::string WalkoverHudSpec(const WebhookMatchContext& ctx, uint64_t viewer) {
   v.onShortTeam = mine == shortTeam;
   v.onFullTeam = mine != WebhookTeam::Unknown && mine != shortTeam;
   v.chooser = ctx.walkover_choosers.count(viewer) != 0;
-  return WalkoverSpec(v);
+  return WalkoverSpec(v, lang);
 }
 
 long long FullTeamSecondsLeft(const WebhookMatchContext& ctx) {

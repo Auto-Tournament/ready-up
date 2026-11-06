@@ -25,7 +25,7 @@ int main() {
   v.secondsLeft = 95;
   v.onFullTeam = true;
   v.chooser = true;
-  std::string s = WalkoverSpec(v);
+  std::string s = WalkoverSpec(v, "en");
   CHECK(Has(s, "btn=Take the walkover|green||.walkover\n"));
   CHECK(Has(s, "btn=Play them short|ghost||.play\n"));
   CHECK(Has(s, "mouse=on\n"));  // forced: the choice can't be skipped
@@ -33,20 +33,20 @@ int main() {
   CHECK(Has(s, "kind=DiscordTest B is short\n"));  // '|' would split the field
 
   v.chooser = false;
-  s = WalkoverSpec(v);
+  s = WalkoverSpec(v, "en");
   CHECK(Has(s, "title=Your captain chooses\n"));
   CHECK(!Has(s, "btn="));
   CHECK(!Has(s, "mouse="));
 
   v.onFullTeam = false;
   v.onShortTeam = true;
-  s = WalkoverSpec(v);
+  s = WalkoverSpec(v, "en");
   CHECK(Has(s, "title=Check-in Test chooses\n"));
   CHECK(!Has(s, "btn="));
 
   v.onShortTeam = false;
   v.secondsLeft = -3;
-  s = WalkoverSpec(v);
+  s = WalkoverSpec(v, "en");
   CHECK(Has(s, "timer=0\n"));
   CHECK(!Has(s, "btn="));
 

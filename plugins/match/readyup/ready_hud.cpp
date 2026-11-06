@@ -882,7 +882,7 @@ void ReadyHudTick() {
       const std::string lang = i18n::LanguageOf(host::Api(), slot);
       // The walkover choice can't be skipped: it replaces the ready card (walkover.h).
       if (ctx && mode == ReadyUpMode::MatchWarmup) {
-        if (std::string w = WalkoverHudSpec(*ctx, h.steamid64); !w.empty()) return w;
+        if (std::string w = WalkoverHudSpec(*ctx, h.steamid64, lang); !w.empty()) return w;
       }
       if (what == What::Ready) {
         std::string s = ReadySpec(hudBoard, h.steamid64, h.name, WelcomeActiveFor(slot, h.steamid64), lang);

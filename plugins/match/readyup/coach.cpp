@@ -2,6 +2,7 @@
 #include "readyup/coach.h"
 
 #include "readyup/coach_rules.h"
+#include "readyup/text.h"
 #include "readyup/engine.h"
 #include "readyup/esports.h"
 #include "readyup/host.h"
@@ -67,8 +68,9 @@ std::vector<std::string> Split(const std::string& s) {
   return out;
 }
 
-void Private(int slot, const std::string& msg) {
-  if (slot < 0 || !ClientPrintChat(slot, (" \x04[ReadyUp]\x01 " + msg).c_str())) SendToChat(("Ready Up: " + msg).c_str());
+void Private(int slot, const text::Msg& m) {
+  if (slot >= 0) text::ChatSlot(slot, m.key, m.args);
+  else text::ChatAll(m.key, m.args);  // slot unknown: better seen by all than lost
 }
 
 // ---- engine (game thread) ---------------------------------------------------------------------
@@ -219,12 +221,12 @@ void OnContextLocked(const Ctx& c) {
 
 // Actions collected under the lock, run after it (chat and commands go through other modules).
 struct Out {
-  std::vector<std::pair<int, std::string>> priv;  // slot, message
-  std::vector<std::string> all;
+  std::vector<std::pair<int, text::Msg>> priv;  // slot, message
+  std::vector<text::Msg> all;
   std::vector<std::string> cmds;
   void Flush() {
     for (const auto& p : priv) Private(p.first, p.second);
-    for (const auto& m : all) SendToChat(("Ready Up: " + m).c_str());
+    for (const auto& m : all) text::ChatAll(m.key, m.args);
     for (const auto& cmd : cmds) (void)EnqueueServerCommand(cmd.c_str());
   }
 };
@@ -252,7 +254,7 @@ void SyncLocked(const Ctx& c, Out* out) {
       if (RosterTeam(c, kv.first) != 0) playing.push_back(kv.first);
     }
     for (uint64_t sid : playing) {
-      if (const auto slot = SlotOf(sid)) out->priv.emplace_back(*slot, "you are on a team's roster now: coaching stopped.");
+      if (const auto slot = SlotOf(sid)) out->priv.emplace_back(*slot, text::Msg{"coach.roster_now", {}});
       ClearFieldLocked(sid);
       g_coaches.erase(sid);
     }
@@ -316,16 +318,14 @@ void SyncLocked(const Ctx& c, Out* out) {
         g_written[kv.first] = *slot;
         if (!e.effective) {
           e.effective = true;
-          out->priv.emplace_back(*slot, "you coach " + label + " (" + SideName(side) +
-                                            "): you watch and talk to your team only. .uncoach to stop.");
+          out->priv.emplace_back(*slot, text::Msg{"coach.you_coach", {{"team", label}, {"side", SideName(side)}}});
         }
         e.hintedTeam = 1;
       } else {
         e.effective = false;
         if ((engineTeam == 2 || engineTeam == 3) && e.hintedTeam != engineTeam) {
           e.hintedTeam = engineTeam;
-          out->priv.emplace_back(*slot, "you are " + label +
-                                            "'s coach: join Spectators to coach (a coach never takes a player slot).");
+          out->priv.emplace_back(*slot, text::Msg{"coach.join_spec", {{"team", label}}});
         }
       }
     }
@@ -412,7 +412,7 @@ void CoachChatCommand(uint64_t steamid64, const std::string& playerName, const s
     if (cmd == ".uncoach") {
       auto it = g_coaches.find(steamid64);
       if (it == g_coaches.end()) {
-        out.priv.emplace_back(slot, "you are not coaching.");
+        out.priv.emplace_back(slot, text::Msg{"coach.not_coaching", {}});
       } else {
         const std::string label = CoachTeamLabel(it->second.team, c.team1Name, c.team2Name);
         bool listed = false;
@@ -420,23 +420,23 @@ void CoachChatCommand(uint64_t steamid64, const std::string& playerName, const s
         if (listed) g_optOut.insert(steamid64);  // no auto-coaching again this match
         g_coaches.erase(it);
         ClearFieldLocked(steamid64);
-        out.all.push_back(playerName + " stopped coaching " + label + ".");
+        out.all.push_back({"coach.stopped", {{"name", playerName}, {"team", label}}});
       }
     } else {
       if (!CoachingFieldAvailable()) {
-        out.priv.emplace_back(slot, "coaching is unavailable on this server (see the server log).");
+        out.priv.emplace_back(slot, text::Msg{"coach.unavailable", {}});
       } else {
         const CoachArg arg = ParseCoachArg(parts.size() > 1 ? parts[1] : std::string());
         const CoachRequest r = BuildRequestLocked(c, steamid64, arg, /*byAdmin=*/false);
         const CoachDecision d = DecideCoach(r, c.team1Name, c.team2Name);
         const std::string label = CoachTeamLabel(d.team, c.team1Name, c.team2Name);
         if (!d.ok) {
-          out.priv.emplace_back(slot, d.reason + ".");
+          out.priv.emplace_back(slot, d.reason);
         } else if (d.already) {
-          out.priv.emplace_back(slot, "you already coach " + label + ".");
+          out.priv.emplace_back(slot, text::Msg{"coach.already", {{"team", label}}});
         } else {
           StartCoachingLocked(steamid64, playerName, d.team, r.listed);
-          out.all.push_back(playerName + " is now coaching " + label + ".");
+          out.all.push_back({"coach.started", {{"name", playerName}, {"team", label}}});
         }
       }
     }
@@ -445,8 +445,8 @@ void CoachChatCommand(uint64_t steamid64, const std::string& playerName, const s
   g_nextSync = 0;  // apply on this tick
 }
 
-std::string CoachAdminCommand(const std::string& sub, const std::vector<std::string>& args, std::string* announce) {
-  if (announce) announce->clear();
+std::string CoachAdminCommand(const std::string& sub, const std::vector<std::string>& args, text::Msg* announce) {
+  if (announce) *announce = {};
   const bool coach = sub == "coach";
   if (args.empty() || (coach && args.size() < 2)) {
     return coach ? "usage: ru match coach <player> team1|team2|ct|t" : "usage: ru match uncoach <player>";
@@ -473,7 +473,7 @@ std::string CoachAdminCommand(const std::string& sub, const std::vector<std::str
         g_coaches.erase(it);
         ClearFieldLocked(sid);
         reply = name + " no longer coaches " + label + ".";
-        if (announce) *announce = name + " stopped coaching " + label + " (admin).";
+        if (announce) *announce = {"coach.stopped_admin", {{"name", name}, {"team", label}}};
       }
     } else if (!CoachingFieldAvailable()) {
       reply = "coaching is unavailable on this server (m_iCoachingTeam not found; see the server log).";
@@ -482,13 +482,13 @@ std::string CoachAdminCommand(const std::string& sub, const std::vector<std::str
       const CoachDecision d = DecideCoach(r, c.team1Name, c.team2Name);
       const std::string label = CoachTeamLabel(d.team, c.team1Name, c.team2Name);
       if (!d.ok) {
-        reply = d.reason + ".";
+        reply = text::ForLang("en", d.reason.key, d.reason.args);
       } else if (d.already) {
         reply = name + " already coaches " + label + ".";
       } else {
         StartCoachingLocked(sid, name, d.team, r.listed);
         reply = name + " now coaches " + label + ".";
-        if (announce) *announce = name + " is now coaching " + label + " (admin).";
+        if (announce) *announce = {"coach.started_admin", {{"name", name}, {"team", label}}};
       }
     }
   }

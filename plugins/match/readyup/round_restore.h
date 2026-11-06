@@ -33,7 +33,8 @@ namespace readyup::round_restore {
 using Reply = std::function<void(const std::string&)>;
 
 // `.ru match restore <round>` (admin checked by the caller). by: who asked (name / "Console").
-// reply: an answer to the sender; announce: a line for everyone. Game thread.
+// reply: an answer to the sender; announce: the English copy of the line everyone gets (in their
+// language, from round_restore itself). Game thread.
 void RestoreCommand(const std::vector<std::string>& args, const std::string& by, const Reply& reply,
                     const Reply& announce);
 // `.ru match backups`.
