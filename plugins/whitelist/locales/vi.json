@@ -1,0 +1,22 @@
+{
+  "prefix": "Danh sách trắng Ready Up:",
+  "help_on_off": ".ru whitelist on|off: đá tất cả người không có trong danh sách (admin và bot ở lại; không áp dụng trong trận)",
+  "help_add_remove": ".ru whitelist add|remove <steamid64>",
+  "help_list_clear": ".ru whitelist list | clear",
+  "not_authorized": "không có quyền",
+  "turned_on_other": "bật ({count} người chơi trong danh sách)",
+  "turned_off_other": "tắt ({count} người chơi trong danh sách)",
+  "usage": "cách dùng: .ru whitelist {sub} <steamid64>",
+  "added": "đã thêm {id}",
+  "removed": "đã xóa {id}",
+  "no_change": "không có thay đổi cho {id}",
+  "cleared": "đã xóa sạch danh sách",
+  "list_on_empty": "bật, danh sách trống",
+  "list_off_empty": "tắt, danh sách trống",
+  "list_on_other": "bật, {count} người chơi: {ids}",
+  "list_off_other": "tắt, {count} người chơi: {ids}",
+  "guests_other": "{count} khách do plugin khác cho vào ({owners})",
+  "unknown": "lệnh không rõ. Gõ .ru help whitelist để xem danh sách.",
+  "save_failed": "không lưu được {path}",
+  "kick_reason": "Bạn không có trong danh sách trắng của máy chủ này"
+}
