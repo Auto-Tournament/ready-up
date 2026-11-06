@@ -229,12 +229,11 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
       end.overtimeRounds = std::max(2, std::atoi(it->second.c_str()));
     }
   }
-  const char* dot = " \xC2\xB7 ";
-  auto mapHow = [&]() -> std::string {
-    if (in.winner != "team1" && in.winner != "team2") return "";
-    if (in.decidedByDamage) return "By damage";
+  auto mapHow = [&]() -> text::Msg {
+    if (in.winner != "team1" && in.winner != "team2") return {};
+    if (in.decidedByDamage) return {"end.how_damage", {}};
     // A normal win says nothing: only the unusual ways get the pill (2026-10-27, "By rounds" read as noise).
-    return in.team1Score + in.team2Score > end.maxRounds ? "In overtime" : "";
+    return in.team1Score + in.team2Score > end.maxRounds ? text::Msg{"end.how_overtime", {}} : text::Msg{};
   };
   auto upper = [](std::string s) {
     for (char& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
@@ -264,8 +263,8 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
     end.score2 = in.team2Score;
     end.winner = card.winner;
     end.how = mapHow();
-    end.where = "MAP " + std::to_string(in.mapNumber) + " OF " + std::to_string(numMaps) + dot + upper(shortMap(in.mapName));
-    end.nextLabel = "Next map";
+    end.where = {"end.where_map", {{"n", std::to_string(in.mapNumber)}, {"of", std::to_string(numMaps)}, {"map", upper(shortMap(in.mapName))}}};
+    end.nextLabel = {"end.next_map", {}};
     end.next = shortMap(in.nextMap);
     end.seconds = std::max(1, plan.restartDelay - 1);
     if (!EndScreenShow(end)) {
@@ -299,18 +298,18 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
   card.forfeit = !winnerName.empty() && !in.seriesWinner.empty();
   end.winner = card.winner;
   end.seconds = resetIn;
-  end.nextLabel = base.scrim ? "Back to warmup" : "Server closes";
+  end.nextLabel = {base.scrim ? "end.back_to_warmup" : "end.server_closes", {}};
   if (numMaps == 1 && !card.forfeit) {
     // One map: its own score and how it was won, not "1 : 0".
     end.score1 = in.team1Score;
     end.score2 = in.team2Score;
     end.how = mapHow();
-    end.where = "MAP 1 OF 1" + std::string(dot) + upper(shortMap(in.mapName));
+    end.where = {"end.where_map", {{"n", "1"}, {"of", "1"}, {"map", upper(shortMap(in.mapName))}}};
   } else {
     end.score1 = in.team1SeriesScore;
     end.score2 = in.team2SeriesScore;
-    end.how = card.forfeit ? "By forfeit" : "";  // a normal series win needs no pill
-    end.where = "BEST OF " + std::to_string(numMaps);
+    end.how = card.forfeit ? text::Msg{"end.how_forfeit", {}} : text::Msg{};  // a normal series win needs no pill
+    end.where = {"end.where_bo", {{"n", std::to_string(numMaps)}}};
   }
   if (!EndScreenShow(end)) {
     ResultCardShow([card](const std::string& lang) { return std::make_pair(SeriesResultCardHtml(card, lang), SeriesResultCardSpec(card, lang)); },

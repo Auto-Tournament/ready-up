@@ -8,6 +8,9 @@
 #include "readyup/logging.h"
 #include "readyup/plugin_api.h"
 #include "readyup/modes.h"
+#include "readyup/text.h"
+#include "readyup/host.h"
+#include "readyup/i18n_api.h"
 #include "readyup/ready_hud.h"
 #include "readyup/players.h"
 #include "readyup/steamid.h"
@@ -60,6 +63,7 @@ struct SlotState {
   std::string htmlName;
   int htmlTeam = 0;
   ReadyUpMode htmlMode = ReadyUpMode::Idle;
+  std::string htmlLang;
 };
 
 std::mutex g_mu;
@@ -96,26 +100,26 @@ static void ResetLocked(const std::string& map) {
   g_map = map;
 }
 
-static const char* ModeLabel(ReadyUpMode m) {
+static const char* ModeKey(ReadyUpMode m) {
   switch (m) {
-    case ReadyUpMode::Idle: return "Idle";
-    case ReadyUpMode::Practice: return "Practice";
-    case ReadyUpMode::MatchWarmup: return "Match warmup";
-    case ReadyUpMode::MatchKnife: return "Knife round";
-    case ReadyUpMode::MatchLive: return "Match live";
-    case ReadyUpMode::Postgame: return "Postgame";
-    case ReadyUpMode::ScrimWarmup: return "Scrim warmup";
-    case ReadyUpMode::External: return "Plugin mode";
+    case ReadyUpMode::Idle: return "welcome.mode_idle";
+    case ReadyUpMode::Practice: return "welcome.mode_practice";
+    case ReadyUpMode::MatchWarmup: return "welcome.mode_match_warmup";
+    case ReadyUpMode::MatchKnife: return "welcome.mode_knife";
+    case ReadyUpMode::MatchLive: return "welcome.mode_live";
+    case ReadyUpMode::Postgame: return "welcome.mode_postgame";
+    case ReadyUpMode::ScrimWarmup: return "welcome.mode_scrim_warmup";
+    case ReadyUpMode::External: return "welcome.mode_plugin";
   }
-  return "Unknown";
+  return "welcome.mode_unknown";
 }
 
-static std::string BuildHtml(const std::string& name, int team, ReadyUpMode mode) {
+static std::string BuildHtml(const std::string& name, int team, ReadyUpMode mode, const std::string& lang) {
   const bool ct = (team == 3);
   const char* teamColor = ct ? "#5EA8FF" : "#FF9D3B";
-  const char* teamName = ct ? "Counter-Terrorists" : "Terrorists";
-  const char* hint = (mode == ReadyUpMode::MatchWarmup || mode == ReadyUpMode::ScrimWarmup) ? "type <b>.ready</b> in chat when you are ready"
-                                                        : "type <b>.help</b> in chat for commands";
+  const std::string teamName = text::ForLang(lang, ct ? "welcome.ct" : "welcome.t");
+  const std::string hint = text::ForLang(
+      lang, (mode == ReadyUpMode::MatchWarmup || mode == ReadyUpMode::ScrimWarmup) ? "welcome.hint_ready" : "welcome.hint_help");
 
   std::string h;
   h.reserve(640);
@@ -124,13 +128,14 @@ static std::string BuildHtml(const std::string& name, int team, ReadyUpMode mode
   h += "<font class='fontSize-s' color='#5B6068'>build ";
   h += CardHtmlEscape(BuildVersion(), 40);
   h += "</font><br>";
-  h += "<font class='fontSize-m' color='#FFFFFF'>Welcome, ";
-  h += CardHtmlEscape(name.empty() ? std::string("player") : name, 32);
+  h += "<font class='fontSize-m' color='#FFFFFF'>";
+  h += text::ForLang(lang, "welcome.hello",
+                     {{"name", CardHtmlEscape(name.empty() ? text::ForLang(lang, "welcome.player") : name, 32)}});
   h += "</font><br>";
   h += "<font class='fontSize-m' color='";
   h += teamColor;
   h += "'>";
-  h += teamName;
+  h += CardHtmlEscape(teamName, 48);
   h += "</font><font class='fontSize-m' color='#8A8F98'> &#183; ";
   if (mode == ReadyUpMode::External && !ExternalModeName().empty()) {
     // The owning plugin's mode ("deathmatch" -> "Deathmatch"); [a-z0-9_], nothing to escape.
@@ -138,7 +143,7 @@ static std::string BuildHtml(const std::string& name, int team, ReadyUpMode mode
     label[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(label[0])));
     h += label;
   } else {
-    h += ModeLabel(mode);
+    h += CardHtmlEscape(text::ForLang(lang, ModeKey(mode)), 48);
   }
   h += "</font><br>";
   h += "<font class='fontSize-sm' color='#A3E635'>";
@@ -358,8 +363,10 @@ void WelcomeTick() {
       if (name.empty()) {
         if (auto ident = GetSlotIdentity(kv.first)) name = ident->name;
       }
-      if (s.html.empty() || s.htmlName != name || s.htmlTeam != s.team || s.htmlMode != mode) {
-        s.html = BuildHtml(name, s.team, mode);
+      const std::string lang = i18n::LanguageOf(host::Api(), kv.first);
+      if (s.html.empty() || s.htmlName != name || s.htmlTeam != s.team || s.htmlMode != mode || s.htmlLang != lang) {
+        s.html = BuildHtml(name, s.team, mode, lang);
+        s.htmlLang = lang;
         s.htmlName = name;
         s.htmlTeam = s.team;
         s.htmlMode = mode;
