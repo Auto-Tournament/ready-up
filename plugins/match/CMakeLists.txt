@@ -167,7 +167,7 @@ add_test(NAME match_rules COMMAND match_rules_test)
 # substitutes and playout (match_rules.h) (ctest `match_server_settings`).
 add_executable(match_server_settings_test tests/server_settings_test.cpp readyup/server_settings.cpp
   readyup/match_rules.cpp)
-target_include_directories(match_server_settings_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(match_server_settings_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(match_server_settings_test PRIVATE -Wall -Wextra)
 target_link_libraries(match_server_settings_test PRIVATE pthread)
 add_test(NAME match_server_settings COMMAND match_server_settings_test)
