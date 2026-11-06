@@ -174,6 +174,7 @@ bool LoadCfgFromDisk(ReadyUpCfg* out, std::string* err, bool allowMissing) {
     else if (key == "perf_gap_warn_ms") out->perf_gap_warn_ms = ParseInt(val, out->perf_gap_warn_ms);
     else if (key == "status_http_token") out->status_http_token = val;
     else if (key == "status_http_metrics") out->status_http_metrics = ParseBool(val, out->status_http_metrics);
+    else if (key == "language") out->language = val;
   }
   return true;
 }

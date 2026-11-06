@@ -33,6 +33,11 @@ dev_bots_scrim=0
 chat_prefix=<DarkRed>[Ready Up]<Default>
 admin_prefix=<DarkRed>[Admin]<Default>
 
+# Language of Ready Up's messages for players who haven't picked one with `.lang <code>` and
+# whose language the platform doesn't send: a code (en, de, fr, pt-BR, zh-CN, ...) or a CS2
+# language name (german, brazilian, schinese, ...).
+# language=en
+
 # Local status endpoint (docs/FLEET.md §17): read-only HTTP for csm / uptime checks / curl.
 # GET /health /status /stream (SSE) /metrics /selftest. Loopback clients need no token; others
 # send `Authorization: Bearer <token>`. Port + token are written to csgo/readyup/status.json.

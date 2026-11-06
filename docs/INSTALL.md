@@ -265,8 +265,14 @@ Location (next to the shim):
 
 The installer only creates this file if it's missing; it never overwrites your edits (a changed default is written as `readyup.cfg.default`).
 
-The core reads `debug`, `banner`, `chat_prefix`, `chat_debug`, `consume_ru_chat` and the
-`status_http_*` keys. The match plugin (`match.so`) reads its keys (`welcome`, `ready_hud`,
+The core reads `debug`, `banner`, `chat_prefix`, `chat_debug`, `consume_ru_chat`, `language` and the
+`status_http_*` keys.
+
+`language` (default `en`) is the language players see Ready Up's messages in, unless they pick
+their own with `.lang <code>` in chat (saved per player in `game/csgo/readyup/player_languages.json`)
+or the Auto Tournament platform sends their site language. It takes a code (`de`, `pt-BR`,
+`zh-CN`, ...) or CS2's name for the language (`german`, `brazilian`, `schinese`, ...). CS2 does not
+tell the server a player's game language, so Ready Up cannot follow it by itself. The match plugin (`match.so`) reads its keys (`welcome`, `ready_hud`,
 `hud_*`, `admin_prefix`, `captain_prefix_*`, `consume_ready_chat`, `dev_bots_*`, the
 [match server settings](#match-server-settings),
 `knife_pick_seconds`, `idle_map_refresh_hours`, `backup_keep_hours`, `demo_keep_hours`, `warmup_money`, `warmup_weapon_cleanup`) from the same place, or from a `[match]` section of this file, or from

@@ -52,6 +52,8 @@ add_library(server_shim SHARED
   core/src/readyup/round_termination_hook.cpp
   core/src/readyup/ru_help.cpp
   core/src/readyup/ru_help_text.cpp
+  core/src/readyup/player_language.cpp
+  core/src/readyup/player_language_store.cpp
   core/src/readyup/ru_router.cpp
   core/src/readyup/perf_stats.cpp
   core/src/readyup/center_panel_owner.cpp
@@ -377,6 +379,14 @@ target_include_directories(readyup_i18n_test PRIVATE ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(readyup_i18n_test PRIVATE -Wall -Wextra)
 readyup_embed_locales(readyup_i18n_test ${CMAKE_SOURCE_DIR}/tests/fixtures/locales)
 add_test(NAME i18n COMMAND readyup_i18n_test)
+readyup_embed_locales(server_shim ${CMAKE_SOURCE_DIR}/core/locales)
+
+# Each player's language: codes, CS2 names, player_languages.json (core/src/readyup/player_language.h).
+add_executable(readyup_player_language_test tests/player_language_test.cpp core/src/readyup/player_language.cpp
+  libs/readyup/minijson.cpp)
+target_include_directories(readyup_player_language_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src ${CMAKE_SOURCE_DIR}/libs)
+target_compile_options(readyup_player_language_test PRIVATE -Wall -Wextra)
+add_test(NAME player_language COMMAND readyup_player_language_test)
 
 add_subdirectory(plugins/hello)
 add_subdirectory(plugins/skins)

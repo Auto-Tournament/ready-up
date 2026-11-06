@@ -26,6 +26,9 @@ struct ReadyUpCfg {
   // than perf_warn_ms, or that came perf_gap_warn_ms after the previous one, is logged.
   int perf_warn_ms = 8;
   int perf_gap_warn_ms = 250;
+  // The language players get unless they pick one (`.lang`) or the platform sends theirs:
+  // a code (de, pt-BR, zh-CN, ...) or a CS2 language name (german, brazilian, schinese, ...).
+  std::string language = "en";
 };
 
 ReadyUpCfg Cfg();
