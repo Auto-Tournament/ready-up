@@ -41,8 +41,10 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
 // A card re-sent every frame keeps it up. Thread-safe.
 void HudScreensNotice(int slot, const std::string& spec, double seconds);
 // The same for everyone (csTeam 0), or one CS side (2 T, 3 CT). A player's own notice wins.
-// Thread-safe.
+// Thread-safe. The builder form makes the spec in each viewer's language.
+using HudSpecBuild = std::function<std::string(const std::string& lang)>;
 void HudScreensNoticeAll(const std::string& spec, double seconds, int csTeam = 0);
+void HudScreensNoticeAll(HudSpecBuild build, double seconds, int csTeam = 0);
 
 // Placement rule (Sivert, 2026-10-27): what must not block the view (personal, small, may come
 // mid-round: damage, a pending pause, "no timeouts left", admin replies and messages) goes on the

@@ -1,5 +1,6 @@
 // .gg surrender vote and .stop round-restore vote (see votes.h).
 #include "readyup/votes.h"
+#include "readyup/text.h"
 
 #include "readyup/config.h"
 #include "readyup/damage_report.h"
@@ -205,13 +206,13 @@ void VotesTick(double now) {
     if (g_gg[t].Expire(now)) {
       const WebhookTeam team = t == 1 ? WebhookTeam::Team1 : WebhookTeam::Team2;
       Print("vote: gg: %s vote expired\n", TeamKey(team));
-      if (ctx) SendToChat(("Ready Up: " + TeamName(*ctx, team) + "'s surrender vote failed.").c_str());
+      if (ctx) text::ChatAll("gg.vote_failed", {{"team", TeamName(*ctx, team)}});
     }
   }
   int team = 0;
   if (g_stop.Expire(now, &team)) {
     Print("vote: stop: team%d request expired\n", team);
-    SendToChat("Ready Up: .stop expired (the other team did not confirm).");
+    text::ChatAll("stop.expired");
   }
 }
 
@@ -225,16 +226,15 @@ bool VotesGg(uint64_t voter, WebhookTeam team, const std::string& name) {
   const int ti = TeamIdx(team);
   if (ti == 0) return true;
   if (GetMode() != ReadyUpMode::MatchLive) {
-    SendToChat("Ready Up: .gg only works while the map is live.");
+    text::ChatAll("gg.live_only");
     return true;
   }
   int s1 = 0, s2 = 0;
   Scores(&s1, &s2);
   const int mine = ti == 1 ? s1 : s2, theirs = ti == 1 ? s2 : s1;
   if (!GgScoreAllowed(mine, theirs, rules.gg_min_score_diff)) {
-    SendToChat(("Ready Up: .gg needs your team to trail by " + std::to_string(rules.gg_min_score_diff) +
-                " rounds (score " + std::to_string(mine) + "-" + std::to_string(theirs) + ").")
-                   .c_str());
+    text::ChatAll("gg.needs_trail", {{"count", std::to_string(rules.gg_min_score_diff)}, {"mine", std::to_string(mine)},
+                                     {"theirs", std::to_string(theirs)}});
     Print("vote: gg: %s refused (score %d-%d, min diff %d)\n", TeamKey(team), mine, theirs, rules.gg_min_score_diff);
     return true;
   }
@@ -243,21 +243,17 @@ bool VotesGg(uint64_t voter, WebhookTeam team, const std::string& name) {
   const auto r = g_gg[ti].Add(voter, host::NowSeconds(), eligible, rules.gg_threshold_pct, kGgWindowSeconds);
   const std::string tn = TeamName(*ctx, team);
   if (r == GgVote::Result::AlreadyVoted) {
-    SendToChat(("Ready Up: " + name + " already voted to surrender (" + std::to_string(g_gg[ti].Count()) + "/" +
-                std::to_string(need) + ").")
-                   .c_str());
+    text::ChatAll("gg.already_voted", {{"name", name}, {"votes", std::to_string(g_gg[ti].Count())}, {"need", std::to_string(need)}});
     return true;
   }
   if (r == GgVote::Result::Counted) {
     Print("vote: gg: %s %d/%d (by %s)\n", TeamKey(team), g_gg[ti].Count(), need, name.c_str());
-    SendToChat(("Ready Up: " + name + " votes to surrender for " + tn + " (" + std::to_string(g_gg[ti].Count()) +
-                "/" + std::to_string(need) + ", " + std::to_string(static_cast<int>(kGgWindowSeconds)) +
-                "s). Teammates: type .gg to agree.")
-                   .c_str());
+    text::ChatAll("gg.votes", {{"name", name}, {"team", tn}, {"votes", std::to_string(g_gg[ti].Count())},
+                               {"need", std::to_string(need)}, {"seconds", std::to_string(static_cast<int>(kGgWindowSeconds))}});
     return true;
   }
   Print("vote: gg: %s passed (%d eligible, %d%%) -> forfeit\n", TeamKey(team), eligible, rules.gg_threshold_pct);
-  SendToChat(("Ready Up: " + tn + " surrendered (.gg vote passed).").c_str());
+  text::ChatAll("gg.surrendered", {{"team", tn}});
   if (!ForfeitCurrentMap(team, "gg")) Print("vote: gg: no live map to forfeit\n");
   return true;
 }
@@ -273,29 +269,28 @@ void VotesStop(uint64_t /*voter*/, WebhookTeam team, const std::string& name) {
   const int ti = TeamIdx(team);
   if (!ctx || ti == 0) return;
   if (!rules.stop_command_available) {
-    SendToChat("Ready Up: .stop is not enabled for this match.");
+    text::ChatAll("stop.disabled");
     return;
   }
   if (GetMode() != ReadyUpMode::MatchLive) {
-    SendToChat("Ready Up: .stop only works while the map is live.");
+    text::ChatAll("stop.live_only");
     return;
   }
   if (rules.stop_command_no_damage && DamageReportEnemyDamageThisRound()) {
     Print("vote: stop: %s refused (damage dealt this round)\n", TeamKey(team));
-    SendToChat("Ready Up: .stop is unavailable: damage was already dealt this round.");
+    text::ChatAll("stop.damage_dealt");
     return;
   }
   const auto r = g_stop.Request(ti, host::NowSeconds(), rules.stop_vote_seconds);
   if (r == StopVote::Result::AlreadyRequested) {
-    SendToChat(("Ready Up: " + TeamName(*ctx, team) + " already asked for .stop; waiting for the other team.").c_str());
+    text::ChatAll("stop.already_asked", {{"team", TeamName(*ctx, team)}});
     return;
   }
   if (r == StopVote::Result::Waiting) {
     Print("vote: stop: requested by %s (%s)\n", TeamKey(team), name.c_str());
     const WebhookTeam other = ti == 1 ? WebhookTeam::Team2 : WebhookTeam::Team1;
-    SendToChat(("Ready Up: " + name + " (" + TeamName(*ctx, team) + ") wants to restore this round. " +
-                TeamName(*ctx, other) + ": type .stop within " + std::to_string(rules.stop_vote_seconds) + "s to agree.")
-                   .c_str());
+    text::ChatAll("stop.wants_restore", {{"name", name}, {"team", TeamName(*ctx, team)}, {"other", TeamName(*ctx, other)},
+                                         {"seconds", std::to_string(rules.stop_vote_seconds)}});
     return;
   }
   int s1 = 0, s2 = 0;
@@ -306,22 +301,20 @@ void VotesStop(uint64_t /*voter*/, WebhookTeam team, const std::string& name) {
   if (!fleet_bridge::RestoreRoundFromLocalBackup(round, "vote", "stop", &err, &autoUnpause)) {
     err = restore::ExplainRestoreError(err);
     Print("vote: stop: passed, restore of round %d failed: %s\n", round, err.c_str());
-    SendToChat(("Ready Up: .stop passed but round " + std::to_string(round) + " cannot be restored (" + err + ").").c_str());
+    text::ChatAll("stop.restore_failed", {{"round", std::to_string(round)}, {"error", err}});
     return;
   }
   if (autoUnpause) {
     // pause_after_restore 0 (round_restore.h): live again in 3 s.
     Print("vote: stop: passed -> round %d restored (live in 3 s)\n", round);
-    SendToChat(("Ready Up: both teams agreed: round " + std::to_string(round) + " restored. Live in 3 seconds.").c_str());
+    text::ChatAll("stop.restored_live", {{"round", std::to_string(round)}});
     return;
   }
   // The restore autopauses (marked as an admin pause); the players agreed to it, so they unpause
   // it like a technical pause (.unpause, both_teams_unpause_required).
   PauseStateOnPaused("technical", "vote:stop");
   Print("vote: stop: passed -> round %d restored\n", round);
-  SendToChat(("Ready Up: both teams agreed: round " + std::to_string(round) +
-              " restored. The match is paused; .unpause when ready.")
-                 .c_str());
+  text::ChatAll("stop.restored_paused", {{"round", std::to_string(round)}});
 }
 
 }  // namespace readyup

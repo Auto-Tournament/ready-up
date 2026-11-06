@@ -1,5 +1,6 @@
 // The clickable Panorama HUD for the match flow (hud_screens.h).
 #include "readyup/hud_screens.h"
+#include "readyup/i18n_api.h"
 
 #include "readyup/hud_iface.h"
 #include "readyup/plugin_api.h"
@@ -42,6 +43,7 @@ std::set<int> g_shown;                    // slots that got a screen last tick
 struct Notice {
   std::string spec;
   double until = 0;
+  HudSpecBuild build;  // set: the spec in the viewer's language
 };
 std::mutex g_noticeMu;
 std::map<int, Notice> g_notices;          // slot -> card shown over the base screen
@@ -327,7 +329,7 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
         spec = n->second.spec;
       }
       if (spec.empty() && now <= g_noticeAll.until && (g_noticeAllTeam == 0 || g_noticeAllTeam == h.team)) {
-        spec = g_noticeAll.spec;
+        spec = g_noticeAll.build ? g_noticeAll.build(i18n::LanguageOf(host::Api(), slot)) : g_noticeAll.spec;
       }
     }
     if (spec.empty()) spec = baseFor(h);
@@ -347,13 +349,20 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
 void HudScreensNotice(int slot, const std::string& spec, double seconds) {
   if (slot < 0 || slot > 63 || spec.empty()) return;
   std::lock_guard<std::mutex> lk(g_noticeMu);
-  g_notices[slot] = Notice{spec, host::NowSeconds() + seconds};
+  g_notices[slot] = Notice{spec, host::NowSeconds() + seconds, {}};
 }
 
 void HudScreensNoticeAll(const std::string& spec, double seconds, int csTeam) {
   if (spec.empty()) return;
   std::lock_guard<std::mutex> lk(g_noticeMu);
-  g_noticeAll = Notice{spec, host::NowSeconds() + seconds};
+  g_noticeAll = Notice{spec, host::NowSeconds() + seconds, {}};
+  g_noticeAllTeam = csTeam;
+}
+
+void HudScreensNoticeAll(HudSpecBuild build, double seconds, int csTeam) {
+  if (!build) return;
+  std::lock_guard<std::mutex> lk(g_noticeMu);
+  g_noticeAll = Notice{{}, host::NowSeconds() + seconds, std::move(build)};
   g_noticeAllTeam = csTeam;
 }
 
