@@ -15,6 +15,8 @@
 // run_chat_command), so the buttons and the typed commands never drift apart. Mid-round no screen
 // takes the cursor: hud.so draws the buttons as typed commands (spec chips=1).
 
+#include "readyup/i18n.h"
+
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -59,5 +61,8 @@ bool HudScreensOpenMenu(int slot, uint64_t steamid64, const std::string& which);
 
 // A spec value: no line breaks, no '|' (it separates button fields).
 std::string HudSpecText(const std::string& s);
+// A notice card: `head` ("id=...\n"), then kind and title (and sub) from locales/, per language.
+HudSpecBuild NoticeSpec(std::string head, std::string kindKey, std::string titleKey, std::string subKey = {},
+                        i18n::Args args = {});
 
 }  // namespace readyup

@@ -7,6 +7,7 @@
 
 #include "readyup/i18n.h"
 
+#include <functional>
 #include <string>
 
 namespace readyup::text {
@@ -28,6 +29,11 @@ std::string For(int slot, const std::string& key, const Args& args = {});
 void ChatAll(const std::string& key, Args args = {});
 // SendImportantToChat: gold, three times, and in the center for `centerSeconds` (0: chat only).
 void ImportantAll(const std::string& key, Args args = {}, int centerSeconds = 12);
+// The same, for a line built per language from several keys.
+using TextFn = std::function<std::string(const std::string& lang)>;
+void ChatAllFn(TextFn text);
+void ImportantAllFn(TextFn text, int centerSeconds = 12);
+
 // ClientPrintChat with the Ready Up prefix: one player.
 void ChatSlot(int slot, const std::string& key, Args args = {});
 

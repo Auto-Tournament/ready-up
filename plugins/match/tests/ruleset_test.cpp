@@ -333,25 +333,24 @@ static void TestGotvGoLive() {
   for (GotvState g : {GotvState::Up, GotvState::Down, GotvState::Unknown}) {
     for (bool forced : {false, true}) {
       const GoLiveVerdict v = GotvGoLiveCheck(Ruleset::Default, g, forced);
-      CHECK(v.allowed && v.log.empty() && v.chat.empty());
+      CHECK(v.allowed && v.log.empty() && v.chatKey.empty());
     }
   }
   // Valve + GOTV up: allowed, nothing said (forced or not).
   CHECK(GotvGoLiveCheck(Ruleset::Valve, GotvState::Up, false).allowed);
-  CHECK(GotvGoLiveCheck(Ruleset::Valve, GotvState::Up, true).chat.empty());
+  CHECK(GotvGoLiveCheck(Ruleset::Valve, GotvState::Up, true).chatKey.empty());
   // Valve + GOTV down: refused with a console line and a chat line naming the override.
   GoLiveVerdict v = GotvGoLiveCheck(Ruleset::Valve, GotvState::Down, false);
   CHECK(!v.allowed);
   CHECK(v.log.find("gotv=down") != std::string::npos && v.log.find("refused") != std::string::npos);
   CHECK(v.log.find("ru match start force") != std::string::npos);
-  CHECK(v.chat.find("GOTV is off") != std::string::npos && v.chat.find(".ru match start force") != std::string::npos);
-  CHECK(v.chat.size() < 190);  // one chat message
+  CHECK(v.chatKey == "gotv.refused");
   // Forced: allowed, but everyone is told the map is not recorded.
   v = GotvGoLiveCheck(Ruleset::Valve, GotvState::Down, true);
-  CHECK(v.allowed && v.log.find("forced") != std::string::npos && v.chat.find("WITHOUT GOTV") != std::string::npos);
+  CHECK(v.allowed && v.log.find("forced") != std::string::npos && v.chatKey == "gotv.forced");
   // Unknown (engine surface missing): allowed with a note, no chat.
   v = GotvGoLiveCheck(Ruleset::Valve, GotvState::Unknown, false);
-  CHECK(v.allowed && v.log.find("gotv=unknown") != std::string::npos && v.chat.empty());
+  CHECK(v.allowed && v.log.find("gotv=unknown") != std::string::npos && v.chatKey.empty());
 }
 
 static void TestAutoPause5v5() {

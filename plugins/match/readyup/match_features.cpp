@@ -98,15 +98,6 @@ void TeamNotice(const WebhookMatchContext& ctx, WebhookTeam team, HudSpecBuild s
   if (HudScreensOn() && team != WebhookTeam::Unknown) HudScreensNoticeAll(std::move(spec), 6.0, CsSideOf(ctx, team));
 }
 
-// A notice card: kind and title (and sub) from locales/.
-HudSpecBuild NoticeSpec(std::string head, std::string kindKey, std::string titleKey, std::string subKey = {}, text::Args args = {}) {
-  return [=](const std::string& lang) {
-    std::string s = head + "kind=" + HudSpecText(text::ForLang(lang, kindKey, args)) + "\ntitle=" +
-                    HudSpecText(text::ForLang(lang, titleKey, args)) + "\n";
-    if (!subKey.empty()) s += "sub=" + HudSpecText(text::ForLang(lang, subKey, args)) + "\n";
-    return s;
-  };
-}
 
 void Unpause(const char* why) {
   const int dur = PauseStatePauseDurationSeconds();

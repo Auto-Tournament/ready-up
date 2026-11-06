@@ -1,4 +1,5 @@
 #include "readyup/match_end.h"
+#include "readyup/text.h"
 
 #include "readyup/card_html.h"
 #include "readyup/result_card.h"
@@ -317,18 +318,17 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
   }
 
   if (!winnerName.empty() && !in.seriesWinner.empty()) {
-    SendToChat(("Ready Up: " + winnerName + " won the series by forfeit.").c_str());
+    text::ChatAll("end.series_forfeit", {{"team", winnerName}});
   } else if (!winnerName.empty()) {
-    SendToChat(("Ready Up: " + winnerName + " won the series " +
-                std::to_string(std::max(in.team1SeriesScore, in.team2SeriesScore)) + "-" +
-                std::to_string(std::min(in.team1SeriesScore, in.team2SeriesScore)) + ".")
-                   .c_str());
+    text::ChatAll("end.series_won", {{"team", winnerName},
+                                     {"score", std::to_string(std::max(in.team1SeriesScore, in.team2SeriesScore)) + "-" +
+                                                   std::to_string(std::min(in.team1SeriesScore, in.team2SeriesScore))}});
   } else {
-    SendToChat("Ready Up: the series ended in a draw.");
+    text::ChatAll("end.series_draw");
   }
 
   // Where to go now (a live test, 2026-10-15): the platform's match page has the next match.
-  if (!base.scrim) SendToChat("Ready Up: go back to the platform to view your next match.");
+  if (!base.scrim) text::ChatAll("end.next_match");
 
   if (base.scrim) {
     // Pickup games: nobody is kicked, the scrim just unloads.
@@ -336,9 +336,7 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
     return plan;
   }
 
-  SendToChat(("Ready Up: all players will be disconnected in " + std::to_string(resetIn) +
-              "s to prepare the server for the next match.")
-                 .c_str());
+  text::ChatAll("end.disconnect_in", {{"seconds", std::to_string(resetIn)}});
   const std::string kickReason = winnerName.empty() ? std::string("Series over. Thanks for playing!")
                                                     : winnerName + " won the match";
   ScheduleKickThenReset(resetIn, kickReason, base, gen);

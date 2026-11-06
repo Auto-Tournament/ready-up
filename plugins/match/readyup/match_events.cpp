@@ -18,6 +18,7 @@
 #include "readyup/persisted_match_state.h"
 #include "readyup/players.h"
 #include "readyup/simulation.h"
+#include "readyup/text.h"
 #include "readyup/webhook.h"
 #include "readyup/golive_card.h"
 #include "readyup/welcome.h"
@@ -44,29 +45,26 @@ namespace {
 void AnnounceOvertimeRules(int overtimeNumber, int seg) {
   const auto ctx = WebhookGetMatchContext();
   if (!ctx) return;
-  std::string msg = "Ready Up: OVERTIME " + std::to_string(overtimeNumber) + ": " + std::to_string(2 * seg) +
-                    " rounds, first to " + std::to_string(seg + 1) + " wins it.";
-  if (ctx->maxOvertimes > 0) {
-    const int left = ctx->maxOvertimes - overtimeNumber;
-    if (left > 0) {
-      msg += " Up to " + std::to_string(ctx->maxOvertimes) + " overtimes (" + std::to_string(left) + " more after this).";
-    } else {
-      msg += " This is the last overtime.";
-    }
-    if (ctx->damageTiebreakEnabled) {
-      msg += " Still tied after it: the team with more total damage wins the map";
-      msg += ctx->suddenDeathOnDamageTie ? " (equal damage: the next round decides)." : ".";
-    } else {
-      msg += " Still tied after it: the map is a draw.";
-    }
-  }
+  const int maxOt = ctx->maxOvertimes, left = maxOt - overtimeNumber;
+  const bool damage = ctx->damageTiebreakEnabled, sudden = ctx->suddenDeathOnDamageTie;
+  const text::Args args{{"n", std::to_string(overtimeNumber)}, {"rounds", std::to_string(2 * seg)},
+                        {"first", std::to_string(seg + 1)}, {"max", std::to_string(maxOt)}, {"left", std::to_string(left)}};
   // Until the overtime's first round starts: in chat and in the middle of the screen.
-  SendImportantToChat(msg.c_str(), 15);
+  text::ImportantAllFn(
+      [=](const std::string& lang) {
+        std::string msg = text::ForLang(lang, "ot.head", args);
+        if (maxOt > 0) {
+          msg += " " + text::ForLang(lang, left > 0 ? "ot.max" : "ot.last", args);
+          msg += " " + text::ForLang(lang, !damage ? "ot.tied_draw" : sudden ? "ot.tied_damage_sudden" : "ot.tied_damage", args);
+        }
+        return msg;
+      },
+      15);
   if (HudScreensOn()) {
-    std::string s = "id=ot-" + std::to_string(overtimeNumber) + "\nkind=Overtime " + std::to_string(overtimeNumber) +
-                    "\ntitle=First to " + std::to_string(seg + 1) + "\n";
-    if (ctx->maxOvertimes > 0 && overtimeNumber >= ctx->maxOvertimes) s += "sub=Last overtime\n";
-    HudScreensNoticeAll(s, 8.0);
+    const bool last = maxOt > 0 && overtimeNumber >= maxOt;
+    HudScreensNoticeAll(NoticeSpec("id=ot-" + std::to_string(overtimeNumber) + "\n", "notice.overtime", "notice.first_to",
+                                   last ? "notice.last_overtime" : "", args),
+                        8.0);
   }
 }
 }  // namespace
@@ -593,8 +591,8 @@ void OnRoundStartLocked(const PendingRound& ev) {
       const bool team1IsCtNow = Team1IsCtWithSwapCount(mapNumber, swapCountForThisRound);
       WebhookEmitHalftimeStarted(mapNumber, team1Score, team2Score);
       if (HudScreensOn() && sum == regHalf) {
-        HudScreensNoticeAll("id=half\nkind=Halftime\ntitle=Sides switch\nsub=" + std::to_string(team1Score) + " - " +
-                                std::to_string(team2Score) + "\n",
+        HudScreensNoticeAll(NoticeSpec("id=half\n", "notice.halftime", "notice.sides_switch", "notice.score",
+                                       {{"score", std::to_string(team1Score) + " - " + std::to_string(team2Score)}}),
                             8.0);
       }
       if (sum == regHalf) EsportsOnHalftime();  // mp_halftime_pausematch (ruleset)

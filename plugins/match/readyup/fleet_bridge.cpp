@@ -1,5 +1,6 @@
 // The match side of the fleet link. See fleet_bridge.h and docs/FLEET.md §7-§13.
 #include "readyup/fleet_bridge.h"
+#include "readyup/text.h"
 
 #include "readyup/fleet_iface.h"
 
@@ -1010,15 +1011,13 @@ bool DoRestore(int mapNumber, int round, const std::string& file, const std::str
     g_deferredRestore = DeferredRestore{true, true, mapNumber, round, scoreT1, scoreT2, file, sha, by, reason, extra};
     Print("fleet: restore of map %d round %d waits for this round to end (weapons come back at a round start)\n",
           mapNumber, round);
-    SendToChat(("Ready Up: round " + std::to_string(round) +
-                " is restored at the start of the next round (with everyone's weapons).")
-                   .c_str());
+    text::ChatAll("admin.restore_next_round", {{"round", std::to_string(round)}});
     return false;
   }
   if (MatchFeaturesRoundOver()) {
     g_deferredRestore = DeferredRestore{true, false, mapNumber, round, scoreT1, scoreT2, file, sha, by, reason, extra};
     Print("fleet: restore of map %d round %d waits for the next round start (round over)\n", mapNumber, round);
-    SendToChat(("Ready Up: round " + std::to_string(round) + " is restored when the next round starts.").c_str());
+    text::ChatAll("admin.restore_round_start", {{"round", std::to_string(round)}});
     return false;
   }
   return DoRestoreNow(mapNumber, round, file, sha, by, reason, extra, scoreT1, scoreT2);
@@ -1280,7 +1279,7 @@ void OnAssign(const ru_fleet_msg* m) {
     for (const auto& h : ListHumans()) outsiders = outsiders || (h.steamid64 && !KeepOnHandOver(h.steamid64));
     ScrimSetAutoEnabled(false);
     if (scrim || outsiders) {
-      SendToChat(kHandOverMessage);
+      text::ChatAll("admin.hand_over");
       if (scrim) {
         if (ctx) WebhookClearMatchContext();
         (void)EndMatchResetServer();
@@ -1444,7 +1443,7 @@ Result CmdPause(const Json& args, const std::string& by) {
   if (!EnqueueServerCommand("mp_pause_match")) return Failed("engine", "mp_pause_match unavailable");
   PauseStateOnPaused(type.c_str(), by);
   g_phaseReason = "cmd:pause";
-  SendToChat(type == "technical" ? "Ready Up: technical pause (tournament admin)." : "Ready Up: paused by a tournament admin.");
+  text::ChatAll(type == "technical" ? "admin.paused_technical" : "admin.paused");
   return Ok();
 }
 
@@ -1455,7 +1454,7 @@ Result CmdUnpause(const std::string& by) {
   PauseStateOnUnpaused();
   g_unpauseBy = by;
   g_phaseReason = "cmd:unpause";
-  SendToChat("Ready Up: unpaused by a tournament admin.");
+  text::ChatAll("admin.unpaused");
   return Ok();
 }
 
@@ -1481,8 +1480,7 @@ Result CmdForceReady(const Json& args) {
   }
   if (oneId != 0 && !found) return Rejected("not_connected", "no connected roster player " + one);
   ScrimNoteReadyChanged();
-  SendToChat(oneId != 0 ? "Ready Up: a player was readied by a tournament admin."
-                        : "Ready Up: players readied by a tournament admin.");
+  text::ChatAll(oneId != 0 ? "admin.readied_one" : "admin.readied_all");
   Result r = Ok();
   r.message = std::to_string(n) + " player(s) set ready";
   return r;
@@ -1530,9 +1528,7 @@ Result CmdRestore(const Json& args, const std::string& by) {
   }
   const bool autoUnpause = DoRestore(mapNumber, round, file, sha, by, "restore", Json::Object());
   g_phaseReason = "cmd:restore_round";
-  SendToChat(("Ready Up: round " + std::to_string(round) + " restored by a tournament admin. " +
-              (autoUnpause ? "Live in 3 seconds." : "Unpause when ready."))
-                 .c_str());
+  text::ChatAll(autoUnpause ? "admin.restored_live" : "admin.restored_wait", {{"round", std::to_string(round)}});
   return Ok();
 }
 
@@ -1568,11 +1564,9 @@ void RunResumeRestore() {
   // restore_round (a restore pause both teams lift).
   if (true) {
     g_resumeUnpauseAt = g_now + 3.0;
-    SendToChat(("Ready Up: match moved here and restored at round " + std::to_string(g_resume.round) +
-                ". Live in 3 seconds.").c_str());
+    text::ChatAll("admin.moved_live", {{"round", std::to_string(g_resume.round)}});
   } else {
-    SendToChat(("Ready Up: match moved here and restored at round " + std::to_string(g_resume.round) +
-                ". Unpause when ready.").c_str());
+    text::ChatAll("admin.moved_wait", {{"round", std::to_string(g_resume.round)}});
   }
 }
 
@@ -1596,8 +1590,8 @@ Result CmdEnd(const Json& args) {
   (void)EndMatchResetServer();
   g_seriesOver = true;
   g_phaseReason = "cmd:end_match";
-  SendToChat("Ready Up: the match was ended by a tournament admin.");
-  if (HudScreensOn()) HudScreensNoticeAll("id=ended\ncolor=ban\nkind=Match ended\ntitle=An admin ended the match\n", 10.0);
+  text::ChatAll("admin.ended");
+  if (HudScreensOn()) HudScreensNoticeAll(NoticeSpec("id=ended\ncolor=ban\n", "notice.match_ended", "notice.admin_ended"), 10.0);
   return Ok();
 }
 
@@ -1894,7 +1888,7 @@ void OnOfflineTimeout(const ru_fleet_msg*) {
   if (!EnqueueServerCommand("mp_pause_match")) return;
   PauseStateOnPaused("offline", "platform-link");
   g_phaseReason = "offline";
-  SendToChat("Paused: server lost contact with the tournament platform");
+  text::ChatAll("admin.offline_paused");
   Print("fleet: auto-paused match %s (platform offline, D12)\n", g_asg.match_id.c_str());
 }
 
