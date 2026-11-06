@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (znovu načte tvoje skiny; ne během živého zápasu)",
+  "reload.off": "Ready Up skins: skiny jsou teď na tomto serveru vypnuté.",
+  "reload.live": "Ready Up skins: .skins reload není během živého zápasu dostupné.",
+  "reload.cooldown": "Ready Up skins: počkej pár sekund, než znovu načteš.",
+  "reload.done": "Ready Up skins: znovu načítám tvoje skiny. Rukavice, agent a zbraně v ruce se za chvíli aktualizují."
+}

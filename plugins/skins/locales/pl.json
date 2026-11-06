@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (wczytuje twoje skiny od nowa; nie w trakcie meczu)",
+  "reload.off": "Ready Up skins: skiny są teraz wyłączone na tym serwerze.",
+  "reload.live": "Ready Up skins: .skins reload jest niedostępne w trakcie meczu.",
+  "reload.cooldown": "Ready Up skins: odczekaj kilka sekund przed ponownym wczytaniem.",
+  "reload.done": "Ready Up skins: wczytuję twoje skiny od nowa. Rękawice, agent i bronie w ręku zaktualizują się za chwilę."
+}

@@ -19,6 +19,8 @@
 #include "readyup/match_iface.h"
 #include "readyup/selftest_iface.h"
 #include "readyup/skins_iface.h"
+#include "readyup/i18n.h"
+#include "readyup/i18n_api.h"
 
 #include <atomic>
 #include <cctype>
@@ -36,6 +38,9 @@
 #ifndef SKINS_VERSION
 #define SKINS_VERSION "0.0.0-dev"
 #endif
+
+extern const readyup::i18n::Locale kReadyUpLocales[];  // locales/ (readyup_embed_locales)
+extern const size_t kReadyUpLocaleCount;
 
 namespace skins {
 
@@ -235,23 +240,27 @@ std::string RuMode() {
 }
 
 // `.skins reload` (also `.ru skins reload`): re-read the caller's loadout and re-apply it.
+readyup::i18n::Catalog g_text;  // player-facing text (plugins/skins/locales)
+
 void OnSkinsChat(void*, const ru_command_ctx* ctx) {
-  auto reply = [&](const char* msg) {
-    if (ctx->slot >= 0) g_api->chat_to_slot(g_api->self, ctx->slot, msg);
+  auto reply = [&](const char* key) {
+    if (ctx->slot >= 0) {
+      g_api->chat_to_slot(g_api->self, ctx->slot, g_text.Tr(readyup::i18n::LanguageOf(g_api, ctx->slot), key).c_str());
+    }
   };
   const std::string sub = ctx->argc >= 2 && ctx->argv[1] ? ctx->argv[1] : "";
   if (sub != "reload") {
-    reply("Ready Up skins: .skins reload  (re-read your skins; not while a match is live)");
+    reply("reload.usage");
     return;
   }
   if (ctx->steamid64 == 0 || ctx->slot < 0) return;
   if (Inert()) {
-    reply("Ready Up skins: skins are off on this server right now.");
+    reply("reload.off");
     return;
   }
   const std::string mode = RuMode();
   if (!SkinsReloadAllowed(mode)) {
-    reply("Ready Up skins: .skins reload is not available while a match is live.");
+    reply("reload.live");
     Log(RU_LOG_INFO, "skins reload by %llu refused (mode %s)", static_cast<unsigned long long>(ctx->steamid64),
         mode.c_str());
     return;
@@ -259,7 +268,7 @@ void OnSkinsChat(void*, const ru_command_ctx* ctx) {
   const double now = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
   const auto it = g_lastReload.find(ctx->steamid64);
   if (!SkinsReloadCooldownOk(now, it == g_lastReload.end() ? -1 : it->second)) {
-    reply("Ready Up skins: wait a few seconds before reloading again.");
+    reply("reload.cooldown");
     return;
   }
   g_lastReload[ctx->steamid64] = now;
@@ -268,7 +277,7 @@ void OnSkinsChat(void*, const ru_command_ctx* ctx) {
   RequestReapply(ctx->slot);
   Log(RU_LOG_INFO, "skins reload by %llu (slot %d, mode %s)", static_cast<unsigned long long>(ctx->steamid64),
       ctx->slot, mode.empty() ? "no match plugin" : mode.c_str());
-  reply("Ready Up skins: reloading your skins. Gloves, agent and the weapons you hold update in a second.");
+  reply("reload.done");
 }
 
 // A round restart (mp_restartgame, a match going live, a new round): re-gives wait a moment.
@@ -360,6 +369,9 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, stash_get)) return 1;
   try {
     g_api = api;
+    g_text = {};
+    if (const std::string err = g_text.Load(kReadyUpLocales, kReadyUpLocaleCount); !err.empty())
+      Log(RU_LOG_WARN, "locales: %s", err.c_str());
     detail::ResetOffsets();
     g_haveStore = LoadoutStart();
     if (!g_haveStore) Log(RU_LOG_WARN, "loadouts unavailable (%s); skins stay idle", LoadoutStatus().c_str());

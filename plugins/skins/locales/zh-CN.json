@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  （重新读取你的皮肤；比赛进行中不可用）",
+  "reload.off": "Ready Up skins: 此服务器目前关闭了皮肤。",
+  "reload.live": "Ready Up skins: 比赛进行中无法使用 .skins reload。",
+  "reload.cooldown": "Ready Up skins: 请等几秒再重新加载。",
+  "reload.done": "Ready Up skins: 正在重新加载你的皮肤。手套、探员和手中的武器马上更新。"
+}

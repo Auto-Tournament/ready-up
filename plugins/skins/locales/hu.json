@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (újra beolvassa a skinjeidet; élő meccs közben nem)",
+  "reload.off": "Ready Up skins: a skinek most ki vannak kapcsolva ezen a szerveren.",
+  "reload.live": "Ready Up skins: a .skins reload élő meccs közben nem érhető el.",
+  "reload.cooldown": "Ready Up skins: várj néhány másodpercet, mielőtt újra betöltöd.",
+  "reload.done": "Ready Up skins: a skinjeid újratöltése. A kesztyű, az ügynök és a kezedben lévő fegyverek egy másodpercen belül frissülnek."
+}

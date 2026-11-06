@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (skin'lerini yeniden okur; maç canlıyken değil)",
+  "reload.off": "Ready Up skins: skin'ler şu anda bu sunucuda kapalı.",
+  "reload.live": "Ready Up skins: .skins reload maç canlıyken kullanılamaz.",
+  "reload.cooldown": "Ready Up skins: yeniden yüklemeden önce birkaç saniye bekle.",
+  "reload.done": "Ready Up skins: skin'lerin yeniden yükleniyor. Eldivenler, ajan ve elindeki silahlar bir saniye içinde güncellenir."
+}

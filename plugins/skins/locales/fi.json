@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (lukee skinisi uudelleen; ei käynnissä olevan ottelun aikana)",
+  "reload.off": "Ready Up skins: skinit ovat nyt pois päältä tällä palvelimella.",
+  "reload.live": "Ready Up skins: .skins reload ei ole käytettävissä ottelun aikana.",
+  "reload.cooldown": "Ready Up skins: odota muutama sekunti ennen uutta latausta.",
+  "reload.done": "Ready Up skins: skinejäsi ladataan uudelleen. Hanskat, agentti ja kädessä olevat aseet päivittyvät hetken päästä."
+}

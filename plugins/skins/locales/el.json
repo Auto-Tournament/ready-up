@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (ξαναδιαβάζει τα skins σου, όχι κατά τη διάρκεια αγώνα)",
+  "reload.off": "Ready Up skins: τα skins είναι κλειστά σε αυτόν τον server αυτή τη στιγμή.",
+  "reload.live": "Ready Up skins: το .skins reload δεν είναι διαθέσιμο όσο τρέχει αγώνας.",
+  "reload.cooldown": "Ready Up skins: περίμενε λίγα δευτερόλεπτα πριν ξαναφορτώσεις.",
+  "reload.done": "Ready Up skins: τα skins σου ξαναφορτώνονται. Γάντια, agent και τα όπλα που κρατάς ενημερώνονται σε ένα δευτερόλεπτο."
+}

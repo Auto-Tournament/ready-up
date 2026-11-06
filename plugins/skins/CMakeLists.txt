@@ -9,6 +9,7 @@ readyup_add_plugin(skins
   stattrak.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/json_store.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp)
+readyup_embed_locales(readyup_plugin_skins ${CMAKE_CURRENT_SOURCE_DIR}/locales)
 target_include_directories(readyup_plugin_skins PRIVATE ${CMAKE_SOURCE_DIR}/libs)
 target_link_libraries(readyup_plugin_skins PRIVATE pthread)  # loadout worker (was pulled in by libpq)
 target_compile_definitions(readyup_plugin_skins PRIVATE SKINS_VERSION="${READYUP_SEMVER}")
