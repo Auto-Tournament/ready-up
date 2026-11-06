@@ -4,6 +4,8 @@
 # (readyup.essentials.v1 load_map).
 readyup_add_plugin(mapvote mapvote_plugin.cpp mapvote_rules.cpp)
 target_compile_definitions(readyup_plugin_mapvote PRIVATE MAPVOTE_VERSION="${READYUP_SEMVER}")
+target_include_directories(readyup_plugin_mapvote PRIVATE ${CMAKE_SOURCE_DIR}/libs)
+readyup_embed_locales(readyup_plugin_mapvote ${CMAKE_CURRENT_SOURCE_DIR}/locales)
 
 # Map list parsing, lookup, rtv threshold, ballots, the winner, the clock (mapvote_rules.h;
 # ctest `mapvote_rules`).
