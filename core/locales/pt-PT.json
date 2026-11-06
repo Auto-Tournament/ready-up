@@ -1,0 +1,6 @@
+{
+  "lang.current": "O teu idioma: {language}. Muda com .lang <código> ({codes}) ou .lang reset.",
+  "lang.set": "Idioma definido para {language}.",
+  "lang.reset": "De volta ao idioma predefinido: {language}.",
+  "lang.unknown": "Idioma desconhecido «{name}». Escolhe um destes: {codes}"
+}
