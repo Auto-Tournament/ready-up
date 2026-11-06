@@ -445,7 +445,7 @@
   "restore.restored_live": "ronde {round} hersteld door {by}. Live over 3 seconden.",
   "restore.restored_paused": "ronde {round} hersteld door {by}. De match is gepauzeerd; typ .unpause als jullie klaar zijn.",
   "dmg.line": "Gegeven: {given} in {given_hits} | Gekregen: {taken} in {taken_hits} — {name} ({hp} hp)",
-  "dmg.in": "{dmg} in {hits}",
+  "dmg.in": "{dmg} · {hits}×",
   "dmg.dead": "DOOD",
   "dmg.col_given": "GEGEVEN",
   "dmg.col_taken": "GEKREGEN",

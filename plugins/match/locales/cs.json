@@ -458,7 +458,7 @@
   "restore.restored_live": "kolo {round} obnovil {by}. Živě za 3 sekundy.",
   "restore.restored_paused": "kolo {round} obnovil {by}. Zápas je pozastavený; napište .unpause, až budete připraveni.",
   "dmg.line": "Dáno: {given} v {given_hits} | Obdrženo: {taken} v {taken_hits} — {name} ({hp} HP)",
-  "dmg.in": "{dmg} v {hits}",
+  "dmg.in": "{dmg} · {hits}×",
   "dmg.dead": "MRTVÝ",
   "dmg.col_given": "DÁNO",
   "dmg.col_taken": "OBDRŽENO",
