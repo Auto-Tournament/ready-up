@@ -1,0 +1,12 @@
+{
+  "panel.changing": "Harita {map} olarak değişiyor",
+  "panel.reloading": "{map} yeniden yükleniyor",
+  "panel.hold_on": "biraz bekle...",
+  "panel.downloading": "{map} indiriliyor",
+  "panel.waiting_steam": "Steam bekleniyor...",
+  "chat.restarting": "oyun yeniden başlıyor.",
+  "chat.changing": "harita {map} olarak değişiyor.",
+  "chat.reloading": "{map} yeniden yükleniyor.",
+  "help.commands": "Komutlar:",
+  "help.ru": ".ru help  bu sunucudaki tüm komutlar"
+}

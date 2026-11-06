@@ -1,0 +1,12 @@
+{
+  "panel.changing": "Đang đổi bản đồ sang {map}",
+  "panel.reloading": "Đang tải lại {map}",
+  "panel.hold_on": "chờ chút...",
+  "panel.downloading": "Đang tải xuống {map}",
+  "panel.waiting_steam": "đang chờ Steam...",
+  "chat.restarting": "trận đấu khởi động lại.",
+  "chat.changing": "đang đổi bản đồ sang {map}.",
+  "chat.reloading": "đang tải lại {map}.",
+  "help.commands": "Lệnh:",
+  "help.ru": ".ru help  mọi lệnh trên máy chủ này"
+}

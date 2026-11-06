@@ -1,0 +1,12 @@
+{
+  "panel.changing": "Mění se mapa na {map}",
+  "panel.reloading": "Znovu se načítá {map}",
+  "panel.hold_on": "chvilku...",
+  "panel.downloading": "Stahuje se {map}",
+  "panel.waiting_steam": "čeká se na Steam...",
+  "chat.restarting": "hra se restartuje.",
+  "chat.changing": "mění se mapa na {map}.",
+  "chat.reloading": "znovu se načítá {map}.",
+  "help.commands": "Příkazy:",
+  "help.ru": ".ru help  všechny příkazy na tomto serveru"
+}

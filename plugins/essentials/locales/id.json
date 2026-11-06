@@ -1,0 +1,12 @@
+{
+  "panel.changing": "Mengganti map ke {map}",
+  "panel.reloading": "Memuat ulang {map}",
+  "panel.hold_on": "tunggu sebentar...",
+  "panel.downloading": "Mengunduh {map}",
+  "panel.waiting_steam": "menunggu Steam...",
+  "chat.restarting": "game dimulai ulang.",
+  "chat.changing": "mengganti map ke {map}.",
+  "chat.reloading": "memuat ulang {map}.",
+  "help.commands": "Perintah:",
+  "help.ru": ".ru help  semua perintah di server ini"
+}

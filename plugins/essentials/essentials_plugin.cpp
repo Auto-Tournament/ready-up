@@ -42,6 +42,8 @@
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
 #include "readyup/selftest_iface.h"
+#include "readyup/i18n.h"
+#include "readyup/i18n_api.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -56,6 +58,9 @@
 #ifndef ESSENTIALS_VERSION
 #define ESSENTIALS_VERSION "dev"
 #endif
+
+extern const readyup::i18n::Locale kReadyUpLocales[];  // locales/ (readyup_embed_locales)
+extern const size_t kReadyUpLocaleCount;
 
 namespace essentials {
 namespace {
@@ -259,12 +264,35 @@ void OnAdmins(const ru_command_ctx* c, const std::string& sub, const std::vector
 }
 
 // A center panel to everyone at alert level (API 1.6), else the plain call.
-void SendAlertAll(const std::string& html, int seconds) {
-  if (RU_API_HAS(g_api, center_html_all_prio) && g_api->center_html_all_prio) {
-    g_api->center_html_all_prio(g_api->self, html.c_str(), seconds, RU_HTML_PRIO_ALERT);
-  } else {
-    g_api->center_html_all(g_api->self, html.c_str(), seconds);
-  }
+// Player-facing text (plugins/essentials/locales) in each player's language.
+readyup::i18n::Catalog g_text;
+Tr TrFor(const std::string& lang) {
+  return [lang](const char* key, const readyup::i18n::Args& args) { return g_text.Tr(lang, key, args); };
+}
+void ChatAllKey(const char* key, const readyup::i18n::Args& args = {}) {
+  readyup::i18n::ChatAll(g_api, 0, [&](const std::string& lang) { return g_text.Tr(lang, key, args); });
+}
+
+// Over every other panel, each player in their language.
+void SendAlertAll(const std::function<std::string(const Tr&)>& html, int seconds) {
+  struct Ctx {
+    const std::function<std::string(const Tr&)>* html;
+    int seconds;
+  } ctx{&html, seconds};
+  g_api->for_each_player(
+      g_api->self,
+      [](void* user, const ru_player* p) {
+        if (!p->connected || p->is_bot || p->slot < 0) return 1;
+        const auto* c = static_cast<const Ctx*>(user);
+        const std::string h = (*c->html)(TrFor(readyup::i18n::LanguageOf(g_api, p->slot)));
+        if (RU_API_HAS(g_api, center_html_to_slot_prio) && g_api->center_html_to_slot_prio) {
+          g_api->center_html_to_slot_prio(g_api->self, p->slot, h.c_str(), c->seconds, RU_HTML_PRIO_ALERT);
+        } else {
+          g_api->center_html_to_slot(g_api->self, p->slot, h.c_str(), c->seconds);
+        }
+        return 1;
+      },
+      &ctx);
 }
 
 bool LoadEntry(const std::string& entry) {
@@ -386,7 +414,7 @@ void OnMap(const ru_command_ctx* c, const std::string& sub, std::vector<std::str
   if (sub == "restart") {
     g_api->server_command(g_api->self, "mp_restartgame 1");
     ru_logf(g_api, RU_LOG_INFO, "map restart by %s", who.c_str());
-    return g_api->chat_all(g_api->self, "Ready Up: game restarting.", 0), void();
+    return ChatAllKey("chat.restarting");
   }
   std::string entry;
   if (sub == "change") {
@@ -404,11 +432,9 @@ void OnMap(const ru_command_ctx* c, const std::string& sub, std::vector<std::str
   if (!LoadEntry(entry)) return Reply(c, "map change unavailable yet");
   ru_logf(g_api, RU_LOG_INFO, "map %s by %s: %s", sub.c_str(), who.c_str(), entry.c_str());
   // Over every other panel until the level changes (a cached map loads with no download bar).
-  SendAlertAll(MapChangePanelHtml(readyup::mapnames::DisplayName(entry), sub != "change"), 5);
-  g_api->chat_all(g_api->self, ("Ready Up: " + std::string(sub == "change" ? "changing map to " : "reloading ") +
-                                readyup::mapnames::DisplayName(entry) + ".")
-                                   .c_str(),
-                  0);
+  const std::string name = readyup::mapnames::DisplayName(entry);
+  SendAlertAll([&](const Tr& tr) { return MapChangePanelHtml(tr, name, sub != "change"); }, 5);
+  ChatAllKey(sub == "change" ? "chat.changing" : "chat.reloading", {{"map", name}});
 }
 
 void OnRu(void*, const ru_command_ctx* c) {
@@ -494,7 +520,7 @@ void PollDownload(double now) {
             done / 1048576.0, total / 1048576.0);
   }
   // Over the ready HUD and the welcome card while it downloads (API 1.6: one panel per player).
-  SendAlertAll(DownloadPanelHtml(g_dl.name, done, total), 1);
+  SendAlertAll([&](const Tr& tr) { return DownloadPanelHtml(tr, g_dl.name, done, total); }, 1);
 }
 
 // `.help` on a server without the match plugin (which answers it itself): one line per loaded
@@ -505,7 +531,8 @@ ru_handle g_helpCmd = 0;
 void OnHelpChat(void*, const ru_command_ctx* c) {
   if (c->slot < 0) return;
   auto say = [&](const std::string& line) { g_api->chat_to_slot(g_api->self, c->slot, (" \x04[ReadyUp]\x01 " + line).c_str()); };
-  say("Commands:");
+  const std::string lang = readyup::i18n::LanguageOf(g_api, c->slot);
+  say(g_text.Tr(lang, "help.commands"));
   for (const char* name : RU_HELP_PLUGINS) {
     const auto* h = static_cast<const ru_help_v1*>(
         g_api->get_interface(g_api->self, (std::string(RU_HELP_IFACE_PREFIX) + name).c_str(), RU_HELP_IFACE_VERSION));
@@ -513,7 +540,7 @@ void OnHelpChat(void*, const ru_command_ctx* c) {
     const char* line = h->line();
     if (line && *line) say(line);
   }
-  say(".ru help  every command on this server");
+  say(g_text.Tr(lang, "help.ru"));
   char buf[256];
   if (RU_API_HAS(g_api, license_player_line) && g_api->license_player_line &&
       g_api->license_player_line(g_api->self, buf, sizeof(buf)) > 0) {
@@ -561,7 +588,8 @@ int IfaceLoadMap(const char* entry) {
     if (!readyup::mapnames::ValidEntry(e)) return 0;
     if (!LoadEntry(e)) return 0;
     ru_logf(g_api, RU_LOG_INFO, "map change for another plugin: %s", e.c_str());
-    SendAlertAll(MapChangePanelHtml(readyup::mapnames::DisplayName(e), false), 5);  // like `ru map change`
+    const std::string name = readyup::mapnames::DisplayName(e);
+    SendAlertAll([&](const Tr& tr) { return MapChangePanelHtml(tr, name, false); }, 5);  // like `ru map change`
     return 1;
   } catch (...) {
     return 0;
@@ -620,6 +648,9 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
 READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_api_version) {
   if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, register_ru_subcommand)) return 1;
   g_api = api;
+  g_text = {};
+  if (const std::string err = g_text.Load(kReadyUpLocales, kReadyUpLocaleCount); !err.empty())
+    ru_logf(api, RU_LOG_WARN, "locales: %s", err.c_str());
   const char* dir = api->data_dir(api->self);
   g_csgoDir = dir ? std::string(dir) : std::string();  // csgo/readyup/plugins/essentials
   while (!g_csgoDir.empty() && g_csgoDir.back() == '/') g_csgoDir.pop_back();

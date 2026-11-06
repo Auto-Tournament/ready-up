@@ -1,0 +1,12 @@
+{
+  "panel.changing": "正在換圖至 {map}",
+  "panel.reloading": "正在重新載入 {map}",
+  "panel.hold_on": "請稍候……",
+  "panel.downloading": "正在下載 {map}",
+  "panel.waiting_steam": "等待 Steam……",
+  "chat.restarting": "遊戲正在重新開始。",
+  "chat.changing": "正在換圖至 {map}。",
+  "chat.reloading": "正在重新載入 {map}。",
+  "help.commands": "指令：",
+  "help.ru": ".ru help  本伺服器的全部指令"
+}

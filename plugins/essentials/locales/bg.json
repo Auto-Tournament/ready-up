@@ -1,0 +1,12 @@
+{
+  "panel.changing": "Смяна на картата на {map}",
+  "panel.reloading": "Презареждане на {map}",
+  "panel.hold_on": "изчакай...",
+  "panel.downloading": "Изтегляне на {map}",
+  "panel.waiting_steam": "изчакване на Steam...",
+  "chat.restarting": "играта се рестартира.",
+  "chat.changing": "смяна на картата на {map}.",
+  "chat.reloading": "презареждане на {map}.",
+  "help.commands": "Команди:",
+  "help.ru": ".ru help  всички команди на този сървър"
+}

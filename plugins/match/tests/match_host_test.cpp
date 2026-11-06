@@ -96,7 +96,7 @@ std::optional<int> GameEventsSlotForSteam(unsigned long long steamid64) {
 }
 static std::string g_csgoDir;
 static std::string g_moduleDir;
-static std::string g_lastCenterAll;  // essentials: the workshop download bar
+static std::string g_centerLog;  // every center panel sent (essentials: the workshop download bar)
 static bool g_showLicense = false;    // core: readyup_show_license 1, valid key
 std::string GetCsgoDirFromModuleDir() { return g_csgoDir; }
 std::string GetThisModuleDir() { return g_moduleDir; }
@@ -131,9 +131,17 @@ static void FillPlayer(ru_player* out, const FakePlayer& p) {
 
 namespace readyup::plugins::detail {
 void FillEngineApi(ru_api* a) {
-  a->center_html_to_slot = [](ru_plugin*, int, const char*, int) { return 1; };
+  // Essentials sends the download bar per player (their language).
+  a->center_html_to_slot = [](ru_plugin*, int, const char* html, int) {
+    g_centerLog += std::string(html ? html : "") + "\n";
+    return 1;
+  };
+  a->center_html_to_slot_prio = [](ru_plugin*, int, const char* html, int, int) {
+    g_centerLog += std::string(html ? html : "") + "\n";
+    return 1;
+  };
   a->center_html_all = [](ru_plugin*, const char* html, int) {
-    g_lastCenterAll = html ? html : "";
+    g_centerLog += std::string(html ? html : "") + "\n";
     return 0;
   };
   a->get_player = [](ru_plugin*, int slot, ru_player* out) {
@@ -465,7 +473,7 @@ int main(int argc, char** argv) {
     Check(Sent("changelevel de_test"), "console: ru map reload -> changelevel to the current map");
     Check(Sent("mp_restartgame 1"), "console: ru map restart -> mp_restartgame 1");
     rp::Frame(true);
-    Check(readyup::g_lastCenterAll.find("25.0% &#183; 50.0 / 200.0 MB") != std::string::npos,
+    Check(readyup::g_centerLog.find("25.0% &#183; 50.0 / 200.0 MB") != std::string::npos,
           "workshop map change: download progress bar in the center panel");
     rp::TryDispatchRu(true, 0, "Console", "ru admins add 76561198000000001");
     rp::Frame(true);

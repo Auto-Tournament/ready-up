@@ -1,0 +1,12 @@
+{
+  "panel.changing": "Zmiana mapy na {map}",
+  "panel.reloading": "Ponowne wczytywanie {map}",
+  "panel.hold_on": "chwila...",
+  "panel.downloading": "Pobieranie {map}",
+  "panel.waiting_steam": "czekanie na Steam...",
+  "chat.restarting": "gra się restartuje.",
+  "chat.changing": "zmiana mapy na {map}.",
+  "chat.reloading": "ponowne wczytywanie {map}.",
+  "help.commands": "Komendy:",
+  "help.ru": ".ru help  wszystkie komendy na tym serwerze"
+}

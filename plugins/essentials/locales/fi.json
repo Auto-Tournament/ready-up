@@ -1,0 +1,12 @@
+{
+  "panel.changing": "Kartaksi vaihtuu {map}",
+  "panel.reloading": "Ladataan {map} uudelleen",
+  "panel.hold_on": "hetki...",
+  "panel.downloading": "Ladataan {map}",
+  "panel.waiting_steam": "odotetaan Steamia...",
+  "chat.restarting": "peli alkaa alusta.",
+  "chat.changing": "kartaksi vaihtuu {map}.",
+  "chat.reloading": "ladataan {map} uudelleen.",
+  "help.commands": "Komennot:",
+  "help.ru": ".ru help  kaikki tämän palvelimen komennot"
+}

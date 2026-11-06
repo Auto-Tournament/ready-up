@@ -1,0 +1,12 @@
+{
+  "panel.changing": "{map}(으)로 맵 변경 중",
+  "panel.reloading": "{map} 다시 불러오는 중",
+  "panel.hold_on": "잠시만요...",
+  "panel.downloading": "{map} 다운로드 중",
+  "panel.waiting_steam": "Steam 대기 중...",
+  "chat.restarting": "게임을 다시 시작합니다.",
+  "chat.changing": "{map}(으)로 맵을 바꿉니다.",
+  "chat.reloading": "{map}을(를) 다시 불러옵니다.",
+  "help.commands": "명령어:",
+  "help.ru": ".ru help  이 서버의 모든 명령어"
+}

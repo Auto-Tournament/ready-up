@@ -237,12 +237,12 @@ std::string Repeat(const char* s, int n) {
 
 }  // namespace
 
-std::string MapChangePanelHtml(const std::string& name, bool reload) {
-  return std::string("<font class='fontSize-l' color='#ffffff'>") + (reload ? "Reloading " : "Changing map to ") +
-         EscapeHtml(name) + "</font><br><font class='fontSize-m' color='#d4d4d8'>hold on...</font>";
+std::string MapChangePanelHtml(const Tr& tr, const std::string& name, bool reload) {
+  return "<font class='fontSize-l' color='#ffffff'>" + tr(reload ? "panel.reloading" : "panel.changing", {{"map", EscapeHtml(name)}}) +
+         "</font><br><font class='fontSize-m' color='#d4d4d8'>" + tr("panel.hold_on", {}) + "</font>";
 }
 
-std::string DownloadPanelHtml(const std::string& name, uint64_t downloaded, uint64_t total, int segments) {
+std::string DownloadPanelHtml(const Tr& tr, const std::string& name, uint64_t downloaded, uint64_t total, int segments) {
   if (segments < 1) segments = 1;
   if (total > 0 && downloaded > total) downloaded = total;
   const double frac = total > 0 ? static_cast<double>(downloaded) / static_cast<double>(total) : 0.0;
@@ -252,9 +252,9 @@ std::string DownloadPanelHtml(const std::string& name, uint64_t downloaded, uint
     std::snprintf(stats, sizeof stats, "%.1f%% &#183; %.1f / %.1f MB", frac * 100.0, downloaded / 1048576.0,
                   total / 1048576.0);
   } else {
-    std::snprintf(stats, sizeof stats, "waiting for Steam...");
+    std::snprintf(stats, sizeof stats, "%s", tr("panel.waiting_steam", {}).c_str());
   }
-  std::string h = "<font class='fontSize-l' color='#ffffff'>Downloading " + EscapeHtml(name) + "</font><br>";
+  std::string h = "<font class='fontSize-l' color='#ffffff'>" + tr("panel.downloading", {{"map", EscapeHtml(name)}}) + "</font><br>";
   if (filled > 0) h += "<font color='#4ade80'>" + Repeat("\u2588", filled) + "</font>";
   if (filled < segments) h += "<font color='#3f3f46'>" + Repeat("\u2588", segments - filled) + "</font>";
   h += "<br><font class='fontSize-m' color='#d4d4d8'>" + std::string(stats) + "</font>";
