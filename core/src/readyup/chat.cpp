@@ -199,6 +199,16 @@ bool SendToSlotChat(int slot, const char* msg) {
   return !p.empty() && ClientPrintChat(slot, p.c_str());
 }
 
+bool SendImportantToSlotChat(int slot, const char* msg) {
+  const std::string s = Trim(StripNewlines(msg ? msg : ""));
+  if (slot < 0 || s.empty()) return false;
+  const std::string line =
+      SanitizeForSay(ChatPrefix() + " " + std::string(1, ChatColors::Gold) + WithoutReadyUpLeadIn(s));
+  bool ok = true;
+  for (int i = 0; i < 3 && ok; ++i) ok = ClientPrintChat(slot, line.c_str());
+  return ok;
+}
+
 void SendRawToChat(const char* payload) {
   SendSayPayload(payload ? payload : "");
 }

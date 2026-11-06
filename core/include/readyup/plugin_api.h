@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 18
+#define READYUP_PLUGIN_API_VERSION_MINOR 19
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -762,7 +762,25 @@ typedef struct ru_api {
    * empty text. Game thread. */
   int (*run_chat_command)(ru_plugin* self, int slot, const char* text);
 
-  /* v1.18+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.19 ===========================================================
+   * Appended in 1.19. Require 1.19 in ru_plugin_info.api_version, or check RU_API_HAS().
+   * Each player's language (libs/readyup/i18n.h looks a plugin's text up in it).
+   */
+  /* The language of the player in `slot`, a platform code ("en", "de", "pt-BR", "zh-CN", ...):
+   * their own `.lang` choice, else what set_player_language gave, else readyup.cfg `language`
+   * (default "en"). slot -1 or no such player: the server's language. The string lives as long
+   * as the core. Game thread. */
+  const char* (*player_language)(ru_plugin* self, int slot);
+  /* The language a player gets unless they chose one with `.lang`: the platform's site language
+   * (fleet). code: a platform code or a CS2 language name ("german"); NULL or "" clears it. Not
+   * saved. 1 = set, 0 = unknown code or steamid64 0. Game thread. */
+  int (*set_player_language)(ru_plugin* self, uint64_t steamid64, const char* code);
+  /* chat_to_slot with chat_all's flags: the Ready Up prefix unless RU_CHAT_RAW, RU_CHAT_IMPORTANT
+   * in gold three times. For lines sent to each player in their own language. 1 = sent. Game
+   * thread. */
+  int (*chat_to_slot_ex)(ru_plugin* self, int slot, const char* msg, uint32_t flags);
+
+  /* v1.19+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

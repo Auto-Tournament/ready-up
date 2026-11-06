@@ -14,6 +14,8 @@
 // readyup.whitelist.v1 set_guests (tv.so's casters): never kicked, not saved.
 #include "whitelist_rules.h"
 
+#include "readyup/i18n.h"
+#include "readyup/i18n_api.h"
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
 #include "readyup/selftest_iface.h"
@@ -26,6 +28,9 @@
 #include <string>
 #include <vector>
 
+extern const readyup::i18n::Locale kReadyUpLocales[];  // locales/ (readyup_embed_locales)
+extern const size_t kReadyUpLocaleCount;
+
 #ifndef WHITELIST_VERSION
 #define WHITELIST_VERSION "dev"
 #endif
@@ -34,6 +39,7 @@ namespace whitelist {
 namespace {
 
 const ru_api* g_api = nullptr;
+readyup::i18n::Catalog g_text;
 State g_state;
 Guests g_guests;  // readyup.whitelist.v1 set_guests (not saved)
 std::string g_path;
@@ -94,9 +100,11 @@ int SweepPlayer(void* user, const ru_player* p) {
   const int id = p->userid >= 0 ? p->userid : p->slot;  // kickid takes the log <N> (the slot)
   if (id < 0) return 1;                                  // not identified yet: next sweep
   g_kickedAt[p->steamid64] = c->now;
-  char cmd[160];
-  std::snprintf(cmd, sizeof(cmd), "kickid %d \"Not on this server's whitelist\"", id);
-  g_api->server_command(g_api->self, cmd);
+  std::string reason = g_text.Tr(readyup::i18n::LanguageOf(g_api, p->slot), "kick_reason");
+  for (char& ch : reason) {
+    if (ch == '"' || ch == ';') ch = '\'';  // stays one console command
+  }
+  g_api->server_command(g_api->self, ("kickid " + std::to_string(id) + " \"" + reason + "\"").c_str());
   ru_logf(g_api, RU_LOG_INFO, "kicked %s (%llu): not on the whitelist", p->name, static_cast<unsigned long long>(p->steamid64));
   return 1;
 }
@@ -116,60 +124,59 @@ void OnTick(void*, const ru_tick_info* t) {
 
 void OnConnect(void*, const ru_event*) { g_lastSweep = -1e9; }  // check on the next tick
 
-void Reply(const ru_command_ctx* ctx, const std::string& msg) {
+// The text of `key` to whoever ran the command, in their language (the console: English).
+void Reply(const ru_command_ctx* ctx, const char* key, const readyup::i18n::Args& args = {}) {
+  const std::string lang = ctx->is_console ? "en" : readyup::i18n::LanguageOf(g_api, ctx->slot);
+  const std::string msg = g_text.Tr(lang, key, args);
   if (ctx->is_console) ru_logf(g_api, RU_LOG_INFO, "%s", msg.c_str());
-  else if (ctx->slot >= 0) g_api->chat_to_slot(g_api->self, ctx->slot, ("Ready Up whitelist: " + msg).c_str());
+  else if (ctx->slot >= 0) g_api->chat_to_slot(g_api->self, ctx->slot, (g_text.Tr(lang, "prefix") + " " + msg).c_str());
 }
 
 void OnRu(void*, const ru_command_ctx* ctx) {
   const std::string sub = ctx->argc >= 3 ? ctx->argv[2] : "";
   const std::string arg = ctx->argc >= 4 ? ctx->argv[3] : "";
   if (sub.empty() || sub == "help") {
-    for (const char* l : {".ru whitelist on|off: kick everyone not on the list (admins and bots stay; not during a match)",
-                          ".ru whitelist add|remove <steamid64>", ".ru whitelist list | clear"}) {
-      Reply(ctx, l);
-    }
+    for (const char* key : {"help_on_off", "help_add_remove", "help_list_clear"}) Reply(ctx, key);
     return;
   }
   if (!ctx->is_console && g_api->is_admin(g_api->self, ctx->steamid64) != 1) {
-    Reply(ctx, "not authorized");
+    Reply(ctx, "not_authorized");
     return;
   }
   bool changed = false;
   if (sub == "on" || sub == "off") {
     g_state.enabled = sub == "on";
     changed = true;
-    Reply(ctx, std::string(g_state.enabled ? "on" : "off") + " (" + std::to_string(g_state.steamids.size()) +
-                   " player(s) on the list)");
+    Reply(ctx, g_state.enabled ? "turned_on" : "turned_off", {{"count", std::to_string(g_state.steamids.size())}});
     g_lastSweep = -1e9;
   } else if (sub == "add" || sub == "remove") {
     const uint64_t id = ParseSteamId64(arg);
     if (!id) {
-      Reply(ctx, "usage: .ru whitelist " + sub + " <steamid64>");
+      Reply(ctx, "usage", {{"sub", sub}});
       return;
     }
     changed = sub == "add" ? g_state.steamids.insert(id).second : g_state.steamids.erase(id) > 0;
-    Reply(ctx, (changed ? (sub == "add" ? "added " : "removed ") : "no change for ") + arg);
+    Reply(ctx, changed ? (sub == "add" ? "added" : "removed") : "no_change", {{"id", arg}});
   } else if (sub == "clear") {
     changed = !g_state.steamids.empty();
     g_state.steamids.clear();
-    Reply(ctx, "list cleared");
+    Reply(ctx, "cleared");
   } else if (sub == "list") {
     std::string l;
     for (uint64_t id : g_state.steamids) l += (l.empty() ? "" : " ") + std::to_string(id);
-    Reply(ctx, std::string(g_state.enabled ? "on" : "off") + ", " + std::to_string(g_state.steamids.size()) +
-                   " player(s)" + (l.empty() ? "" : ": " + l));
+    if (l.empty()) Reply(ctx, g_state.enabled ? "list_on_empty" : "list_off_empty");
+    else Reply(ctx, g_state.enabled ? "list_on" : "list_off", {{"count", std::to_string(g_state.steamids.size())}, {"ids", l}});
     if (g_guests.Count() > 0) {
       std::string owners;
       for (const auto& kv : g_guests.byOwner) owners += (owners.empty() ? "" : ", ") + kv.first + " " + std::to_string(kv.second.size());
-      Reply(ctx, std::to_string(g_guests.Count()) + " guest(s) other plugins let in (" + owners + ")");
+      Reply(ctx, "guests", {{"count", std::to_string(g_guests.Count())}, {"owners", owners}});
     }
     return;
   } else {
-    Reply(ctx, "unknown command. Type .ru help whitelist for the list.");
+    Reply(ctx, "unknown");
     return;
   }
-  if (changed && !Save()) Reply(ctx, "could not save " + g_path);
+  if (changed && !Save()) Reply(ctx, "save_failed", {{"path", g_path}});
 }
 
 void RunSelftest(ru_selftest_add_fn add, void* ctx) {
@@ -230,6 +237,9 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
 READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_api_version) {
   if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, register_ru_subcommand)) return 1;
   g_api = api;
+  g_text = {};
+  if (const std::string err = g_text.Load(kReadyUpLocales, kReadyUpLocaleCount); !err.empty())
+    ru_logf(api, RU_LOG_WARN, "locales: %s", err.c_str());
   g_kickedAt.clear();
   g_adminAt.clear();
   g_guests = Guests{};  // owners set theirs again (tv.so does every few seconds)
