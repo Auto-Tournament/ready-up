@@ -141,13 +141,14 @@
 
 .at-line-body { margin-left: 20px; }
 
-.at-dmg { flow-children: down; width: 388px; }
+/* Cells hold CS2's own "100 w 5 trafieniach" (pl, the longest with th): 156 px each, the name keeps ~130. */
+.at-dmg { flow-children: down; width: 532px; }
 .at-drow { flow-children: right; width: 100%; height: 28px; margin-bottom: 5px; padding: 0px 9px; border-radius: 7px; background-color: #211815; }
 .at-drow.gone { visibility: collapse; }
 .at-drow.at-dhead { height: 16px; background-color: #00000000; }
 /* Grey unless you hit them: white names are the players you damaged (2026-11-03). */
 .at-dname { width: fill-parent-flow( 1.0 ); vertical-align: center; font-size: 13px; color: #938a87; }
-.at-dnum { font-family: "Noto Mono"; width: 70px; margin-left: 8px; vertical-align: center; text-align: right; font-size: 13px; color: #938a87; }
+.at-dnum { font-family: "Noto Mono"; width: 156px; margin-left: 8px; vertical-align: center; text-align: right; font-size: 13px; color: #938a87; }
 .at-dhp { font-family: "Noto Mono"; width: 48px; margin-left: 8px; vertical-align: center; text-align: right; font-size: 13px; font-weight: bold; color: #c4bcb9; }
 .at-dhead .at-dnum { font-size: 11px; font-weight: bold; letter-spacing: 1.2px; }
 .at-dhead .at-dhp { font-size: 11px; letter-spacing: 1.2px; color: #938a87; }
