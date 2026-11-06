@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (스킨을 다시 불러옵니다. 경기 중에는 불가)",
+  "reload.off": "Ready Up skins: 지금 이 서버는 스킨이 꺼져 있습니다.",
+  "reload.live": "Ready Up skins: 경기 중에는 .skins reload를 쓸 수 없습니다.",
+  "reload.cooldown": "Ready Up skins: 다시 불러오기 전에 몇 초 기다리세요.",
+  "reload.done": "Ready Up skins: 스킨을 다시 불러오는 중입니다. 장갑, 요원, 들고 있는 무기가 곧 바뀝니다."
+}

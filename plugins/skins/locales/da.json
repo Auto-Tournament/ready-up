@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (indlæser dine skins igen; ikke mens en kamp er live)",
+  "reload.off": "Ready Up skins: skins er slået fra på denne server lige nu.",
+  "reload.live": "Ready Up skins: .skins reload er ikke tilgængelig, mens en kamp er live.",
+  "reload.cooldown": "Ready Up skins: vent et par sekunder, før du genindlæser igen.",
+  "reload.done": "Ready Up skins: genindlæser dine skins. Handsker, agent og de våben, du holder, opdateres om et øjeblik."
+}

@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (re-read your skins; not while a match is live)",
+  "reload.off": "Ready Up skins: skins are off on this server right now.",
+  "reload.live": "Ready Up skins: .skins reload is not available while a match is live.",
+  "reload.cooldown": "Ready Up skins: wait a few seconds before reloading again.",
+  "reload.done": "Ready Up skins: reloading your skins. Gloves, agent and the weapons you hold update in a second."
+}

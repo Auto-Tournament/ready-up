@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (перечитати ваші скіни; не під час матчу)",
+  "reload.off": "Ready Up skins: скіни зараз вимкнено на цьому сервері.",
+  "reload.live": "Ready Up skins: .skins reload недоступний, поки триває матч.",
+  "reload.cooldown": "Ready Up skins: зачекайте кілька секунд перед повторним завантаженням.",
+  "reload.done": "Ready Up skins: ваші скіни перезавантажуються. Рукавиці, агент і зброя в руках оновляться за секунду."
+}

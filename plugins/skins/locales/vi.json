@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (đọc lại skin của bạn; không dùng khi trận đang diễn ra)",
+  "reload.off": "Ready Up skins: skin đang tắt trên máy chủ này.",
+  "reload.live": "Ready Up skins: không dùng được .skins reload khi trận đang diễn ra.",
+  "reload.cooldown": "Ready Up skins: đợi vài giây trước khi tải lại.",
+  "reload.done": "Ready Up skins: đang tải lại skin của bạn. Găng tay, đặc vụ và vũ khí đang cầm sẽ cập nhật sau một giây."
+}

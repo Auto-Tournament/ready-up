@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (โหลดสกินของคุณใหม่ ใช้ไม่ได้ระหว่างแมตช์)",
+  "reload.off": "Ready Up skins: ตอนนี้เซิร์ฟเวอร์นี้ปิดสกินอยู่",
+  "reload.live": "Ready Up skins: ใช้ .skins reload ไม่ได้ระหว่างแมตช์",
+  "reload.cooldown": "Ready Up skins: รอสักครู่ก่อนโหลดใหม่อีกครั้ง",
+  "reload.done": "Ready Up skins: กำลังโหลดสกินของคุณใหม่ ถุงมือ เอเจนต์ และอาวุธในมือจะอัปเดตในอีกไม่กี่วินาที"
+}

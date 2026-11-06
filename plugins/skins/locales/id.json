@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (membaca ulang skin-mu; tidak saat pertandingan live)",
+  "reload.off": "Ready Up skins: skin sedang mati di server ini.",
+  "reload.live": "Ready Up skins: .skins reload tidak tersedia saat pertandingan live.",
+  "reload.cooldown": "Ready Up skins: tunggu beberapa detik sebelum memuat ulang lagi.",
+  "reload.done": "Ready Up skins: memuat ulang skin-mu. Sarung tangan, agen, dan senjata yang kamu pegang diperbarui sebentar lagi."
+}

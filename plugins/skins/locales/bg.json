@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (презарежда скиновете ти; не по време на мач на живо)",
+  "reload.off": "Ready Up skins: скиновете са изключени на този сървър в момента.",
+  "reload.live": "Ready Up skins: .skins reload не е наличен, докато тече мач.",
+  "reload.cooldown": "Ready Up skins: изчакай няколко секунди, преди да презаредиш пак.",
+  "reload.done": "Ready Up skins: скиновете ти се презареждат. Ръкавиците, агентът и оръжията в ръцете ти се обновяват след секунда."
+}

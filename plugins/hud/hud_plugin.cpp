@@ -26,6 +26,8 @@
 
 #include "readyup/hud_iface.h"
 #include "readyup/plugin_api.h"
+#include "readyup/i18n.h"
+#include "readyup/i18n_api.h"
 #include "readyup/selftest_iface.h"
 
 #include <dlfcn.h>
@@ -46,8 +48,13 @@
 #include <utility>
 #include <vector>
 
+extern const readyup::i18n::Locale kReadyUpLocales[];  // locales/ (readyup_embed_locales)
+extern const size_t kReadyUpLocaleCount;
+
 namespace hud {
 namespace {
+
+readyup::i18n::Catalog g_text;  // player-facing text (plugins/hud/locales)
 
 const ru_api* g_api = nullptr;
 constexpr const char* kClass = "custom_hud_layout";
@@ -1582,7 +1589,7 @@ void OnMenuChat(void*, const ru_command_ctx* ctx) {
       return;
     }
   }
-  g_api->chat_to_slot(g_api->self, ctx->slot, "No menu on this server right now.");
+  g_api->chat_to_slot(g_api->self, ctx->slot, g_text.Tr(readyup::i18n::LanguageOf(g_api, ctx->slot), "menu.none").c_str());
 }
 
 void OnDemoClick(void*, int slot, const char* command) {
@@ -1785,6 +1792,9 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
 READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_api_version) {
   if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, surface_rtti_vtable)) return 1;
   g_api = api;
+  g_text = {};
+  if (const std::string err = g_text.Load(kReadyUpLocales, kReadyUpLocaleCount); !err.empty())
+    g_api->log(g_api->self, RU_LOG_WARN, ("locales: " + err).c_str());
   g_eng = Engine{};
   g_layouts.clear();
   g_resendAt.clear();

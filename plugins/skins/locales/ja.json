@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  （スキンを読み込み直します。試合中は使えません）",
+  "reload.off": "Ready Up skins: このサーバーでは現在スキンがオフです。",
+  "reload.live": "Ready Up skins: 試合中は .skins reload を使えません。",
+  "reload.cooldown": "Ready Up skins: もう一度読み込むまで数秒待ってください。",
+  "reload.done": "Ready Up skins: スキンを読み込み直しています。グローブ、エージェント、手に持っている武器がすぐに更新されます。"
+}

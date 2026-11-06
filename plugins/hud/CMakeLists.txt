@@ -3,6 +3,8 @@
 # Other plugins use it through readyup.hud.v1 (core/include/readyup/hud_iface.h).
 # Engine entries: gamedata/engine-surface.hud.json.
 readyup_add_plugin(hud hud_plugin.cpp hud_vec.cpp hud_screen.cpp)
+readyup_embed_locales(readyup_plugin_hud ${CMAKE_CURRENT_SOURCE_DIR}/locales)
+target_include_directories(readyup_plugin_hud PRIVATE ${CMAKE_SOURCE_DIR}/libs)
 target_include_directories(readyup_plugin_hud PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(readyup_plugin_hud PRIVATE HUD_VERSION="${READYUP_SEMVER}")
 target_link_libraries(readyup_plugin_hud PRIVATE dl)

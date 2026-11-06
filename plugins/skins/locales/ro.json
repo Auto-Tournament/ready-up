@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (reîncarcă skin-urile tale; nu în timpul unui meci live)",
+  "reload.off": "Ready Up skins: skin-urile sunt oprite pe acest server acum.",
+  "reload.live": "Ready Up skins: .skins reload nu e disponibil în timpul unui meci live.",
+  "reload.cooldown": "Ready Up skins: așteaptă câteva secunde înainte să reîncarci din nou.",
+  "reload.done": "Ready Up skins: se reîncarcă skin-urile tale. Mănușile, agentul și armele din mână se actualizează într-o secundă."
+}

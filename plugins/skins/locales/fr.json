@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (recharge tes skins ; pas pendant un match en cours)",
+  "reload.off": "Ready Up skins: les skins sont désactivés sur ce serveur pour le moment.",
+  "reload.live": "Ready Up skins: .skins reload n’est pas disponible pendant un match en cours.",
+  "reload.cooldown": "Ready Up skins: attends quelques secondes avant de recharger à nouveau.",
+  "reload.done": "Ready Up skins: rechargement de tes skins. Gants, agent et armes en main se mettent à jour dans un instant."
+}

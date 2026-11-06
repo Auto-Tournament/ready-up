@@ -1,0 +1,7 @@
+{
+  "reload.usage": "Ready Up skins: .skins reload  (leser skinsene dine på nytt; ikke mens en kamp pågår)",
+  "reload.off": "Ready Up skins: skins er av på denne serveren akkurat nå.",
+  "reload.live": "Ready Up skins: .skins reload er ikke tilgjengelig mens en kamp pågår.",
+  "reload.cooldown": "Ready Up skins: vent noen sekunder før du laster inn på nytt igjen.",
+  "reload.done": "Ready Up skins: laster inn skinsene dine på nytt. Hansker, agent og våpnene du holder, oppdateres om et øyeblikk."
+}
