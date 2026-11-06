@@ -33,6 +33,8 @@
 #include "readyup/map_names.h"
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
+#include "readyup/i18n.h"
+#include "readyup/i18n_api.h"
 #include "readyup/selftest_iface.h"
 
 #include <algorithm>
@@ -51,6 +53,9 @@
 #ifndef DEATHMATCH_VERSION
 #define DEATHMATCH_VERSION "dev"
 #endif
+
+extern const readyup::i18n::Locale kReadyUpLocales[];  // locales/ (readyup_embed_locales)
+extern const size_t kReadyUpLocaleCount;
 
 namespace deathmatch {
 namespace {
@@ -81,7 +86,24 @@ void Cmd(const std::string& c) { g_api->server_command(g_api->self, c.c_str()); 
 void Cmds(const std::vector<std::string>& cs) {
   for (const auto& c : cs) Cmd(c);
 }
-void ChatAll(const std::string& msg) { g_api->chat_all(g_api->self, msg.c_str(), 0); }
+// Player-facing text (plugins/deathmatch/locales) in each player's language; the console reads English.
+readyup::i18n::Catalog g_text;
+using Args = readyup::i18n::Args;
+std::string Lang(int slot) { return readyup::i18n::LanguageOf(g_api, slot); }
+Tr TrFor(const std::string& lang) {
+  return [lang](const char* key, const Args& args) { return g_text.Tr(lang, key, args); };
+}
+void ChatAllText(const std::function<std::string(const Tr&)>& text) {
+  readyup::i18n::ChatAll(g_api, 0, [&](const std::string& lang) { return text(TrFor(lang)); });
+}
+void ChatAllKey(const char* key, const Args& args = {}) {
+  ChatAllText([&](const Tr& tr) { return tr(key, args); });
+}
+// A line from locales/ to translate later (Enter's result).
+struct Msg {
+  std::string key;
+  Args args;
+};
 
 // ---- other plugins -------------------------------------------------------------------------------
 
@@ -238,9 +260,11 @@ void SendHud(double now) {
   const auto humans = RefreshPlayers();
   if (g.phase == Phase::Ended) {
     const int left = static_cast<int>(std::ceil(g.endedAt + g.settings.endDelaySeconds - now));
-    const std::string html = WinnerHtml(g.mode, g.outcome, left);
-    if (HasPrio()) g_api->center_html_all_prio(g_api->self, html.c_str(), PanelSeconds(), RU_HTML_PRIO_NOTICE);
-    else g_api->center_html_all(g_api->self, html.c_str(), PanelSeconds());
+    for (const auto& h : humans) {
+      const std::string html = WinnerHtml(TrFor(Lang(h.slot)), g.mode, g.outcome, left);
+      if (HasPrio()) g_api->center_html_to_slot_prio(g_api->self, h.slot, html.c_str(), PanelSeconds(), RU_HTML_PRIO_NOTICE);
+      else g_api->center_html_to_slot(g_api->self, h.slot, html.c_str(), PanelSeconds());
+    }
     return;
   }
   if (!g.settings.hud || g.phase != Phase::Playing) return;
@@ -248,7 +272,7 @@ void SendHud(double now) {
   const int left = SecondsLeft(now);
   for (const auto& h : humans) {
     if (g_hudOff.count(h.steamid64)) continue;
-    const std::string html = LeaderboardHtml(g.mode, g.board, h.steamid64, limit, left, g.weapon);
+    const std::string html = LeaderboardHtml(TrFor(Lang(h.slot)), g.mode, g.board, h.steamid64, limit, left, g.weapon);
     if (HasPrio()) g_api->center_html_to_slot_prio(g_api->self, h.slot, html.c_str(), PanelSeconds(), RU_HTML_PRIO_HUD);
     else g_api->center_html_to_slot(g_api->self, h.slot, html.c_str(), PanelSeconds());
   }
@@ -272,13 +296,18 @@ void StartGame(double now, const char* why) {
   StopWeaponRound();
   g.nextHud = 0;
   const int limit = KillLimit(g.settings, g.mode);
-  std::string rules;
-  if (limit > 0) rules += "first " + std::string(g.mode == Mode::Tdm ? "team" : "player") + " to " + std::to_string(limit) + " kills";
-  if (g.settings.timeLimitMinutes > 0) {
-    rules += (rules.empty() ? "" : ", ") + std::to_string(g.settings.timeLimitMinutes) + " min";
-  }
-  if (g.settings.headshotOnly) rules += (rules.empty() ? "" : ", ") + std::string("headshots only");
-  ChatAll(std::string(ModeLabel(g.mode)) + (rules.empty() ? "" : ": " + rules) + ". .ru dm top for the leaderboard.");
+  const Mode mode = g.mode;
+  const int minutes = g.settings.timeLimitMinutes;
+  const bool hs = g.settings.headshotOnly;
+  ChatAllText([&](const Tr& tr) {
+    std::string rules;
+    auto add = [&](const std::string& r) { rules += (rules.empty() ? "" : ", ") + r; };
+    if (limit > 0) add(tr(mode == Mode::Tdm ? "rules.first_team" : "rules.first_player", {{"count", std::to_string(limit)}}));
+    if (minutes > 0) add(tr("rules.minutes", {{"minutes", std::to_string(minutes)}}));
+    if (hs) add(tr("rules.headshots", {}));
+    const std::string m = tr(ModeKey(mode), {});
+    return rules.empty() ? tr("start.plain", {{"mode", m}}) : tr("start.rules", {{"mode", m}, {"rules", rules}});
+  });
   Log("deathmatch: game started (%s, %s)", ModeName(g.mode), why);
   UpdateSelftestLine();
 }
@@ -293,9 +322,9 @@ void EndGame(double now, const Outcome& o) {
   g.endedAt = now;
   g.outcome = o;
   StopWeaponRound();
-  const std::string line = WinnerChat(g.mode, o);
-  ChatAll(line);
-  Log("deathmatch: game over: %s", line.c_str());
+  const Mode mode = g.mode;
+  ChatAllText([&](const Tr& tr) { return WinnerChat(tr, mode, o); });
+  Log("deathmatch: game over: %s", WinnerChat(TrFor("en"), mode, o).c_str());
   g.nextHud = 0;
   UpdateSelftestLine();
 }
@@ -336,15 +365,15 @@ void Leave(bool reload, bool tellMatch, const char* why) {
   UpdateSelftestLine();
 }
 
-// `dm ffa|tdm [map]`. Returns the reply; *ok = the mode is (being) switched on.
-std::string Enter(Mode m, const std::string& mapArg, bool* ok) {
+// `dm ffa|tdm [map]`. Returns the reply (ok: for everyone); *ok = the mode is (being) switched on.
+Msg Enter(Mode m, const std::string& mapArg, bool* ok) {
   *ok = false;
   LoadConfig();
   if (MatchOwnsMode()) {
     const std::string was = RuMode();
     if (Match()->set_external_mode(kExternalName) != 1) {
-      if (was == "practice") return "refused: practice mode is on (.prac to leave it first).";
-      return "refused: a match is loaded (.ru match end first).";
+      if (was == "practice") return {"admin.refused_practice", {}};
+      return {"admin.refused_match", {}};
     }
   }
   const ru_essentials_v1* e = Essentials();
@@ -352,7 +381,7 @@ std::string Enter(Mode m, const std::string& mapArg, bool* ok) {
   const MapChoice choice = ResolveMap(mapArg, def, CurrentReloadEntry());
   if (!mapArg.empty() && !readyup::mapnames::ValidEntry(choice.entry)) {
     if (!Active() && MatchOwnsMode()) (void)Match()->set_external_mode(nullptr);
-    return "\"" + mapArg.substr(0, 64) + "\" is not a map name, workshop id or workshop link.";
+    return {"admin.bad_map", {{"map", mapArg.substr(0, 64)}}};
   }
   const Mode before = g.mode;
   g.mode = m;
@@ -366,12 +395,12 @@ std::string Enter(Mode m, const std::string& mapArg, bool* ok) {
     Log("deathmatch: %s -> %s on %s", ModeName(before), ModeName(m), current.c_str());
     StartGame(Now() + 1.0, "mode switch");  // the restart's Match_Start comes within 2 s: no second reset
     *ok = true;
-    return std::string(ModeLabel(m)) + " on " + current + " (game restarts).";
+    return {"enter.restart", {{"mode_key", ModeKey(m)}, {"map", current}}};
   }
   if (choice.entry.empty()) {
     g.mode = before;
     if (!Active() && MatchOwnsMode()) (void)Match()->set_external_mode(nullptr);
-    return "current map not known yet: give a map (.ru dm " + std::string(ModeName(m)) + " <map>).";
+    return {"admin.no_current_map", {{"mode", ModeName(m)}}};
   }
   Cmds(GameModeCommands());
   if (!LoadMap(choice.entry)) {
@@ -380,7 +409,7 @@ std::string Enter(Mode m, const std::string& mapArg, bool* ok) {
       Cmds(LeaveCommands(g.settings, /*withGameMode=*/true));
       if (MatchOwnsMode()) (void)Match()->set_external_mode(nullptr);
     }
-    return "map change unavailable yet.";
+    return {"admin.map_unavailable", {}};
   }
   g.mapPending = true;
   g.pendingSince = 0;  // set on the next tick (tick time base)
@@ -391,11 +420,19 @@ std::string Enter(Mode m, const std::string& mapArg, bool* ok) {
   Log("deathmatch: %s on %s (%s map)", ModeName(m), choice.entry.c_str(), choice.source.c_str());
   UpdateSelftestLine();
   *ok = true;
-  return std::string(ModeLabel(m)) + ": loading " + shown +
-         (choice.source == "default" ? " (default map)" : choice.source == "current" ? " (this map again)" : "") + ".";
+  return {choice.source == "default" ? "enter.loading_default" : choice.source == "current" ? "enter.loading_again" : "enter.loading",
+          {{"mode_key", ModeKey(m)}, {"map", shown}}};
 }
 
 // ---- commands -------------------------------------------------------------------------------------
+
+std::string Text(const Tr& tr, const Msg& m) {
+  Args a = m.args;
+  for (auto& kv : a) {
+    if (kv.first == "mode_key") kv = {"mode", tr(kv.second.c_str(), {})};
+  }
+  return tr(m.key.c_str(), a);
+}
 
 std::string Lower(std::string s) {
   for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -406,22 +443,24 @@ void Reply(const ru_command_ctx* c, const std::string& msg) {
   if (c->is_console) Log("%s", msg.c_str());
   else if (c->slot >= 0) g_api->chat_to_slot(g_api->self, c->slot, (" \x04[ReadyUp]\x01 " + msg).c_str());
 }
+Tr TrOf(const ru_command_ctx* c) { return TrFor(c->is_console || c->slot < 0 ? "en" : Lang(c->slot)); }
+void ReplyKey(const ru_command_ctx* c, const char* key, const Args& args = {}) { Reply(c, TrOf(c)(key, args)); }
 
 bool IsAdmin(const ru_command_ctx* c) { return c->is_console || g_api->is_admin(g_api->self, c->steamid64) == 1; }
 
-std::string StatusLine(double now) {
-  if (!Active()) return "deathmatch is off (.ru dm ffa|tdm [map]).";
+std::string StatusLine(const Tr& tr, double now) {
+  if (!Active()) return tr("status.off", {});
   const char* cm = g_api->current_map(g_api->self);
-  std::string s = std::string(ModeLabel(g.mode)) + " on " + (cm && *cm ? cm : "?");
-  if (g.mapPending) return s + ": map loading.";
-  if (g.phase == Phase::Ended) return s + ": game over, next game soon.";
+  std::string s = tr("status.on", {{"mode", tr(ModeKey(g.mode), {})}, {"map", cm && *cm ? cm : "?"}});
+  if (g.mapPending) return tr("status.loading", {{"status", s}});
+  if (g.phase == Phase::Ended) return tr("status.over", {{"status", s}});
   const int limit = KillLimit(g.settings, g.mode);
-  if (limit > 0) s += ", first to " + std::to_string(limit);
-  if (SecondsLeft(now) >= 0) s += ", " + FormatClock(SecondsLeft(now)) + " left";
+  if (limit > 0) s += ", " + tr("hud.first_to", {{"count", std::to_string(limit)}});
+  if (SecondsLeft(now) >= 0) s += ", " + tr("status.left", {{"clock", FormatClock(SecondsLeft(now))}});
   if (g.mode == Mode::Tdm) s += ", CT " + std::to_string(g.board.TeamKills(3)) + " : " + std::to_string(g.board.TeamKills(2)) + " T";
   const auto r = g.board.Ranked();
-  if (!r.empty() && r[0].kills > 0) s += ", leader " + r[0].name + " (" + std::to_string(r[0].kills) + ")";
-  if (!g.weapon.empty()) s += ", " + WeaponLabel(g.weapon) + " round";
+  if (!r.empty() && r[0].kills > 0) s += ", " + tr("status.leader", {{"name", r[0].name}, {"kills", std::to_string(r[0].kills)}});
+  if (!g.weapon.empty()) s += ", " + tr("hud.weapon_round", {{"weapon", WeaponLabel(g.weapon)}});
   return s + ".";
 }
 
@@ -435,28 +474,28 @@ void OnRu(void*, const ru_command_ctx* c) {
     }
     return;
   }
-  if (sub == "status") return Reply(c, StatusLine(Now()));
+  if (sub == "status") return Reply(c, StatusLine(TrOf(c), Now()));
   if (sub == "top") {
-    if (!Active()) return Reply(c, "deathmatch is off.");
+    if (!Active()) return ReplyKey(c, "top.off");
     const auto r = g.board.Ranked();
-    if (r.empty()) return Reply(c, "no kills yet.");
+    if (r.empty()) return ReplyKey(c, "top.none");
     for (size_t i = 0; i < r.size() && i < 5; ++i) {
       const auto& p = r[i];
       const int hs = p.kills > 0 ? p.headshots * 100 / p.kills : 0;
-      Reply(c, std::to_string(i + 1) + ". " + p.name + ": " + std::to_string(p.kills) + " kills, " + std::to_string(p.deaths) +
-                   " deaths, " + std::to_string(hs) + "% HS");
+      ReplyKey(c, "top.row", {{"rank", std::to_string(i + 1)}, {"name", p.name}, {"kills", std::to_string(p.kills)},
+                              {"deaths", std::to_string(p.deaths)}, {"hs", std::to_string(hs)}});
     }
     if (!c->is_console && c->steamid64) {
       const int rank = g.board.RankOf(c->steamid64);
       if (rank > 5) {
         const PlayerScore* me = g.board.Find(c->steamid64);
-        Reply(c, "you: #" + std::to_string(rank) + ", " + std::to_string(me ? me->kills : 0) + " kills");
+        ReplyKey(c, "top.you", {{"rank", std::to_string(rank)}, {"kills", std::to_string(me ? me->kills : 0)}});
       }
     }
     return;
   }
   if (sub == "hud") {
-    if (c->is_console || !c->steamid64) return Reply(c, ".ru dm hud is for players (it turns your own panel on / off).");
+    if (c->is_console || !c->steamid64) return ReplyKey(c, "hud.players_only");
     const bool off = !g_hudOff.count(c->steamid64);
     if (off) {
       g_hudOff.insert(c->steamid64);
@@ -464,7 +503,7 @@ void OnRu(void*, const ru_command_ctx* c) {
     } else {
       g_hudOff.erase(c->steamid64);
     }
-    return Reply(c, off ? "leaderboard panel off." : "leaderboard panel on.");
+    return ReplyKey(c, off ? "hud.off" : "hud.on");
   }
   Mode m = Mode::Off;
   const bool enter = ParseMode(sub, &m);
@@ -474,16 +513,16 @@ void OnRu(void*, const ru_command_ctx* c) {
   if (sub == "off") {
     if (!Active()) return Reply(c, "deathmatch is already off.");
     Leave(/*reload=*/true, /*tellMatch=*/true, ("dm off by " + who).c_str());
-    ChatAll("Ready Up: deathmatch off.");
+    ChatAllKey("chat.off");
     return Reply(c, "deathmatch off; the map loads again in normal mode.");
   }
   if (c->argc > 4) return Reply(c, "usage: .ru dm " + sub + " [map]");
   const std::string map = c->argc >= 4 && c->argv[3] ? c->argv[3] : "";
   bool ok = false;
-  const std::string r = Enter(m, map, &ok);
-  Log("deathmatch: %s by %s: %s", sub.c_str(), who.c_str(), r.c_str());
-  if (ok) ChatAll("Ready Up: " + r);
-  else Reply(c, r);
+  const Msg r = Enter(m, map, &ok);
+  Log("deathmatch: %s by %s: %s", sub.c_str(), who.c_str(), Text(TrFor("en"), r).c_str());
+  if (ok) ChatAllText([&](const Tr& tr) { return Text(tr, r); });
+  else Reply(c, Text(TrOf(c), r));
 }
 
 // ---- engine callbacks -----------------------------------------------------------------------------
@@ -533,7 +572,7 @@ void OnTick(void*, const ru_tick_info* t) {
       const std::string m = RuMode();
       if (m != "external") {
         const bool toIdle = m == "idle" || m == "scrim_warmup";
-        ChatAll("Ready Up: deathmatch ended (" + (m.empty() ? std::string("mode changed") : m) + ").");
+        ChatAllText([&](const Tr& tr) { return tr("chat.ended", {{"why", m.empty() ? tr("chat.mode_changed", {}) : m}}); });
         // Idle / scrim: this map loads again in the normal mode. A match loads its own map (and
         // the match plugin set competitive before that), practice keeps the map.
         Leave(/*reload=*/toIdle, /*tellMatch=*/false, ("match plugin mode " + m).c_str());
@@ -567,12 +606,12 @@ void OnTick(void*, const ru_tick_info* t) {
     if (w.index != g.weaponIndex) {
       if (w.index < 0) {
         StopWeaponRound();
-        ChatAll("Weapon round over: your own weapons again from your next spawn.");
+        ChatAllKey("weapon.over");
       } else {
         g.weaponIndex = w.index;
         g.weapon = w.weapon;
         Cmds(WeaponRoundCommands(w.weapon, g.settings.weaponRoundRestrictBuy));
-        ChatAll(WeaponLabel(w.weapon) + " round for " + std::to_string(w.secondsLeft) + " s: everyone spawns with it.");
+        ChatAllKey("weapon.round", {{"weapon", WeaponLabel(w.weapon)}, {"seconds", std::to_string(w.secondsLeft)}});
         Log("deathmatch: weapon round %s", w.weapon.c_str());
       }
     }
@@ -637,6 +676,9 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
 READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_api_version) {
   if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, register_ru_subcommand)) return 1;
   g_api = api;
+  g_text = {};
+  if (const std::string err = g_text.Load(kReadyUpLocales, kReadyUpLocaleCount); !err.empty())
+    ru_logf(api, RU_LOG_WARN, "locales: %s", err.c_str());
   g = State{};
   g_hudOff.clear();
   LoadConfig();
