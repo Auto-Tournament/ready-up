@@ -23,6 +23,7 @@
 // (or an admin's pick); the ruleset may keep coaches out (valve online).
 
 #include "readyup/plugin_api.h"
+#include "readyup/text.h"
 
 #include <cstdint>
 #include <string>
@@ -35,7 +36,7 @@ void CoachChatCommand(uint64_t steamid64, const std::string& playerName, const s
 
 // `ru match coach <player> <team>` / `ru match uncoach <player>` (game thread; the caller
 // checked the admin rights). The reply for the caller; *announce: a line for everyone ("" = none).
-std::string CoachAdminCommand(const std::string& sub, const std::vector<std::string>& args, std::string* announce);
+std::string CoachAdminCommand(const std::string& sub, const std::vector<std::string>& args, text::Msg* announce);
 
 // on_tick (game thread): applies / re-applies coaching, sv_coaching_enabled, hints.
 void CoachTick(double now);

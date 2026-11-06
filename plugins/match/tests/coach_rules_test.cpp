@@ -7,6 +7,8 @@
 #include "readyup/match_config_parser.h"
 #include "readyup/status_snapshot.h"
 
+#include "readyup/i18n.h"
+
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -15,6 +17,19 @@ using namespace readyup;
 
 static int g_failures = 0;
 static int g_checks = 0;
+
+extern const i18n::Locale kReadyUpLocales[];  // plugins/match/locales
+extern const size_t kReadyUpLocaleCount;
+
+// The English text of a rule's reason (the key must exist: a missing key would come back as the key).
+static std::string En(const text::Msg& m) {
+  static const i18n::Catalog c = [] {
+    i18n::Catalog x;
+    x.Load(kReadyUpLocales, kReadyUpLocaleCount);
+    return x;
+  }();
+  return c.Tr("en", m.key, m.args);
+}
 
 #define CHECK(cond)                                                                 \
   do {                                                                              \
@@ -55,7 +70,7 @@ static void TestDecide() {
     CHECK(DecideCoach(r).ok && DecideCoach(r).team == 2);
     r.team1_is_ct = true;
     CoachDecision d = DecideCoach(r, "Alpha", "Bravo");
-    CHECK(!d.ok && d.reason == "you are listed as Bravo's coach");
+    CHECK(!d.ok && En(d.reason) == "you are listed as Bravo's coach.");
     // An admin may move them.
     r.by_admin = true;
     CHECK(DecideCoach(r).ok && DecideCoach(r).team == 1);
@@ -64,7 +79,7 @@ static void TestDecide() {
   {
     CoachRequest r = Listed(0);
     CoachDecision d = DecideCoach(r);
-    CHECK(!d.ok && d.reason == "usage: .coach ct|t");
+    CHECK(!d.ok && En(d.reason) == "usage: .coach ct|t");
     r.arg = CoachArg::T;  // team1 is CT: T = team2
     CHECK(DecideCoach(r).ok && DecideCoach(r).team == 2);
     r.arg = CoachArg::Team1;
@@ -74,18 +89,18 @@ static void TestDecide() {
   {
     CoachRequest r = Listed(1);
     r.arg = CoachArg::Invalid;
-    CHECK(!DecideCoach(r).ok && DecideCoach(r).reason == "usage: .coach ct|t");
+    CHECK(!DecideCoach(r).ok && En(DecideCoach(r).reason) == "usage: .coach ct|t");
     r.by_admin = true;
-    CHECK(DecideCoach(r).reason == "usage: ru match coach <player> team1|team2|ct|t");
+    CHECK(En(DecideCoach(r).reason) == "usage: ru match coach <player> team1|team2|ct|t");
   }
   // Rostered players never coach, not even by an admin.
   {
     CoachRequest r = Listed(1);
     r.roster_team = 1;
     CoachDecision d = DecideCoach(r, "Alpha", "Bravo");
-    CHECK(!d.ok && d.reason == "you are on Alpha's roster: players cannot coach");
+    CHECK(!d.ok && En(d.reason) == "you are on Alpha's roster: players cannot coach.");
     r.by_admin = true;
-    CHECK(!DecideCoach(r).ok && DecideCoach(r, "Alpha").reason == "they are on Alpha's roster: players cannot coach");
+    CHECK(!DecideCoach(r).ok && En(DecideCoach(r, "Alpha").reason) == "they are on Alpha's roster: players cannot coach.");
   }
   // Not listed, a real match: only an admin can make them a coach.
   {
@@ -93,7 +108,7 @@ static void TestDecide() {
     r.coaching_possible = true;
     r.arg = CoachArg::Ct;
     CoachDecision d = DecideCoach(r);
-    CHECK(!d.ok && d.reason.find("only the coaches in the match config") == 0);
+    CHECK(!d.ok && En(d.reason).find("only the coaches in the match config") == 0);
     r.by_admin = true;
     CHECK(DecideCoach(r).ok && DecideCoach(r).team == 1);
   }
@@ -107,12 +122,12 @@ static void TestDecide() {
     // ... up to per_team_limit unlisted coaches per team.
     r.coaches_team2 = 2;
     CoachDecision d = DecideCoach(r);
-    CHECK(!d.ok && d.reason == "team2 already has 2 coaches");
+    CHECK(!d.ok && En(d.reason) == "team2 already has 2 coaches.");
     r.per_team_limit = 0;  // no limit
     CHECK(DecideCoach(r).ok);
     r.per_team_limit = 1;
     r.coaches_team2 = 1;
-    CHECK(DecideCoach(r).reason == "team2 already has 1 coach");
+    CHECK(En(DecideCoach(r).reason) == "team2 already has 1 coach.");
     r.arg = CoachArg::Ct;  // the other team has room
     CHECK(DecideCoach(r).ok && DecideCoach(r).team == 1);
   }
@@ -144,10 +159,10 @@ static void TestDecide() {
   {
     CoachRequest r = Listed(1);
     r.coaching_possible = false;
-    CHECK(!DecideCoach(r).ok && DecideCoach(r).reason.find("coaching needs a match") == 0);
+    CHECK(!DecideCoach(r).ok && En(DecideCoach(r).reason).find("coaching needs a match") == 0);
     r = Listed(1);
     r.admitted = false;
-    CHECK(!DecideCoach(r).ok && DecideCoach(r).reason.find("coaches are not admitted") == 0);
+    CHECK(!DecideCoach(r).ok && En(DecideCoach(r).reason).find("coaches are not admitted") == 0);
     r.by_admin = true;
     CHECK(!DecideCoach(r).ok);
   }

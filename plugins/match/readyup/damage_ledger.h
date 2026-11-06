@@ -51,6 +51,6 @@ struct DamageParticipant {
 // order given:  "To: 54 in 2 | From: 0 in 0 — Name (46 hp)".
 // Empty when `self` is not on T/CT or there are no opponents.
 std::vector<std::string> FormatDamageReport(const DamageParticipant& self, const std::vector<DamageParticipant>& players,
-                                            const DamageLedger& ledger);
+                                            const DamageLedger& ledger, const std::string& lang);
 
 }  // namespace readyup

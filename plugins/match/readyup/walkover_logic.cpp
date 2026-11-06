@@ -1,5 +1,7 @@
 #include "readyup/walkover_logic.h"
 
+#include "readyup/text.h"
+
 #include <algorithm>
 
 namespace readyup {
@@ -19,25 +21,25 @@ std::string Text(const std::string& s) {
 
 }  // namespace
 
-std::string WalkoverSpec(const WalkoverView& v) {
+std::string WalkoverSpec(const WalkoverView& v, const std::string& lang) {
+  auto t = [&](const char* key, const text::Args& args = {}) { return Text(text::ForLang(lang, key, args)); };
   const std::string secs = std::to_string(std::max(0LL, v.secondsLeft));
-  const std::string shortName = Text(v.shortName.empty() ? "The other team" : v.shortName);
-  const std::string fullName = Text(v.fullName.empty() ? "The other team" : v.fullName);
+  const std::string other = text::ForLang(lang, "walkover.other_team");
+  const std::string shortName = v.shortName.empty() ? other : v.shortName;
+  const std::string fullName = v.fullName.empty() ? other : v.fullName;
+  const std::string isShort = t("walkover.is_short", {{"team", shortName}});
   std::string s = L("id", "walkover") + L("color", "warn") + L("timer", secs);
   if (v.onFullTeam && v.chooser) {
-    return s + L("kind", shortName + " is short") + L("title", "Take the walkover?") +
-           L("sub", "Or play them short. No answer: the walkover stands.") + "btn=Take the walkover|green||.walkover\n" +
-           "btn=Play them short|ghost||.play\n" + L("bw", "l") + L("cmd", "Or type|.walkover / .play") + L("mouse", "on");
+    return s + L("kind", isShort) + L("title", t("walkover.take_q")) + L("sub", t("walkover.take_sub")) + "btn=" +
+           t("walkover.btn_take") + "|green||.walkover\n" + "btn=" + t("walkover.btn_short") + "|ghost||.play\n" +
+           L("bw", "l") + L("cmd", t("walkover.or_type") + "|.walkover / .play") + L("mouse", "on");
   }
-  if (v.onFullTeam) {
-    return s + L("kind", shortName + " is short") + L("title", "Your captain chooses") +
-           L("sub", "Take the walkover, or play them short.");
-  }
+  if (v.onFullTeam) return s + L("kind", isShort) + L("title", t("walkover.captain")) + L("sub", t("walkover.captain_sub"));
   if (v.onShortTeam) {
-    return s + L("kind", "Time is up") + L("title", fullName + " chooses") +
-           L("sub", "They take the walkover, or play you short.");
+    return s + L("kind", t("walkover.time_up")) + L("title", t("walkover.chooses", {{"team", fullName}})) +
+           L("sub", t("walkover.they_choose"));
   }
-  return s + L("kind", shortName + " is short") + L("title", fullName + " chooses");
+  return s + L("kind", isShort) + L("title", t("walkover.chooses", {{"team", fullName}}));
 }
 
 long long SecondsUntil(long long untilMs, long long nowMs) {

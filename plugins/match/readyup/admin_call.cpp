@@ -15,6 +15,7 @@
 #include "readyup/match_state.h"
 #include "readyup/players.h"
 #include "readyup/plugin_api.h"
+#include "readyup/text.h"
 #include "readyup/webhook.h"
 
 #include <algorithm>
@@ -47,9 +48,9 @@ std::mutex g_mu;
 AdminCallCooldown g_cooldown;
 std::unordered_map<int, AdminCard> g_cards;  // by admin slot
 
-void Tell(int slot, const std::string& msg) {
-  if (slot >= 0 && ClientPrintChat(slot, (kPrivatePrefix + msg).c_str())) return;
-  SendToChat(("Ready Up: " + msg).c_str());  // slot unknown: better seen by all than lost
+void Tell(int slot, const char* key, const text::Args& args = {}) {
+  if (slot >= 0) text::ChatSlot(slot, key, args);
+  else text::ChatAll(key, args);  // slot unknown: better seen by all than lost
 }
 
 std::string NewCallId() {
@@ -97,10 +98,10 @@ void AdminCallCommand(uint64_t steamid64, const std::string& playerName, const s
   {
     std::lock_guard<std::mutex> lk(g_mu);
     if (!g_cooldown.TryCall(steamid64, host::NowSeconds(), Cfg().admin_call_cooldown_s, &left)) {
-      Tell(slot, "you already called an admin - you can call again in " + std::to_string(left) + "s.");
+      Tell(slot, "admincall.cooldown", {{"seconds", std::to_string(left)}});
       if (HudScreensOn() && slot >= 0) {
-        HudScreensNotice(slot, "id=notice\nwhere=card\ncolor=muted\nkind=Admin\ntitle=Already called\nsub=Again in " +
-                                   std::to_string(left) + "s\n",
+        HudScreensNotice(slot, NoticeSpec("id=notice\nwhere=card\ncolor=muted\n", "notice.admin", "notice.already_called",
+                                          "notice.again_in", {{"seconds", std::to_string(left)}})(i18n::LanguageOf(host::Api(), slot)),
                          5.0);
       }
       return;
@@ -151,24 +152,27 @@ void AdminCallCommand(uint64_t steamid64, const std::string& playerName, const s
         e.call_id.c_str());
 
   // In-game admins: a private chat line and the card.
-  const std::string line = "\x07" "ADMIN CALL\x01 " + who + " needs an admin" + (e.message.empty() ? "." : ": " + e.message);
   int admins = 0;
   const auto now = Clock::now();
   for (const auto& h : ListHumans()) {
     const int s = h.slot >= 0 ? h.slot : h.userid;
     if (h.steamid64 == 0 || s < 0 || s > 63 || !IsReadyUpAdmin(h.steamid64)) continue;
     ++admins;
-    (void)ClientPrintChat(s, (kPrivatePrefix + line).c_str());
     const std::string lang = i18n::LanguageOf(host::Api(), s);
+    const std::string line = "\x07" + text::ForLang(lang, "admincall.head") + "\x01 " +
+                             text::ForLang(lang, e.message.empty() ? "admincall.needs" : "admincall.needs_msg",
+                                           {{"who", who}, {"message", e.message}});
+    (void)ClientPrintChat(s, (kPrivatePrefix + line).c_str());
     AdminCard card{AdminCallCardHtml(e.player.name, label, e.message, lang), AdminCallCardSpec(e.player.name, label, e.message, lang), now, now};
     std::lock_guard<std::mutex> lk(g_mu);
     g_cards[s] = std::move(card);
   }
   if (DebugEnabled()) Debug("admin-call: %d admin(s) in game notified\n", admins);
 
-  Tell(slot, "admins notified.");
+  Tell(slot, "admincall.notified");
   if (HudScreensOn() && slot >= 0) {
-    HudScreensNotice(slot, "id=notice\nwhere=card\ncolor=warn\nkind=Admin\ntitle=An admin is on the way\n", 6.0);
+    HudScreensNotice(slot, NoticeSpec("id=notice\nwhere=card\ncolor=warn\n", "notice.admin", "notice.admin_coming")(i18n::LanguageOf(host::Api(), slot)),
+                     6.0);
   }
 }
 

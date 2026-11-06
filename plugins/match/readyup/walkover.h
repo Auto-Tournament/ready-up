@@ -21,7 +21,7 @@ namespace readyup {
 void WalkoverCommand(uint64_t steamid64, const std::string& playerName, bool take, int slot);
 
 // The choice screen for this viewer, or "" when none is open (hud_screens.h spec).
-std::string WalkoverHudSpec(const WebhookMatchContext& ctx, uint64_t viewer);
+std::string WalkoverHudSpec(const WebhookMatchContext& ctx, uint64_t viewer, const std::string& lang);
 
 // Seconds left to have a full team on the server, or -1 (no timer, or past it).
 long long FullTeamSecondsLeft(const WebhookMatchContext& ctx);

@@ -14,6 +14,8 @@
 #include "readyup/match_state.h"
 #include "readyup/modes.h"
 #include "readyup/players.h"
+#include "readyup/text.h"
+#include "readyup/i18n_api.h"
 
 #include <chrono>
 #include <cstring>
@@ -33,6 +35,7 @@ struct Outgoing {
   int slot = -1;
   bool human = false;
   std::string name;
+  std::string lang;  // the player's, when the report was built
   std::vector<std::string> lines;
   bool card = false;  // the table card on the Auto Tournament HUD instead of chat lines
   int total = 0;
@@ -59,8 +62,9 @@ void FillCard(Outgoing& o, const DamageParticipant& self, const std::vector<Dama
     const auto from = ledger.Dealt(p.key, self.key);
     o.total += to.dmg;
     if (to.hits == 0 && from.hits == 0) continue;
-    auto inHits = [](const DamageLedger::Pair& d) {
-      return d.hits == 0 ? std::string("0") : std::to_string(d.dmg) + " in " + std::to_string(d.hits);
+    auto inHits = [&](const DamageLedger::Pair& d) {
+      return d.hits == 0 ? std::string("0")
+                         : text::ForLang(o.lang, "dmg.in", {{"dmg", std::to_string(d.dmg)}, {"hits", std::to_string(d.hits)}});
     };
     Outgoing::Row r;
     r.name = p.name;
@@ -69,7 +73,7 @@ void FillCard(Outgoing& o, const DamageParticipant& self, const std::vector<Dama
     r.dmg = to.dmg;
     r.took = from.dmg;
     r.health = ledger.Health(p.key);
-    r.hp = r.health > 0 ? std::to_string(r.health) : "DEAD";
+    r.hp = r.health > 0 ? std::to_string(r.health) : text::ForLang(o.lang, "dmg.dead");
     o.rows.push_back(std::move(r));
   }
   // Who you hit most first, then who hit you most.
@@ -102,8 +106,8 @@ bool ShowCard(const Outgoing& o, int round) {
   const int s = o.slot;
   auto txt = [&](const std::string& id, const std::string& v) { h->set_text(k, s, id.c_str(), "text", v.c_str()); };
   auto cls = [&](const std::string& id, const char* c, bool on) { h->set_class(k, s, id.c_str(), c, on ? 1 : 0); };
-  txt("at_kind_a", "Round " + std::to_string(round));
-  txt("at_text_a", std::to_string(o.total) + " damage");
+  txt("at_kind_a", text::ForLang(o.lang, "dmg.card_round", {{"round", std::to_string(round)}}));
+  txt("at_text_a", text::ForLang(o.lang, "dmg.card_total", {{"total", std::to_string(o.total)}}));
   for (const char* id : {"at_kind_a", "at_text_a"}) {
     cls(id, "cur", true);
     cls(id, "old", false);
@@ -212,7 +216,8 @@ void BuildReports() {
     o.slot = c.players[i].key;
     o.human = c.human[i] && (!g_haveRoundStart || g_roundStartSlots.count(o.slot) > 0);
     o.name = c.players[i].name;
-    o.lines = FormatDamageReport(c.players[i], all, g_ledger);
+    o.lang = i18n::LanguageOf(host::Api(), o.slot);
+    o.lines = FormatDamageReport(c.players[i], all, g_ledger, o.lang);
     if (o.human && HudScreensOn()) FillCard(o, c.players[i], all, g_ledger);
     if (!o.lines.empty()) g_out.push_back(std::move(o));
   }
@@ -285,7 +290,7 @@ void DamageReportTick() {
     if (o.human) {
       ++humans;
       if (!(o.card && ShowCard(o, g_outRound))) {  // the card instead of chat lines, through freeze time
-        (void)ClientPrintChat(o.slot, " \x04[ReadyUp]\x01 Damage report:");
+        (void)ClientPrintChat(o.slot, (" \x04[ReadyUp]\x01 " + text::ForLang(o.lang, "dmg.header")).c_str());
         for (const auto& l : o.lines) (void)ClientPrintChat(o.slot, (" " + l).c_str());
       }
     }

@@ -6,6 +6,8 @@
 // Teams are the match teams: 0 = none, 1 = team1, 2 = team2 (WebhookTeam values). Sides are CS2
 // team numbers: 1 = spectator, 2 = T, 3 = CT.
 
+#include "readyup/text.h"
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -41,7 +43,7 @@ struct CoachDecision {
   bool ok = false;
   int team = 0;         // ok: the team to coach
   bool already = false; // ok: the player already coaches it
-  std::string reason;   // !ok: why, for the player ("you are on team1's roster: ...")
+  text::Msg reason;     // !ok: why, for the player (coach.* in locales/: "you are on team1's roster: ...")
 };
 
 // The whole policy:
