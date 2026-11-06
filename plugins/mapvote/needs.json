@@ -3,6 +3,7 @@
   "plugin": "mapvote",
   "api": [
     "center_html_all_prio",
+    "center_html_to_slot_prio",
     "chat_all",
     "chat_to_slot",
     "on_tick",
