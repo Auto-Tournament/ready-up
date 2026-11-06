@@ -1,5 +1,6 @@
 // The clickable Panorama HUD for the match flow (hud_screens.h).
 #include "readyup/hud_screens.h"
+#include "readyup/text.h"
 #include "readyup/i18n_api.h"
 
 #include "readyup/hud_iface.h"
@@ -63,13 +64,13 @@ std::string Btn(const std::string& label, const char* tone, const char* state, c
   return "btn=" + HudSpecText(label) + "|" + tone + "|" + state + "|" + cmd + "\n";
 }
 
-std::string TeamName(WebhookTeam t) {
+std::string TeamName(WebhookTeam t, const std::string& lang) {
   const auto ctx = WebhookGetMatchContext();
   if (ctx) {
     const std::string& n = t == WebhookTeam::Team1 ? ctx->team1_name : ctx->team2_name;
     if (!n.empty()) return n;
   }
-  return t == WebhookTeam::Team1 ? "Team 1" : "Team 2";
+  return text::ForLang(lang, t == WebhookTeam::Team1 ? "card.team1" : "card.team2");
 }
 
 // "de_dust2" -> "Dust2", workshop paths keep their last part.
@@ -91,69 +92,70 @@ bool Warmup() {
   return m == ReadyUpMode::ScrimWarmup || m == ReadyUpMode::MatchWarmup;
 }
 
-std::string MenuSpec(const Menu& m, int csTeam) {
+std::string MenuSpec(const Menu& m, int csTeam, const std::string& lang) {
+  auto T = [&lang](const char* key, const text::Args& args = {}) { return text::ForLang(lang, key, args); };
   const bool admin = IsReadyUpAdmin(m.steamid64);
   const bool playing = csTeam == 2 || csTeam == 3;
-  const std::string back = Line("close", "Back|#menu help") + Line("mouse", "on");
-  const std::string adminBack = Line("close", "Back|#menu admin") + Line("mouse", "on");
+  const std::string back = Line("close", T("menu.back") + "|#menu help") + Line("mouse", "on");
+  const std::string adminBack = Line("close", T("menu.back") + "|#menu admin") + Line("mouse", "on");
   std::string s;
   if (m.which == "help") {
-    s = Line("id", "help") + Line("kind", "Help") + Line("title", "What do you need?");
+    s = Line("id", "help") + Line("kind", T("menu.help")) + Line("title", T("menu.what_need"));
     if (Warmup()) {
-      if (playing) s += IsReady(m.steamid64) ? Btn("Unready", "ghost", "", ".ur") : Btn("Ready", "green", "", ".r");
+      if (playing) s += IsReady(m.steamid64) ? Btn(T("menu.unready"), "ghost", "", ".ur") : Btn(T("menu.ready"), "green", "", ".r");
     } else if (playing) {
-      s += PauseStateGet().paused ? Btn("Unpause", "warn", "", ".up") : Btn("Tech pause", "ghost", "", ".p");
-      s += Btn("Votes", "ghost", "", "#menu votes");
+      s += PauseStateGet().paused ? Btn(T("menu.unpause"), "warn", "", ".up") : Btn(T("menu.tech_pause"), "ghost", "", ".p");
+      s += Btn(T("menu.votes"), "ghost", "", "#menu votes");
     }
-    s += Btn("Call an admin", "ghost", "", ".admin");
-    s += Btn("Match info", "ghost", "", "#menu info") + Btn("Commands", "ghost", "", "#menu cmds");
-    if (admin) s += Btn("Admin", "ghost", "", "#menu admin");
+    s += Btn(T("menu.call_admin"), "ghost", "", ".admin");
+    s += Btn(T("menu.match_info"), "ghost", "", "#menu info") + Btn(T("menu.commands"), "ghost", "", "#menu cmds");
+    if (admin) s += Btn(T("menu.admin"), "ghost", "", "#menu admin");
     s += Line("cols", "3") + Line("bw", "m");
   } else if (m.which == "votes") {
-    s = Line("id", "votes") + Line("kind", "Help \xC2\xB7 votes") + Line("title", "Start a vote");
-    s += Btn("Give up", "danger", "", ".gg") + Btn("Replay round", "ghost", "", ".stop") + Btn("Timeout", "ghost", "", ".tac");
+    s = Line("id", "votes") + Line("kind", T("menu.help") + " \xC2\xB7 " + T("menu.votes_lc")) + Line("title", T("menu.start_vote"));
+    s += Btn(T("menu.give_up"), "danger", "", ".gg") + Btn(T("menu.replay_round"), "ghost", "", ".stop") + Btn(T("menu.timeout"), "ghost", "", ".tac");
     return s + Line("cols", "3") + Line("bw", "m") + back;
   } else if (m.which == "info") {
     const auto ctx = WebhookGetMatchContext();
     const auto ms = MatchStateGet();
-    s = Line("id", "info") + Line("kind", "Help \xC2\xB7 match");
+    s = Line("id", "info") + Line("kind", T("menu.help") + " \xC2\xB7 " + T("menu.match_lc"));
     if (ctx) {
-      s += Line("title", HudSpecText(TeamName(WebhookTeam::Team1) + " vs " + TeamName(WebhookTeam::Team2)));
+      s += Line("title", HudSpecText(TeamName(WebhookTeam::Team1, lang) + " vs " + TeamName(WebhookTeam::Team2, lang)));
       const int maps = std::max(1, ctx->num_maps);
-      s += Line("line", "Format|Best of " + std::to_string(maps) + " \xC2\xB7 " + std::to_string(ctx->maxRounds) + " rounds");
+      s += Line("line", T("menu.format") + "|" + HudSpecText(T("menu.format_value", {{"maps", std::to_string(maps)}, {"rounds", std::to_string(ctx->maxRounds)}})));
       std::string list;
       for (size_t i = 0; i < ctx->maplist.size() && i < 5; ++i) list += (i ? " \xE2\x86\x92 " : "") + MapLabel(ctx->maplist[i]);
-      if (!list.empty()) s += Line("line", "Maps|" + HudSpecText(list));
-      if (maps > 1) s += Line("line", "Map|" + std::to_string(ms.map_number) + " of " + std::to_string(maps));
+      if (!list.empty()) s += Line("line", T("menu.maps") + "|" + HudSpecText(list));
+      if (maps > 1) s += Line("line", T("menu.map") + "|" + HudSpecText(T("menu.map_of", {{"number", std::to_string(ms.map_number)}, {"maps", std::to_string(maps)}})));
     } else {
-      s += Line("title", "Scrim");
-      if (!ms.current_map.empty()) s += Line("line", "Map|" + HudSpecText(MapLabel(ms.current_map)));
+      s += Line("title", T("menu.scrim"));
+      if (!ms.current_map.empty()) s += Line("line", T("menu.map") + "|" + HudSpecText(MapLabel(ms.current_map)));
     }
-    if (!Warmup()) s += Line("line", "Score|" + std::to_string(ms.team1_score) + " - " + std::to_string(ms.team2_score));
+    if (!Warmup()) s += Line("line", T("menu.score") + "|" + std::to_string(ms.team1_score) + " - " + std::to_string(ms.team2_score));
     return s + back;
   } else if (m.which == "cmds") {
-    s = Line("id", "cmds") + Line("kind", "Help \xC2\xB7 commands") + Line("title", "Prefer typing?");
-    s += Line("line", "Ready|.r") + Line("line", "Tech pause|.p") + Line("line", "Timeout|.tac") +
-         Line("line", "Give up|.gg") + Line("line", "Call an admin|.admin");
+    s = Line("id", "cmds") + Line("kind", T("menu.help") + " \xC2\xB7 " + T("menu.commands_lc")) + Line("title", T("menu.prefer_typing"));
+    s += Line("line", T("menu.ready") + "|.r") + Line("line", T("menu.tech_pause") + "|.p") + Line("line", T("menu.timeout") + "|.tac") +
+         Line("line", T("menu.give_up") + "|.gg") + Line("line", T("menu.call_admin") + "|.admin");
     return s + back;
   } else if (m.which == "admin" && admin) {
-    s = Line("id", "admin") + Line("kind", "Admin") + Line("title", "Match controls");
-    s += Btn("Pause", "ghost", "", ".fp") + Btn("Unpause", "ghost", "", ".fup");
-    s += Btn("Replay a round", "ghost", "", "#menu rounds") + Btn("Change map", "ghost", "", "#menu maps");
-    s += Btn("Swap teams", "ghost", "", ".ru match swap") + Btn("Force ready", "ghost", "", ".forceready");
-    s += Btn("Restart map", "ghost", "", ".restart") + Btn("End match", "danger", "", "#menu endwho");
+    s = Line("id", "admin") + Line("kind", T("menu.admin")) + Line("title", T("menu.match_controls"));
+    s += Btn(T("menu.pause"), "ghost", "", ".fp") + Btn(T("menu.unpause"), "ghost", "", ".fup");
+    s += Btn(T("menu.replay_a_round"), "ghost", "", "#menu rounds") + Btn(T("menu.change_map"), "ghost", "", "#menu maps");
+    s += Btn(T("menu.swap_teams"), "ghost", "", ".ru match swap") + Btn(T("menu.force_ready"), "ghost", "", ".forceready");
+    s += Btn(T("menu.restart_map"), "ghost", "", ".restart") + Btn(T("menu.end_match"), "danger", "", "#menu endwho");
     s += Line("cols", "4") + Line("bw", "m");
   } else if (m.which == "maps" && admin) {
-    s = Line("id", "maps") + Line("kind", "Admin \xC2\xB7 change map") + Line("title", "Pick a map");
+    s = Line("id", "maps") + Line("kind", T("menu.admin") + " \xC2\xB7 " + T("menu.change_map_lc")) + Line("title", T("menu.pick_map"));
     for (const char* map : {"mirage", "inferno", "nuke", "ancient", "anubis", "dust2", "train", "overpass"}) {
       s += Btn(MapLabel(map), "ghost", "", std::string(".map de_") + map);
     }
-    s += Line("cmd", "Any other map or workshop id|.map <name or id>");
+    s += Line("cmd", T("menu.other_map") + "|.map " + T("menu.name_or_id"));
     return s + Line("cols", "4") + Line("bw", "s") + adminBack;
   } else if (m.which == "rounds" && admin) {
     const auto ms = MatchStateGet();
     const int cur = std::max(1, ms.team1_score + ms.team2_score + 1);
-    s = Line("id", "rounds") + Line("kind", "Admin \xC2\xB7 replay") + Line("title", "Back to which round?");
+    s = Line("id", "rounds") + Line("kind", T("menu.admin") + " \xC2\xB7 " + T("menu.replay_lc")) + Line("title", T("menu.which_round"));
     // Each round with the score it starts at: people remember "it was 7-6", not "round 14".
     std::vector<stats::RoundSummary> played;
     {
@@ -170,29 +172,30 @@ std::string MenuSpec(const Menu& m, int csTeam) {
       return std::to_string(t1) + "-" + std::to_string(t2);
     };
     for (int r = cur; r > 0 && r > cur - 6; --r) {
-      s += "btn=Round " + std::to_string(r) + "|ghost||.ru match restore " + std::to_string(r) + "|" + scoreBefore(r) + "\n";
+      s += "btn=" + HudSpecText(T("menu.round_n", {{"round", std::to_string(r)}})) + "|ghost||.ru match restore " + std::to_string(r) + "|" + scoreBefore(r) + "\n";
     }
     return s + Line("cols", "3") + Line("bw", "m") + adminBack;
   } else if (m.which == "endwho" && admin) {
-    s = Line("id", "endwho") + Line("color", "ban") + Line("kind", "Admin \xC2\xB7 end match") + Line("title", "Who won?");
-    s += Btn(TeamName(WebhookTeam::Team1), "ghost", "", "#menu end:team1") + Btn(TeamName(WebhookTeam::Team2), "ghost", "", "#menu end:team2");
-    s += Btn("No winner", "ghost", "", "#menu end:none");
+    s = Line("id", "endwho") + Line("color", "ban") + Line("kind", T("menu.admin") + " \xC2\xB7 " + T("menu.end_match_lc")) + Line("title", T("menu.who_won"));
+    s += Btn(TeamName(WebhookTeam::Team1, lang), "ghost", "", "#menu end:team1") + Btn(TeamName(WebhookTeam::Team2, lang), "ghost", "", "#menu end:team2");
+    s += Btn(T("menu.no_winner"), "ghost", "", "#menu end:none");
     return s + Line("cols", "3") + Line("bw", "m") + adminBack;
   } else if (m.which.rfind("end:", 0) == 0 && admin) {
     const std::string w = m.which.substr(4);
-    const std::string title = w == "team1" ? TeamName(WebhookTeam::Team1) + " wins?" : w == "team2" ? TeamName(WebhookTeam::Team2) + " wins?" : "End with no winner?";
-    s = Line("id", "end") + Line("color", "ban") + Line("kind", "Admin \xC2\xB7 end match") + Line("title", HudSpecText(title)) +
-        Line("sub", "Ends the match now. No undo.");
-    s += Btn("End match", "danger", "", ".endmatch " + w) + Btn("Cancel", "ghost", "", "#menu endwho");
+    const std::string title = w == "none" ? T("menu.end_no_winner") : T("menu.team_wins_q", {{"team", TeamName(w == "team1" ? WebhookTeam::Team1 : WebhookTeam::Team2, lang)}});
+    s = Line("id", "end") + Line("color", "ban") + Line("kind", T("menu.admin") + " \xC2\xB7 " + T("menu.end_match_lc")) + Line("title", HudSpecText(title)) +
+        Line("sub", T("menu.ends_now"));
+    s += Btn(T("menu.end_match"), "danger", "", ".endmatch " + w) + Btn(T("menu.cancel"), "ghost", "", "#menu endwho");
     return s + Line("bw", "m") + Line("mouse", "on");
   } else {
     return {};
   }
-  return s + Line("close", "Close|#close") + Line("mouse", "on");
+  return s + Line("close", T("menu.close") + "|#close") + Line("mouse", "on");
 }
 
 // The vote that concerns this player, if any ("" = none).
-std::string VoteSpec(int slot, uint64_t steamid64, int csTeam) {
+std::string VoteSpec(int slot, uint64_t steamid64, int csTeam, const std::string& lang) {
+  auto T = [&lang](const char* key, const text::Args& args = {}) { return text::ForLang(lang, key, args); };
   if (GetMode() != ReadyUpMode::MatchLive || (csTeam != 2 && csTeam != 3)) return {};
   const WebhookTeam team = VotesTeamForSide(csTeam);
   if (team == WebhookTeam::Unknown) return {};
@@ -201,11 +204,11 @@ std::string VoteSpec(int slot, uint64_t steamid64, int csTeam) {
   if (v.gg) {
     const std::string key = "gg";
     if (dis == g_dismissed.end() || dis->second != key || v.ggVoted) {
-      std::string s = Line("id", "gg") + Line("color", "ban") + Line("kind", "Give up vote") +
-                      Line("title", "Give up this map?") + Line("timer", std::to_string(v.ggSecondsLeft)) +
-                      Line("counter", std::to_string(v.ggCount) + " / " + std::to_string(v.ggNeed) + " yes") + Line("bw", "s");
-      if (v.ggVoted) s += Btn("Yes", "danger", "picked", "") + Btn("No", "ghost", "off", "");
-      else s += Btn("Yes", "danger", "", ".gg") + Btn("No", "ghost", "", "#dismiss gg") + Line("mouse", "on");
+      std::string s = Line("id", "gg") + Line("color", "ban") + Line("kind", T("vote.gg_kind")) +
+                      Line("title", T("vote.gg_title")) + Line("timer", std::to_string(v.ggSecondsLeft)) +
+                      Line("counter", HudSpecText(T("vote.gg_counter", {{"votes", std::to_string(v.ggCount)}, {"need", std::to_string(v.ggNeed)}}))) + Line("bw", "s");
+      if (v.ggVoted) s += Btn(T("vote.yes"), "danger", "picked", "") + Btn(T("vote.no"), "ghost", "off", "");
+      else s += Btn(T("vote.yes"), "danger", "", ".gg") + Btn(T("vote.no"), "ghost", "", "#dismiss gg") + Line("mouse", "on");
       return s;
     }
   } else if (dis != g_dismissed.end() && dis->second == "gg") {
@@ -213,15 +216,15 @@ std::string VoteSpec(int slot, uint64_t steamid64, int csTeam) {
   }
   if (v.stop) {
     if (v.stopTeam == team) {
-      return Line("id", "stopwait") + Line("kind", "Replay this round?") + Line("title", "Waiting for " + HudSpecText(TeamName(team == WebhookTeam::Team1 ? WebhookTeam::Team2 : WebhookTeam::Team1))) +
+      return Line("id", "stopwait") + Line("kind", T("vote.stop_kind")) + Line("title", HudSpecText(T("vote.waiting_for", {{"team", TeamName(team == WebhookTeam::Team1 ? WebhookTeam::Team2 : WebhookTeam::Team1, lang)}}))) +
              Line("timer", std::to_string(v.stopSecondsLeft));
     }
     const auto d = g_dismissed.find(slot);
     if (d == g_dismissed.end() || d->second != "stop") {
-      return Line("id", "stop") + Line("kind", "Replay this round?") +
-             Line("title", HudSpecText(TeamName(v.stopTeam)) + " wants to replay it") +
-             Line("timer", std::to_string(v.stopSecondsLeft)) + Line("bw", "m") + Btn("Accept", "green", "", ".stop") +
-             Btn("Decline", "ghost", "", "#dismiss stop") + Line("mouse", "on");
+      return Line("id", "stop") + Line("kind", T("vote.stop_kind")) +
+             Line("title", HudSpecText(T("vote.wants_replay", {{"team", TeamName(v.stopTeam, lang)}}))) +
+             Line("timer", std::to_string(v.stopSecondsLeft)) + Line("bw", "m") + Btn(T("vote.accept"), "green", "", ".stop") +
+             Btn(T("vote.decline"), "ghost", "", "#dismiss stop") + Line("mouse", "on");
     }
   } else {
     const auto d = g_dismissed.find(slot);
@@ -318,8 +321,9 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
       g_menus.erase(m);
       m = g_menus.end();
     }
-    if (m != g_menus.end()) spec = MenuSpec(m->second, h.team);
-    if (spec.empty()) spec = VoteSpec(slot, h.steamid64, h.team);
+    const std::string lang = i18n::LanguageOf(host::Api(), slot);
+    if (m != g_menus.end()) spec = MenuSpec(m->second, h.team, lang);
+    if (spec.empty()) spec = VoteSpec(slot, h.steamid64, h.team, lang);
     if (spec.empty()) {
       std::lock_guard<std::mutex> lk(g_noticeMu);
       auto n = g_notices.find(slot);
