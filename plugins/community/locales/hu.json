@@ -9,5 +9,6 @@
   "spec.none": "Senki sem néz téged.",
   "spec.list": "Néznek téged ({count}): {names}",
   "kick.done": "Egy admin kirúgta: {name}.",
-  "kick.done_reason": "Egy admin kirúgta: {name}: {reason}"
+  "kick.done_reason": "Egy admin kirúgta: {name}: {reason}",
+  "help.line": "Közösség: .rank | .top | .speclist"
 }

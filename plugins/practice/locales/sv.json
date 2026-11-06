@@ -170,5 +170,7 @@
   "status.running": "körs",
   "status.over": "slut",
   "status.watch": "ingen (tittar)",
-  "status.line": "{id} {phase} vid {at}/{length}, spelare {player}; bottar: {scripted} styrda, {ai} AI, {dead} döda; granater: {spawned} kastade, {skipped} överhoppade"
+  "status.line": "{id} {phase} vid {at}/{length}, spelare {player}; bottar: {scripted} styrda, {ai} AI, {dead} döda; granater: {spawned} kastade, {skipped} överhoppade",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac för att lämna",
+  "help.off": "Träning: .prac startar träningsläget"
 }

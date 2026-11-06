@@ -9,5 +9,6 @@
   "spec.none": "Ninguém está assistindo você.",
   "spec.list": "Assistindo você ({count}): {names}",
   "kick.done": "{name} foi expulso por um admin.",
-  "kick.done_reason": "{name} foi expulso por um admin: {reason}"
+  "kick.done_reason": "{name} foi expulso por um admin: {reason}",
+  "help.line": "Comunidade: .rank | .top | .speclist"
 }

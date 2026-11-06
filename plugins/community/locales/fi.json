@@ -9,5 +9,6 @@
   "spec.none": "Kukaan ei katso sinua.",
   "spec.list": "Katsovat sinua ({count}): {names}",
   "kick.done": "Ylläpitäjä potkaisi pelaajan {name}.",
-  "kick.done_reason": "Ylläpitäjä potkaisi pelaajan {name}: {reason}"
+  "kick.done_reason": "Ylläpitäjä potkaisi pelaajan {name}: {reason}",
+  "help.line": "Yhteisö: .rank | .top | .speclist"
 }

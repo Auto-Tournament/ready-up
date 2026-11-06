@@ -9,5 +9,6 @@
   "spec.none": "Tidak ada yang menontonmu.",
   "spec.list": "Menontonmu ({count}): {names}",
   "kick.done": "{name} dikeluarkan oleh admin.",
-  "kick.done_reason": "{name} dikeluarkan oleh admin: {reason}"
+  "kick.done_reason": "{name} dikeluarkan oleh admin: {reason}",
+  "help.line": "Komunitas: .rank | .top | .speclist"
 }

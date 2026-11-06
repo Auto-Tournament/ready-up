@@ -42,5 +42,6 @@
   "menu.maps": "Kartat",
   "menu.hide_timer": "Piilota ajastin",
   "menu.show_timer": "Näytä ajastin",
-  "menu.close": "Sulje"
+  "menu.close": "Sulje",
+  "help.line": "Movement: .rs aloita alusta | .b [n] bonus | .cp / .tp checkpoint | .pb .wr ennätykset | .timerhud"
 }

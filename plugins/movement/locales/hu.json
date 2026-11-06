@@ -42,5 +42,6 @@
   "menu.maps": "Pályák",
   "menu.hide_timer": "Időmérő elrejtése",
   "menu.show_timer": "Időmérő mutatása",
-  "menu.close": "Bezárás"
+  "menu.close": "Bezárás",
+  "help.line": "Movement: .rs újrakezdés | .b [n] bónusz | .cp / .tp checkpoint | .pb .wr rekordok | .timerhud"
 }

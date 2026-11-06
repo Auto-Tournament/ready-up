@@ -9,5 +9,6 @@
   "spec.none": "Ingen tittar på dig.",
   "spec.list": "Tittar på dig ({count}): {names}",
   "kick.done": "{name} sparkades av en admin.",
-  "kick.done_reason": "{name} sparkades av en admin: {reason}"
+  "kick.done_reason": "{name} sparkades av en admin: {reason}",
+  "help.line": "Community: .rank | .top | .speclist"
 }

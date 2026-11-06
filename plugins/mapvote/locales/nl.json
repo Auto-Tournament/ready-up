@@ -53,5 +53,6 @@
   "menu.now": "nu",
   "menu.prev": "Vorige",
   "menu.next_page": "Volgende",
-  "menu.back": "Terug"
+  "menu.back": "Terug",
+  "help.line": "Mapstemming: .rtv stem om van map te wisselen (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

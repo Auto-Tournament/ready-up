@@ -566,7 +566,13 @@ const char* HelpLineNow() {
   if (!Active()) return nullptr;
   return "Movement: .rs restart | .b [n] bonus | .cp / .tp checkpoint | .pb .wr records | .timerhud";
 }
-const ru_help_v1 g_help = {sizeof(ru_help_v1), &HelpLineNow};
+const char* HelpLineLang(const char* lang) {
+  static std::string line;
+  if (!Active()) return nullptr;
+  line = g_text.Tr(lang ? lang : "en", "help.line");
+  return line.c_str();
+}
+const ru_help_v1 g_help = {sizeof(ru_help_v1), &HelpLineNow, &HelpLineLang};
 
 void OnRestart(void*, const ru_command_ctx* c) {
   if (!CheckActive(c) || c->slot < 0) return;

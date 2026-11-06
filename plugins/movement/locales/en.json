@@ -42,5 +42,6 @@
   "menu.maps": "Maps",
   "menu.hide_timer": "Hide timer",
   "menu.show_timer": "Show timer",
-  "menu.close": "Close"
+  "menu.close": "Close",
+  "help.line": "Movement: .rs restart | .b [n] bonus | .cp / .tp checkpoint | .pb .wr records | .timerhud"
 }

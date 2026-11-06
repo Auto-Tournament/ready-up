@@ -53,5 +53,6 @@
   "menu.now": "nyt",
   "menu.prev": "Edellinen",
   "menu.next_page": "Seuraava",
-  "menu.back": "Takaisin"
+  "menu.back": "Takaisin",
+  "help.line": "Karttaäänestys: .rtv äänestä kartan vaihdosta (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

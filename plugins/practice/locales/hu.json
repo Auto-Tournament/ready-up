@@ -170,5 +170,7 @@
   "status.running": "fut",
   "status.over": "vége",
   "status.watch": "senki (nézés)",
-  "status.line": "{id} {phase}: {at}/{length}, játékos {player}; botok: vezérelt {scripted}, MI {ai}, halott {dead}; gránátok: dobva {spawned}, kihagyva {skipped}"
+  "status.line": "{id} {phase}: {at}/{length}, játékos {player}; botok: vezérelt {scripted}, MI {ai}, halott {dead}; gránátok: dobva {spawned}, kihagyva {skipped}",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac a kilépéshez",
+  "help.off": "Edzés: a .prac elindítja az edzésmódot"
 }

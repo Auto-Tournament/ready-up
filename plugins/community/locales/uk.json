@@ -9,5 +9,6 @@
   "spec.none": "За вами ніхто не спостерігає.",
   "spec.list": "За вами спостерігають ({count}): {names}",
   "kick.done": "Адмін вигнав гравця {name}.",
-  "kick.done_reason": "Адмін вигнав гравця {name}: {reason}"
+  "kick.done_reason": "Адмін вигнав гравця {name}: {reason}",
+  "help.line": "Спільнота: .rank | .top | .speclist"
 }

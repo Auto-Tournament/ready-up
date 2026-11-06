@@ -53,5 +53,6 @@
   "menu.now": "nu",
   "menu.prev": "Forrige",
   "menu.next_page": "Næste",
-  "menu.back": "Tilbage"
+  "menu.back": "Tilbage",
+  "help.line": "Baneafstemning: .rtv stem for baneskift (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

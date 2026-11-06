@@ -42,5 +42,6 @@
   "menu.maps": "Χάρτες",
   "menu.hide_timer": "Απόκρυψη χρονομέτρου",
   "menu.show_timer": "Εμφάνιση χρονομέτρου",
-  "menu.close": "Κλείσιμο"
+  "menu.close": "Κλείσιμο",
+  "help.line": "Movement: .rs από την αρχή | .b [n] μπόνους | .cp / .tp checkpoint | .pb .wr ρεκόρ | .timerhud"
 }

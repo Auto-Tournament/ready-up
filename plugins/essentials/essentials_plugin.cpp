@@ -537,7 +537,8 @@ void OnHelpChat(void*, const ru_command_ctx* c) {
     const auto* h = static_cast<const ru_help_v1*>(
         g_api->get_interface(g_api->self, (std::string(RU_HELP_IFACE_PREFIX) + name).c_str(), RU_HELP_IFACE_VERSION));
     if (!h || !h->line) continue;
-    const char* line = h->line();
+    const bool hasLang = h->struct_size >= offsetof(ru_help_v1, line_lang) + sizeof(h->line_lang) && h->line_lang;
+    const char* line = hasLang ? h->line_lang(lang.c_str()) : h->line();
     if (line && *line) say(line);
   }
   say(g_text.Tr(lang, "help.ru"));

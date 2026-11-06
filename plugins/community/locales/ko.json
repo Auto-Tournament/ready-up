@@ -9,5 +9,6 @@
   "spec.none": "아무도 당신을 관전하고 있지 않습니다.",
   "spec.list": "당신을 관전 중({count}): {names}",
   "kick.done": "{name}님이 관리자에게 강퇴되었습니다.",
-  "kick.done_reason": "{name}님이 관리자에게 강퇴되었습니다: {reason}"
+  "kick.done_reason": "{name}님이 관리자에게 강퇴되었습니다: {reason}",
+  "help.line": "커뮤니티: .rank | .top | .speclist"
 }

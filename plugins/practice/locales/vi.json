@@ -170,5 +170,7 @@
   "status.running": "đang chạy",
   "status.over": "đã hết",
   "status.watch": "không ai (xem)",
-  "status.line": "{id} {phase} lúc {at}/{length}, người chơi {player}; bot: theo kịch bản {scripted}, AI {ai}, chết {dead}; lựu: đã ném {spawned}, bỏ qua {skipped}"
+  "status.line": "{id} {phase} lúc {at}/{length}, người chơi {player}; bot: theo kịch bản {scripted}, AI {ai}, chết {dead}; lựu: đã ném {spawned}, bỏ qua {skipped}",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac để thoát",
+  "help.off": "Luyện tập: .prac để bật chế độ luyện tập"
 }

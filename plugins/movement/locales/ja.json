@@ -42,5 +42,6 @@
   "menu.maps": "マップ",
   "menu.hide_timer": "タイマーを隠す",
   "menu.show_timer": "タイマーを表示",
-  "menu.close": "閉じる"
+  "menu.close": "閉じる",
+  "help.line": "Movement: .rs リスタート | .b [n] ボーナス | .cp / .tp チェックポイント | .pb .wr 記録 | .timerhud"
 }

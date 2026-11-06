@@ -15,5 +15,6 @@
   "kick.ambiguous": "More than one player matches; type more of the name.",
   "kick.unknown": "No player called {name}.",
   "kick.no_userid": "That player cannot be kicked yet (no user id).",
-  "kick.failed": "The kick could not be sent."
+  "kick.failed": "The kick could not be sent.",
+  "help.line": "Community: .rank | .top | .speclist"
 }

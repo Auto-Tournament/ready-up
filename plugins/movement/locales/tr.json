@@ -42,5 +42,6 @@
   "menu.maps": "Haritalar",
   "menu.hide_timer": "Zamanlayıcıyı gizle",
   "menu.show_timer": "Zamanlayıcıyı göster",
-  "menu.close": "Kapat"
+  "menu.close": "Kapat",
+  "help.line": "Movement: .rs yeniden başla | .b [n] bonus | .cp / .tp checkpoint | .pb .wr rekorlar | .timerhud"
 }

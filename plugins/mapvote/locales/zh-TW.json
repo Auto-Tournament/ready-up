@@ -53,5 +53,6 @@
   "menu.now": "目前",
   "menu.prev": "上一頁",
   "menu.next_page": "下一頁",
-  "menu.back": "返回"
+  "menu.back": "返回",
+  "help.line": "地圖投票: .rtv 投票換圖 (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

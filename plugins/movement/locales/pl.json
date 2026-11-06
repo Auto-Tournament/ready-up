@@ -42,5 +42,6 @@
   "menu.maps": "Mapy",
   "menu.hide_timer": "Ukryj stoper",
   "menu.show_timer": "Pokaż stoper",
-  "menu.close": "Zamknij"
+  "menu.close": "Zamknij",
+  "help.line": "Movement: .rs od nowa | .b [n] bonus | .cp / .tp checkpoint | .pb .wr rekordy | .timerhud"
 }

@@ -42,5 +42,6 @@
   "menu.maps": "Bản đồ",
   "menu.hide_timer": "Ẩn đồng hồ",
   "menu.show_timer": "Hiện đồng hồ",
-  "menu.close": "Đóng"
+  "menu.close": "Đóng",
+  "help.line": "Movement: .rs chạy lại | .b [n] bonus | .cp / .tp checkpoint | .pb .wr kỷ lục | .timerhud"
 }

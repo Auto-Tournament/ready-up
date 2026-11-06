@@ -42,5 +42,6 @@
   "menu.maps": "Map",
   "menu.hide_timer": "Sembunyikan timer",
   "menu.show_timer": "Tampilkan timer",
-  "menu.close": "Tutup"
+  "menu.close": "Tutup",
+  "help.line": "Movement: .rs ulangi | .b [n] bonus | .cp / .tp checkpoint | .pb .wr rekor | .timerhud"
 }

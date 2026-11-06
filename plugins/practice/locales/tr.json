@@ -170,5 +170,7 @@
   "status.running": "çalışıyor",
   "status.over": "bitti",
   "status.watch": "kimse (izleme)",
-  "status.line": "{id} {phase}, {at}/{length}, oyuncu {player}; botlar: senaryolu {scripted}, yapay zekâ {ai}, ölü {dead}; bombalar: atılan {spawned}, atlanan {skipped}"
+  "status.line": "{id} {phase}, {at}/{length}, oyuncu {player}; botlar: senaryolu {scripted}, yapay zekâ {ai}, ölü {dead}; bombalar: atılan {spawned}, atlanan {skipped}",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac çıkmak için",
+  "help.off": "Antrenman: .prac antrenman modunu başlatır"
 }

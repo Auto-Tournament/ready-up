@@ -9,5 +9,6 @@
   "spec.none": "Ingen ser på deg.",
   "spec.list": "Ser på deg ({count}): {names}",
   "kick.done": "{name} ble kastet ut av en administrator.",
-  "kick.done_reason": "{name} ble kastet ut av en administrator: {reason}"
+  "kick.done_reason": "{name} ble kastet ut av en administrator: {reason}",
+  "help.line": "Fellesskap: .rank | .top | .speclist"
 }

@@ -170,5 +170,7 @@
   "status.running": "σε εξέλιξη",
   "status.over": "τέλος",
   "status.watch": "κανείς (θέαση)",
-  "status.line": "{id} {phase} στο {at}/{length}, παίκτης {player} · bot: με σενάριο {scripted}, AI {ai}, νεκρά {dead} · χειροβομβίδες: ρίχτηκαν {spawned}, παραλείφθηκαν {skipped}"
+  "status.line": "{id} {phase} στο {at}/{length}, παίκτης {player} · bot: με σενάριο {scripted}, AI {ai}, νεκρά {dead} · χειροβομβίδες: ρίχτηκαν {spawned}, παραλείφθηκαν {skipped}",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac για έξοδο",
+  "help.off": "Προπόνηση: το .prac ξεκινά τη λειτουργία προπόνησης"
 }

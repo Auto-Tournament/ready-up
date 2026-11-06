@@ -170,5 +170,7 @@
   "status.running": "실행 중",
   "status.over": "종료",
   "status.watch": "없음(관전)",
-  "status.line": "{id} {phase} {at}/{length}, 플레이어 {player}; 봇: 스크립트 {scripted}, AI {ai}, 사망 {dead}; 수류탄: 투척 {spawned}, 건너뜀 {skipped}"
+  "status.line": "{id} {phase} {at}/{length}, 플레이어 {player}; 봇: 스크립트 {scripted}, AI {ai}, 사망 {dead}; 수류탄: 투척 {spawned}, 건너뜀 {skipped}",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac 로 종료",
+  "help.off": "연습: .prac로 연습 모드 시작"
 }

@@ -53,5 +53,6 @@
   "menu.now": "зараз",
   "menu.prev": "Назад",
   "menu.next_page": "Далі",
-  "menu.back": "Назад"
+  "menu.back": "Назад",
+  "help.line": "Голосування за мапу: .rtv голосувати за зміну мапи (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

@@ -53,5 +53,6 @@
   "menu.now": "en cours",
   "menu.prev": "Précédent",
   "menu.next_page": "Suivant",
-  "menu.back": "Retour"
+  "menu.back": "Retour",
+  "help.line": "Vote de carte: .rtv voter pour changer de carte (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

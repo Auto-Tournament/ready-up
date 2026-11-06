@@ -42,5 +42,6 @@
   "menu.maps": "Maps",
   "menu.hide_timer": "Timer ausblenden",
   "menu.show_timer": "Timer einblenden",
-  "menu.close": "Schließen"
+  "menu.close": "Schließen",
+  "help.line": "Movement: .rs Neustart | .b [n] Bonus | .cp / .tp Checkpoint | .pb .wr Rekorde | .timerhud"
 }

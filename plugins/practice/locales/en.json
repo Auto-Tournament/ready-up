@@ -170,5 +170,7 @@
   "status.running": "running",
   "status.over": "over",
   "status.watch": "none (watch)",
-  "status.line": "{id} {phase} at {at}/{length}, player {player}; bots: {scripted} scripted, {ai} AI, {dead} dead; grenades {spawned} spawned, {skipped} skipped"
+  "status.line": "{id} {phase} at {at}/{length}, player {player}; bots: {scripted} scripted, {ai} AI, {dead} dead; grenades {spawned} spawned, {skipped} skipped",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac to leave",
+  "help.off": "Practice: .prac to start practice mode"
 }

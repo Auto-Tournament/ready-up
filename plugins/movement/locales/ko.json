@@ -42,5 +42,6 @@
   "menu.maps": "맵",
   "menu.hide_timer": "타이머 숨기기",
   "menu.show_timer": "타이머 보이기",
-  "menu.close": "닫기"
+  "menu.close": "닫기",
+  "help.line": "Movement: .rs 다시 시작 | .b [n] 보너스 | .cp / .tp 체크포인트 | .pb .wr 기록 | .timerhud"
 }

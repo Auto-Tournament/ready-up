@@ -42,5 +42,6 @@
   "menu.maps": "Maps",
   "menu.hide_timer": "Timer verbergen",
   "menu.show_timer": "Timer tonen",
-  "menu.close": "Sluiten"
+  "menu.close": "Sluiten",
+  "help.line": "Movement: .rs opnieuw | .b [n] bonus | .cp / .tp checkpoint | .pb .wr records | .timerhud"
 }

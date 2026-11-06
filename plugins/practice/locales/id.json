@@ -170,5 +170,7 @@
   "status.running": "berjalan",
   "status.over": "selesai",
   "status.watch": "tidak ada (menonton)",
-  "status.line": "{id} {phase} pada {at}/{length}, pemain {player}; bot: terskrip {scripted}, AI {ai}, mati {dead}; granat: dilempar {spawned}, dilewati {skipped}"
+  "status.line": "{id} {phase} pada {at}/{length}, pemain {player}; bot: terskrip {scripted}, AI {ai}, mati {dead}; granat: dilempar {spawned}, dilewati {skipped}",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac untuk keluar",
+  "help.off": "Latihan: .prac untuk memulai mode latihan"
 }

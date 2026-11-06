@@ -42,5 +42,6 @@
   "menu.maps": "Mapas",
   "menu.hide_timer": "Ocultar cronómetro",
   "menu.show_timer": "Mostrar cronómetro",
-  "menu.close": "Cerrar"
+  "menu.close": "Cerrar",
+  "help.line": "Movement: .rs reiniciar | .b [n] bonus | .cp / .tp checkpoint | .pb .wr récords | .timerhud"
 }

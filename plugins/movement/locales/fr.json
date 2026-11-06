@@ -42,5 +42,6 @@
   "menu.maps": "Cartes",
   "menu.hide_timer": "Masquer le chrono",
   "menu.show_timer": "Afficher le chrono",
-  "menu.close": "Fermer"
+  "menu.close": "Fermer",
+  "help.line": "Movement: .rs recommencer | .b [n] bonus | .cp / .tp checkpoint | .pb .wr records | .timerhud"
 }

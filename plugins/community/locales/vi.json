@@ -9,5 +9,6 @@
   "spec.none": "Không ai đang xem bạn.",
   "spec.list": "Đang xem bạn ({count}): {names}",
   "kick.done": "{name} đã bị admin đá khỏi máy chủ.",
-  "kick.done_reason": "{name} đã bị admin đá khỏi máy chủ: {reason}"
+  "kick.done_reason": "{name} đã bị admin đá khỏi máy chủ: {reason}",
+  "help.line": "Cộng đồng: .rank | .top | .speclist"
 }

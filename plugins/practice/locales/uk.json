@@ -170,5 +170,7 @@
   "status.running": "триває",
   "status.over": "закінчено",
   "status.watch": "ніхто (перегляд)",
-  "status.line": "{id} {phase} на {at}/{length}, гравець {player}; боти: за сценарієм {scripted}, ШІ {ai}, мертві {dead}; гранати: кинуто {spawned}, пропущено {skipped}"
+  "status.line": "{id} {phase} на {at}/{length}, гравець {player}; боти: за сценарієм {scripted}, ШІ {ai}, мертві {dead}; гранати: кинуто {spawned}, пропущено {skipped}",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac щоб вийти",
+  "help.off": "Тренування: .prac вмикає режим тренування"
 }

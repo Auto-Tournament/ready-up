@@ -9,5 +9,6 @@
   "spec.none": "誰もあなたを観戦していません。",
   "spec.list": "あなたを観戦中（{count}）: {names}",
   "kick.done": "{name} は管理者にキックされました。",
-  "kick.done_reason": "{name} は管理者にキックされました: {reason}"
+  "kick.done_reason": "{name} は管理者にキックされました: {reason}",
+  "help.line": "コミュニティ: .rank | .top | .speclist"
 }

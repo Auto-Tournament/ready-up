@@ -170,5 +170,7 @@
   "status.running": "kører",
   "status.over": "slut",
   "status.watch": "ingen (ser på)",
-  "status.line": "{id} {phase} ved {at}/{length}, spiller {player}; bots: {scripted} styret, {ai} AI, {dead} døde; granater: {spawned} kastet, {skipped} sprunget over"
+  "status.line": "{id} {phase} ved {at}/{length}, spiller {player}; bots: {scripted} styret, {ai} AI, {dead} døde; granater: {spawned} kastet, {skipped} sprunget over",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac for at forlade",
+  "help.off": "Træning: .prac starter træningstilstand"
 }
