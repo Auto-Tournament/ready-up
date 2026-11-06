@@ -5,6 +5,7 @@
 
 #include "readyup/plugin_api.h"
 
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -42,5 +43,17 @@ void ChatAll(const ru_api* api, uint32_t flags, TextFn text) {
   }
   for (const auto& p : players) api->chat_to_slot_ex(api->self, p.first, text(p.second).c_str(), flags);
 }
+
+// The language each player's held card (a menu, a card shown for some seconds) was drawn in:
+// Changed() says when the player's language has moved on since, so the card is drawn again.
+struct LangSeen {
+  std::map<int, std::string> by_slot;
+  void Drew(int slot, const std::string& lang) { by_slot[slot] = lang; }
+  void Forget(int slot) { by_slot.erase(slot); }
+  bool Changed(const ru_api* api, int slot) const {
+    const auto it = by_slot.find(slot);
+    return it != by_slot.end() && it->second != LanguageOf(api, slot);
+  }
+};
 
 }  // namespace readyup::i18n

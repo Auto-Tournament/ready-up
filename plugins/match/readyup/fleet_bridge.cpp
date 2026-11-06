@@ -1027,10 +1027,12 @@ bool DoRestoreNow(int mapNumber, int round, const std::string& file, const std::
                   const std::string& reason, const Json& extra, int scoreT1, int scoreT2) {
   g_restoring = true;
   if (HudScreensOn()) {
-    std::string s = "id=restored-" + std::to_string(round) + "\ncolor=ct\nkind=Round restored\ntitle=Back to round " +
-                    std::to_string(round) + "\n";
-    if (scoreT1 >= 0 && scoreT2 >= 0) s += "sub=" + std::to_string(scoreT1) + " - " + std::to_string(scoreT2) + "\n";
-    HudScreensNoticeAll(s, 8.0);
+    const bool score = scoreT1 >= 0 && scoreT2 >= 0;
+    HudScreensNoticeAll(NoticeSpec("id=restored-" + std::to_string(round) + "\ncolor=ct\n", "spec.round_restored",
+                                   "notice.back_to_round", score ? "notice.score" : "",
+                                   {{"round", std::to_string(round)},
+                                    {"score", std::to_string(scoreT1) + " - " + std::to_string(scoreT2)}}),
+                        8.0);
   }
   MatchEventsIgnoreRoundEndsFor(5.0);  // the reload ends the current round as a draw
   (void)EnqueueServerCommand(("mp_backup_restore_load_file " + file).c_str());

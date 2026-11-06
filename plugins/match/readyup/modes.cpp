@@ -598,9 +598,9 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
   if (HudScreensOn()) {
     const bool timedOut = pickerName == "timeout";
     const std::string side = *winnerWantsCt ? "CT" : "T";
-    HudScreensNoticeAll(std::string("id=sides\ncolor=") + (timedOut ? "muted" : (*winnerWantsCt ? "ct" : "t")) +
-                            "\nkind=" + (timedOut ? "Time is up" : "Sides chosen") + "\ntitle=" + HudSpecText(winnerName) +
-                            (stayed ? " stays " : " starts ") + side + "\n",
+    HudScreensNoticeAll(NoticeSpec(std::string("id=sides\ncolor=") + (timedOut ? "muted" : (*winnerWantsCt ? "ct" : "t")) + "\n",
+                                   timedOut ? "walkover.time_up" : "notice.sides_chosen", stayed ? "notice.team_stays" : "notice.team_starts",
+                                   {}, {{"team", winnerName}, {"side", side}}),
                         8.0);
   }
   return true;

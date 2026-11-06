@@ -41,10 +41,12 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
 // plugin's mode): answer in chat instead.
 // Shows `spec` to `slot` instead of the base screen for `seconds` (menus and votes stay on top).
 // A card re-sent every frame keeps it up. Thread-safe.
-void HudScreensNotice(int slot, const std::string& spec, double seconds);
-// The same for everyone (csTeam 0), or one CS side (2 T, 3 CT). A player's own notice wins.
-// Thread-safe. The builder form makes the spec in each viewer's language.
+// The builder form makes the spec in the viewer's language, each tick: it follows a .lang change.
 using HudSpecBuild = std::function<std::string(const std::string& lang)>;
+void HudScreensNotice(int slot, const std::string& spec, double seconds);
+void HudScreensNotice(int slot, HudSpecBuild build, double seconds);
+// The same for everyone (csTeam 0), or one CS side (2 T, 3 CT). A player's own notice wins.
+// Thread-safe.
 void HudScreensNoticeAll(const std::string& spec, double seconds, int csTeam = 0);
 void HudScreensNoticeAll(HudSpecBuild build, double seconds, int csTeam = 0);
 

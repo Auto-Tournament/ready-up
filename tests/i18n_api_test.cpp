@@ -80,6 +80,20 @@ int main() {
   CHECK_EQ(Sent(), "all:hi-en");
   CHECK_EQ(readyup::i18n::LanguageOf(&old, 0), "en");
 
+  // LangSeen: a card drawn in de is stale once the player switches to fr; one never drawn is not.
+  readyup::i18n::LangSeen seen;
+  g_langs = {"de", "de"};
+  seen.Drew(0, "de");
+  CHECK_EQ(seen.Changed(&api, 0) ? "changed" : "same", "same");
+  CHECK_EQ(seen.Changed(&api, 1) ? "changed" : "same", "same");
+  g_langs = {"fr", "fr"};
+  CHECK_EQ(seen.Changed(&api, 0) ? "changed" : "same", "changed");
+  seen.Drew(0, "fr");
+  CHECK_EQ(seen.Changed(&api, 0) ? "changed" : "same", "same");
+  seen.Drew(1, "de");
+  seen.Forget(1);
+  CHECK_EQ(seen.Changed(&api, 1) ? "changed" : "same", "same");
+
   if (g_failures) {
     std::fprintf(stderr, "i18n_api: %d failure(s)\n", g_failures);
     return 1;

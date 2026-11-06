@@ -40,8 +40,8 @@ struct Outgoing {
   bool card = false;  // the table card on the Auto Tournament HUD instead of chat lines
   int total = 0;
   struct Row {
-    std::string name, given, taken, hp;
-    int dmg = 0, took = 0, health = 0;
+    std::string name, given, taken, hp;  // given..hp in `lang` (LocalizeRows)
+    int dmg = 0, took = 0, health = 0, hitsGiven = 0, hitsTaken = 0;
   };
   std::vector<Row> rows;
 };
@@ -54,6 +54,18 @@ constexpr int kCardRows = 5;
 constexpr const char* kKitLayout = "panorama/layout/custom_game/at_kit.xml";
 constexpr double kCardSeconds = 12.0;
 
+// The card's words in o.lang, from the numbers: again when the player's language changes.
+void LocalizeRows(Outgoing& o) {
+  auto inHits = [&](int dmg, int hits) {
+    return hits == 0 ? std::string("0") : text::ForLang(o.lang, "dmg.in", {{"dmg", std::to_string(dmg)}, {"hits", std::to_string(hits)}});
+  };
+  for (auto& r : o.rows) {
+    r.given = inHits(r.dmg, r.hitsGiven);
+    r.taken = inHits(r.took, r.hitsTaken);
+    r.hp = r.health > 0 ? std::to_string(r.health) : text::ForLang(o.lang, "dmg.dead");
+  }
+}
+
 void FillCard(Outgoing& o, const DamageParticipant& self, const std::vector<DamageParticipant>& players,
               const DamageLedger& ledger) {
   for (const auto& p : players) {
@@ -62,18 +74,13 @@ void FillCard(Outgoing& o, const DamageParticipant& self, const std::vector<Dama
     const auto from = ledger.Dealt(p.key, self.key);
     o.total += to.dmg;
     if (to.hits == 0 && from.hits == 0) continue;
-    auto inHits = [&](const DamageLedger::Pair& d) {
-      return d.hits == 0 ? std::string("0")
-                         : text::ForLang(o.lang, "dmg.in", {{"dmg", std::to_string(d.dmg)}, {"hits", std::to_string(d.hits)}});
-    };
     Outgoing::Row r;
     r.name = p.name;
-    r.given = inHits(to);
-    r.taken = inHits(from);
     r.dmg = to.dmg;
     r.took = from.dmg;
+    r.hitsGiven = to.hits;
+    r.hitsTaken = from.hits;
     r.health = ledger.Health(p.key);
-    r.hp = r.health > 0 ? std::to_string(r.health) : text::ForLang(o.lang, "dmg.dead");
     o.rows.push_back(std::move(r));
   }
   // Who you hit most first, then who hit you most.
@@ -81,6 +88,7 @@ void FillCard(Outgoing& o, const DamageParticipant& self, const std::vector<Dama
     return x.dmg != y.dmg ? x.dmg > y.dmg : x.took > y.took;
   });
   if (static_cast<int>(o.rows.size()) > kCardRows) o.rows.resize(kCardRows);
+  LocalizeRows(o);
   o.card = true;  // a round without a fight still gets its card ("0 damage"), not chat lines
 }
 
@@ -97,8 +105,13 @@ double NowSeconds() {
 }
 
 std::unordered_map<int, double> g_cardUntil;  // slot -> when its card goes away
+struct Shown {
+  Outgoing o;
+  int round = 0;
+};
+std::unordered_map<int, Shown> g_shownCards;  // slot -> the card up now, redrawn on a .lang change
 
-bool ShowCard(const Outgoing& o, int round) {
+bool ShowCard(const Outgoing& o, int round, double until = 0) {
   const ru_hud_v1* h = KitHud();
   if (!h) return false;
   const int k = h->open(kKitLayout);
@@ -147,8 +160,24 @@ bool ShowCard(const Outgoing& o, int round) {
     cls(r, "dead", row.health == 0);
   }
   cls("at_card", "on", true);
-  g_cardUntil[s] = NowSeconds() + kCardSeconds;
+  g_cardUntil[s] = until > 0 ? until : NowSeconds() + kCardSeconds;
+  g_shownCards[s] = Shown{o, round};
   return true;
+}
+
+// A player who changed language while their card is up gets it again in the new one.
+void RelocalizeCards() {
+  const ru_api* a = host::Api();
+  for (auto& [slot, sh] : g_shownCards) {
+    const std::string lang = i18n::LanguageOf(a, slot);
+    if (lang == sh.o.lang) continue;
+    const auto until = g_cardUntil.find(slot);
+    if (until == g_cardUntil.end()) continue;
+    Outgoing o = sh.o;
+    o.lang = lang;
+    LocalizeRows(o);
+    (void)ShowCard(o, sh.round, until->second);
+  }
 }
 
 void HideCards(bool all) {
@@ -159,6 +188,7 @@ void HideCards(bool all) {
   for (auto it = g_cardUntil.begin(); it != g_cardUntil.end();) {
     if (all || now >= it->second) {
       if (k > 0) h->set_class(k, it->first, "at_card", "on", 0);
+      g_shownCards.erase(it->first);
       it = g_cardUntil.erase(it);
     } else {
       ++it;
@@ -287,6 +317,7 @@ void DamageReportInstall(const ru_api* api) {
 
 void DamageReportTick() {
   HideCards(false);
+  RelocalizeCards();
   if (g_out.empty() || !g_outReady) return;  // built at round end, sent at the next round start
   g_outReady = false;
   int humans = 0, lines = 0;

@@ -39,7 +39,7 @@ constexpr int kSendDurationSeconds = 2;
 constexpr const char* kPrivatePrefix = " \x04[ReadyUp]\x01 ";
 
 struct AdminCard {
-  std::string html, spec;
+  std::string name, label, message;  // built at each send in the admin's language then
   Clock::time_point startAt{};
   Clock::time_point nextSend{};
 };
@@ -101,7 +101,7 @@ void AdminCallCommand(uint64_t steamid64, const std::string& playerName, const s
       Tell(slot, "admincall.cooldown", {{"seconds", std::to_string(left)}});
       if (HudScreensOn() && slot >= 0) {
         HudScreensNotice(slot, NoticeSpec("id=notice\nwhere=card\ncolor=muted\n", "notice.admin", "notice.already_called",
-                                          "notice.again_in", {{"seconds", std::to_string(left)}})(i18n::LanguageOf(host::Api(), slot)),
+                                          "notice.again_in", {{"seconds", std::to_string(left)}}),
                          5.0);
       }
       return;
@@ -163,7 +163,7 @@ void AdminCallCommand(uint64_t steamid64, const std::string& playerName, const s
                              text::ForLang(lang, e.message.empty() ? "admincall.needs" : "admincall.needs_msg",
                                            {{"who", who}, {"message", e.message}});
     (void)ClientPrintChat(s, (kPrivatePrefix + line).c_str());
-    AdminCard card{AdminCallCardHtml(e.player.name, label, e.message, lang), AdminCallCardSpec(e.player.name, label, e.message, lang), now, now};
+    AdminCard card{e.player.name, label, e.message, now, now};
     std::lock_guard<std::mutex> lk(g_mu);
     g_cards[s] = std::move(card);
   }
@@ -171,18 +171,14 @@ void AdminCallCommand(uint64_t steamid64, const std::string& playerName, const s
 
   Tell(slot, "admincall.notified");
   if (HudScreensOn() && slot >= 0) {
-    HudScreensNotice(slot, NoticeSpec("id=notice\nwhere=card\ncolor=warn\n", "notice.admin", "notice.admin_coming")(i18n::LanguageOf(host::Api(), slot)),
+    HudScreensNotice(slot, NoticeSpec("id=notice\nwhere=card\ncolor=warn\n", "notice.admin", "notice.admin_coming"),
                      6.0);
   }
 }
 
 void AdminCallTick() {
   const auto now = Clock::now();
-  struct Send {
-    int slot;
-    std::string html, spec;
-  };
-  std::vector<Send> sends;
+  std::vector<std::pair<int, AdminCard>> sends;
   {
     std::lock_guard<std::mutex> lk(g_mu);
     if (g_cards.empty()) return;
@@ -193,16 +189,21 @@ void AdminCallTick() {
         continue;
       }
       if (now >= c.nextSend && now - c.startAt <= kCardSendFor) {
-        sends.push_back(Send{it->first, c.html, c.spec});
+        sends.emplace_back(it->first, c);
         c.nextSend = now + kResendEvery;
       }
       ++it;
     }
   }
   const bool screens = HudScreensOn();
-  for (const auto& s : sends) {
-    if (screens) HudScreensNotice(s.slot, s.spec, kSendDurationSeconds);
-    else (void)SendCenterHtml(s.slot, s.html, kSendDurationSeconds, RU_HTML_PRIO_ALERT);
+  for (const auto& [slot, c] : sends) {
+    if (screens) {
+      HudScreensNotice(slot, [c](const std::string& lang) { return AdminCallCardSpec(c.name, c.label, c.message, lang); },
+                       kSendDurationSeconds);
+    } else {
+      const std::string lang = i18n::LanguageOf(host::Api(), slot);
+      (void)SendCenterHtml(slot, AdminCallCardHtml(c.name, c.label, c.message, lang), kSendDurationSeconds, RU_HTML_PRIO_ALERT);
+    }
   }
 }
 
