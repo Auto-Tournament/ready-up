@@ -1,0 +1,6 @@
+{
+  "lang.current": "你的語言：{language}。用 .lang <代碼>（{codes}）切換，或用 .lang reset 還原。",
+  "lang.set": "語言已設為 {language}。",
+  "lang.reset": "已恢復預設語言：{language}。",
+  "lang.unknown": "未知語言“{name}”。可選：{codes}"
+}

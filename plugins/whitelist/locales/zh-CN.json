@@ -1,0 +1,22 @@
+{
+  "prefix": "Ready Up 白名单：",
+  "help_on_off": ".ru whitelist on|off：踢出不在名单上的所有人（管理员和机器人保留；比赛中不生效）",
+  "help_add_remove": ".ru whitelist add|remove <steamid64>",
+  "help_list_clear": ".ru whitelist list | clear",
+  "not_authorized": "没有权限",
+  "turned_on_other": "已开启（名单上有 {count} 名玩家）",
+  "turned_off_other": "已关闭（名单上有 {count} 名玩家）",
+  "usage": "用法：.ru whitelist {sub} <steamid64>",
+  "added": "已添加 {id}",
+  "removed": "已移除 {id}",
+  "no_change": "{id} 没有变化",
+  "cleared": "名单已清空",
+  "list_on_empty": "已开启，名单为空",
+  "list_off_empty": "已关闭，名单为空",
+  "list_on_other": "已开启，{count} 名玩家：{ids}",
+  "list_off_other": "已关闭，{count} 名玩家：{ids}",
+  "guests_other": "其他插件放行的 {count} 名访客（{owners}）",
+  "unknown": "未知命令。输入 .ru help whitelist 查看列表。",
+  "save_failed": "无法保存 {path}",
+  "kick_reason": "你不在本服务器的白名单上"
+}
