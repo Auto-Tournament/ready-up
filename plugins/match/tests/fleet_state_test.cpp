@@ -436,6 +436,20 @@ static void TestUpdateOps() {
   CHECK(!fs::ApplyUpdateOps(&cfg, J(R"([{"op":"set_password","password":"a b"}])"), &err, &pw));
   CHECK(!fs::ApplyUpdateOps(&cfg, J(R"([{"op":"explode"}])"), &err, &pw));
   CHECK(!fs::ApplyUpdateOps(&cfg, J(R"([])"), &err, &pw));
+
+  // set_language: stored on the player, for a resume or failover; a player not on a team is fine.
+  CHECK(fs::ApplyUpdateOps(&cfg, J(R"([{"op":"set_language","steamid64":"76561198000000011","language":"pl"},
+                                      {"op":"set_language","steamid64":"76561198000000777","language":"de"}])"),
+                           &err, &pw));
+  bool seen = false;
+  for (const auto& p : cfg.Find("team1")->Find("players")->Items()) {
+    if (p.Find("steamid64")->AsString() == "76561198000000011") {
+      CHECK_STR(p.Find("language")->AsString(), "pl");
+      seen = true;
+    }
+  }
+  CHECK(seen);
+  CHECK(!fs::ApplyUpdateOps(&cfg, J(R"([{"op":"set_language","steamid64":"76561198000000011","language":""}])"), &err, &pw));
 }
 
 // ---------------------------------------------------------------------------- codecs / validators

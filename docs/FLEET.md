@@ -741,12 +741,16 @@ match.update { match_id, epoch, base_config_rev: number, config_rev: number,
                ops: Array<
                  | { op: "add_player", team: "team1" | "team2" | "spectator", steamid64: u64s, name: string, role?: "player" | "sub" | "coach", language?: string }
                  | { op: "remove_player", steamid64: u64s }
+                 | { op: "set_language", steamid64: u64s, language: string }  // only with capability match.language.v1
                  | { op: "rename_team", team: "team1" | "team2", name: string }
                  | { op: "set_password", password: string }
                  | { op: "set_rules", rules: Partial<rules> } > }
 ```
 
 Rejected with `conflict` if `base_config_rev` is not the server's `config_rev` (§9.3).
+
+`set_language` is the player's site language after they change it on the site. Like
+match.assign's `language`, it clears that player's `.lang` choice.
 
 ### 7.4 `cmd` (admin commands)
 

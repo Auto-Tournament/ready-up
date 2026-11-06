@@ -884,6 +884,24 @@ bool ApplyUpdateOps(Json* config, const Json& ops, std::string* err, bool* passw
       if (!p || p->type() != Json::Type::String || !ValidPassword(p->AsString())) return fail("set_password: bad password");
       c["password"] = p->AsString();
       pw = true;
+    } else if (kind == "set_language") {
+      // fleet.so hands the language to the core (OnPlayerLanguages); here it only goes into the
+      // stored config, so a resume or failover keeps it. A player not on a team is fine.
+      const Json* sid = op.Find("steamid64");
+      if (!sid || !ValidSteam(*sid)) return fail("set_language: bad steamid64");
+      const std::string language = Str(op, "language");
+      if (language.empty() || language.size() > 16) return fail("set_language: bad language");
+      for (const char* team : {"team1", "team2"}) {
+        Json* t = const_cast<Json*>(Obj(c, team));
+        const Json* players = t ? Arr(*t, "players") : nullptr;
+        if (!players) continue;
+        Json updated = Json::Array();
+        for (Json p : players->Items()) {
+          if (Str(p, "steamid64") == sid->AsString()) p["language"] = language;
+          updated.Push(std::move(p));
+        }
+        (*t)["players"] = std::move(updated);
+      }
     } else if (kind == "set_rules") {
       const Json* r = Obj(op, "rules");
       if (!r) return fail("set_rules: rules must be an object");

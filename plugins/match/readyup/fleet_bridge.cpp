@@ -1971,6 +1971,7 @@ void EnsureHandlers() {
   f->add_capability("maps.workshop.v1");
   f->add_capability("mode.wingman.v1");
   f->add_capability("mode.simulation.v1");
+  f->add_capability("match.language.v1");  // match.update set_language
   PublishAdminsRev();
   g_lastPublishedAvail.clear();
   if (g_asg.active) {
