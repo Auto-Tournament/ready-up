@@ -57,6 +57,12 @@
         "coach"
       ]
     },
+    "language": {
+      "description": "A player's site language, a platform language-menu code (nb, pt-BR, es-419). Ready Up uses English for one it has no table for.",
+      "type": "string",
+      "maxLength": 16,
+      "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,4})?$"
+    },
     "score": {
       "type": "object",
       "required": [
@@ -471,6 +477,9 @@
         },
         "role": {
           "$ref": "#/$defs/role"
+        },
+        "language": {
+          "$ref": "#/$defs/language"
         }
       }
     },

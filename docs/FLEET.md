@@ -685,7 +685,8 @@ match.assign {
   resume?: resume                  // failover only, §11.3
 }
 AssignTeam { id: string, name: string, tag?: string, flag?: string, captain?: u64s,
-             players: Array<{ steamid64: u64s, name: string, role?: "player" | "sub" | "coach" }> }
+             players: Array<{ steamid64: u64s, name: string, role?: "player" | "sub" | "coach",
+                              language?: string /* site language code (nb, pt-BR); Ready Up text in it, own .lang wins */ }> }
 ```
 
 A `sub` is on the roster (whitelisted, may stand in for a starter) but never counts toward the
@@ -738,7 +739,7 @@ kick delay, or at once with `kick_message`) and becomes `available`. A pending d
 ```ts
 match.update { match_id, epoch, base_config_rev: number, config_rev: number,
                ops: Array<
-                 | { op: "add_player", team: "team1" | "team2" | "spectator", steamid64: u64s, name: string, role?: "player" | "sub" | "coach" }
+                 | { op: "add_player", team: "team1" | "team2" | "spectator", steamid64: u64s, name: string, role?: "player" | "sub" | "coach", language?: string }
                  | { op: "remove_player", steamid64: u64s }
                  | { op: "rename_team", team: "team1" | "team2", name: string }
                  | { op: "set_password", password: string }
@@ -826,9 +827,6 @@ skins.loadout { steamid64: u64s, rev: number, items: {
   knife?: Array<{ team: 0|2|3, defindex: number }>, gloves?: Array<{ team: 0|2|3, defindex: number }>,
   agents?: Array<{ team: 2|3, model: string }>, music?: number } }
 skins.invalidate { steamid64: u64s }
-players.language { languages: { [steamid64: string]: "en" | "de" | "pt-BR" | ... | "" } }
-  // each player's site language for Ready Up's text; their own `.lang` wins; "" clears.
-  // Send on player_connect (or a roster). Capability players.language.v1 (core API 1.19).
 
 auth.rotate { token: string, old_valid_until: number }
 server.drain { reason: string }          // finish the current match, take nothing new
