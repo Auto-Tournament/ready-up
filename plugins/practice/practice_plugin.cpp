@@ -2029,13 +2029,13 @@ std::string MenuBtn(const std::string& label, const char* tone, const std::strin
   return "btn=" + MenuText(label) + "|" + tone + "|" + state + "|" + cmd + (sub.empty() ? "" : "|" + MenuText(sub)) + "\n";
 }
 
-std::string KindLabel(const std::string& kind) {
-  if (kind == "smoke") return "Smokes";
-  if (kind == "flash") return "Flashes";
-  if (kind == "molotov") return "Molotovs";
-  if (kind == "hegrenade") return "HE grenades";
-  if (kind == "mine") return "Mine";
-  return "All lineups";
+std::string KindLabel(int slot, const std::string& kind) {
+  if (kind == "smoke") return T(slot, "pm.smokes");
+  if (kind == "flash") return T(slot, "pm.flashes");
+  if (kind == "molotov") return T(slot, "pm.molotovs");
+  if (kind == "hegrenade") return T(slot, "pm.he");
+  if (kind == "mine") return T(slot, "pm.mine");
+  return T(slot, "pm.all_lineups");
 }
 
 // The lineups a list page shows: the global ones, then the player's own, filtered by kind.
@@ -2061,60 +2061,64 @@ std::vector<std::pair<std::string, Lineup>> MenuLineups(uint64_t steamid64, cons
 std::string MenuSpec(int slot, uint64_t steamid64) {
   MenuState& m = g_menuState[slot];
   const std::string map = MenuText(CurrentMap());
+  auto L = [slot](const char* key, const readyup::i18n::Args& args = {}) { return MenuText(T(slot, key, args)); };
+  auto B = [&](const char* key, const char* tone, const std::string& cmd) { return MenuBtn(T(slot, key), tone, cmd); };
+  auto kind = [&](const std::string& what) { return "kind=" + L("pm.practice") + " \xC2\xB7 " + MenuText(what) + "\n"; };
+  const std::string back = "close=" + L("pm.back") + "|#home\nmouse=on\n";
   std::string s;
   if (m.page == "bots") {
-    s = "id=prac-bots\nkind=Practice \xC2\xB7 bots\ntitle=Bots\n";
-    s += MenuBtn("Add a bot", "ghost", ".bot") + MenuBtn("Crouching bot", "ghost", ".cbot") + MenuBtn("Boost", "ghost", ".boost") +
-         MenuBtn("Crouch boost", "ghost", ".crouchboost") + MenuBtn("Kick bots", "danger", ".nobots");
-    return s + "cols=3\nbw=m\nclose=Back|#home\nmouse=on\n";
+    s = "id=prac-bots\n" + kind(T(slot, "pm.bots")) + "title=" + L("pm.bots") + "\n";
+    s += B("pm.add_bot", "ghost", ".bot") + B("pm.crouch_bot", "ghost", ".cbot") + B("pm.boost", "ghost", ".boost") +
+         B("pm.crouch_boost", "ghost", ".crouchboost") + B("pm.kick_bots", "danger", ".nobots");
+    return s + "cols=3\nbw=m\n" + back;
   }
   if (m.page == "toggles") {
-    s = "id=prac-toggles\nkind=Practice \xC2\xB7 toggles\ntitle=Turn on or off\n";
-    s += MenuBtn("No flash", "ghost", ".noflash") + MenuBtn("God mode", "ghost", ".god") + MenuBtn("Trajectory", "ghost", ".traj") +
-         MenuBtn("Impacts", "ghost", ".impacts") + MenuBtn("Solid teammates", "ghost", ".solid") + MenuBtn("Timer", "ghost", ".timer") +
-         MenuBtn("Break glass", "ghost", ".break") + MenuBtn("Clear grenades", "ghost", ".clear");
-    return s + "cols=4\nbw=m\nclose=Back|#home\nmouse=on\n";
+    s = "id=prac-toggles\n" + kind(T(slot, "pm.toggles")) + "title=" + L("pm.toggles_title") + "\n";
+    s += B("pm.no_flash", "ghost", ".noflash") + B("pm.god", "ghost", ".god") + B("pm.trajectory", "ghost", ".traj") +
+         B("pm.impacts", "ghost", ".impacts") + B("pm.solid", "ghost", ".solid") + B("pm.timer", "ghost", ".timer") +
+         B("pm.break_glass", "ghost", ".break") + B("pm.clear", "ghost", ".clear");
+    return s + "cols=4\nbw=m\n" + back;
   }
   if (m.page == "spawns") {
-    s = "id=prac-spawns\nkind=Practice \xC2\xB7 spawns\ntitle=Spawns\n";
-    s += MenuBtn("CT spawn", "ct", ".ctspawn") + MenuBtn("T spawn", "t", ".tspawn") + MenuBtn("Best spawn", "ghost", ".bestspawn") +
-         MenuBtn("Worst spawn", "ghost", ".worstspawn") + MenuBtn("Show spawns", "ghost", ".showspawns") +
-         MenuBtn("Hide spawns", "ghost", ".hidespawns");
-    return s + "cols=3\nbw=m\nclose=Back|#home\nmouse=on\n";
+    s = "id=prac-spawns\n" + kind(T(slot, "pm.spawns")) + "title=" + L("pm.spawns") + "\n";
+    s += B("pm.ct_spawn", "ct", ".ctspawn") + B("pm.t_spawn", "t", ".tspawn") + B("pm.best_spawn", "ghost", ".bestspawn") +
+         B("pm.worst_spawn", "ghost", ".worstspawn") + B("pm.show_spawns", "ghost", ".showspawns") +
+         B("pm.hide_spawns", "ghost", ".hidespawns");
+    return s + "cols=3\nbw=m\n" + back;
   }
   if (m.page == "lineups") {
     const auto all = MenuLineups(steamid64, "");
-    s = "id=prac-lineups\nkind=Practice \xC2\xB7 lineups\ntitle=" + (all.empty() ? std::string("No lineups on ") + map + " yet" : "Lineups on " + map) + "\n";
+    s = "id=prac-lineups\n" + kind(T(slot, "pm.lineups")) + "title=" + L(all.empty() ? "pm.no_lineups" : "pm.lineups_on", {{"map", map}}) + "\n";
     for (const char* k : {"smoke", "flash", "molotov", "hegrenade", "", "mine"}) {
       const size_t n = MenuLineups(steamid64, k).size();
-      s += MenuBtn(KindLabel(k), "ghost", std::string("#list ") + (*k ? k : "all"), std::to_string(n), n ? "" : "off");
+      s += MenuBtn(KindLabel(slot, k), "ghost", std::string("#list ") + (*k ? k : "all"), std::to_string(n), n ? "" : "off");
     }
-    if (all.empty()) s += "line=Save one|.savenade <name>\n";
-    return s + "cols=3\nbw=m\nclose=Back|#home\nmouse=on\n";
+    if (all.empty()) s += "line=" + L("pm.save_one") + "|.savenade <name>\n";
+    return s + "cols=3\nbw=m\n" + back;
   }
   if (m.page == "list") {
     const auto list = MenuLineups(steamid64, m.kind);
     if (m.offset >= static_cast<int>(list.size())) m.offset = 0;
     const int to = std::min(static_cast<int>(list.size()), m.offset + kLineupsPerPage);
-    s = "id=prac-list-" + (m.kind.empty() ? std::string("all") : m.kind) + "-" + std::to_string(m.offset) + "\nkind=Practice \xC2\xB7 " +
-        KindLabel(m.kind) + "\ntitle=Click to go there\n";
+    s = "id=prac-list-" + (m.kind.empty() ? std::string("all") : m.kind) + "-" + std::to_string(m.offset) + "\n" +
+        kind(KindLabel(slot, m.kind)) + "title=" + L("pm.click_to_go") + "\n";
     for (int i = m.offset; i < to; ++i) {
       const auto& [owner, l] = list[static_cast<size_t>(i)];
       // A guide's sub is how to throw it ("W + jumpthrow", practice_guides.h GuideThrow).
-      const std::string sub = owner == kGuideOwner ? l.how : owner == kGlobalOwner ? "" : "mine";
+      const std::string sub = owner == kGuideOwner ? l.how : owner == kGlobalOwner ? "" : T(slot, "pm.mine");
       s += MenuBtn(l.title.empty() ? l.name : l.title, "ghost", "#ln " + std::to_string(i), sub);
     }
     for (int i = to; i < m.offset + kLineupsPerPage; ++i) s += MenuBtn(" ", "ghost", "", "", "off");
-    s += MenuBtn("Prev", "ghost", "#page -1", "", m.offset == 0 ? "off" : "");
-    s += MenuBtn("Next", "ghost", "#page 1", "", to >= static_cast<int>(list.size()) ? "off" : "");
-    return s + "cols=4\nbw=m\nclose=Back|#lineups\nmouse=on\n";
+    s += MenuBtn(T(slot, "pm.prev"), "ghost", "#page -1", "", m.offset == 0 ? "off" : "");
+    s += MenuBtn(T(slot, "pm.next"), "ghost", "#page 1", "", to >= static_cast<int>(list.size()) ? "off" : "");
+    return s + "cols=4\nbw=m\nclose=" + L("pm.back") + "|#lineups\nmouse=on\n";
   }
   m.page = "home";
-  s = "id=prac-home\nkind=Practice \xC2\xB7 " + map + "\ntitle=What do you want to do?\n";
-  s += MenuBtn("Rethrow", "green", ".rt") + MenuBtn("Back to the throw", "ghost", ".last") + MenuBtn("Save spot", "ghost", ".savepos") +
-       MenuBtn("Back to spot", "ghost", ".loadpos") + MenuBtn("Lineups", "ghost", "#lineups") + MenuBtn("Bots", "ghost", "#bots") +
-       MenuBtn("Toggles", "ghost", "#toggles") + MenuBtn("Spawns", "ghost", "#spawns");
-  return s + "cols=4\nbw=m\nclose=Close|#close\nmouse=on\n";
+  s = "id=prac-home\n" + kind(CurrentMap()) + "title=" + L("pm.home_title") + "\n";
+  s += B("pm.rethrow", "green", ".rt") + B("pm.last", "ghost", ".last") + B("pm.save_spot", "ghost", ".savepos") +
+       B("pm.load_spot", "ghost", ".loadpos") + B("pm.lineups", "ghost", "#lineups") + B("pm.bots", "ghost", "#bots") +
+       B("pm.toggles", "ghost", "#toggles") + B("pm.spawns", "ghost", "#spawns");
+  return s + "cols=4\nbw=m\nclose=" + L("pm.close") + "|#close\nmouse=on\n";
 }
 
 void MenuDraw(int slot, uint64_t steamid64);
