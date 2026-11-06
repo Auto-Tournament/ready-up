@@ -1,4 +1,5 @@
 #include "readyup/modes.h"
+#include "readyup/text.h"
 
 #include "readyup/coach.h"
 #include "readyup/scrim_flow.h"
@@ -349,7 +350,7 @@ static bool StartKnifeLocked(State& st, const WebhookMatchContext& ctx) {
   WebhookSetHeartbeatStatus("warmup");
   Print("knife: starting knife round (map %d, match %s) - exec knife.cfg + mp_restartgame 1\n", mapNumber,
         ctx.slug.empty() ? "?" : ctx.slug.c_str());
-  if (!HudReplacesChat()) SendToChat("Ready Up: KNIFE ROUND after the restart - knives only, the winning team picks its side.");
+  if (!HudReplacesChat()) text::ChatAll("knife.after_restart");
   return true;
 }
 
@@ -400,9 +401,8 @@ static void MaybeAutoPickKnifeSideLocked(State& st) {
     const auto left = std::chrono::duration_cast<std::chrono::seconds>(st.knifePickDeadline - now).count();
     if (!st.knifeReminderSent && left <= 15 && left >= 5) {
       st.knifeReminderSent = true;
-      if (!HudReplacesChat()) SendToChat(("Ready Up: " + KnifeWinnerNameLocked(st, ctx) + ": .stay or .switch - " + std::to_string(left + 1) +
-                  "s left, then sides stay.")
-                     .c_str());
+      if (!HudReplacesChat())
+        text::ChatAll("knife.pick_reminder", {{"team", KnifeWinnerNameLocked(st, ctx)}, {"seconds", std::to_string(left + 1)}});
     }
     return;
   }
@@ -593,10 +593,8 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
         winnerName.c_str(), stayed ? "stay" : "mp_swapteams");
 
   // Let players know.
-  std::string msg = "Ready Up: " + winnerName + " " + (pickerName == "timeout" ? "(no pick in time) " : "") +
-                    "start on " + ((*winnerWantsCt) ? "CT" : "T") +
-                    (stayed ? " (sides stay)" : " (teams swapped)") + " - LIVE after the restart.";
-  SendToChat(msg.c_str());
+  text::ChatAll(std::string(pickerName == "timeout" ? "knife.picked_timeout" : "knife.picked") + (stayed ? "_stay" : "_swap"),
+                {{"team", winnerName}, {"side", *winnerWantsCt ? "CT" : "T"}});
   if (HudScreensOn()) {
     const bool timedOut = pickerName == "timeout";
     const std::string side = *winnerWantsCt ? "CT" : "T";
@@ -620,7 +618,7 @@ static void MaybeShowWarmupUiLocked(State& st) {
 
   // One-time user-facing instruction.
   if (!st.matchLoadedChatSent) {
-    SendToChat("Ready Up: match loaded. Type .r or .ready to ready up.");
+    text::ChatAll("match.loaded");
     st.matchLoadedChatSent = true;
   }
 
@@ -689,10 +687,8 @@ static void MaybeShowWarmupUiLocked(State& st) {
     }
 
     if (!list.empty() && rosterTotal > 0 && rosterReady < rosterTotal) {
-      const std::string msg =
-          "Ready Up: waiting for (" + std::to_string(rosterReady) + "/" + std::to_string(rosterTotal) +
-          " ready): " + list;
-      SendToChat(msg.c_str());
+      text::ChatAll("match.waiting_for",
+                    {{"ready", std::to_string(rosterReady)}, {"total", std::to_string(rosterTotal)}, {"names", list}});
       st.lastNotReadyChat = now;
     }
   }
@@ -1688,7 +1684,7 @@ void OnMatchRoundStarted() {
   readyup::persisted_match_state::PersistLiveFlag(true);
   match_recovery::NoteProgress();
   WebhookSetHeartbeatStatus("live");
-  SendToChat("Ready Up: LIVE! Good luck, have fun.");
+  text::ChatAll("match.live");
   if (const auto ctx = WebhookGetMatchContext()) {
     const int mapNo = std::max(1, MatchStateGet().map_number);
     const std::string mapName = mapNo - 1 < static_cast<int>(ctx->maplist.size()) ? ctx->maplist[mapNo - 1] : "";
@@ -2084,11 +2080,10 @@ static void FinishMapLocked(State& st, const WebhookMatchContext& ctx, int map_n
     in.team1Damage = dmg.first;
     in.team2Damage = dmg.second;
     const std::string winnerName = std::strcmp(winner, "team1") == 0 ? ctx.team1_name : ctx.team2_name;
-    SendImportantToChat(("Ready Up: " + std::to_string(in.team1Score) + "-" + std::to_string(in.team2Score) +
-                " after the overtimes, so total damage decides: " + winnerName + " wins the map (" +
-                ctx.team1_name + " " + std::to_string(dmg.first) + " - " + std::to_string(dmg.second) + " " +
-                ctx.team2_name + ").")
-                   .c_str());
+    text::ImportantAll("match.damage_decides",
+                       {{"score1", std::to_string(in.team1Score)}, {"score2", std::to_string(in.team2Score)},
+                        {"winner", winnerName}, {"team1", ctx.team1_name}, {"damage1", std::to_string(dmg.first)},
+                        {"damage2", std::to_string(dmg.second)}, {"team2", ctx.team2_name}});
   }
   (void)MatchEndOnMapComplete(in);
   match_recovery::NoteProgress();  // map_over + the series score (crash recovery)
@@ -2238,7 +2233,7 @@ void KnifeOnRoundStart(int map_number, const char* source) {
     st.knifeStartedSent = true;
   }
   Print("knife: round started (via %s)\n", source ? source : "?");
-  if (!HudReplacesChat()) SendToChat("Ready Up: KNIFE! Winning team picks the side.");
+  if (!HudReplacesChat()) text::ChatAll("knife.started");
 }
 
 void KnifeOnRoundEnd(int map_number, int csWinnerTeamNum, bool elimination, const char* source,
@@ -2258,31 +2253,40 @@ void KnifeOnRoundEnd(int map_number, int csWinnerTeamNum, bool elimination, cons
   if (map_number <= 0) map_number = 1;
 
   int winnerCs = 0;
-  std::string why;
+  std::string why;     // the log line
+  std::string whyKey;  // knife.won_<reason> (locales)
+  text::Args whyArgs;
   if (elimination && (csWinnerTeamNum == 2 || csWinnerTeamNum == 3)) {
     winnerCs = csWinnerTeamNum;
     st.knifeReasonShort = "elimination";
     why = std::string(CsSideName(winnerCs)) + " eliminated the other team";
+    whyKey = "knife.won_elimination";
+    whyArgs = {{"side", CsSideName(winnerCs)}};
   } else {
     // Time ran out / draw: more players alive, then more HP left, then random.
     const KnifeSideStats ct = KnifeTrackerStats(3);
     const KnifeSideStats t = KnifeTrackerStats(2);
     const std::string counts = "CT " + std::to_string(ct.alive) + " alive/" + std::to_string(ct.hp) + " HP vs T " +
                                std::to_string(t.alive) + " alive/" + std::to_string(t.hp) + " HP";
+    whyArgs = {{"ct_alive", std::to_string(ct.alive)}, {"ct_hp", std::to_string(ct.hp)},
+               {"t_alive", std::to_string(t.alive)}, {"t_hp", std::to_string(t.hp)}};
     if (ct.alive != t.alive) {
       winnerCs = ct.alive > t.alive ? 3 : 2;
       st.knifeReasonShort = "more alive";
       why = "time ran out, more players alive (" + counts + ")";
+      whyKey = "knife.won_more_alive";
     } else if (ct.hp != t.hp) {
       winnerCs = ct.hp > t.hp ? 3 : 2;
       st.knifeReasonShort = "more HP";
       why = "time ran out, more HP left (" + counts + ")";
+      whyKey = "knife.won_more_hp";
     } else {
       std::random_device rd;
       std::mt19937 gen(rd());
       winnerCs = std::uniform_int_distribution<int>(0, 1)(gen) == 0 ? 3 : 2;
       st.knifeReasonShort = "coin flip";
       why = "time ran out, dead even (" + counts + "), random pick";
+      whyKey = "knife.won_coin_flip";
     }
   }
 
@@ -2319,13 +2323,14 @@ void KnifeOnRoundEnd(int map_number, int csWinnerTeamNum, bool elimination, cons
   Print("knife: winner=%s (%s) via %s notice=%s: %s; pick window %ds%s\n", CsSideName(winnerCs),
         st.knifeWinner == WebhookTeam::Team2 ? "team2" : "team1", source ? source : "?", notice.c_str(), why.c_str(),
         sec, botsOnly ? " (no humans on the winning side)" : "");
-  if (!HudReplacesChat()) SendToChat(("Ready Up: " + name + " won the knife round (" + why + ").").c_str());
+  if (!HudReplacesChat()) {
+    whyArgs.emplace_back("team", name);
+    text::ChatAll(whyKey, whyArgs);
+  }
   if (botsOnly) {
-    SendToChat("Ready Up: only bots on the winning side - keeping sides.");
+    text::ChatAll("knife.bots_only");
   } else {
-    if (!HudReplacesChat()) SendToChat(("Ready Up: " + name + " players: type .stay or .switch (.ct / .t) - " + std::to_string(sec) +
-                "s, then sides stay.")
-                   .c_str());
+    if (!HudReplacesChat()) text::ChatAll("knife.pick_prompt", {{"team", name}, {"seconds", std::to_string(sec)}});
   }
 }
 
