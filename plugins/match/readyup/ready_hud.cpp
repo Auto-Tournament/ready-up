@@ -4,7 +4,9 @@
 
 #include "readyup/admin_call.h"
 #include "readyup/engine.h"
+#include "readyup/host.h"
 #include "readyup/hud_screens.h"
+#include "readyup/i18n_api.h"
 #include "readyup/config.h"
 #include "readyup/logging.h"
 #include "readyup/match_events.h"
@@ -16,6 +18,7 @@
 #include "readyup/scrim_flow.h"
 #include "readyup/players.h"
 #include "readyup/server_settings.h"
+#include "readyup/text.h"
 #include "readyup/webhook.h"
 #include "readyup/votes.h"
 #include "readyup/walkover.h"
@@ -67,8 +70,9 @@ struct TeamLine {
 struct Board {
   bool teamView = false;  // rule team_ready: per-team lines (match warmup, not scrim, not bot fill)
   TeamLine teams[2];      // [0] = T (side 2), [1] = CT (side 3); set when teamView
-  std::string title;      // e.g. "scrim warmup"
-  std::string countdown;  // e.g. "knife in 3" (empty when none)
+  std::string titleKey;      // locales: hud.title_*
+  std::string countdownKey;  // hud.countdown_knife / _live (empty when none)
+  int countdownSecs = 0;
   std::vector<Entry> entries;
   int botsCt = 0;
   int botsT = 0;
@@ -76,7 +80,7 @@ struct Board {
   int total = 0;
   bool tallied = false;  // ready/total set per team (match); else counted from entries (scrim)
   bool scrim = false;
-  std::string note;  // e.g. "need players on both CT and T" (empty when none)
+  std::string noteKey;  // hud.note_* (empty when none)
 };
 
 struct Sent {
@@ -161,7 +165,7 @@ static Board BuildBoard(ReadyUpMode mode, const std::optional<WebhookMatchContex
 
   if (mode == ReadyUpMode::ScrimWarmup || !ctx) {
     b.scrim = true;
-    b.title = "scrim warmup";
+    b.titleKey = "hud.title_scrim_warmup";
     const auto roster = BuildScrimRoster();
     for (const auto& kv : roster.teamNum) {
       Entry e;
@@ -176,13 +180,16 @@ static Board BuildBoard(ReadyUpMode mode, const std::optional<WebhookMatchContex
       else if (kv.second == 2) b.botsT++;
     }
     if (!CountScrimRoster(roster).bothSides) {
-      b.note = DevBotsReadyEnabled() ? "need players (or bots) on both CT and T" : "need players on both CT and T";
+      b.noteKey = DevBotsReadyEnabled() ? "hud.note_both_sides_bots" : "hud.note_both_sides";
     }
     const int cd = ScrimCountdownSecondsLeft();
-    if (cd >= 0) b.countdown = std::string(settings::Bool("knife_enabled_default") ? "knife in " : "live in ") + std::to_string(cd) + "s";
+    if (cd >= 0) {
+      b.countdownKey = settings::Bool("knife_enabled_default") ? "hud.countdown_knife" : "hud.countdown_live";
+      b.countdownSecs = cd;
+    }
   } else {
     b.scrim = (ctx->slug == "scrim");
-    b.title = RecoveryGateEnabled() ? "recovered match" : (b.scrim ? "scrim" : "match warmup");
+    b.titleKey = RecoveryGateEnabled() ? "hud.title_recovered" : (b.scrim ? "hud.title_scrim" : "hud.title_match_warmup");
     const auto ms = MatchStateGet();
     const int mapNum = ms.map_number <= 0 ? 1 : ms.map_number;
     bool team1Ct = true;
@@ -249,16 +256,25 @@ static Board BuildBoard(ReadyUpMode mode, const std::optional<WebhookMatchContex
   return b;
 }
 
+// The viewer's text (locales: hud.*).
+static std::string T(const std::string& lang, const char* key, const text::Args& args = {}) {
+  return text::ForLang(lang, key, args);
+}
+static std::string N(int v) { return std::to_string(v); }
+static std::string MinSec(int secs) {
+  return std::to_string(secs / 60) + ":" + (secs % 60 < 10 ? "0" : "") + std::to_string(secs % 60);
+}
+
 // One side's line. Entries are grouped by color (ready, not ready, not
 // connected) so each run costs one <font> tag: keeps 5v5 well under ~1 KB.
-static std::string SideLine(const Board& b, int side, uint64_t viewer) {
+static std::string SideLine(const Board& b, int side, uint64_t viewer, const std::string& lang) {
   if (b.teamView) {
     const TeamLine& t = b.teams[side == 3 ? 1 : 0];
     std::string s = Font(side == 3 ? kCt : kT, side == 3 ? "<b>CT</b>" : "<b>T</b>");
     if (!t.name.empty()) s += " " + Esc(t.name, 16);
-    if (t.st.ready) return s + " " + Font(kOk, "<b>&#10004; READY</b>");
-    return s + " " + Font(kNo, "&#10006; NOT READY") +
-           Font(kDim, " &#183; " + std::to_string(t.st.here) + "/" + std::to_string(t.st.total) + " here");
+    if (t.st.ready) return s + " " + Font(kOk, "<b>&#10004; " + T(lang, "hud.side_ready") + "</b>");
+    return s + " " + Font(kNo, "&#10006; " + T(lang, "hud.side_not_ready")) +
+           Font(kDim, " &#183; " + T(lang, "hud.side_here", {{"here", N(t.st.here)}, {"total", N(t.st.total)}}));
   }
   std::string s = Font(side == 3 ? kCt : kT, side == 3 ? "<b>CT</b>" : "<b>T</b>");
   std::vector<const Entry*> list;
@@ -296,12 +312,12 @@ static std::string SideLine(const Board& b, int side, uint64_t viewer) {
   flush();
   if (hidden > 0) s += " " + Font(kGrey, "+" + std::to_string(hidden));
   const int bots = (side == 3) ? b.botsCt : b.botsT;
-  if (bots > 0) s += " " + Font(kOk, "&#10004;" + std::to_string(bots) + (bots == 1 ? " bot" : " bots"));
+  if (bots > 0) s += " " + Font(kOk, "&#10004;" + T(lang, "hud.bots", {{"count", N(bots)}}));
   if (shown == 0 && hidden == 0 && bots == 0) s += " " + Font(kDim, "-");
   return s;
 }
 
-static std::string ReadyHtml(const Board& b, uint64_t viewer, const std::string& footer) {
+static std::string ReadyHtml(const Board& b, uint64_t viewer, const std::string& footer, const std::string& lang) {
   const Entry* me = nullptr;
   for (const auto& e : b.entries) {
     if (e.sid == viewer) me = &e;
@@ -312,110 +328,116 @@ static std::string ReadyHtml(const Board& b, uint64_t viewer, const std::string&
   // names and sat in warmup not knowing they were the one holding it up.
   if (b.teamView && me) {
     const TeamHudState& st = b.teams[me->side == 3 ? 1 : 0].st;
-    const std::string n = std::to_string(st.total);
     if (st.ready) {
-      h += "<font class='fontSize-l' color='" + std::string(kOk) + "'><b>YOUR TEAM IS READY</b></font><br>";
+      h += "<font class='fontSize-l' color='" + std::string(kOk) + "'><b>" + T(lang, "hud.team_ready") + "</b></font><br>";
     } else if (st.allHere) {
-      h += "<font class='fontSize-xl' color='" + std::string(kNo) + "'><b>YOUR TEAM IS NOT READY</b></font><br>";
-      h += Font(kGold, "type <b>.r</b> to ready your whole team") + "<br>";
+      h += "<font class='fontSize-xl' color='" + std::string(kNo) + "'><b>" + T(lang, "hud.team_not_ready") + "</b></font><br>";
+      h += Font(kGold, T(lang, "hud.type_r_team")) + "<br>";
     } else {
-      h += "<font class='fontSize-xl' color='" + std::string(kNo) + "'><b>WAITING FOR YOUR TEAM (" +
-           std::to_string(st.here) + "/" + n + " here)</b></font><br>";
-      h += Font(kGold, "one <b>.r</b> readies everyone once all " + n + " are in") + "<br>";
+      h += "<font class='fontSize-xl' color='" + std::string(kNo) + "'><b>" +
+           T(lang, "hud.team_waiting", {{"here", N(st.here)}, {"total", N(st.total)}}) + "</b></font><br>";
+      h += Font(kGold, T(lang, "hud.one_r_team", {{"count", N(st.total)}})) + "<br>";
     }
   } else if (me && !me->ready) {
-    h += "<font class='fontSize-xl' color='" + std::string(kNo) + "'><b>YOU ARE NOT READY</b></font><br>";
-    h += Font(kGold, "type <b>.r</b> in chat to ready up") + "<br>";
+    h += "<font class='fontSize-xl' color='" + std::string(kNo) + "'><b>" + T(lang, "hud.you_not_ready") + "</b></font><br>";
+    h += Font(kGold, T(lang, "hud.type_r")) + "<br>";
   } else if (me) {
-    h += "<font class='fontSize-l' color='" + std::string(kOk) + "'><b>YOU ARE READY</b></font><br>";
+    h += "<font class='fontSize-l' color='" + std::string(kOk) + "'><b>" + T(lang, "hud.you_ready") + "</b></font><br>";
   }
+  const std::string title = T(lang, b.titleKey.c_str());
   const std::string brand = HudBrandHtml(/*imgHeight=*/20, "");
-  if (!brand.empty()) h += brand + " " + Font(kGrey, "&#183; " + b.title);
-  else h += Font(kGrey, b.title);
-  if (!b.countdown.empty()) h += " " + Font(kGold, "&#183; <b>" + b.countdown + "</b>");
+  if (!brand.empty()) h += brand + " " + Font(kGrey, "&#183; " + title);
+  else h += Font(kGrey, title);
+  if (!b.countdownKey.empty())
+    h += " " + Font(kGold, "&#183; <b>" + T(lang, b.countdownKey.c_str(), {{"seconds", N(b.countdownSecs)}}) + "</b>");
   h += "<br>";
   h += Font(b.total > 0 && b.ready == b.total ? kOk : kGold,
-            "<b>" + std::to_string(b.ready) + "/" + std::to_string(b.total) + " ready</b>");
-  h += "<br>" + SideLine(b, 3, viewer) + "<br>" + SideLine(b, 2, viewer) + "<br>";
+            "<b>" + T(lang, "hud.ready_count", {{"ready", N(b.ready)}, {"total", N(b.total)}}) + "</b>");
+  h += "<br>" + SideLine(b, 3, viewer, lang) + "<br>" + SideLine(b, 2, viewer, lang) + "<br>";
 
   if (!me) {
-    h += Font(kGrey, b.scrim ? "join CT or T to play" : "spectating");
+    h += Font(kGrey, T(lang, b.scrim ? "hud.join_team" : "hud.spectating"));
   } else if (me->ready) {
-    h += Font(kGrey, "<b>.ur</b> to cancel");
+    h += Font(kGrey, T(lang, "hud.ur_cancel"));
   }
-  if (!b.note.empty()) h += "<br>" + Font(kGrey, b.note);
+  if (!b.noteKey.empty()) h += "<br>" + Font(kGrey, T(lang, b.noteKey.c_str()));
   if (!footer.empty()) h += "<br>" + footer;
   return h;
 }
 
-static std::string KnifeHtml(const KnifeHudInfo& k, int viewerSide) {
+// modes.cpp's knifeReasonShort -> locales key.
+static const char* KnifeReasonKey(const std::string& r) {
+  return r == "elimination" ? "hud.reason_elimination"
+         : r == "more alive" ? "hud.reason_more_alive"
+         : r == "more HP"    ? "hud.reason_more_hp"
+                             : "hud.reason_coin_flip";
+}
+
+static std::string KnifeHtml(const KnifeHudInfo& k, int viewerSide, const std::string& lang) {
   std::string h;
   h.reserve(384);
-  h += Font(kGold, "<b>KNIFE ROUND</b>") + "<br>";
+  h += Font(kGold, "<b>" + T(lang, "hud.knife_title") + "</b>") + "<br>";
   if (k.phase == KnifePhase::Starting) {
-    h += "knives only &#183; the winning team picks its side";
+    h += T(lang, "hud.knife_starting");
     return h;
   }
   const char* col = (k.winnerCs == 3) ? kCt : kT;
-  h += Font(col, "<b>" + Esc(k.winnerName, 24) + "</b>") + " won";
-  if (!k.reasonShort.empty()) h += " " + Font(kGrey, "(" + k.reasonShort + ")");
+  h += T(lang, "hud.knife_won", {{"team", Font(col, "<b>" + Esc(k.winnerName, 24) + "</b>")}});
+  if (!k.reasonShort.empty()) h += " " + Font(kGrey, "(" + T(lang, KnifeReasonKey(k.reasonShort)) + ")");
   h += "<br>";
-  const std::string secs = std::to_string(k.secondsLeft) + "s";
+  const std::string secs = N(k.secondsLeft);
   if (viewerSide == k.winnerCs) {
-    h += Font(kOk, "type <b>.stay</b> or <b>.switch</b>") + "<br>";
-    h += Font(kGrey, "no pick in " + secs + " = stay");
+    h += Font(kOk, T(lang, "hud.knife_type_pick")) + "<br>";
+    h += Font(kGrey, T(lang, "hud.knife_no_pick", {{"seconds", secs}}));
   } else {
-    h += Font(kGrey, "waiting for " + Esc(k.winnerName, 24) + " to pick a side &#183; " + secs);
+    h += Font(kGrey, T(lang, "hud.knife_waiting", {{"team", Esc(k.winnerName, 24)}, {"seconds", secs}}));
   }
   return h;
 }
 
 // Live map: pause state + countdowns, and the team-left forfeit countdown. No images (resent
 // every frame, docs/HUD.md). Empty when there is nothing to show.
-static std::string LiveHtml(const LiveHudInfo& l) {
+static std::string LiveHtml(const LiveHudInfo& l, const std::string& lang) {
   std::string h;
+  auto mark = [&](bool ok, const std::string& n) { return Font(ok ? kOk : kDim, (ok ? "&#10004; " : "&#10006; ") + Esc(n, 16)); };
   if (l.paused) {
     if (l.type == "tactical") {
-      h += Font(kGold, "<b>TACTICAL TIMEOUT</b>");
+      h += Font(kGold, "<b>" + T(lang, "hud.tactical_timeout") + "</b>");
       if (!l.byTeam.empty()) h += "<br>" + Esc(l.byTeam, 24);
     } else if (l.type == "technical") {
-      h += Font(kNo, "<b>TECHNICAL PAUSE</b>");
-      if (!l.byTeam.empty()) h += " " + Font(kGrey, "by " + Esc(l.byTeam, 24));
+      h += Font(kNo, "<b>" + T(lang, "hud.technical_pause") + "</b>");
+      if (!l.byTeam.empty()) h += " " + Font(kGrey, T(lang, "hud.by_team", {{"team", Esc(l.byTeam, 24)}}));
       if (l.pendingFreeze) {
-        h += "<br>" + Font(kGrey, "pausing at freeze time");
+        h += "<br>" + Font(kGrey, T(lang, "hud.pausing_at_freeze"));
       } else if (l.secondsLeft >= 0) {
-        h += "<br>auto-unpause in <b>" + std::to_string(l.secondsLeft / 60) + ":" +
-             (l.secondsLeft % 60 < 10 ? "0" : "") + std::to_string(l.secondsLeft % 60) + "</b>";
+        h += "<br>" + T(lang, "hud.auto_unpause_in", {{"time", MinSec(l.secondsLeft)}});
       }
-      auto mark = [&](bool ok, const std::string& n) { return Font(ok ? kOk : kDim, (ok ? "&#10004; " : "&#10006; ") + Esc(n, 16)); };
-      h += "<br>" + Font(kGrey, l.bothRequired ? "both teams: " : "pausing team: ") + "<b>.unpause</b><br>" +
+      h += "<br>" + Font(kGrey, T(lang, l.bothRequired ? "hud.unpause_both" : "hud.unpause_pausing")) + "<br>" +
            mark(l.team1Confirmed, l.team1) + " &#183; " + mark(l.team2Confirmed, l.team2);
     } else if (l.type == "halftime" || l.type == "auto_5v5" || l.type == "restore" ||
                l.type == "engine") {
       // Pauses that belong to nobody (an engine pause, or a round restore): both teams resume
       // them (match_features.h).
       if (l.type == "halftime") {
-        h += Font(kGold, "<b>HALFTIME PAUSE</b>");
+        h += Font(kGold, "<b>" + T(lang, "hud.halftime_pause") + "</b>");
       } else if (l.type == "restore") {
-        h += Font(kGold, "<b>ROUND RESTORED</b>");
+        h += Font(kGold, "<b>" + T(lang, "hud.round_restored") + "</b>");
       } else if (l.type == "engine") {
-        h += Font(kNo, "<b>GAME PAUSED</b>");
+        h += Font(kNo, "<b>" + T(lang, "hud.game_paused") + "</b>");
       } else {
-        h += Font(kNo, "<b>NOT 5v5 - PAUSED</b>");
-        if (!l.byTeam.empty()) h += "<br>" + Font(kGrey, Esc(l.byTeam, 24) + " is short");
+        h += Font(kNo, "<b>" + T(lang, "hud.not_5v5_paused") + "</b>");
+        if (!l.byTeam.empty()) h += "<br>" + Font(kGrey, T(lang, "hud.team_short", {{"team", Esc(l.byTeam, 24)}}));
       }
-      auto mark = [&](bool ok, const std::string& n) { return Font(ok ? kOk : kDim, (ok ? "&#10004; " : "&#10006; ") + Esc(n, 16)); };
-      h += "<br>" + Font(kGrey, "both teams: ") + "<b>.unpause</b><br>" + mark(l.team1Confirmed, l.team1) +
+      h += "<br>" + Font(kGrey, T(lang, "hud.unpause_both")) + "<br>" + mark(l.team1Confirmed, l.team1) +
            " &#183; " + mark(l.team2Confirmed, l.team2);
     } else {
-      h += Font(kNo, "<b>PAUSED BY ADMIN</b>") + "<br>" + Font(kGrey, "an admin unpauses (.fup)");
+      h += Font(kNo, "<b>" + T(lang, "hud.paused_by_admin") + "</b>") + "<br>" + Font(kGrey, T(lang, "hud.admin_unpauses"));
     }
   }
   if (l.forfeit) {
     if (!h.empty()) h += "<br>";
-    h += Font(kNo, "<b>" + Esc(l.forfeitTeam, 24) + " LEFT</b>") + "<br>forfeit in <b>" +
-         std::to_string(l.forfeitSecondsLeft / 60) + ":" + (l.forfeitSecondsLeft % 60 < 10 ? "0" : "") +
-         std::to_string(l.forfeitSecondsLeft % 60) + "</b> unless a player reconnects";
+    h += Font(kNo, "<b>" + T(lang, "hud.team_left", {{"team", Esc(l.forfeitTeam, 24)}}) + "</b>") + "<br>" +
+         T(lang, "hud.forfeit_in", {{"time", MinSec(l.forfeitSecondsLeft)}});
   }
   return h;
 }
@@ -425,12 +447,12 @@ static std::string LiveHtml(const LiveHudInfo& l) {
 static std::string L(const char* k, const std::string& v) { return std::string(k) + "=" + v + "\n"; }
 
 // Warmup: the card (left, above the chat) with Ready / Unready; the countdown in the centre.
-static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string& name, bool welcome) {
+static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string& name, bool welcome, const std::string& lang) {
   const int cd = b.scrim ? ScrimCountdownSecondsLeft() : -1;
   if (cd >= 0) {
     const bool knife = settings::Bool("knife_enabled_default");
-    return L("id", "countdown") + L("color", "live") + L("kind", "Everyone is ready") +
-           L("title", std::string(knife ? "Knife round in " : "Going live in ") + std::to_string(cd) + "s");
+    return L("id", "countdown") + L("color", "live") + L("kind", T(lang, "spec.everyone_ready")) +
+           L("title", T(lang, knife ? "spec.knife_in" : "spec.live_in", {{"seconds", N(cd)}}));
   }
   const Entry* me = nullptr;
   int ready[2] = {0, 0}, total[2] = {0, 0};  // [0] CT, [1] T
@@ -450,14 +472,16 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
   // area (the full card covered the grid's last row).
   std::string s = L("id", "warm") + L("cls", "no-brand pad-s");
   std::string title, sub, btn;
+  const std::string readyBtn = "btn=" + T(lang, "spec.btn_ready") + "|green|pulse|.r\n";
+  const std::string unreadyBtn = "btn=" + T(lang, "spec.btn_unready") + "|ghost||.ur\n";
   bool ok = false;
   if (b.teamView && me) {
     const TeamHudState& st = b.teams[me->side == 3 ? 1 : 0].st;
     ok = st.ready;
-    title = st.ready ? "Your team is ready" : st.allHere ? "Your team isn't ready" : "Waiting for your team";
-    if (!st.allHere) sub = std::to_string(st.here) + " / " + std::to_string(st.total) + " here";
-    if (st.ready) btn = "btn=Unready|ghost||.ur\n";
-    else if (st.allHere) btn = "btn=Ready|green|pulse|.r\n";
+    title = T(lang, st.ready ? "spec.team_ready" : st.allHere ? "spec.team_not_ready" : "spec.team_waiting");
+    if (!st.allHere) sub = T(lang, "spec.here", {{"here", N(st.here)}, {"total", N(st.total)}});
+    if (st.ready) btn = unreadyBtn;
+    else if (st.allHere) btn = readyBtn;
     for (int t = 0; t < 2; ++t) {
       const TeamHudState& ts = b.teams[t == 0 ? 1 : 0].st;
       total[t] = ts.total;
@@ -465,12 +489,13 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
     }
   } else if (me) {
     ok = me->ready;
-    title = me->ready ? "You're ready" : "You're not ready";
-    btn = me->ready ? "btn=Unready|ghost||.ur\n" : "btn=Ready|green|pulse|.r\n";
+    title = T(lang, me->ready ? "spec.you_ready" : "spec.you_not_ready");
+    btn = me->ready ? unreadyBtn : readyBtn;
   } else {
-    title = b.scrim ? "Join CT or T to play" : "Spectating";
+    title = T(lang, b.scrim ? "spec.join_team" : "spec.spectating");
   }
-  const std::string kind = welcome ? "Welcome, " + HudSpecText(name) : ok ? "Ready" : b.scrim ? "Scrim" : "Warmup";
+  const std::string kind = welcome ? T(lang, "spec.welcome", {{"name", HudSpecText(name)}})
+                                   : T(lang, ok ? "spec.kind_ready" : b.scrim ? "spec.kind_scrim" : "spec.kind_warmup");
   s += L("color", ok ? "live" : "acc") + L("kind", kind) + L("title", title);
   if (!sub.empty()) s += L("sub", HudSpecText(sub));
   const std::string ctName = b.teamView && !b.teams[1].name.empty() ? HudSpecText(b.teams[1].name) : "CT";
@@ -482,15 +507,15 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
   const std::string count = std::to_string(b.ready) + " / " + std::to_string(b.total);
   if (ok && !welcome && !btn.empty()) {
     // Ready: the card shrinks to a one-line pill (dots, count, a small Unready).
-    s += L("id", "ready") + L("kind", "Ready \xC2\xB7 " + count) + L("size", "mini") + btn + L("bw", "s") + L("mouse", "b");
+    s += L("id", "ready") + L("kind", T(lang, "spec.kind_ready") + " \xC2\xB7 " + count) + L("size", "mini") + btn + L("bw", "s") + L("mouse", "b");
     return s;
   }
   // The team dots already say who is ready; the count only stands in when there are none (Miller).
   if (total[0] == 0 && total[1] == 0) s += L("counter", count);
   // Ready can be typed as well: the button needs the buy menu (B), which a dead player can't open.
   if (!btn.empty()) {
-    s += btn + L("bw", "l") + L("hint", "Press B to click") +
-         L("cmd", me && me->ready ? "Or type|.ur" : "Or type|.r") + L("mouse", "b");
+    s += btn + L("bw", "l") + L("hint", T(lang, "spec.press_b")) +
+         L("cmd", T(lang, "spec.or_type") + (me && me->ready ? "|.ur" : "|.r")) + L("mouse", "b");
   }
   return s;
 }
@@ -506,33 +531,35 @@ static bool ViewerTeamShort(const Board& b, uint64_t viewer) {
 }
 
 // Knife: "knives only" before the fight, then the side pick (winners) or the wait (everyone else).
-static std::string KnifeSpec(const KnifeHudInfo& k, int viewerSide) {
+static std::string KnifeSpec(const KnifeHudInfo& k, int viewerSide, const std::string& lang) {
   if (k.phase == KnifePhase::Starting) {
-    return L("id", "knife") + L("color", "live") + L("kind", "Knife round") + L("title", "Winners pick a side");
+    return L("id", "knife") + L("color", "live") + L("kind", T(lang, "spec.knife_round")) + L("title", T(lang, "spec.winners_pick"));
   }
   const std::string secs = std::to_string(std::max(0, k.secondsLeft));
   if (viewerSide == k.winnerCs) {
-    return L("id", "pick") + L("color", "live") + L("kind", "You won the knife") + L("title", "Which side do you want?") +
+    return L("id", "pick") + L("color", "live") + L("kind", T(lang, "spec.you_won_knife")) + L("title", T(lang, "spec.which_side")) +
            L("timer", secs) + "btn=CT|ct||.ct\nbtn=T|t||.t\n" + L("mouse", "on");
   }
   const bool playing = viewerSide == 2 || viewerSide == 3;
-  return L("id", "lost") + L("kind", playing ? "You lost the knife" : "Knife round") +
-         L("title", HudSpecText(k.winnerName) + " is picking a side") + L("timer", secs);
+  return L("id", "lost") + L("kind", T(lang, playing ? "spec.you_lost_knife" : "spec.knife_round")) +
+         L("title", T(lang, "spec.team_picking", {{"team", HudSpecText(k.winnerName)}})) + L("timer", secs);
 }
 
 // Live map: pauses (with the unpause button) and a missing team.
-static std::string LiveSpec(const LiveHudInfo& l, int viewerSide) {
+static std::string LiveSpec(const LiveHudInfo& l, int viewerSide, const std::string& lang) {
   const WebhookTeam mine = VotesTeamForSide(viewerSide);
-  const std::string t1 = HudSpecText(l.team1.empty() ? "Team 1" : l.team1);
-  const std::string t2 = HudSpecText(l.team2.empty() ? "Team 2" : l.team2);
+  const std::string t1 = HudSpecText(l.team1.empty() ? T(lang, "spec.team1") : l.team1);
+  const std::string t2 = HudSpecText(l.team2.empty() ? T(lang, "spec.team2") : l.team2);
+  const std::string paused = T(lang, "spec.paused");
   auto confirmAndButton = [&](bool onlyPausing) {
     std::string s = "confirm=" + t1 + "|" + (l.team1Confirmed ? "1" : "0") + "|" + t2 + "|" + (l.team2Confirmed ? "1" : "0") + "\n";
     if (mine == WebhookTeam::Unknown) return s;
     const std::string myName = mine == WebhookTeam::Team1 ? l.team1 : l.team2;
     if (onlyPausing && !l.byTeam.empty() && myName != l.byTeam) return s;
     const bool done = mine == WebhookTeam::Team1 ? l.team1Confirmed : l.team2Confirmed;
-    if (done) return s + "btn=Waiting for " + (mine == WebhookTeam::Team1 ? t2 : t1) + "|ghost|off|\n" + L("bw", "xl");
-    return s + "btn=Unpause|warn|pulse|.up\n" + L("bw", "l") + L("mouse", "on");
+    if (done)
+      return s + "btn=" + T(lang, "spec.waiting_for", {{"team", mine == WebhookTeam::Team1 ? t2 : t1}}) + "|ghost|off|\n" + L("bw", "xl");
+    return s + "btn=" + T(lang, "spec.btn_unpause") + "|warn|pulse|.up\n" + L("bw", "l") + L("mouse", "on");
   };
   if (l.paused && l.pendingFreeze) {
     // Asked for mid-round: the round goes on until freeze time. Only the pausing team is told, on
@@ -541,33 +568,34 @@ static std::string LiveSpec(const LiveHudInfo& l, int viewerSide) {
     const std::string myName = mine == WebhookTeam::Team1 ? l.team1 : mine == WebhookTeam::Team2 ? l.team2 : std::string();
     if (l.byTeam.empty() || myName != l.byTeam) return {};
     return L("id", "pausing") + L("where", "card") + L("color", "warn") +
-           L("kind", l.type == "tactical" ? "Timeout" : "Tech pause") + L("title", "Starts at freeze time");
+           L("kind", T(lang, l.type == "tactical" ? "spec.timeout" : "spec.tech_pause")) + L("title", T(lang, "spec.starts_at_freeze"));
   }
   if (l.paused) {
     if (l.type == "technical") {
-      std::string s = L("id", "pause") + L("color", "warn") + L("kind", "Tech pause") +
-                      L("title", l.byTeam.empty() ? std::string("Paused") : HudSpecText(l.byTeam) + " paused");
-      if (l.secondsLeft >= 0) s += L("sub", "Auto unpause in " + std::to_string(l.secondsLeft) + "s");
+      std::string s = L("id", "pause") + L("color", "warn") + L("kind", T(lang, "spec.tech_pause")) +
+                      L("title", l.byTeam.empty() ? paused : T(lang, "spec.team_paused", {{"team", HudSpecText(l.byTeam)}}));
+      if (l.secondsLeft >= 0) s += L("sub", T(lang, "spec.auto_unpause_in", {{"seconds", N(l.secondsLeft)}}));
       return s + confirmAndButton(!l.bothRequired);
     }
     if (l.type == "tactical") {
-      return L("id", "tac") + L("kind", "Timeout") +
-             L("title", l.byTeam.empty() ? std::string("Paused") : HudSpecText(l.byTeam) + " called it");
+      return L("id", "tac") + L("kind", T(lang, "spec.timeout")) +
+             L("title", l.byTeam.empty() ? paused : T(lang, "spec.team_called_it", {{"team", HudSpecText(l.byTeam)}}));
     }
     if (l.type == "halftime" || l.type == "auto_5v5" || l.type == "restore" || l.type == "engine") {
-      const char* kind = l.type == "halftime" ? "Halftime"
-                         : l.type == "restore" ? "Round restored"
-                         : l.type == "engine"  ? "Game paused"
-                                               : "Not 5v5";
-      std::string s = L("id", "pause_" + l.type) + L("color", l.type == "auto_5v5" ? "ban" : "warn") + L("kind", kind) +
-                      L("title", l.type == "auto_5v5" && !l.byTeam.empty() ? HudSpecText(l.byTeam) + " is short" : std::string("Paused"));
+      const char* kind = l.type == "halftime" ? "spec.halftime"
+                         : l.type == "restore" ? "spec.round_restored"
+                         : l.type == "engine"  ? "spec.game_paused"
+                                               : "spec.not_5v5";
+      std::string s = L("id", "pause_" + l.type) + L("color", l.type == "auto_5v5" ? "ban" : "warn") + L("kind", T(lang, kind)) +
+                      L("title", l.type == "auto_5v5" && !l.byTeam.empty() ? T(lang, "spec.team_short", {{"team", HudSpecText(l.byTeam)}}) : paused);
       return s + confirmAndButton(false);
     }
-    return L("id", "adminpause") + L("color", "warn") + L("kind", "Admin pause") + L("title", "Paused by an admin");
+    return L("id", "adminpause") + L("color", "warn") + L("kind", T(lang, "spec.admin_pause")) + L("title", T(lang, "spec.paused_by_admin"));
   }
   if (l.forfeit) {
-    return L("id", "missing") + L("color", "ban") + L("kind", "Forfeit") + L("title", HudSpecText(l.forfeitTeam) + " is missing") +
-           L("sub", "Forfeit in " + std::to_string(std::max(0, l.forfeitSecondsLeft)) + "s");
+    return L("id", "missing") + L("color", "ban") + L("kind", T(lang, "spec.forfeit")) +
+           L("title", T(lang, "spec.team_missing", {{"team", HudSpecText(l.forfeitTeam)}})) +
+           L("sub", T(lang, "spec.forfeit_in", {{"seconds", N(std::max(0, l.forfeitSecondsLeft))}}));
   }
   return {};
 }
@@ -814,7 +842,7 @@ void ReadyHudTick() {
   enum class What { None, Ready, Knife, Live };
   What what = What::None;
   KnifeHudInfo knife;
-  std::string liveHtml;
+  bool liveShown = false;
   LiveHudInfo live;
   if (!enabled) {
     what = What::None;
@@ -841,8 +869,8 @@ void ReadyHudTick() {
     }
   } else if (mode == ReadyUpMode::MatchLive) {
     live = MatchFeaturesHud();
-    liveHtml = LiveHtml(live);
-    if (!liveHtml.empty()) what = What::Live;
+    liveShown = !LiveHtml(live, "en").empty();  // the same for every language
+    if (liveShown) what = What::Live;
   }
 
   // The clickable HUD draws these screens (and menus and votes on top) when it can; the center
@@ -851,19 +879,20 @@ void ReadyHudTick() {
     const Board hudBoard = what == What::Ready ? BuildBoard(mode, ctx, ListHumans()) : Board{};
     HudScreensRun([&](const HumanIdentity& h) -> std::string {
       const int slot = h.slot >= 0 ? h.slot : h.userid;
+      const std::string lang = i18n::LanguageOf(host::Api(), slot);
       // The walkover choice can't be skipped: it replaces the ready card (walkover.h).
       if (ctx && mode == ReadyUpMode::MatchWarmup) {
         if (std::string w = WalkoverHudSpec(*ctx, h.steamid64); !w.empty()) return w;
       }
       if (what == What::Ready) {
-        std::string s = ReadySpec(hudBoard, h.steamid64, h.name, WelcomeActiveFor(slot, h.steamid64));
+        std::string s = ReadySpec(hudBoard, h.steamid64, h.name, WelcomeActiveFor(slot, h.steamid64), lang);
         // The platform's full-team timer: the countdown on the card while the viewer's team isn't full.
         const long long left = ctx ? FullTeamSecondsLeft(*ctx) : -1;
         if (left >= 0 && ViewerTeamShort(hudBoard, h.steamid64)) s += L("timer", std::to_string(left));
         return s;
       }
-      if (what == What::Knife) return KnifeSpec(knife, h.team);
-      if (mode == ReadyUpMode::MatchLive) return LiveSpec(live, h.team);
+      if (what == What::Knife) return KnifeSpec(knife, h.team, lang);
+      if (mode == ReadyUpMode::MatchLive) return LiveSpec(live, h.team, lang);
       return {};
     });
     g_showing.store(true, std::memory_order_relaxed);
@@ -902,9 +931,10 @@ void ReadyHudTick() {
       if (WelcomeActiveFor(slot, h.steamid64)) continue;
       if (ReadyHudAnimActive(h.steamid64)) continue;  // `.ru hud anim` owns this player's panel
       if (AdminCallCardActiveFor(slot)) continue;      // an `.admin` call card (admin_call.h)
-      html = (what == What::Ready)   ? ReadyHtml(board, h.steamid64, footer)
-             : (what == What::Live) ? liveHtml
-                                    : KnifeHtml(knife, h.team);
+      const std::string lang = i18n::LanguageOf(host::Api(), slot);
+      html = (what == What::Ready)   ? ReadyHtml(board, h.steamid64, footer, lang)
+             : (what == What::Live) ? LiveHtml(live, lang)
+                                    : KnifeHtml(knife, h.team, lang);
     }
     if (html.empty()) continue;
 
