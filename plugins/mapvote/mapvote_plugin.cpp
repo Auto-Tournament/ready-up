@@ -29,6 +29,8 @@
 #include "readyup/hud_iface.h"
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
+#include "readyup/i18n.h"
+#include "readyup/i18n_api.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -43,6 +45,9 @@
 #ifndef MAPVOTE_VERSION
 #define MAPVOTE_VERSION "dev"
 #endif
+
+extern const readyup::i18n::Locale kReadyUpLocales[];  // locales/ (readyup_embed_locales)
+extern const size_t kReadyUpLocaleCount;
 
 namespace mapvote {
 namespace {
@@ -78,11 +83,23 @@ State g;
 
 // ---- helpers ----------------------------------------------------------------------------------
 
-void ChatAll(const std::string& m) { g_api->chat_all(g_api->self, m.c_str(), 0); }
+// Player-facing text (plugins/mapvote/locales) in each player's language; the console reads English.
+readyup::i18n::Catalog g_text;
+using Args = readyup::i18n::Args;
+std::string Lang(int slot) { return readyup::i18n::LanguageOf(g_api, slot); }
+std::string Tr(const std::string& lang, const char* key, const Args& args = {}) { return g_text.Tr(lang, key, args); }
+void ChatAll(const char* key, const Args& args = {}) {
+  readyup::i18n::ChatAll(g_api, 0, [&](const std::string& lang) { return Tr(lang, key, args); });
+}
+// Admin replies (English).
 void Reply(const ru_command_ctx* c, const std::string& m) {
   if (c->is_console || c->slot < 0) ru_logf(g_api, RU_LOG_INFO, "%s", m.c_str());
   else g_api->chat_to_slot(g_api->self, c->slot, m.c_str());
 }
+void ReplyKey(const ru_command_ctx* c, const char* key, const Args& args = {}) {
+  Reply(c, Tr(c->is_console || c->slot < 0 ? "en" : Lang(c->slot), key, args));
+}
+std::string Who(const ru_command_ctx* c) { return c->name && *c->name ? c->name : Tr(Lang(c->slot), "someone"); }
 
 const ru_essentials_v1* Essentials() {
   const auto* e = static_cast<const ru_essentials_v1*>(g_api->get_interface(g_api->self, RU_ESSENTIALS_IFACE_NAME, 1));
@@ -145,16 +162,16 @@ bool BallotAll();
 void BallotClose();
 bool HasHud();
 
-std::string BallotHtml(double now) {
+std::string BallotHtml(double now, const std::string& lang) {
   std::vector<int> tally(g.vote.options.size(), 0);
   for (const auto& kv : g.vote.votes) {
     if (kv.second >= 0 && kv.second < static_cast<int>(tally.size())) ++tally[static_cast<size_t>(kv.second)];
   }
   const int left = std::max(0, static_cast<int>(g.vote.endsAt - now + 0.99));
-  std::string h = "<font class='fontSize-l' color='#FFD34D'><b>Vote for the next map</b></font> <font color='#9AA4B2'>" +
+  std::string h = "<font class='fontSize-l' color='#FFD34D'><b>" + Tr(lang, "ballot.title") + "</b></font> <font color='#9AA4B2'>" +
                   std::to_string(left) + "s</font><br>";
   for (size_t i = 0; i < g.vote.options.size(); ++i) {
-    const std::string name = g.vote.options[i].empty() ? "Extend this map" : MapDisplayName(g.vote.options[i]);
+    const std::string name = g.vote.options[i].empty() ? Tr(lang, "ballot.extend") : MapDisplayName(g.vote.options[i]);
     h += "<font color='#7FD7FF'><b>." + std::to_string(i + 1) + "</b></font> " + name + " <font color='#9AA4B2'>(" +
          std::to_string(tally[i]) + ")</font><br>";
   }
@@ -176,11 +193,11 @@ void StartVote(bool endOfMap, double now) {
   }
   if (g.vote.options.empty()) {
     g.vote.open = false;
-    ChatAll("Map vote: no other maps in the pool.");
+    ChatAll("vote.no_maps");
     return;
   }
   g.vote.endsAt = now + g.s.voteSeconds;
-  if (!HasHud()) ChatAll("Map vote: type the number of the map you want (.1 to ." + std::to_string(g.vote.options.size()) + ").");
+  if (!HasHud()) ChatAll("vote.type_number", {{"count", std::to_string(g.vote.options.size())}});
   ru_logf(g_api, RU_LOG_INFO, "vote started (%s), %zu option(s)", endOfMap ? "end of map" : "rtv", g.vote.options.size());
 }
 
@@ -197,7 +214,7 @@ void FinishVote(double now) {
   if (options[static_cast<size_t>(w)].empty()) {
     ++g.extends;
     g.voted = false;  // another end-of-map vote when the extended time runs low
-    ChatAll("Map vote: this map is extended by " + std::to_string(g.s.extendMinutes) + " minutes.");
+    ChatAll("vote.extended", {{"minutes", std::to_string(g.s.extendMinutes)}});
     return;
   }
   g.voted = true;
@@ -205,10 +222,10 @@ void FinishVote(double now) {
   g.nominations.clear();
   const std::string name = MapDisplayName(g.nextMap);
   if (endOfMap) {
-    ChatAll("Map vote: next map is " + name + (votes == 0 ? " (nobody voted, picked at random)." : "."));
+    ChatAll(votes == 0 ? "vote.next_random" : "vote.next", {{"map", name}});
     // The map changes when the time runs out (OnTick).
   } else {
-    ChatAll("Map vote: " + name + " wins" + (votes == 0 ? " (nobody voted, picked at random)" : "") + ". Changing map in 5 seconds.");
+    ChatAll(votes == 0 ? "vote.wins_random" : "vote.wins", {{"map", name}});
     g.changeAt = now + 5.0;
   }
 }
@@ -235,37 +252,34 @@ const ru_help_v1 g_help = {sizeof(ru_help_v1), &HelpLineNow};
 
 bool CheckActive(const ru_command_ctx* c) {
   if (Active()) return true;
-  Reply(c, MatchOwnsMap() ? "Map vote is off during a match." : g.s.enabled ? "Map vote is off on this server: no map pool (maps= in mapvote.cfg)."
-                                                  : "Map vote is off on this server.");
+  ReplyKey(c, MatchOwnsMap() ? "off.match" : g.s.enabled ? "off.no_pool" : "off.off");
   return false;
 }
 
 void OnRtv(void*, const ru_command_ctx* c) {
   if (!CheckActive(c) || c->steamid64 == 0) return;
   const double now = Now();
-  if (g.voted && !g.nextMap.empty()) return Reply(c, "The next map is already picked: " + MapDisplayName(g.nextMap) + ".");
-  if (g.vote.open) return Reply(c, "A map vote is running: type its number.");
+  if (g.voted && !g.nextMap.empty()) return ReplyKey(c, "rtv.picked", {{"map", MapDisplayName(g.nextMap)}});
+  if (g.vote.open) return ReplyKey(c, "rtv.running");
   if (now - g.mapStartedAt < g.s.rtvDelaySeconds) {
-    return Reply(c, "Rock the vote opens " + std::to_string(g.s.rtvDelaySeconds - static_cast<int>(now - g.mapStartedAt)) +
-                        " seconds into the map.");
+    return ReplyKey(c, "rtv.delay", {{"seconds", std::to_string(g.s.rtvDelaySeconds - static_cast<int>(now - g.mapStartedAt))}});
   }
   const int humans = Humans();
-  if (humans < g.s.rtvMinPlayers) return Reply(c, "Rock the vote needs " + std::to_string(g.s.rtvMinPlayers) + " players.");
+  if (humans < g.s.rtvMinPlayers) return ReplyKey(c, "rtv.min_players", {{"count", std::to_string(g.s.rtvMinPlayers)}});
   const bool added = g.rtv.insert(c->steamid64).second;
   const int need = RtvNeeded(humans, g.s.rtvRatio);
   if (added) {
-    ChatAll(std::string(c->name ? c->name : "Someone") + " wants to change the map (" + std::to_string(g.rtv.size()) + "/" +
-            std::to_string(need) + ", type .rtv).");
+    ChatAll("rtv.wants", {{"name", Who(c)}, {"have", std::to_string(g.rtv.size())}, {"need", std::to_string(need)}});
   } else {
-    Reply(c, "You already voted to change the map (" + std::to_string(g.rtv.size()) + "/" + std::to_string(need) + ").");
+    ReplyKey(c, "rtv.already", {{"have", std::to_string(g.rtv.size())}, {"need", std::to_string(need)}});
   }
   TryRtv(now);
 }
 
 void OnUnrtv(void*, const ru_command_ctx* c) {
   if (!CheckActive(c)) return;
-  if (g.rtv.erase(c->steamid64)) Reply(c, "Your .rtv is taken back.");
-  else Reply(c, "You had not typed .rtv.");
+  if (g.rtv.erase(c->steamid64)) ReplyKey(c, "rtv.taken_back");
+  else ReplyKey(c, "rtv.not_typed");
 }
 
 std::string PoolLine() {
@@ -279,13 +293,13 @@ std::string PoolLine() {
 
 void OnMaps(void*, const ru_command_ctx* c) {
   if (!CheckActive(c)) return;
-  Reply(c, "Maps: " + PoolLine());
+  ReplyKey(c, "maps.list", {{"maps", PoolLine()}});
 }
 
 void OnNominate(void*, const ru_command_ctx* c) {
   if (!CheckActive(c) || c->steamid64 == 0) return;
-  if (c->argc < 2) return Reply(c, "Type .nominate <map>. Maps: " + PoolLine());
-  if (g.vote.open) return Reply(c, "A map vote is running already.");
+  if (c->argc < 2) return ReplyKey(c, "nom.usage", {{"maps", PoolLine()}});
+  if (g.vote.open) return ReplyKey(c, "nom.running");
   std::string typed;
   for (int i = 1; i < c->argc; ++i) typed += (i > 1 ? " " : "") + std::string(c->argv[i]);
   std::vector<std::string> amb;
@@ -294,13 +308,13 @@ void OnNominate(void*, const ru_command_ctx* c) {
     if (!amb.empty()) {
       std::string l;
       for (const auto& a : amb) l += (l.empty() ? "" : ", ") + a;
-      return Reply(c, "More than one map matches: " + l + ".");
+      return ReplyKey(c, "nom.ambiguous", {{"list", l}});
     }
-    return Reply(c, "No map called " + typed + " here. Maps: " + PoolLine());
+    return ReplyKey(c, "nom.unknown", {{"map", typed}, {"maps", PoolLine()}});
   }
-  if (MapDisplayName(entry) == MapDisplayName(g.currentMap) || entry == g.currentMap) return Reply(c, "That is the current map.");
+  if (MapDisplayName(entry) == MapDisplayName(g.currentMap) || entry == g.currentMap) return ReplyKey(c, "nom.current");
   for (const auto& n : g.nominations) {
-    if (n.second == entry && n.first != c->steamid64) return Reply(c, MapDisplayName(entry) + " is nominated already.");
+    if (n.second == entry && n.first != c->steamid64) return ReplyKey(c, "nom.taken", {{"map", MapDisplayName(entry)}});
   }
   bool replaced = false;
   for (auto& n : g.nominations) {
@@ -310,28 +324,31 @@ void OnNominate(void*, const ru_command_ctx* c) {
     }
   }
   if (!replaced) g.nominations.emplace_back(c->steamid64, entry);
-  ChatAll(std::string(c->name ? c->name : "Someone") + " nominated " + MapDisplayName(entry) + ".");
+  ChatAll("nom.done", {{"name", Who(c)}, {"map", MapDisplayName(entry)}});
 }
 
 void OnNextmap(void*, const ru_command_ctx* c) {
   if (!CheckActive(c)) return;
-  Reply(c, g.nextMap.empty() ? "The next map is not picked yet." : "Next map: " + MapDisplayName(g.nextMap) + ".");
+  if (g.nextMap.empty()) ReplyKey(c, "next.none");
+  else ReplyKey(c, "next.is", {{"map", MapDisplayName(g.nextMap)}});
 }
 
 void OnTimeleft(void*, const ru_command_ctx* c) {
   if (!CheckActive(c)) return;
   const int left = SecondsLeft(g.s, g.mapStartedAt, g.extends, Now());
-  Reply(c, left < 0 ? "This map has no time limit." : "Time left on this map: " + FormatClock(left) + ".");
+  if (left < 0) ReplyKey(c, "time.none");
+  else ReplyKey(c, "time.left", {{"clock", FormatClock(left)}});
 }
 
 void OnVoteNumber(void* user, const ru_command_ctx* c) {
   const int n = static_cast<int>(reinterpret_cast<intptr_t>(user));
   if (!g.vote.open || c->steamid64 == 0) return;  // not ours to answer: no vote running
-  if (n < 1 || n > static_cast<int>(g.vote.options.size())) return Reply(c, "Pick 1 to " + std::to_string(g.vote.options.size()) + ".");
+  if (n < 1 || n > static_cast<int>(g.vote.options.size())) return ReplyKey(c, "vote.pick_range", {{"count", std::to_string(g.vote.options.size())}});
   g.vote.votes[c->steamid64] = n - 1;
   g.vote.nextHud = 0;  // show the new count now
   const std::string& o = g.vote.options[static_cast<size_t>(n - 1)];
-  Reply(c, "You voted for " + (o.empty() ? std::string("extending this map") : MapDisplayName(o)) + ".");
+  if (o.empty()) ReplyKey(c, "vote.voted_extend");
+  else ReplyKey(c, "vote.voted", {{"map", MapDisplayName(o)}});
 }
 
 // ---- the HUD (hud.so, readyup.hud.v1.2) ---------------------------------------------------------
@@ -364,17 +381,18 @@ std::string MenuBtn(const std::string& label, const char* tone, const std::strin
   return "btn=" + MenuText(label) + "|" + tone + "|" + state + "|" + cmd + (sub.empty() ? "" : "|" + MenuText(sub)) + "\n";
 }
 
-std::string BallotSpec(uint64_t steamid64, double now) {
+std::string BallotSpec(uint64_t steamid64, double now, const std::string& lang) {
   std::vector<int> tally(g.vote.options.size(), 0);
   for (const auto& kv : g.vote.votes) {
     if (kv.second >= 0 && kv.second < static_cast<int>(tally.size())) ++tally[static_cast<size_t>(kv.second)];
   }
   const auto mine = g.vote.votes.find(steamid64);
   const int picked = mine == g.vote.votes.end() ? -1 : mine->second;
-  std::string s = "id=mapvote-ballot\ncolor=acc\nkind=Map vote\ntitle=Next map\ntimer=" +
+  std::string s = "id=mapvote-ballot\ncolor=acc\nkind=" + MenuText(Tr(lang, "menu.ballot_kind")) + "\ntitle=" +
+                  MenuText(Tr(lang, "menu.ballot_title")) + "\ntimer=" +
                   std::to_string(std::max(0, static_cast<int>(g.vote.endsAt - now + 0.99))) + "\n";
   for (size_t i = 0; i < g.vote.options.size() && i < 8; ++i) {
-    const std::string name = g.vote.options[i].empty() ? "Extend" : MapDisplayName(g.vote.options[i]);
+    const std::string name = g.vote.options[i].empty() ? Tr(lang, "menu.extend") : MapDisplayName(g.vote.options[i]);
     s += MenuBtn(name, "ghost", "#vote " + std::to_string(i + 1), std::to_string(tally[i]),
                  static_cast<int>(i) == picked ? "picked" : "");
   }
@@ -382,24 +400,25 @@ std::string BallotSpec(uint64_t steamid64, double now) {
   return s + "cols=" + std::string(g.vote.options.size() > 4 ? "4" : "2") + "\nbw=m\nmouse=" + (picked < 0 ? "on" : "off") + "\n";
 }
 
-std::string HomeSpec(uint64_t steamid64) {
+std::string HomeSpec(uint64_t steamid64, const std::string& lang) {
   const int left = SecondsLeft(g.s, g.mapStartedAt, g.extends, Now());
-  const std::string title = !g.nextMap.empty() ? "Next: " + MapDisplayName(g.nextMap)
-                            : left >= 0        ? FormatClock(left) + " left"
+  const std::string title = !g.nextMap.empty() ? Tr(lang, "menu.next_map", {{"map", MapDisplayName(g.nextMap)}})
+                            : left >= 0        ? Tr(lang, "menu.left", {{"clock", FormatClock(left)}})
                                                : MapDisplayName(g.currentMap);
-  std::string s = "id=mapvote-home\nkind=" + MenuText("Maps \xC2\xB7 " + MapDisplayName(g.currentMap)) + "\ntitle=" + MenuText(title) + "\n";
+  std::string s = "id=mapvote-home\nkind=" + MenuText(Tr(lang, "menu.maps", {{"map", MapDisplayName(g.currentMap)}})) +
+                  "\ntitle=" + MenuText(title) + "\n";
   const std::string bar = std::to_string(g.rtv.size()) + " / " + std::to_string(RtvNeeded(Humans(), g.s.rtvRatio));
-  if (g.rtv.count(steamid64)) s += MenuBtn("Take back", "ghost", ".unrtv", bar, "picked");
-  else s += MenuBtn("Change map", "green", ".rtv", bar, g.voted && !g.nextMap.empty() ? "off" : "");
+  if (g.rtv.count(steamid64)) s += MenuBtn(Tr(lang, "menu.take_back"), "ghost", ".unrtv", bar, "picked");
+  else s += MenuBtn(Tr(lang, "menu.change_map"), "green", ".rtv", bar, g.voted && !g.nextMap.empty() ? "off" : "");
   std::string nominated;
   for (const auto& n : g.nominations) {
     if (n.first == steamid64) nominated = MapDisplayName(n.second);
   }
-  s += MenuBtn("Nominate", "ghost", "#pool 0", nominated);
-  return s + "cols=2\nbw=l\nclose=Close|#close\nmouse=on\n";
+  s += MenuBtn(Tr(lang, "menu.nominate"), "ghost", "#pool 0", nominated);
+  return s + "cols=2\nbw=l\nclose=" + MenuText(Tr(lang, "menu.close")) + "|#close\nmouse=on\n";
 }
 
-std::string PoolSpec(uint64_t steamid64, int offset) {
+std::string PoolSpec(uint64_t steamid64, int offset, const std::string& lang) {
   const int n = static_cast<int>(g.s.maps.size());
   if (offset >= n || offset < 0) offset = 0;
   const int to = std::min(n, offset + kMapsPerPage);
@@ -407,17 +426,18 @@ std::string PoolSpec(uint64_t steamid64, int offset) {
   for (const auto& nm : g.nominations) {
     if (nm.first == steamid64) mine = nm.second;
   }
-  std::string s = "id=mapvote-pool-" + std::to_string(offset) + "\nkind=Maps \xC2\xB7 nominate\ntitle=Pick one\n";
+  std::string s = "id=mapvote-pool-" + std::to_string(offset) + "\nkind=" + MenuText(Tr(lang, "menu.pool_kind")) +
+                  "\ntitle=" + MenuText(Tr(lang, "menu.pick_one")) + "\n";
   for (int i = offset; i < to; ++i) {
     const std::string& e = g.s.maps[static_cast<size_t>(i)];
     const bool current = e == g.currentMap || MapDisplayName(e) == MapDisplayName(g.currentMap);
-    s += MenuBtn(MapDisplayName(e), "ghost", "#nom " + std::to_string(i), current ? "now" : "",
+    s += MenuBtn(MapDisplayName(e), "ghost", "#nom " + std::to_string(i), current ? Tr(lang, "menu.now") : "",
                  current ? "off" : e == mine ? "picked" : "");
   }
   for (int i = to; i < offset + kMapsPerPage; ++i) s += MenuBtn(" ", "ghost", "", "", "off");
-  s += MenuBtn("Prev", "ghost", "#pool " + std::to_string(std::max(0, offset - kMapsPerPage)), "", offset == 0 ? "off" : "");
-  s += MenuBtn("Next", "ghost", "#pool " + std::to_string(to), "", to >= n ? "off" : "");
-  return s + "cols=4\nbw=m\nclose=Back|#home\nmouse=on\n";
+  s += MenuBtn(Tr(lang, "menu.prev"), "ghost", "#pool " + std::to_string(std::max(0, offset - kMapsPerPage)), "", offset == 0 ? "off" : "");
+  s += MenuBtn(Tr(lang, "menu.next_page"), "ghost", "#pool " + std::to_string(to), "", to >= n ? "off" : "");
+  return s + "cols=4\nbw=m\nclose=" + MenuText(Tr(lang, "menu.back")) + "|#home\nmouse=on\n";
 }
 
 void OnMenuClick(void*, int slot, const char* command);
@@ -426,9 +446,10 @@ void MenuDraw(int slot, uint64_t steamid64) {
   const ru_hud_v1* h = MenuHud();
   if (!h) return;
   std::string spec;
-  if (g.vote.open) spec = BallotSpec(steamid64, Now());
-  else if (g_menuPage[slot].rfind("pool ", 0) == 0) spec = PoolSpec(steamid64, std::atoi(g_menuPage[slot].c_str() + 5));
-  else spec = HomeSpec(steamid64);
+  const std::string lang = Lang(slot);
+  if (g.vote.open) spec = BallotSpec(steamid64, Now(), lang);
+  else if (g_menuPage[slot].rfind("pool ", 0) == 0) spec = PoolSpec(steamid64, std::atoi(g_menuPage[slot].c_str() + 5), lang);
+  else spec = HomeSpec(steamid64, lang);
   h->menu(slot, kMenuOwner, spec.c_str(), &OnMenuClick, nullptr);
 }
 
@@ -545,7 +566,7 @@ void OnRu(void*, const ru_command_ctx* c) {
     g.voted = false;
     g_api->center_html_release(g_api->self, -1);
     BallotClose();
-    ChatAll("Map vote cancelled by an admin.");
+    ChatAll("admin.cancelled");
     return;
   }
   if (sub == "change" && c->argc > 3) {
@@ -555,7 +576,7 @@ void OnRu(void*, const ru_command_ctx* c) {
     g.nextMap = entry;
     g.voted = true;
     g.changeAt = Now() + 3.0;
-    ChatAll("An admin is changing the map to " + MapDisplayName(entry) + ".");
+    ChatAll("admin.changing", {{"map", MapDisplayName(entry)}});
     return;
   }
   Reply(c, "usage: ru mapvote [status|start|cancel|reload|change <map>]");
@@ -596,7 +617,19 @@ void OnTick(void*, const ru_tick_info* t) {
       FinishVote(now);
     } else if (now >= g.vote.nextHud) {
       g.vote.nextHud = now + 1.0;
-      if (!BallotAll()) g_api->center_html_all_prio(g_api->self, BallotHtml(now).c_str(), 2, RU_HTML_PRIO_NOTICE);
+      if (!BallotAll()) {
+        double at = now;
+        g_api->for_each_player(
+            g_api->self,
+            [](void* user, const ru_player* p) {
+              if (p->connected && !p->is_bot && p->slot >= 0) {
+                const std::string html = BallotHtml(*static_cast<const double*>(user), Lang(p->slot));
+                g_api->center_html_to_slot_prio(g_api->self, p->slot, html.c_str(), 2, RU_HTML_PRIO_NOTICE);
+              }
+              return 1;
+            },
+            &at);
+      }
     }
     return;
   }
@@ -611,7 +644,7 @@ void OnTick(void*, const ru_tick_info* t) {
   const int left = SecondsLeft(g.s, g.mapStartedAt, g.extends, now);
   if (!g.voted && left <= g.s.voteBeforeEndSeconds && Humans() > 0) StartVote(true, now);
   if (left == 0 && g.voted && !g.nextMap.empty() && g.changeAt == 0) {
-    ChatAll("Time is up. Changing map to " + MapDisplayName(g.nextMap) + ".");
+    ChatAll("time.up", {{"map", MapDisplayName(g.nextMap)}});
     g.changeAt = now + 3.0;
   }
 }
@@ -657,6 +690,9 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_menuHud = nullptr;
   const char* cm = api->current_map(api->self);
   g.currentMap = cm ? cm : "";
+  g_text = {};
+  if (const std::string err = g_text.Load(kReadyUpLocales, kReadyUpLocaleCount); !err.empty())
+    ru_logf(api, RU_LOG_WARN, "locales: %s", err.c_str());
   LoadSettings();  // after the map: an empty pool follows it (DefaultPool)
   g.mapStartedAt = Now();
   struct Cmd {
