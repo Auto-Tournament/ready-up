@@ -84,6 +84,8 @@ decides for itself:
 - `at_ui.css` hides the pill for every version up to its own (`.ui-ver.check.v-1` … `v-N`,
   written by `tools/gen_ui.py`). An older addon doesn't know the server's number, so the pill stays up.
 - No `check` (a server from before this) means no pill. A newer addon than the server stays quiet.
+- Warmup, idle and practice only: from the knife round to the end of the map, match.so puts `hold`
+  on `#ui_ver` and hud.so turns `check` off.
 - Addons from before version 1 have no pill at all.
 
 ctest `hud_addon` fails when `at_ui.css` and `kAddonVersion` disagree.

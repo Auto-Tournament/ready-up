@@ -32,6 +32,11 @@ bool HudScreensOn();
 // A live round is running (not freeze time, not paused): nothing may take the cursor.
 bool HudMidRound();
 
+// hud.so's "HUD out of date" pill (plugins/hud/hud_addon.h) only in warmup, idle and practice: from
+// the knife round to the next map's warmup (and in modes another plugin runs) it sets class `hold`
+// on #ui_ver, and hud.so leaves the pill off. Once a tick, game thread.
+void HudOutdatedHoldTick();
+
 // One tick: shows every connected human their screen (menu, vote, else baseFor(h); "" = none)
 // and hides it for players who left. Game thread.
 void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseFor);

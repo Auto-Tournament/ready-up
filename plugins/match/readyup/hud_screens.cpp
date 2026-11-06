@@ -399,4 +399,18 @@ bool HudScreensOpenMenu(int slot, uint64_t steamid64, const std::string& which) 
   return true;
 }
 
+void HudOutdatedHoldTick() {
+  const ReadyUpMode mode = GetMode();
+  const bool hold = mode == ReadyUpMode::MatchKnife || mode == ReadyUpMode::MatchLive ||
+                    mode == ReadyUpMode::Postgame || mode == ReadyUpMode::External;
+  static int s_sent = -1;  // what hud.so has: -1 nothing yet
+  if (s_sent == (hold ? 1 : 0)) return;
+  const ru_api* a = host::Api();
+  const auto* h = a ? static_cast<const ru_hud_v1*>(a->get_interface(a->self, RU_HUD_IFACE_NAME, 1)) : nullptr;
+  if (!h || !h->open || !h->set_class) return;
+  const int k = h->open("panorama/layout/custom_game/at_ui.xml");
+  if (k <= 0 || !h->set_class(k, RU_HUD_ALL, "ui_ver", "hold", hold ? 1 : 0)) return;
+  s_sent = hold ? 1 : 0;
+}
+
 }  // namespace readyup
