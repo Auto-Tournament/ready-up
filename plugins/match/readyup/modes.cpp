@@ -956,17 +956,18 @@ static void ApplyWarmupRulesLocked(State& st) {
   if (EnqueueServerCommand(respawnT.c_str())) any = true;
   if (EnqueueServerCommand(ignoreWin.c_str())) any = true;
   if (EnqueueServerCommand("mp_freezetime 0")) any = true;
-  // Extend buy period during freeplay warmup.
-  if (EnqueueServerCommand("mp_buytime 9999")) any = true;
+  // Buy for the whole warmup: it is one round that can run for hours (8 h, tested in game).
+  if (EnqueueServerCommand("mp_buytime 28800")) any = true;
   if (EnqueueServerCommand(roundTime.c_str())) any = true;
   if (EnqueueServerCommand(roundTimeDefuse.c_str())) any = true;
   if (EnqueueServerCommand(roundTimeHostage.c_str())) any = true;
   if (EnqueueServerCommand(startMoneyCmd.c_str())) any = true;
   if (EnqueueServerCommand(maxMoneyCmd.c_str())) any = true;
   if (EnqueueServerCommand(buyAny.c_str())) any = true;
-  // Spawn protection, buying allowed (warmup.cfg: a spawn killer can't keep anyone from Ready).
+  // Spawn protection (warmup.cfg: a spawn killer can't keep anyone from Ready). Buying is the
+  // buy time's: mp_buy_during_immunity 1 makes CS2 allow buying ONLY while immune (20 s).
   if (EnqueueServerCommand("mp_respawn_immunitytime 20")) any = true;
-  if (EnqueueServerCommand("mp_buy_during_immunity 1")) any = true;
+  if (EnqueueServerCommand("mp_buy_during_immunity 0")) any = true;
   // Warmup runs for hours: nothing drops on death (weapon_cleanup.h).
   for (const char* c : kWarmupNoDropCmds) {
     if (EnqueueServerCommand(c)) any = true;
@@ -1024,10 +1025,11 @@ static void ApplyScrimWarmupRulesLocked(State& st) {
       "mp_respawn_on_death_ct 1",
       "mp_respawn_on_death_t 1",
       "mp_buy_anywhere 1",
-      // Spawn protection, buying allowed (warmup.cfg: a spawn killer can't keep anyone from Ready).
+      // Spawn protection (warmup.cfg). Not mp_buy_during_immunity 1: CS2 then allows buying ONLY
+      // while immune, so the buy menu closed 20 s after each spawn. 8 h of buy time instead.
       "mp_respawn_immunitytime 20",
-      "mp_buy_during_immunity 1",
-      "mp_buytime 9999",
+      "mp_buy_during_immunity 0",
+      "mp_buytime 28800",
       "mp_startmoney 16000",
       "mp_maxmoney 16000",
       "mp_warmup_pausetimer 0",
