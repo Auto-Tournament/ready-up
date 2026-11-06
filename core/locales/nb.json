@@ -1,0 +1,6 @@
+{
+  "lang.current": "Språket ditt: {language}. Bytt med .lang <kode> ({codes}) eller .lang reset.",
+  "lang.set": "Språket er satt til {language}.",
+  "lang.reset": "Tilbake til standardspråket: {language}.",
+  "lang.unknown": "Ukjent språk «{name}». Velg et av disse: {codes}"
+}

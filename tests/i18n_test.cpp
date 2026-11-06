@@ -92,6 +92,14 @@ void TestLint() {
   Catalog good;
   good.Load(ok, 2);
   CHECK_EQ(std::to_string(readyup::i18n::Lint(good).size()), "0");
+  const Locale inflected[] = {
+      {"en", R"({"need": "needs {count} players"})"},
+      {"ru", R"({"need_one": "нужен {count} игрок", "need_few": "нужно {count} игрока", "need_many": "нужно {count} игроков"})"},
+  };
+  Catalog inf;
+  inf.Load(inflected, 2);
+  CHECK_EQ(std::to_string(readyup::i18n::Lint(inf).size()), "0");
+  CHECK_EQ(inf.Tr("ru", "need", {{"count", "3"}}), "нужно 3 игрока");
 
   const Locale bad[] = {
       {"en", R"({"a": "x {n}"})"},

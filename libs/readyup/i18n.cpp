@@ -40,9 +40,12 @@ std::string EnKeyFor(const Catalog::Table& en, const std::string& key, bool* plu
     const std::string s(suf);
     if (key.size() > s.size() && key.compare(key.size() - s.size(), s.size(), s) == 0) {
       const std::string stem = key.substr(0, key.size() - s.size());
-      if (en.count(stem + "_other")) {
-        *plural = true;
-        return stem + "_other";
+      // en counts it with plural keys, or with one key and a {count} other languages may inflect.
+      for (const std::string& k : {stem + "_other", stem}) {
+        if (en.count(k)) {
+          *plural = true;
+          return k;
+        }
       }
     }
   }
