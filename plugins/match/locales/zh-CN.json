@@ -437,7 +437,7 @@
   "restore.restored_live": "第 {round} 回合已由 {by} 恢复。3 秒后开始。",
   "restore.restored_paused": "第 {round} 回合已由 {by} 恢复。比赛已暂停；准备好后输入 .unpause。",
   "dmg.line": "造成：{given}（{given_hits} 次命中）| 受到：{taken}（{taken_hits} 次命中）— {name}（{hp} HP）",
-  "dmg.in": "{dmg} · {hits}次",
+  "dmg.in": "{dmg} / {hits}",
   "dmg.dead": "阵亡",
   "dmg.col_given": "造成",
   "dmg.col_taken": "受到",

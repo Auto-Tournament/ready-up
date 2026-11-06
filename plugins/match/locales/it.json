@@ -445,7 +445,7 @@
   "restore.restored_live": "round {round} ripristinato da {by}. In diretta tra 3 secondi.",
   "restore.restored_paused": "round {round} ripristinato da {by}. Il match è in pausa; scrivete .unpause quando siete pronti.",
   "dmg.line": "Inflitti: {given} in {given_hits} | Subiti: {taken} in {taken_hits} — {name} ({hp} HP)",
-  "dmg.in": "{dmg} · {hits}×",
+  "dmg.in": "{dmg} / {hits}",
   "dmg.dead": "MORTO",
   "dmg.col_given": "INFLITTI",
   "dmg.col_taken": "SUBITI",

@@ -445,7 +445,7 @@
   "restore.restored_live": "runde {round} gendannet af {by}. Live om 3 sekunder.",
   "restore.restored_paused": "runde {round} gendannet af {by}. Kampen er sat på pause; skriv .unpause, når I er klar.",
   "dmg.line": "Givet: {given} på {given_hits} | Taget: {taken} på {taken_hits} – {name} ({hp} hp)",
-  "dmg.in": "{dmg} · {hits}×",
+  "dmg.in": "{dmg} / {hits}",
   "dmg.dead": "DØD",
   "dmg.col_given": "GIVET",
   "dmg.col_taken": "TAGET",
