@@ -13,6 +13,12 @@ namespace readyup::text {
 
 using Args = i18n::Args;
 
+// A line to translate later: what the engine-free rules (match_rules.h, ...) return.
+struct Msg {
+  std::string key;
+  Args args;
+};
+
 // The text of `key` in `lang`.
 std::string ForLang(const std::string& lang, const std::string& key, const Args& args = {});
 // The text of `key` for the player in `slot` (-1: the server's language). Game thread.

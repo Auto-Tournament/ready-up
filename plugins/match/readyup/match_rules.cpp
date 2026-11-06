@@ -67,42 +67,33 @@ int GgThresholdPctFromText(const std::string& text) {
   return std::max(1, static_cast<int>(std::lround(pct)));
 }
 
-std::vector<std::string> GoLiveRulesLines(int mapNumber, int numMaps, const std::string& map, int maxRounds,
-                                          bool overtime, int overtimeHalfRounds, int maxOvertimes,
-                                          bool damageTiebreak) {
+std::vector<text::Msg> GoLiveRulesLines(int mapNumber, int numMaps, const std::string& map, int maxRounds,
+                                        bool overtime, int overtimeHalfRounds, int maxOvertimes, bool damageTiebreak) {
   std::string name = map.rfind("de_", 0) == 0 || map.rfind("cs_", 0) == 0 ? map.substr(3) : map;
   if (!name.empty()) name[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(name[0])));
-  std::vector<std::string> out;
-  std::string first = numMaps > 1 ? "Ready Up: map " + std::to_string(mapNumber) + " of " + std::to_string(numMaps) +
-                                        " (first to " + std::to_string(numMaps / 2 + 1) + " maps)"
-                                  : std::string("Ready Up: one map");
-  out.push_back(first + (name.empty() ? "." : ": " + name + "."));
+  const auto n = [](int v) { return std::to_string(v); };
+  std::vector<text::Msg> out;
+  const std::string first = numMaps > 1 ? "golive.map_of" : "golive.one_map";
+  out.push_back({first + (name.empty() ? "_noname" : ""),
+                 {{"map_number", n(mapNumber)}, {"num_maps", n(numMaps)}, {"to_win", n(numMaps / 2 + 1)}, {"map", name}}});
   if (maxRounds <= 0) return out;
   const int half = maxRounds / 2;
-  out.push_back("Ready Up: " + std::to_string(maxRounds) + " rounds, first to " + std::to_string(half + 1) + " wins.");
-  out.push_back("Ready Up: sides switch after " + std::to_string(half) + " rounds.");
-  const std::string tie = "Ready Up: at " + std::to_string(half) + "-" + std::to_string(half) + ", ";
+  out.push_back({"golive.rounds", {{"rounds", n(maxRounds)}, {"to_win", n(half + 1)}}});
+  out.push_back({"golive.sides_switch", {{"half", n(half)}}});
+  text::Args tie = {{"half", n(half)}};
   if (overtime && overtimeHalfRounds > 0) {
-    std::string ot = tie + "overtime: " + std::to_string(overtimeHalfRounds * 2) + " rounds, first to " +
-                     std::to_string(overtimeHalfRounds + 1);
-    if (maxOvertimes > 0) {
-      ot += ", at most " + std::to_string(maxOvertimes) + (damageTiebreak ? ", then total damage decides." : ", then a draw.");
-    } else {
-      ot += ", until someone wins.";
-    }
-    out.push_back(ot);
+    tie.insert(tie.end(), {{"ot_rounds", n(overtimeHalfRounds * 2)}, {"ot_to_win", n(overtimeHalfRounds + 1)}, {"max_ot", n(maxOvertimes)}});
+    out.push_back({maxOvertimes <= 0 ? "golive.tie_overtime" : damageTiebreak ? "golive.tie_overtime_damage" : "golive.tie_overtime_draw", tie});
   } else {
-    out.push_back(tie + (damageTiebreak ? "total damage decides." : "the map is a draw."));
+    out.push_back({damageTiebreak ? "golive.tie_damage" : "golive.tie_draw", tie});
   }
   return out;
 }
 
-std::string PlayerLeftChatLine(const std::string& name, const std::string& team, bool autoPause, int maxSeconds) {
-  std::string msg = "Ready Up: " + name + " (" + team + ") left the server.";
-  if (!autoPause) return msg + " The match goes on; they can rejoin with the same connect link.";
-  msg += " The match pauses at the next freeze time until they are back";
-  if (maxSeconds > 0) msg += " (at most " + std::to_string(std::max(1, maxSeconds / 60)) + " min)";
-  return msg + ".";
+text::Msg PlayerLeftChatLine(const std::string& name, const std::string& team, bool autoPause, int maxSeconds) {
+  text::Args args = {{"name", name}, {"team", team}, {"minutes", std::to_string(std::max(1, maxSeconds / 60))}};
+  if (!autoPause) return {"player.left_goes_on", args};
+  return {maxSeconds > 0 ? "player.left_pauses_max" : "player.left_pauses", args};
 }
 
 bool TechPauseAllowed(int used, int limit) { return limit <= 0 || used < limit; }

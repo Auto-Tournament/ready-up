@@ -10,8 +10,24 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 using namespace readyup;
+
+extern const i18n::Locale kReadyUpLocales[];  // plugins/match/locales
+extern const size_t kReadyUpLocaleCount;
+
+// The English text of rule lines (the keys must exist: a missing key would come back as the key).
+static std::vector<std::string> En(const std::vector<text::Msg>& lines) {
+  static const i18n::Catalog c = [] {
+    i18n::Catalog x;
+    x.Load(kReadyUpLocales, kReadyUpLocaleCount);
+    return x;
+  }();
+  std::vector<std::string> out;
+  for (const auto& l : lines) out.push_back(c.Tr("en", l.key, l.args));
+  return out;
+}
 
 static int g_failures = 0;
 static int g_checks = 0;
@@ -146,22 +162,22 @@ static void TestAuto5v5() {
   CHECK(Auto5v5ShortSide(4, 4) == 3);
   CHECK(Auto5v5ShortSide(2, 7) == 3);
   // Going live: what is played and for how long, one chat message per line.
-  CHECK((GoLiveRulesLines(1, 1, "de_inferno", 16, true, 3, -1, false) ==
-         std::vector<std::string>{"Ready Up: one map: Inferno.", "Ready Up: 16 rounds, first to 9 wins.",
-                                  "Ready Up: sides switch after 8 rounds.",
-                                  "Ready Up: at 8-8, overtime: 6 rounds, first to 4, until someone wins."}));
-  CHECK((GoLiveRulesLines(2, 3, "de_nuke", 24, false, 3, -1, false) ==
-         std::vector<std::string>{"Ready Up: map 2 of 3 (first to 2 maps): Nuke.", "Ready Up: 24 rounds, first to 13 wins.",
-                                  "Ready Up: sides switch after 12 rounds.", "Ready Up: at 12-12, the map is a draw."}));
-  CHECK(GoLiveRulesLines(1, 1, "de_dust2", 24, true, 3, 2, true).back() ==
-        "Ready Up: at 12-12, overtime: 6 rounds, first to 4, at most 2, then total damage decides.");
+  CHECK((En(GoLiveRulesLines(1, 1, "de_inferno", 16, true, 3, -1, false)) ==
+         std::vector<std::string>{"one map: Inferno.", "16 rounds, first to 9 wins.", "sides switch after 8 rounds.",
+                                  "at 8-8, overtime: 6 rounds, first to 4, until someone wins."}));
+  CHECK((En(GoLiveRulesLines(2, 3, "de_nuke", 24, false, 3, -1, false)) ==
+         std::vector<std::string>{"map 2 of 3 (first to 2 maps): Nuke.", "24 rounds, first to 13 wins.",
+                                  "sides switch after 12 rounds.", "at 12-12, the map is a draw."}));
+  CHECK(En(GoLiveRulesLines(1, 1, "de_dust2", 24, true, 3, 2, true)).back() ==
+        "at 12-12, overtime: 6 rounds, first to 4, at most 2, then total damage decides.");
+  CHECK(En(GoLiveRulesLines(1, 1, "", 0, false, 0, 0, false)) == std::vector<std::string>{"one map."});
   // A rostered player leaving a live map: what chat says will happen.
-  CHECK(PlayerLeftChatLine("Emil", "Team Emil", false, 0) ==
-        "Ready Up: Emil (Team Emil) left the server. The match goes on; they can rejoin with the same connect link.");
-  CHECK(PlayerLeftChatLine("Emil", "Team Emil", true, 0) ==
-        "Ready Up: Emil (Team Emil) left the server. The match pauses at the next freeze time until they are back.");
-  CHECK(PlayerLeftChatLine("Emil", "Team Emil", true, 300) ==
-        "Ready Up: Emil (Team Emil) left the server. The match pauses at the next freeze time until they are back "
+  CHECK(En({PlayerLeftChatLine("Emil", "Team Emil", false, 0)})[0] ==
+        "Emil (Team Emil) left the server. The match goes on; they can rejoin with the same connect link.");
+  CHECK(En({PlayerLeftChatLine("Emil", "Team Emil", true, 0)})[0] ==
+        "Emil (Team Emil) left the server. The match pauses at the next freeze time until they are back.");
+  CHECK(En({PlayerLeftChatLine("Emil", "Team Emil", true, 300)})[0] ==
+        "Emil (Team Emil) left the server. The match pauses at the next freeze time until they are back "
         "(at most 5 min).");
   // Both teams resume it (it belongs to nobody): the pauser is ignored when both are required.
   CHECK(!UnpauseSatisfied(true, false, true, 1));
