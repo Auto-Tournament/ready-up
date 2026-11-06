@@ -281,7 +281,7 @@ void ShowViewer(const Writer& w, const ru_hud_v1* h, int k, const EndScreenInfo&
   }
   w.Class(slot, "at_end", "on", true);  // per player too: a preview may have left its own value
   if (kHoldCursor && HasCapture(h) && h->set_capture(k, slot, 1)) g.captured.insert(slot);
-  g.langs.Drew(slot, lang);
+  g.langs.Drew(slot, hu.steamid64, lang);
 }
 
 }  // namespace
@@ -451,7 +451,7 @@ void EndScreenTick() {
       if (k > 0) {
         std::unique_ptr<EndScreenData> d;
         for (const auto& hu : ListHumans()) {
-          if (!g.langs.Changed(host::Api(), hu.slot)) continue;
+          if (!g.langs.Changed(host::Api(), hu.slot, hu.steamid64)) continue;
           if (!d) d = std::make_unique<EndScreenData>(BuildEndScreenData(g.info));
           ShowViewer(Writer{h, k}, h, k, g.info, *d, hu, g.target, s);
         }

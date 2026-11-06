@@ -5,6 +5,7 @@
 
 #include "readyup/plugin_api.h"
 
+#include <cstdint>
 #include <map>
 #include <string>
 #include <utility>
@@ -45,14 +46,19 @@ void ChatAll(const ru_api* api, uint32_t flags, TextFn text) {
 }
 
 // The language each player's held card (a menu, a card shown for some seconds) was drawn in:
-// Changed() says when the player's language has moved on since, so the card is drawn again.
+// Changed() says when that player's language has moved on since, so the card is drawn again.
+// Keyed by slot and SteamID: someone new in the slot is not the player who saw the card.
 struct LangSeen {
-  std::map<int, std::string> by_slot;
-  void Drew(int slot, const std::string& lang) { by_slot[slot] = lang; }
+  struct Seen {
+    std::string lang;
+    uint64_t steamid64 = 0;
+  };
+  std::map<int, Seen> by_slot;
+  void Drew(int slot, uint64_t steamid64, const std::string& lang) { by_slot[slot] = Seen{lang, steamid64}; }
   void Forget(int slot) { by_slot.erase(slot); }
-  bool Changed(const ru_api* api, int slot) const {
+  bool Changed(const ru_api* api, int slot, uint64_t steamid64) const {
     const auto it = by_slot.find(slot);
-    return it != by_slot.end() && it->second != LanguageOf(api, slot);
+    return it != by_slot.end() && it->second.steamid64 == steamid64 && it->second.lang != LanguageOf(api, slot);
   }
 };
 
