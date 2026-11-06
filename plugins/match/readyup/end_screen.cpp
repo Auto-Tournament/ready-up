@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <memory>
 #include <mutex>
 #include <set>
 
@@ -42,6 +43,9 @@ struct State {
   std::string next;
   std::set<int> captured;  // slots holding the cursor
   bool preview = false;    // .enddemo, not a real end of map
+  EndScreenInfo info;      // what is shown, to draw a viewer again in a new language
+  int target = RU_HUD_ALL;
+  i18n::LangSeen langs;    // each viewer's language when drawn
 };
 State g;
 std::mutex g_mu;
@@ -203,6 +207,83 @@ struct Writer {
   }
 };
 
+// One player's own view: the headline and its colour, their row, their team's rounds, the cursor,
+// and every word in their language. Again when that language changes (EndScreenTick). g_mu held.
+void ShowViewer(const Writer& w, const ru_hud_v1* h, int k, const EndScreenInfo& info, const EndScreenData& d,
+                const HumanIdentity& hu, int target, int secs) {
+  const int slot = hu.slot;
+  int myTeam = 0;
+  for (const auto& p : info.stats.players) {
+    if (p.id == hu.steamid64) myTeam = p.team;
+  }
+  if (target != RU_HUD_ALL && myTeam == 0) myTeam = 1;  // a preview: the viewer plays for team 1
+  // The viewer's language: the headline, how, the footer, the column tips and the award labels.
+  const std::string lang = i18n::LanguageOf(host::Api(), slot);
+  w.Text(slot, "at_e_how", Tr(lang, info.how));
+  w.Text(slot, "at_e_where", Tr(lang, info.where));
+  w.Text(slot, "at_e_next", Footer(lang, info.nextLabel, info.next, secs));
+  for (char side : {'a', 'b'}) {
+    for (int c = 0; c < kUsedCols; ++c) {
+      const std::string hc = std::string("at_e") + side + "h_c" + std::to_string(c);
+      w.Text(slot, hc + "_tk", text::ForLang(lang, "end.col" + std::to_string(c) + "_title"));
+      w.Text(slot, hc + "_tv", text::ForLang(lang, "end.col" + std::to_string(c) + "_body"));
+    }
+  }
+  for (size_t i = 0; i < d.awards.size() && i < 4; ++i) {
+    w.Text(slot, "at_aw" + std::to_string(i) + "_l", text::ForLang(lang, d.awards[i].label));
+  }
+  std::string head;
+  const char* tone = "tc-muted";
+  const char* line = "line-muted";
+  if (info.winner.empty()) {
+    head = text::ForLang(lang, "end.head_draw");
+  } else if (myTeam == 1 || myTeam == 2) {
+    const bool won = (myTeam == 1) == (info.winner == "team1");
+    head = text::ForLang(lang, won ? "end.head_won" : "end.head_lost");
+    tone = won ? "tc-acc" : "tc-ban";
+    line = won ? "line-acc" : "line-ban";
+  } else {
+    head = text::ForLang(lang, "end.head_team_won", {{"team", info.winner == "team1" ? info.team1 : info.team2}});
+    tone = "tc-acc";
+    line = "line-acc";
+  }
+  w.Text(slot, "at_e_head", head);
+  w.Only(slot, "at_e_head", kTextTones, tone);
+  w.Only(slot, "at_e_how", kTextTones, tone);
+  w.Only(slot, "at_e_howbox", kTints, std::string(tone) == "tc-ban" ? "tint-ban" : std::string(tone) == "tc-acc" ? "tint-acc" : "tint-none");
+  w.Only(slot, "at_ecard", kLines, line);
+  for (int t = 0; t < 2; ++t) {
+    const auto& v = t == 0 ? d.team1 : d.team2;
+    for (int i = 0; i < 6; ++i) {
+      const bool me = i < static_cast<int>(v.size()) && v[static_cast<size_t>(i)].id == hu.steamid64;
+      const std::string r = std::string("at_e") + (t == 0 ? 'a' : 'b') + std::to_string(i);
+      w.Only(slot, r, kTints, me ? "tint-acc" : "tint-none");
+      w.Class(slot, r + "_n", "bold", me);
+      // The accent is the viewer's alone (von Restorff): their MVP tag in orange, others' grey.
+      // On their orange row every number is ink: grey and red/green fail WCAG AA there (2.9-4.2:1).
+      if (i >= static_cast<int>(v.size())) continue;
+      const EndScreenRow& x = v[static_cast<size_t>(i)];
+      if (x.mvps > 0) w.Only(slot, r + "_g", kTags, me ? "tag-acc" : "tag-muted");
+      for (int c = 0; c < kUsedCols; ++c) {
+        const std::string cell = r + "_c" + std::to_string(c);
+        w.Only(slot, cell, kTextTones, me ? "tc-ink" : kColumns[c].tone(x));
+      }
+    }
+  }
+  // The strip: the viewer's team's rounds in the accent (spectators: the winner's).
+  const int accentTeam = myTeam ? myTeam : (info.winner == "team2" ? 2 : 1);
+  for (int i = 0; i < static_cast<int>(d.rounds.size()); ++i) {
+    const EndScreenRound& x = d.rounds[static_cast<size_t>(i)];
+    const std::string r = "at_rt" + std::to_string(i);
+    const char* fill = x.winner == accentTeam ? "fill-acc" : "fill-muted";
+    w.Only(slot, r + "_u", kFills, x.winner == 1 ? fill : "fill-none");
+    w.Only(slot, r + "_d", kFills, x.winner == 2 ? fill : "fill-none");
+  }
+  w.Class(slot, "at_end", "on", true);  // per player too: a preview may have left its own value
+  if (kHoldCursor && HasCapture(h) && h->set_capture(k, slot, 1)) g.captured.insert(slot);
+  g.langs.Drew(slot, hu.steamid64, lang);
+}
+
 }  // namespace
 
 bool EndScreenShow(const EndScreenInfo& info, int target) {
@@ -308,79 +389,13 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
     g.nextLabel = info.nextLabel;
     g.next = info.next;
   }
+  g.info = info;
+  g.target = target;
   for (const auto& hu : ListHumans()) {
     const int slot = hu.slot;
     if (hu.steamid64 == 0 || slot < 0 || slot > 63) continue;
     if (target != RU_HUD_ALL && slot != target) continue;
-    int myTeam = 0;
-    for (const auto& p : info.stats.players) {
-      if (p.id == hu.steamid64) myTeam = p.team;
-    }
-    if (target != RU_HUD_ALL && myTeam == 0) myTeam = 1;  // a preview: the viewer plays for team 1
-    // The viewer's language: the headline, how, the footer, the column tips and the award labels.
-    const std::string lang = i18n::LanguageOf(host::Api(), slot);
-    w.Text(slot, "at_e_how", Tr(lang, info.how));
-    w.Text(slot, "at_e_where", Tr(lang, info.where));
-    w.Text(slot, "at_e_next", Footer(lang, info.nextLabel, info.next, info.seconds));
-    for (char side : {'a', 'b'}) {
-      for (int c = 0; c < kUsedCols; ++c) {
-        const std::string hc = std::string("at_e") + side + "h_c" + std::to_string(c);
-        w.Text(slot, hc + "_tk", text::ForLang(lang, "end.col" + std::to_string(c) + "_title"));
-        w.Text(slot, hc + "_tv", text::ForLang(lang, "end.col" + std::to_string(c) + "_body"));
-      }
-    }
-    for (size_t i = 0; i < d.awards.size() && i < 4; ++i) {
-      w.Text(slot, "at_aw" + std::to_string(i) + "_l", text::ForLang(lang, d.awards[i].label));
-    }
-    std::string head;
-    const char* tone = "tc-muted";
-    const char* line = "line-muted";
-    if (info.winner.empty()) {
-      head = text::ForLang(lang, "end.head_draw");
-    } else if (myTeam == 1 || myTeam == 2) {
-      const bool won = (myTeam == 1) == (info.winner == "team1");
-      head = text::ForLang(lang, won ? "end.head_won" : "end.head_lost");
-      tone = won ? "tc-acc" : "tc-ban";
-      line = won ? "line-acc" : "line-ban";
-    } else {
-      head = text::ForLang(lang, "end.head_team_won", {{"team", info.winner == "team1" ? info.team1 : info.team2}});
-      tone = "tc-acc";
-      line = "line-acc";
-    }
-    w.Text(slot, "at_e_head", head);
-    w.Only(slot, "at_e_head", kTextTones, tone);
-    w.Only(slot, "at_e_how", kTextTones, tone);
-    w.Only(slot, "at_e_howbox", kTints, std::string(tone) == "tc-ban" ? "tint-ban" : std::string(tone) == "tc-acc" ? "tint-acc" : "tint-none");
-    w.Only(slot, "at_ecard", kLines, line);
-    for (int t = 0; t < 2; ++t) {
-      const auto& v = t == 0 ? d.team1 : d.team2;
-      for (int i = 0; i < 6; ++i) {
-        const bool me = i < static_cast<int>(v.size()) && v[static_cast<size_t>(i)].id == hu.steamid64;
-        const std::string r = std::string("at_e") + (t == 0 ? 'a' : 'b') + std::to_string(i);
-        w.Only(slot, r, kTints, me ? "tint-acc" : "tint-none");
-        w.Class(slot, r + "_n", "bold", me);
-        // The accent is the viewer's alone (von Restorff): their MVP tag in orange, others' grey.
-        // On their orange row every number is ink: grey and red/green fail WCAG AA there (2.9-4.2:1).
-        if (i >= static_cast<int>(v.size())) continue;
-        const EndScreenRow& x = v[static_cast<size_t>(i)];
-        if (x.mvps > 0) w.Only(slot, r + "_g", kTags, me ? "tag-acc" : "tag-muted");
-        for (int c = 0; c < kUsedCols; ++c) {
-          const std::string cell = r + "_c" + std::to_string(c);
-          w.Only(slot, cell, kTextTones, me ? "tc-ink" : kColumns[c].tone(x));
-        }
-      }
-    }
-    // The strip: the viewer's team's rounds in the accent (spectators: the winner's).
-    const int accentTeam = myTeam ? myTeam : (info.winner == "team2" ? 2 : 1);
-    for (int i = 0; i < static_cast<int>(d.rounds.size()); ++i) {
-      const EndScreenRound& x = d.rounds[static_cast<size_t>(i)];
-      const std::string r = "at_rt" + std::to_string(i);
-      const char* fill = x.winner == accentTeam ? "fill-acc" : "fill-muted";
-      w.Only(slot, r + "_u", kFills, x.winner == 1 ? fill : "fill-none");
-      w.Only(slot, r + "_d", kFills, x.winner == 2 ? fill : "fill-none");
-    }
-    w.Class(slot, "at_end", "on", true);  // per player too: a preview may have left its own value
-    if (kHoldCursor && HasCapture(h) && h->set_capture(k, slot, 1)) g.captured.insert(slot);
+    ShowViewer(w, h, k, info, d, hu, target, info.seconds);
   }
   w.Class(ALL, "at_end", "on", true);
   if (target != RU_HUD_ALL) {
@@ -419,6 +434,8 @@ void EndScreenHide() {
 }
 
 void EndScreenTick() {
+  const ru_hud_v1* h = Hud();
+  const int k = h ? h->open(kKitLayout) : 0;
   int secs = -1;
   text::Msg label;
   std::string next;
@@ -430,6 +447,15 @@ void EndScreenTick() {
       secs = -2;
     } else {
       const int s = static_cast<int>(left + 0.99);
+      // A viewer who changed language: their whole view again, in the new one.
+      if (k > 0) {
+        std::unique_ptr<EndScreenData> d;
+        for (const auto& hu : ListHumans()) {
+          if (!g.langs.Changed(host::Api(), hu.slot, hu.steamid64)) continue;
+          if (!d) d = std::make_unique<EndScreenData>(BuildEndScreenData(g.info));
+          ShowViewer(Writer{h, k}, h, k, g.info, *d, hu, g.target, s);
+        }
+      }
       if (s == g.lastSecs) return;
       g.lastSecs = s;
       secs = s;
@@ -438,9 +464,6 @@ void EndScreenTick() {
     }
   }
   if (secs == -2) return EndScreenHide();
-  const ru_hud_v1* h = Hud();
-  if (!h) return;
-  const int k = h->open(kKitLayout);
   if (k <= 0) return;
   for (const auto& hu : ListHumans()) {
     if (hu.slot < 0 || hu.slot > 63) continue;

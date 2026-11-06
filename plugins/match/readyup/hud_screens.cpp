@@ -339,10 +339,10 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
       if (n != g_notices.end() && now > n->second.until) {
         g_notices.erase(n);
       } else if (n != g_notices.end()) {
-        spec = n->second.spec;
+        spec = n->second.build ? n->second.build(lang) : n->second.spec;
       }
       if (spec.empty() && now <= g_noticeAll.until && (g_noticeAllTeam == 0 || g_noticeAllTeam == h.team)) {
-        spec = g_noticeAll.build ? g_noticeAll.build(i18n::LanguageOf(host::Api(), slot)) : g_noticeAll.spec;
+        spec = g_noticeAll.build ? g_noticeAll.build(lang) : g_noticeAll.spec;
       }
     }
     if (spec.empty()) spec = baseFor(h);
@@ -363,6 +363,12 @@ void HudScreensNotice(int slot, const std::string& spec, double seconds) {
   if (slot < 0 || slot > 63 || spec.empty()) return;
   std::lock_guard<std::mutex> lk(g_noticeMu);
   g_notices[slot] = Notice{spec, host::NowSeconds() + seconds, {}};
+}
+
+void HudScreensNotice(int slot, HudSpecBuild build, double seconds) {
+  if (slot < 0 || slot > 63 || !build) return;
+  std::lock_guard<std::mutex> lk(g_noticeMu);
+  g_notices[slot] = Notice{{}, host::NowSeconds() + seconds, std::move(build)};
 }
 
 void HudScreensNoticeAll(const std::string& spec, double seconds, int csTeam) {
