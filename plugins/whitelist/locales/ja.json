@@ -1,0 +1,22 @@
+{
+  "prefix": "Ready Up ホワイトリスト:",
+  "help_on_off": ".ru whitelist on|off: リストにいない人を全員キックします（管理者とボットは残ります。試合中は無効）",
+  "help_add_remove": ".ru whitelist add|remove <steamid64>",
+  "help_list_clear": ".ru whitelist list | clear",
+  "not_authorized": "権限がありません",
+  "turned_on_other": "オン（リストに {count} 人）",
+  "turned_off_other": "オフ（リストに {count} 人）",
+  "usage": "使い方: .ru whitelist {sub} <steamid64>",
+  "added": "{id} を追加しました",
+  "removed": "{id} を削除しました",
+  "no_change": "{id} に変更はありません",
+  "cleared": "リストを空にしました",
+  "list_on_empty": "オン、リストは空です",
+  "list_off_empty": "オフ、リストは空です",
+  "list_on_other": "オン、{count} 人: {ids}",
+  "list_off_other": "オフ、{count} 人: {ids}",
+  "guests_other": "ほかのプラグインが入れているゲスト {count} 人（{owners}）",
+  "unknown": "不明なコマンドです。一覧は .ru help whitelist で見られます。",
+  "save_failed": "{path} を保存できませんでした",
+  "kick_reason": "このサーバーのホワイトリストに入っていません"
+}

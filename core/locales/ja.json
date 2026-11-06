@@ -1,0 +1,6 @@
+{
+  "lang.current": "現在の言語: {language}。.lang <コード>（{codes}）で変更、.lang reset で元に戻します。",
+  "lang.set": "言語を {language} にしました。",
+  "lang.reset": "デフォルトの言語に戻しました: {language}。",
+  "lang.unknown": "不明な言語「{name}」です。次から選んでください: {codes}"
+}
