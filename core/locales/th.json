@@ -1,6 +1,7 @@
 {
   "lang.current": "ภาษาของคุณ: {language} เปลี่ยนด้วย .lang <รหัส> ({codes}) หรือ .lang reset",
   "lang.set": "ตั้งภาษาเป็น {language} แล้ว",
+  "lang.set_temporary": "ตั้งภาษาเป็น {language} จนถึงแมตช์ถัดไปของคุณแล้ว หากต้องการใช้ต่อ ให้เปลี่ยนบนเว็บไซต์",
   "lang.reset": "กลับไปใช้ภาษาเริ่มต้น: {language}",
   "lang.unknown": "ไม่รู้จักภาษา \"{name}\" เลือกจาก: {codes}"
 }

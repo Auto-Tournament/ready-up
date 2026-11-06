@@ -1,6 +1,7 @@
 {
   "lang.current": "Ditt språk: {language}. Byt med .lang <kod> ({codes}) eller .lang reset.",
   "lang.set": "Språket är nu {language}.",
+  "lang.set_temporary": "Språket är nu {language} till din nästa match. Byt det på webbplatsen för att behålla det.",
   "lang.reset": "Tillbaka till standardspråket: {language}.",
   "lang.unknown": "Okänt språk ”{name}”. Välj ett av: {codes}"
 }

@@ -1,6 +1,7 @@
 {
   "lang.current": "Je taal: {language}. Wijzig met .lang <code> ({codes}) of .lang reset.",
   "lang.set": "Taal ingesteld op {language}.",
+  "lang.set_temporary": "Taal ingesteld op {language} tot je volgende wedstrijd. Wijzig je taal op de site om die te houden.",
   "lang.reset": "Terug naar de standaardtaal: {language}.",
   "lang.unknown": "Onbekende taal \"{name}\". Kies uit: {codes}"
 }

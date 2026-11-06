@@ -1,6 +1,7 @@
 {
   "lang.current": "Tvůj jazyk: {language}. Změníš ho přes .lang <kód> ({codes}) nebo .lang reset.",
   "lang.set": "Jazyk nastaven na {language}.",
+  "lang.set_temporary": "Jazyk nastaven na {language} do tvého dalšího zápasu. Natrvalo ho změníš na webu.",
   "lang.reset": "Zpět na výchozí jazyk: {language}.",
   "lang.unknown": "Neznámý jazyk „{name}“. Vyber jeden z: {codes}"
 }

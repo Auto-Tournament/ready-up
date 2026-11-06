@@ -1,6 +1,7 @@
 {
   "lang.current": "La tua lingua: {language}. Cambiala con .lang <codice> ({codes}) o .lang reset.",
   "lang.set": "Lingua impostata su {language}.",
+  "lang.set_temporary": "Lingua impostata su {language} fino alla tua prossima partita. Per tenerla, cambiala sul sito.",
   "lang.reset": "Tornato alla lingua predefinita: {language}.",
   "lang.unknown": "Lingua sconosciuta «{name}». Scegli tra: {codes}"
 }

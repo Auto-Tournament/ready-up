@@ -1,8 +1,9 @@
 #pragma once
 
 // Which language each player gets Ready Up's text in (docs/ARCHITECTURE.md, API 1.19):
-// their own `.lang` choice (saved in csgo/readyup/player_languages.json), else the one a plugin
-// set for them (the platform's site language, through fleet), else readyup.cfg `language`
+// their own `.lang` choice (saved in csgo/readyup/player_languages.json, until a plugin sets
+// one), else the one a plugin set for them (the platform's site language, through fleet), else
+// readyup.cfg `language`
 // (default "en"). CS2 does not send the server a client's game language (cl_language is not a
 // userinfo convar), so it cannot be read. Codes are the platform's: en, de, pt-BR, zh-CN, ...
 // Pure parts are tested by ctest `player_language`.
@@ -39,7 +40,10 @@ const char* ServerDefault();
 const Language* Chosen(uint64_t steamid64);
 // `.lang <code>` (nullptr clears it). Saved at once.
 void SetChosen(uint64_t steamid64, const Language* lang);
-// A plugin's language for the player (nullptr clears it). Not saved.
+// A plugin's language for the player (nullptr clears it). Not saved. Setting one clears the
+// player's `.lang` choice: the platform's site language wins, `.lang` lasts until it comes again.
 void SetFromPlugin(uint64_t steamid64, const Language* lang);
+// A plugin (the platform, through fleet) set a language for the player.
+bool HasPluginLanguage(uint64_t steamid64);
 
 }  // namespace readyup::lang

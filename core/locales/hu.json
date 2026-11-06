@@ -1,6 +1,7 @@
 {
   "lang.current": "A nyelved: {language}. Módosítás: .lang <kód> ({codes}) vagy .lang reset.",
   "lang.set": "A nyelv mostantól: {language}.",
+  "lang.set_temporary": "A nyelv a következő meccsedig: {language}. Ha meg akarod tartani, állítsd be az oldalon.",
   "lang.reset": "Vissza az alapértelmezett nyelvre: {language}.",
   "lang.unknown": "Ismeretlen nyelv: „{name}”. Válassz ezek közül: {codes}"
 }
