@@ -1,0 +1,22 @@
+{
+  "prefix": "ไวต์ลิสต์ Ready Up:",
+  "help_on_off": ".ru whitelist on|off: เตะทุกคนที่ไม่อยู่ในรายชื่อ (แอดมินและบอตอยู่ต่อได้ ไม่ทำงานระหว่างแมตช์)",
+  "help_add_remove": ".ru whitelist add|remove <steamid64>",
+  "help_list_clear": ".ru whitelist list | clear",
+  "not_authorized": "ไม่มีสิทธิ์",
+  "turned_on_other": "เปิด (มีผู้เล่น {count} คนในรายชื่อ)",
+  "turned_off_other": "ปิด (มีผู้เล่น {count} คนในรายชื่อ)",
+  "usage": "วิธีใช้: .ru whitelist {sub} <steamid64>",
+  "added": "เพิ่ม {id} แล้ว",
+  "removed": "ลบ {id} แล้ว",
+  "no_change": "{id} ไม่มีการเปลี่ยนแปลง",
+  "cleared": "ล้างรายชื่อแล้ว",
+  "list_on_empty": "เปิด ไม่มีใครในรายชื่อ",
+  "list_off_empty": "ปิด ไม่มีใครในรายชื่อ",
+  "list_on_other": "เปิด ผู้เล่น {count} คน: {ids}",
+  "list_off_other": "ปิด ผู้เล่น {count} คน: {ids}",
+  "guests_other": "แขก {count} คนที่ปลั๊กอินอื่นให้เข้า ({owners})",
+  "unknown": "ไม่รู้จักคำสั่งนี้ พิมพ์ .ru help whitelist เพื่อดูรายการ",
+  "save_failed": "บันทึก {path} ไม่ได้",
+  "kick_reason": "คุณไม่อยู่ในไวต์ลิสต์ของเซิร์ฟเวอร์นี้"
+}

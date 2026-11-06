@@ -1,0 +1,6 @@
+{
+  "lang.current": "Bahasa Anda: {language}. Ganti dengan .lang <kode> ({codes}) atau .lang reset.",
+  "lang.set": "Bahasa diatur ke {language}.",
+  "lang.reset": "Kembali ke bahasa bawaan: {language}.",
+  "lang.unknown": "Bahasa \"{name}\" tidak dikenal. Pilih salah satu: {codes}"
+}

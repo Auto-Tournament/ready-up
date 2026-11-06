@@ -1,0 +1,22 @@
+{
+  "prefix": "Daftar putih Ready Up:",
+  "help_on_off": ".ru whitelist on|off: mengeluarkan semua yang tidak ada di daftar (admin dan bot tetap; tidak saat pertandingan)",
+  "help_add_remove": ".ru whitelist add|remove <steamid64>",
+  "help_list_clear": ".ru whitelist list | clear",
+  "not_authorized": "tidak punya izin",
+  "turned_on_other": "aktif ({count} pemain di daftar)",
+  "turned_off_other": "nonaktif ({count} pemain di daftar)",
+  "usage": "cara pakai: .ru whitelist {sub} <steamid64>",
+  "added": "{id} ditambahkan",
+  "removed": "{id} dihapus",
+  "no_change": "tidak ada perubahan untuk {id}",
+  "cleared": "daftar dikosongkan",
+  "list_on_empty": "aktif, daftar kosong",
+  "list_off_empty": "nonaktif, daftar kosong",
+  "list_on_other": "aktif, {count} pemain: {ids}",
+  "list_off_other": "nonaktif, {count} pemain: {ids}",
+  "guests_other": "{count} tamu yang diizinkan plugin lain ({owners})",
+  "unknown": "perintah tidak dikenal. Ketik .ru help whitelist untuk daftarnya.",
+  "save_failed": "gagal menyimpan {path}",
+  "kick_reason": "Anda tidak ada di daftar putih server ini"
+}

@@ -1,0 +1,6 @@
+{
+  "lang.current": "ภาษาของคุณ: {language} เปลี่ยนด้วย .lang <รหัส> ({codes}) หรือ .lang reset",
+  "lang.set": "ตั้งภาษาเป็น {language} แล้ว",
+  "lang.reset": "กลับไปใช้ภาษาเริ่มต้น: {language}",
+  "lang.unknown": "ไม่รู้จักภาษา \"{name}\" เลือกจาก: {codes}"
+}
