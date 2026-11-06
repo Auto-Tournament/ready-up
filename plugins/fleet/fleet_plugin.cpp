@@ -541,7 +541,7 @@ void OnServerConfig(const std::string& payload) {
 }
 
 // The players' site language for Ready Up's text (match.defs.json $defs/language): on each
-// player of match.assign's team1/team2 and on match.update's add_player op. A player's own
+// player of match.assign's team1/team2 and on match.update's add_player and set_language ops. A player's own
 // `.lang` still wins; no field leaves them on the server's language. Needs core API 1.19.
 void SetLanguage(const fleet::json::Value& player) {
   const fleet::json::Value* sid = player.Get("steamid64");
@@ -570,7 +570,8 @@ void OnPlayerLanguages(const std::string& type, const std::string& payload) {
   const fleet::json::Value* ops = v.Get("ops");
   if (!ops || !ops->IsArr()) return;
   for (const auto& op : ops->a) {
-    if (op.IsObj() && op.Get("op") && op.Get("op")->AsStr() == "add_player") SetLanguage(op);
+    const fleet::json::Value* kind = op.IsObj() ? op.Get("op") : nullptr;
+    if (kind && (kind->AsStr() == "add_player" || kind->AsStr() == "set_language")) SetLanguage(op);
   }
 }
 
