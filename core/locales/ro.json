@@ -1,0 +1,6 @@
+{
+  "lang.current": "Limba ta: {language}. Schimb-o cu .lang <cod> ({codes}) sau .lang reset.",
+  "lang.set": "Limba a fost setată la {language}.",
+  "lang.reset": "Înapoi la limba implicită: {language}.",
+  "lang.unknown": "Limbă necunoscută „{name}”. Alege una dintre: {codes}"
+}
