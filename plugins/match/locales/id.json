@@ -437,7 +437,7 @@
   "restore.restored_live": "ronde {round} dipulihkan oleh {by}. Live dalam 3 detik.",
   "restore.restored_paused": "ronde {round} dipulihkan oleh {by}. Pertandingan dijeda; ketik .unpause kalau sudah siap.",
   "dmg.line": "Diberikan: {given} dalam {given_hits} | Diterima: {taken} dalam {taken_hits} — {name} ({hp} HP)",
-  "dmg.in": "{dmg} · {hits}×",
+  "dmg.in": "{dmg} / {hits}",
   "dmg.dead": "MATI",
   "dmg.col_given": "DIBERIKAN",
   "dmg.col_taken": "DITERIMA",

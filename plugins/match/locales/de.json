@@ -445,7 +445,7 @@
   "restore.restored_live": "Runde {round} von {by} wiederhergestellt. Live in 3 Sekunden.",
   "restore.restored_paused": "Runde {round} von {by} wiederhergestellt. Das Match ist pausiert; tippt .unpause, wenn ihr bereit seid.",
   "dmg.line": "Ausgeteilt: {given} in {given_hits} | Erhalten: {taken} in {taken_hits} — {name} ({hp} HP)",
-  "dmg.in": "{dmg} · {hits}×",
+  "dmg.in": "{dmg} / {hits}",
   "dmg.dead": "TOT",
   "dmg.col_given": "AUSGETEILT",
   "dmg.col_taken": "ERHALTEN",

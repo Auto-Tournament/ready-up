@@ -445,7 +445,7 @@
   "restore.restored_live": "manche {round} restaurée par {by}. En direct dans 3 secondes.",
   "restore.restored_paused": "manche {round} restaurée par {by}. Le match est en pause ; tapez .unpause quand vous êtes prêts.",
   "dmg.line": "Infligés : {given} en {given_hits} | Reçus : {taken} en {taken_hits} — {name} ({hp} PV)",
-  "dmg.in": "{dmg} · {hits}×",
+  "dmg.in": "{dmg} / {hits}",
   "dmg.dead": "MORT",
   "dmg.col_given": "INFLIGÉS",
   "dmg.col_taken": "REÇUS",

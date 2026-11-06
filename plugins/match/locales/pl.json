@@ -458,7 +458,7 @@
   "restore.restored_live": "runda {round} przywrócona przez {by}. Start za 3 sekundy.",
   "restore.restored_paused": "runda {round} przywrócona przez {by}. Mecz jest wstrzymany; wpiszcie .unpause, gdy będziecie gotowi.",
   "dmg.line": "Zadane: {given} w {given_hits} | Otrzymane: {taken} w {taken_hits} — {name} ({hp} HP)",
-  "dmg.in": "{dmg} · {hits}×",
+  "dmg.in": "{dmg} / {hits}",
   "dmg.dead": "MARTWY",
   "dmg.col_given": "ZADANE",
   "dmg.col_taken": "OTRZYMANE",

@@ -458,7 +458,7 @@
   "restore.restored_live": "runda {round} a fost restaurată de {by}. Live în 3 secunde.",
   "restore.restored_paused": "runda {round} a fost restaurată de {by}. Meciul e pe pauză; scrieți .unpause când sunteți gata.",
   "dmg.line": "Dat: {given} în {given_hits} | Primit: {taken} în {taken_hits} — {name} ({hp} HP)",
-  "dmg.in": "{dmg} · {hits}×",
+  "dmg.in": "{dmg} / {hits}",
   "dmg.dead": "MORT",
   "dmg.col_given": "DAT",
   "dmg.col_taken": "PRIMIT",

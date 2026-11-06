@@ -445,7 +445,7 @@
   "restore.restored_live": "{by} palautti kierroksen {round}. Live 3 sekunnin päästä.",
   "restore.restored_paused": "{by} palautti kierroksen {round}. Ottelu on tauolla; kirjoita .unpause, kun olette valmiita.",
   "dmg.line": "Annettu: {given}, osumia {given_hits} | Otettu: {taken}, osumia {taken_hits} — {name} ({hp} hp)",
-  "dmg.in": "{dmg} · {hits}×",
+  "dmg.in": "{dmg} / {hits}",
   "dmg.dead": "KUOLLUT",
   "dmg.col_given": "ANNETTU",
   "dmg.col_taken": "OTETTU",

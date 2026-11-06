@@ -445,7 +445,7 @@
   "restore.restored_live": "runda {round} återställd av {by}. Live om 3 sekunder.",
   "restore.restored_paused": "runda {round} återställd av {by}. Matchen är pausad; skriv .unpause när ni är redo.",
   "dmg.line": "Gett: {given} på {given_hits} | Tagit: {taken} på {taken_hits} – {name} ({hp} hp)",
-  "dmg.in": "{dmg} · {hits}×",
+  "dmg.in": "{dmg} / {hits}",
   "dmg.dead": "DÖD",
   "dmg.col_given": "GETT",
   "dmg.col_taken": "TAGIT",
