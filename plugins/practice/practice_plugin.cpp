@@ -329,8 +329,6 @@ bool Teleport(int slot, const Vec3& p) {
   return g_api->entity_set_abs_origin(g_api->self, pawn, xyz) == 1;
 }
 
-constexpr const char* kNoTeleport =
-    "cannot move you: teleport is unavailable on this server build (ru selftest: CBaseEntity::SetAbsOrigin).";
 
 std::string Fmt(const Vec3& p) {
   char buf[96];
@@ -456,7 +454,6 @@ uint64_t PlayerId(int slot, uint64_t steamid64) { return steamid64 ? steamid64 :
 
 void Cmd(const char* c) { g_api->server_command(g_api->self, c); }
 void Cmd(const std::string& c) { Cmd(c.c_str()); }
-void ChatAll(const std::string& msg) { g_api->chat_all(g_api->self, msg.c_str(), 0); }
 
 // Player-facing text (plugins/practice/locales) in the player's language.
 readyup::i18n::Catalog g_text;
@@ -472,6 +469,16 @@ void Reply(int slot, uint64_t steamid64, const std::string& msg) {
 }
 void ReplyKey(int slot, uint64_t steamid64, const char* key, const readyup::i18n::Args& args = {}) {
   Reply(slot, steamid64, T(slot, key, args));
+}
+practice::Tr TrFor(const std::string& lang) {
+  return [lang](const char* key, const readyup::i18n::Args& args) { return g_text.Tr(lang, key, args); };
+}
+// One line to everyone, built per language by `text`.
+void ChatAllText(const std::function<std::string(const practice::Tr&)>& text) {
+  readyup::i18n::ChatAll(g_api, 0, [&](const std::string& lang) { return text(TrFor(lang)); });
+}
+void NotAuthorized(int slot) {
+  if (slot >= 0) g_api->chat_to_slot(g_api->self, slot, (" \x04[ReadyUp]\x01 " + T(slot, "prac.not_authorized")).c_str());
 }
 
 void ClearState(bool restorePawns) {
@@ -518,10 +525,7 @@ bool g_homeCvarsApplied = false;
 bool Enter(const char** why) {
   if (MatchOwnsMode()) {
     if (Match()->set_practice(1) != 1) {
-      if (why) {
-        *why = RuMode() == "external" ? "another plugin's mode is on (deathmatch: .ru dm off first)"
-                                      : "a match is loaded (.ru match end first)";
-      }
+      if (why) *why = RuMode() == "external" ? "prac.why_external" : "prac.why_match";  // locales keys
       return false;
     }
   } else {
@@ -595,13 +599,14 @@ void StartDryRun() {
   ChatAllKey("dryrun.started");
 }
 
-void EndDryRun(const char* why) {
+// `key`: dryrun.stopped or dryrun.round_over.
+void EndDryRun(const char* key) {
   g_dryRun = g_dryArmed = false;
   g_toggles = Toggles{};
   Cmd("exec ReadyUp/prac.cfg");
   Cmd("mp_restartgame 1");
-  Log("practice: dry run over (%s)", why);
-  ChatAll(std::string("Ready Up: ") + why + ": back to practice.");
+  Log("practice: dry run over (%s)", key);
+  ChatAllKey(key);
 }
 
 // ---- tools --------------------------------------------------------------------------------------
@@ -665,20 +670,19 @@ bool TeleportRemembering(int slot, uint64_t id, const Vec3& to, const Vec3f* ang
 }
 
 // Refusal reply, or "" when tools may run.
-std::string ToolsRefusal() {
-  if (!IsActive()) return "only works in practice mode (.prac).";
-  if (!ToolsAllowed(true, Ruleset())) return "not available under the valve ruleset.";
+std::string ToolsRefusal(int slot) {
+  if (!IsActive()) return T(slot, "tools.only_practice");
+  if (!ToolsAllowed(true, Ruleset())) return T(slot, "tools.valve");
   return {};
 }
 
 // Without player_teleport (a build where the practice gamedata did not verify) the server cannot set
 // the view: tell them the setang to type (sv_cheats is on in practice).
-std::string AngleHint(const Vec3f& a) {
-  if (g_viewSet) return ".";
-  if (!std::isfinite(a.x) || !std::isfinite(a.y) || (a.x == 0 && a.y == 0)) return ".";
-  char buf[96];
-  std::snprintf(buf, sizeof(buf), " (view: setang %.2f %.2f 0 in your console).", a.x, a.y);
-  return buf;
+std::string AngleHint(int slot, const Vec3f& a) {
+  if (g_viewSet || !std::isfinite(a.x) || !std::isfinite(a.y) || (a.x == 0 && a.y == 0)) return T(slot, "angle.none");
+  char buf[64];
+  std::snprintf(buf, sizeof(buf), "setang %.2f %.2f 0", a.x, a.y);
+  return T(slot, "angle.hint", {{"setang", buf}});
 }
 
 // ---- per-player rethrow ---------------------------------------------------------------------------
@@ -704,13 +708,12 @@ std::string KindText(int slot, const Throw& t) {
 }
 
 // "" when `t` can be thrown again, else why not.
-std::string RethrowRefusal(const Throw& t) {
-  if (!t.launch.set) return "its launch was not recorded (the projectile was not seen)";
+std::string RethrowRefusal(const Throw& t, int slot) {
+  if (!t.launch.set) return T(slot, "rethrow.why_unseen");
   const uint32_t type = SpawnTypeOf(t);
   if (!type || !RU_API_HAS(g_api, grenade_spawn_available) || !g_api->grenade_spawn ||
       !g_api->grenade_spawn_available(g_api->self, type)) {
-    return std::string(t.kind == "molotov" && t.launch.incendiary ? "spawning an " : "spawning a ") + KindName(t) +
-           " is not available on this CS2 build";
+    return T(slot, "rethrow.why_unsupported", {{"kind", KindText(slot, t)}});
   }
   return {};
 }
@@ -718,7 +721,7 @@ std::string RethrowRefusal(const Throw& t) {
 // Throws `t` again from its recorded launch, `slot` as the thrower (kills, damage, blinds and the
 // team are theirs; nobody's when they have no pawn any more). True when the projectile exists.
 bool SpawnThrow(const Throw& t, int slot) {
-  if (!RethrowRefusal(t).empty()) return false;
+  if (!RethrowRefusal(t, slot).empty()) return false;
   ru_grenade_spawn s{};
   s.struct_size = sizeof(s);
   s.type = SpawnTypeOf(t);
@@ -743,7 +746,7 @@ bool SpawnThrow(const Throw& t, int slot) {
 // Throws `t` (`what`: "your last smoke", "grenade no. 3") now, or after its .delay. False (and the
 // reply said why) when it cannot be.
 bool Rethrow(int slot, uint64_t steamid64, const Throw& t, const std::string& what) {
-  if (const std::string why = RethrowRefusal(t); !why.empty()) {
+  if (const std::string why = RethrowRefusal(t, slot); !why.empty()) {
     ReplyKey(slot, steamid64, "rethrow.cannot", {{"what", what}, {"why", why}});
     return false;
   }
@@ -767,7 +770,6 @@ bool Rethrow(int slot, uint64_t steamid64, const Throw& t, const std::string& wh
 
 // The old server-wide rethrow, for a throw whose launch is unknown or whose type cannot be spawned.
 void ServerRethrow(int slot, uint64_t steamid64, float delay, const std::string& why) {
-  const std::string note = "per-player rethrow unavailable (" + why + "), so rethrowing the last grenade thrown on the server";
   g_serverRethrowUntil = Now() + delay + 1.0;
   if (delay > 0) {
     DelayedCmd d;
@@ -775,10 +777,10 @@ void ServerRethrow(int slot, uint64_t steamid64, float delay, const std::string&
     d.cmd = "sv_rethrow_last_grenade";
     g_delayed.push_back(std::move(d));
     g_touched = true;
-    return Reply(slot, steamid64, note + " in " + FormatTimerSeconds(delay) + "s.");
+    return ReplyKey(slot, steamid64, "rethrow.server_in", {{"why", why}, {"seconds", FormatTimerSeconds(delay)}});
   }
   Cmd("sv_rethrow_last_grenade");
-  Reply(slot, steamid64, note + ".");
+  ReplyKey(slot, steamid64, "rethrow.server_now", {{"why", why}});
 }
 
 // ---- projectiles -> launch data in the history ------------------------------------------------------
@@ -922,7 +924,7 @@ bool RunHistoryTool(int slot, uint64_t steamid64, uint64_t id, const std::string
     const Throw* t = h ? h->Last() : nullptr;
     if (!t) return ReplyKey(slot, steamid64, "nade.none"), true;
     if (!TeleportRemembering(slot, id, Vec3{t->pos.x, t->pos.y, t->pos.z}, &t->ang)) return ReplyKey(slot, steamid64, "tp.unavailable"), true;
-    Reply(slot, steamid64, T(slot, "nade.teleported_last") + AngleHint(t->ang));
+    Reply(slot, steamid64, T(slot, "nade.teleported_last") + AngleHint(slot, t->ang));
     return true;
   }
   if (cmd == ".lastindex") {
@@ -1338,7 +1340,6 @@ bool RunLineupTool(int slot, uint64_t steamid64, uint64_t id, const std::string&
   LineupBook& book = Lineups();
   const std::string mine = OwnerKey(id);
   const std::string arg1 = args.size() > 1 ? args[1] : std::string();
-  constexpr const char* kBadName = "lineup names are 1-32 letters, digits, _ - or .";
 
   if (save) {
     if (arg1.empty()) return Reply(slot, steamid64, T(slot, "lineup.save_usage")), true;
@@ -1369,7 +1370,7 @@ bool RunLineupTool(int slot, uint64_t steamid64, uint64_t id, const std::string&
       return ReplyKey(slot, steamid64, "tp.unavailable"), true;
     }
     Reply(slot, steamid64, T(slot, copy.kind.empty() ? "lineup.loaded" : "lineup.loaded_kind", {{"name", copy.name}, {"kind", copy.kind}}) +
-                               AngleHint(copy.ang) + (copy.kind.empty() ? "" : " " + T(slot, "lineup.take_kind", {{"kind", copy.kind}})));
+                               AngleHint(slot, copy.ang) + (copy.kind.empty() ? "" : " " + T(slot, "lineup.take_kind", {{"kind", copy.kind}})));
     if (!copy.desc.empty()) ReplyKey(slot, steamid64, "lineup.description", {{"text", copy.desc}});
     return true;
   }
@@ -1413,7 +1414,7 @@ bool RunLineupTool(int slot, uint64_t steamid64, uint64_t id, const std::string&
 
 void RunTool(int slot, uint64_t steamid64, const std::vector<std::string>& args) {
   const std::string cmd = Lower(args[0]);
-  if (const std::string why = ToolsRefusal(); !why.empty()) return Reply(slot, steamid64, cmd + " " + why);
+  if (const std::string why = ToolsRefusal(slot); !why.empty()) return Reply(slot, steamid64, cmd + " " + why);
   const uint64_t id = PlayerId(slot, steamid64);
   const std::string name = args.size() > 1 ? args[1].substr(0, 32) : std::string("default");
 
@@ -1421,7 +1422,7 @@ void RunTool(int slot, uint64_t steamid64, const std::vector<std::string>& args)
     auto h = g_throws.find(id);
     const Throw* t = h != g_throws.end() ? h->second.Last() : nullptr;
     if (!t) return ReplyKey(slot, steamid64, "nade.none");
-    if (const std::string why = RethrowRefusal(*t); !why.empty()) return ServerRethrow(slot, steamid64, t->delay, why);
+    if (const std::string why = RethrowRefusal(*t, slot); !why.empty()) return ServerRethrow(slot, steamid64, t->delay, why);
     (void)Rethrow(slot, steamid64, *t, T(slot, "nade.what_last", {{"kind", KindText(slot, *t)}}));
     return;
   }
@@ -1469,7 +1470,7 @@ void RunTool(int slot, uint64_t steamid64, const std::vector<std::string>& args)
     const Throw* t = h->At(n);
     if (!t) return ReplyKey(slot, steamid64, "nade.history_range", {{"count", std::to_string(h->Count())}});
     if (!TeleportRemembering(slot, id, Vec3{t->pos.x, t->pos.y, t->pos.z}, &t->ang)) return ReplyKey(slot, steamid64, "tp.unavailable");
-    return Reply(slot, steamid64, T(slot, "back.teleported_history", {{"n", std::to_string(n)}, {"total", std::to_string(h->Count())}}) + AngleHint(t->ang));
+    return Reply(slot, steamid64, T(slot, "back.teleported_history", {{"n", std::to_string(n)}, {"total", std::to_string(h->Count())}}) + AngleHint(slot, t->ang));
   }
   if (cmd == ".back") {
     const Spot* s = nullptr;
@@ -1532,7 +1533,7 @@ void RunTool(int slot, uint64_t steamid64, const std::vector<std::string>& args)
 }
 
 void RunBot(int slot, uint64_t steamid64, const std::string& cmd) {
-  if (const std::string why = ToolsRefusal(); !why.empty()) return Reply(slot, steamid64, cmd + " " + why);
+  if (const std::string why = ToolsRefusal(slot); !why.empty()) return Reply(slot, steamid64, cmd + " " + why);
   if (cmd == ".nobots") {
     Cmd("bot_kick");
     g_pendingBots.clear();
@@ -1739,48 +1740,49 @@ void OnToolChat(void*, const ru_command_ctx* c) {
   else RunTool(slot, c->steamid64, args);
 }
 
-bool Toggle(bool on, std::string* reply) {
+// `reply(tr)`: what happened, in tr's language.
+bool Toggle(bool on, std::function<std::string(const Tr&)>* reply) {
+  const char* key = "";
+  const char* why = "";
+  bool ok = true;
   if (on == IsActive()) {
-    *reply = on ? "practice mode is already on." : "practice mode is already off.";
-    return true;
-  }
-  if (!on) {
+    key = on ? "prac.already_on" : "prac.already_off";
+  } else if (!on) {
     g_manualOff = true;
     Leave();
-    *reply = "practice mode disabled.";
-    return true;
+    key = "prac.disabled";
+  } else if (!Enter(&why)) {
+    key = "prac.refused";
+    ok = false;
+  } else {
+    key = "prac.enabled";
   }
-  const char* why = "";
-  if (!Enter(&why)) {
-    *reply = std::string("practice mode refused: ") + why + ".";
-    return false;
-  }
-  *reply = "practice mode enabled.";
-  return true;
+  *reply = [key, why](const Tr& tr) { return tr(key, *why ? readyup::i18n::Args{{"why", tr(why, {})}} : readyup::i18n::Args{}); };
+  return ok;
 }
+std::string English(const std::function<std::string(const Tr&)>& text) { return text(TrFor("en")); }
 
 void OnPracChat(void*, const ru_command_ctx* c) {
   const int slot = SenderSlot(c);
   if (g_api->is_admin(g_api->self, c->steamid64) != 1) {
-    if (slot >= 0) g_api->chat_to_slot(g_api->self, slot, " \x04[ReadyUp]\x01 not authorized");
-    return;
+    return NotAuthorized(slot);
   }
-  if (g_dryRun && IsActive()) return EndDryRun("dry run stopped");  // ME: .prac during a dry run = practice again
-  std::string reply;
+  if (g_dryRun && IsActive()) return EndDryRun("dryrun.stopped");  // ME: .prac during a dry run = practice again
+  std::function<std::string(const Tr&)> reply;
   (void)Toggle(!IsActive(), &reply);
-  ChatAll("Ready Up: " + reply);
+  ChatAllText([&](const Tr& tr) { return "Ready Up: " + reply(tr); });
 }
 
 // `.dry` / `.dryrun` (ME, admin): a normal round inside practice; again = back to practice.
 void OnDryChat(void*, const ru_command_ctx* c) {
   const int slot = SenderSlot(c);
-  auto reply = [&](const std::string& m) {
-    if (slot >= 0) g_api->chat_to_slot(g_api->self, slot, (" \x04[ReadyUp]\x01 " + m).c_str());
+  auto reply = [&](const char* key) {
+    if (slot >= 0) g_api->chat_to_slot(g_api->self, slot, (" \x04[ReadyUp]\x01 " + T(slot, key)).c_str());
   };
-  if (g_api->is_admin(g_api->self, c->steamid64) != 1) return reply("not authorized");
-  if (!IsActive()) return reply("Dryrun can only be started in practice mode!");
-  if (!ToolsAllowed(true, Ruleset())) return reply("not available under the valve ruleset.");
-  if (g_dryRun) return EndDryRun("dry run stopped");
+  if (g_api->is_admin(g_api->self, c->steamid64) != 1) return reply("prac.not_authorized");
+  if (!IsActive()) return reply("dryrun.only_practice");
+  if (!ToolsAllowed(true, Ruleset())) return reply("tools.valve");
+  if (g_dryRun) return EndDryRun("dryrun.stopped");
   StartDryRun();
 }
 
@@ -1788,16 +1790,13 @@ void OnDryChat(void*, const ru_command_ctx* c) {
 void OnGlobalNadesChat(void*, const ru_command_ctx* c) {
   const int slot = SenderSlot(c);
   if (g_api->is_admin(g_api->self, c->steamid64) != 1) {
-    if (slot >= 0) g_api->chat_to_slot(g_api->self, slot, " \x04[ReadyUp]\x01 not authorized");
-    return;
+    return NotAuthorized(slot);
   }
   g_globalNades = !g_globalNades;
   Log("practice: .globalnades %s", g_globalNades ? "on" : "off");
   if (slot >= 0) {
     g_api->chat_to_slot(g_api->self, slot,
-                        (std::string(" \x04[ReadyUp]\x01 Saving/Loading Lineups Globally is now ") +
-                         (g_globalNades ? "Enabled" : "Disabled") + "!")
-                            .c_str());
+                        (" \x04[ReadyUp]\x01 " + T(slot, g_globalNades ? "lineup.global_on" : "lineup.global_off")).c_str());
   }
 }
 
@@ -1805,12 +1804,11 @@ void OnGlobalNadesChat(void*, const ru_command_ctx* c) {
 void OnExitPracChat(void*, const ru_command_ctx* c) {
   const int slot = SenderSlot(c);
   if (g_api->is_admin(g_api->self, c->steamid64) != 1) {
-    if (slot >= 0) g_api->chat_to_slot(g_api->self, slot, " \x04[ReadyUp]\x01 not authorized");
-    return;
+    return NotAuthorized(slot);
   }
-  std::string reply;
+  std::function<std::string(const Tr&)> reply;
   (void)Toggle(false, &reply);
-  ChatAll("Ready Up: " + reply);
+  ChatAllText([&](const Tr& tr) { return "Ready Up: " + reply(tr); });
 }
 
 // `.match` (Get5 / MatchZy name for leaving practice): the same as `.exitprac` while practice is on,
@@ -1842,14 +1840,14 @@ void OnRu(void*, const ru_command_ctx* c) {
   }
   if (!c->is_console && g_api->is_admin(g_api->self, c->steamid64) != 1) return reply("not authorized");
   if (sub == "on" || sub == "off") {
-    std::string r;
+    std::function<std::string(const Tr&)> r;
     (void)Toggle(sub == "on", &r);
-    return reply(r);
+    return reply(English(r));
   }
   if (sub == "dryrun") {
     if (!IsActive()) return reply("Dryrun can only be started in practice mode!");
     if (g_dryRun) {
-      EndDryRun("dry run stopped");
+      EndDryRun("dryrun.stopped");
       return reply("dry run stopped.");
     }
     StartDryRun();
@@ -1908,8 +1906,9 @@ void FeedbackHurt(const ru_game_event* ev) {
     g_grenadeDamage.Add(Now(), an, weapon, vn, dmg);
     return;
   }
-  ChatAll(FormatHit(an, vn, dmg, a->ev_get_int(a->self, ev, "dmg_armor", 0), a->ev_get_int(a->self, ev, "hitgroup", 0),
-                    weapon, a->ev_get_int(a->self, ev, "health", 0)));
+  const int armor = a->ev_get_int(a->self, ev, "dmg_armor", 0), group = a->ev_get_int(a->self, ev, "hitgroup", 0);
+  const int left = a->ev_get_int(a->self, ev, "health", 0);
+  ChatAllText([&](const Tr& tr) { return FormatHit(tr, an, vn, dmg, armor, group, weapon, left); });
 }
 
 void FeedbackBlind(const ru_game_event* ev) {
@@ -1917,7 +1916,8 @@ void FeedbackBlind(const ru_game_event* ev) {
   const int victim = a->ev_get_player_slot(a->self, ev, "userid");
   const double secs = a->ev_get_float(a->self, ev, "blind_duration", 0.0);
   if (victim < 0 || secs < 0.1) return;
-  ChatAll(FormatBlind(NameOfSlot(victim), NameOfSlot(a->ev_get_player_slot(a->self, ev, "attacker")), secs));
+  const std::string vn = NameOfSlot(victim), an = NameOfSlot(a->ev_get_player_slot(a->self, ev, "attacker"));
+  ChatAllText([&](const Tr& tr) { return FormatBlind(tr, vn, an, secs); });
 }
 
 // ---- engine callbacks ---------------------------------------------------------------------------
@@ -1947,7 +1947,7 @@ void OnGameEvent(void*, const char* evName, const ru_game_event* ev) {
   } else if (std::strcmp(evName, "round_freeze_end") == 0) {
     if (g_dryRun) g_dryArmed = true;
   } else if (std::strcmp(evName, "round_end") == 0) {
-    if (g_dryRun && g_dryArmed) EndDryRun("the dry run round is over");
+    if (g_dryRun && g_dryArmed) EndDryRun("dryrun.round_over");
   } else if (std::strcmp(evName, "player_hurt") == 0) {
     if (FeedbackOn()) FeedbackHurt(ev);
   } else if (std::strcmp(evName, "player_blind") == 0) {
@@ -2149,8 +2149,10 @@ void OnMenuClick(void*, int slot, const char* command) {
     MenuClose(slot);
     if (i < 0 || i >= static_cast<int>(list.size())) return;
     const Lineup l = list[static_cast<size_t>(i)].second;
-    if (!TeleportRemembering(slot, sid, Vec3{l.pos.x, l.pos.y, l.pos.z}, &l.ang)) return Reply(slot, sid, kNoTeleport);
-    Reply(slot, sid, (l.title.empty() ? l.name : l.title) + (l.kind.empty() ? "" : ": take your " + l.kind) + "." + (l.desc.empty() ? "" : " " + l.desc));
+    if (!TeleportRemembering(slot, sid, Vec3{l.pos.x, l.pos.y, l.pos.z}, &l.ang)) return ReplyKey(slot, sid, "tp.unavailable");
+    const std::string title = l.title.empty() ? l.name : l.title;
+    Reply(slot, sid, (l.kind.empty() ? T(slot, "menu.lineup", {{"title", title}}) : T(slot, "menu.lineup_kind", {{"title", title}, {"kind", l.kind}})) +
+                         (l.desc.empty() ? "" : " " + l.desc));
     return;
   }
   if (c.empty() || c[0] != '.') return;
@@ -2213,7 +2215,7 @@ void OnTick(void*, const ru_tick_info* t) {
     }
     return;
   }
-  for (const auto& l : g_grenadeDamage.Flush(t->now, 1.0)) ChatAll(l);
+  for (const auto& g : g_grenadeDamage.Flush(t->now, 1.0)) ChatAllText([&](const Tr& tr) { return FormatGrenadeSum(tr, g); });
   if (!g_delayed.empty()) {
     const double now = Now();
     std::vector<DelayedCmd> due;
@@ -2266,7 +2268,7 @@ void OnTick(void*, const ru_tick_info* t) {
 
 int IfaceActive() { return IsActive() ? 1 : 0; }
 int IfaceSetActive(int on, const char** why) {
-  std::string r;
+  std::function<std::string(const Tr&)> r;
   const bool ok = Toggle(on != 0, &r);
   if (!ok && why) {
     *why = RuMode() == "external" ? "another plugin's mode is on (deathmatch: .ru dm off first)"
@@ -2394,7 +2396,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   api->provide_interface(api->self, RU_PRACTICE_IFACE_NAME, RU_PRACTICE_IFACE_VERSION, const_cast<ru_practice_v1*>(&g_iface));
   api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "practice", RU_SELFTEST_IFACE_VERSION,
                          const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
-  scenarios::Load(api, {[] { return IsActive(); }, [] { return ToolsRefusal(); },
+  scenarios::Load(api, {[] { return IsActive(); }, [] { return ToolsRefusal(-1); },
                         [](void* e) { g_projSeen.insert(g_api->entity_handle_of(g_api->self, e)); }});
   ru_logf(api, RU_LOG_INFO, "loaded " PRACTICE_VERSION);
   return 0;

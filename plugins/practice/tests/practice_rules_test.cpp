@@ -45,14 +45,24 @@ int main() {
 
   CHECK(ParseBool("1", false) && !ParseBool("off", true) && ParseBool("?", true));
 
-  // Feedback lines.
-  CHECK(std::string(HitgroupName(1)) == "head" && std::string(HitgroupName(0)).empty());
-  CHECK(FormatHit("Simpert", "Bot Adam", 27, 8, 1, "ak47", 73) ==
+  // Feedback lines, in English (locales/en.json).
+  readyup::i18n::Catalog cat;
+  {
+    std::ifstream f(PRACTICE_LOCALE_DIR "/en.json");
+    std::stringstream ss;
+    ss << f.rdbuf();
+    const std::string json = ss.str();
+    const readyup::i18n::Locale en{"en", json.c_str()};
+    CHECK(cat.Load(&en, 1).empty());
+  }
+  const Tr tr = [&](const char* key, const readyup::i18n::Args& args) { return cat.Tr("en", key, args); };
+  CHECK(std::string(HitgroupKey(1)) == "hitgroup.head" && std::string(HitgroupKey(0)).empty());
+  CHECK(FormatHit(tr, "Simpert", "Bot Adam", 27, 8, 1, "ak47", 73) ==
         "Simpert hit Bot Adam: -27 hp, -8 armor (head, ak47), 73 hp left");
-  CHECK(FormatHit("", "Simpert", 12, 0, 0, "", 88) == "Simpert took -12 hp, 88 hp left");
-  CHECK(FormatHit("Simpert", "Simpert", 40, 0, 0, "hegrenade", 60) == "Simpert took -40 hp (hegrenade), 60 hp left");
-  CHECK(FormatBlind("Bot Adam", "Simpert", 2.44) == "Bot Adam flashed 2.4 s by Simpert");
-  CHECK(FormatBlind("Simpert", "Simpert", 1.0) == "Simpert flashed 1.0 s by themselves");
+  CHECK(FormatHit(tr, "", "Simpert", 12, 0, 0, "", 88) == "Simpert took -12 hp, 88 hp left");
+  CHECK(FormatHit(tr, "Simpert", "Simpert", 40, 0, 0, "hegrenade", 60) == "Simpert took -40 hp (hegrenade), 60 hp left");
+  CHECK(FormatBlind(tr, "Bot Adam", "Simpert", 2.44) == "Bot Adam flashed 2.4 s by Simpert");
+  CHECK(FormatBlind(tr, "Simpert", "Simpert", 1.0) == "Simpert flashed 1.0 s by themselves");
   CHECK(IsSummedWeapon("hegrenade") && IsSummedWeapon("inferno") && !IsSummedWeapon("ak47"));
 
   GrenadeDamage gd;
@@ -61,10 +71,10 @@ int main() {
   gd.Add(10.4, "Simpert", "hegrenade", "Bot Ben", 41);
   gd.Add(10.4, "Simpert", "hegrenade", "Bot Adam", 57);
   CHECK(gd.Flush(10.9, 1.0).empty());  // still burning / just exploded
-  const auto lines = gd.Flush(11.5, 1.0);
-  CHECK(lines.size() == 2);
-  CHECK(lines.size() == 2 && lines[0] == "HE by Simpert: 98 total (Bot Adam -57, Bot Ben -41)");
-  CHECK(lines.size() == 2 && lines[1] == "Fire by Simpert: 16 total (Bot Adam -16)");
+  const auto sums = gd.Flush(11.5, 1.0);
+  CHECK(sums.size() == 2);
+  CHECK(sums.size() == 2 && FormatGrenadeSum(tr, sums[0]) == "HE by Simpert: 98 total (Bot Adam -57, Bot Ben -41)");
+  CHECK(sums.size() == 2 && FormatGrenadeSum(tr, sums[1]) == "Fire by Simpert: 16 total (Bot Adam -16)");
   CHECK(gd.Flush(20.0, 1.0).empty());
 
   // ME extras (practice_tools.h).

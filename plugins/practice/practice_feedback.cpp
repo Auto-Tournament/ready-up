@@ -4,36 +4,49 @@
 
 namespace practice {
 
-const char* HitgroupName(int hitgroup) {
+const char* HitgroupKey(int hitgroup) {
   switch (hitgroup) {
-    case 1: return "head";
-    case 2: return "chest";
-    case 3: return "stomach";
-    case 4: return "left arm";
-    case 5: return "right arm";
-    case 6: return "left leg";
-    case 7: return "right leg";
-    case 8: return "neck";
+    case 1: return "hitgroup.head";
+    case 2: return "hitgroup.chest";
+    case 3: return "hitgroup.stomach";
+    case 4: return "hitgroup.left_arm";
+    case 5: return "hitgroup.right_arm";
+    case 6: return "hitgroup.left_leg";
+    case 7: return "hitgroup.right_leg";
+    case 8: return "hitgroup.neck";
     default: return "";
   }
 }
 
-std::string FormatHit(const std::string& attacker, const std::string& victim, int dmgHealth, int dmgArmor,
-                      int hitgroup, const std::string& weapon, int healthLeft) {
-  std::string s = (attacker.empty() || attacker == victim ? victim + " took" : attacker + " hit " + victim + ":") + " -" +
-                  std::to_string(dmgHealth) + " hp";
-  if (dmgArmor > 0) s += ", -" + std::to_string(dmgArmor) + " armor";
-  std::string what = HitgroupName(hitgroup);
+std::string FormatHit(const Tr& tr, const std::string& attacker, const std::string& victim, int dmgHealth,
+                      int dmgArmor, int hitgroup, const std::string& weapon, int healthLeft) {
+  const std::string hp = std::to_string(dmgHealth);
+  std::string s = attacker.empty() || attacker == victim ? tr("hit.took", {{"victim", victim}, {"hp", hp}})
+                                                         : tr("hit.hit", {{"attacker", attacker}, {"victim", victim}, {"hp", hp}});
+  if (dmgArmor > 0) s += tr("hit.armor", {{"armor", std::to_string(dmgArmor)}});
+  const char* group = HitgroupKey(hitgroup);
+  std::string what = *group ? tr(group, {}) : "";
   if (!weapon.empty()) what += (what.empty() ? "" : ", ") + weapon;
   if (!what.empty()) s += " (" + what + ")";
-  s += ", " + std::to_string(healthLeft < 0 ? 0 : healthLeft) + " hp left";
-  return s;
+  return s + tr("hit.left", {{"left", std::to_string(healthLeft < 0 ? 0 : healthLeft)}});
 }
 
-std::string FormatBlind(const std::string& victim, const std::string& attacker, double seconds) {
+std::string FormatBlind(const Tr& tr, const std::string& victim, const std::string& attacker, double seconds) {
   char buf[32];
   std::snprintf(buf, sizeof(buf), "%.1f", seconds);
-  return victim + " flashed " + buf + " s by " + (attacker.empty() || attacker == victim ? "themselves" : attacker);
+  if (attacker.empty() || attacker == victim) return tr("blind.self", {{"victim", victim}, {"seconds", buf}});
+  return tr("blind.by", {{"victim", victim}, {"seconds", buf}, {"attacker", attacker}});
+}
+
+std::string FormatGrenadeSum(const Tr& tr, const GrenadeSum& s) {
+  int total = 0;
+  std::string parts;
+  for (const auto& kv : s.byVictim) {
+    total += kv.second;
+    parts += (parts.empty() ? "" : ", ") + kv.first + " -" + std::to_string(kv.second);
+  }
+  return tr(s.weapon == "hegrenade" ? "dmg.he" : "dmg.fire",
+            {{"attacker", s.attacker.empty() ? std::string("?") : s.attacker}, {"total", std::to_string(total)}, {"parts", parts}});
 }
 
 bool IsSummedWeapon(const std::string& weapon) { return weapon == "hegrenade" || weapon == "inferno"; }
@@ -45,22 +58,14 @@ void GrenadeDamage::Add(double now, const std::string& attacker, const std::stri
   g.byVictim[victim] += dmg;
 }
 
-std::vector<std::string> GrenadeDamage::Flush(double now, double quietSeconds) {
-  std::vector<std::string> out;
+std::vector<GrenadeSum> GrenadeDamage::Flush(double now, double quietSeconds) {
+  std::vector<GrenadeSum> out;
   for (auto it = groups_.begin(); it != groups_.end();) {
     if (now - it->second.last < quietSeconds) {
       ++it;
       continue;
     }
-    int total = 0;
-    std::string parts;
-    for (const auto& kv : it->second.byVictim) {
-      total += kv.second;
-      parts += (parts.empty() ? "" : ", ") + kv.first + " -" + std::to_string(kv.second);
-    }
-    const std::string what = it->first.second == "hegrenade" ? "HE" : "Fire";
-    out.push_back(what + " by " + (it->first.first.empty() ? std::string("?") : it->first.first) + ": " +
-                  std::to_string(total) + " total (" + parts + ")");
+    out.push_back({it->first.first, it->first.second, it->second.byVictim});
     it = groups_.erase(it);
   }
   return out;
