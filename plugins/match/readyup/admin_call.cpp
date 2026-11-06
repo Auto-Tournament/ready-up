@@ -1,4 +1,6 @@
 #include "readyup/admin_call.h"
+#include "readyup/host.h"
+#include "readyup/i18n_api.h"
 
 #include "readyup/hud_screens.h"
 #include "readyup/admin_call_logic.h"
@@ -150,8 +152,6 @@ void AdminCallCommand(uint64_t steamid64, const std::string& playerName, const s
 
   // In-game admins: a private chat line and the card.
   const std::string line = "\x07" "ADMIN CALL\x01 " + who + " needs an admin" + (e.message.empty() ? "." : ": " + e.message);
-  const std::string html = AdminCallCardHtml(e.player.name, label, e.message);
-  const std::string spec = AdminCallCardSpec(e.player.name, label, e.message);
   int admins = 0;
   const auto now = Clock::now();
   for (const auto& h : ListHumans()) {
@@ -159,8 +159,10 @@ void AdminCallCommand(uint64_t steamid64, const std::string& playerName, const s
     if (h.steamid64 == 0 || s < 0 || s > 63 || !IsReadyUpAdmin(h.steamid64)) continue;
     ++admins;
     (void)ClientPrintChat(s, (kPrivatePrefix + line).c_str());
+    const std::string lang = i18n::LanguageOf(host::Api(), s);
+    AdminCard card{AdminCallCardHtml(e.player.name, label, e.message, lang), AdminCallCardSpec(e.player.name, label, e.message, lang), now, now};
     std::lock_guard<std::mutex> lk(g_mu);
-    g_cards[s] = AdminCard{html, spec, now, now};
+    g_cards[s] = std::move(card);
   }
   if (DebugEnabled()) Debug("admin-call: %d admin(s) in game notified\n", admins);
 

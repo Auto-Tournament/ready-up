@@ -1,4 +1,5 @@
 #include "readyup/card_html.h"
+#include "readyup/text.h"
 
 #include <algorithm>
 
@@ -66,45 +67,49 @@ std::string CardHtmlEscape(const std::string& in, size_t maxBytes) {
   return out;
 }
 
-std::string GoLiveCommandsLine(const GoLiveCardInfo& info, bool html) {
+static std::string T(const std::string& lang, const char* key, const text::Args& args = {}) {
+  return text::ForLang(lang, key, args);
+}
+
+std::string GoLiveCommandsLine(const GoLiveCardInfo& info, bool html, const std::string& lang) {
   const char* b = html ? "<b>" : "";
   const char* e = html ? "</b>" : "";
   const char* dot = html ? " &#183; " : " | ";
   std::string out;
   // What it does first, then the command: ".up resume" read like a command with an argument.
-  auto add = [&](const char* what, const char* cmd) {
+  auto add = [&](const char* whatKey, const char* cmd) {
     if (!out.empty()) out += dot;
-    out += std::string(what) + ": " + b + cmd + e;
+    out += T(lang, "card.command", {{"what", T(lang, whatKey)}, {"command", std::string(b) + cmd + e}});
   };
   if (info.pauses) {
-    add("Pause", ".p");
-    add("Unpause", ".up");
-    add("Timeout", ".tac");
+    add("card.pause", ".p");
+    add("card.unpause", ".up");
+    add("card.timeout", ".tac");
   }
-  if (info.adminCall) add("Call an admin", ".admin");
+  if (info.adminCall) add("card.call_admin", ".admin");
   return out;
 }
 
-std::string GoLiveCardHtml(const GoLiveCardInfo& info) {
+std::string GoLiveCardHtml(const GoLiveCardInfo& info, const std::string& lang) {
   std::string h;
   h.reserve(800);
-  Font(h, "xl", kOk, "<b>LIVE</b>");
+  Font(h, "xl", kOk, "<b>" + T(lang, "card.live") + "</b>");
   Font(h, "l", kGold, " &#183; GO GO GO");
   h += "<br>";
   if (!info.team1.empty() || !info.team2.empty()) {
     const int side2 = info.team1Side == 3 ? 2 : info.team1Side == 2 ? 3 : 0;
-    h += TeamPart(info.team1.empty() ? std::string("Team 1") : info.team1, info.team1Side);
+    h += TeamPart(info.team1.empty() ? T(lang, "card.team1") : info.team1, info.team1Side);
     Font(h, "m", kGrey, " vs ");
-    h += TeamPart(info.team2.empty() ? std::string("Team 2") : info.team2, side2);
+    h += TeamPart(info.team2.empty() ? T(lang, "card.team2") : info.team2, side2);
     h += "<br>";
   }
   // One line, short forms only (the long ones still work): fewer words to read in a freeze time.
-  const std::string cmds = GoLiveCommandsLine(info, /*html=*/true);
+  const std::string cmds = GoLiveCommandsLine(info, /*html=*/true, lang);
   if (!cmds.empty()) {
     Font(h, "sm", kWhite, cmds);
     h += "<br>";
   }
-  Font(h, "s", kGrey, "good luck, have fun");
+  Font(h, "s", kGrey, T(lang, "card.glhf"));
   return h;
 }
 
@@ -128,87 +133,87 @@ std::string PrettyMap(const std::string& map) {
   return m;
 }
 
-std::string ResultTeamName(const ResultCardInfo& info, const std::string& which) {
+std::string ResultTeamName(const ResultCardInfo& info, const std::string& which, const std::string& lang) {
   const std::string& name = which == "team1" ? info.team1 : info.team2;
-  return CardHtmlEscape(name.empty() ? (which == "team1" ? "Team 1" : "Team 2") : name, kMaxTeamBytes);
+  return CardHtmlEscape(name.empty() ? T(lang, which == "team1" ? "card.team1" : "card.team2") : name, kMaxTeamBytes);
 }
 
 std::string ScoreLine(const ResultCardInfo& info) {
   return std::to_string(info.team1Score) + " - " + std::to_string(info.team2Score);
 }
 
-std::string Matchup(const ResultCardInfo& info) {
-  return ResultTeamName(info, "team1") + " vs " + ResultTeamName(info, "team2");
+std::string Matchup(const ResultCardInfo& info, const std::string& lang) {
+  return ResultTeamName(info, "team1", lang) + " vs " + ResultTeamName(info, "team2", lang);
 }
 
 }  // namespace
 
-// "won on damage: 2,345 - 2,101" (tied after the overtimes).
-static std::string DamageLine(const ResultCardInfo& info) {
-  return "won on damage: " + std::to_string(info.team1Damage) + " - " + std::to_string(info.team2Damage);
+static text::Args DamageArgs(const ResultCardInfo& info) {
+  return {{"damage1", std::to_string(info.team1Damage)}, {"damage2", std::to_string(info.team2Damage)}};
 }
 
-std::string MapResultCardHtml(const ResultCardInfo& info) {
+std::string MapResultCardHtml(const ResultCardInfo& info, const std::string& lang) {
   std::string h;
   h.reserve(512);
-  std::string head = "MAP " + std::to_string(std::max(1, info.mapNumber));
+  std::string head = T(lang, "card.map_head", {{"number", std::to_string(std::max(1, info.mapNumber))}});
   if (!info.mapName.empty()) head += " &#183; " + CardHtmlEscape(PrettyMap(info.mapName), kMaxTeamBytes);
   Font(h, "m", kGrey, head);
   h += "<br>";
   if (info.winner == "team1" || info.winner == "team2") {
-    Font(h, "xl", kGold, "<b>" + ResultTeamName(info, info.winner) + "</b>");
-    Font(h, "l", kWhite, " wins the map");
+    Font(h, "xl", kGold, "<b>" + ResultTeamName(info, info.winner, lang) + "</b>");
+    Font(h, "l", kWhite, " " + T(lang, "card.wins_map"));
   } else {
-    Font(h, "xl", kGold, "<b>MAP DRAWN</b>");
+    Font(h, "xl", kGold, "<b>" + T(lang, "card.map_drawn") + "</b>");
   }
   h += "<br>";
   Font(h, "l", kWhite, "<b>" + ScoreLine(info) + "</b>");
   h += "<br>";
   if (info.decidedByDamage) {
-    Font(h, "sm", kGold, DamageLine(info));
+    Font(h, "sm", kGold, T(lang, "card.won_on_damage", DamageArgs(info)));
     h += "<br>";
   }
-  Font(h, "s", kGrey, Matchup(info));
+  Font(h, "s", kGrey, Matchup(info, lang));
   if (!info.nextMap.empty()) {
     h += "<br>";
-    Font(h, "sm", kOk, "Next: " + CardHtmlEscape(PrettyMap(info.nextMap), kMaxTeamBytes));
+    Font(h, "sm", kOk, T(lang, "card.next", {{"map", CardHtmlEscape(PrettyMap(info.nextMap), kMaxTeamBytes)}}));
   }
   return h;
 }
 
-std::string SeriesResultCardHtml(const ResultCardInfo& info) {
+std::string SeriesResultCardHtml(const ResultCardInfo& info, const std::string& lang) {
   std::string h;
   h.reserve(512);
   if (info.winner == "team1" || info.winner == "team2") {
-    Font(h, "xl", kGold, "<b>" + ResultTeamName(info, info.winner) + "</b>");
+    Font(h, "xl", kGold, "<b>" + ResultTeamName(info, info.winner, lang) + "</b>");
     h += "<br>";
-    Font(h, "l", kOk, "<b>WINS THE SERIES</b>");
+    Font(h, "l", kOk, "<b>" + T(lang, "card.wins_series_caps") + "</b>");
   } else {
-    Font(h, "xl", kGold, "<b>SERIES DRAWN</b>");
+    Font(h, "xl", kGold, "<b>" + T(lang, "card.series_drawn_caps") + "</b>");
   }
   h += "<br>";
-  Font(h, "l", kWhite, info.forfeit ? std::string("by forfeit") : "<b>" + ScoreLine(info) + "</b>");
+  Font(h, "l", kWhite, info.forfeit ? T(lang, "card.by_forfeit") : "<b>" + ScoreLine(info) + "</b>");
   h += "<br>";
-  Font(h, "s", kGrey, Matchup(info));
+  Font(h, "s", kGrey, Matchup(info, lang));
   if (info.decidedByDamage) {
     h += "<br>";
-    Font(h, "sm", kGold, "Last map " + DamageLine(info));
+    Font(h, "sm", kGold, T(lang, "card.last_map_damage", DamageArgs(info)));
   }
   h += "<br>";
   // Players looked for what to do next in the game (a live test, 2026-10-15): the platform's
   // match page has it (the next match, the bracket, matchmaking).
-  Font(h, "sm", kOk, "Go back to the platform to view your next match");
+  Font(h, "sm", kOk, T(lang, "card.back_to_platform"));
   return h;
 }
 
-std::string AdminCallCardHtml(const std::string& name, const std::string& teamLabel, const std::string& message) {
+std::string AdminCallCardHtml(const std::string& name, const std::string& teamLabel, const std::string& message,
+                              const std::string& lang) {
   std::string h;
   h.reserve(512);
-  Font(h, "l", kNo, "<b>ADMIN CALLED</b>");
+  Font(h, "l", kNo, "<b>" + T(lang, "card.admin_called_caps") + "</b>");
   h += "<br>";
-  std::string who = CardHtmlEscape(name.empty() ? std::string("a player") : name, kMaxNameBytes);
+  std::string who = CardHtmlEscape(name.empty() ? T(lang, "card.a_player") : name, kMaxNameBytes);
   if (!teamLabel.empty()) who += " (" + CardHtmlEscape(teamLabel, kMaxTeamBytes + 8) + ")";
-  Font(h, "m", kWhite, who + " needs an admin");
+  Font(h, "m", kWhite, T(lang, "card.needs_admin", {{"who", who}}));
   if (!message.empty()) {
     h += "<br>";
     Font(h, "sm", kGold, CardHtmlEscape(message, kMaxMessageBytes));
@@ -230,57 +235,58 @@ std::string SpecText(const std::string& in) {
   return out;
 }
 std::string SpecLine(const char* k, const std::string& v) { return std::string(k) + "=" + SpecText(v) + "\n"; }
-std::string RawTeam(const ResultCardInfo& info, const std::string& which) {
+std::string RawTeam(const ResultCardInfo& info, const std::string& which, const std::string& lang) {
   const std::string& n = which == "team1" ? info.team1 : info.team2;
-  return n.empty() ? (which == "team1" ? "Team 1" : "Team 2") : n;
+  return n.empty() ? T(lang, which == "team1" ? "card.team1" : "card.team2") : n;
 }
 
 }  // namespace
 
-std::string GoLiveCardSpec(const GoLiveCardInfo& info) {
-  std::string s = SpecLine("id", "golive") + SpecLine("color", "live") + SpecLine("kind", "Live") +
-                  SpecLine("title", "Good luck, have fun");
+std::string GoLiveCardSpec(const GoLiveCardInfo& info, const std::string& lang) {
+  std::string s = SpecLine("id", "golive") + SpecLine("color", "live") + SpecLine("kind", T(lang, "card.kind_live")) +
+                  SpecLine("title", T(lang, "card.glhf_title"));
   if (!info.team1.empty() || !info.team2.empty()) {
     // The names in their side's colour say who is CT and T (2026-11-03: "Simpert (CT) vs Bots (T)").
     const int side2 = info.team1Side == 3 ? 2 : info.team1Side == 2 ? 3 : 0;
     auto side = [](int s) { return s == 3 ? "ct" : s == 2 ? "t" : ""; };
-    s += std::string("vs=") + SpecText(info.team1.empty() ? "Team 1" : info.team1) + "|" + side(info.team1Side) + "|" +
-         SpecText(info.team2.empty() ? "Team 2" : info.team2) + "|" + side(side2) + "\n";
+    s += std::string("vs=") + SpecText(info.team1.empty() ? T(lang, "card.team1") : info.team1) + "|" + side(info.team1Side) + "|" +
+         SpecText(info.team2.empty() ? T(lang, "card.team2") : info.team2) + "|" + side(side2) + "\n";
   }
-  if (info.pauses) s += "cmd=Tech pause|.p\ncmd=Timeout|.tac\n";
-  if (info.adminCall) s += "cmd=Call an admin|.admin\n";
+  if (info.pauses) s += "cmd=" + SpecText(T(lang, "card.tech_pause")) + "|.p\ncmd=" + SpecText(T(lang, "card.timeout")) + "|.tac\n";
+  if (info.adminCall) s += "cmd=" + SpecText(T(lang, "card.call_admin")) + "|.admin\n";
   return s;
 }
 
-std::string MapResultCardSpec(const ResultCardInfo& info) {
-  std::string kind = "Map " + std::to_string(std::max(1, info.mapNumber));
+std::string MapResultCardSpec(const ResultCardInfo& info, const std::string& lang) {
+  std::string kind = T(lang, "card.map_kind", {{"number", std::to_string(std::max(1, info.mapNumber))}});
   if (!info.mapName.empty()) kind += " \xC2\xB7 " + PrettyMap(info.mapName);
   const bool won = info.winner == "team1" || info.winner == "team2";
   std::string s = SpecLine("id", "mapresult") + SpecLine("color", "live") + SpecLine("kind", kind) +
-                  SpecLine("title", won ? RawTeam(info, info.winner) + " wins the map" : std::string("Map drawn")) +
+                  SpecLine("title", won ? T(lang, "card.team_wins_map", {{"team", RawTeam(info, info.winner, lang)}}) : T(lang, "card.map_drawn_title")) +
                   SpecLine("sub", std::to_string(info.team1Score) + " - " + std::to_string(info.team2Score));
   if (info.decidedByDamage) {
-    s += SpecLine("hint", "Tied: won on damage " + std::to_string(info.team1Damage) + " - " + std::to_string(info.team2Damage));
+    s += SpecLine("hint", T(lang, "card.tied_damage", DamageArgs(info)));
   } else if (!info.nextMap.empty()) {
-    s += SpecLine("hint", "Next: " + PrettyMap(info.nextMap));
+    s += SpecLine("hint", T(lang, "card.next", {{"map", PrettyMap(info.nextMap)}}));
   }
   return s;
 }
 
-std::string SeriesResultCardSpec(const ResultCardInfo& info) {
+std::string SeriesResultCardSpec(const ResultCardInfo& info, const std::string& lang) {
   const bool won = info.winner == "team1" || info.winner == "team2";
-  return SpecLine("id", "seriesresult") + SpecLine("color", "live") + SpecLine("kind", "Series") +
-         SpecLine("title", won ? RawTeam(info, info.winner) + " wins the series" : std::string("Series drawn")) +
-         SpecLine("sub", info.forfeit ? std::string("by forfeit")
+  return SpecLine("id", "seriesresult") + SpecLine("color", "live") + SpecLine("kind", T(lang, "card.kind_series")) +
+         SpecLine("title", won ? T(lang, "card.team_wins_series", {{"team", RawTeam(info, info.winner, lang)}}) : T(lang, "card.series_drawn_title")) +
+         SpecLine("sub", info.forfeit ? T(lang, "card.by_forfeit")
                                       : std::to_string(info.team1Score) + " - " + std::to_string(info.team2Score));
 }
 
-std::string AdminCallCardSpec(const std::string& name, const std::string& teamLabel, const std::string& message) {
-  std::string who = name.empty() ? std::string("A player") : name;
+std::string AdminCallCardSpec(const std::string& name, const std::string& teamLabel, const std::string& message,
+                              const std::string& lang) {
+  std::string who = name.empty() ? T(lang, "card.a_player_cap") : name;
   if (!teamLabel.empty()) who += " (" + teamLabel + ")";
   // It may come mid-round: the side card, out of the way (hud_screens.h placement rule).
   std::string s = SpecLine("id", "admincall") + SpecLine("where", "card") + SpecLine("color", "ban") +
-                  SpecLine("kind", "Admin called") + SpecLine("title", who + " needs an admin");
+                  SpecLine("kind", T(lang, "card.admin_called")) + SpecLine("title", T(lang, "card.needs_admin", {{"who", who}}));
   if (!message.empty()) s += SpecLine("sub", message.substr(0, 120));
   return s;
 }

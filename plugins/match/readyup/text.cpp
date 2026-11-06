@@ -8,21 +8,8 @@
 #include <utility>
 #include <vector>
 
-extern const readyup::i18n::Locale kReadyUpLocales[];  // plugins/match/locales (readyup_embed_locales)
-extern const size_t kReadyUpLocaleCount;
-
 namespace readyup::text {
 namespace {
-
-const i18n::Catalog& Catalog() {
-  static const i18n::Catalog c = [] {
-    i18n::Catalog x;
-    if (const std::string err = x.Load(kReadyUpLocales, kReadyUpLocaleCount); !err.empty())
-      Print("match: locales: %s\n", err.c_str());
-    return x;
-  }();
-  return c;
-}
 
 // The center panel of SendImportantToChat for one language.
 std::string GoldHtml(const std::string& text) {
@@ -37,10 +24,6 @@ std::string GoldHtml(const std::string& text) {
 }
 
 }  // namespace
-
-std::string ForLang(const std::string& lang, const std::string& key, const Args& args) {
-  return Catalog().Tr(lang, key, args);
-}
 
 std::string For(int slot, const std::string& key, const Args& args) {
   return ForLang(i18n::LanguageOf(host::Api(), slot), key, args);

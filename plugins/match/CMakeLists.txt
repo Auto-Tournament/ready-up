@@ -35,6 +35,7 @@ set(MATCH_SOURCES
   readyup/end_screen.cpp
   readyup/host.cpp
   readyup/text.cpp
+  readyup/text_lang.cpp
   readyup/hud_screens.cpp
   readyup/idle_refresh.cpp
   readyup/warmup_money.cpp
@@ -235,8 +236,9 @@ add_test(NAME match_idle_refresh COMMAND match_idle_refresh_test)
 # the per-player cooldown, message cleanup, call id / timestamp, the `admin_called` payload
 # (ctest `match_live_cards`).
 add_executable(match_live_cards_test tests/live_cards_test.cpp readyup/card_html.cpp readyup/admin_call_logic.cpp
-  readyup/golive_card_logic.cpp
+  readyup/golive_card_logic.cpp readyup/text_lang.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp)
+readyup_embed_locales(match_live_cards_test ${CMAKE_CURRENT_SOURCE_DIR}/locales)
 target_include_directories(match_live_cards_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(match_live_cards_test PRIVATE -Wall -Wextra)
 add_test(NAME match_live_cards COMMAND match_live_cards_test)

@@ -1,6 +1,8 @@
 #pragma once
 
+#include <functional>
 #include <string>
+#include <utility>
 
 // Result cards: at the end of a map everyone gets a center card with the map's winner and score
 // (and the next map), and at the end of the series one with the series winner and score, until
@@ -11,9 +13,11 @@
 
 namespace readyup {
 
-// Show the card to everyone for `seconds` (replaces a card already up): `spec` on the clickable
-// HUD when it is on, else `html` in the center panel. Thread-safe.
-void ResultCardShow(const std::string& html, const std::string& spec, int seconds, const char* what);
+// Show the card to everyone for `seconds` (replaces a card already up): build(lang) gives its
+// {html, spec} in a player's language (built once per language); the spec on the clickable HUD
+// when it is on, else the html in the center panel. Thread-safe.
+using ResultCardBuild = std::function<std::pair<std::string, std::string>(const std::string& lang)>;
+void ResultCardShow(ResultCardBuild build, int seconds, const char* what);
 
 // Stop the card (a new map went live, the match was reset). Thread-safe.
 void ResultCardClear();
