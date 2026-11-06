@@ -1,0 +1,22 @@
+{
+  "prefix": "Ready Up 화이트리스트:",
+  "help_on_off": ".ru whitelist on|off: 목록에 없는 사람을 모두 추방합니다(관리자와 봇은 남음, 경기 중에는 작동 안 함)",
+  "help_add_remove": ".ru whitelist add|remove <steamid64>",
+  "help_list_clear": ".ru whitelist list | clear",
+  "not_authorized": "권한이 없습니다",
+  "turned_on_other": "켜짐(목록에 {count}명)",
+  "turned_off_other": "꺼짐(목록에 {count}명)",
+  "usage": "사용법: .ru whitelist {sub} <steamid64>",
+  "added": "{id} 추가함",
+  "removed": "{id} 제거함",
+  "no_change": "{id}: 변경 없음",
+  "cleared": "목록을 비웠습니다",
+  "list_on_empty": "켜짐, 목록이 비어 있음",
+  "list_off_empty": "꺼짐, 목록이 비어 있음",
+  "list_on_other": "켜짐, {count}명: {ids}",
+  "list_off_other": "꺼짐, {count}명: {ids}",
+  "guests_other": "다른 플러그인이 들여보낸 게스트 {count}명({owners})",
+  "unknown": "알 수 없는 명령어입니다. 목록은 .ru help whitelist로 확인하세요.",
+  "save_failed": "{path}을(를) 저장하지 못했습니다",
+  "kick_reason": "이 서버의 화이트리스트에 없습니다"
+}
