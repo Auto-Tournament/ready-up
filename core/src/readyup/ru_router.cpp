@@ -7,6 +7,8 @@
 #include "readyup/features.h"
 #include "readyup/license_status.h"
 #include "readyup/logging.h"
+#include "readyup/i18n.h"
+#include "readyup/player_language.h"
 #include "readyup/plugin_loader.h"
 #include "readyup/ru_help_text.h"
 #include "readyup/selftest.h"
@@ -20,6 +22,9 @@
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
+
+extern const readyup::i18n::Locale kReadyUpLocales[];  // core/locales (readyup_embed_locales)
+extern const size_t kReadyUpLocaleCount;
 
 namespace {
 
@@ -91,15 +96,61 @@ static bool ShouldProcess(uint64_t steamid64, const std::string& playerName, con
   return true;
 }
 
+// The core's own player-facing text (core/locales).
+const readyup::i18n::Catalog& CoreText() {
+  static const readyup::i18n::Catalog c = [] {
+    readyup::i18n::Catalog x;
+    x.Load(kReadyUpLocales, kReadyUpLocaleCount);
+    return x;
+  }();
+  return c;
+}
+
+// `.lang` (what the player gets now), `.lang <code|CS2 name>`, `.lang reset`.
+void HandleLang(uint64_t steamid64, const std::vector<std::string>& parts, int slot) {
+  namespace lang = readyup::lang;
+  auto reply = [slot](const std::string& msg) {
+    if (!readyup::SendToSlotChat(slot, msg.c_str())) readyup::SendToChat(msg.c_str());
+  };
+  if (steamid64 == 0) {
+    readyup::PrintLine("lang: players choose their language in chat (.lang <code>); the server's is `language` in readyup.cfg");
+    return;
+  }
+  size_t n = 0;
+  const lang::Language* all = lang::Languages(&n);
+  std::string codes;
+  for (size_t i = 0; i < n; ++i) codes += (i ? " " : "") + std::string(all[i].code);
+  const std::string arg = parts.size() > 1 ? Lower(parts[1]) : "";
+  const auto& t = CoreText();
+  if (arg.empty()) {
+    const char* code = lang::ForSteamId(steamid64);
+    reply(t.Tr(code, "lang.current", {{"language", lang::Find(code)->native}, {"codes", codes}}));
+    return;
+  }
+  if (arg == "reset" || arg == "auto") {
+    lang::SetChosen(steamid64, nullptr);
+    const char* code = lang::ForSteamId(steamid64);
+    reply(t.Tr(code, "lang.reset", {{"language", lang::Find(code)->native}}));
+    return;
+  }
+  const lang::Language* l = lang::Find(arg);
+  if (!l) {
+    reply(t.Tr(lang::ForSteamId(steamid64), "lang.unknown", {{"name", parts[1]}, {"codes", codes}}));
+    return;
+  }
+  lang::SetChosen(steamid64, l);
+  reply(t.Tr(l->code, "lang.set", {{"language", l->native}}));
+}
+
 }  // namespace
 
 namespace readyup {
 
-// Only `.ru` is the core's; player commands (.r, .pause, ...) belong to plugins (readyup-match).
+// Only `.ru` and `.lang` are the core's; player commands (.r, .pause, ...) belong to plugins (readyup-match).
 // `.ruversion` / `.version` / `.reload_config` are the core's too: the same as `.ru version` /
 // `.ru reload` (CoreChatAliasToRu, the old plugin's names).
 bool IsCoreChatCommand(const std::string& firstToken) {
-  return firstToken == ".ru" || !CoreChatAliasToRu(firstToken).empty();
+  return firstToken == ".ru" || firstToken == ".lang" || !CoreChatAliasToRu(firstToken).empty();
 }
 
 void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const std::string& text, int slot) {
@@ -127,6 +178,10 @@ void RouteChatCommand(uint64_t steamid64, const std::string& playerName, const s
   // `.ruversion` / `.version` = `.ru version`, `.reload_config` = `.ru reload` (arguments dropped).
   if (const std::string sub = CoreChatAliasToRu(parts[0]); !sub.empty()) parts = {".ru", sub};
   const std::string first = parts[0];
+  if (Lower(first) == ".lang") {
+    HandleLang(steamid64, parts, slot);
+    return;
+  }
 
   // Commands owned by a loaded plugin (never `.ru`). The plugin callback runs on the next
   // GameFrame, with the sender's slot when the ClientCommand hook saw the line.

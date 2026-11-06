@@ -113,9 +113,9 @@ static void Hook_ClientCommand(void* thisptr, CPlayerSlot slot, const void* args
   const bool isTeamOnly = (cmd == "say_team");
   const std::string msg = CCommandArgString(*argv);
 
-  // Handle `.ru ...` directly here so we have a reliable sender (SteamID64 + name + slot).
+  // Handle `.ru ...` and `.lang ...` directly here so we have a reliable sender (SteamID64 + name + slot).
   // `.ru` visibility is configurable (consume_ru_chat).
-  if (msg.rfind(".ru", 0) == 0) {
+  if (msg.rfind(".ru", 0) == 0 || msg == ".lang" || msg.rfind(".lang ", 0) == 0) {
     Debug("client-command: saw .ru msg=\"%s\"\n", msg.c_str());
     RouteChatCommand(ident->steamid64, ident->name, msg, slotNum);
     if (ConsumeRuChat()) return;
