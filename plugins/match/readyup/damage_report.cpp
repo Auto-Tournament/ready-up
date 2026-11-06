@@ -108,6 +108,11 @@ bool ShowCard(const Outgoing& o, int round) {
   auto cls = [&](const std::string& id, const char* c, bool on) { h->set_class(k, s, id.c_str(), c, on ? 1 : 0); };
   txt("at_kind_a", text::ForLang(o.lang, "dmg.card_round", {{"round", std::to_string(round)}}));
   txt("at_text_a", text::ForLang(o.lang, "dmg.card_total", {{"total", std::to_string(o.total)}}));
+  // Column headers in the player's language (at_kit.xml from the next addon publish on; the
+  // published addon has them as fixed English text and ignores these).
+  txt("at_dh_given", text::ForLang(o.lang, "dmg.col_given"));
+  txt("at_dh_taken", text::ForLang(o.lang, "dmg.col_taken"));
+  txt("at_dh_hp", text::ForLang(o.lang, "dmg.col_hp"));
   for (const char* id : {"at_kind_a", "at_text_a"}) {
     cls(id, "cur", true);
     cls(id, "old", false);
