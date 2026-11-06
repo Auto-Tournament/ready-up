@@ -1,0 +1,19 @@
+{
+  "rank.none": "No stats for you on this server yet.",
+  "rank.ranked": "Rank {rank} of {of}: {points} points, {kills} kills, {deaths} deaths, K/D {kd}, {hs} headshots.",
+  "rank.unranked": "Unranked ({needed} kills needed): {points} points, {kills} kills, {deaths} deaths, K/D {kd}, {hs} headshots.",
+  "top.none": "Nobody is ranked on this server yet.",
+  "top.title": "Top players on this server:",
+  "top.row": "{rank}. {name}: {points} points, K/D {kd}",
+  "spec.unavailable": "The spectator list is unavailable on this server build.",
+  "spec.none": "Nobody is spectating you.",
+  "spec.list": "Spectating you ({count}): {names}",
+  "kick.done": "{name} was kicked by an admin.",
+  "kick.done_reason": "{name} was kicked by an admin: {reason}",
+  "kick.not_authorized": "not authorized",
+  "kick.usage": "usage: .kick <name> [reason]",
+  "kick.ambiguous": "More than one player matches; type more of the name.",
+  "kick.unknown": "No player called {name}.",
+  "kick.no_userid": "That player cannot be kicked yet (no user id).",
+  "kick.failed": "The kick could not be sent."
+}

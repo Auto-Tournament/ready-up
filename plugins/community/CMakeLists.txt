@@ -6,6 +6,7 @@ readyup_add_plugin(community
   community_rules.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/json_store.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp)
+readyup_embed_locales(readyup_plugin_community ${CMAKE_CURRENT_SOURCE_DIR}/locales)
 target_include_directories(readyup_plugin_community PRIVATE ${CMAKE_SOURCE_DIR}/libs)
 target_compile_definitions(readyup_plugin_community PRIVATE COMMUNITY_VERSION="${READYUP_SEMVER}")
 

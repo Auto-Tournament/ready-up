@@ -1,0 +1,13 @@
+{
+  "rank.none": "Pas encore de stats pour toi sur ce serveur.",
+  "rank.ranked": "Rang {rank} sur {of} : {points} points, {kills} kills, {deaths} morts, K/D {kd}, {hs} headshots.",
+  "rank.unranked": "Non classé ({needed} kills nécessaires) : {points} points, {kills} kills, {deaths} morts, K/D {kd}, {hs} headshots.",
+  "top.none": "Personne n’est encore classé sur ce serveur.",
+  "top.title": "Meilleurs joueurs du serveur :",
+  "top.row": "{rank}. {name} : {points} points, K/D {kd}",
+  "spec.unavailable": "La liste des spectateurs n’est pas disponible sur ce build du serveur.",
+  "spec.none": "Personne ne te regarde.",
+  "spec.list": "Te regardent ({count}) : {names}",
+  "kick.done": "{name} a été expulsé par un admin.",
+  "kick.done_reason": "{name} a été expulsé par un admin : {reason}"
+}

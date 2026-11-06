@@ -1,0 +1,13 @@
+{
+  "rank.none": "У вас пока нет статистики на этом сервере.",
+  "rank.ranked": "Место {rank} из {of}: очков {points}, убийств {kills}, смертей {deaths}, K/D {kd}, хедшотов {hs}.",
+  "rank.unranked": "Без рейтинга (нужно убийств: {needed}): очков {points}, убийств {kills}, смертей {deaths}, K/D {kd}, хедшотов {hs}.",
+  "top.none": "На этом сервере пока никто не в рейтинге.",
+  "top.title": "Лучшие игроки сервера:",
+  "top.row": "{rank}. {name}: очков {points}, K/D {kd}",
+  "spec.unavailable": "Список зрителей недоступен на этой сборке сервера.",
+  "spec.none": "За вами никто не наблюдает.",
+  "spec.list": "За вами наблюдают ({count}): {names}",
+  "kick.done": "Админ выгнал игрока {name}.",
+  "kick.done_reason": "Админ выгнал игрока {name}: {reason}"
+}

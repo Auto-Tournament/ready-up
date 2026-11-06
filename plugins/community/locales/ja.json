@@ -1,0 +1,13 @@
+{
+  "rank.none": "このサーバーにはまだあなたの記録がありません。",
+  "rank.ranked": "{of} 人中 {rank} 位: {points} ポイント、{kills} キル、{deaths} デス、K/D {kd}、ヘッドショット {hs}。",
+  "rank.unranked": "ランク外（あと {needed} キル必要）: {points} ポイント、{kills} キル、{deaths} デス、K/D {kd}、ヘッドショット {hs}。",
+  "top.none": "このサーバーにはまだランク入りしたプレイヤーがいません。",
+  "top.title": "このサーバーのトッププレイヤー:",
+  "top.row": "{rank}. {name}: {points} ポイント、K/D {kd}",
+  "spec.unavailable": "このサーバービルドでは観戦者リストを使えません。",
+  "spec.none": "誰もあなたを観戦していません。",
+  "spec.list": "あなたを観戦中（{count}）: {names}",
+  "kick.done": "{name} は管理者にキックされました。",
+  "kick.done_reason": "{name} は管理者にキックされました: {reason}"
+}

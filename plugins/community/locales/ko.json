@@ -1,0 +1,13 @@
+{
+  "rank.none": "이 서버에 아직 내 기록이 없습니다.",
+  "rank.ranked": "{of}명 중 {rank}위: {points}점, {kills}킬, {deaths}데스, K/D {kd}, 헤드샷 {hs}.",
+  "rank.unranked": "순위 없음({needed}킬 필요): {points}점, {kills}킬, {deaths}데스, K/D {kd}, 헤드샷 {hs}.",
+  "top.none": "이 서버에는 아직 순위에 든 사람이 없습니다.",
+  "top.title": "이 서버의 상위 플레이어:",
+  "top.row": "{rank}. {name}: {points}점, K/D {kd}",
+  "spec.unavailable": "이 서버 빌드에서는 관전자 목록을 쓸 수 없습니다.",
+  "spec.none": "아무도 당신을 관전하고 있지 않습니다.",
+  "spec.list": "당신을 관전 중({count}): {names}",
+  "kick.done": "{name}님이 관리자에게 강퇴되었습니다.",
+  "kick.done_reason": "{name}님이 관리자에게 강퇴되었습니다: {reason}"
+}

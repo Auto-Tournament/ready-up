@@ -1,0 +1,13 @@
+{
+  "rank.none": "Δεν έχεις ακόμα στατιστικά σε αυτόν τον server.",
+  "rank.ranked": "Θέση {rank} από {of}: πόντοι {points}, kills {kills}, θάνατοι {deaths}, K/D {kd}, headshots {hs}.",
+  "rank.unranked": "Χωρίς κατάταξη (χρειάζονται {needed} kills): πόντοι {points}, kills {kills}, θάνατοι {deaths}, K/D {kd}, headshots {hs}.",
+  "top.none": "Κανείς δεν έχει ακόμα κατάταξη σε αυτόν τον server.",
+  "top.title": "Κορυφαίοι παίκτες του server:",
+  "top.row": "{rank}. {name}: πόντοι {points}, K/D {kd}",
+  "spec.unavailable": "Η λίστα θεατών δεν είναι διαθέσιμη σε αυτό το build του server.",
+  "spec.none": "Κανείς δεν σε παρακολουθεί.",
+  "spec.list": "Σε παρακολουθούν ({count}): {names}",
+  "kick.done": "Ο {name} αποβλήθηκε από admin.",
+  "kick.done_reason": "Ο {name} αποβλήθηκε από admin: {reason}"
+}

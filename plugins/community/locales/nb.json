@@ -1,0 +1,13 @@
+{
+  "rank.none": "Ingen statistikk for deg på denne serveren ennå.",
+  "rank.ranked": "Plass {rank} av {of}: {points} poeng, {kills} drap, {deaths} dødsfall, K/D {kd}, {hs} hodeskudd.",
+  "rank.unranked": "Uten plassering ({needed} drap kreves): {points} poeng, {kills} drap, {deaths} dødsfall, K/D {kd}, {hs} hodeskudd.",
+  "top.none": "Ingen er rangert på denne serveren ennå.",
+  "top.title": "Beste spillere på denne serveren:",
+  "top.row": "{rank}. {name}: {points} poeng, K/D {kd}",
+  "spec.unavailable": "Tilskuerlisten er ikke tilgjengelig på denne serverversjonen.",
+  "spec.none": "Ingen ser på deg.",
+  "spec.list": "Ser på deg ({count}): {names}",
+  "kick.done": "{name} ble kastet ut av en administrator.",
+  "kick.done_reason": "{name} ble kastet ut av en administrator: {reason}"
+}

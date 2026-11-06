@@ -1,0 +1,13 @@
+{
+  "rank.none": "Bạn chưa có thống kê trên máy chủ này.",
+  "rank.ranked": "Hạng {rank}/{of}: {points} điểm, {kills} mạng, {deaths} chết, K/D {kd}, {hs} headshot.",
+  "rank.unranked": "Chưa xếp hạng (cần {needed} mạng): {points} điểm, {kills} mạng, {deaths} chết, K/D {kd}, {hs} headshot.",
+  "top.none": "Chưa có ai được xếp hạng trên máy chủ này.",
+  "top.title": "Người chơi hàng đầu trên máy chủ:",
+  "top.row": "{rank}. {name}: {points} điểm, K/D {kd}",
+  "spec.unavailable": "Danh sách khán giả không dùng được trên bản máy chủ này.",
+  "spec.none": "Không ai đang xem bạn.",
+  "spec.list": "Đang xem bạn ({count}): {names}",
+  "kick.done": "{name} đã bị admin đá khỏi máy chủ.",
+  "kick.done_reason": "{name} đã bị admin đá khỏi máy chủ: {reason}"
+}

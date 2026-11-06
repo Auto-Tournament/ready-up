@@ -1,0 +1,13 @@
+{
+  "rank.none": "Nog geen statistieken voor jou op deze server.",
+  "rank.ranked": "Plek {rank} van {of}: {points} punten, {kills} kills, {deaths} doden, K/D {kd}, {hs} headshots.",
+  "rank.unranked": "Niet gerangschikt ({needed} kills nodig): {points} punten, {kills} kills, {deaths} doden, K/D {kd}, {hs} headshots.",
+  "top.none": "Nog niemand is gerangschikt op deze server.",
+  "top.title": "Topspelers op deze server:",
+  "top.row": "{rank}. {name}: {points} punten, K/D {kd}",
+  "spec.unavailable": "De toeschouwerslijst is niet beschikbaar op deze serverbuild.",
+  "spec.none": "Niemand kijkt naar jou.",
+  "spec.list": "Kijken naar jou ({count}): {names}",
+  "kick.done": "{name} is gekickt door een admin.",
+  "kick.done_reason": "{name} is gekickt door een admin: {reason}"
+}

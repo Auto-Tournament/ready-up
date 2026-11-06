@@ -1,0 +1,13 @@
+{
+  "rank.none": "Még nincs statisztikád ezen a szerveren.",
+  "rank.ranked": "{rank}. hely / {of}: {points} pont, {kills} ölés, {deaths} halál, K/D {kd}, {hs} fejlövés.",
+  "rank.unranked": "Nincs helyezés ({needed} ölés kell): {points} pont, {kills} ölés, {deaths} halál, K/D {kd}, {hs} fejlövés.",
+  "top.none": "Még senki sincs a ranglistán ezen a szerveren.",
+  "top.title": "A szerver legjobb játékosai:",
+  "top.row": "{rank}. {name}: {points} pont, K/D {kd}",
+  "spec.unavailable": "A nézők listája nem érhető el ezen a szerververzión.",
+  "spec.none": "Senki sem néz téged.",
+  "spec.list": "Néznek téged ({count}): {names}",
+  "kick.done": "Egy admin kirúgta: {name}.",
+  "kick.done_reason": "Egy admin kirúgta: {name}: {reason}"
+}
