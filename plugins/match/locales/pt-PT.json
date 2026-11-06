@@ -452,6 +452,7 @@
   "dmg.in_one": "{dmg}, {count} vez",
   "dmg.in_other": "{dmg}, {count} vezes",
   "dmg.dead": "MORTO",
+  "dmg.col_player": "JOGADOR",
   "dmg.col_given": "CAUSADO",
   "dmg.col_taken": "SOFRIDO",
   "dmg.col_hp": "HP",

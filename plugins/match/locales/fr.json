@@ -452,6 +452,7 @@
   "dmg.in_one": "{dmg} en {count} coup",
   "dmg.in_other": "{dmg} en {count} coups",
   "dmg.dead": "MORT",
+  "dmg.col_player": "JOUEUR",
   "dmg.col_given": "INFLIGÉS",
   "dmg.col_taken": "SUBIS",
   "dmg.col_hp": "PV",

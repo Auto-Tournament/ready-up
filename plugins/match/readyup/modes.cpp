@@ -1443,8 +1443,10 @@ void ModesOnHumanJoinedTeam(int team) {
 void ModesOnEngineGameOver(int ctScore, int tScore) {
   // Later, not now: the final round_end normally decides the map itself just after this line.
   ScheduleOnGameThread(2.0, [ctScore, tScore]() {
+    // Scrims too: a scrim the engine ended (mp_maxrounds lowered mid-map) stayed live after Game
+    // Over, with no leaderboard and no way back to warmup (2026-11-07).
     auto ctxOpt = WebhookGetMatchContext();
-    if (!ctxOpt || ctxOpt->slug == "scrim") return;
+    if (!ctxOpt) return;
     auto& st = St();
     std::lock_guard<std::mutex> lk(st.mu);
     if (st.mode != ReadyUpMode::MatchLive) return;

@@ -452,6 +452,7 @@
   "dmg.in_one": "{dmg}, {count} találattal",
   "dmg.in_other": "{dmg}, {count} találattal",
   "dmg.dead": "HALOTT",
+  "dmg.col_player": "JÁTÉKOS",
   "dmg.col_given": "OKOZOTT",
   "dmg.col_taken": "KAPOTT",
   "dmg.col_hp": "HP",

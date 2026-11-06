@@ -452,6 +452,7 @@
   "dmg.in_one": "{dmg} på {count} treff",
   "dmg.in_other": "{dmg} på {count} treff",
   "dmg.dead": "DØD",
+  "dmg.col_player": "SPILLER",
   "dmg.col_given": "GITT",
   "dmg.col_taken": "TATT",
   "dmg.col_hp": "HP",

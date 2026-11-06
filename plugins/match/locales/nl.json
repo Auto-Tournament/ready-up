@@ -452,6 +452,7 @@
   "dmg.in_one": "{dmg} in {count} keer",
   "dmg.in_other": "{dmg} in {count} keer",
   "dmg.dead": "DOOD",
+  "dmg.col_player": "SPELER",
   "dmg.col_given": "UITGEDEELD",
   "dmg.col_taken": "OPGELOPEN",
   "dmg.col_hp": "HP",

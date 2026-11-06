@@ -443,6 +443,7 @@
   "dmg.line": "Gây: {given} trong {given_hits} lần | Nhận: {taken} trong {taken_hits} lần — {name} ({hp} HP)",
   "dmg.in_other": "{dmg} với {count} phát",
   "dmg.dead": "CHẾT",
+  "dmg.col_player": "NGƯỜI CHƠI",
   "dmg.col_given": "GÂY",
   "dmg.col_taken": "NHẬN",
   "dmg.col_hp": "HP",

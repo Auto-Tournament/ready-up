@@ -123,6 +123,7 @@ bool ShowCard(const Outgoing& o, int round, double until = 0) {
   txt("at_text_a", text::ForLang(o.lang, "dmg.card_total", {{"total", std::to_string(o.total)}}));
   // Column headers in the player's language (at_kit.xml from the next addon publish on; the
   // published addon has them as fixed English text and ignores these).
+  txt("at_dh_name", text::ForLang(o.lang, "dmg.col_player"));  // addon version 2 on
   txt("at_dh_given", text::ForLang(o.lang, "dmg.col_given"));
   txt("at_dh_taken", text::ForLang(o.lang, "dmg.col_taken"));
   txt("at_dh_hp", text::ForLang(o.lang, "dmg.col_hp"));

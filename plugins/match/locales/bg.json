@@ -452,6 +452,7 @@
   "dmg.in_one": "{dmg} след {count} удар",
   "dmg.in_other": "{dmg} след {count} удара",
   "dmg.dead": "МЪРТЪВ",
+  "dmg.col_player": "ИГРАЧ",
   "dmg.col_given": "НАНЕСЕНИ",
   "dmg.col_taken": "ПОЕТИ",
   "dmg.col_hp": "HP",

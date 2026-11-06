@@ -466,6 +466,7 @@
   "dmg.in_few": "{dmg} (влучань: {count})",
   "dmg.in_many": "{dmg} (влучань: {count})",
   "dmg.dead": "МЕРТВИЙ",
+  "dmg.col_player": "ГРАВЕЦЬ",
   "dmg.col_given": "ЗАВДАНО",
   "dmg.col_taken": "ОТРИМАНО",
   "dmg.col_hp": "HP",

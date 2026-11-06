@@ -452,6 +452,7 @@
   "dmg.in_one": "{dmg} med {count} træffer",
   "dmg.in_other": "{dmg} med {count} træffere",
   "dmg.dead": "DØD",
+  "dmg.col_player": "SPILLER",
   "dmg.col_given": "GJORT",
   "dmg.col_taken": "TAGET",
   "dmg.col_hp": "HP",

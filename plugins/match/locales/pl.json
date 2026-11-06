@@ -466,6 +466,7 @@
   "dmg.in_few": "{dmg} w {count} trafieniach",
   "dmg.in_many": "{dmg} w {count} trafieniach",
   "dmg.dead": "MARTWY",
+  "dmg.col_player": "GRACZ",
   "dmg.col_given": "ZADANE",
   "dmg.col_taken": "OTRZYMANE",
   "dmg.col_hp": "HP",

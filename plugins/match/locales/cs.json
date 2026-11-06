@@ -466,6 +466,7 @@
   "dmg.in_few": "{dmg} v {count} zásazích",
   "dmg.in_other": "{dmg} v {count} zásazích",
   "dmg.dead": "MRTVÝ",
+  "dmg.col_player": "HRÁČ",
   "dmg.col_given": "UDĚLENÉ",
   "dmg.col_taken": "UTRŽENÉ",
   "dmg.col_hp": "HP",

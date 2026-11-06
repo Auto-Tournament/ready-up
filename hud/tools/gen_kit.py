@@ -47,7 +47,7 @@ def card():
         panel(f"at_r{n}", "at-rule", label(f"at_r{n}_k", "at-rulek") + label(f"at_r{n}_v", "at-rulev")) for n in range(3)))
     line = panel(cls="at-body at-line-body", children=sentence("at_p"))
     dmg_head = panel(cls="at-drow at-dhead", children=(
-        label(cls="at-dname", text="") + label("at_dh_given", "at-dnum") + label("at_dh_taken", "at-dnum") + label("at_dh_hp", "at-dhp")))
+        label("at_dh_name", "at-dname") + label("at_dh_given", "at-dnum") + label("at_dh_taken", "at-dnum") + label("at_dh_hp", "at-dhp")))
     dmg_rows = "".join(panel(f"at_d{n}", "at-drow", (
         label(f"at_d{n}_name", "at-dname") + label(f"at_d{n}_given", "at-dnum at-given")
         + label(f"at_d{n}_taken", "at-dnum at-taken") + label(f"at_d{n}_hp", "at-dhp"))) for n in range(5))

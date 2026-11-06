@@ -443,6 +443,7 @@
   "dmg.line": "与ダメージ: {given}（{given_hits} 回）| 被ダメージ: {taken}（{taken_hits} 回）— {name}（{hp} HP）",
   "dmg.in_other": "{dmg} @ {count} ヒット",
   "dmg.dead": "死亡",
+  "dmg.col_player": "プレイヤー",
   "dmg.col_given": "与ダメージ",
   "dmg.col_taken": "被ダメージ",
   "dmg.col_hp": "HP",

@@ -452,6 +452,7 @@
   "dmg.in_one": "{dmg} · {count} vuruş",
   "dmg.in_other": "{dmg} · {count} vuruş",
   "dmg.dead": "ÖLÜ",
+  "dmg.col_player": "OYUNCU",
   "dmg.col_given": "VERİLEN",
   "dmg.col_taken": "ALINAN",
   "dmg.col_hp": "HP",
