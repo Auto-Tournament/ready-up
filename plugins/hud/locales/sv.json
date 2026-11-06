@@ -1,3 +1,4 @@
 {
-  "menu.none": "Det finns ingen meny på den här servern just nu."
+  "menu.none": "Det finns ingen meny på den här servern just nu.",
+  "hud.outdated": "HUD:en är inaktuell. Starta om CS2 för att uppdatera den."
 }

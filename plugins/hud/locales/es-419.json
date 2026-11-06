@@ -1,3 +1,4 @@
 {
-  "menu.none": "Ahora mismo no hay menú en este servidor."
+  "menu.none": "Ahora mismo no hay menú en este servidor.",
+  "hud.outdated": "HUD desactualizado. Reinicia CS2 para actualizarlo."
 }

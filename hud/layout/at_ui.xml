@@ -468,5 +468,8 @@
 <Panel class="ui-flash" hittest="false" />
 </Panel>
 </Panel>
+<Panel id="ui_ver" class="ui-ver" hittest="false">
+<Label id="ui_ver_t" class="ui-vertext" text="{s:text}" hittest="false" />
+</Panel>
 </Panel>
 </root>

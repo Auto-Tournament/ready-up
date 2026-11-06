@@ -1,3 +1,4 @@
 {
-  "menu.none": "Tällä palvelimella ei ole nyt valikkoa."
+  "menu.none": "Tällä palvelimella ei ole nyt valikkoa.",
+  "hud.outdated": "HUD on vanhentunut. Päivitä se käynnistämällä CS2 uudelleen."
 }

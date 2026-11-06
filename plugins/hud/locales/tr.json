@@ -1,3 +1,4 @@
 {
-  "menu.none": "Şu anda bu sunucuda menü yok."
+  "menu.none": "Şu anda bu sunucuda menü yok.",
+  "hud.outdated": "HUD güncel değil. Güncellemek için CS2'yi yeniden başlat."
 }

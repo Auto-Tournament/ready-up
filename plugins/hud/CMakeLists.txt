@@ -20,3 +20,10 @@ add_executable(hud_screen_test tests/hud_screen_test.cpp hud_screen.cpp)
 target_include_directories(hud_screen_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(hud_screen_test PRIVATE -Wall -Wextra)
 add_test(NAME hud_screen COMMAND hud_screen_test)
+
+# The addon version in hud_addon.h matches hud/styles/at_ui.css (ctest `hud_addon`).
+add_executable(hud_addon_test tests/hud_addon_test.cpp)
+target_include_directories(hud_addon_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_definitions(hud_addon_test PRIVATE AT_UI_CSS="${CMAKE_SOURCE_DIR}/hud/styles/at_ui.css")
+target_compile_options(hud_addon_test PRIVATE -Wall -Wextra)
+add_test(NAME hud_addon COMMAND hud_addon_test)

@@ -21,6 +21,7 @@
 // The entity is ours alone: strays (a reload, a crash) are removed before the first one is made,
 // it is recreated after a map change, and the desired state is pushed again then and a few seconds
 // after a player takes a slot (the engine clears a slot's is-set flags when a player joins).
+#include "hud_addon.h"
 #include "hud_screen.h"
 #include "hud_vec.h"
 
@@ -935,11 +936,33 @@ int ParseScale(const std::string& s) {
   return (v + 2) / 5 * 5;  // the nearest step of 5
 }
 
+// "HUD out of date" (#ui_ver in at_ui, hud_addon.h): `check` and `v-<kAddonVersion>` for everyone,
+// the text in each player's language. Once a second, so a cleared slot (ScreenForget) or a new
+// language gets its text back. An addon that knows the version hides the notice itself.
+double g_verNextAt = 0;
+void AddonVersionTick() {
+  if (g_now < g_verNextAt) return;
+  g_verNextAt = g_now + 1.0;
+  const int h = IfOpen(kUiLayout);
+  IfSetClass(h, RU_HUD_ALL, "ui_ver", "check", 1);
+  const std::string ver = "v-" + std::to_string(kAddonVersion);
+  IfSetClass(h, RU_HUD_ALL, "ui_ver", ver.c_str(), 1);
+  IfSetText(h, RU_HUD_ALL, "ui_ver_t", "text", g_text.Tr("en", "hud.outdated").c_str());
+  for (int slot = 0; slot <= 63; ++slot) {
+    ru_player p{};
+    p.struct_size = sizeof(p);
+    if (!g_api->get_player(g_api->self, slot, &p) || !p.connected || p.is_bot || !p.steamid64) continue;
+    const std::string text = g_text.Tr(readyup::i18n::LanguageOf(g_api, slot), "hud.outdated");
+    IfSetText(h, slot, "ui_ver_t", "text", text.c_str());
+  }
+}
+
 void OnTick(void*, const ru_tick_info* t) {
   g_now = t->now;
   if (!g_origSvcUm && g_eng.ok) InstallClickHook();
   if (g_layouts.empty() || std::none_of(g_layouts.begin(), g_layouts.end(), [](const Layout& l) { return l.path == kUiLayout; }))
     IfOpen(kUiLayout);
+  AddonVersionTick();
   DrainClicks();
   CaptureSweep();
   ProbeTick();
@@ -1815,6 +1838,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_eng = Engine{};
   g_layouts.clear();
   g_resendAt.clear();
+  g_verNextAt = 0;
   g_later.clear();
   g_bMode.clear();
   g_clickOpen.clear();
