@@ -670,9 +670,11 @@ bool TeleportRemembering(int slot, uint64_t id, const Vec3& to, const Vec3f* ang
 }
 
 // Refusal reply, or "" when tools may run.
+// slot -1 (the console): English.
 std::string ToolsRefusal(int slot) {
-  if (!IsActive()) return T(slot, "tools.only_practice");
-  if (!ToolsAllowed(true, Ruleset())) return T(slot, "tools.valve");
+  const std::string lang = slot < 0 ? "en" : Lang(slot);
+  if (!IsActive()) return g_text.Tr(lang, "tools.only_practice");
+  if (!ToolsAllowed(true, Ruleset())) return g_text.Tr(lang, "tools.valve");
   return {};
 }
 
@@ -2396,7 +2398,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   api->provide_interface(api->self, RU_PRACTICE_IFACE_NAME, RU_PRACTICE_IFACE_VERSION, const_cast<ru_practice_v1*>(&g_iface));
   api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "practice", RU_SELFTEST_IFACE_VERSION,
                          const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
-  scenarios::Load(api, {[] { return IsActive(); }, [] { return ToolsRefusal(-1); },
+  scenarios::Load(api, {[] { return IsActive(); }, [](int slot) { return ToolsRefusal(slot); },
+                        [](const std::string& lang, const char* key, const readyup::i18n::Args& args) { return g_text.Tr(lang, key, args); },
                         [](void* e) { g_projSeen.insert(g_api->entity_handle_of(g_api->self, e)); }});
   ru_logf(api, RU_LOG_INFO, "loaded " PRACTICE_VERSION);
   return 0;

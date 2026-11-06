@@ -18,6 +18,7 @@
 // (csgo/readyup/plugins/practice/scenarios/). Grenades are thrown with ru_api grenade_spawn (1.12);
 // without it (older core, or that grenade's gamedata did not verify) they are logged and skipped.
 
+#include "readyup/i18n.h"
 #include "readyup/plugin_api.h"
 #include "readyup/selftest_iface.h"
 
@@ -27,7 +28,9 @@ namespace practice::scenarios {
 
 struct Host {
   bool (*active)();          // practice mode is on
-  std::string (*refusal)();  // "" when practice tools may run, else why not
+  std::string (*refusal)(int slot);  // "" when practice tools may run, else why not (slot's language; -1: English)
+  // Text of a practice locales key in `lang`.
+  std::string (*tr)(const std::string& lang, const char* key, const readyup::i18n::Args& args);
   void (*spawned)(void* projectile);  // a grenade the replay threw: not a player's throw (history)
 };
 

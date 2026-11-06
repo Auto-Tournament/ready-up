@@ -21,6 +21,7 @@
 #include "practice_scenarios.h"
 
 #include "scenario.h"
+#include "readyup/i18n_api.h"
 
 #include <dirent.h>
 #include <signal.h>
@@ -66,9 +67,12 @@ void Log(const char* fmt, ...) {
 }
 
 void Cmd(const std::string& c) { g_api->server_command(g_api->self, c.c_str()); }
-void ChatAll(const std::string& m) { g_api->chat_all(g_api->self, m.c_str(), 0); }
+// One line to everyone, in each reader's language (plugins/practice/locales).
+void ChatAllKey(const char* key, const readyup::i18n::Args& args = {}) {
+  readyup::i18n::ChatAll(g_api, 0, [&](const std::string& lang) { return g_host.tr(lang, key, args); });
+}
 
-// Where a command's replies go: the console, or one player's chat.
+// Where a command's replies go: the console (English), or one player's chat (their language).
 struct Out {
   bool console = true;
   int slot = -1;
@@ -76,6 +80,9 @@ struct Out {
     if (console || slot < 0) Log("scenario: %s", m.c_str());
     else g_api->chat_to_slot(g_api->self, slot, (" \x04[ReadyUp]\x01 " + m).c_str());
   }
+  std::string Lang() const { return console || slot < 0 ? "en" : readyup::i18n::LanguageOf(g_api, slot); }
+  std::string T(const char* key, const readyup::i18n::Args& args = {}) const { return g_host.tr(Lang(), key, args); }
+  void Key(const char* key, const readyup::i18n::Args& args = {}) const { (*this)(T(key, args)); }
 };
 
 std::string Lower(std::string s) {
@@ -329,7 +336,7 @@ std::vector<const Entry*> Library() {
   return out;
 }
 
-std::shared_ptr<sc::Scenario> FindScenario(const std::string& id, std::string* err) {
+std::shared_ptr<sc::Scenario> FindScenario(const std::string& id, const Out& out, std::string* err) {
   const auto lib = Library();
   const std::string q = Lower(id);
   std::vector<const Entry*> hits;
@@ -338,10 +345,12 @@ std::shared_ptr<sc::Scenario> FindScenario(const std::string& id, std::string* e
     if (e->sc->id.find(q) != std::string::npos) hits.push_back(e);
   }
   if (hits.size() == 1) return hits[0]->sc;
-  if (hits.empty()) *err = "no scenario \"" + id + "\" (.scen list)";
-  else {
-    *err = "\"" + id + "\" matches";
-    for (size_t i = 0; i < hits.size() && i < 6; ++i) *err += (i ? ", " : " ") + hits[i]->sc->id;
+  if (hits.empty()) {
+    *err = out.T("scen.not_found", {{"id", id}});
+  } else {
+    std::string list;
+    for (size_t i = 0; i < hits.size() && i < 6; ++i) list += (i ? ", " : "") + hits[i]->sc->id;
+    *err = out.T("scen.ambiguous", {{"id", id}, {"list", list}});
   }
   return nullptr;
 }
@@ -595,10 +604,9 @@ void Setup() {
     me.PoseAt(g_run.startT, S.sampleTicks, &pose);
     char look[96];
     std::snprintf(look, sizeof(look), "setang %.1f %.1f 0", pose.pitch, pose.yaw);
-    g_run.out("you are " + me.name + (me.team == 2 ? " (T)" : " (CT)") + ", " + S.id + " from " + at +
-              ". Recorded view: " + look + " in your console.");
+    g_run.out.Key("run.you_are", {{"name", me.name}, {"side", me.team == 2 ? "T" : "CT"}, {"id", S.id}, {"at", at}, {"setang", look}});
   }
-  ChatAll("Ready Up: scenario " + S.id + " (" + sc::Summary(S) + ") from " + at + ". Source: " + sc::Attribution(S));
+  ChatAllKey("run.started", {{"id", S.id}, {"summary", sc::Summary(S)}, {"at", at}, {"source", sc::Attribution(S)}});
   Log("practice: scenario %s running from t=%d: %zu bots, human %s", S.id.c_str(), g_run.startT, g_run.actors.size(),
       g_run.human >= 0 ? PlayerName(g_run.human).c_str() : "none (watch)");
 }
@@ -623,9 +631,9 @@ void TickPreparing(double now) {
   }
   if (haveT >= needT && haveCT >= needCT && humanOk) return Setup();
   if (now > g_run.deadline) {
-    g_run.out("scenario did not start: " + std::to_string(haveT) + "/" + std::to_string(needT) + " T bots, " +
-              std::to_string(haveCT) + "/" + std::to_string(needCT) + " CT bots" + (humanOk ? "" : ", you are not alive") +
-              " (server full? maxplayers must fit the bots).");
+    g_run.out.Key(humanOk ? "run.no_start" : "run.no_start_dead",
+                  {{"have_t", std::to_string(haveT)}, {"need_t", std::to_string(needT)},
+                   {"have_ct", std::to_string(haveCT)}, {"need_ct", std::to_string(needCT)}});
     Stop(Restore::kPractice, "bots did not join");
   }
 }
@@ -652,8 +660,8 @@ void TickRunning(double now) {
           PlayerName(dd.player).c_str(), dd.killer >= 0 ? PlayerName(dd.killer).c_str() : "the world");
     } else {
       const sc::BombEvent& b = S.bomb[static_cast<size_t>(d.index)];
-      ChatAll("Ready Up: " + sc::Clock(b.t, S.tickrate) + " bomb " + b.event +
-              (b.player >= 0 ? " by " + PlayerName(b.player) : std::string()) + " (recorded; not simulated)");
+      ChatAllKey(b.player >= 0 ? "run.bomb_by" : "run.bomb",
+                 {{"clock", sc::Clock(b.t, S.tickrate)}, {"event", b.event}, {"name", b.player >= 0 ? PlayerName(b.player) : ""}});
     }
   }
 
@@ -667,7 +675,7 @@ void TickRunning(double now) {
   }
   if (g_run.human >= 0 && !meAlive && !g_run.humanDeadNoted) {
     g_run.humanDeadNoted = true;
-    g_run.out("you died. .scen r to try again, .scen stop to end.");
+    g_run.out.Key("run.died");
   }
 
   for (auto& a : g_run.actors) {
@@ -700,8 +708,7 @@ void TickRunning(double now) {
       if (!a.dead) HandOver(a, "recording over");
     }
     SetPhase(Phase::kDone);
-    ChatAll("Ready Up: scenario " + S.id + " recording over (" + sc::Clock(S.length, S.tickrate) +
-            "); bots are on their own. .scen r replays, .scen stop ends.");
+    ChatAllKey("run.over", {{"id", S.id}, {"clock", sc::Clock(S.length, S.tickrate)}});
   }
 }
 
@@ -744,24 +751,24 @@ int g_lastSlot = -1;
 uint64_t g_lastSteam = 0;
 
 bool StartScenario(const LoadArgs& args, int slot, uint64_t steamid, const Out& out) {
-  if (const std::string why = g_host.refusal(); !why.empty()) {
-    out("scenarios " + why);
+  if (const std::string why = g_host.refusal(out.console ? -1 : out.slot); !why.empty()) {
+    out.Key("scen.refused", {{"why", why}});
     return false;
   }
   std::string err;
-  auto S = FindScenario(args.id, &err);
+  auto S = FindScenario(args.id, out, &err);
   if (!S) {
     out(err);
     return false;
   }
   const char* map = RU_API_HAS(g_api, current_map) && g_api->current_map ? g_api->current_map(g_api->self) : "";
   if (map && *map && S->map != map) {
-    out(S->id + " is on " + S->map + " (this is " + map + "): change the map first.");
+    out.Key("scen.wrong_map", {{"id", S->id}, {"map", S->map}, {"current", map}});
     return false;
   }
   int startT = S->defaultStart;
   if (!args.start.empty() && !sc::ParseStart(args.start, *S, &startT, &err)) {
-    out(err);
+    out.Key("scen.bad_start", {{"start", args.start}, {"length", sc::Clock(S->length, S->tickrate)}});
     return false;
   }
   const std::string who = Lower(args.player);
@@ -771,27 +778,28 @@ bool StartScenario(const LoadArgs& args, int slot, uint64_t steamid, const Out& 
   if (!watch) {
     PlayerInfo me;
     if (slot < 0 || !PlayerBySlot(slot, &me) || me.bot) {
-      out("no player to put in the scenario (use `watch` to replay with bots only).");
+      out.Key("scen.no_player");
       return false;
     }
     team = me.team;
     if (team != 2 && team != 3) {
-      out("join T or CT first (or .scen load " + S->id + " watch).");
+      out.Key("scen.join", {{"id", S->id}});
       return false;
     }
     human = who.empty() ? sc::DefaultPlayer(*S, team, startT) : sc::FindPlayer(*S, args.player, &err);
     if (human < 0) {
-      out(err.empty() ? "nobody on your team is alive at " + sc::Clock(startT, S->tickrate) : err);
+      if (who.empty()) out.Key("scen.nobody_alive", {{"clock", sc::Clock(startT, S->tickrate)}});
+      else out.Key("scen.no_such_player", {{"player", args.player}, {"players", sc::PlayerList(*S)}});
       return false;
     }
     const sc::Player& p = S->players[static_cast<size_t>(human)];
     if (p.team != team) {
-      out(p.name + " played " + (p.team == 2 ? "T" : "CT") + ": switch teams first, or pick a " + (team == 2 ? "T" : "CT") +
-          " player (" + sc::PlayerList(*S) + ").");
+      out.Key("scen.wrong_team", {{"name", p.name}, {"side", p.team == 2 ? "T" : "CT"}, {"team", team == 2 ? "T" : "CT"},
+                                  {"players", sc::PlayerList(*S)}});
       return false;
     }
     if (!p.AliveAt(startT)) {
-      out(p.name + " is dead at " + sc::Clock(startT, S->tickrate) + " in the recording: pick an earlier start.");
+      out.Key("scen.dead_at", {{"name", p.name}, {"clock", sc::Clock(startT, S->tickrate)}});
       return false;
     }
   }
@@ -829,9 +837,9 @@ bool StartScenario(const LoadArgs& args, int slot, uint64_t steamid, const Out& 
   g_run.readyAt = now + 1.6;
   g_run.deadline = now + 15.0;
   SetPhase(Phase::kPreparing);
-  out("loading " + S->id + " (" + sc::Summary(*S) + ") from " + sc::Clock(startT, S->tickrate) + ": " +
-      std::to_string(needT) + " T + " + std::to_string(needCT) + " CT bots" +
-      (human >= 0 ? ", you play " + S->players[static_cast<size_t>(human)].name : std::string(", watch mode")) + ".");
+  out.Key(human >= 0 ? "scen.loading" : "scen.loading_watch",
+          {{"id", S->id}, {"summary", sc::Summary(*S)}, {"clock", sc::Clock(startT, S->tickrate)}, {"t", std::to_string(needT)},
+           {"ct", std::to_string(needCT)}, {"name", human >= 0 ? S->players[static_cast<size_t>(human)].name : ""}});
   return true;
 }
 
@@ -847,10 +855,11 @@ void CmdList(const Out& out, bool all) {
     if (++shown > 12 && !out.console) continue;
     out(e->sc->id + ": " + sc::Summary(*e->sc));
   }
-  if (shown > 12 && !out.console) out("... " + std::to_string(shown - 12) + " more (ru scenario list in the console).");
+  if (shown > 12 && !out.console) out.Key("list.more", {{"count", std::to_string(shown - 12)}});
   if (shown == 0) {
-    out(std::string("no scenarios") + (all || !map || !*map ? "" : std::string(" for ") + map) + " in " + ScenarioDir() +
-        (other ? " (" + std::to_string(other) + " for other maps: .scen list all)" : std::string()));
+    const std::string others = other ? out.T("list.other", {{"count", std::to_string(other)}}) : "";
+    if (all || !map || !*map) out.Key("list.none", {{"dir", ScenarioDir()}, {"other", others}});
+    else out.Key("list.none_map", {{"map", map}, {"dir", ScenarioDir()}, {"other", others}});
   } else {
     out(".scen load <id> [player|watch] [start: 25, 1:05, t12345]");
   }
@@ -858,19 +867,26 @@ void CmdList(const Out& out, bool all) {
 
 void CmdInfo(const Out& out, const std::string& id) {
   std::string err;
-  auto S = FindScenario(id, &err);
+  auto S = FindScenario(id, out, &err);
   if (!S) return out(err);
   out(S->id + ": " + (S->title.empty() ? sc::Summary(*S) : S->title + " - " + sc::Summary(*S)));
-  out("players: " + sc::PlayerList(*S));
-  out("start " + sc::Clock(S->defaultStart, S->tickrate) + ", " + std::to_string(S->grenades.size()) + " grenades, " +
-      std::to_string(S->deaths.size()) + " deaths" + (S->bomb.empty() ? "" : ", bomb " + S->bomb.front().event + " at " +
-                                                                            sc::Clock(S->bomb.front().t, S->tickrate)));
-  out("source: " + sc::Attribution(*S));
+  out.Key("info.players", {{"players", sc::PlayerList(*S)}});
+  const readyup::i18n::Args at{{"clock", sc::Clock(S->defaultStart, S->tickrate)}, {"grenades", std::to_string(S->grenades.size())},
+                               {"deaths", std::to_string(S->deaths.size())}};
+  if (S->bomb.empty()) {
+    out.Key("info.start", at);
+  } else {
+    readyup::i18n::Args b = at;
+    b.push_back({"event", S->bomb.front().event});
+    b.push_back({"bomb_clock", sc::Clock(S->bomb.front().t, S->tickrate)});
+    out.Key("info.start_bomb", b);
+  }
+  out.Key("info.source", {{"source", sc::Attribution(*S)}});
 }
 
 void CmdStatus(const Out& out) {
-  static const char* kNames[] = {"idle", "preparing", "running", "over"};
-  if (g_run.phase == Phase::kIdle) return out("no scenario running.");
+  static const char* kNames[] = {"status.idle", "status.preparing", "status.running", "status.over"};
+  if (g_run.phase == Phase::kIdle) return out.Key("status.none");
   const sc::Scenario& S = *g_run.sc;
   int scripted = 0, handed = 0, dead = 0;
   for (const auto& a : g_run.actors) {
@@ -878,11 +894,11 @@ void CmdStatus(const Out& out) {
     else if (a.handed) ++handed;
     else ++scripted;
   }
-  out(S.id + " " + kNames[static_cast<int>(g_run.phase)] + " at " + sc::Clock(static_cast<int>(g_run.lastT), S.tickrate) +
-      "/" + sc::Clock(S.length, S.tickrate) + ", player " + (g_run.human >= 0 ? PlayerName(g_run.human) : "none (watch)") +
-      "; bots: " + std::to_string(scripted) + " scripted, " + std::to_string(handed) + " AI, " + std::to_string(dead) +
-      " dead; grenades " + std::to_string(g_run.nadesSpawned) + " spawned, " + std::to_string(g_run.nadesSkipped) +
-      " skipped");
+  out.Key("status.line", {{"id", S.id}, {"phase", out.T(kNames[static_cast<int>(g_run.phase)])},
+                          {"at", sc::Clock(static_cast<int>(g_run.lastT), S.tickrate)}, {"length", sc::Clock(S.length, S.tickrate)},
+                          {"player", g_run.human >= 0 ? PlayerName(g_run.human) : out.T("status.watch")},
+                          {"scripted", std::to_string(scripted)}, {"ai", std::to_string(handed)}, {"dead", std::to_string(dead)},
+                          {"spawned", std::to_string(g_run.nadesSpawned)}, {"skipped", std::to_string(g_run.nadesSkipped)}});
   if (out.console) {
     for (const auto& a : g_run.actors) {
       sc::V3 at{};
@@ -1099,19 +1115,19 @@ void Dispatch(const Out& out, int slot, uint64_t steamid, bool console, std::vec
   auto rest = [&](size_t i) { return a.size() > i ? a[i] : std::string(); };
   if (sub.empty() || sub == "help") return Help(out, console);
   if (sub == "list" || sub == "ls") return CmdList(out, Lower(rest(1)) == "all");
-  if (sub == "info") return rest(1).empty() ? out("usage: .scen info <id>") : CmdInfo(out, rest(1));
+  if (sub == "info") return rest(1).empty() ? out.Key("scen.info_usage") : CmdInfo(out, rest(1));
   if (sub == "status") return CmdStatus(out);
   if (sub == "stop" || sub == "end") {
-    if (g_run.phase == Phase::kIdle) return out("no scenario running.");
+    if (g_run.phase == Phase::kIdle) return out.Key("status.none");
     Stop(Restore::kPractice, "stopped by command");
-    return ChatAll("Ready Up: scenario stopped.");
+    return ChatAllKey("run.stopped");
   }
   if (sub == "restart" || sub == "r" || sub == "again") {
-    if (g_lastLoad.id.empty()) return out("nothing to restart (.scen load <id> first).");
+    if (g_lastLoad.id.empty()) return out.Key("scen.nothing_to_restart");
     return (void)StartScenario(g_lastLoad, console ? g_lastSlot : slot, console ? g_lastSteam : steamid, out);
   }
   if (sub == "convert" || sub == "rounds") {
-    if (!console && g_api->is_admin(g_api->self, steamid) != 1) return out("not authorized (admins / console only).");
+    if (!console && g_api->is_admin(g_api->self, steamid) != 1) return out.Key("scen.not_authorized");
     return CmdConvert(out, std::vector<std::string>(a.begin() + 1, a.end()), sub == "rounds");
   }
   LoadArgs la;
