@@ -1,0 +1,6 @@
+{
+  "lang.current": "Dilin: {language}. .lang <kod> ({codes}) ile değiştir ya da .lang reset yaz.",
+  "lang.set": "Dil {language} olarak ayarlandı.",
+  "lang.reset": "Varsayılan dile dönüldü: {language}.",
+  "lang.unknown": "Bilinmeyen dil \"{name}\". Şunlardan birini seç: {codes}"
+}
