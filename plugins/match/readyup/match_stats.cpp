@@ -176,9 +176,11 @@ void StatsAccumulator::OnPlayerHurt(uint64_t victim, uint64_t attacker, int dmgH
                                     const std::string& weapon) {
   if (!live_ || victim == 0) return;
   auto hit = round_.health.find(victim);
-  const int before = hit == round_.health.end() ? 100 : hit->second;
-  const int actual = std::max(0, std::min(dmgHealth, before));
-  round_.health[victim] = std::max(0, healthAfter);
+  const int before = std::max(0, hit == round_.health.end() ? 100 : hit->second);
+  const int after = std::clamp(healthAfter, 0, before);
+  // The health the hit took, not dmg_health (it can sum to less than that; see damage_ledger.cpp).
+  const int actual = dmgHealth > 0 ? before - after : 0;
+  round_.health[victim] = after;
   if (attacker == 0 || attacker == victim) return;
   const int as = SideOf(attacker);
   if (as != 0 && as == SideOf(victim)) return;  // team damage does not count

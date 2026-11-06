@@ -50,6 +50,13 @@ static void TestLedger() {
   l.OnHurt(6, 1, 0, 100);
   CHECK(l.Dealt(6, 1).hits == 0);
   CHECK(l.AnyPlayerDamage());
+  // dmg_health sums to 98 (24 + 24 + 25 + 25) while the victim went 100 -> 0:
+  // the report counts the health taken, 100.
+  l.OnHurt(1, 7, 24, 76);
+  l.OnHurt(1, 7, 24, 51);
+  l.OnHurt(1, 7, 25, 26);
+  l.OnHurt(1, 7, 25, 0);
+  CHECK(l.Dealt(1, 7).dmg == 100 && l.Dealt(1, 7).hits == 4);
   // New round.
   l.Reset();
   CHECK(l.Health(5) == 100 && l.Dealt(1, 5).dmg == 0 && !l.AnyPlayerDamage());
