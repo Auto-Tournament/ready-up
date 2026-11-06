@@ -443,6 +443,7 @@
   "dmg.line": "준 피해: {given} ({given_hits}회) | 받은 피해: {taken} ({taken_hits}회) — {name} ({hp} HP)",
   "dmg.in_other": "{dmg} ({count}회)",
   "dmg.dead": "사망",
+  "dmg.col_player": "플레이어",
   "dmg.col_given": "준 피해",
   "dmg.col_taken": "받은 피해",
   "dmg.col_hp": "HP",

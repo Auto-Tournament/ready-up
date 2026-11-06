@@ -493,8 +493,10 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
          "|" + tName + "|" + std::to_string(std::min(ready[1], 5)) + "|" + std::to_string(std::clamp(total[1], 0, 5)) + "\n";
   }
   const std::string count = std::to_string(b.ready) + " / " + std::to_string(b.total);
-  if (ok && !welcome && !btn.empty()) {
-    // Ready: the card shrinks to a one-line pill (dots, count, a small Unready).
+  // Ready: the card shrinks to a one-line pill (dots, count, a small Unready), welcome or not. It
+  // waited for the welcome to end, which starts over at every respawn, so in warmup it stayed big
+  // (2026-11-07).
+  if (ok && !btn.empty()) {
     s += L("id", "ready") + L("kind", T(lang, "spec.kind_ready") + " \xC2\xB7 " + count) + L("size", "mini") + btn + L("bw", "s") + L("mouse", "b");
     return s;
   }

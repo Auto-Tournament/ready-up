@@ -443,6 +443,7 @@
   "dmg.line": "Diberikan: {given} dalam {given_hits} | Diterima: {taken} dalam {taken_hits} — {name} ({hp} HP)",
   "dmg.in_other": "{dmg} dalam {count} hit",
   "dmg.dead": "MATI",
+  "dmg.col_player": "PEMAIN",
   "dmg.col_given": "DIBERIKAN",
   "dmg.col_taken": "DITERIMA",
   "dmg.col_hp": "HP",

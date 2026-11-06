@@ -452,6 +452,7 @@
   "dmg.in_one": "{dmg} con {count} colpo",
   "dmg.in_other": "{dmg} con {count} colpi",
   "dmg.dead": "MORTO",
+  "dmg.col_player": "GIOCATORE",
   "dmg.col_given": "INFLITTI",
   "dmg.col_taken": "SUBITI",
   "dmg.col_hp": "HP",

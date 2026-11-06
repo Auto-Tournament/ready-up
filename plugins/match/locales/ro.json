@@ -466,6 +466,7 @@
   "dmg.in_few": "{dmg} din {count} lovituri",
   "dmg.in_other": "{dmg} din {count} lovituri",
   "dmg.dead": "MORT",
+  "dmg.col_player": "JUCĂTOR",
   "dmg.col_given": "PROVOCATE",
   "dmg.col_taken": "SUFERITE",
   "dmg.col_hp": "HP",

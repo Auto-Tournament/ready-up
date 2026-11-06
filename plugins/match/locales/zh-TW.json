@@ -443,6 +443,7 @@
   "dmg.line": "造成：{given}（{given_hits} 次命中）| 受到：{taken}（{taken_hits} 次命中）— {name}（{hp} HP）",
   "dmg.in_other": "{dmg}，命中 {count} 次",
   "dmg.dead": "陣亡",
+  "dmg.col_player": "玩家",
   "dmg.col_given": "造成",
   "dmg.col_taken": "受到",
   "dmg.col_hp": "HP",

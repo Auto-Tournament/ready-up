@@ -443,6 +443,7 @@
   "dmg.line": "ทำ: {given} จาก {given_hits} ครั้ง | โดน: {taken} จาก {taken_hits} ครั้ง — {name} ({hp} HP)",
   "dmg.in_other": "{dmg} ในการโจมตี {count} ครั้ง",
   "dmg.dead": "ตาย",
+  "dmg.col_player": "ผู้เล่น",
   "dmg.col_given": "ทำได้",
   "dmg.col_taken": "ได้รับ",
   "dmg.col_hp": "HP",

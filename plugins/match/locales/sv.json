@@ -452,6 +452,7 @@
   "dmg.in_one": "{dmg} med {count} träff",
   "dmg.in_other": "{dmg} med {count} träffar",
   "dmg.dead": "DÖD",
+  "dmg.col_player": "SPELARE",
   "dmg.col_given": "ORSAKAD",
   "dmg.col_taken": "TAGEN",
   "dmg.col_hp": "HP",

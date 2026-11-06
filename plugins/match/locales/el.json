@@ -452,6 +452,7 @@
   "dmg.in_one": "{dmg} σε {count} χτύπημα",
   "dmg.in_other": "{dmg} σε {count} χτυπήματα",
   "dmg.dead": "ΝΕΚΡΟΣ",
+  "dmg.col_player": "ΠΑΙΚΤΗΣ",
   "dmg.col_given": "ΠΡΟΚΛΗΣΗ",
   "dmg.col_taken": "ΛΗΨΗ",
   "dmg.col_hp": "HP",

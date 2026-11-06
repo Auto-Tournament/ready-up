@@ -452,6 +452,7 @@
   "dmg.in_one": "{dmg}, {count} osumasta",
   "dmg.in_other": "{dmg}, {count} osumasta",
   "dmg.dead": "KUOLLUT",
+  "dmg.col_player": "PELAAJA",
   "dmg.col_given": "ANNETTU",
   "dmg.col_taken": "OTETTU",
   "dmg.col_hp": "HP",

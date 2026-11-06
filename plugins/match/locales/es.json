@@ -452,6 +452,7 @@
   "dmg.in_one": "{dmg} en {count} impacto",
   "dmg.in_other": "{dmg} en {count} impactos",
   "dmg.dead": "MUERTO",
+  "dmg.col_player": "JUGADOR",
   "dmg.col_given": "CAUSADO",
   "dmg.col_taken": "RECIBIDO",
   "dmg.col_hp": "HP",

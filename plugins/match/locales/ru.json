@@ -466,6 +466,7 @@
   "dmg.in_few": "{dmg} от {count} попаданий",
   "dmg.in_many": "{dmg} от {count} попаданий",
   "dmg.dead": "МЁРТВ",
+  "dmg.col_player": "ИГРОК",
   "dmg.col_given": "НАНЕСЕНО",
   "dmg.col_taken": "ПОЛУЧЕНО",
   "dmg.col_hp": "HP",

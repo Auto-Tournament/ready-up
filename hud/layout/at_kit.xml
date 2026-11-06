@@ -65,7 +65,7 @@
 </Panel>
 <Panel class="at-body at-dmg" hittest="false">
 <Panel class="at-drow at-dhead" hittest="false">
-<Label class="at-dname" text="" hittest="false" />
+<Label id="at_dh_name" class="at-dname" text="{s:text}" hittest="false" />
 <Label id="at_dh_given" class="at-dnum" text="{s:text}" hittest="false" />
 <Label id="at_dh_taken" class="at-dnum" text="{s:text}" hittest="false" />
 <Label id="at_dh_hp" class="at-dhp" text="{s:text}" hittest="false" />
