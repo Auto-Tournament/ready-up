@@ -268,7 +268,8 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
     end.next = shortMap(in.nextMap);
     end.seconds = std::max(1, plan.restartDelay - 1);
     if (!EndScreenShow(end)) {
-      ResultCardShow(MapResultCardHtml(card), MapResultCardSpec(card), std::max(1, plan.restartDelay - 1), "map result");
+      ResultCardShow([card](const std::string& lang) { return std::make_pair(MapResultCardHtml(card, lang), MapResultCardSpec(card, lang)); },
+                     std::max(1, plan.restartDelay - 1), "map result");
     }
     ScheduleNextMap(std::max(1, plan.restartDelay - 1), in.nextMap, gen);
     return plan;
@@ -310,7 +311,10 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
     end.how = card.forfeit ? "By forfeit" : "";  // a normal series win needs no pill
     end.where = "BEST OF " + std::to_string(numMaps);
   }
-  if (!EndScreenShow(end)) ResultCardShow(SeriesResultCardHtml(card), SeriesResultCardSpec(card), resetIn, "series result");
+  if (!EndScreenShow(end)) {
+    ResultCardShow([card](const std::string& lang) { return std::make_pair(SeriesResultCardHtml(card, lang), SeriesResultCardSpec(card, lang)); },
+                   resetIn, "series result");
+  }
 
   if (!winnerName.empty() && !in.seriesWinner.empty()) {
     SendToChat(("Ready Up: " + winnerName + " won the series by forfeit.").c_str());

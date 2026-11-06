@@ -9,6 +9,8 @@
 #include <cstddef>
 #include <string>
 
+// Every card takes the viewer's language (`lang`, locales/ keys card.*); "en" by default.
+
 namespace readyup {
 
 // HTML-escapes `in` for the center panel: < > & " ' become entities, control bytes (chat colors)
@@ -23,8 +25,8 @@ struct GoLiveCardInfo {
 };
 // The go-live commands, short forms only: "Pause: .p · Unpause: .up · Timeout: .tac · Call an admin: .admin"
 // (html: bold commands and middle dots; plain: for chat). Empty when there is nothing to show.
-std::string GoLiveCommandsLine(const GoLiveCardInfo& info, bool html);
-std::string GoLiveCardHtml(const GoLiveCardInfo& info);
+std::string GoLiveCommandsLine(const GoLiveCardInfo& info, bool html, const std::string& lang = "en");
+std::string GoLiveCardHtml(const GoLiveCardInfo& info, const std::string& lang = "en");
 
 // The result cards (result_card.h), shown to everyone at the end of a map and of the series.
 struct ResultCardInfo {
@@ -39,17 +41,19 @@ struct ResultCardInfo {
   int team1Damage = 0, team2Damage = 0;
 };
 // "MAP 2 · MIRAGE" / "<winner> wins the map" / "7 - 5" / "Next: Inferno".
-std::string MapResultCardHtml(const ResultCardInfo& info);
+std::string MapResultCardHtml(const ResultCardInfo& info, const std::string& lang = "en");
 // "<winner> WINS THE SERIES" / "2 - 1" (or "by forfeit"), or "SERIES DRAWN".
-std::string SeriesResultCardHtml(const ResultCardInfo& info);
+std::string SeriesResultCardHtml(const ResultCardInfo& info, const std::string& lang = "en");
 
 // "<name> (<teamLabel>) needs an admin" + the message (if any), for admins.
-std::string AdminCallCardHtml(const std::string& name, const std::string& teamLabel, const std::string& message);
+std::string AdminCallCardHtml(const std::string& name, const std::string& teamLabel, const std::string& message,
+                              const std::string& lang = "en");
 
 // The same cards as clickable-HUD screens (spec lines, hud_screens.h / plugins/hud/hud_screen.h).
-std::string GoLiveCardSpec(const GoLiveCardInfo& info);
-std::string MapResultCardSpec(const ResultCardInfo& info);
-std::string SeriesResultCardSpec(const ResultCardInfo& info);
-std::string AdminCallCardSpec(const std::string& name, const std::string& teamLabel, const std::string& message);
+std::string GoLiveCardSpec(const GoLiveCardInfo& info, const std::string& lang = "en");
+std::string MapResultCardSpec(const ResultCardInfo& info, const std::string& lang = "en");
+std::string SeriesResultCardSpec(const ResultCardInfo& info, const std::string& lang = "en");
+std::string AdminCallCardSpec(const std::string& name, const std::string& teamLabel, const std::string& message,
+                              const std::string& lang = "en");
 
 }  // namespace readyup

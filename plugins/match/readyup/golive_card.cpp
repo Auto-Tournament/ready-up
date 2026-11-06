@@ -3,6 +3,8 @@
 #include "readyup/hud_screens.h"
 #include "readyup/admin_call.h"
 #include "readyup/card_html.h"
+#include "readyup/host.h"
+#include "readyup/i18n_api.h"
 #include "readyup/config.h"
 #include "readyup/engine.h"
 #include "readyup/golive_card_logic.h"
@@ -38,8 +40,7 @@ struct Card {
   bool roundStarted = false;  // the go-live round has started: its round_freeze_end ends the card
   std::string reason;
   GoLiveCardClock clock;
-  std::string html;  // built once at the first send; the same HTML every frame
-  std::string spec;  // the same card for the clickable HUD
+  GoLiveCardInfo info;  // taken once at the first send; the card is built per language from it
   int sends = 0;     // ticks that sent the card (debug summary)
   int64_t firstSendMs = 0;
   std::unordered_map<int, std::string> skipped;  // slot -> why the card is held back (debug)
@@ -147,14 +148,12 @@ void GoLiveCardTick() {
   const LiveHudInfo hud = MatchFeaturesHud();
   const bool hudBusy = hud.paused || hud.forfeit;
   GoLiveCardInfo info;
-  std::string firstHtml, firstSpec;
+  bool haveFirst = false;
   if (!started && live && !hudBusy) {
     info = BuildInfo();
-    firstHtml = GoLiveCardHtml(info);
-    firstSpec = GoLiveCardSpec(info);
+    haveFirst = true;
   }
 
-  std::string html, spec;
   std::string reason;
   bool first = false;
   {
@@ -168,17 +167,15 @@ void GoLiveCardTick() {
       case GoLiveCardAction::Send: break;
     }
     if (!g_card.started) {
-      if (firstHtml.empty()) return;  // re-armed in between: next tick
+      if (!haveFirst) return;  // re-armed in between: next tick
       g_card.started = true;
       g_card.firstSendMs = now;
       first = true;
-      g_card.html = firstHtml;
-      g_card.spec = firstSpec;
+      g_card.info = info;
     }
     g_card.clock.lastSendMs = now;
     ++g_card.sends;
-    html = g_card.html;
-    spec = g_card.spec;
+    info = g_card.info;
     reason = g_card.reason;
   }
 
@@ -186,10 +183,18 @@ void GoLiveCardTick() {
   int humans = 0;
   int ok = 0;
   std::unordered_map<int, std::string> skipped;
+  std::unordered_map<std::string, std::pair<std::string, std::string>> byLang;  // lang -> html, spec
+  size_t htmlBytes = 0;
   for (const auto& h : ListHumans()) {
     const int slot = h.slot >= 0 ? h.slot : h.userid;
     if (h.steamid64 == 0 || slot < 0 || slot > 63) continue;
     ++humans;
+    const std::string lang = i18n::LanguageOf(host::Api(), slot);
+    auto card = byLang.find(lang);
+    if (card == byLang.end()) card = byLang.emplace(lang, std::make_pair(GoLiveCardHtml(info, lang), GoLiveCardSpec(info, lang))).first;
+    const std::string& html = card->second.first;
+    const std::string& spec = card->second.second;
+    htmlBytes = html.size();
     // Another card of ours owns this player's panel right now.
     const char* skip = AdminCallCardActiveFor(slot)              ? ".admin call card"
                        : WelcomeActiveFor(slot, h.steamid64)     ? "welcome card"
@@ -228,13 +233,17 @@ void GoLiveCardTick() {
 
   if (!first) return;
   if (DebugEnabled()) {
-    Debug("golive-card: showing (%s) to %d/%d players (%zu bytes html)\n", reason.c_str(), ok, humans, html.size());
+    Debug("golive-card: showing (%s) to %d/%d players (%zu bytes html)\n", reason.c_str(), ok, humans, htmlBytes);
   }
   // The same commands in chat too, once at go-live: they stay there to look up after the card is
   // gone (and they are the only copy when center HTML is unavailable).
   if (humans > 0) {
-    const std::string cmds = GoLiveCommandsLine(info, /*html=*/false);
-    if (!cmds.empty()) SendToChat(("Ready Up: " + cmds).c_str());
+    if (!GoLiveCommandsLine(info, /*html=*/false).empty()) {
+      host::RunOnGameThread([info] {
+        if (const ru_api* a = host::Api())
+          i18n::ChatAll(a, 0, [&](const std::string& lang) { return GoLiveCommandsLine(info, /*html=*/false, lang); });
+      });
+    }
   }
 }
 
