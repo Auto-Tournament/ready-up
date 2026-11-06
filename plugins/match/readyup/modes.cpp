@@ -1691,7 +1691,7 @@ void OnMatchRoundStarted() {
     for (const auto& line : GoLiveRulesLines(mapNo, std::max(1, ctx->num_maps), mapName, ctx->maxRounds,
                                               ctx->overtime_enabled, ctx->overtimeSegments, ctx->maxOvertimes,
                                               ctx->damageTiebreakEnabled)) {
-      SendToChat(line.c_str());
+      text::ChatAll(line.key, line.args);
     }
   }
   GoLiveCardArm("go-live round start", /*restartPending=*/false);  // "LIVE · GO GO GO" + commands

@@ -4,6 +4,7 @@
 // console. The core already
 // deduped the chat line and checked that chat commands are available on this build.
 #include "readyup/match_router.h"
+#include "readyup/text.h"
 
 #include "readyup/admin_call.h"
 #include "readyup/walkover.h"
@@ -79,6 +80,11 @@ const ru_practice_v1* Practice() {
 // An answer for one player (their slot), else to chat.
 void ReplyTo(int slot, const std::string& msg) {
   if (slot < 0 || !ClientPrintChat(slot, (" \x04[ReadyUp]\x01 " + msg).c_str())) SendToChat(("Ready Up: " + msg).c_str());
+}
+// The same with text from locales/.
+void ReplyKey(int slot, const std::string& key, text::Args args = {}) {
+  if (slot < 0) return text::ChatAll(key, std::move(args));
+  text::ChatSlot(slot, key, std::move(args));
 }
 
 void SendAdmin(const std::string& msg) {
@@ -195,28 +201,23 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     }
     if (GetMode() == ReadyUpMode::External) {
       const std::string ext = ExternalModeName();
-      SendToChat(("Ready Up: " + ext + " mode is on. Commands: .ru help " + ext).c_str());
+      text::ChatAll("help.external_mode", {{"mode", ext}});
       SendLicenseLine();
       return;
     }
     // One command per message: players scroll chat (Y); one long line wrapped unreadably.
-    for (const char* line : {"Ready Up commands:", "  .r  ready", "  .ur  not ready", "  .forceready  start without a full team",
-                             "  .tac  timeout", "  .p  pause", "  .up  unpause", "  .admin [message]  call an admin"}) {
-      SendToChat(line);
+    for (const char* key : {"help.title", "help.ready", "help.unready", "help.forceready", "help.tac", "help.pause",
+                            "help.unpause", "help.admin", "help.lang"}) {
+      text::ChatAll(key);
     }
     if (hasMatch) {
-      for (const char* line : {"  .stay / .switch (.ct / .t)  knife round side", "  .ff  forfeit (captain)",
-                               "  .coach ct|t, .uncoach  coaches"}) {
-        SendToChat(line);
-      }
+      for (const char* key : {"help.side", "help.forfeit", "help.coach"}) text::ChatAll(key);
     } else {
-      SendToChat(settings::Bool("knife_enabled_default")
-                     ? "Ready Up: scrim: when everyone on CT/T is READY: 5s countdown, knife round, winners .stay/.switch, live."
-                     : "Ready Up: scrim: when everyone on CT/T is READY, a 5s countdown starts and the scrim goes live.");
+      text::ChatAll(settings::Bool("knife_enabled_default") ? "help.scrim_knife" : "help.scrim");
     }
     if (IsReadyUpAdmin(steamid64)) {
-      SendToChat("  .ru help  admin commands");
-      SendToChat("  .ru help <command>  its subcommands");
+      text::ChatAll("help.ru");
+      text::ChatAll("help.ru_command");
     }
     SendLicenseLine();
     return;
@@ -258,14 +259,14 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     if (slot < 0) return;
     if (RestAfterWords(text, 1) == "off") return EndScreenHidePreview();
     if (!EndScreenShow(EndScreenDemoInfo(steamid64, playerName, RestAfterWords(text, 1) == "lost"), slot)) {
-      ReplyTo(slot, "The leaderboard needs the Auto Tournament HUD.");
+      ReplyKey(slot, "reply.leaderboard_needs_hud");
     }
     return;
   }
   if (first == ".asay") {
-    if (!IsReadyUpAdmin(steamid64)) return ReplyTo(slot, "not authorized");
+    if (!IsReadyUpAdmin(steamid64)) return ReplyKey(slot, "reply.not_authorized");
     const std::string msg = RestAfterWords(text, 1);
-    if (msg.empty()) return ReplyTo(slot, "usage: .asay <message>");
+    if (msg.empty()) return ReplyKey(slot, "reply.asay_usage");
     Print("chat: .asay by %s: %s\n", playerName.c_str(), msg.c_str());
     SendAdmin(msg);
     if (HudScreensOn()) HudScreensNoticeAll("id=asay\nwhere=card\ncolor=ct\nkind=Admin\ntitle=" + HudSpecText(msg) + "\n", 8.0);
@@ -273,7 +274,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   }
   if (const settings::SettingInfo* si = settings::FindChat(first)) {
     // .readyrequired <n>, .playout / .roundknife / .whitelist [on|off] (no value: toggle).
-    if (!IsReadyUpAdmin(steamid64)) return ReplyTo(slot, "not authorized");
+    if (!IsReadyUpAdmin(steamid64)) return ReplyKey(slot, "reply.not_authorized");
     std::string v, err, reply;
     if (!settings::ToggleValue(*si, settings::Global().Get(si->name), RestAfterWords(text, 1), &v, &err) ||
         !match_settings::Set(si->name, v, playerName, &reply)) {
@@ -294,7 +295,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   // `.spec`: join the spectators (not for a rostered player of a loaded match, who would be put back).
   if (first == ".spec") {
     const bool onRoster = hasMatch && ctx->slug != "scrim" && ctx->roster_team.count(steamid64) != 0;
-    if (!SpecCommandAllowed(onRoster)) return ReplyTo(slot, "you are on this match's roster: ask an admin to move you");
+    if (!SpecCommandAllowed(onRoster)) return ReplyKey(slot, "reply.spec_on_roster");
     int s = slot;
     if (s < 0) {
       for (const auto& id : ListSlotIdentities()) {
@@ -302,7 +303,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
       }
     }
     if (s < 0 || !MoveSlotToSpectators(s)) {
-      return ReplyTo(slot, "could not move you to spectators (team change is not available on this CS2 build): use the team menu");
+      return ReplyKey(slot, "reply.spec_failed");
     }
     return;
   }
@@ -314,7 +315,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     const bool nowReady = first == ".r" || first == ".ready";
     const bool was = SetReady(steamid64, nowReady);
     if (was != nowReady && !HudReplacesChat()) {
-      SendToChat(("Ready Up: " + playerName + " (spectator) is now " + (nowReady ? "READY" : "NOT READY") + ".").c_str());
+      text::ChatAll(nowReady ? "ready.spectator_ready" : "ready.spectator_not_ready", {{"name", playerName}});
     }
     return;
   }
@@ -327,7 +328,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     if (ctx->roster_team.find(steamid64) == ctx->roster_team.end()) {
       Print("ready: %s (%llu) typed %s but is not on this match's roster\n", playerName.c_str(),
             static_cast<unsigned long long>(steamid64), first.c_str());
-      SendToChat("Ready Up: you are not on this match's roster.");
+      text::ChatAll("ready.not_on_roster");
       return;
     }
   } else {
@@ -335,23 +336,23 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     if (first != ".r" && first != ".ready" && first != ".unready" && first != ".ur" && first != ".notready" &&
         first != ".nr" && first != ".forceready") {
       if (first == ".stay" || first == ".switch" || first == ".swap" || first == ".ct" || first == ".t") {
-        SendToChat("Ready Up: no knife side pick pending (no match loaded).");
+        text::ChatAll("ready.no_side_pick_no_match");
       } else {
-        SendToChat((std::string("Ready Up: ") + first + " only works during a live match.").c_str());
+        text::ChatAll("ready.live_only", {{"command", first}});
       }
       return;
     }
     const ReadyUpMode curMode = GetMode();
     if (curMode == ReadyUpMode::Practice) {
-      SendToChat("Ready Up: ready-up is not used in practice mode.");
+      text::ChatAll("ready.not_in_practice");
       return;
     }
     if (curMode == ReadyUpMode::External) {
-      SendToChat(("Ready Up: ready-up is not used in " + ExternalModeName() + " mode.").c_str());
+      text::ChatAll("ready.not_in_mode", {{"mode", ExternalModeName()}});
       return;
     }
     if (curMode == ReadyUpMode::Idle && !ScrimAutoEnabled()) {
-      SendToChat("Ready Up: scrim warmup is off (admin: .ru mode scrim to enable).");
+      text::ChatAll("ready.scrim_off");
       return;
     }
     if (scrim.teamNum.find(steamid64) == scrim.teamNum.end()) {
@@ -367,7 +368,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
       }
       Print("ready: %s (%llu) typed %s but is not on CT or T\n", playerName.c_str(),
             static_cast<unsigned long long>(steamid64), first.c_str());
-      SendToChat("Ready Up: join CT or T first.");
+      text::ChatAll("ready.join_team");
       return;
     }
   }
@@ -434,14 +435,18 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     const auto c = computeCounts();
     return "(" + std::to_string(c.total) + "/" + std::to_string(c.expected) + " ready)";
   };
+  auto readyArgs = [&]() -> text::Args {
+    const auto c = computeCounts();
+    return {{"name", playerName}, {"ready", std::to_string(c.total)}, {"total", std::to_string(c.expected)}};
+  };
   if (first == ".r" || first == ".ready") {
     const bool wasReady = SetReady(steamid64, true);
     Print("ready: %s (%llu) READY %s\n", playerName.c_str(), static_cast<unsigned long long>(steamid64),
           progress().c_str());
     if (wasReady) {
-      if (!HudReplacesChat()) SendToChat(("Ready Up: " + playerName + " is already READY " + progress() + ".").c_str());
+      if (!HudReplacesChat()) text::ChatAll("ready.already_ready", readyArgs());
     } else {
-      if (!HudReplacesChat()) SendToChat(("Ready Up: " + playerName + " is now READY " + progress() + ".").c_str());
+      if (!HudReplacesChat()) text::ChatAll("ready.now_ready", readyArgs());
       emitReady(true);
     }
     ScrimNoteReadyChanged();  // scrim countdown / go-live runs in ScrimTick
@@ -452,9 +457,9 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     Print("ready: %s (%llu) NOT READY %s\n", playerName.c_str(), static_cast<unsigned long long>(steamid64),
           progress().c_str());
     if (!wasReady) {
-      if (!HudReplacesChat()) SendToChat(("Ready Up: " + playerName + " is already NOT READY " + progress() + ".").c_str());
+      if (!HudReplacesChat()) text::ChatAll("ready.already_not_ready", readyArgs());
     } else {
-      if (!HudReplacesChat()) SendToChat(("Ready Up: " + playerName + " is now NOT READY " + progress() + ".").c_str());
+      if (!HudReplacesChat()) text::ChatAll("ready.now_not_ready", readyArgs());
       emitReady(false);
     }
     ScrimNoteReadyChanged();
@@ -467,7 +472,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
   const bool isPauseCmd = first == ".pause" || first == ".p" || first == ".tech" || first == ".tac" ||
                           first == ".unpause" || first == ".up";
   if (isPauseCmd && !FeatureEnabled(Feature::Pauses)) {
-    SendToChat("Ready Up: pauses are unavailable on this server build (see `ru selftest`).");
+    text::ChatAll("pause.unavailable_build");
     return;
   }
   if ((first == ".pause" || first == ".p") && match_settings::PauseCommandIsTactical()) {
@@ -501,7 +506,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
       d["steamid64"] = std::to_string(steamid64);
       signals::Emit("gg", std::move(d));
     }
-    if (!VotesGg(steamid64, ctx->roster_team[steamid64], playerName)) SendToChat("Ready Up: gg noted.");
+    if (!VotesGg(steamid64, ctx->roster_team[steamid64], playerName)) text::ChatAll("gg.noted");
     return;
   }
   if (first == ".stop") {
@@ -514,11 +519,11 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
                           : (team == WebhookTeam::Team2) ? ctx->team2_captain_steamid64
                                                          : 0ull;
     if (want == 0) {
-      SendToChat("Ready Up: forfeit unavailable (captain not configured).");
+      text::ChatAll("forfeit.no_captain");
       return;
     }
     if (steamid64 != want) {
-      SendToChat("Ready Up: only the team captain can forfeit.");
+      text::ChatAll("forfeit.captain_only");
       return;
     }
     const auto ms = MatchStateGet();
@@ -535,7 +540,7 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
       d["steamid64"] = std::to_string(steamid64);
       signals::Emit("forfeit", std::move(d));
     }
-    SendToChat("Ready Up: forfeit sent.");
+    text::ChatAll("forfeit.sent");
     return;
   }
   if (first == ".stay" || first == ".switch" || first == ".swap" || first == ".ct" || first == ".t") {
@@ -562,10 +567,15 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     if (steamid64 == 0) PrintLine(msg.c_str());
     else if (slot < 0 || !ClientPrintChat(slot, (" \x04[ReadyUp]\x01 " + msg).c_str())) SendToChat(msg.c_str());
   };
+  // The same with text from locales/ (the console reads English).
+  auto replyKey = [&](const std::string& key, text::Args a = {}) {
+    if (steamid64 == 0) PrintLine(text::ForLang("en", key, a).c_str());
+    else ReplyKey(slot, key, std::move(a));
+  };
   auto requireAdmin = [&]() -> bool {
     if (steamid64 == 0) return true;  // server console
     if (!IsReadyUpAdmin(steamid64)) {
-      replyPrivate("not authorized");
+      replyKey("reply.not_authorized");
       return false;
     }
     return true;
@@ -626,7 +636,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       // through readyup.match.v1 set_practice (MatchSetPractice).
       const ru_practice_v1* p = Practice();
       if (!p) {
-        replyPrivate("Ready Up: practice mode needs the practice plugin (practice.so), which is not loaded.");
+        replyKey("reply.practice_not_loaded");
         return;
       }
       const bool on = p->active() == 0;
@@ -683,10 +693,10 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     std::string reply;
     if (sub == "set") {
       const std::string value = RestAfterWords(text, 4);
-      if (name.empty() || value.empty()) return replyPrivate("usage: .ru settings set <setting> <value> (.ru settings show)");
+      if (name.empty() || value.empty()) return replyKey("reply.settings_set_usage");
       if (!match_settings::Set(name, value, who, &reply)) return replyPrivate("Ready Up: " + reply);
     } else {  // default
-      if (name.empty()) return replyPrivate("usage: .ru settings default <setting>");
+      if (name.empty()) return replyKey("reply.settings_default_usage");
       if (!match_settings::SetDefault(name, who, &reply)) return replyPrivate("Ready Up: " + reply);
     }
     sendAdmin(reply);
@@ -727,15 +737,15 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   if (sub == "side") {
     auto ctx = WebhookGetMatchContext();
     if (!ctx) {
-      replyPrivate("Ready Up: no match loaded.");
+      replyKey("reply.no_match");
       return;
     }
     if (!KnifeIsAwaitingPick()) {
-      replyPrivate("Ready Up: no knife side pick pending.");
+      replyKey("reply.no_side_pick");
       return;
     }
     if (args.empty()) {
-      replyPrivate("Ready Up: usage: .ru match side stay|switch|ct|t");
+      replyKey("reply.side_usage");
       return;
     }
     const std::string choice = args[0];
@@ -747,17 +757,17 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       if (std::strcmp(winner, "team1") == 0) want = WebhookTeam::Team1;
       else if (std::strcmp(winner, "team2") == 0) want = WebhookTeam::Team2;
       if (want == WebhookTeam::Unknown) {
-        SendToChat("Ready Up: knife winner not known yet.");
+        text::ChatAll("knife.winner_unknown");
         return;
       }
       auto it = ctx->roster_team.find(steamid64);
       if (it == ctx->roster_team.end() || it->second != want) {
-        SendToChat("Ready Up: only the knife-winning team can pick sides.");
+        text::ChatAll("knife.winner_only");
         return;
       }
     }
     if (!KnifeApplySideChoice(choice, steamid64, steamid64 == 0 ? std::string("Console") : playerName, admin)) {
-      replyPrivate("Ready Up: invalid choice. Use: .ru match side stay|switch|ct|t");
+      replyKey("reply.side_invalid");
       return;
     }
     if (steamid64 == 0) PrintLine("side: ok");
@@ -775,7 +785,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     const std::string t = args.empty() ? std::string() : Lower(args[0]);
     const WebhookTeam team = t == "team1" ? WebhookTeam::Team1 : t == "team2" ? WebhookTeam::Team2 : WebhookTeam::Unknown;
     if (team == WebhookTeam::Unknown) {
-      replyPrivate("usage: ru match " + sub + " team1|team2");
+      replyKey("reply.team_usage", {{"sub", sub}});
       return;
     }
     if (sub == "tech") MatchFeaturesTechPause(team, steamid64, who);
@@ -784,14 +794,14 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   }
   // start / restart / end / recover / restore / backups / pause / unpause need a loaded match.
   if (!WebhookGetMatchContext()) {
-    replyPrivate("Ready Up: no match loaded.");
+    replyKey("reply.no_match");
     return;
   }
   if (sub == "start") {
     // `force`: also under the valve ruleset without GOTV (no demo for this map).
     const bool force = !args.empty() && Lower(args[0]) == "force";
     if (!ForceStartMatch(force)) {
-      replyPrivate("Ready Up: match not started (GOTV is off under the valve ruleset: .ru match start force).");
+      replyKey("reply.start_needs_gotv");
       return;
     }
     sendAdmin(force ? "match force-started (force)." : "match force-started.");
@@ -815,7 +825,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     std::string winner = args.empty() ? std::string("none") : Lower(args[0]);
     if (winner == "draw" || winner.empty()) winner = "none";
     if (winner != "none" && winner != "team1" && winner != "team2") {
-      return replyPrivate("Ready Up: usage: .endmatch [team1|team2|none].");
+      return replyKey("reply.endmatch_usage");
     }
     std::string why;
     if (!fleet_bridge::Assigned() || !fleet_bridge::EndMatchByAdmin(winner, &why)) {
@@ -839,11 +849,11 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     round_restore::BackupsCommand(replyPrivate);
   } else if (sub == "pause") {
     if (PauseStateGet().paused) {
-      replyPrivate("Ready Up: match is already paused.");
+      replyKey("reply.already_paused");
       return;
     }
     if (!EnqueueServerCommand("mp_pause_match")) {
-      replyPrivate("Ready Up: pause unavailable yet.");
+      replyKey("reply.pause_unavailable");
       return;
     }
     PauseStateOnPaused("admin", steamid64 == 0 ? std::string("Console") : std::to_string(steamid64));
@@ -858,7 +868,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   } else if (sub == "unpause") {
     MatchFeaturesAdminUnpausing();
     if (!EnqueueServerCommand("mp_unpause_match")) {
-      replyPrivate("Ready Up: unpause unavailable yet.");
+      replyKey("reply.unpause_unavailable");
       return;
     }
     if (!PauseStateGet().paused) {

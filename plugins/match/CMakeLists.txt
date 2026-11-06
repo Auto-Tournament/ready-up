@@ -159,6 +159,7 @@ add_executable(match_rules_test tests/match_rules_test.cpp readyup/match_rules.c
 target_include_directories(match_rules_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(match_rules_test PRIVATE -Wall -Wextra)
 target_compile_definitions(match_rules_test PRIVATE READYUP_CFG_DIR="${CMAKE_SOURCE_DIR}/cfg/ReadyUp")
+readyup_embed_locales(match_rules_test ${CMAKE_CURRENT_SOURCE_DIR}/locales)
 add_test(NAME match_rules COMMAND match_rules_test)
 
 # Server settings (readyup/server_settings.h): the table, value checks, chat toggles, runtime >
@@ -175,7 +176,7 @@ add_test(NAME match_server_settings COMMAND match_server_settings_test)
 # (readyup/vote_logic.h) and their rules (ctest `match_damage_votes`).
 add_executable(match_damage_votes_test tests/damage_votes_test.cpp readyup/damage_ledger.cpp readyup/vote_logic.cpp
   readyup/match_rules.cpp)
-target_include_directories(match_damage_votes_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(match_damage_votes_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(match_damage_votes_test PRIVATE -Wall -Wextra)
 add_test(NAME match_damage_votes COMMAND match_damage_votes_test)
 

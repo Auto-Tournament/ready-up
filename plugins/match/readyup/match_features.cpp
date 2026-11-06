@@ -736,9 +736,9 @@ void MatchFeaturesOnPlayerLeft(uint64_t steamid64, const std::string& name) {
     if (!g_left.insert(steamid64).second) return;
   }
   const std::string who = name.empty() ? "A player" : name;
-  SendToChat(PlayerLeftChatLine(who, TeamName(*ctx, it->second), AutoPause5v5Enabled(),
-                                EffectiveRules().disconnect_pause_max_seconds)
-                 .c_str());
+  const text::Msg m = PlayerLeftChatLine(who, TeamName(*ctx, it->second), AutoPause5v5Enabled(),
+                                         EffectiveRules().disconnect_pause_max_seconds);
+  text::ChatAll(m.key, m.args);
 }
 
 void MatchFeaturesOnPlayerBack(uint64_t steamid64, const std::string& name) {
