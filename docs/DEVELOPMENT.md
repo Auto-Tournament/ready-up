@@ -151,3 +151,14 @@ On SIGSEGV/SIGBUS/SIGILL/SIGFPE/SIGABRT, Ready Up prints a backtrace to stderr a
 `readyup_crash.log` next to the shim. It then restores the default action and re-raises the
 signal, so the process really dies and the supervisor can restart it. A 10 s `alarm()` backstop
 kills the process if the handler itself deadlocks. Opt out with `READYUP_CRASH_HANDLER=0`.
+
+## Translations
+
+Player-facing text lives in each plugin's `locales/<code>.json`: flat `{"key": "text"}` tables,
+`en.json` first, the others with the same keys (codes as on the platform: `de`, `pt-BR`,
+`zh-CN`, ...). `readyup_embed_locales(<target> <dir>)` in the plugin's CMakeLists compiles them into
+the `.so`; `libs/readyup/i18n.h` looks a key up for a language (then its base language, then
+English) and fills `{placeholders}`. Counted text uses i18next's plural keys (`key_one`,
+`key_few`, `key_many`, `key_other`) with a `count` argument. Each locales dir gets a ctest
+(`locales_<target>`) that fails on a key en.json doesn't have, different placeholders, or `\u`
+escapes (write UTF-8).
