@@ -85,6 +85,8 @@
 // in ru_mode, no scrim warmup) and refuses while a match is loaded; without it this plugin keeps
 // the flag itself. It publishes readyup.practice.v1 (the match plugin hands `.ru mode practice`
 // to it). Log lines: `practice: ...`.
+#include "readyup/i18n.h"
+#include "readyup/i18n_api.h"
 #include "practice_feedback.h"
 #include "practice_guides.h"
 #include "practice_lineups.h"
@@ -128,6 +130,10 @@
 #ifndef PRACTICE_VERSION
 #define PRACTICE_VERSION "dev"
 #endif
+
+
+extern const readyup::i18n::Locale kReadyUpLocales[];  // locales/ (readyup_embed_locales)
+extern const size_t kReadyUpLocaleCount;
 
 namespace practice {
 namespace {
@@ -452,9 +458,20 @@ void Cmd(const char* c) { g_api->server_command(g_api->self, c); }
 void Cmd(const std::string& c) { Cmd(c.c_str()); }
 void ChatAll(const std::string& msg) { g_api->chat_all(g_api->self, msg.c_str(), 0); }
 
+// Player-facing text (plugins/practice/locales) in the player's language.
+readyup::i18n::Catalog g_text;
+std::string Lang(int slot) { return readyup::i18n::LanguageOf(g_api, slot); }
+std::string T(int slot, const char* key, const readyup::i18n::Args& args = {}) { return g_text.Tr(Lang(slot), key, args); }
+void ChatAllKey(const char* key, const readyup::i18n::Args& args = {}) {
+  readyup::i18n::ChatAll(g_api, 0, [&](const std::string& lang) { return g_text.Tr(lang, key, args); });
+}
+
 void Reply(int slot, uint64_t steamid64, const std::string& msg) {
   Log("practice: slot %d: %s", slot, msg.c_str());
   if (steamid64 != 0 && slot >= 0) g_api->chat_to_slot(g_api->self, slot, (" \x04[ReadyUp]\x01 " + msg).c_str());
+}
+void ReplyKey(int slot, uint64_t steamid64, const char* key, const readyup::i18n::Args& args = {}) {
+  Reply(slot, steamid64, T(slot, key, args));
 }
 
 void ClearState(bool restorePawns) {
@@ -575,8 +592,7 @@ void StartDryRun() {
   g_dryArmed = false;
   g_touched = true;
   Log("practice: dry run started");
-  ChatAll("Ready Up: dry run: one round with normal money, freeze time and round time. .dryrun or .prac goes back to "
-          "practice.");
+  ChatAllKey("dryrun.started");
 }
 
 void EndDryRun(const char* why) {
@@ -681,6 +697,11 @@ std::string KindName(const Throw& t) {
   if (t.kind == "molotov" && t.launch.incendiary) return "incendiary";
   return t.kind;
 }
+// KindName in the player's language.
+std::string KindText(int slot, const Throw& t) {
+  const std::string k = t.kind == "molotov" && t.launch.incendiary ? "incendiary" : t.kind;
+  return T(slot, ("kind." + k).c_str());
+}
 
 // "" when `t` can be thrown again, else why not.
 std::string RethrowRefusal(const Throw& t) {
@@ -723,7 +744,7 @@ bool SpawnThrow(const Throw& t, int slot) {
 // reply said why) when it cannot be.
 bool Rethrow(int slot, uint64_t steamid64, const Throw& t, const std::string& what) {
   if (const std::string why = RethrowRefusal(t); !why.empty()) {
-    Reply(slot, steamid64, "Cannot rethrow " + what + ": " + why + ".");
+    ReplyKey(slot, steamid64, "rethrow.cannot", {{"what", what}, {"why", why}});
     return false;
   }
   if (t.delay > 0) {
@@ -733,14 +754,14 @@ bool Rethrow(int slot, uint64_t steamid64, const Throw& t, const std::string& wh
     d.slot = slot;
     g_delayed.push_back(std::move(d));
     g_touched = true;
-    Reply(slot, steamid64, "Rethrowing " + what + " in " + FormatTimerSeconds(t.delay) + "s.");
+    ReplyKey(slot, steamid64, "rethrow.in", {{"what", what}, {"seconds", FormatTimerSeconds(t.delay)}});
     return true;
   }
   if (!SpawnThrow(t, slot)) {
-    Reply(slot, steamid64, "Cannot rethrow " + what + ": the server refused the grenade (see the server log).");
+    ReplyKey(slot, steamid64, "rethrow.refused", {{"what", what}});
     return false;
   }
-  Reply(slot, steamid64, "Rethrowing " + what + ".");
+  ReplyKey(slot, steamid64, "rethrow.now", {{"what", what}});
   return true;
 }
 
@@ -899,56 +920,55 @@ bool RunHistoryTool(int slot, uint64_t steamid64, uint64_t id, const std::string
   const size_t count = h ? h->Count() : 0;
   if (cmd == ".last") {
     const Throw* t = h ? h->Last() : nullptr;
-    if (!t) return Reply(slot, steamid64, "You have not thrown any nade yet!"), true;
-    if (!TeleportRemembering(slot, id, Vec3{t->pos.x, t->pos.y, t->pos.z}, &t->ang)) return Reply(slot, steamid64, kNoTeleport), true;
-    Reply(slot, steamid64, "Teleported to your last grenade throw" + AngleHint(t->ang));
+    if (!t) return ReplyKey(slot, steamid64, "nade.none"), true;
+    if (!TeleportRemembering(slot, id, Vec3{t->pos.x, t->pos.y, t->pos.z}, &t->ang)) return ReplyKey(slot, steamid64, "tp.unavailable"), true;
+    Reply(slot, steamid64, T(slot, "nade.teleported_last") + AngleHint(t->ang));
     return true;
   }
   if (cmd == ".lastindex") {
-    if (!count) return Reply(slot, steamid64, "You have not thrown any nade yet!"), true;
-    Reply(slot, steamid64, "Index of last thrown grenade: " + std::to_string(count));
+    if (!count) return ReplyKey(slot, steamid64, "nade.none"), true;
+    ReplyKey(slot, steamid64, "nade.last_index", {{"index", std::to_string(count)}});
     return true;
   }
   if (cmd == ".delay") {
     float secs = 0;
-    if (args.size() < 2) return Reply(slot, steamid64, "Usage: .delay <delay_in_seconds>"), true;
+    if (args.size() < 2) return ReplyKey(slot, steamid64, "nade.delay_usage"), true;
     if (!ParseDelaySeconds(args[1], &secs)) {
-      return Reply(slot, steamid64, "Usage: .delay <delay_in_seconds> (more than 0, at most 60)"), true;
+      return ReplyKey(slot, steamid64, "nade.delay_range"), true;
     }
-    if (!count) return Reply(slot, steamid64, "You have not thrown any nade yet!"), true;
+    if (!count) return ReplyKey(slot, steamid64, "nade.none"), true;
     h->Last()->delay = secs;
-    char buf[128];
-    std::snprintf(buf, sizeof(buf), "Delay of %.2fs set for grenade of index: %zu.", secs, count);
-    Reply(slot, steamid64, buf);
+    char secsText[32];
+    std::snprintf(secsText, sizeof(secsText), "%.2f", secs);
+    ReplyKey(slot, steamid64, "nade.delay_set", {{"seconds", secsText}, {"index", std::to_string(count)}});
     return true;
   }
   if (cmd == ".throwidx" || cmd == ".throwindex") {
     if (args.size() < 2) {
-      Reply(slot, steamid64,
-            "Usage: .throwindex <number> (You've thrown " + std::to_string(count) + " grenades till now)");
+      ReplyKey(slot, steamid64, "nade.throwindex_usage", {{"count", std::to_string(count)}});
       return true;
     }
     for (size_t i = 1; i < args.size(); ++i) {
       int n = 0;
       if (!ParsePositiveInt(args[i], &n)) {
-        Reply(slot, steamid64, args[i] + " is not a valid non-negative number for .throwindex command.");
+        ReplyKey(slot, steamid64, "nade.throwindex_bad", {{"value", args[i]}});
         continue;
       }
-      if (!count) return Reply(slot, steamid64, "You have not thrown any nade yet!"), true;
+      if (!count) return ReplyKey(slot, steamid64, "nade.none"), true;
       const Throw* t = h->At(n);
       if (!t) {
-        Reply(slot, steamid64, "Your grenade history only goes from 1 to " + std::to_string(count) + "!");
+        ReplyKey(slot, steamid64, "nade.history_range", {{"count", std::to_string(count)}});
         continue;
       }
       // ME throws every index given, each after its own .delay.
-      (void)Rethrow(slot, steamid64, *t, "grenade no. " + std::to_string(n) + " (" + KindName(*t) + ")");
+      (void)Rethrow(slot, steamid64, *t, T(slot, "nade.what_index", {{"index", std::to_string(n)}, {"kind", KindText(slot, *t)}}));
     }
     return true;
   }
   if (const std::string kind = TypedRethrowKind(cmd); !kind.empty()) {
     const Throw* t = h ? h->LastOfKind(kind) : nullptr;
-    if (!t) return Reply(slot, steamid64, "You have not thrown any " + kind + " yet!"), true;
-    (void)Rethrow(slot, steamid64, *t, "your last " + KindName(*t));
+    if (!t) return ReplyKey(slot, steamid64, "nade.none_kind", {{"kind", T(slot, ("kind." + kind).c_str())}}), true;
+    (void)Rethrow(slot, steamid64, *t, T(slot, "nade.what_last", {{"kind", KindText(slot, *t)}}));
     return true;
   }
   return false;
@@ -960,27 +980,26 @@ bool RunToggleTool(int slot, uint64_t steamid64, const std::string& cmd) {
     g_toggles.impacts = !g_toggles.impacts;
     Cmd(g_toggles.impacts ? "sv_showimpacts 1" : "sv_showimpacts 0");
     g_touched = true;
-    Reply(slot, steamid64, std::string("sv_showimpacts is now set to ") + (g_toggles.impacts ? "1" : "0"));
+    ReplyKey(slot, steamid64, "toggle.set", {{"cvar", "sv_showimpacts"}, {"value", g_toggles.impacts ? "1" : "0"}});
     return true;
   }
   if (cmd == ".traj" || cmd == ".pip") {
     g_toggles.traj = !g_toggles.traj;
     Cmd(g_toggles.traj ? "sv_grenade_trajectory_prac_pipreview true" : "sv_grenade_trajectory_prac_pipreview false");
     g_touched = true;
-    Reply(slot, steamid64,
-          std::string("sv_grenade_trajectory_prac_pipreview is now set to ") + (g_toggles.traj ? "true" : "false"));
+    ReplyKey(slot, steamid64, "toggle.set", {{"cvar", "sv_grenade_trajectory_prac_pipreview"}, {"value", g_toggles.traj ? "true" : "false"}});
     return true;
   }
   if (cmd == ".solid") {
     g_toggles.solid = NextSolidValue(g_toggles.solid);
     Cmd("mp_solid_teammates " + std::to_string(g_toggles.solid));
     g_touched = true;
-    Reply(slot, steamid64, "mp_solid_teammates is now set to " + std::to_string(g_toggles.solid));
+    ReplyKey(slot, steamid64, "toggle.set", {{"cvar", "mp_solid_teammates"}, {"value", std::to_string(g_toggles.solid)}});
     return true;
   }
   if (cmd == ".break") {
     if (!RU_API_HAS(g_api, entity_remove) || !g_api->entity_remove) {
-      return Reply(slot, steamid64, "cannot break anything: entity removal is unavailable on this server build."), true;
+      return Reply(slot, steamid64, T(slot, "break.unavailable")), true;
     }
     // func_breakable(_surf), and the prop_dynamic ones a Break input would break: health > 0 and
     // taking damage (Mirage's vents and windows; decorative props have health 0).
@@ -998,7 +1017,7 @@ bool RunToggleTool(int slot, uint64_t steamid64, const std::string& cmd) {
       if (breakable) n += g_api->entity_remove(g_api->self, e) == 1 ? 1 : 0;
     }
     Log("practice: .break removed %d entities", n);
-    Reply(slot, steamid64, n ? "Broke " + std::to_string(n) + " breakables (windows, vents, ...)." : "Nothing left to break.");
+    ReplyKey(slot, steamid64, n ? "break.done" : "break.nothing", {{"count", std::to_string(n)}});
     return true;
   }
   if (cmd == ".timer") {
@@ -1013,12 +1032,12 @@ bool RunToggleTool(int slot, uint64_t steamid64, const std::string& cmd) {
           (void)g_api->center_html_to_slot_prio(g_api->self, slot, html.c_str(), 3, RU_HTML_PRIO_NOTICE);
         }
       }
-      Reply(slot, steamid64, "Timer stopped! Result: " + res + "s");
+      ReplyKey(slot, steamid64, "timer.stopped", {{"seconds", res}});
       return true;
     }
     g_timers[slot] = StopWatch{id, Now(), 0};
     g_touched = true;
-    Reply(slot, steamid64, "Timer started! Use .timer to stop it.");
+    ReplyKey(slot, steamid64, "timer.started");
     return true;
   }
   return false;
@@ -1094,12 +1113,10 @@ bool RunSpawnMarkers(int slot, uint64_t steamid64, const std::string& cmd) {
   if (cmd != ".showspawns" && cmd != ".hidespawns") return false;
   const bool had = !g_spawnBeams.empty();
   RemoveSpawnBeams();
-  if (cmd == ".hidespawns") return Reply(slot, steamid64, had ? "Spawn markers hidden." : "No spawn markers shown."), true;
+  if (cmd == ".hidespawns") return ReplyKey(slot, steamid64, had ? "spawns.hidden" : "spawns.none_shown"), true;
   const auto ct = CompetitiveSpawns(3), t = CompetitiveSpawns(2);
   if (!EngineFeature("entity_create")) {
-    Reply(slot, steamid64, "spawn markers are not available on this CS2 build (entity creation did not verify). This map has " +
-                               std::to_string(ct.size()) + " CT and " + std::to_string(t.size()) +
-                               " competitive T spawns: .ctspawn N / .tspawn N / .bestspawn go there.");
+    ReplyKey(slot, steamid64, "spawns.markers_unavailable", {{"ct", std::to_string(ct.size())}, {"t", std::to_string(t.size())}});
     return true;
   }
   int n = 0;
@@ -1107,9 +1124,8 @@ bool RunSpawnMarkers(int slot, uint64_t steamid64, const std::string& cmd) {
   for (const auto& s : t) n += SpawnBeam(s.pos, Rgba{255, 165, 0, 255}) ? 1 : 0;
   g_touched = true;
   Log("practice: .showspawns: %d beams (%zu CT, %zu T spawns)", n, ct.size(), t.size());
-  if (n == 0) return Reply(slot, steamid64, "could not place spawn markers (see the server log)."), true;
-  Reply(slot, steamid64, "Showing " + std::to_string(ct.size()) + " CT (blue) and " + std::to_string(t.size()) +
-                             " T (orange) spawns. .hidespawns hides them.");
+  if (n == 0) return ReplyKey(slot, steamid64, "spawns.place_failed"), true;
+  ReplyKey(slot, steamid64, "spawns.showing", {{"ct", std::to_string(ct.size())}, {"t", std::to_string(t.size())}});
   return true;
 }
 
@@ -1117,7 +1133,7 @@ bool RunSpawnMarkers(int slot, uint64_t steamid64, const std::string& cmd) {
 bool RunWatchMe(int slot, uint64_t steamid64, const std::string& cmd) {
   if (cmd != ".fas" && cmd != ".watchme") return false;
   if (!EngineFeature("change_team")) {
-    return Reply(slot, steamid64, "moving players is not available on this CS2 build (team change did not verify)."), true;
+    return Reply(slot, steamid64, T(slot, "watchme.unavailable")), true;
   }
   struct Ctx {
     int self;
@@ -1134,8 +1150,7 @@ bool RunWatchMe(int slot, uint64_t steamid64, const std::string& cmd) {
   int moved = 0;
   for (int s : c.slots) moved += g_api->player_change_team(g_api->self, s, RU_TEAM_SPECTATOR) == 1 ? 1 : 0;
   Log("practice: %s by slot %d: %d of %zu players to the spectators", cmd.c_str(), slot, moved, c.slots.size());
-  Reply(slot, steamid64, moved ? "Moved " + std::to_string(moved) + " player" + (moved == 1 ? "" : "s") + " to the spectators."
-                               : "Nobody else to move.");
+  ReplyKey(slot, steamid64, moved ? "watchme.moved" : "watchme.nobody", {{"count", std::to_string(moved)}});
   return true;
 }
 
@@ -1148,20 +1163,20 @@ bool RunSpawnTool(int slot, uint64_t steamid64, uint64_t id, const std::string& 
   const std::string rest = cmd.substr(best ? 5 : 6);
   if (rest != "spawn" && rest != "ctspawn" && rest != "tspawn") return false;
   const int team = rest == "ctspawn" ? 3 : rest == "tspawn" ? 2 : TeamOfSlot(slot);
-  if (team != 2 && team != 3) return Reply(slot, steamid64, "join CT or T first (or use .bestctspawn / .besttspawn)."), true;
+  if (team != 2 && team != 3) return Reply(slot, steamid64, T(slot, "spawns.join_best")), true;
   const char* side = team == 3 ? "CT" : "T";
   Spot here;
-  if (!SpotOfSlot(slot, &here)) return Reply(slot, steamid64, "cannot read your position (are you alive?)."), true;
+  if (!SpotOfSlot(slot, &here)) return ReplyKey(slot, steamid64, "pos.unreadable"), true;
   const auto spawns = CompetitiveSpawns(team);
-  if (spawns.empty()) return Reply(slot, steamid64, std::string("no ") + side + " spawn points found on this map."), true;
+  if (spawns.empty()) return ReplyKey(slot, steamid64, "spawns.none_side", {{"side", side}}), true;
   std::vector<Vec3f> pts;
   for (const auto& s : spawns) pts.push_back({s.pos.x, s.pos.y, s.pos.z});
   const Vec3f from{here.pos.x, here.pos.y, here.pos.z};
   const int i = best ? ClosestIndex(pts, from) : FarthestIndex(pts, from);
   const Vec3 to = spawns[static_cast<size_t>(i)].pos;
-  if (!TeleportRemembering(slot, id, to)) return Reply(slot, steamid64, kNoTeleport), true;
-  Reply(slot, steamid64, std::string(best ? "closest " : "farthest ") + side + " spawn (" + std::to_string(i + 1) + "/" +
-                             std::to_string(spawns.size()) + ", " + Fmt(to) + ").");
+  if (!TeleportRemembering(slot, id, to)) return ReplyKey(slot, steamid64, "tp.unavailable"), true;
+  ReplyKey(slot, steamid64, best ? "spawns.closest" : "spawns.farthest",
+           {{"side", side}, {"n", std::to_string(i + 1)}, {"total", std::to_string(spawns.size())}, {"pos", Fmt(to)}});
   return true;
 }
 
@@ -1326,10 +1341,10 @@ bool RunLineupTool(int slot, uint64_t steamid64, uint64_t id, const std::string&
   constexpr const char* kBadName = "lineup names are 1-32 letters, digits, _ - or .";
 
   if (save) {
-    if (arg1.empty()) return Reply(slot, steamid64, "Usage: .savenade <name> [description]"), true;
-    if (!ValidLineupName(arg1)) return Reply(slot, steamid64, kBadName), true;
+    if (arg1.empty()) return Reply(slot, steamid64, T(slot, "lineup.save_usage")), true;
+    if (!ValidLineupName(arg1)) return ReplyKey(slot, steamid64, "lineup.bad_name"), true;
     Spot s;
-    if (!SpotOfSlot(slot, &s)) return Reply(slot, steamid64, "cannot read your position (are you alive?)."), true;
+    if (!SpotOfSlot(slot, &s)) return ReplyKey(slot, steamid64, "pos.unreadable"), true;
     Lineup l;
     l.name = arg1;
     l.pos = {s.pos.x, s.pos.y, s.pos.z};
@@ -1338,62 +1353,61 @@ bool RunLineupTool(int slot, uint64_t steamid64, uint64_t id, const std::string&
     l.desc = JoinFrom(args, 2).substr(0, 128);
     const std::string owner = g_globalNades ? std::string(kGlobalOwner) : mine;
     if (!book.Add(owner, l)) {
-      return Reply(slot, steamid64, "Lineup already exists! Please use a different name or use .delnade <nade>"), true;
+      return Reply(slot, steamid64, T(slot, "lineup.exists_generic")), true;
     }
     SaveLineups();
-    Reply(slot, steamid64, "Lineup " + l.name + " saved successfully!" + (g_globalNades ? " (global)" : "") +
-                               " Code: " + ExportCode(l));
+    ReplyKey(slot, steamid64, g_globalNades ? "lineup.saved_global" : "lineup.saved", {{"name", l.name}, {"code", ExportCode(l)}});
     return true;
   }
   if (load) {
-    if (arg1.empty()) return Reply(slot, steamid64, "Nade not found! Usage: .loadnade <name>"), true;
+    if (arg1.empty()) return Reply(slot, steamid64, T(slot, "lineup.load_usage")), true;
     std::string from;
     const Lineup* l = book.Load(mine, JoinFrom(args, 1), &from);
-    if (!l) return Reply(slot, steamid64, "Nade " + arg1 + " not found!"), true;
+    if (!l) return ReplyKey(slot, steamid64, "lineup.nade_not_found", {{"name", arg1}}), true;
     const Lineup copy = *l;
     if (!TeleportRemembering(slot, id, Vec3{copy.pos.x, copy.pos.y, copy.pos.z}, &copy.ang)) {
-      return Reply(slot, steamid64, kNoTeleport), true;
+      return ReplyKey(slot, steamid64, "tp.unavailable"), true;
     }
-    Reply(slot, steamid64, "Lineup " + copy.name + " loaded successfully" + (copy.kind.empty() ? "" : " [" + copy.kind + "]") +
-                               AngleHint(copy.ang) + (copy.kind.empty() ? "" : " Take your " + copy.kind + "."));
-    if (!copy.desc.empty()) Reply(slot, steamid64, "Description: " + copy.desc);
+    Reply(slot, steamid64, T(slot, copy.kind.empty() ? "lineup.loaded" : "lineup.loaded_kind", {{"name", copy.name}, {"kind", copy.kind}}) +
+                               AngleHint(copy.ang) + (copy.kind.empty() ? "" : " " + T(slot, "lineup.take_kind", {{"kind", copy.kind}})));
+    if (!copy.desc.empty()) ReplyKey(slot, steamid64, "lineup.description", {{"text", copy.desc}});
     return true;
   }
   if (list) {
     const std::string filter = arg1;
-    Reply(slot, steamid64, "-----All Saved Lineups for " + g_lineupsMap + "-----");
+    ReplyKey(slot, steamid64, "lineup.list_title", {{"map", g_lineupsMap}});
     int shown = 0;
     for (const std::string& owner : {std::string(kGlobalOwner), mine}) {
       for (const Lineup* l : book.List(owner, filter)) {
         if (++shown > 40) break;
         Reply(slot, steamid64, "[" + (l->kind.empty() ? std::string("?") : l->kind) + "] .loadnade " + l->name +
-                                   (owner == kGlobalOwner ? " (global)" : ""));
+                                   (owner == kGlobalOwner ? " " + T(slot, "lineup.global") : ""));
       }
     }
-    if (shown == 0) Reply(slot, steamid64, "No saved lineups" + (filter.empty() ? "" : " matching \"" + filter + "\"") + ".");
-    if (shown > 40) Reply(slot, steamid64, "... more; add a filter: .listnades <filter>");
+    if (shown == 0) ReplyKey(slot, steamid64, filter.empty() ? "lineup.none" : "lineup.none_matching", {{"filter", filter}});
+    if (shown > 40) Reply(slot, steamid64, T(slot, "lineup.more"));
     return true;
   }
   if (del) {
-    if (arg1.empty()) return Reply(slot, steamid64, "Usage: .delnade <name>"), true;
+    if (arg1.empty()) return Reply(slot, steamid64, T(slot, "lineup.del_usage")), true;
     const std::string owner = g_globalNades ? std::string(kGlobalOwner) : mine;
-    if (!book.Remove(owner, arg1)) return Reply(slot, steamid64, "Lineup " + arg1 + " not found!"), true;
+    if (!book.Remove(owner, arg1)) return ReplyKey(slot, steamid64, "lineup.not_found", {{"name", arg1}}), true;
     SaveLineups();
-    Reply(slot, steamid64, "Lineup " + arg1 + " deleted successfully.");
+    ReplyKey(slot, steamid64, "lineup.deleted", {{"name", arg1}});
     return true;
   }
   // .importnade <name> x y z pitch yaw roll (ME: always into the caller's own lineups)
-  if (arg1.empty()) return Reply(slot, steamid64, "Usage: .importnade <code>"), true;
+  if (arg1.empty()) return Reply(slot, steamid64, T(slot, "lineup.import_usage")), true;
   Lineup l;
   if (!ParseImportCode(JoinFrom(args, 1), &l.name, &l.pos, &l.ang)) {
-    return Reply(slot, steamid64, "Invalid code format. Please provide a valid code with name, pos, and ang."), true;
+    return Reply(slot, steamid64, T(slot, "lineup.bad_code")), true;
   }
   if (!book.Add(mine, l)) {
-    return Reply(slot, steamid64, "Lineup " + l.name + " already exists! Please use a different name or use .delnade <nade>"),
+    return ReplyKey(slot, steamid64, "lineup.exists", {{"name", l.name}}),
            true;
   }
   SaveLineups();
-  Reply(slot, steamid64, "Lineup " + l.name + " imported and saved successfully.");
+  ReplyKey(slot, steamid64, "lineup.imported", {{"name", l.name}});
   return true;
 }
 
@@ -1406,9 +1420,9 @@ void RunTool(int slot, uint64_t steamid64, const std::vector<std::string>& args)
   if (cmd == ".rethrow" || cmd == ".rt" || cmd == ".throw") {
     auto h = g_throws.find(id);
     const Throw* t = h != g_throws.end() ? h->second.Last() : nullptr;
-    if (!t) return Reply(slot, steamid64, "You have not thrown any nade yet!");
+    if (!t) return ReplyKey(slot, steamid64, "nade.none");
     if (const std::string why = RethrowRefusal(*t); !why.empty()) return ServerRethrow(slot, steamid64, t->delay, why);
-    (void)Rethrow(slot, steamid64, *t, "your last " + KindName(*t));
+    (void)Rethrow(slot, steamid64, *t, T(slot, "nade.what_last", {{"kind", KindText(slot, *t)}}));
     return;
   }
   if (RunHistoryTool(slot, steamid64, id, cmd, args)) return;
@@ -1421,14 +1435,14 @@ void RunTool(int slot, uint64_t steamid64, const std::vector<std::string>& args)
                           "ent_remove_all inferno", "ent_remove_all decoy_projectile"}) {
       Cmd(c);
     }
-    return Reply(slot, steamid64, "smokes, molotovs and decoys cleared.");
+    return Reply(slot, steamid64, T(slot, "clear.done"));
   }
   if (cmd == ".savepos") {
     Spot s;
-    if (!SpotOfSlot(slot, &s)) return Reply(slot, steamid64, "cannot read your position (are you alive?).");
+    if (!SpotOfSlot(slot, &s)) return ReplyKey(slot, steamid64, "pos.unreadable");
     g_saved[id][name] = s;
     g_touched = true;
-    return Reply(slot, steamid64, "position \"" + name + "\" saved (" + Fmt(s.pos) + ").");
+    return ReplyKey(slot, steamid64, "pos.saved", {{"name", name}, {"pos", Fmt(s.pos)}});
   }
   if (cmd == ".loadpos") {
     auto pit = g_saved.find(id);
@@ -1437,56 +1451,52 @@ void RunTool(int slot, uint64_t steamid64, const std::vector<std::string>& args)
       if (pit != g_saved.end()) {
         for (const auto& kv : pit->second) have += (have.empty() ? "" : ", ") + kv.first;
       }
-      return Reply(slot, steamid64,
-                   "no saved position \"" + name + "\"" + (have.empty() ? " (.savepos [name] first)." : " (saved: " + have + ")."));
+      return ReplyKey(slot, steamid64, have.empty() ? "pos.none" : "pos.none_have", {{"name", name}, {"have", have}});
     }
     const Spot s = pit->second[name];
     const Vec3f view{s.ang.x, s.ang.y, s.ang.z};
-    if (!TeleportRemembering(slot, id, s.pos, &view)) return Reply(slot, steamid64, kNoTeleport);
-    return Reply(slot, steamid64, "loaded position \"" + name + "\" (" + Fmt(s.pos) +
-                                      (g_viewSet ? ")." : "; view angle not restored)."));
+    if (!TeleportRemembering(slot, id, s.pos, &view)) return ReplyKey(slot, steamid64, "tp.unavailable");
+    return ReplyKey(slot, steamid64, g_viewSet ? "pos.loaded" : "pos.loaded_noview", {{"name", name}, {"pos", Fmt(s.pos)}});
   }
   if (cmd == ".back" && args.size() > 1) {
     // ME: .back N = to throw N of your grenade history.
     int n = 0;
     if (!ParsePositiveInt(args[1], &n)) {
-      return Reply(slot, steamid64,
-                   "Invalid value for .back command. Please specify a valid non-negative number. Usage: .back <number>");
+      return ReplyKey(slot, steamid64, "back.bad_value");
     }
     const ThrowHistory* h = g_throws.count(id) ? &g_throws[id] : nullptr;
-    if (!h || h->Count() == 0) return Reply(slot, steamid64, "You have not thrown any nade yet!");
+    if (!h || h->Count() == 0) return ReplyKey(slot, steamid64, "nade.none");
     const Throw* t = h->At(n);
-    if (!t) return Reply(slot, steamid64, "Your grenade history only goes from 1 to " + std::to_string(h->Count()) + "!");
-    if (!TeleportRemembering(slot, id, Vec3{t->pos.x, t->pos.y, t->pos.z}, &t->ang)) return Reply(slot, steamid64, kNoTeleport);
-    return Reply(slot, steamid64, "Teleported to grenade of history position: " + std::to_string(n) + "/" +
-                                      std::to_string(h->Count()) + AngleHint(t->ang));
+    if (!t) return ReplyKey(slot, steamid64, "nade.history_range", {{"count", std::to_string(h->Count())}});
+    if (!TeleportRemembering(slot, id, Vec3{t->pos.x, t->pos.y, t->pos.z}, &t->ang)) return ReplyKey(slot, steamid64, "tp.unavailable");
+    return Reply(slot, steamid64, T(slot, "back.teleported_history", {{"n", std::to_string(n)}, {"total", std::to_string(h->Count())}}) + AngleHint(t->ang));
   }
   if (cmd == ".back") {
     const Spot* s = nullptr;
     const char* what = "";
     if (auto t = g_lastThrow.find(id); t != g_lastThrow.end()) {
       s = &t->second;
-      what = "your last grenade throw";
+      what = "back.what_throw";
     } else if (auto b = g_beforeTeleport.find(id); b != g_beforeTeleport.end()) {
       s = &b->second;
-      what = "where you were before the last teleport";
+      what = "back.what_before";
     }
-    if (!s) return Reply(slot, steamid64, "nothing to go back to (throw a grenade or use .loadpos / .spawn first).");
+    if (!s) return Reply(slot, steamid64, T(slot, "back.nothing"));
     const Vec3 to = s->pos;
-    if (!Teleport(slot, to)) return Reply(slot, steamid64, kNoTeleport);
-    return Reply(slot, steamid64, std::string("back to ") + what + " (" + Fmt(to) + ").");
+    if (!Teleport(slot, to)) return ReplyKey(slot, steamid64, "tp.unavailable");
+    return ReplyKey(slot, steamid64, "back.to", {{"what", T(slot, what)}, {"pos", Fmt(to)}});
   }
   if (cmd == ".noflash") {
     const Offsets& o = Off();
     void* pawn = PawnForSlot(slot);
-    if (o.flashAlpha < 0 || !pawn) return Reply(slot, steamid64, "noflash is unavailable (pawn / schema field not found).");
+    if (o.flashAlpha < 0 || !pawn) return Reply(slot, steamid64, T(slot, "noflash.unavailable"));
     const bool on = !g_noflash.count(slot);
     if (on) g_noflash.insert(slot);
     else g_noflash.erase(slot);
     Wr<float>(pawn, o.flashAlpha, on ? 0.f : 255.f);
     g_api->entity_mark_changed(g_api->self, pawn);
     g_touched = true;
-    return Reply(slot, steamid64, on ? "noflash on." : "noflash off.");
+    return ReplyKey(slot, steamid64, on ? "noflash.on" : "noflash.off");
   }
   if (cmd == ".god") {
     const Offsets& o = Off();
@@ -1497,28 +1507,27 @@ void RunTool(int slot, uint64_t steamid64, const std::vector<std::string>& args)
       else g_god.erase(slot);
       Wr<bool>(pawn, o.takesDamage, !on);
       g_touched = true;
-      return Reply(slot, steamid64, on ? "god mode on (you take no damage)." : "god mode off.");
+      return ReplyKey(slot, steamid64, on ? "god.on" : "god.off");
     }
     // Fallback: buddha (server-wide, prac.cfg turns it on).
     g_buddhaOff = !g_buddhaOff;
     Cmd(g_buddhaOff ? "buddha 0" : "buddha 1");
     g_touched = true;
-    return Reply(slot, steamid64, g_buddhaOff ? "buddha off for everyone." : "buddha on for everyone (nobody dies).");
+    return ReplyKey(slot, steamid64, g_buddhaOff ? "buddha.off" : "buddha.on");
   }
   if (cmd == ".spawn" || cmd == ".ctspawn" || cmd == ".tspawn") {
     const int team = cmd == ".ctspawn" ? 3 : cmd == ".tspawn" ? 2 : TeamOfSlot(slot);
-    if (team != 2 && team != 3) return Reply(slot, steamid64, "join CT or T first (or use .ctspawn / .tspawn).");
+    if (team != 2 && team != 3) return Reply(slot, steamid64, T(slot, "spawns.join"));
     const int n = args.size() > 1 ? std::atoi(args[1].c_str()) : 1;
     const auto spawns = ListSpawns(team);
     const char* side = team == 3 ? "CT" : "T";
-    if (spawns.empty()) return Reply(slot, steamid64, std::string("no ") + side + " spawn points found on this map.");
+    if (spawns.empty()) return ReplyKey(slot, steamid64, "spawns.none_side", {{"side", side}});
     if (n < 1 || n > static_cast<int>(spawns.size())) {
-      return Reply(slot, steamid64, std::string(side) + " spawns: 1-" + std::to_string(spawns.size()) + ".");
+      return ReplyKey(slot, steamid64, "spawns.range", {{"side", side}, {"total", std::to_string(spawns.size())}});
     }
     const Vec3 to = spawns[static_cast<size_t>(n - 1)].pos;
-    if (!TeleportRemembering(slot, id, to)) return Reply(slot, steamid64, kNoTeleport);
-    return Reply(slot, steamid64, std::string(side) + " spawn " + std::to_string(n) + "/" +
-                                      std::to_string(spawns.size()) + " (" + Fmt(to) + ").");
+    if (!TeleportRemembering(slot, id, to)) return ReplyKey(slot, steamid64, "tp.unavailable");
+    return ReplyKey(slot, steamid64, "spawns.at", {{"side", side}, {"n", std::to_string(n)}, {"total", std::to_string(spawns.size())}, {"pos", Fmt(to)}});
   }
 }
 
@@ -1527,7 +1536,7 @@ void RunBot(int slot, uint64_t steamid64, const std::string& cmd) {
   if (cmd == ".nobots") {
     Cmd("bot_kick");
     g_pendingBots.clear();
-    ChatAll("Ready Up: bots removed.");
+    ChatAllKey("bot.removed");
     return;
   }
   // One bot on the other team (CT player -> T bot, else CT bot), placed where the caller stands.
@@ -1555,7 +1564,7 @@ void RunBot(int slot, uint64_t steamid64, const std::string& cmd) {
     g_pendingBots.push_back(std::move(p));
     g_touched = true;
   }
-  ChatAll(crouch ? "Ready Up: crouch bot added." : "Ready Up: bot added.");
+  ChatAllKey(crouch ? "bot.added_crouch" : "bot.added");
 }
 
 // ---- commands ------------------------------------------------------------------------------------
@@ -2329,6 +2338,9 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
 READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_api_version) {
   if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, register_ru_subcommand)) return 1;
   g_api = api;
+  g_text = {};
+  if (const std::string err = g_text.Load(kReadyUpLocales, kReadyUpLocaleCount); !err.empty())
+    ru_logf(api, RU_LOG_WARN, "locales: %s", err.c_str());
   g_off = Offsets{};
   ClearState(false);
   g_nextAlwaysCheck = 0;
