@@ -1,5 +1,6 @@
 // Tactical / technical pauses, .forceready and the team-left forfeit (see match_features.h).
 #include "readyup/match_features.h"
+#include "readyup/text.h"
 #include "readyup/match_status.h"
 
 #include "readyup/config.h"
@@ -75,9 +76,9 @@ std::string TeamName(const WebhookMatchContext& ctx, WebhookTeam t) {
   return t == WebhookTeam::Team1 ? "Team1" : "Team2";
 }
 
-void Reply(uint64_t steamid64, const std::string& msg) {
-  if (steamid64 != 0) SendToChat(msg.c_str());
-  else PrintLine(msg.c_str());
+void Reply(uint64_t steamid64, const std::string& key, text::Args args = {}) {
+  if (steamid64 != 0) text::ChatAll(key, std::move(args));
+  else PrintLine(text::ForLang("en", key, args).c_str());
 }
 
 bool LiveMap() { return GetMode() == ReadyUpMode::MatchLive; }
@@ -93,8 +94,18 @@ int CsSideOf(const WebhookMatchContext& ctx, WebhookTeam team) {
 }
 
 // A side card for one team (refusals of .tech / .tac / .p: hud_screens.h placement rule).
-void TeamNotice(const WebhookMatchContext& ctx, WebhookTeam team, const std::string& spec) {
-  if (HudScreensOn() && team != WebhookTeam::Unknown) HudScreensNoticeAll(spec, 6.0, CsSideOf(ctx, team));
+void TeamNotice(const WebhookMatchContext& ctx, WebhookTeam team, HudSpecBuild spec) {
+  if (HudScreensOn() && team != WebhookTeam::Unknown) HudScreensNoticeAll(std::move(spec), 6.0, CsSideOf(ctx, team));
+}
+
+// A notice card: kind and title (and sub) from locales/.
+HudSpecBuild NoticeSpec(std::string head, std::string kindKey, std::string titleKey, std::string subKey = {}, text::Args args = {}) {
+  return [=](const std::string& lang) {
+    std::string s = head + "kind=" + HudSpecText(text::ForLang(lang, kindKey, args)) + "\ntitle=" +
+                    HudSpecText(text::ForLang(lang, titleKey, args)) + "\n";
+    if (!subKey.empty()) s += "sub=" + HudSpecText(text::ForLang(lang, subKey, args)) + "\n";
+    return s;
+  };
 }
 
 void Unpause(const char* why) {
@@ -153,19 +164,17 @@ void ForfeitTick(double now) {
   switch (r.action) {
     case ForfeitTimer::Action::Started:
       Print("forfeit: %s has nobody connected; forfeit in %ds\n", TeamKey(absent), r.secondsLeft);
-      SendToChat(("Ready Up: " + name + " has no players on the server. They forfeit in " +
-                  std::to_string(r.secondsLeft) + "s unless someone reconnects.")
-                     .c_str());
+      text::ChatAll("forfeit.team_empty", {{"team", name}, {"seconds", std::to_string(r.secondsLeft)}});
       g_ffAnnounced = r.secondsLeft;
       break;
     case ForfeitTimer::Action::Cancelled:
       Print("forfeit: %s is back; countdown cancelled\n", TeamKey(absent));
-      SendToChat(("Ready Up: " + name + " is back. Forfeit cancelled.").c_str());
+      text::ChatAll("forfeit.team_back", {{"team", name}});
       g_ffAnnounced = -1;
       break;
     case ForfeitTimer::Action::Expired:
       Print("forfeit: %s did not come back in %ds\n", TeamKey(absent), limit);
-      SendToChat(("Ready Up: " + name + " did not come back and forfeits the match.").c_str());
+      text::ChatAll("forfeit.team_forfeits", {{"team", name}});
       if (!ForfeitCurrentMap(absent, "team_absent")) Print("forfeit: no live map to forfeit\n");
       g_ffAnnounced = -1;
       break;
@@ -173,7 +182,7 @@ void ForfeitTick(double now) {
       if (g_ff.Running()) {
         for (int mark : {120, 60, 30, 10}) {
           if (r.secondsLeft <= mark && g_ffAnnounced > mark) {
-            SendToChat(("Ready Up: " + name + " forfeits in " + std::to_string(r.secondsLeft) + "s.").c_str());
+            text::ChatAll("forfeit.team_forfeits_in", {{"team", name}, {"seconds", std::to_string(r.secondsLeft)}});
             g_ffAnnounced = mark;
             break;
           }
@@ -220,11 +229,8 @@ bool MaybeMarkAuto5v5Pause() {
                          /*is_admin=*/false, /*pause_time=*/0);
   Print("pause: auto_5v5 (sv_matchpause_auto_5v5 1): CT %d, T %d players; %s is short\n", ct, t, TeamKey(shortTeam));
   const int maxSeconds = EffectiveRules().disconnect_pause_max_seconds;
-  SendToChat(("Ready Up: match paused automatically - " + TeamName(*ctx, shortTeam) +
-              " is missing a player. It goes on when they are back" +
-              (maxSeconds > 0 ? " (or in " + std::to_string(maxSeconds / 60) + " min)" : std::string()) +
-              ". To go on now, both teams type .up.")
-                 .c_str());
+  text::ChatAll(maxSeconds > 0 ? "pause.auto_missing_max" : "pause.auto_missing",
+                {{"team", TeamName(*ctx, shortTeam)}, {"minutes", std::to_string(maxSeconds / 60)}});
   return true;
 }
 
@@ -303,11 +309,9 @@ void EnginePauseTick(double now) {
         window ? ", at go-live" : "", ct, t, shortTeam != WebhookTeam::Unknown ? "; short: " : "",
         shortTeam != WebhookTeam::Unknown ? TeamKey(shortTeam) : "");
   if (shortTeam != WebhookTeam::Unknown) {
-    SendToChat(("Ready Up: match paused - " + TeamName(*ctx, shortTeam) +
-                " is missing a player. To go on now, both teams type .up.")
-                   .c_str());
+    text::ChatAll("pause.missing", {{"team", TeamName(*ctx, shortTeam)}});
   } else {
-    SendToChat("Ready Up: the game is paused. To go on, both teams type .up.");
+    text::ChatAll("pause.engine");
   }
 }
 
@@ -338,25 +342,24 @@ bool MatchFeaturesRoundOver() { return g_roundOver.load(); }
 
 void MatchFeaturesTechPause(WebhookTeam team, uint64_t steamid64, const std::string& name) {
   const auto ctx = WebhookGetMatchContext();
-  if (!ctx) return Reply(steamid64, "Ready Up: no match loaded.");
+  if (!ctx) return Reply(steamid64, "reply.no_match");
   if (!LiveMap()) {
-    TeamNotice(*ctx, team, "id=notice\nwhere=card\ncolor=muted\nkind=Not now\ntitle=Works once the match is live\n");
-    return Reply(steamid64, "Ready Up: pauses only work while the map is live.");
+    TeamNotice(*ctx, team, NoticeSpec("id=notice\nwhere=card\ncolor=muted\n", "notice.not_now", "notice.works_when_live"));
+    return Reply(steamid64, "pause.live_only");
   }
-  if (PauseStateGet().paused) return Reply(steamid64, "Ready Up: match is already paused.");
+  if (PauseStateGet().paused) return Reply(steamid64, "reply.already_paused");
   const MatchRules rules = EffectiveRules();
   const int used = PauseStateUsed(team, "technical");
   const std::string tn = TeamName(*ctx, team);
   if (!TechPauseAllowed(used, rules.tech_pauses_per_team)) {
     Print("pause: technical refused for %s (%d/%d used)\n", TeamKey(team), used, rules.tech_pauses_per_team);
     // "(3/3)" read as three left; say it in words (2026-10-15).
-    TeamNotice(*ctx, team, "id=notice\nwhere=card\ncolor=ban\nkind=Tech pause\ntitle=No tech pauses left\nsub=" +
-                               HudSpecText(tn) + " used " + std::to_string(used) + " / " +
-                               std::to_string(rules.tech_pauses_per_team) + "\n");
-    return Reply(steamid64, "Ready Up: " + tn + " has used all " + std::to_string(rules.tech_pauses_per_team) +
-                                " technical pauses; none left.");
+    TeamNotice(*ctx, team, NoticeSpec("id=notice\nwhere=card\ncolor=ban\n", "notice.tech_pause", "notice.no_tech_pauses",
+                                      "notice.team_used", {{"team", tn}, {"used", std::to_string(used)},
+                                                           {"max", std::to_string(rules.tech_pauses_per_team)}}));
+    return Reply(steamid64, "pause.tech_none_left", {{"team", tn}, {"count", std::to_string(rules.tech_pauses_per_team)}});
   }
-  if (!EnqueueServerCommand("mp_pause_match")) return Reply(steamid64, "Ready Up: pause unavailable yet.");
+  if (!EnqueueServerCommand("mp_pause_match")) return Reply(steamid64, "reply.pause_unavailable");
   PauseStateOnPaused("technical", steamid64 ? std::to_string(steamid64) : std::string("Console"), team);
   PauseStateCountUse(team, "technical");
   WebhookEmitMatchPaused(MatchStateGet().map_number, WebhookPlayer{steamid64, name, team}, /*is_tactical=*/false,
@@ -364,19 +367,18 @@ void MatchFeaturesTechPause(WebhookTeam team, uint64_t steamid64, const std::str
   const int left = TechPausesLeft(used + 1, rules.tech_pauses_per_team);
   Print("pause: technical by %s (%s) used=%d/%d max_seconds=%d\n", TeamKey(team), name.c_str(), used + 1,
         rules.tech_pauses_per_team, rules.tech_pause_max_seconds);
-  std::string msg = "Ready Up: technical pause by " + tn + (g_inFreeze.load() ? "" : " (at freeze time)");
-  if (left >= 0) msg += " - " + std::to_string(left) + " left";
-  SendToChat((msg + ".").c_str());
+  text::ChatAll(std::string(g_inFreeze.load() ? "pause.tech_by" : "pause.tech_by_freeze") + (left >= 0 ? "_left" : ""),
+                {{"team", tn}, {"count", std::to_string(left)}});
 }
 
 void MatchFeaturesTacticalTimeout(WebhookTeam team, uint64_t steamid64, const std::string& name) {
   const auto ctx = WebhookGetMatchContext();
-  if (!ctx) return Reply(steamid64, "Ready Up: no match loaded.");
+  if (!ctx) return Reply(steamid64, "reply.no_match");
   if (!LiveMap()) {
-    TeamNotice(*ctx, team, "id=notice\nwhere=card\ncolor=muted\nkind=Not now\ntitle=Works once the match is live\n");
-    return Reply(steamid64, "Ready Up: timeouts only work while the map is live.");
+    TeamNotice(*ctx, team, NoticeSpec("id=notice\nwhere=card\ncolor=muted\n", "notice.not_now", "notice.works_when_live"));
+    return Reply(steamid64, "pause.timeout_live_only");
   }
-  if (PauseStateGet().paused) return Reply(steamid64, "Ready Up: match is already paused.");
+  if (PauseStateGet().paused) return Reply(steamid64, "reply.already_paused");
   // The caller's side (a player), else the team's side from the map sides and swaps.
   int side = 0;
   if (steamid64 != 0) {
@@ -390,16 +392,16 @@ void MatchFeaturesTacticalTimeout(WebhookTeam team, uint64_t steamid64, const st
   if (auto it = ctx->cvars.find("mp_team_timeout_max"); it != ctx->cvars.end()) {
     const int max = std::atoi(it->second.c_str());
     if (used >= max) {
-      TeamNotice(*ctx, team, "id=notice\nwhere=card\ncolor=ban\nkind=Timeout\ntitle=No timeouts left\nsub=" +
-                                 HudSpecText(TeamName(*ctx, team)) + " used " + std::to_string(used) + " / " +
-                                 std::to_string(max) + "\n");
-      return Reply(steamid64, "Ready Up: " + TeamName(*ctx, team) + " has no tactical timeouts left.");
+      TeamNotice(*ctx, team, NoticeSpec("id=notice\nwhere=card\ncolor=ban\n", "notice.timeout", "notice.no_timeouts",
+                                        "notice.team_used", {{"team", TeamName(*ctx, team)}, {"used", std::to_string(used)},
+                                                             {"max", std::to_string(max)}}));
+      return Reply(steamid64, "pause.tac_none_left", {{"team", TeamName(*ctx, team)}});
     }
   }
   int seconds = 30;
   if (auto it = ctx->cvars.find("mp_team_timeout_time"); it != ctx->cvars.end()) seconds = std::atoi(it->second.c_str());
   if (!EnqueueServerCommand(side == 3 ? "timeout_ct_start" : "timeout_terrorist_start")) {
-    return Reply(steamid64, "Ready Up: timeout unavailable yet.");
+    return Reply(steamid64, "pause.timeout_unavailable");
   }
   PauseStateOnPaused("tactical", steamid64 ? std::to_string(steamid64) : std::string("Console"), team);
   PauseStateCountUse(team, "tactical");
@@ -407,19 +409,17 @@ void MatchFeaturesTacticalTimeout(WebhookTeam team, uint64_t steamid64, const st
                          /*is_admin=*/steamid64 == 0, /*pause_time=*/seconds);
   Print("pause: tactical timeout by %s (%s) side=%s used=%d\n", TeamKey(team), name.c_str(), side == 3 ? "CT" : "T",
         used + 1);
-  SendToChat(("Ready Up: tactical timeout for " + TeamName(*ctx, team) +
-              (g_inFreeze.load() ? "." : " (at freeze time)."))
-                 .c_str());
+  text::ChatAll(g_inFreeze.load() ? "pause.tac_for" : "pause.tac_for_freeze", {{"team", TeamName(*ctx, team)}});
 }
 
 void MatchFeaturesUnpause(WebhookTeam team, uint64_t steamid64, const std::string& name) {
   (void)name;
   const auto ctx = WebhookGetMatchContext();
-  if (!ctx) return Reply(steamid64, "Ready Up: no match loaded.");
+  if (!ctx) return Reply(steamid64, "reply.no_match");
   const PauseSnapshot cur = PauseStateGet();
-  if (!cur.paused) return Reply(steamid64, "Ready Up: match is not paused.");
-  if (cur.type == "tactical") return Reply(steamid64, "Ready Up: the tactical timeout ends by itself.");
-  if (cur.type == "admin") return Reply(steamid64, "Ready Up: an admin paused the match; only an admin can unpause (.fup).");
+  if (!cur.paused) return Reply(steamid64, "pause.not_paused");
+  if (cur.type == "tactical") return Reply(steamid64, "pause.tac_ends_itself");
+  if (cur.type == "admin") return Reply(steamid64, "pause.admin_only");
   const MatchRules rules = EffectiveRules();
   const int mapNumber = MatchStateGet().map_number;
   auto snap = PauseStateRequestUnpause(team);
@@ -453,20 +453,20 @@ void MatchFeaturesUnpause(WebhookTeam team, uint64_t steamid64, const std::strin
   const int teamsReady = (snap.team1_ready_to_unpause ? 1 : 0) + (snap.team2_ready_to_unpause ? 1 : 0);
   WebhookEmitUnpauseRequested(mapNumber, team, teamsReady, both ? 2 : 1);
   if (UnpauseSatisfied(snap.team1_ready_to_unpause, snap.team2_ready_to_unpause, both, TeamNum(cur.team))) {
-    if (!EnqueueServerCommand("mp_unpause_match")) return Reply(steamid64, "Ready Up: unpause unavailable yet.");
+    if (!EnqueueServerCommand("mp_unpause_match")) return Reply(steamid64, "reply.unpause_unavailable");
     Unpause("players");
-    SendToChat("Ready Up: unpause accepted.");
-    if (HudScreensOn()) HudScreensNoticeAll("id=unpause\ncolor=live\nkind=Both teams ready\ntitle=Unpausing\n", 3.0);
+    text::ChatAll("pause.unpause_accepted");
+    if (HudScreensOn()) HudScreensNoticeAll(NoticeSpec("id=unpause\ncolor=live\n", "notice.both_ready", "notice.unpausing"), 3.0);
   } else if (both) {
-    SendToChat(("Ready Up: " + TeamName(*ctx, team) + " wants to unpause (waiting for the other team).").c_str());
+    text::ChatAll("pause.wants_unpause", {{"team", TeamName(*ctx, team)}});
   } else {
-    SendToChat(("Ready Up: waiting for " + TeamName(*ctx, cur.team) + " (they paused) to unpause.").c_str());
+    text::ChatAll("pause.waiting_pauser", {{"team", TeamName(*ctx, cur.team)}});
   }
 }
 
 void MatchFeaturesForceReady(uint64_t steamid64, const std::string& name) {
   const MatchRules rules = EffectiveRules();
-  if (!rules.allow_force_ready) return Reply(steamid64, "Ready Up: .forceready is disabled on this server.");
+  if (!rules.allow_force_ready) return Reply(steamid64, "forceready.disabled");
   const auto ctx = WebhookGetMatchContext();
   const ReadyUpMode mode = GetMode();
   const auto humans = ListHumans();
@@ -474,20 +474,20 @@ void MatchFeaturesForceReady(uint64_t steamid64, const std::string& name) {
   std::string teamName;
   if (!ctx) {
     // Scrim warmup: everyone on the caller's side.
-    if (mode != ReadyUpMode::ScrimWarmup) return Reply(steamid64, "Ready Up: .forceready only works in warmup.");
+    if (mode != ReadyUpMode::ScrimWarmup) return Reply(steamid64, "forceready.warmup_only");
     const ScrimRoster roster = BuildScrimRoster();
     const auto me = roster.teamNum.find(steamid64);
-    if (me == roster.teamNum.end()) return Reply(steamid64, "Ready Up: join CT or T first.");
+    if (me == roster.teamNum.end()) return Reply(steamid64, "ready.join_team");
     for (const auto& kv : roster.teamNum) {
       if (kv.second == me->second && !SetReady(kv.first, true)) ++readied;
     }
     teamName = me->second == 3 ? "CT" : "T";
   } else {
     if (mode != ReadyUpMode::MatchWarmup || GoLiveTriggered() || KnifeIsAwaitingPick()) {
-      return Reply(steamid64, "Ready Up: .forceready only works in warmup.");
+      return Reply(steamid64, "forceready.warmup_only");
     }
     const auto it = ctx->roster_team.find(steamid64);
-    if (it == ctx->roster_team.end()) return Reply(steamid64, "Ready Up: you are not on this match's roster.");
+    if (it == ctx->roster_team.end()) return Reply(steamid64, "ready.not_on_roster");
     const WebhookTeam team = it->second;
     std::unordered_set<uint64_t> connected;
     for (const auto& h : humans) connected.insert(h.steamid64);
@@ -499,10 +499,10 @@ void MatchFeaturesForceReady(uint64_t steamid64, const std::string& name) {
     }
     teamName = TeamName(*ctx, team);
     if (!ForceReadyAllowed(present, rosterSize, rules.min_players_to_ready, ctx->players_per_team)) {
-      return Reply(steamid64, "Ready Up: " + teamName + " needs " +
-                                  std::to_string(ForceReadyRequired(rosterSize, rules.min_players_to_ready,
-                                                                    ctx->players_per_team)) +
-                                  " players connected to force ready (" + std::to_string(present) + " now).");
+      return Reply(steamid64, "forceready.needs_players",
+                   {{"team", teamName},
+                    {"count", std::to_string(ForceReadyRequired(rosterSize, rules.min_players_to_ready, ctx->players_per_team))},
+                    {"present", std::to_string(present)}});
     }
     for (const auto& kv : ctx->roster_team) {
       if (kv.second == team && connected.count(kv.first) && !SetReady(kv.first, true)) ++readied;
@@ -510,9 +510,7 @@ void MatchFeaturesForceReady(uint64_t steamid64, const std::string& name) {
   }
   ScrimNoteReadyChanged();
   Print("ready: .forceready by %s -> %s, %d player(s) readied\n", name.c_str(), teamName.c_str(), readied);
-  SendToChat(("Ready Up: " + name + " readied " + teamName + " (" + std::to_string(readied) + " player" +
-              (readied == 1 ? "" : "s") + ").")
-                 .c_str());
+  text::ChatAll("forceready.readied", {{"name", name}, {"team", teamName}, {"count", std::to_string(readied)}});
 }
 
 bool MatchFeaturesTeamReady(uint64_t steamid64, const std::string& name, bool ready, std::vector<uint64_t>* changed) {
@@ -537,9 +535,10 @@ bool MatchFeaturesTeamReady(uint64_t steamid64, const std::string& name, bool re
   switch (DecideTeamReady(true, ready, present, rosterSize, rules.min_players_to_ready, ctx->players_per_team)) {
     case TeamReadyAction::Single: return false;
     case TeamReadyAction::NotEnough:
-      Reply(steamid64, "Ready Up: " + teamName + " needs " +
-                           std::to_string(ForceReadyRequired(rosterSize, rules.min_players_to_ready, ctx->players_per_team)) +
-                           " players connected to ready the whole team (" + std::to_string(present) + " now).");
+      Reply(steamid64, "teamready.needs_players",
+            {{"team", teamName},
+             {"count", std::to_string(ForceReadyRequired(rosterSize, rules.min_players_to_ready, ctx->players_per_team))},
+             {"present", std::to_string(present)}});
       return false;
     case TeamReadyAction::Team: break;
   }
@@ -554,9 +553,7 @@ bool MatchFeaturesTeamReady(uint64_t steamid64, const std::string& name, bool re
   ScrimNoteReadyChanged();
   Print("ready: team_ready %s by %s -> %s, %d player(s)\n", ready ? ".ready" : ".unready", name.c_str(),
         teamName.c_str(), n);
-  SendToChat(("Ready Up: " + name + (ready ? " readied " : " unreadied ") + teamName + " (" + std::to_string(n) +
-              " player" + (n == 1 ? "" : "s") + ").")
-                 .c_str());
+  text::ChatAll(ready ? "teamready.readied" : "teamready.unreadied", {{"name", name}, {"team", teamName}, {"count", std::to_string(n)}});
   return true;
 }
 
@@ -655,9 +652,9 @@ void MatchFeaturesTick() {
       if (Auto5v5ShortSide(ct, t) == 0) {
         if (g_auto5v5FullSince == 0) {
           g_auto5v5FullSince = now;
-          SendToChat("Ready Up: both teams are full again - live in 5 seconds.");
+          text::ChatAll("pause.full_again");
           if (HudScreensOn()) {
-            HudScreensNoticeAll("id=unpause\ncolor=live\nkind=Both teams full\ntitle=Going live\ntimer=5\n", 5.0);
+            HudScreensNoticeAll(NoticeSpec("id=unpause\ncolor=live\ntimer=5\n", "notice.both_full", "notice.going_live"), 5.0);
           }
         }
       } else {
@@ -669,17 +666,17 @@ void MatchFeaturesTick() {
       if (!why.empty() && EnqueueServerCommand("mp_unpause_match")) {
         g_auto5v5FullSince = 0;
         Unpause(why == "full" ? "both teams are full again (auto_5v5)" : "the disconnect pause time is up");
-        if (why == "timeout") SendToChat("Ready Up: the wait for the missing player is over - unpaused.");
+        if (why == "timeout") text::ChatAll("pause.missing_wait_over");
       }
     } else if (ps.type == "technical" && rules.tech_pause_max_seconds > 0 && g_effectiveAt > 0 && LiveMap()) {
       secondsLeft = TechPauseSecondsLeft(static_cast<int>(now - g_effectiveAt), rules.tech_pause_max_seconds);
       if (secondsLeft <= 10 && secondsLeft > 0 && !g_warnedAutoUnpause) {
         g_warnedAutoUnpause = true;
-        SendToChat(("Ready Up: technical pause ends in " + std::to_string(secondsLeft) + "s.").c_str());
+        text::ChatAll("pause.tech_ends_in", {{"seconds", std::to_string(secondsLeft)}});
       }
       if (secondsLeft == 0 && EnqueueServerCommand("mp_unpause_match")) {
         Unpause("technical pause time is up");
-        SendToChat("Ready Up: technical pause time is up - unpaused.");
+        text::ChatAll("pause.tech_time_up");
       }
     }
   }
@@ -721,7 +718,7 @@ void MatchFeaturesAdminUnpausing() {
   // An unpause while a side is still short was undone by CS2 at once (2026-10-14: a bot-filled
   // test match stayed paused after the admin unpause).
   if (EnqueueServerCommand("sv_matchpause_auto_5v5 0")) {
-    SendToChat("Ready Up: an admin unpaused - no more automatic pauses this map.");
+    text::ChatAll("pause.admin_unpaused_auto_off");
     Print("pause: admin unpause of auto_5v5; sv_matchpause_auto_5v5 0 for the rest of the map\n");
   }
 }
@@ -747,7 +744,7 @@ void MatchFeaturesOnPlayerBack(uint64_t steamid64, const std::string& name) {
     if (!g_left.erase(steamid64)) return;
   }
   if (!LiveMap()) return;
-  SendToChat(("Ready Up: " + (name.empty() ? std::string("A player") : name) + " is back.").c_str());
+  text::ChatAll(name.empty() ? "player.someone_back" : "player.back", {{"name", name}});
 }
 
 }  // namespace readyup
