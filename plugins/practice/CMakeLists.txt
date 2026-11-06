@@ -15,10 +15,12 @@ readyup_embed_locales(readyup_plugin_practice ${CMAKE_CURRENT_SOURCE_DIR}/locale
 # Tool / bot commands, when they may run, always=1, the lineup book (practice_rules.h,
 # practice_tools.h, practice_lineups.h; ctest `practice_rules`).
 add_executable(practice_rules_test tests/practice_rules_test.cpp practice_rules.cpp practice_feedback.cpp
-  practice_tools.cpp practice_lineups.cpp practice_guides.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp)
+  practice_tools.cpp practice_lineups.cpp practice_guides.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/i18n.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp)
 target_include_directories(practice_rules_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(practice_rules_test PRIVATE -Wall -Wextra)
-target_compile_definitions(practice_rules_test PRIVATE PRACTICE_GUIDE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/guides")
+target_compile_definitions(practice_rules_test PRIVATE PRACTICE_GUIDE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/guides"
+  PRACTICE_LOCALE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/locales")
 add_test(NAME practice_rules COMMAND practice_rules_test)
 
 # Scenarios: parsing, interpolation, player pick, timeline (scenario.h; ctest `practice_scenario`),
