@@ -149,7 +149,7 @@ GotvState GotvStateFrom(bool scanOk, bool hltvSeen, double secondsSinceMapStart)
 struct GoLiveVerdict {
   bool allowed = true;
   std::string log;   // console line ("" = nothing to say)
-  std::string chat;  // chat line ("" = nothing to say)
+  std::string chatKey;  // locales key of the chat line ("" = nothing to say)
 };
 // Default ruleset: always allowed, nothing to say. Valve: GOTV down refuses unless forced (then a
 // warning); unknown is allowed with a note (the check needs the engine surface).

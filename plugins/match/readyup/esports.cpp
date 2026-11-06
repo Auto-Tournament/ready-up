@@ -1,5 +1,6 @@
 // Rulesets, engine side (esports.h).
 #include "readyup/esports.h"
+#include "readyup/text.h"
 
 #include "readyup/config.h"
 #include "readyup/engine.h"
@@ -104,7 +105,7 @@ void MaybeMarkHalftimePause() {
   if (GetMode() != ReadyUpMode::MatchLive || PauseStateGet().paused) return;
   PauseStateOnPaused("halftime", "server");
   Print("pause: halftime (mp_halftime_pausematch 1): both teams .unpause, or an admin\n");
-  SendToChat("Ready Up: halftime pause. To start the second half, both teams type .up.");
+  text::ChatAll("pause.halftime");
 }
 
 // ---- GOTV on this map (game thread; read from any thread) ------------------------------------
@@ -261,7 +262,7 @@ bool EsportsGoLiveAllowed(bool forced) {
     if (lastSaid.time_since_epoch().count() == 0 || now - lastSaid >= std::chrono::seconds(30)) {
       lastSaid = now;
       Print("%s\n", v.log.c_str());
-      SendToChat(v.chat.c_str());
+      text::ChatAll(v.chatKey);
       // Takes effect when the map (re)loads: a reload then brings the GOTV client up.
       (void)EnqueueServerCommand("tv_enable 1");
     }
@@ -270,7 +271,7 @@ bool EsportsGoLiveAllowed(bool forced) {
   lastSaid = {};
   if (!v.log.empty() && v.log != lastLog) Print("%s\n", v.log.c_str());
   lastLog = v.log;
-  if (!v.chat.empty()) SendToChat(v.chat.c_str());
+  if (!v.chatKey.empty()) text::ChatAll(v.chatKey);
   return true;
 }
 

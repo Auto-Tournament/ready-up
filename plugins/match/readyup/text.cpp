@@ -30,16 +30,24 @@ std::string For(int slot, const std::string& key, const Args& args) {
 }
 
 void ChatAll(const std::string& key, Args args) {
-  host::RunOnGameThread([key, args = std::move(args)] {
-    if (const ru_api* a = host::Api()) i18n::ChatAll(a, 0, [&](const std::string& lang) { return ForLang(lang, key, args); });
+  ChatAllFn([key, args = std::move(args)](const std::string& lang) { return ForLang(lang, key, args); });
+}
+
+void ChatAllFn(TextFn text) {
+  host::RunOnGameThread([text = std::move(text)] {
+    if (const ru_api* a = host::Api()) i18n::ChatAll(a, 0, text);
   });
 }
 
 void ImportantAll(const std::string& key, Args args, int centerSeconds) {
-  host::RunOnGameThread([key, args = std::move(args), centerSeconds] {
+  ImportantAllFn([key, args = std::move(args)](const std::string& lang) { return ForLang(lang, key, args); }, centerSeconds);
+}
+
+void ImportantAllFn(TextFn text, int centerSeconds) {
+  host::RunOnGameThread([text = std::move(text), centerSeconds] {
     const ru_api* a = host::Api();
     if (!a) return;
-    i18n::ChatAll(a, RU_CHAT_IMPORTANT, [&](const std::string& lang) { return ForLang(lang, key, args); });
+    i18n::ChatAll(a, RU_CHAT_IMPORTANT, text);
     if (centerSeconds <= 0) return;
     std::vector<int> slots;
     a->for_each_player(
@@ -49,7 +57,7 @@ void ImportantAll(const std::string& key, Args args, int centerSeconds) {
           return 1;
         },
         &slots);
-    for (int slot : slots) SendCenterHtml(slot, GoldHtml(For(slot, key, args)), centerSeconds, RU_HTML_PRIO_ALERT);
+    for (int slot : slots) SendCenterHtml(slot, GoldHtml(text(i18n::LanguageOf(a, slot))), centerSeconds, RU_HTML_PRIO_ALERT);
   });
 }
 

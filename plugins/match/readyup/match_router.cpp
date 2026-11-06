@@ -269,7 +269,9 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     if (msg.empty()) return ReplyKey(slot, "reply.asay_usage");
     Print("chat: .asay by %s: %s\n", playerName.c_str(), msg.c_str());
     SendAdmin(msg);
-    if (HudScreensOn()) HudScreensNoticeAll("id=asay\nwhere=card\ncolor=ct\nkind=Admin\ntitle=" + HudSpecText(msg) + "\n", 8.0);
+    if (HudScreensOn()) HudScreensNoticeAll([msg](const std::string& lang) {
+        return "id=asay\nwhere=card\ncolor=ct\nkind=" + HudSpecText(text::ForLang(lang, "notice.admin")) + "\ntitle=" + HudSpecText(msg) + "\n";
+      }, 8.0);
     return;
   }
   if (const settings::SettingInfo* si = settings::FindChat(first)) {
@@ -832,7 +834,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       WebhookEmitSeriesEnd(0, 0, winner.c_str(), 0);
       WebhookClearMatchContext();
       (void)EndMatchResetServer();
-      if (HudScreensOn()) HudScreensNoticeAll("id=ended\ncolor=ban\nkind=Match ended\ntitle=An admin ended the match\n", 10.0);
+      if (HudScreensOn()) HudScreensNoticeAll(NoticeSpec("id=ended\ncolor=ban\n", "notice.match_ended", "notice.admin_ended"), 10.0);
     }
     sendAdmin(winner == "none" ? std::string("match ended (no winner).") : "match ended: " + winner + " wins.");
   } else if (sub == "recover") {

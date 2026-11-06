@@ -8,6 +8,7 @@
 // It talks to the engine only through ru_api (host.cpp); `ru plugin reload match` keeps the
 // match going (reload_state.h lists what survives).
 #include "readyup/hud_screens.h"
+#include "readyup/text.h"
 #include "readyup/license_checkin.h"
 #include "readyup/plugin_api.h"
 #include "readyup/match_iface.h"
@@ -553,7 +554,7 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
 static int OnJoinTeam(void*, int slot, uint64_t steamid64, const char*, int argc, const char* const* argv) {
   const int team = argc > 1 ? std::atoi(argv[1]) : 0;
   if (!TeamLockRefusesJoin(steamid64, team)) return 0;
-  ClientPrintChat(slot, "Ready Up: teams are locked for this match.");
+  text::ChatSlot(slot, "reply.teams_locked");
   return 1;
 }
 

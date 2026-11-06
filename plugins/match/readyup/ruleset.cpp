@@ -564,14 +564,13 @@ GoLiveVerdict GotvGoLiveCheck(Ruleset r, GotvState gotv, bool forced) {
   }
   if (forced) {
     v.log = "esports: gotv=down: going live anyway (forced by an admin); this map has no demo";
-    v.chat = "Ready Up: going live WITHOUT GOTV (forced by an admin) - this map is not recorded.";
+    v.chatKey = "gotv.forced";
     return v;
   }
   v.allowed = false;
   v.log = "esports: gotv=down: go-live refused (valve ruleset records every map; tv_enable was 0 when the map "
           "loaded). tv_enable 1 is set now: reload the map, or force it: ru match start force";
-  v.chat = "Ready Up: not going live - GOTV is off on this map (the valve ruleset records every map). "
-           "An admin reloads the map (.ru map reload) or forces it: .ru match start force";
+  v.chatKey = "gotv.refused";
   return v;
 }
 

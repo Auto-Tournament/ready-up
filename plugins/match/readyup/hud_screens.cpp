@@ -245,7 +245,7 @@ int MenuActive(void*, int) {
 
 void MenuOpen(void*, int slot, uint64_t steamid64) {
   if (HudScreensOpenMenu(slot, steamid64, IsReadyUpAdmin(steamid64) ? "admin" : "help")) return;
-  if (slot >= 0) ClientPrintChat(slot, " \x04[ReadyUp]\x01 The menu opens between rounds. Try .help");
+  if (slot >= 0) text::ChatSlot(slot, "reply.menu_between_rounds");
 }
 
 void EnsureMenuProvider(const ru_hud_v1* hud) {
@@ -281,6 +281,15 @@ void OnClick(void*, int slot, const char* command) {
 }
 
 }  // namespace
+
+HudSpecBuild NoticeSpec(std::string head, std::string kindKey, std::string titleKey, std::string subKey, i18n::Args args) {
+  return [=](const std::string& lang) {
+    std::string s = head + "kind=" + HudSpecText(text::ForLang(lang, kindKey, args)) + "\ntitle=" +
+                    HudSpecText(text::ForLang(lang, titleKey, args)) + "\n";
+    if (!subKey.empty()) s += "sub=" + HudSpecText(text::ForLang(lang, subKey, args)) + "\n";
+    return s;
+  };
+}
 
 std::string HudSpecText(const std::string& s) {
   std::string out;
