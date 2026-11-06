@@ -445,7 +445,7 @@
   "restore.restored_live": "ronda {round} restaurada por {by}. En vivo en 3 segundos.",
   "restore.restored_paused": "ronda {round} restaurada por {by}. La partida está en pausa; escriban .unpause cuando estén listos.",
   "dmg.line": "Hecho: {given} en {given_hits} | Recibido: {taken} en {taken_hits} — {name} ({hp} HP)",
-  "dmg.in": "{dmg} en {hits}",
+  "dmg.in": "{dmg} · {hits}×",
   "dmg.dead": "MUERTO",
   "dmg.col_given": "HECHO",
   "dmg.col_taken": "RECIBIDO",

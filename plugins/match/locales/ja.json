@@ -437,7 +437,7 @@
   "restore.restored_live": "{by} がラウンド {round} を復元しました。3 秒後にライブ。",
   "restore.restored_paused": "{by} がラウンド {round} を復元しました。試合は一時停止中です。準備ができたら .unpause と入力してください。",
   "dmg.line": "与ダメージ: {given}（{given_hits} 回）| 被ダメージ: {taken}（{taken_hits} 回）— {name}（{hp} HP）",
-  "dmg.in": "{dmg}（{hits} 回）",
+  "dmg.in": "{dmg} · {hits}回",
   "dmg.dead": "死亡",
   "dmg.col_given": "与ダメージ",
   "dmg.col_taken": "被ダメージ",

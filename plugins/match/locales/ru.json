@@ -458,7 +458,7 @@
   "restore.restored_live": "раунд {round} восстановил {by}. Старт через 3 секунды.",
   "restore.restored_paused": "раунд {round} восстановил {by}. Матч на паузе; напишите .unpause, когда будете готовы.",
   "dmg.line": "Нанесено: {given} за {given_hits} | Получено: {taken} за {taken_hits} — {name} ({hp} HP)",
-  "dmg.in": "{dmg} за {hits}",
+  "dmg.in": "{dmg} · {hits}×",
   "dmg.dead": "МЁРТВ",
   "dmg.col_given": "НАНЕСЕНО",
   "dmg.col_taken": "ПОЛУЧЕНО",

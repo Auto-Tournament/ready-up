@@ -445,7 +445,7 @@
   "restore.restored_live": "ο γύρος {round} επαναφέρθηκε από {by}. Ζωντανά σε 3 δευτερόλεπτα.",
   "restore.restored_paused": "ο γύρος {round} επαναφέρθηκε από {by}. Ο αγώνας είναι σε παύση, γράψτε .unpause όταν είστε έτοιμοι.",
   "dmg.line": "Έδωσε: {given} σε {given_hits} | Δέχτηκε: {taken} σε {taken_hits} — {name} ({hp} HP)",
-  "dmg.in": "{dmg} σε {hits}",
+  "dmg.in": "{dmg} · {hits}×",
   "dmg.dead": "ΝΕΚΡΟΣ",
   "dmg.col_given": "ΕΔΩΣΕ",
   "dmg.col_taken": "ΔΕΧΤΗΚΕ",

@@ -437,7 +437,7 @@
   "restore.restored_live": "{by} กู้คืนรอบที่ {round} แล้ว เริ่มในอีก 3 วินาที",
   "restore.restored_paused": "{by} กู้คืนรอบที่ {round} แล้ว แมตช์หยุดชั่วคราวอยู่ พิมพ์ .unpause เมื่อพร้อม",
   "dmg.line": "ทำ: {given} จาก {given_hits} ครั้ง | โดน: {taken} จาก {taken_hits} ครั้ง — {name} ({hp} HP)",
-  "dmg.in": "{dmg} จาก {hits} ครั้ง",
+  "dmg.in": "{dmg} · {hits}×",
   "dmg.dead": "ตาย",
   "dmg.col_given": "ทำ",
   "dmg.col_taken": "โดน",
