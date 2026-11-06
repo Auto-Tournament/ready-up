@@ -586,6 +586,11 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     if (steamid64 == 0) PrintLine(msg.c_str());
     else SendAdmin(msg);
   };
+  // The same with text from locales/: everyone in their language (the console reads English).
+  auto sendAdminKey = [&](const std::string& key, text::Args a = {}) {
+    if (steamid64 == 0) return PrintLine(text::ForLang("en", key, a).c_str());
+    text::ChatAllFn([key, a](const std::string& lang) { return AdminPrefix() + " " + text::ForLang(lang, key, a); });
+  };
 
   const RuMainCommand* mc = FindRuMain(main);
   if (!mc) return;  // not ours (only registered names reach this)
@@ -647,7 +652,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
         replyPrivate(std::string("Ready Up: practice mode refused: ") + (why ? why : "") + ".");
         return;
       }
-      sendAdmin(on ? "practice mode enabled." : "practice mode disabled.");
+      sendAdminKey(on ? "admin.practice_on" : "admin.practice_off");
       return;
     } else if (sub == "idle") {
       const bool wasScrimWarmup = (GetMode() == ReadyUpMode::ScrimWarmup);
@@ -671,14 +676,14 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
         // Leaving practice: the practice plugin puts the idle cvars back and respawns everyone.
         if (const ru_practice_v1* p = Practice()) (void)p->set_active(0, nullptr);
       }
-      sendAdmin("mode set to idle (auto scrim warmup off until .ru mode scrim or a map change).");
+      sendAdminKey("admin.mode_idle");
       return;
     } else if (sub == "scrim") {
       ScrimSetAutoEnabled(true);
-      if (WebhookGetMatchContext()) sendAdmin("scrim warmup re-enabled; a match is loaded, it applies once that match ends.");
-      else if (GetMode() == ReadyUpMode::Practice) sendAdmin("scrim warmup re-enabled; leave practice (.prac) to start it.");
-      else if (GetMode() == ReadyUpMode::External) sendAdmin("scrim warmup re-enabled; it starts once " + ExternalModeName() + " mode is off.");
-      else sendAdmin("scrim warmup enabled (starts as soon as a player is on CT/T).");
+      if (WebhookGetMatchContext()) sendAdminKey("admin.scrim_after_match");
+      else if (GetMode() == ReadyUpMode::Practice) sendAdminKey("admin.scrim_after_practice");
+      else if (GetMode() == ReadyUpMode::External) sendAdminKey("admin.scrim_after_mode", {{"mode", ExternalModeName()}});
+      else sendAdminKey("admin.scrim_on");
       EmitStateLog("scrim_enable");
       return;
     }
@@ -712,7 +717,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       replyPrivate("Ready Up: " + err);
       return;
     }
-    if (steamid64 != 0) sendAdmin("loading the match config (see the server console).");
+    if (steamid64 != 0) sendAdminKey("admin.loading_config");
     (void)LoadMatchFromUrl(url);
     return;
   }
@@ -806,20 +811,20 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       replyKey("reply.start_needs_gotv");
       return;
     }
-    sendAdmin(force ? "match force-started (force)." : "match force-started.");
+    sendAdminKey(force ? "admin.force_started_force" : "admin.force_started");
   } else if (sub == "swap") {
     std::string why;
     if (!MatchFeaturesSwapTeams(&why)) return replyPrivate("Ready Up: " + why + ".");
-    sendAdmin("teams swapped.");
+    sendAdminKey("admin.teams_swapped");
   } else if (sub == "team1" || sub == "team2") {
     std::string why;
     const std::string name = RestAfterWords(text, 3);
     if (!MatchFeaturesRenameTeam(sub == "team1" ? 1 : 2, name, &why)) return replyPrivate("Ready Up: " + why + ".");
     const auto renamed = WebhookGetMatchContext();
-    sendAdmin(sub + " is now \"" + (renamed ? (sub == "team1" ? renamed->team1_name : renamed->team2_name) : name) + "\".");
+    sendAdminKey("admin.team_renamed", {{"team", sub}, {"name", renamed ? (sub == "team1" ? renamed->team1_name : renamed->team2_name) : name}});
   } else if (sub == "restart") {
     (void)RestartMatch();
-    sendAdmin("match restarted (back to warmup).");
+    sendAdminKey("admin.restarted");
   } else if (sub == "end") {
     // end [team1|team2|none]: no winner by default. A platform match ends through the platform's own
     // end_match path (series_end with the winner); otherwise the webhook hears it and the context
@@ -836,11 +841,12 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       (void)EndMatchResetServer();
       if (HudScreensOn()) HudScreensNoticeAll(NoticeSpec("id=ended\ncolor=ban\n", "notice.match_ended", "notice.admin_ended"), 10.0);
     }
-    sendAdmin(winner == "none" ? std::string("match ended (no winner).") : "match ended: " + winner + " wins.");
+    if (winner == "none") sendAdminKey("admin.ended_no_winner");
+    else sendAdminKey("admin.ended_winner", {{"team", winner}});
   } else if (sub == "recover") {
     const int round = args.empty() ? 0 : std::max(0, std::atoi(args[0].c_str()));
     WebhookEmitRecoverRequested(MatchStateGet().map_number, round);
-    sendAdmin(round > 0 ? "recovery requested (rewind)." : "recovery requested.");
+    sendAdminKey(round > 0 ? "admin.recovery_rewind" : "admin.recovery");
   } else if (sub == "restore") {
     // Everyone is told (chat, admin prefix); the console sees it too.
     round_restore::RestoreCommand(args, who, replyPrivate, [&](const std::string& msg) {
@@ -865,7 +871,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     }
     WebhookEmitMatchPaused(MatchStateGet().map_number, WebhookPlayer{steamid64, who, team},
                            /*is_tactical=*/false, /*is_admin=*/true, /*pause_time=*/0);
-    sendAdmin("admin pause.");
+    sendAdminKey("admin.pause");
   } else if (sub == "unpause") {
     MatchFeaturesAdminUnpausing();
     if (!EnqueueServerCommand("mp_unpause_match")) {
@@ -875,13 +881,13 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
     if (!PauseStateGet().paused) {
       // An engine pause Ready Up did not mark (a vote, an auto_5v5 pause it did not see): resumed
       // anyway.
-      sendAdmin("not paused by Ready Up; sent mp_unpause_match (engine pause).");
+      sendAdminKey("admin.engine_unpause");
       return;
     }
     const int dur = PauseStatePauseDurationSeconds();
     PauseStateOnUnpaused();
     WebhookEmitMatchUnpaused(MatchStateGet().map_number, dur);
-    sendAdmin("admin unpause.");
+    sendAdminKey("admin.unpause");
   }
 }
 

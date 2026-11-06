@@ -9,6 +9,7 @@
 // until the server sends everyone off ("Server closes").
 
 #include "readyup/match_stats.h"
+#include "readyup/text.h"
 
 #include <string>
 
@@ -18,9 +19,10 @@ struct EndScreenInfo {
   std::string team1, team2;  // names
   int score1 = 0, score2 = 0;  // the map score, or the series score when the series is over
   std::string winner;          // "team1" | "team2" | "" (draw)
-  std::string how;             // "In overtime", "By damage", "By forfeit"; "" for a normal win (no pill)
-  std::string where;           // footer left: "MAP 2 OF 3 · INFERNO"
-  std::string nextLabel;       // footer right: "Next map" / "Server closes" ("… in 4s")
+  // Locales keys (each viewer reads their language):
+  text::Msg how;               // "In overtime", "By damage", "By forfeit"; no key for a normal win (no pill)
+  text::Msg where;             // footer left: "MAP 2 OF 3 · INFERNO"
+  text::Msg nextLabel;         // footer right: "Next map" / "Server closes" ("… in 4s")
   std::string next;            // "Mirage", or ""
   int seconds = 30;            // how long it stays up (the footer counts down)
   int maxRounds = 24;          // regulation, for the halftime gaps on the round strip
@@ -35,7 +37,7 @@ struct EndScreenRow {
   int k = 0, d = 0, a = 0, adr = 0, kast = 0, hs = 0, ud = 0, ek = 0, mvps = 0;
 };
 struct EndScreenAward {
-  std::string label, name, value;
+  std::string label, name, value;  // label: a locales key
 };
 struct EndScreenRound {
   int winner = 0;    // team slot 1 / 2

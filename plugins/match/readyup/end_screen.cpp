@@ -2,6 +2,7 @@
 #include "readyup/end_screen.h"
 
 #include "readyup/host.h"
+#include "readyup/i18n_api.h"
 #include "readyup/hud_iface.h"
 #include "readyup/logging.h"
 #include "readyup/players.h"
@@ -37,7 +38,8 @@ struct State {
   bool active = false;
   double until = 0;
   int lastSecs = -1;
-  std::string nextLabel, next;
+  text::Msg nextLabel;
+  std::string next;
   std::set<int> captured;  // slots holding the cursor
   bool preview = false;    // .enddemo, not a real end of map
 };
@@ -56,11 +58,12 @@ bool HasCapture(const ru_hud_v1* h) {
   return h->struct_size >= offsetof(ru_hud_v1, set_capture) + sizeof(h->set_capture) && h->set_capture;
 }
 
+std::string Tr(const std::string& lang, const text::Msg& m) { return m.key.empty() ? std::string() : text::ForLang(lang, m.key, m.args); }
+
 // "Server closes in 4s", "Next map in 45s: Mirage".
-std::string Footer(const std::string& label, const std::string& next, int secs) {
-  std::string s = label + " in " + std::to_string(std::max(0, secs)) + "s";
-  if (!next.empty()) s += ": " + next;
-  return s;
+std::string Footer(const std::string& lang, const text::Msg& label, const std::string& next, int secs) {
+  const text::Args a{{"label", Tr(lang, label)}, {"seconds", std::to_string(std::max(0, secs))}, {"next", next}};
+  return text::ForLang(lang, next.empty() ? "end.footer" : "end.footer_next", a);
 }
 
 }  // namespace
@@ -107,10 +110,10 @@ EndScreenData BuildEndScreenData(const EndScreenInfo& info) {
     }
     if (best && best->*field > 0) out.awards.push_back({label, best->name, std::to_string(best->*field) + unit});
   };
-  award("TOP FRAGGER", &EndScreenRow::k, " K");
-  award("MOST DAMAGE", &EndScreenRow::adr, " ADR");
-  award("ENTRY KILLS", &EndScreenRow::ek, "");
-  award("UTILITY DAMAGE", &EndScreenRow::ud, "");
+  award("end.award_top_fragger", &EndScreenRow::k, " K");
+  award("end.award_most_damage", &EndScreenRow::adr, " ADR");
+  award("end.award_entry_kills", &EndScreenRow::ek, "");
+  award("end.award_utility", &EndScreenRow::ud, "");
 
   // Round strip, with a gap at every half: regulation, then each overtime's halves.
   const int regHalf = std::max(1, info.maxRounds / 2);
@@ -133,12 +136,10 @@ EndScreenData BuildEndScreenData(const EndScreenInfo& info) {
 
 namespace {
 
-// The table's columns: header, the hover card, width and how a cell is coloured. The layout has
+// The table's columns: header, width and how a cell is coloured. The layout has
 // kCols slots per table; the rest are switched off. Changing a column is a server change only.
 struct Column {
-  const char* head;
-  const char* tipTitle;
-  const char* tipBody;
+  const char* head;  // the hover card: locales end.col<N>_title / _body
   const char* width;  // cw-xs cw-s cw-m cw-l cw-xl
   std::string (*value)(const EndScreenRow&);
   const char* (*tone)(const EndScreenRow&);  // a tc-* class
@@ -148,23 +149,23 @@ constexpr int kCols = 12;  // hud/tools/gen_kit.py END_COLS
 const char* Ink(const EndScreenRow&) { return "tc-ink"; }
 const char* Soft(const EndScreenRow&) { return "tc-soft"; }
 const Column kColumns[] = {
-    {"K", "Kills", "Enemies killed this map", "cw-s", [](const EndScreenRow& r) { return std::to_string(r.k); }, Ink},
-    {"D", "Deaths", "Times killed this map", "cw-s", [](const EndScreenRow& r) { return std::to_string(r.d); }, Soft},
-    {"A", "Assists", "Helped kill an enemy, flashes included", "cw-s",
+    {"K", "cw-s", [](const EndScreenRow& r) { return std::to_string(r.k); }, Ink},
+    {"D", "cw-s", [](const EndScreenRow& r) { return std::to_string(r.d); }, Soft},
+    {"A", "cw-s",
      [](const EndScreenRow& r) { return std::to_string(r.a); }, Soft},
-    {"+/-", "Kills minus deaths", "Above zero: more kills than deaths", "cw-m",
+    {"+/-", "cw-m",
      [](const EndScreenRow& r) { const int d = r.k - r.d; return (d > 0 ? "+" : "") + std::to_string(d); },
      [](const EndScreenRow& r) { return r.k > r.d ? "tc-pos" : r.k < r.d ? "tc-ban" : "tc-muted"; }},
-    {"ADR", "Average damage per round", "Damage dealt, divided by rounds played", "cw-m",
+    {"ADR", "cw-m",
      [](const EndScreenRow& r) { return std::to_string(r.adr); },
      [](const EndScreenRow& r) { return r.adr >= 100 ? "tc-ink" : "tc-soft"; }},
-    {"KAST", "KAST", "Rounds with a kill, assist, survival or trade", "cw-l",
+    {"KAST", "cw-l",
      [](const EndScreenRow& r) { return std::to_string(r.kast) + "%"; }, Soft},
-    {"HS", "Headshots", "Share of kills that were headshots", "cw-m",
+    {"HS", "cw-m",
      [](const EndScreenRow& r) { return std::to_string(r.hs) + "%"; }, Soft},
-    {"UD", "Utility damage", "Damage from HE grenades and fire", "cw-m",
+    {"UD", "cw-m",
      [](const EndScreenRow& r) { return std::to_string(r.ud); }, Soft},
-    {"EK", "Entry kills", "The first kill of a round", "cw-s", [](const EndScreenRow& r) { return std::to_string(r.ek); }, Soft},
+    {"EK", "cw-s", [](const EndScreenRow& r) { return std::to_string(r.ek); }, Soft},
 };
 constexpr int kUsedCols = static_cast<int>(sizeof(kColumns) / sizeof(kColumns[0]));
 
@@ -225,8 +226,7 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
   const bool aLost = info.winner == "team2", bLost = info.winner == "team1";
   for (const char* id : {"at_e_ta", "at_e_sa"}) w.Only(ALL, id, kTextTones, aLost ? "tc-muted" : "tc-ink");
   for (const char* id : {"at_e_tb", "at_e_sb"}) w.Only(ALL, id, kTextTones, bLost ? "tc-muted" : "tc-ink");
-  w.Text(ALL, "at_e_how", info.how);
-  w.Class(ALL, "at_e_howbox", "hide", info.how.empty());
+  w.Class(ALL, "at_e_howbox", "hide", info.how.key.empty());
   for (char side : {'a', 'b'}) {
     const std::string t = std::string("at_e") + side;
     w.Text(ALL, t + "_name", side == 'a' ? info.team1 : info.team2);
@@ -236,8 +236,6 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
       w.Only(ALL, hc, kWidthsCw, used ? kColumns[c].width : "cw-off");
       if (!used) continue;
       w.Text(ALL, hc + "_t", kColumns[c].head);
-      w.Text(ALL, hc + "_tk", kColumns[c].tipTitle);
-      w.Text(ALL, hc + "_tv", kColumns[c].tipBody);
     }
     const auto& v = side == 'a' ? d.team1 : d.team2;
     for (int i = 0; i < 6; ++i) {  // gen_kit.py END_ROWS
@@ -284,14 +282,11 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
     const bool has = i < static_cast<int>(d.awards.size());
     w.Class(ALL, a, "empty", !has);
     if (!has) continue;
-    w.Text(ALL, a + "_l", d.awards[static_cast<size_t>(i)].label);
     w.Text(ALL, a + "_n", d.awards[static_cast<size_t>(i)].name);
     w.Text(ALL, a + "_v", d.awards[static_cast<size_t>(i)].value);
     w.Only(ALL, a + "_v", kTextTones, "tc-ink");
   }
   w.Class(ALL, "at_eawards", "hide", d.awards.empty());
-  w.Text(ALL, "at_e_where", info.where);
-  w.Text(ALL, "at_e_next", Footer(info.nextLabel, info.next, info.seconds));
   for (const char* c : {"scale-70", "scale-75", "scale-80", "scale-85", "scale-90", "scale-95", "scale-100", "scale-105",
                         "scale-110", "scale-115", "scale-120"}) {
     w.Class(ALL, "at_end", c, std::string(c) == kScale);
@@ -322,18 +317,33 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
       if (p.id == hu.steamid64) myTeam = p.team;
     }
     if (target != RU_HUD_ALL && myTeam == 0) myTeam = 1;  // a preview: the viewer plays for team 1
+    // The viewer's language: the headline, how, the footer, the column tips and the award labels.
+    const std::string lang = i18n::LanguageOf(host::Api(), slot);
+    w.Text(slot, "at_e_how", Tr(lang, info.how));
+    w.Text(slot, "at_e_where", Tr(lang, info.where));
+    w.Text(slot, "at_e_next", Footer(lang, info.nextLabel, info.next, info.seconds));
+    for (char side : {'a', 'b'}) {
+      for (int c = 0; c < kUsedCols; ++c) {
+        const std::string hc = std::string("at_e") + side + "h_c" + std::to_string(c);
+        w.Text(slot, hc + "_tk", text::ForLang(lang, "end.col" + std::to_string(c) + "_title"));
+        w.Text(slot, hc + "_tv", text::ForLang(lang, "end.col" + std::to_string(c) + "_body"));
+      }
+    }
+    for (size_t i = 0; i < d.awards.size() && i < 4; ++i) {
+      w.Text(slot, "at_aw" + std::to_string(i) + "_l", text::ForLang(lang, d.awards[i].label));
+    }
     std::string head;
     const char* tone = "tc-muted";
     const char* line = "line-muted";
     if (info.winner.empty()) {
-      head = "Draw";
+      head = text::ForLang(lang, "end.head_draw");
     } else if (myTeam == 1 || myTeam == 2) {
       const bool won = (myTeam == 1) == (info.winner == "team1");
-      head = won ? "You won!" : "You lost";
+      head = text::ForLang(lang, won ? "end.head_won" : "end.head_lost");
       tone = won ? "tc-acc" : "tc-ban";
       line = won ? "line-acc" : "line-ban";
     } else {
-      head = (info.winner == "team1" ? info.team1 : info.team2) + " won";
+      head = text::ForLang(lang, "end.head_team_won", {{"team", info.winner == "team1" ? info.team1 : info.team2}});
       tone = "tc-acc";
       line = "line-acc";
     }
@@ -410,7 +420,8 @@ void EndScreenHide() {
 
 void EndScreenTick() {
   int secs = -1;
-  std::string label, next;
+  text::Msg label;
+  std::string next;
   {
     std::lock_guard<std::mutex> lk(g_mu);
     if (!g.active) return;
@@ -430,7 +441,12 @@ void EndScreenTick() {
   const ru_hud_v1* h = Hud();
   if (!h) return;
   const int k = h->open(kKitLayout);
-  if (k > 0) h->set_text(k, RU_HUD_ALL, "at_e_next", "text", Footer(label, next, secs).c_str());
+  if (k <= 0) return;
+  for (const auto& hu : ListHumans()) {
+    if (hu.slot < 0 || hu.slot > 63) continue;
+    const std::string f = Footer(i18n::LanguageOf(host::Api(), hu.slot), label, next, secs);
+    h->set_text(k, hu.slot, "at_e_next", "text", f.c_str());
+  }
 }
 
 EndScreenInfo EndScreenDemoInfo(uint64_t viewer, const std::string& viewerName, bool lost) {
@@ -440,9 +456,8 @@ EndScreenInfo EndScreenDemoInfo(uint64_t viewer, const std::string& viewerName, 
   info.score1 = lost ? 9 : 13;
   info.score2 = lost ? 13 : 9;
   info.winner = lost ? "team2" : "team1";
-  info.how = "";
-  info.where = "MAP 2 OF 3 \xC2\xB7 INFERNO";
-  info.nextLabel = "Next map";
+  info.where = {"end.where_map", {{"n", "2"}, {"of", "3"}, {"map", "INFERNO"}}};
+  info.nextLabel = {"end.next_map", {}};
   info.next = "Mirage";
   info.seconds = 45;
   // K D A ADR KAST HS UD EK MVPs per player; the viewer is team 1's second row.
