@@ -1,0 +1,13 @@
+{
+  "card.title": "Bendecido por Midas",
+  "card.best": "Eres el mejor jugador del servidor ({stat} {value}). Todo lo que tocas se convierte en oro.",
+  "card.given": "Un admin te ha concedido el toque de Midas.",
+  "card.config": "Tienes el toque de Midas.",
+  "card.lost": "El toque de Midas te ha abandonado.",
+  "card.passed": "Ha pasado a {name}.",
+  "stat.adr": "ADR",
+  "stat.kills": "bajas",
+  "why.adr": "mejor ADR: {value}",
+  "why.kills": "más bajas: {value}",
+  "chat.golden": "Midas: {name} tiene el toque de oro ({why})."
+}

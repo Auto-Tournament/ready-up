@@ -1,0 +1,13 @@
+{
+  "card.title": "Požehnán Midasem",
+  "card.best": "Jsi nejlepší hráč na serveru ({stat} {value}). Všechno, čeho se dotkneš, se mění ve zlato.",
+  "card.given": "Admin ti daroval dotek Midase.",
+  "card.config": "Máš dotek Midase.",
+  "card.lost": "Dotek Midase tě opustil.",
+  "card.passed": "Přešel na hráče {name}.",
+  "stat.adr": "ADR",
+  "stat.kills": "zabití",
+  "why.adr": "nejlepší ADR: {value}",
+  "why.kills": "nejvíc zabití: {value}",
+  "chat.golden": "Midas: {name} má zlatý dotek ({why})."
+}

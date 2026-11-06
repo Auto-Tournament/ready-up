@@ -1,0 +1,13 @@
+{
+  "card.title": "Von Midas gesegnet",
+  "card.best": "Du bist der beste Spieler auf dem Server ({stat} {value}). Alles, was du berührst, wird zu Gold.",
+  "card.given": "Ein Admin hat dir die Midas-Berührung geschenkt.",
+  "card.config": "Du hast die Midas-Berührung.",
+  "card.lost": "Die Midas-Berührung hat dich verlassen.",
+  "card.passed": "Sie ging an {name}.",
+  "stat.adr": "ADR",
+  "stat.kills": "Kills",
+  "why.adr": "bester ADR: {value}",
+  "why.kills": "meiste Kills: {value}",
+  "chat.golden": "Midas: {name} hat die goldene Berührung ({why})."
+}

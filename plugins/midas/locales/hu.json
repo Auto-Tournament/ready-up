@@ -1,0 +1,13 @@
+{
+  "card.title": "Midasz áldottja",
+  "card.best": "Te vagy a szerver legjobb játékosa ({stat} {value}). Minden, amihez hozzáérsz, arannyá válik.",
+  "card.given": "Egy admin neked adta Midasz érintését.",
+  "card.config": "Tiéd Midasz érintése.",
+  "card.lost": "Midasz érintése elhagyott.",
+  "card.passed": "Továbbszállt ide: {name}.",
+  "stat.adr": "ADR",
+  "stat.kills": "ölés",
+  "why.adr": "legjobb ADR: {value}",
+  "why.kills": "legtöbb ölés: {value}",
+  "chat.golden": "Midas: {name} aranyérintést kapott ({why})."
+}

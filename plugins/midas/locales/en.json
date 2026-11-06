@@ -1,0 +1,13 @@
+{
+  "card.title": "Blessed by Midas",
+  "card.best": "You're the best player on the server ({stat} {value}). Everything you touch turns to gold.",
+  "card.given": "An admin has blessed you with the Midas touch.",
+  "card.config": "You have the Midas touch.",
+  "card.lost": "The Midas touch has left you.",
+  "card.passed": "It passed to {name}.",
+  "stat.adr": "ADR",
+  "stat.kills": "kills",
+  "why.adr": "best ADR: {value}",
+  "why.kills": "most kills: {value}",
+  "chat.golden": "Midas: {name} has the golden touch ({why})."
+}

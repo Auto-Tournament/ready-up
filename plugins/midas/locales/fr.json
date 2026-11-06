@@ -1,0 +1,13 @@
+{
+  "card.title": "Béni par Midas",
+  "card.best": "Tu es le meilleur joueur du serveur ({stat} {value}). Tout ce que tu touches se change en or.",
+  "card.given": "Un admin t’a offert le toucher de Midas.",
+  "card.config": "Tu as le toucher de Midas.",
+  "card.lost": "Le toucher de Midas t’a quitté.",
+  "card.passed": "Il est passé à {name}.",
+  "stat.adr": "ADR",
+  "stat.kills": "kills",
+  "why.adr": "meilleur ADR : {value}",
+  "why.kills": "le plus de kills : {value}",
+  "chat.golden": "Midas : {name} a le toucher d’or ({why})."
+}

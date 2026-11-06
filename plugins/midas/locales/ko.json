@@ -1,0 +1,13 @@
+{
+  "card.title": "미다스의 축복",
+  "card.best": "당신은 서버 최고의 플레이어입니다({stat} {value}). 손대는 모든 것이 금으로 변합니다.",
+  "card.given": "관리자가 당신에게 미다스의 손길을 내렸습니다.",
+  "card.config": "당신에게는 미다스의 손길이 있습니다.",
+  "card.lost": "미다스의 손길이 떠났습니다.",
+  "card.passed": "{name}에게 넘어갔습니다.",
+  "stat.adr": "ADR",
+  "stat.kills": "킬",
+  "why.adr": "최고 ADR: {value}",
+  "why.kills": "최다 킬: {value}",
+  "chat.golden": "Midas: {name}에게 황금의 손길이 내렸습니다({why})."
+}

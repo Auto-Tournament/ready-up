@@ -1,0 +1,13 @@
+{
+  "card.title": "受迈达斯祝福",
+  "card.best": "你是服务器上最强的玩家（{stat} {value}）。你碰到的一切都会变成金子。",
+  "card.given": "管理员赐予了你点金之手。",
+  "card.config": "你拥有点金之手。",
+  "card.lost": "点金之手已离你而去。",
+  "card.passed": "它传给了 {name}。",
+  "stat.adr": "ADR",
+  "stat.kills": "击杀",
+  "why.adr": "最高 ADR：{value}",
+  "why.kills": "最多击杀：{value}",
+  "chat.golden": "Midas：{name} 获得了点金之手（{why}）。"
+}

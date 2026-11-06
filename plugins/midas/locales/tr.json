@@ -1,0 +1,13 @@
+{
+  "card.title": "Midas'ın kutsadığı",
+  "card.best": "Sunucunun en iyi oyuncususun ({stat} {value}). Dokunduğun her şey altına dönüşüyor.",
+  "card.given": "Bir yönetici sana Midas dokunuşunu verdi.",
+  "card.config": "Midas dokunuşu sende.",
+  "card.lost": "Midas dokunuşu seni terk etti.",
+  "card.passed": "{name} oyuncusuna geçti.",
+  "stat.adr": "ADR",
+  "stat.kills": "leş",
+  "why.adr": "en iyi ADR: {value}",
+  "why.kills": "en çok leş: {value}",
+  "chat.golden": "Midas: {name} altın dokunuşa sahip ({why})."
+}

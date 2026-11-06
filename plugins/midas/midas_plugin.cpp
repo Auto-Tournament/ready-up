@@ -35,6 +35,8 @@
 
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
+#include "readyup/i18n.h"
+#include "readyup/i18n_api.h"
 #include "readyup/selftest_iface.h"
 #include "readyup/skins_iface.h"
 
@@ -53,6 +55,9 @@
 #ifndef MIDAS_VERSION
 #define MIDAS_VERSION "dev"
 #endif
+
+extern const readyup::i18n::Locale kReadyUpLocales[];  // locales/ (readyup_embed_locales)
+extern const size_t kReadyUpLocaleCount;
 
 namespace midas {
 namespace {
@@ -599,7 +604,24 @@ CardTexts g_cardTexts;
 bool g_cardsPrimed = false;       // the first UpdateCards only remembers who is Midas (no card at load)
 std::set<uint64_t> g_prevMidas;   // who was Midas at the last UpdateCards
 uint64_t g_prevBest = 0;
-std::string g_bestStatName, g_bestValue;  // the last pick: "ADR" / "kills" and the number
+std::string g_bestStatKey, g_bestValue;  // the last pick: stat.adr / stat.kills and the number
+std::string g_bestWhyKey;                // why.adr / why.kills (the chat line)
+
+// Player-facing text (plugins/midas/locales) in each player's language.
+readyup::i18n::Catalog g_text;
+std::string LangOf(uint64_t sid) { return readyup::i18n::LanguageOf(g_api, g_api->slot_for_steamid(g_api->self, sid)); }
+// The card texts in `lang`: midas.cfg's card_* when set (the server's own words), else locales/.
+CardTexts TextsFor(const std::string& lang) {
+  CardTexts t;
+  auto pick = [&](const std::string& cfg, const char* key) { return cfg.empty() ? g_text.Tr(lang, key) : cfg; };
+  t.title = pick(g_cardTexts.title, "card.title");
+  t.best = pick(g_cardTexts.best, "card.best");
+  t.given = pick(g_cardTexts.given, "card.given");
+  t.config = pick(g_cardTexts.config, "card.config");
+  t.lost = pick(g_cardTexts.lost, "card.lost");
+  t.passed = pick(g_cardTexts.passed, "card.passed");
+  return t;
+}
 double g_now = 0, g_prevNow = 0, g_lastRoundStart = -1e9;
 struct PendingCard {
   std::string html;
@@ -643,13 +665,14 @@ void UpdateCards() {
     for (uint64_t sid : now) {
       if (g_prevMidas.count(sid)) continue;
       const unsigned why = MidasWhy(sid);
-      QueueCard(sid, GainCardHtml(g_cardTexts, why, g_bestStatName, g_bestValue),
+      const std::string lang = LangOf(sid);
+      QueueCard(sid, GainCardHtml(TextsFor(lang), why, g_bestStatKey.empty() ? "" : g_text.Tr(lang, g_bestStatKey), g_bestValue),
                 (why & kWhyBest) ? "gained: best player" : (why & kWhyGiven) ? "gained: given" : "gained: midas_steamids");
     }
     for (uint64_t sid : g_prevMidas) {
       if (now.count(sid)) continue;
       const bool passed = sid == g_prevBest && g_best != 0 && g_best != sid;
-      QueueCard(sid, LostCardHtml(g_cardTexts, passed ? PlayerName(g_best) : std::string()),
+      QueueCard(sid, LostCardHtml(TextsFor(LangOf(sid)), passed ? PlayerName(g_best) : std::string()),
                 passed ? "lost: passed on" : "lost");
     }
   }
@@ -710,17 +733,13 @@ void ProcessCards() {
 
 void ReadCardConfig() {
   g_cardsOn = ParseBool(ConfigValue("cards"), true);
-  const CardTexts def;
-  auto text = [](const char* key, const std::string& d) {
-    const std::string v = ConfigValue(key);
-    return v.empty() ? d : v;
-  };
-  g_cardTexts.title = text("card_title", def.title);
-  g_cardTexts.best = text("card_best", def.best);
-  g_cardTexts.given = text("card_given", def.given);
-  g_cardTexts.config = text("card_config", def.config);
-  g_cardTexts.lost = text("card_lost", def.lost);
-  g_cardTexts.passed = text("card_passed", def.passed);
+  // Only what midas.cfg sets; the rest comes from locales/ in each player's language (TextsFor).
+  g_cardTexts.title = ConfigValue("card_title");
+  g_cardTexts.best = ConfigValue("card_best");
+  g_cardTexts.given = ConfigValue("card_given");
+  g_cardTexts.config = ConfigValue("card_config");
+  g_cardTexts.lost = ConfigValue("card_lost");
+  g_cardTexts.passed = ConfigValue("card_passed");
   if (!g_cardsOn) g_cards.clear();
 }
 
@@ -759,7 +778,9 @@ void SetBest(uint64_t sid, const std::string& why) {
   const std::string name = PlayerName(sid);
   ru_logf(g_api, RU_LOG_INFO, "best player: %s (%llu) is Midas: %s", name.c_str(), static_cast<unsigned long long>(sid),
           why.c_str());
-  g_api->chat_all(g_api->self, ("Midas: " + name + " has the golden touch (" + why + ").").c_str(), 0);
+  readyup::i18n::ChatAll(g_api, 0, [&](const std::string& lang) {
+    return g_text.Tr(lang, "chat.golden", {{"name", name}, {"why", g_text.Tr(lang, g_bestWhyKey.c_str(), {{"value", g_bestValue}})}});
+  });
 }
 
 // A few ticks after a round start (the match plugin handles round_start on its tick first).
@@ -785,7 +806,8 @@ void PickBestPlayer() {
     if (g_bestStat == BestStat::kAdr) std::snprintf(buf, sizeof(buf), "best ADR: %.0f", Adr(p));
     else std::snprintf(buf, sizeof(buf), "most kills: %d", p.kills);
     why = buf;
-    g_bestStatName = g_bestStat == BestStat::kAdr ? "ADR" : "kills";
+    g_bestStatKey = g_bestStat == BestStat::kAdr ? "stat.adr" : "stat.kills";
+    g_bestWhyKey = g_bestStat == BestStat::kAdr ? "why.adr" : "why.kills";
     std::snprintf(buf, sizeof(buf), "%.0f", g_bestStat == BestStat::kAdr ? Adr(p) : static_cast<double>(p.kills));
     g_bestValue = buf;
   }
@@ -1351,6 +1373,9 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
 READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_api_version) {
   if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, get_interface)) return 1;
   g_api = api;
+  g_text = {};
+  if (const std::string err = g_text.Load(kReadyUpLocales, kReadyUpLocaleCount); !err.empty())
+    ru_logf(api, RU_LOG_WARN, "locales: %s", err.c_str());
   g_off = Offsets{};
   g_enabled = g_active = false;
   g_midas.clear();
@@ -1387,7 +1412,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_cardsPrimed = false;
   g_prevMidas.clear();
   g_prevBest = 0;
-  g_bestStatName.clear();
+  g_bestStatKey.clear();
+  g_bestWhyKey.clear();
   g_bestValue.clear();
   g_now = g_prevNow = 0;
   g_lastRoundStart = -1e9;

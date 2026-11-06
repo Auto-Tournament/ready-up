@@ -1,0 +1,13 @@
+{
+  "card.title": "Benedetto da Mida",
+  "card.best": "Sei il miglior giocatore del server ({stat} {value}). Tutto ciò che tocchi diventa oro.",
+  "card.given": "Un admin ti ha donato il tocco di Mida.",
+  "card.config": "Hai il tocco di Mida.",
+  "card.lost": "Il tocco di Mida ti ha lasciato.",
+  "card.passed": "È passato a {name}.",
+  "stat.adr": "ADR",
+  "stat.kills": "kill",
+  "why.adr": "miglior ADR: {value}",
+  "why.kills": "più kill: {value}",
+  "chat.golden": "Midas: {name} ha il tocco d'oro ({why})."
+}

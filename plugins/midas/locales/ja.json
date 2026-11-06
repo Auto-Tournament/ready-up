@@ -1,0 +1,13 @@
+{
+  "card.title": "ミダスの祝福",
+  "card.best": "あなたはサーバーで最強のプレイヤーです（{stat} {value}）。触れるものすべてが黄金に変わります。",
+  "card.given": "管理者があなたにミダスのタッチを授けました。",
+  "card.config": "あなたにはミダスのタッチがあります。",
+  "card.lost": "ミダスのタッチが去りました。",
+  "card.passed": "{name} に移りました。",
+  "stat.adr": "ADR",
+  "stat.kills": "キル",
+  "why.adr": "最高 ADR: {value}",
+  "why.kills": "最多キル: {value}",
+  "chat.golden": "Midas: {name} が黄金のタッチを得ました（{why}）。"
+}
