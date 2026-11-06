@@ -1,0 +1,13 @@
+{
+  "card.title": "Midaksen siunaama",
+  "card.best": "Olet palvelimen paras pelaaja ({stat} {value}). Kaikki, mihin kosket, muuttuu kullaksi.",
+  "card.given": "Ylläpitäjä antoi sinulle Midaksen kosketuksen.",
+  "card.config": "Sinulla on Midaksen kosketus.",
+  "card.lost": "Midaksen kosketus jätti sinut.",
+  "card.passed": "Se siirtyi pelaajalle {name}.",
+  "stat.adr": "ADR",
+  "stat.kills": "tappoa",
+  "why.adr": "paras ADR: {value}",
+  "why.kills": "eniten tappoja: {value}",
+  "chat.golden": "Midas: {name} sai kultaisen kosketuksen ({why})."
+}

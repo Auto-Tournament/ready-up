@@ -1,0 +1,13 @@
+{
+  "card.title": "Ευλογημένος από τον Μίδα",
+  "card.best": "Είσαι ο καλύτερος παίκτης στον server ({stat} {value}). Ό,τι αγγίζεις γίνεται χρυσάφι.",
+  "card.given": "Ένας admin σού χάρισε το άγγιγμα του Μίδα.",
+  "card.config": "Έχεις το άγγιγμα του Μίδα.",
+  "card.lost": "Το άγγιγμα του Μίδα σε εγκατέλειψε.",
+  "card.passed": "Πέρασε στον {name}.",
+  "stat.adr": "ADR",
+  "stat.kills": "kills",
+  "why.adr": "καλύτερο ADR: {value}",
+  "why.kills": "περισσότερα kills: {value}",
+  "chat.golden": "Midas: ο {name} έχει το χρυσό άγγιγμα ({why})."
+}

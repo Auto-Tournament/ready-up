@@ -1,0 +1,13 @@
+{
+  "card.title": "Diberkati Midas",
+  "card.best": "Kamu pemain terbaik di server ({stat} {value}). Semua yang kamu sentuh berubah jadi emas.",
+  "card.given": "Admin memberimu sentuhan Midas.",
+  "card.config": "Kamu punya sentuhan Midas.",
+  "card.lost": "Sentuhan Midas telah meninggalkanmu.",
+  "card.passed": "Sentuhan itu pindah ke {name}.",
+  "stat.adr": "ADR",
+  "stat.kills": "kill",
+  "why.adr": "ADR terbaik: {value}",
+  "why.kills": "kill terbanyak: {value}",
+  "chat.golden": "Midas: {name} punya sentuhan emas ({why})."
+}

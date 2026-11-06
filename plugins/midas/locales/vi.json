@@ -1,0 +1,13 @@
+{
+  "card.title": "Được Midas ban phước",
+  "card.best": "Bạn là người chơi giỏi nhất máy chủ ({stat} {value}). Mọi thứ bạn chạm vào đều hóa vàng.",
+  "card.given": "Một admin đã ban cho bạn bàn tay Midas.",
+  "card.config": "Bạn có bàn tay Midas.",
+  "card.lost": "Bàn tay Midas đã rời bỏ bạn.",
+  "card.passed": "Nó đã chuyển sang {name}.",
+  "stat.adr": "ADR",
+  "stat.kills": "mạng",
+  "why.adr": "ADR cao nhất: {value}",
+  "why.kills": "nhiều mạng nhất: {value}",
+  "chat.golden": "Midas: {name} có bàn tay vàng ({why})."
+}

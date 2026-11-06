@@ -1,0 +1,13 @@
+{
+  "card.title": "Gezegend door Midas",
+  "card.best": "Je bent de beste speler op de server ({stat} {value}). Alles wat je aanraakt, wordt goud.",
+  "card.given": "Een admin heeft je de Midas-aanraking gegeven.",
+  "card.config": "Je hebt de Midas-aanraking.",
+  "card.lost": "De Midas-aanraking heeft je verlaten.",
+  "card.passed": "Hij ging naar {name}.",
+  "stat.adr": "ADR",
+  "stat.kills": "kills",
+  "why.adr": "beste ADR: {value}",
+  "why.kills": "meeste kills: {value}",
+  "chat.golden": "Midas: {name} heeft de gouden aanraking ({why})."
+}

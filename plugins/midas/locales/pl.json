@@ -1,0 +1,13 @@
+{
+  "card.title": "Pobłogosławiony przez Midasa",
+  "card.best": "Jesteś najlepszym graczem na serwerze ({stat} {value}). Wszystko, czego dotkniesz, zamienia się w złoto.",
+  "card.given": "Admin obdarzył cię dotykiem Midasa.",
+  "card.config": "Masz dotyk Midasa.",
+  "card.lost": "Dotyk Midasa cię opuścił.",
+  "card.passed": "Przeszedł na gracza {name}.",
+  "stat.adr": "ADR",
+  "stat.kills": "zabójstwa",
+  "why.adr": "najlepszy ADR: {value}",
+  "why.kills": "najwięcej zabójstw: {value}",
+  "chat.golden": "Midas: {name} ma złoty dotyk ({why})."
+}

@@ -1,0 +1,13 @@
+{
+  "card.title": "Velsignet av Midas",
+  "card.best": "Du er den beste spilleren på serveren ({stat} {value}). Alt du tar på, blir til gull.",
+  "card.given": "En administrator har gitt deg Midas-berøringen.",
+  "card.config": "Du har Midas-berøringen.",
+  "card.lost": "Midas-berøringen har forlatt deg.",
+  "card.passed": "Den gikk videre til {name}.",
+  "stat.adr": "ADR",
+  "stat.kills": "drap",
+  "why.adr": "best ADR: {value}",
+  "why.kills": "flest drap: {value}",
+  "chat.golden": "Midas: {name} har gullberøringen ({why})."
+}

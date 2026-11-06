@@ -1,0 +1,13 @@
+{
+  "card.title": "Binecuvântat de Midas",
+  "card.best": "Ești cel mai bun jucător de pe server ({stat} {value}). Tot ce atingi se transformă în aur.",
+  "card.given": "Un admin ți-a dat atingerea lui Midas.",
+  "card.config": "Ai atingerea lui Midas.",
+  "card.lost": "Atingerea lui Midas te-a părăsit.",
+  "card.passed": "A trecut la {name}.",
+  "stat.adr": "ADR",
+  "stat.kills": "kill-uri",
+  "why.adr": "cel mai bun ADR: {value}",
+  "why.kills": "cele mai multe kill-uri: {value}",
+  "chat.golden": "Midas: {name} are atingerea de aur ({why})."
+}
