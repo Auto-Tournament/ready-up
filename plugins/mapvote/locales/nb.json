@@ -54,5 +54,5 @@
   "menu.prev": "Forrige",
   "menu.next_page": "Neste",
   "menu.back": "Tilbake",
-  "help.line": "Kartavstemning: .rtv stem for å bytte kart (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
+  "help.line": "Kartavstemning: .rtv stem for å bytte kart (.unrtv) | .nominate <kart> | .maps | .nextmap | .timeleft"
 }

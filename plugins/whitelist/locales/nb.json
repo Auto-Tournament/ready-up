@@ -1,6 +1,6 @@
 {
   "prefix": "Ready Up-hviteliste:",
-  "help_on_off": ".ru whitelist on|off: kaster ut alle som ikke står på lista (admins og boter blir; ikke under en kamp)",
+  "help_on_off": ".ru whitelist on|off: kaster ut alle som ikke står på lista (administratorer og boter blir; ikke under en kamp)",
   "help_add_remove": ".ru whitelist add|remove <steamid64>",
   "help_list_clear": ".ru whitelist list | clear",
   "not_authorized": "ikke tilgang",
@@ -19,8 +19,8 @@
   "list_on_other": "på, {count} spillere: {ids}",
   "list_off_one": "av, {count} spiller: {ids}",
   "list_off_other": "av, {count} spillere: {ids}",
-  "guests_one": "{count} gjest som andre plugins slipper inn ({owners})",
-  "guests_other": "{count} gjester som andre plugins slipper inn ({owners})",
+  "guests_one": "{count} gjest som andre tillegg slipper inn ({owners})",
+  "guests_other": "{count} gjester som andre tillegg slipper inn ({owners})",
   "unknown": "ukjent kommando. Skriv .ru help whitelist for å se lista.",
   "save_failed": "kunne ikke lagre {path}",
   "kick_reason": "Ikke på hvitelista til denne serveren"

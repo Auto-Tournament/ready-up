@@ -7,7 +7,7 @@
   "card.passed": "Den gikk videre til {name}.",
   "stat.adr": "ADR",
   "stat.kills": "drap",
-  "why.adr": "best ADR: {value}",
+  "why.adr": "høyest ADR: {value}",
   "why.kills": "flest drap: {value}",
-  "chat.golden": "Midas: {name} har gullberøringen ({why})."
+  "chat.golden": "Midas: {name} har Midas-berøringen ({why})."
 }
