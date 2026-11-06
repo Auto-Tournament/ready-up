@@ -53,5 +53,6 @@
   "menu.now": "τώρα",
   "menu.prev": "Προηγούμενη",
   "menu.next_page": "Επόμενη",
-  "menu.back": "Πίσω"
+  "menu.back": "Πίσω",
+  "help.line": "Ψηφοφορία χάρτη: .rtv ψήφισε για αλλαγή χάρτη (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

@@ -170,5 +170,7 @@
   "status.running": "běží",
   "status.over": "konec",
   "status.watch": "nikdo (sledování)",
-  "status.line": "{id} {phase} v {at}/{length}, hráč {player}; boti: řízení {scripted}, AI {ai}, mrtví {dead}; granáty: hozeno {spawned}, přeskočeno {skipped}"
+  "status.line": "{id} {phase} v {at}/{length}, hráč {player}; boti: řízení {scripted}, AI {ai}, mrtví {dead}; granáty: hozeno {spawned}, přeskočeno {skipped}",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac pro odchod",
+  "help.off": "Trénink: .prac zapne tréninkový režim"
 }

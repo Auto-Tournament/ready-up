@@ -158,7 +158,12 @@ void OnTick(void*, const ru_tick_info* t) {
 
 // readyup.help.community: the `.help` line (essentials).
 const char* HelpLineNow() { return "Community: .rank | .top | .speclist"; }
-const ru_help_v1 g_help = {sizeof(ru_help_v1), &HelpLineNow};
+const char* HelpLineLang(const char* lang) {
+  static std::string line;
+  line = g_text.Tr(lang ? lang : "en", "help.line");
+  return line.c_str();
+}
+const ru_help_v1 g_help = {sizeof(ru_help_v1), &HelpLineNow, &HelpLineLang};
 
 void OnRank(void*, const ru_command_ctx* c) {
   if (!g.s.enabled || c->steamid64 == 0) return;

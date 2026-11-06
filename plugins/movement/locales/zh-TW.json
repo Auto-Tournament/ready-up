@@ -42,5 +42,6 @@
   "menu.maps": "地圖",
   "menu.hide_timer": "隱藏計時",
   "menu.show_timer": "顯示計時",
-  "menu.close": "關閉"
+  "menu.close": "關閉",
+  "help.line": "Movement: .rs 重新開始 | .b [n] 獎勵關 | .cp / .tp 檢查點 | .pb .wr 紀錄 | .timerhud"
 }

@@ -9,5 +9,6 @@
   "spec.none": "За вами никто не наблюдает.",
   "spec.list": "За вами наблюдают ({count}): {names}",
   "kick.done": "Админ выгнал игрока {name}.",
-  "kick.done_reason": "Админ выгнал игрока {name}: {reason}"
+  "kick.done_reason": "Админ выгнал игрока {name}: {reason}",
+  "help.line": "Сообщество: .rank | .top | .speclist"
 }

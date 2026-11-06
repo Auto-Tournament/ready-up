@@ -9,5 +9,6 @@
   "spec.none": "Niemand schaut dir zu.",
   "spec.list": "Schauen dir zu ({count}): {names}",
   "kick.done": "{name} wurde von einem Admin gekickt.",
-  "kick.done_reason": "{name} wurde von einem Admin gekickt: {reason}"
+  "kick.done_reason": "{name} wurde von einem Admin gekickt: {reason}",
+  "help.line": "Community: .rank | .top | .speclist"
 }

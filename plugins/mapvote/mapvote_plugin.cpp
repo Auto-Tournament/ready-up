@@ -248,7 +248,13 @@ double Now() {
 const char* HelpLineNow() {
   return Active() ? "Map vote: .rtv vote to change map (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft" : nullptr;
 }
-const ru_help_v1 g_help = {sizeof(ru_help_v1), &HelpLineNow};
+const char* HelpLineLang(const char* lang) {
+  static std::string line;
+  if (!Active()) return nullptr;
+  line = Tr(lang ? lang : "en", "help.line");
+  return line.c_str();
+}
+const ru_help_v1 g_help = {sizeof(ru_help_v1), &HelpLineNow, &HelpLineLang};
 
 bool CheckActive(const ru_command_ctx* c) {
   if (Active()) return true;

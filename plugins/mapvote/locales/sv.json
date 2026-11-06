@@ -53,5 +53,6 @@
   "menu.now": "nu",
   "menu.prev": "Föregående",
   "menu.next_page": "Nästa",
-  "menu.back": "Tillbaka"
+  "menu.back": "Tillbaka",
+  "help.line": "Kartomröstning: .rtv rösta för kartbyte (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

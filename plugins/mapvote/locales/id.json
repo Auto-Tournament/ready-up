@@ -53,5 +53,6 @@
   "menu.now": "sekarang",
   "menu.prev": "Sebelumnya",
   "menu.next_page": "Berikutnya",
-  "menu.back": "Kembali"
+  "menu.back": "Kembali",
+  "help.line": "Vote map: .rtv vote ganti map (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

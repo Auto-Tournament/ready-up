@@ -170,5 +170,7 @@
   "status.running": "върви",
   "status.over": "край",
   "status.watch": "никой (гледане)",
-  "status.line": "{id} {phase} в {at}/{length}, играч {player}; ботове: по сценарий {scripted}, AI {ai}, мъртви {dead}; гранати: хвърлени {spawned}, пропуснати {skipped}"
+  "status.line": "{id} {phase} в {at}/{length}, играч {player}; ботове: по сценарий {scripted}, AI {ai}, мъртви {dead}; гранати: хвърлени {spawned}, пропуснати {skipped}",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac за изход",
+  "help.off": "Тренировка: .prac пуска режим тренировка"
 }

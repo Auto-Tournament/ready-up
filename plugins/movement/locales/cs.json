@@ -42,5 +42,6 @@
   "menu.maps": "Mapy",
   "menu.hide_timer": "Skrýt stopky",
   "menu.show_timer": "Zobrazit stopky",
-  "menu.close": "Zavřít"
+  "menu.close": "Zavřít",
+  "help.line": "Movement: .rs znovu | .b [n] bonus | .cp / .tp checkpoint | .pb .wr rekordy | .timerhud"
 }

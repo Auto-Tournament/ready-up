@@ -53,5 +53,6 @@
   "menu.now": "şimdi",
   "menu.prev": "Önceki",
   "menu.next_page": "Sonraki",
-  "menu.back": "Geri"
+  "menu.back": "Geri",
+  "help.line": "Harita oylaması: .rtv harita değiştirmek için oy ver (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

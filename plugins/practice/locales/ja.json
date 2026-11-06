@@ -170,5 +170,7 @@
   "status.running": "実行中",
   "status.over": "終了",
   "status.watch": "なし（観戦）",
-  "status.line": "{id} {phase} {at}/{length}、プレイヤー {player}、BOT: 台本 {scripted}・AI {ai}・死亡 {dead}、グレネード: 投擲 {spawned}・スキップ {skipped}"
+  "status.line": "{id} {phase} {at}/{length}、プレイヤー {player}、BOT: 台本 {scripted}・AI {ai}・死亡 {dead}、グレネード: 投擲 {spawned}・スキップ {skipped}",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac で終了",
+  "help.off": "練習: .prac で練習モードを開始"
 }

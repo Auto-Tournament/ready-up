@@ -9,5 +9,6 @@
   "spec.none": "Κανείς δεν σε παρακολουθεί.",
   "spec.list": "Σε παρακολουθούν ({count}): {names}",
   "kick.done": "Ο {name} αποβλήθηκε από admin.",
-  "kick.done_reason": "Ο {name} αποβλήθηκε από admin: {reason}"
+  "kick.done_reason": "Ο {name} αποβλήθηκε από admin: {reason}",
+  "help.line": "Κοινότητα: .rank | .top | .speclist"
 }

@@ -2280,7 +2280,12 @@ int IfaceSetActive(int on, const char** why) {
 }
 // readyup.help.practice: the `.help` line (essentials); off, how to turn it on.
 const char* HelpLineNow() { return IfaceActive() ? HelpLine() : "Practice: .prac to start practice mode"; }
-const ru_help_v1 g_help = {sizeof(ru_help_v1), &HelpLineNow};
+const char* HelpLineLang(const char* lang) {
+  static std::string line;
+  line = g_text.Tr(lang ? lang : "en", IfaceActive() ? "help.line" : "help.off");
+  return line.c_str();
+}
+const ru_help_v1 g_help = {sizeof(ru_help_v1), &HelpLineNow, &HelpLineLang};
 
 const char* IfaceHelp() { return HelpLine(); }
 int IfaceDryRun() { return IsActive() && g_dryRun ? 1 : 0; }

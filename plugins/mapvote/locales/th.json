@@ -53,5 +53,6 @@
   "menu.now": "ตอนนี้",
   "menu.prev": "ก่อนหน้า",
   "menu.next_page": "ถัดไป",
-  "menu.back": "กลับ"
+  "menu.back": "กลับ",
+  "help.line": "โหวตแผนที่: .rtv โหวตเปลี่ยนแผนที่ (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

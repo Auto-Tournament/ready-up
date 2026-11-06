@@ -25,6 +25,8 @@ typedef struct ru_help_v1 {
   /* One chat line, or NULL / "" when the plugin has nothing to offer right now (map vote with
    * no pool, practice off). Valid until the next call. */
   const char* (*line)(void);
+  /* The same line in `lang` (a player's language code, "en" fallback); NULL = use line(). */
+  const char* (*line_lang)(const char* lang);
 } ru_help_v1;
 
 #ifdef __cplusplus

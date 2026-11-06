@@ -53,5 +53,6 @@
   "menu.now": "teď",
   "menu.prev": "Předchozí",
   "menu.next_page": "Další",
-  "menu.back": "Zpět"
+  "menu.back": "Zpět",
+  "help.line": "Hlasování o mapě: .rtv hlasuj o změně mapy (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

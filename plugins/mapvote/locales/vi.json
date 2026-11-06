@@ -53,5 +53,6 @@
   "menu.now": "hiện tại",
   "menu.prev": "Trước",
   "menu.next_page": "Sau",
-  "menu.back": "Quay lại"
+  "menu.back": "Quay lại",
+  "help.line": "Bình chọn bản đồ: .rtv bình chọn đổi bản đồ (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

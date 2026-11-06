@@ -170,5 +170,7 @@
   "status.running": "käynnissä",
   "status.over": "ohi",
   "status.watch": "ei kukaan (katselu)",
-  "status.line": "{id} {phase} kohdassa {at}/{length}, pelaaja {player}; botit: {scripted} ohjattu, {ai} tekoäly, {dead} kuollut; kranaatit: {spawned} heitetty, {skipped} ohitettu"
+  "status.line": "{id} {phase} kohdassa {at}/{length}, pelaaja {player}; botit: {scripted} ohjattu, {ai} tekoäly, {dead} kuollut; kranaatit: {spawned} heitetty, {skipped} ohitettu",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac lopettaa",
+  "help.off": "Harjoitus: .prac aloittaa harjoitustilan"
 }

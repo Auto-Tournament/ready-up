@@ -9,5 +9,6 @@
   "spec.none": "ไม่มีใครกำลังดูคุณ",
   "spec.list": "กำลังดูคุณ ({count}): {names}",
   "kick.done": "{name} ถูกแอดมินเตะออก",
-  "kick.done_reason": "{name} ถูกแอดมินเตะออก: {reason}"
+  "kick.done_reason": "{name} ถูกแอดมินเตะออก: {reason}",
+  "help.line": "คอมมูนิตี้: .rank | .top | .speclist"
 }

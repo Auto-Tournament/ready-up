@@ -53,5 +53,6 @@
   "menu.now": "현재",
   "menu.prev": "이전",
   "menu.next_page": "다음",
-  "menu.back": "뒤로"
+  "menu.back": "뒤로",
+  "help.line": "맵 투표: .rtv 맵 변경 투표 (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

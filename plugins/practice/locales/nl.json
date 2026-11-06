@@ -170,5 +170,7 @@
   "status.running": "bezig",
   "status.over": "voorbij",
   "status.watch": "niemand (kijken)",
-  "status.line": "{id} {phase} op {at}/{length}, speler {player}; bots: {scripted} gestuurd, {ai} AI, {dead} dood; granaten: {spawned} gegooid, {skipped} overgeslagen"
+  "status.line": "{id} {phase} op {at}/{length}, speler {player}; bots: {scripted} gestuurd, {ai} AI, {dead} dood; granaten: {spawned} gegooid, {skipped} overgeslagen",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac om te stoppen",
+  "help.off": "Training: .prac start de trainingsmodus"
 }

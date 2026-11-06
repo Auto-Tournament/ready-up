@@ -53,5 +53,6 @@
   "menu.now": "most",
   "menu.prev": "Előző",
   "menu.next_page": "Következő",
-  "menu.back": "Vissza"
+  "menu.back": "Vissza",
+  "help.line": "Pályaszavazás: .rtv szavazz pályaváltásra (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

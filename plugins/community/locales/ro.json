@@ -9,5 +9,6 @@
   "spec.none": "Nu se uită nimeni la tine.",
   "spec.list": "Se uită la tine ({count}): {names}",
   "kick.done": "{name} a fost dat afară de un admin.",
-  "kick.done_reason": "{name} a fost dat afară de un admin: {reason}"
+  "kick.done_reason": "{name} a fost dat afară de un admin: {reason}",
+  "help.line": "Comunitate: .rank | .top | .speclist"
 }

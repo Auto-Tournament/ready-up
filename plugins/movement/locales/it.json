@@ -42,5 +42,6 @@
   "menu.maps": "Mappe",
   "menu.hide_timer": "Nascondi timer",
   "menu.show_timer": "Mostra timer",
-  "menu.close": "Chiudi"
+  "menu.close": "Chiudi",
+  "help.line": "Movement: .rs ricomincia | .b [n] bonus | .cp / .tp checkpoint | .pb .wr record | .timerhud"
 }

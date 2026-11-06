@@ -9,5 +9,6 @@
   "spec.none": "Personne ne te regarde.",
   "spec.list": "Te regardent ({count}) : {names}",
   "kick.done": "{name} a été expulsé par un admin.",
-  "kick.done_reason": "{name} a été expulsé par un admin : {reason}"
+  "kick.done_reason": "{name} a été expulsé par un admin : {reason}",
+  "help.line": "Communauté: .rank | .top | .speclist"
 }

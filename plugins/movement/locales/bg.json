@@ -42,5 +42,6 @@
   "menu.maps": "Карти",
   "menu.hide_timer": "Скрий таймера",
   "menu.show_timer": "Покажи таймера",
-  "menu.close": "Затвори"
+  "menu.close": "Затвори",
+  "help.line": "Movement: .rs отначало | .b [n] бонус | .cp / .tp чекпойнт | .pb .wr рекорди | .timerhud"
 }

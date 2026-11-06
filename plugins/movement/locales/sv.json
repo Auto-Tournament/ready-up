@@ -42,5 +42,6 @@
   "menu.maps": "Kartor",
   "menu.hide_timer": "Dölj timer",
   "menu.show_timer": "Visa timer",
-  "menu.close": "Stäng"
+  "menu.close": "Stäng",
+  "help.line": "Movement: .rs starta om | .b [n] bonus | .cp / .tp checkpoint | .pb .wr rekord | .timerhud"
 }

@@ -42,5 +42,6 @@
   "menu.maps": "Hărți",
   "menu.hide_timer": "Ascunde cronometrul",
   "menu.show_timer": "Arată cronometrul",
-  "menu.close": "Închide"
+  "menu.close": "Închide",
+  "help.line": "Movement: .rs reîncepe | .b [n] bonus | .cp / .tp checkpoint | .pb .wr recorduri | .timerhud"
 }

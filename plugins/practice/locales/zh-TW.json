@@ -170,5 +170,7 @@
   "status.running": "執行中",
   "status.over": "已結束",
   "status.watch": "無（觀看）",
-  "status.line": "{id} {phase}，{at}/{length}，玩家 {player}；機器人：腳本 {scripted}，AI {ai}，死亡 {dead}；投擲物：已投 {spawned}，略過 {skipped}"
+  "status.line": "{id} {phase}，{at}/{length}，玩家 {player}；機器人：腳本 {scripted}，AI {ai}，死亡 {dead}；投擲物：已投 {spawned}，略過 {skipped}",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac 退出",
+  "help.off": "練習：輸入 .prac 開啟練習模式"
 }

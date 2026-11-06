@@ -42,5 +42,6 @@
   "menu.maps": "Kart",
   "menu.hide_timer": "Skjul tidtaking",
   "menu.show_timer": "Vis tidtaking",
-  "menu.close": "Lukk"
+  "menu.close": "Lukk",
+  "help.line": "Bevegelse: .rs start på nytt | .b [n] bonus | .cp / .tp sjekkpunkt | .pb .wr rekorder | .timerhud"
 }

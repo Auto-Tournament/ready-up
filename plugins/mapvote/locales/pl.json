@@ -53,5 +53,6 @@
   "menu.now": "teraz",
   "menu.prev": "Poprzednia",
   "menu.next_page": "Następna",
-  "menu.back": "Wróć"
+  "menu.back": "Wróć",
+  "help.line": "Głosowanie na mapę: .rtv głosuj za zmianą mapy (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

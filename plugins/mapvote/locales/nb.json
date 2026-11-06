@@ -53,5 +53,6 @@
   "menu.now": "nå",
   "menu.prev": "Forrige",
   "menu.next_page": "Neste",
-  "menu.back": "Tilbake"
+  "menu.back": "Tilbake",
+  "help.line": "Kartavstemning: .rtv stem for å bytte kart (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

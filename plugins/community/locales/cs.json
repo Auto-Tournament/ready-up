@@ -9,5 +9,6 @@
   "spec.none": "Nikdo tě nesleduje.",
   "spec.list": "Sledují tě ({count}): {names}",
   "kick.done": "{name} byl vyhozen adminem.",
-  "kick.done_reason": "{name} byl vyhozen adminem: {reason}"
+  "kick.done_reason": "{name} byl vyhozen adminem: {reason}",
+  "help.line": "Komunita: .rank | .top | .speclist"
 }

@@ -9,5 +9,6 @@
   "spec.none": "Seni kimse izlemiyor.",
   "spec.list": "Seni izleyenler ({count}): {names}",
   "kick.done": "{name} bir yönetici tarafından atıldı.",
-  "kick.done_reason": "{name} bir yönetici tarafından atıldı: {reason}"
+  "kick.done_reason": "{name} bir yönetici tarafından atıldı: {reason}",
+  "help.line": "Topluluk: .rank | .top | .speclist"
 }

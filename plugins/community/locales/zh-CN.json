@@ -9,5 +9,6 @@
   "spec.none": "没有人在观看你。",
   "spec.list": "正在观看你（{count}）：{names}",
   "kick.done": "{name} 被管理员踢出。",
-  "kick.done_reason": "{name} 被管理员踢出：{reason}"
+  "kick.done_reason": "{name} 被管理员踢出：{reason}",
+  "help.line": "社区: .rank | .top | .speclist"
 }

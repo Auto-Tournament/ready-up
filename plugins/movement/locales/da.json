@@ -42,5 +42,6 @@
   "menu.maps": "Baner",
   "menu.hide_timer": "Skjul timer",
   "menu.show_timer": "Vis timer",
-  "menu.close": "Luk"
+  "menu.close": "Luk",
+  "help.line": "Movement: .rs genstart | .b [n] bonus | .cp / .tp checkpoint | .pb .wr rekorder | .timerhud"
 }

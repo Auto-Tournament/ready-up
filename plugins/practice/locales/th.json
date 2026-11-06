@@ -170,5 +170,7 @@
   "status.running": "กำลังทำงาน",
   "status.over": "จบแล้ว",
   "status.watch": "ไม่มี (ดู)",
-  "status.line": "{id} {phase} ที่ {at}/{length}, ผู้เล่น {player}; บอต: ตามสคริปต์ {scripted}, AI {ai}, ตาย {dead}; ระเบิด: ขว้าง {spawned}, ข้าม {skipped}"
+  "status.line": "{id} {phase} ที่ {at}/{length}, ผู้เล่น {player}; บอต: ตามสคริปต์ {scripted}, AI {ai}, ตาย {dead}; ระเบิด: ขว้าง {spawned}, ข้าม {skipped}",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac เพื่อออก",
+  "help.off": "ฝึก: .prac เพื่อเริ่มโหมดฝึก"
 }

@@ -53,5 +53,6 @@
   "menu.now": "сега",
   "menu.prev": "Назад",
   "menu.next_page": "Напред",
-  "menu.back": "Назад"
+  "menu.back": "Назад",
+  "help.line": "Гласуване за карта: .rtv гласувай за смяна на картата (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

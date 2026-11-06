@@ -42,5 +42,6 @@
   "menu.maps": "แผนที่",
   "menu.hide_timer": "ซ่อนตัวจับเวลา",
   "menu.show_timer": "แสดงตัวจับเวลา",
-  "menu.close": "ปิด"
+  "menu.close": "ปิด",
+  "help.line": "Movement: .rs เริ่มใหม่ | .b [n] โบนัส | .cp / .tp เช็กพอยต์ | .pb .wr สถิติ | .timerhud"
 }

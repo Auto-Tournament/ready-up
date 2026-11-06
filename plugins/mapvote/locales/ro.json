@@ -53,5 +53,6 @@
   "menu.now": "acum",
   "menu.prev": "Înapoi",
   "menu.next_page": "Înainte",
-  "menu.back": "Înapoi"
+  "menu.back": "Înapoi",
+  "help.line": "Vot de hartă: .rtv votează schimbarea hărții (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

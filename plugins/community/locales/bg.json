@@ -9,5 +9,6 @@
   "spec.none": "Никой не те гледа.",
   "spec.list": "Гледат те ({count}): {names}",
   "kick.done": "{name} беше изритан от админ.",
-  "kick.done_reason": "{name} беше изритан от админ: {reason}"
+  "kick.done_reason": "{name} беше изритан от админ: {reason}",
+  "help.line": "Общност: .rank | .top | .speclist"
 }

@@ -53,5 +53,6 @@
   "menu.now": "現在",
   "menu.prev": "前へ",
   "menu.next_page": "次へ",
-  "menu.back": "戻る"
+  "menu.back": "戻る",
+  "help.line": "マップ投票: .rtv マップ変更に投票 (.unrtv) | .nominate <map> | .maps | .nextmap | .timeleft"
 }

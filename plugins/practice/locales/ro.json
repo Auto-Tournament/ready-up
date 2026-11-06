@@ -170,5 +170,7 @@
   "status.running": "rulează",
   "status.over": "terminat",
   "status.watch": "nimeni (vizionare)",
-  "status.line": "{id} {phase} la {at}/{length}, jucător {player}; boți: ghidați {scripted}, AI {ai}, morți {dead}; grenade: aruncate {spawned}, sărite {skipped}"
+  "status.line": "{id} {phase} la {at}/{length}, jucător {player}; boți: ghidați {scripted}, AI {ai}, morți {dead}; grenade: aruncate {spawned}, sărite {skipped}",
+  "help.line": "Ready Up practice: .bot .cbot .nobots | .savepos/.loadpos [name] .back [N] .last | .spawn/.ctspawn/.tspawn N .bestspawn .worstspawn | .rethrow .delay .clear .noflash .god .solid .impacts .traj .break .timer | .savenade .loadnade .listnades | .dryrun | .prac ca să ieși",
+  "help.off": "Antrenament: .prac pornește modul antrenament"
 }
