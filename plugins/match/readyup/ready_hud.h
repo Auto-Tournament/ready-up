@@ -39,20 +39,5 @@ bool HudReplacesChat();
 // fontClass: e.g. "fontSize-l" (empty = none).
 std::string HudBrandHtml(int imgHeight, const char* fontClass);
 
-// `.ru hud test <n>` (admin): shows test HTML variant n to this player only for
-// ~10 seconds (over the HUD and the welcome card). Thread-safe; the send happens
-// on the GameFrame thread. Returns a short description of the variant, or an
-// empty string if n is unknown.
-std::string ReadyHudRequestTest(uint64_t steamid64, int variant);
-
-// `.ru hud anim [hz] [seconds]` (admin): redraws an ease-out progress bar with a frame counter
-// `hz` times a second (1-64, default 64) for `seconds` (1-30, default 10) to this player only,
-// to measure how fast the client really redraws the panel (record the screen, count the distinct
-// frame numbers per second). Thread-safe. Returns the effective "<hz> Hz for <s> s" text.
-std::string ReadyHudRequestAnim(uint64_t steamid64, int hz, int seconds);
-// GameFrame thread, every frame (not rate-limited like ReadyHudTick): sends due animation frames.
-void ReadyHudAnimTick();
-// Thread-safe: an animation test is running for this player (the HUD leaves the panel alone).
-bool ReadyHudAnimActive(uint64_t steamid64);
 
 }  // namespace readyup

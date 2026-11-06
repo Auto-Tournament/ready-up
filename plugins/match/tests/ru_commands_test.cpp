@@ -34,7 +34,7 @@ static bool Admin(const char* main, const char* sub) {
 static void TestTree() {
   std::vector<std::string> mains;
   for (const auto& m : MatchRuCommands()) mains.push_back(m.name);
-  CHECK((mains == std::vector<std::string>{"match", "mode", "settings", "hud"}));
+  CHECK((mains == std::vector<std::string>{"match", "mode", "settings"}));
   // The old flat commands are gone: nothing named like them at the top level.
   for (const char* old : {"restart", "start", "end", "pause", "idle", "state", "fp", "reloadmap", "load", "side"}) {
     CHECK(FindRuMain(old) == nullptr);
@@ -44,7 +44,7 @@ static void TestTree() {
   for (const auto& p : std::vector<std::pair<const char*, const char*>>{
            {"match", "load"}, {"match", "start"}, {"match", "restart"}, {"match", "end"}, {"match", "pause"},
            {"match", "unpause"}, {"match", "coach"}, {"match", "uncoach"}, {"mode", "idle"},
-           {"mode", "practice"}, {"mode", "scrim"}, {"hud", "test"}}) {
+           {"mode", "practice"}, {"mode", "scrim"}}) {
     CHECK(Admin(p.first, p.second));
   }
   CHECK(!Admin("match", "state") && !Admin("match", "rules") && !Admin("match", "side") && !Admin("mode", "show"));

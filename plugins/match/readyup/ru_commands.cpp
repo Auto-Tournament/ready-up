@@ -44,12 +44,6 @@ const std::vector<RuMainCommand>& MatchRuCommands() {
            {"set", "<setting> <value>", "change one; saved across restarts", true},
            {"default", "<setting>", "back to readyup.cfg / the built-in default", true},
        }},
-      {"hud",
-       "center-screen HUD",
-       {
-           {"test", "<1-11>", "show a HUD test panel to you (10 s)", true},
-           {"anim", "[hz] [seconds]", "animation test: an eased bar redrawn hz times a second, with a frame counter (record it to count the fps)", true},
-       }},
   };
   return k;
 }

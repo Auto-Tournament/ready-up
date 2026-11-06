@@ -334,9 +334,7 @@ chat_prefix="<Green>[PUG #1]<Default>"
   (or env `READYUP_WELCOME=0`) to disable.
 - `hud_brand=Auto Tournament` (default) and `hud_logo_url=` (default empty = no image):
   the header of the welcome card and the ready HUD is `<img src='hud_logo_url'>` (when
-  set) followed by `hud_brand`. Admins can check what the CS2 client renders (font
-  classes, PNG/SVG images, unicode) with `.ru hud test 1..7`; the variant is shown only to
-  the admin who typed it, for ~10 seconds.
+  set) followed by `hud_brand`.
 - It needs `LegacyGameEventListener` from `gamedata/engine-surface.json` (resolved and
   anchor-verified at load) and the RTTI-verified game event manager. If either is missing,
   Ready Up logs `welcome: per-client center HTML unavailable ...` once and skips it.

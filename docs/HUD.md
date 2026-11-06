@@ -1,7 +1,7 @@
 # Center HUD (CS2 center panel)
 
 Ready Up draws per-player HTML with the `show_survival_respawn_status` game
-event (`loc_token` = HTML). Tested in game on CS2 1.41.8.3 with `.ru hud test 1-7`; `.ru hud test 8-11` measure the panel (rows, width, image sizes).
+event (`loc_token` = HTML). Tested in game on CS2 1.41.8.3.
 
 ## Refresh rules
 
@@ -24,7 +24,7 @@ CS2 has a single center panel per client, so the core decides who owns it (plugi
 |---|---|---|
 | 90 | `RU_HTML_PRIO_ALERT` | map change card, Workshop download bar, `.admin` call card (admins only); later: pause called |
 | 80 | `RU_HTML_PRIO_MENU` | a menu the player opened (the planned WASD `.ru` menu) |
-| 70 | `RU_HTML_PRIO_NOTICE` | welcome card, go-live card, vote prompts, `.ru hud test`, `.ru hud anim`, deathmatch winner card |
+| 70 | `RU_HTML_PRIO_NOTICE` | welcome card, go-live card, vote prompts, deathmatch winner card |
 | 50 | `RU_HTML_PRIO_HUD` | ready HUD, knife panel, live / pause status panel, deathmatch leaderboard (every `hud_interval_ms`, [DEATHMATCH.md](DEATHMATCH.md)) (and every old call) |
 | 10 | `RU_HTML_PRIO_INFO` | idle / background information |
 
@@ -33,13 +33,6 @@ plugin's lower send is refused (-1); it goes through once that panel expires, so
 re-sends comes back by itself. Within the match plugin the welcome card holds the ready HUD back
 itself (by SteamID or slot); an `.admin` call card holds back the HUD, the welcome and the go-live
 card for that admin.
-
-## Measuring the redraw rate
-
-`.ru hud anim [hz] [seconds]` (admin, to you only) redraws an ease-out progress bar with a frame
-counter `hz` times a second (1-64, default 64) for `seconds` (1-30, default 10). Record the screen
-and count the distinct frame numbers in one second: that is how fast the client really redraws
-the panel, and the ceiling for animations.
 
 ## What renders
 
@@ -89,6 +82,6 @@ HUD, see "Refresh rules") at `RU_HTML_PRIO_NOTICE` for the full `golive_card_sec
 the go-live round's freeze time ends at the latest (the defaults, 5 s + 10 s, fit in `live.cfg`'s
 18 s `mp_freezetime`; a shorter freeze time cuts the card short), and early when a pause or a
 forfeit countdown needs the panel (the live panel above takes over). With `debug=1` (readyup.cfg), the log
-shows when the card was armed, shown, skipped for a player (welcome / `.admin` card, `.ru hud anim`,
+shows when the card was armed, shown, skipped for a player (welcome / `.admin` card,
 a higher panel) and why it ended, with the number of sends. Chat keeps the
 single "LIVE!" line; if center HTML is unavailable, one chat line lists the commands instead.
