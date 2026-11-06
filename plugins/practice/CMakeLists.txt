@@ -10,6 +10,7 @@ readyup_add_plugin(practice practice_plugin.cpp practice_rules.cpp practice_feed
 target_include_directories(readyup_plugin_practice PRIVATE ${CMAKE_SOURCE_DIR}/plugins/match ${CMAKE_SOURCE_DIR}/libs)
 target_link_libraries(readyup_plugin_practice PRIVATE pthread)  # ru scenario convert worker
 target_compile_definitions(readyup_plugin_practice PRIVATE PRACTICE_VERSION="${READYUP_SEMVER}")
+readyup_embed_locales(readyup_plugin_practice ${CMAKE_CURRENT_SOURCE_DIR}/locales)
 
 # Tool / bot commands, when they may run, always=1, the lineup book (practice_rules.h,
 # practice_tools.h, practice_lineups.h; ctest `practice_rules`).
