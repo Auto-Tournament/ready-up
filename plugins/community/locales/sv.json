@@ -1,0 +1,13 @@
+{
+  "rank.none": "Ingen statistik för dig på den här servern än.",
+  "rank.ranked": "Plats {rank} av {of}: {points} poäng, {kills} kills, {deaths} dödsfall, K/D {kd}, {hs} huvudskott.",
+  "rank.unranked": "Ej rankad ({needed} kills krävs): {points} poäng, {kills} kills, {deaths} dödsfall, K/D {kd}, {hs} huvudskott.",
+  "top.none": "Ingen är rankad på den här servern än.",
+  "top.title": "Bästa spelarna på den här servern:",
+  "top.row": "{rank}. {name}: {points} poäng, K/D {kd}",
+  "spec.unavailable": "Åskådarlistan är inte tillgänglig på det här serverbygget.",
+  "spec.none": "Ingen tittar på dig.",
+  "spec.list": "Tittar på dig ({count}): {names}",
+  "kick.done": "{name} sparkades av en admin.",
+  "kick.done_reason": "{name} sparkades av en admin: {reason}"
+}

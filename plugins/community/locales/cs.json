@@ -1,0 +1,13 @@
+{
+  "rank.none": "Zatím pro tebe nejsou na tomto serveru žádné statistiky.",
+  "rank.ranked": "Pořadí {rank} z {of}: body {points}, zabití {kills}, smrti {deaths}, K/D {kd}, headshoty {hs}.",
+  "rank.unranked": "Bez pořadí (potřeba zabití: {needed}): body {points}, zabití {kills}, smrti {deaths}, K/D {kd}, headshoty {hs}.",
+  "top.none": "Na tomto serveru zatím nikdo není v žebříčku.",
+  "top.title": "Nejlepší hráči na serveru:",
+  "top.row": "{rank}. {name}: body {points}, K/D {kd}",
+  "spec.unavailable": "Seznam diváků není na tomto buildu serveru dostupný.",
+  "spec.none": "Nikdo tě nesleduje.",
+  "spec.list": "Sledují tě ({count}): {names}",
+  "kick.done": "{name} byl vyhozen adminem.",
+  "kick.done_reason": "{name} byl vyhozen adminem: {reason}"
+}

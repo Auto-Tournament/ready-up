@@ -1,0 +1,13 @@
+{
+  "rank.none": "Nie masz jeszcze statystyk na tym serwerze.",
+  "rank.ranked": "Miejsce {rank} z {of}: punkty {points}, zabójstwa {kills}, zgony {deaths}, K/D {kd}, headshoty {hs}.",
+  "rank.unranked": "Bez rankingu (potrzeba zabójstw: {needed}): punkty {points}, zabójstwa {kills}, zgony {deaths}, K/D {kd}, headshoty {hs}.",
+  "top.none": "Nikt nie jest jeszcze w rankingu tego serwera.",
+  "top.title": "Najlepsi gracze na serwerze:",
+  "top.row": "{rank}. {name}: punkty {points}, K/D {kd}",
+  "spec.unavailable": "Lista widzów jest niedostępna na tej wersji serwera.",
+  "spec.none": "Nikt cię nie ogląda.",
+  "spec.list": "Oglądają cię ({count}): {names}",
+  "kick.done": "{name} został wyrzucony przez admina.",
+  "kick.done_reason": "{name} został wyrzucony przez admina: {reason}"
+}

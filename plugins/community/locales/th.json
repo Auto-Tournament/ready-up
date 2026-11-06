@@ -1,0 +1,13 @@
+{
+  "rank.none": "คุณยังไม่มีสถิติในเซิร์ฟเวอร์นี้",
+  "rank.ranked": "อันดับ {rank} จาก {of}: {points} คะแนน, {kills} คิล, {deaths} ตาย, K/D {kd}, เฮดช็อต {hs}",
+  "rank.unranked": "ยังไม่ติดอันดับ (ต้องการ {needed} คิล): {points} คะแนน, {kills} คิล, {deaths} ตาย, K/D {kd}, เฮดช็อต {hs}",
+  "top.none": "ยังไม่มีใครติดอันดับในเซิร์ฟเวอร์นี้",
+  "top.title": "ผู้เล่นอันดับต้นของเซิร์ฟเวอร์นี้:",
+  "top.row": "{rank}. {name}: {points} คะแนน, K/D {kd}",
+  "spec.unavailable": "รายชื่อผู้ชมใช้ไม่ได้ในเซิร์ฟเวอร์บิลด์นี้",
+  "spec.none": "ไม่มีใครกำลังดูคุณ",
+  "spec.list": "กำลังดูคุณ ({count}): {names}",
+  "kick.done": "{name} ถูกแอดมินเตะออก",
+  "kick.done_reason": "{name} ถูกแอดมินเตะออก: {reason}"
+}

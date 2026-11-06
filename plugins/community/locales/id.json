@@ -1,0 +1,13 @@
+{
+  "rank.none": "Belum ada statistik untukmu di server ini.",
+  "rank.ranked": "Peringkat {rank} dari {of}: {points} poin, {kills} kill, {deaths} mati, K/D {kd}, {hs} headshot.",
+  "rank.unranked": "Belum berperingkat (butuh {needed} kill): {points} poin, {kills} kill, {deaths} mati, K/D {kd}, {hs} headshot.",
+  "top.none": "Belum ada yang berperingkat di server ini.",
+  "top.title": "Pemain teratas di server ini:",
+  "top.row": "{rank}. {name}: {points} poin, K/D {kd}",
+  "spec.unavailable": "Daftar penonton tidak tersedia di build server ini.",
+  "spec.none": "Tidak ada yang menontonmu.",
+  "spec.list": "Menontonmu ({count}): {names}",
+  "kick.done": "{name} dikeluarkan oleh admin.",
+  "kick.done_reason": "{name} dikeluarkan oleh admin: {reason}"
+}

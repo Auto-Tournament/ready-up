@@ -1,0 +1,13 @@
+{
+  "rank.none": "Още нямаш статистика на този сървър.",
+  "rank.ranked": "Място {rank} от {of}: точки {points}, убийства {kills}, смърти {deaths}, K/D {kd}, хедшоти {hs}.",
+  "rank.unranked": "Без класиране (нужни убийства: {needed}): точки {points}, убийства {kills}, смърти {deaths}, K/D {kd}, хедшоти {hs}.",
+  "top.none": "Още никой не е класиран на този сървър.",
+  "top.title": "Най-добри играчи на сървъра:",
+  "top.row": "{rank}. {name}: точки {points}, K/D {kd}",
+  "spec.unavailable": "Списъкът със зрители не е наличен на тази версия на сървъра.",
+  "spec.none": "Никой не те гледа.",
+  "spec.list": "Гледат те ({count}): {names}",
+  "kick.done": "{name} беше изритан от админ.",
+  "kick.done_reason": "{name} беше изритан от админ: {reason}"
+}

@@ -1,0 +1,13 @@
+{
+  "rank.none": "Noch keine Statistik für dich auf diesem Server.",
+  "rank.ranked": "Rang {rank} von {of}: {points} Punkte, {kills} Kills, {deaths} Tode, K/D {kd}, {hs} Kopfschüsse.",
+  "rank.unranked": "Ohne Rang ({needed} Kills nötig): {points} Punkte, {kills} Kills, {deaths} Tode, K/D {kd}, {hs} Kopfschüsse.",
+  "top.none": "Noch niemand hat einen Rang auf diesem Server.",
+  "top.title": "Top-Spieler auf diesem Server:",
+  "top.row": "{rank}. {name}: {points} Punkte, K/D {kd}",
+  "spec.unavailable": "Die Zuschauerliste ist auf diesem Server-Build nicht verfügbar.",
+  "spec.none": "Niemand schaut dir zu.",
+  "spec.list": "Schauen dir zu ({count}): {names}",
+  "kick.done": "{name} wurde von einem Admin gekickt.",
+  "kick.done_reason": "{name} wurde von einem Admin gekickt: {reason}"
+}

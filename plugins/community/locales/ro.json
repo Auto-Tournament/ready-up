@@ -1,0 +1,13 @@
+{
+  "rank.none": "Încă nu ai statistici pe acest server.",
+  "rank.ranked": "Locul {rank} din {of}: puncte {points}, kill-uri {kills}, morți {deaths}, K/D {kd}, headshot-uri {hs}.",
+  "rank.unranked": "Neclasat (trebuie {needed} kill-uri): puncte {points}, kill-uri {kills}, morți {deaths}, K/D {kd}, headshot-uri {hs}.",
+  "top.none": "Încă nu e nimeni clasat pe acest server.",
+  "top.title": "Cei mai buni jucători de pe server:",
+  "top.row": "{rank}. {name}: puncte {points}, K/D {kd}",
+  "spec.unavailable": "Lista de spectatori nu e disponibilă pe acest build de server.",
+  "spec.none": "Nu se uită nimeni la tine.",
+  "spec.list": "Se uită la tine ({count}): {names}",
+  "kick.done": "{name} a fost dat afară de un admin.",
+  "kick.done_reason": "{name} a fost dat afară de un admin: {reason}"
+}

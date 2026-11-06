@@ -1,0 +1,13 @@
+{
+  "rank.none": "Bu sunucuda henüz istatistiğin yok.",
+  "rank.ranked": "{of} kişide {rank}. sıra: {points} puan, {kills} leş, {deaths} ölüm, K/D {kd}, {hs} kafa vuruşu.",
+  "rank.unranked": "Sıralamada değil ({needed} leş gerekli): {points} puan, {kills} leş, {deaths} ölüm, K/D {kd}, {hs} kafa vuruşu.",
+  "top.none": "Bu sunucuda henüz kimse sıralamada değil.",
+  "top.title": "Sunucunun en iyi oyuncuları:",
+  "top.row": "{rank}. {name}: {points} puan, K/D {kd}",
+  "spec.unavailable": "İzleyici listesi bu sunucu sürümünde kullanılamıyor.",
+  "spec.none": "Seni kimse izlemiyor.",
+  "spec.list": "Seni izleyenler ({count}): {names}",
+  "kick.done": "{name} bir yönetici tarafından atıldı.",
+  "kick.done_reason": "{name} bir yönetici tarafından atıldı: {reason}"
+}

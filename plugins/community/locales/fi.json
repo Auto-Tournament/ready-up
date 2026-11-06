@@ -1,0 +1,13 @@
+{
+  "rank.none": "Sinulla ei ole vielä tilastoja tällä palvelimella.",
+  "rank.ranked": "Sija {rank}/{of}: {points} pistettä, {kills} tappoa, {deaths} kuolemaa, K/D {kd}, {hs} pääosumaa.",
+  "rank.unranked": "Ei sijoitusta ({needed} tappoa tarvitaan): {points} pistettä, {kills} tappoa, {deaths} kuolemaa, K/D {kd}, {hs} pääosumaa.",
+  "top.none": "Kukaan ei ole vielä sijoittunut tällä palvelimella.",
+  "top.title": "Palvelimen parhaat pelaajat:",
+  "top.row": "{rank}. {name}: {points} pistettä, K/D {kd}",
+  "spec.unavailable": "Katsojalista ei ole käytettävissä tässä palvelinversiossa.",
+  "spec.none": "Kukaan ei katso sinua.",
+  "spec.list": "Katsovat sinua ({count}): {names}",
+  "kick.done": "Ylläpitäjä potkaisi pelaajan {name}.",
+  "kick.done_reason": "Ylläpitäjä potkaisi pelaajan {name}: {reason}"
+}

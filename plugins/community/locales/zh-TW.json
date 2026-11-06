@@ -1,0 +1,13 @@
+{
+  "rank.none": "你在本伺服器還沒有數據。",
+  "rank.ranked": "第 {rank} 名（共 {of}）：{points} 分，{kills} 擊殺，{deaths} 死亡，K/D {kd}，{hs} 爆頭。",
+  "rank.unranked": "未上榜（還需 {needed} 擊殺）：{points} 分，{kills} 擊殺，{deaths} 死亡，K/D {kd}，{hs} 爆頭。",
+  "top.none": "本伺服器還沒有人上榜。",
+  "top.title": "本伺服器排行前列的玩家：",
+  "top.row": "{rank}. {name}：{points} 分，K/D {kd}",
+  "spec.unavailable": "此伺服器版本無法使用觀眾清單。",
+  "spec.none": "沒有人在觀看你。",
+  "spec.list": "正在觀看你（{count}）：{names}",
+  "kick.done": "{name} 被管理員踢出。",
+  "kick.done_reason": "{name} 被管理員踢出：{reason}"
+}

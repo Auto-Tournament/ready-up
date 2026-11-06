@@ -17,6 +17,8 @@
 #include "readyup/json_store.h"
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
+#include "readyup/i18n.h"
+#include "readyup/i18n_api.h"
 #include "readyup/help_iface.h"
 
 #include <algorithm>
@@ -30,6 +32,9 @@
 #ifndef COMMUNITY_VERSION
 #define COMMUNITY_VERSION "dev"
 #endif
+
+extern const readyup::i18n::Locale kReadyUpLocales[];  // locales/ (readyup_embed_locales)
+extern const size_t kReadyUpLocaleCount;
 
 namespace community {
 namespace {
@@ -57,8 +62,13 @@ struct Off {
 };
 Off g_off;
 
-void Reply(const ru_command_ctx* c, const std::string& m) {
-  if (c->is_console || c->slot < 0) ru_logf(g_api, RU_LOG_INFO, "%s", m.c_str());
+// Player-facing text (plugins/community/locales) in each player's language; the console reads English.
+readyup::i18n::Catalog g_text;
+using Args = readyup::i18n::Args;
+void Reply(const ru_command_ctx* c, const char* key, const Args& args = {}) {
+  const bool console = c->is_console || c->slot < 0;
+  const std::string m = g_text.Tr(console ? "en" : readyup::i18n::LanguageOf(g_api, c->slot), key, args);
+  if (console) ru_logf(g_api, RU_LOG_INFO, "%s", m.c_str());
   else g_api->chat_to_slot(g_api->self, c->slot, m.c_str());
 }
 
@@ -154,23 +164,23 @@ void OnRank(void*, const ru_command_ctx* c) {
   if (!g.s.enabled || c->steamid64 == 0) return;
   const auto ranking = Ranking(g.stats, g.s.minKillsToRank);
   auto it = g.stats.find(c->steamid64);
-  if (it == g.stats.end()) return Reply(c, "No stats for you on this server yet.");
+  if (it == g.stats.end()) return Reply(c, "rank.none");
   const PlayerStats& s = it->second;
   const int rank = RankOf(ranking, c->steamid64);
-  const std::string where = rank > 0 ? "Rank " + std::to_string(rank) + " of " + std::to_string(ranking.size())
-                                     : "Unranked (" + std::to_string(g.s.minKillsToRank) + " kills needed)";
-  Reply(c, where + ": " + std::to_string(Points(s)) + " points, " + std::to_string(s.kills) + " kills, " +
-               std::to_string(s.deaths) + " deaths, K/D " + Kdr(s) + ", " + std::to_string(s.headshots) + " headshots.");
+  const Args a{{"rank", std::to_string(rank)}, {"of", std::to_string(ranking.size())}, {"needed", std::to_string(g.s.minKillsToRank)},
+               {"points", std::to_string(Points(s))}, {"kills", std::to_string(s.kills)}, {"deaths", std::to_string(s.deaths)},
+               {"kd", Kdr(s)}, {"hs", std::to_string(s.headshots)}};
+  Reply(c, rank > 0 ? "rank.ranked" : "rank.unranked", a);
 }
 
 void OnTop(void*, const ru_command_ctx* c) {
   if (!g.s.enabled) return;
   const auto ranking = Ranking(g.stats, g.s.minKillsToRank);
-  if (ranking.empty()) return Reply(c, "Nobody is ranked on this server yet.");
-  Reply(c, "Top players on this server:");
+  if (ranking.empty()) return Reply(c, "top.none");
+  Reply(c, "top.title");
   for (size_t i = 0; i < ranking.size() && i < 10; ++i) {
     const auto& r = ranking[i];
-    Reply(c, std::to_string(i + 1) + ". " + r.stats->name + ": " + std::to_string(r.points) + " points, K/D " + Kdr(*r.stats));
+    Reply(c, "top.row", {{"rank", std::to_string(i + 1)}, {"name", r.stats->name}, {"points", std::to_string(r.points)}, {"kd", Kdr(*r.stats)}});
   }
 }
 
@@ -193,7 +203,7 @@ uint32_t ReadHandle(void* base, int off) {
 void OnSpeclist(void*, const ru_command_ctx* c) {
   if (!g.s.enabled || c->slot < 0) return;
   if (!ResolveOffsets() || g_api->entity_system_status(g_api->self) != RU_ENTSYS_OK) {
-    return Reply(c, "The spectator list is unavailable on this server build.");
+    return Reply(c, "spec.unavailable");
   }
   void* me = g_api->entity_by_index(g_api->self, c->slot + 1);
   if (!me) return;
@@ -214,15 +224,15 @@ void OnSpeclist(void*, const ru_command_ctx* c) {
     const uint32_t target = ReadHandle(svc, g_off.obsTarget);
     if (target != 0xFFFFFFFFu && (target & 0x7FFFu) == myPawn) watchers.push_back(p.name);
   }
-  if (watchers.empty()) return Reply(c, "Nobody is spectating you.");
+  if (watchers.empty()) return Reply(c, "spec.none");
   std::string l;
   for (const auto& w : watchers) l += (l.empty() ? "" : ", ") + w;
-  Reply(c, "Spectating you (" + std::to_string(watchers.size()) + "): " + l);
+  Reply(c, "spec.list", {{"count", std::to_string(watchers.size())}, {"names", l}});
 }
 
 void OnKick(void*, const ru_command_ctx* c) {
-  if (!c->is_console && !g_api->is_admin(g_api->self, c->steamid64)) return Reply(c, "not authorized");
-  if (c->argc < 2) return Reply(c, "usage: .kick <name> [reason]");
+  if (!c->is_console && !g_api->is_admin(g_api->self, c->steamid64)) return Reply(c, "kick.not_authorized");
+  if (c->argc < 2) return Reply(c, "kick.usage");
   std::vector<std::pair<int, std::string>> names;
   std::vector<int> userids(64, -1);
   for (int slot = 0; slot < 64; ++slot) {
@@ -234,9 +244,9 @@ void OnKick(void*, const ru_command_ctx* c) {
   }
   bool amb = false;
   const int slot = FindByName(names, c->argv[1], &amb);
-  if (slot < 0) return Reply(c, amb ? "More than one player matches; type more of the name." : "No player called " + std::string(c->argv[1]) + ".");
+  if (slot < 0) return amb ? Reply(c, "kick.ambiguous") : Reply(c, "kick.unknown", {{"name", c->argv[1]}});
   const int userid = userids[static_cast<size_t>(slot)];
-  if (userid < 0) return Reply(c, "That player cannot be kicked yet (no user id).");
+  if (userid < 0) return Reply(c, "kick.no_userid");
   std::string reason;
   for (int i = 2; i < c->argc; ++i) reason += (i > 2 ? " " : "") + std::string(c->argv[i]);
   std::string who;
@@ -244,8 +254,10 @@ void OnKick(void*, const ru_command_ctx* c) {
     if (n.first == slot) who = n.second;
   }
   const std::string cmd = "kickid " + std::to_string(userid) + (reason.empty() ? "" : " \"" + reason + "\"");
-  if (g_api->server_command(g_api->self, cmd.c_str()) != 1) return Reply(c, "The kick could not be sent.");
-  g_api->chat_all(g_api->self, (who + " was kicked by an admin" + (reason.empty() ? "." : ": " + reason)).c_str(), 0);
+  if (g_api->server_command(g_api->self, cmd.c_str()) != 1) return Reply(c, "kick.failed");
+  readyup::i18n::ChatAll(g_api, 0, [&](const std::string& lang) {
+    return g_text.Tr(lang, reason.empty() ? "kick.done" : "kick.done_reason", {{"name", who}, {"reason", reason}});
+  });
 }
 
 }  // namespace
@@ -270,6 +282,9 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
 READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_api_version) {
   if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, data_dir)) return 1;
   g_api = api;
+  g_text = {};
+  if (const std::string err = g_text.Load(kReadyUpLocales, kReadyUpLocaleCount); !err.empty())
+    ru_logf(api, RU_LOG_WARN, "locales: %s", err.c_str());
   g = State{};
   g_off = Off{};
   LoadSettings();
