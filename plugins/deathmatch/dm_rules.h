@@ -4,6 +4,8 @@
 // scoring, win conditions, the leaderboard panel (ordering, HTML escaping), weapon rounds and which
 // map `.ru dm ffa|tdm [map]` loads. No engine calls.
 
+#include "readyup/i18n.h"
+
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -13,7 +15,9 @@ namespace deathmatch {
 
 enum class Mode { Off = 0, Ffa = 1, Tdm = 2 };
 const char* ModeName(Mode m);   // "off" | "ffa" | "tdm" (also the essentials default_maps key)
-const char* ModeLabel(Mode m);  // "Deathmatch" | "Team deathmatch"
+// Text of a locales key in the reader's language (plugins/deathmatch/locales).
+using Tr = std::function<std::string(const char* key, const readyup::i18n::Args& args)>;
+const char* ModeKey(Mode m);  // mode.ffa | mode.tdm
 bool ParseMode(const std::string& s, Mode* out);  // ffa / tdm (case-insensitive); "dm" = ffa
 
 // ---- settings (cfg/ReadyUp/deathmatch.cfg or readyup.cfg [deathmatch]) --------------------------
@@ -134,10 +138,10 @@ std::string HtmlEscape(const std::string& s, size_t maxChars);
 
 // The small leaderboard: title line (mode, limit, time left, weapon round), TDM team score, the top
 // 5, and the viewer's own rank when not in the top 5. secondsLeft < 0 = no time limit.
-std::string LeaderboardHtml(Mode m, const Scoreboard& b, uint64_t viewer, int killLimit, int secondsLeft,
+std::string LeaderboardHtml(const Tr& tr, Mode m, const Scoreboard& b, uint64_t viewer, int killLimit, int secondsLeft,
                             const std::string& weaponRound);
-std::string WinnerHtml(Mode m, const Outcome& o, int nextGameInSeconds);
-std::string WinnerChat(Mode m, const Outcome& o);
+std::string WinnerHtml(const Tr& tr, Mode m, const Outcome& o, int nextGameInSeconds);
+std::string WinnerChat(const Tr& tr, Mode m, const Outcome& o);
 std::string FormatClock(int seconds);  // "7:05"
 
 // ---- maps -----------------------------------------------------------------------------------------

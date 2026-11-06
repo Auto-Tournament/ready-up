@@ -8,6 +8,19 @@
 
 using namespace deathmatch;
 
+extern const readyup::i18n::Locale kReadyUpLocales[];  // plugins/deathmatch/locales
+extern const size_t kReadyUpLocaleCount;
+
+// English, from locales/en.json (a missing key would come back as the key).
+static const Tr tr = [](const char* key, const readyup::i18n::Args& args) {
+  static const readyup::i18n::Catalog c = [] {
+    readyup::i18n::Catalog x;
+    x.Load(kReadyUpLocales, kReadyUpLocaleCount);
+    return x;
+  }();
+  return c.Tr("en", key, args);
+};
+
 static int g_failures = 0;
 
 #define CHECK(cond)                                                                 \
@@ -205,7 +218,7 @@ static void TestWinConditions() {
   b.OnKill(Mode::Ffa, A, 3, B, 2, false, 3);
   Outcome o = CheckEnd(Mode::Ffa, b, s, 10);
   CHECK(o.over && !o.draw && o.reason == "kill_limit" && o.winnerId == A && o.winnerName == "alice" && o.winnerKills == 3);
-  CHECK(Contains(WinnerChat(Mode::Ffa, o), "alice wins with 3 kills (kill limit)"));
+  CHECK(Contains(WinnerChat(tr, Mode::Ffa, o), "alice wins with 3 kills (kill limit)"));
 
   // Time limit: the leader wins; equal kills at the top or nobody scoring = draw.
   Scoreboard t;
@@ -217,7 +230,7 @@ static void TestWinConditions() {
   t.OnKill(Mode::Ffa, B, 2, A, 3, false, 2);
   o = CheckEnd(Mode::Ffa, t, s, 300);
   CHECK(o.over && o.draw && o.winnerKills == 1);
-  CHECK(Contains(WinnerChat(Mode::Ffa, o), "draw at 1 kills"));
+  CHECK(Contains(WinnerChat(tr, Mode::Ffa, o), "draw at 1 kills"));
   CHECK(CheckEnd(Mode::Ffa, Scoreboard{}, s, 301).draw);
   Settings noLimits;
   noLimits.killLimitFfa = 0;
@@ -232,7 +245,7 @@ static void TestWinConditions() {
   tdm.OnKill(Mode::Tdm, A, 3, B, 2, false, 2);
   o = CheckEnd(Mode::Tdm, tdm, s, 1);
   CHECK(o.over && o.winnerTeam == 3 && o.winnerName == "Counter-Terrorists" && o.winnerKills == 2 && o.runnerUpKills == 0);
-  CHECK(Contains(WinnerChat(Mode::Tdm, o), "Counter-Terrorists win 2 : 0 (kill limit)"));
+  CHECK(Contains(WinnerChat(tr, Mode::Tdm, o), "Counter-Terrorists win 2 : 0 (kill limit)"));
   Scoreboard even;
   even.OnKill(Mode::Tdm, A, 3, B, 2, false, 1);
   even.OnKill(Mode::Tdm, B, 2, A, 3, false, 2);
@@ -256,13 +269,13 @@ static void TestHtml() {
     for (int k = 0; k < 7 - i; ++k) b.OnKill(Mode::Ffa, A + static_cast<uint64_t>(i), 2, C + 100, 3, false, k);
   }
   const uint64_t p7 = A + 6;
-  std::string h = LeaderboardHtml(Mode::Ffa, b, p7, 30, 425, "");
+  std::string h = LeaderboardHtml(tr, Mode::Ffa, b, p7, 30, 425, "");
   CHECK(Contains(h, "FFA") && Contains(h, "first to 30") && Contains(h, "7:05"));
   CHECK(Contains(h, "1. p1 &#183; 7") && Contains(h, "5. p5 &#183; 3"));
   CHECK(!Contains(h, "6. p6"));                     // top 5 only ...
   CHECK(Contains(h, "you: #7 &#183; 1"));           // ... plus your own rank
   CHECK(!Contains(h, "<p7>"));
-  h = LeaderboardHtml(Mode::Ffa, b, A + 1, 0, -1, "weapon_awp");
+  h = LeaderboardHtml(tr, Mode::Ffa, b, A + 1, 0, -1, "weapon_awp");
   CHECK(Contains(h, "#A3E635'>2. p2"));  // your row highlighted
   CHECK(!Contains(h, "you: #") && !Contains(h, "first to") && Contains(h, "AWP round"));
   CHECK(h.size() < 1200);  // small
@@ -270,19 +283,19 @@ static void TestHtml() {
   Scoreboard t;
   t.SeePlayer(A, "alice", 3);
   t.OnKill(Mode::Tdm, A, 3, B, 2, false, 1);
-  h = LeaderboardHtml(Mode::Tdm, t, B, 100, -1, "");
+  h = LeaderboardHtml(tr, Mode::Tdm, t, B, 100, -1, "");
   CHECK(Contains(h, "TDM") && Contains(h, "CT 1") && Contains(h, "0 T"));
-  CHECK(Contains(LeaderboardHtml(Mode::Ffa, Scoreboard{}, A, 30, -1, ""), "no kills yet"));
+  CHECK(Contains(LeaderboardHtml(tr, Mode::Ffa, Scoreboard{}, A, 30, -1, ""), "no kills yet"));
 
   Outcome o;
   o.over = true;
   o.reason = "kill_limit";
   o.winnerName = "<b>boss</b>";
   o.winnerKills = 30;
-  const std::string w = WinnerHtml(Mode::Ffa, o, 7);
+  const std::string w = WinnerHtml(tr, Mode::Ffa, o, 7);
   CHECK(Contains(w, "&#60;b&#62;boss") && Contains(w, "WINS") && Contains(w, "30 kills") && Contains(w, "next game in 7 s"));
   o.draw = true;
-  CHECK(Contains(WinnerHtml(Mode::Tdm, o, 0), "DRAW"));
+  CHECK(Contains(WinnerHtml(tr, Mode::Tdm, o, 0), "DRAW"));
 }
 
 static void TestMaps() {

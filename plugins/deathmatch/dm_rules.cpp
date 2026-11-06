@@ -51,13 +51,7 @@ const char* ModeName(Mode m) {
   }
 }
 
-const char* ModeLabel(Mode m) {
-  switch (m) {
-    case Mode::Ffa: return "Deathmatch";
-    case Mode::Tdm: return "Team deathmatch";
-    default: return "Off";
-  }
-}
+const char* ModeKey(Mode m) { return m == Mode::Tdm ? "mode.tdm" : "mode.ffa"; }
 
 bool ParseMode(const std::string& s, Mode* out) {
   const std::string l = Lower(s);
@@ -425,16 +419,17 @@ std::string Row(int rank, const PlayerScore& p, Mode m, bool self) {
 
 }  // namespace
 
-std::string LeaderboardHtml(Mode m, const Scoreboard& b, uint64_t viewer, int killLimit, int secondsLeft,
+std::string LeaderboardHtml(const Tr& tr, Mode m, const Scoreboard& b, uint64_t viewer, int killLimit, int secondsLeft,
                             const std::string& weaponRound) {
   std::string h = "<font class='fontSize-sm' color='#FACC15'>";
   h += m == Mode::Tdm ? "TDM" : "FFA";
   h += "</font><font class='fontSize-sm' color='#A1A1AA'>";
-  if (killLimit > 0) h += " &#183; first to " + std::to_string(killLimit);
+  if (killLimit > 0) h += " &#183; " + HtmlEscape(tr("hud.first_to", {{"count", std::to_string(killLimit)}}), 40);
   if (secondsLeft >= 0) h += " &#183; " + FormatClock(secondsLeft);
   h += "</font><br>";
   if (!weaponRound.empty()) {
-    h += "<font class='fontSize-sm' color='#F472B6'>" + HtmlEscape(WeaponLabel(weaponRound), 20) + " round</font><br>";
+    h += "<font class='fontSize-sm' color='#F472B6'>" + HtmlEscape(tr("hud.weapon_round", {{"weapon", WeaponLabel(weaponRound)}}), 40) +
+         "</font><br>";
   }
   if (m == Mode::Tdm) {
     h += "<font class='fontSize-sm' color='#5EA8FF'>CT " + std::to_string(b.TeamKills(3)) +
@@ -447,43 +442,48 @@ std::string LeaderboardHtml(Mode m, const Scoreboard& b, uint64_t viewer, int ki
     if (r[i].id == viewer) selfRank = static_cast<int>(i) + 1;
     if (i < 5) h += Row(static_cast<int>(i) + 1, r[i], m, r[i].id == viewer);
   }
-  if (r.empty()) h += "<font class='fontSize-sm' color='#A1A1AA'>no kills yet</font><br>";
+  if (r.empty()) h += "<font class='fontSize-sm' color='#A1A1AA'>" + HtmlEscape(tr("hud.no_kills", {}), 40) + "</font><br>";
   if (selfRank > 5) {
     const auto& me = r[static_cast<size_t>(selfRank - 1)];
-    h += "<font class='fontSize-sm' color='#A3E635'>you: #" + std::to_string(selfRank) + " &#183; " +
-         std::to_string(me.kills) + "</font>";
+    h += "<font class='fontSize-sm' color='#A3E635'>" + HtmlEscape(tr("hud.you", {{"rank", std::to_string(selfRank)}}), 40) +
+         " &#183; " + std::to_string(me.kills) + "</font>";
   }
   return h;
 }
 
-std::string WinnerHtml(Mode m, const Outcome& o, int nextGameInSeconds) {
+namespace {
+// TDM: the side's name in the reader's language; FFA: the player's.
+std::string WinnerName(const Tr& tr, Mode m, const Outcome& o) {
+  if (m == Mode::Tdm) return tr(o.winnerTeam == 3 ? "team.ct" : "team.t", {});
+  return o.winnerName;
+}
+}  // namespace
+
+std::string WinnerHtml(const Tr& tr, Mode m, const Outcome& o, int nextGameInSeconds) {
   std::string h = "<font class='fontSize-l' color='#FACC15'>";
   if (o.draw) {
-    h += "DRAW";
+    h += HtmlEscape(tr("win.html_draw", {}), 40);
   } else if (m == Mode::Tdm) {
-    h += "<font color='" + std::string(TeamColor(o.winnerTeam)) + "'>" + HtmlEscape(o.winnerName, 24) + "</font> WIN";
+    h += tr("win.html_team", {{"team", "<font color='" + std::string(TeamColor(o.winnerTeam)) + "'>" +
+                                           HtmlEscape(WinnerName(tr, m, o), 24) + "</font>"}});
   } else {
-    h += HtmlEscape(o.winnerName, 24) + " WINS";
+    h += tr("win.html_player", {{"name", HtmlEscape(o.winnerName, 24)}});
   }
   h += "</font><br><font class='fontSize-m' color='#E4E4E7'>";
-  h += std::to_string(o.winnerKills) + (m == Mode::Tdm ? " : " + std::to_string(o.runnerUpKills) : std::string(" kills"));
-  h += o.reason == "kill_limit" ? " &#183; kill limit" : " &#183; time limit";
-  h += "</font><br><font class='fontSize-sm' color='#A1A1AA'>next game in " + std::to_string(std::max(0, nextGameInSeconds)) +
-       " s</font>";
+  h += m == Mode::Tdm ? std::to_string(o.winnerKills) + " : " + std::to_string(o.runnerUpKills)
+                      : HtmlEscape(tr("win.html_kills", {{"kills", std::to_string(o.winnerKills)}}), 40);
+  h += " &#183; " + HtmlEscape(tr(o.reason == "kill_limit" ? "win.why_kill" : "win.why_time", {}), 40);
+  h += "</font><br><font class='fontSize-sm' color='#A1A1AA'>" +
+       HtmlEscape(tr("win.html_next", {{"seconds", std::to_string(std::max(0, nextGameInSeconds))}}), 60) + "</font>";
   return h;
 }
 
-std::string WinnerChat(Mode m, const Outcome& o) {
-  const std::string why = o.reason == "kill_limit" ? "kill limit" : "time limit";
-  if (o.draw) {
-    if (m == Mode::Tdm) return "Deathmatch: draw, " + std::to_string(o.winnerKills) + " : " + std::to_string(o.runnerUpKills) + " (" + why + ").";
-    return "Deathmatch: draw at " + std::to_string(o.winnerKills) + " kills (" + why + ").";
-  }
-  if (m == Mode::Tdm) {
-    return "Team deathmatch: " + o.winnerName + " win " + std::to_string(o.winnerKills) + " : " +
-           std::to_string(o.runnerUpKills) + " (" + why + ").";
-  }
-  return "Deathmatch: " + o.winnerName + " wins with " + std::to_string(o.winnerKills) + " kills (" + why + ").";
+std::string WinnerChat(const Tr& tr, Mode m, const Outcome& o) {
+  const readyup::i18n::Args a{{"why", tr(o.reason == "kill_limit" ? "win.why_kill" : "win.why_time", {})},
+                              {"a", std::to_string(o.winnerKills)}, {"b", std::to_string(o.runnerUpKills)},
+                              {"kills", std::to_string(o.winnerKills)}, {"name", WinnerName(tr, m, o)}};
+  if (o.draw) return tr(m == Mode::Tdm ? "win.draw_tdm" : "win.draw_ffa", a);
+  return tr(m == Mode::Tdm ? "win.tdm" : "win.ffa", a);
 }
 
 // ---- maps ------------------------------------------------------------------------------------------
