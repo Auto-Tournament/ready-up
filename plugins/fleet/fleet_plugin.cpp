@@ -540,9 +540,24 @@ void OnServerConfig(const std::string& payload) {
   ApplyServerConfigLocal("platform");
 }
 
+// players.language {languages: {"<steamid64>": "<code>"}}: the players' site language for
+// Ready Up's text (a player's own `.lang` still wins; "" clears). Needs core API 1.19.
+void OnPlayersLanguage(const std::string& payload) {
+  if (!RU_API_HAS(g_api, set_player_language) || !g_api->set_player_language) return;
+  fleet::json::Value v;
+  const fleet::json::Value* l = fleet::json::Parse(payload, &v) && v.IsObj() ? v.Get("languages") : nullptr;
+  if (!l || !l->IsObj()) return;
+  for (const auto& [sid, code] : l->o) {
+    const uint64_t id = std::strtoull(sid.c_str(), nullptr, 10);
+    if (id && code.IsStr() && !g_api->set_player_language(g_api->self, id, code.s.c_str()))
+      Log(RU_LOG_WARN, "fleet: players.language: unknown language \"%s\"", code.s.c_str());
+  }
+}
+
 void UpdateHandledTypes() {
   std::set<std::string> types;
   types.insert("server.config");  // fleet.so applies part of it itself (OnServerConfig)
+  types.insert("players.language");  // OnPlayersLanguage
   types.insert("demo.ack");       // demo streaming (fleet_demo.h)
   types.insert("cmd");            // fleet.so's own commands, or "unsupported" without a handler (HandleCmd)
   types.insert("server.drain");   // availability without the match plugin (HandleDrain)
@@ -887,6 +902,7 @@ void DrainTask(void*) {
     m.ref = in.env.ref.c_str();
     m.payload_json = in.payloadJson.c_str();
     if (in.env.type == "server.config") OnServerConfig(in.payloadJson);
+    if (in.env.type == "players.language") OnPlayersLanguage(in.payloadJson);
     if (in.env.type == "demo.ack") {
       if (auto d = Demos()) {
         d->OnAck(in.payloadJson);
@@ -1521,6 +1537,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     while (g_dataDir.size() > 1 && g_dataDir.back() == '/') g_dataDir.pop_back();
     LoadSettings();
     g_caps.push_back("demo.stream.v1");  // FLEET.md §12.2 (fleet_demo.h)
+    if (RU_API_HAS(g_api, set_player_language)) g_caps.push_back("players.language.v1");  // OnPlayersLanguage
     g_caps.push_back("fleet.cmds.v1");   // fleet.so runs plugins.set / practice.set {always} / ...; match is optional (fleet_cmds.h)
     g_serverCfg = fleet::ServerConfigLocal{};
     if (!g_dataDir.empty() && fleet::LoadServerConfigLocal(g_dataDir + "/server-config.json", &g_serverCfg)) {

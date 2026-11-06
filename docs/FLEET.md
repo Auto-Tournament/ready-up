@@ -826,6 +826,9 @@ skins.loadout { steamid64: u64s, rev: number, items: {
   knife?: Array<{ team: 0|2|3, defindex: number }>, gloves?: Array<{ team: 0|2|3, defindex: number }>,
   agents?: Array<{ team: 2|3, model: string }>, music?: number } }
 skins.invalidate { steamid64: u64s }
+players.language { languages: { [steamid64: string]: "en" | "de" | "pt-BR" | ... | "" } }
+  // each player's site language for Ready Up's text; their own `.lang` wins; "" clears.
+  // Send on player_connect (or a roster). Capability players.language.v1 (core API 1.19).
 
 auth.rotate { token: string, old_valid_until: number }
 server.drain { reason: string }          // finish the current match, take nothing new

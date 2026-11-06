@@ -70,7 +70,7 @@ int main() {
   for (const char* t : {"match.assign", "match.update", "match.unassign", "cmd", "cmd.result", "state.snapshot",
                         "state.patch", "state.request", "server.availability", "event.round_end", "event.map_result",
                         "event.backup", "event.phase", "event.pause", "event.demo", "event.series_end", "admins.set",
-                        "server.drain", "server.undrain", "server.cs2_update_required", "server.selftest", "skins.loadout", "skins.invalidate", "skins.stattrak", "movement.record", "event.admin_called", "event.walkover_choice", "event.chat", "server.tv"}) {
+                        "server.drain", "server.undrain", "server.cs2_update_required", "server.selftest", "skins.loadout", "skins.invalidate", "skins.stattrak", "movement.record", "event.admin_called", "event.walkover_choice", "event.chat", "server.tv", "players.language"}) {
     CHECK(set.Has(kBase + "messages/" + t + ".json"));
   }
 

@@ -88,6 +88,7 @@ has to build: [`docs/fleet-step3-platform-notes.md`](../../../docs/fleet-step3-p
 | `messages/admins.set.json` | platform → server | reliable | ack only |
 | `messages/skins.loadout.json` | platform → server | reliable | ack only |
 | `messages/skins.invalidate.json` | platform → server | reliable | ack only |
+| `messages/players.language.json` | platform → server | reliable | ack only (capability `players.language.v1`) |
 | `messages/skins.stattrak.json` | server → platform | reliable (critical) | |
 | `messages/movement.record.json` | server → platform | reliable | |
 
