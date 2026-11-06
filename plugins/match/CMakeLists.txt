@@ -34,6 +34,7 @@ set(MATCH_SOURCES
   readyup/result_card.cpp
   readyup/end_screen.cpp
   readyup/host.cpp
+  readyup/text.cpp
   readyup/hud_screens.cpp
   readyup/idle_refresh.cpp
   readyup/warmup_money.cpp
@@ -98,6 +99,7 @@ readyup_add_plugin(match ${MATCH_SOURCES})
 # plugins/match first: its readyup/config.h, logging.h, ... are what libs/ sources include here.
 target_include_directories(readyup_plugin_match BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
 target_compile_definitions(readyup_plugin_match PRIVATE MATCH_VERSION="${READYUP_SEMVER}")
+readyup_embed_locales(readyup_plugin_match ${CMAKE_CURRENT_SOURCE_DIR}/locales)
 target_link_libraries(readyup_plugin_match PRIVATE pthread dl)
 
 # libcurl.

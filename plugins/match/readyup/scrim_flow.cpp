@@ -12,6 +12,7 @@
 #include "readyup/ready_hud.h"
 #include "readyup/players.h"
 #include "readyup/server_settings.h"
+#include "readyup/text.h"
 #include "readyup/webhook.h"
 
 #include <algorithm>
@@ -197,8 +198,9 @@ static void EmitStateLogLocked(FlowState& f, const char* reason) {
   f.lastStateLog = Clock::now();
 }
 
-static std::string ReadyProgress(const ScrimCounts& c) {
-  return "(" + std::to_string(c.ready) + "/" + std::to_string(c.total) + " ready)";
+// {ready} / {total} for the scrim.* texts that show "(3/10 ready)".
+static text::Args ReadyArgs(const ScrimCounts& c) {
+  return {{"ready", std::to_string(c.ready)}, {"total", std::to_string(c.total)}};
 }
 
 static std::string NotReadyNames(const ScrimRoster& roster, int maxNames) {
@@ -219,14 +221,11 @@ static std::string NotReadyNames(const ScrimRoster& roster, int maxNames) {
 
 static void SendReminder(const ScrimRoster& roster, const ScrimCounts& c) {
   if (HudReplacesChat()) return;  // the ready panel shows this
-  std::string msg = "Ready Up: type .r when ready " + ReadyProgress(c);
   const std::string waiting = NotReadyNames(roster, 5);
-  if (!waiting.empty()) msg += " - waiting: " + waiting;
-  SendToChat(msg.c_str());
-  if (!c.bothSides) {
-    SendToChat(DevBotsReadyEnabled() ? "Ready Up: need players (or bots) on both CT and T to start."
-                                     : "Ready Up: need players on both CT and T to start.");
-  }
+  text::Args args = ReadyArgs(c);
+  args.emplace_back("names", waiting);
+  text::ChatAll(waiting.empty() ? "scrim.reminder" : "scrim.reminder_waiting", args);
+  if (!c.bothSides) text::ChatAll(DevBotsReadyEnabled() ? "scrim.need_both_sides_bots" : "scrim.need_both_sides");
 }
 
 static void CancelCountdownLocked(FlowState& f) {
@@ -262,7 +261,7 @@ static void ScrimWarmupStepLocked(FlowState& f, Clock::time_point now, const Scr
   if (f.countdownActive) {
     if (!c.allReady || !c.bothSides) {
       CancelCountdownLocked(f);
-      if (!HudReplacesChat()) SendToChat(("Ready Up: countdown cancelled " + ReadyProgress(c) + ".").c_str());
+      if (!HudReplacesChat()) text::ChatAll("scrim.countdown_cancelled", ReadyArgs(c));
       f.lastReminder = now;
       return;
     }
@@ -270,14 +269,15 @@ static void ScrimWarmupStepLocked(FlowState& f, Clock::time_point now, const Scr
     if (leftMs <= 0) {
       CancelCountdownLocked(f);
       if (!MaybeStartScrimIfAllReady(roster)) {
-        SendToChat("Ready Up: could not start the scrim; still in warmup.");
+        text::ChatAll("scrim.start_failed");
       }
       return;
     }
     const int secs = static_cast<int>((leftMs + 999) / 1000);
     if (secs <= 3 && secs != f.countdownLastAnnounced) {
       f.countdownLastAnnounced = secs;
-      if (!HudReplacesChat()) SendToChat(((settings::Bool("knife_enabled_default") ? "Ready Up: knife round in " : "Ready Up: going live in ") + std::to_string(secs) + "...").c_str());
+      if (!HudReplacesChat())
+        text::ChatAll(settings::Bool("knife_enabled_default") ? "scrim.knife_in" : "scrim.live_in", {{"seconds", std::to_string(secs)}});
     }
     return;
   }
@@ -290,9 +290,9 @@ static void ScrimWarmupStepLocked(FlowState& f, Clock::time_point now, const Scr
       Print("dev_bots_scrim: bots-only scrim ready (CT %d bot(s), T %d bot(s)); %s in %ds\n", c.devBotsCt,
             c.devBotsT, settings::Bool("knife_enabled_default") ? "knife round" : "going live", kCountdownSeconds);
     }
-    if (!HudReplacesChat()) SendToChat(("Ready Up: all " + std::to_string(c.total) + " player(s) ready - " + (settings::Bool("knife_enabled_default") ? "knife round" : "going live") + " in " +
-                std::to_string(kCountdownSeconds) + "s (.ur to cancel).")
-                   .c_str());
+    if (!HudReplacesChat())
+      text::ChatAll(settings::Bool("knife_enabled_default") ? "scrim.all_ready_knife" : "scrim.all_ready_live",
+                    {{"count", std::to_string(c.total)}, {"seconds", std::to_string(kCountdownSeconds)}});
     return;
   }
 
@@ -415,14 +415,12 @@ bool MaybeStartScrimIfAllReady(const ScrimRoster& roster) {
       PrintLine("scrim: knife round could not start (command buffer?); going live without it.");
       (void)WebhookUpdateMapSide(1, "team1_ct");
       const bool goLive = ScrimGoLive(kRestartSeconds);
-      SendToChat(goLive ? "Ready Up: scrim starting - restarting the game, LIVE after the restart."
-                        : "Ready Up: scrim created but the go-live commands could not be queued.");
+      text::ChatAll(goLive ? "scrim.starting" : "scrim.golive_failed");
     }
     return true;
   }
   const bool goLive = ScrimGoLive(kRestartSeconds);
-  SendToChat(goLive ? "Ready Up: scrim starting - restarting the game, LIVE after the restart."
-                    : "Ready Up: scrim created but the go-live commands could not be queued.");
+  text::ChatAll(goLive ? "scrim.starting" : "scrim.golive_failed");
   return true;
 }
 
@@ -522,9 +520,7 @@ void ScrimTick() {
         CancelCountdownLocked(f);
         f.noTeamSince = {};
         f.lastReminder = now;
-        if (!HudReplacesChat()) SendToChat(("Ready Up: scrim warmup - type .r when ready " + ReadyProgress(c) +
-                    ". Goes live when everyone on CT/T is ready.")
-                       .c_str());
+        if (!HudReplacesChat()) text::ChatAll("scrim.warmup", ReadyArgs(c));
       }
     }
     if (mode == ReadyUpMode::ScrimWarmup) {
