@@ -31,6 +31,8 @@
 #include "readyup/json_store.h"
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
+#include "readyup/i18n.h"
+#include "readyup/i18n_api.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -45,6 +47,9 @@
 #ifndef MOVEMENT_VERSION
 #define MOVEMENT_VERSION "dev"
 #endif
+
+extern const readyup::i18n::Locale kReadyUpLocales[];  // locales/ (readyup_embed_locales)
+extern const size_t kReadyUpLocaleCount;
 
 namespace movement {
 namespace {
@@ -116,9 +121,20 @@ T Rd(const void* base, int off) {
   return v;
 }
 
-void Reply(const ru_command_ctx* c, const std::string& m) {
+// Player-facing text (plugins/movement/locales) in each player's language; the console reads English.
+readyup::i18n::Catalog g_text;
+using Args = readyup::i18n::Args;
+std::string Lang(int slot) { return readyup::i18n::LanguageOf(g_api, slot); }
+std::string T(int slot, const char* key, const Args& args = {}) { return g_text.Tr(slot < 0 ? "en" : Lang(slot), key, args); }
+void Tell(int slot, const char* key, const Args& args = {}) { (void)g_api->chat_to_slot(g_api->self, slot, T(slot, key, args).c_str()); }
+void Reply(const ru_command_ctx* c, const char* key, const Args& args = {}) {
+  const std::string m = T(c->is_console ? -1 : c->slot, key, args);
   if (c->is_console || c->slot < 0) ru_logf(g_api, RU_LOG_INFO, "%s", m.c_str());
   else g_api->chat_to_slot(g_api->self, c->slot, m.c_str());
+}
+// "bonus 2" / "map" in `lang`.
+std::string Course(const std::string& lang, int course) {
+  return course > 0 ? g_text.Tr(lang, "course.bonus", {{"n", std::to_string(course)}}) : g_text.Tr(lang, "course.map");
 }
 
 bool MatchLoaded() {
@@ -298,19 +314,25 @@ void FinishRun(int slot, double now) {
   const Finish f = AddRun(&g.records, g.map, CourseKey(ModeName(g.mode), r.course), p.steamid64, p.name, ms, date);
   g.dirty = true;
   SendRecord(RecordPayload(g.map, ModeName(g.mode), r.course, p.steamid64, p.name, ms, r.teleports, date));
-  std::string tail;
-  if (g.mode == Mode::Kz) tail += r.teleports > 0 ? " (" + std::to_string(r.teleports) + " TP)" : " (pro)";
-  if (f.serverRecord) tail += ". New server record!";
-  else if (f.personalBest && f.previousMs > 0) tail += ". New personal best (-" + FormatTime(f.previousMs - ms) + "), rank " + std::to_string(f.rank) + ".";
-  else if (f.personalBest) tail += ", rank " + std::to_string(f.rank) + ".";
-  else tail += " (best " + FormatTime(f.previousMs) + ").";
-  const std::string where = g.map + (r.course > 0 ? " " + CourseName(r.course) : "");
+  const bool kz = g.mode == Mode::Kz;
+  const int teleports = r.teleports, course = r.course;
+  const std::string name = p.name;
+  // The line in `lang` (you: the finisher's own copy).
+  auto line = [&](const std::string& lang, bool you) {
+    std::string tail;
+    if (kz) tail += teleports > 0 ? " (" + std::to_string(teleports) + " TP)" : " (" + g_text.Tr(lang, "finish.pro") + ")";
+    if (f.serverRecord) tail += ". " + g_text.Tr(lang, "finish.record");
+    else if (f.personalBest && f.previousMs > 0)
+      tail += ". " + g_text.Tr(lang, "finish.pb_improved", {{"diff", FormatTime(f.previousMs - ms)}, {"rank", std::to_string(f.rank)}});
+    else if (f.personalBest) tail += ", " + g_text.Tr(lang, "finish.rank", {{"rank", std::to_string(f.rank)}});
+    else tail += " (" + g_text.Tr(lang, "finish.best", {{"time", FormatTime(f.previousMs)}}) + ").";
+    const std::string where = g.map + (course > 0 ? " " + Course(lang, course) : "");
+    return g_text.Tr(lang, you ? "finish.you" : "finish.player", {{"name", name}, {"where", where}, {"time", FormatTime(ms)}}) + tail;
+  };
   if (FinishToAll(g.finishChat, f.serverRecord)) {
-    const std::string line = std::string(p.name) + " finished " + where + " in " + FormatTime(ms) + tail;
-    g_api->chat_all(g_api->self, line.c_str(), 0);
+    readyup::i18n::ChatAll(g_api, 0, [&](const std::string& lang) { return line(lang, false); });
   } else {
-    const std::string line = "You finished " + where + " in " + FormatTime(ms) + tail;
-    (void)g_api->chat_to_slot(g_api->self, slot, line.c_str());
+    (void)g_api->chat_to_slot(g_api->self, slot, line(Lang(slot), true).c_str());
   }
 }
 
@@ -329,7 +351,7 @@ void HudFor(int slot, double now) {
     h = "<font class='fontSize-l' color='#FFD34D'>" + std::string(clock) + "</font>";
     if (g.mode == Mode::Kz) h += " <font color='#9AA4B2'>" + std::to_string(r.teleports) + " TP</font>";
   } else if (r.inStart) {
-    h = "<font color='#7FD7FF'>In the start zone</font>";
+    h = "<font color='#7FD7FF'>" + T(slot, "hud.start_zone") + "</font>";
   } else {
     return;
   }
@@ -466,7 +488,7 @@ void OnTick(void*, const ru_tick_info* t) {
     void* pawn = g_api->entity_from_handle(g_api->self, Rd<uint32_t>(ctrl, g_off.ctrlPawn));
     if (!pawn || Rd<uint8_t>(pawn, g_off.lifeState) != 0) {
       if (r.running) {
-        (void)g_api->chat_to_slot(g_api->self, slot, "Timer stopped: you died. Start again from the start zone (.rs).");
+        Tell(slot, "timer.died");
       }
       r.running = false;
       r.inStart = false;
@@ -477,7 +499,7 @@ void OnTick(void*, const ru_tick_info* t) {
     // Noclip (practice's .noclip, sv_cheats): the run does not count. It counts again from the start zone.
     constexpr uint8_t kMoveTypeNoclip = 8;
     if (g_off.moveType >= 0 && Rd<uint8_t>(pawn, g_off.moveType) == kMoveTypeNoclip) {
-      if (r.running) (void)g_api->chat_to_slot(g_api->self, slot, "Timer stopped: noclip. Go back to the start (.rs) for a run that counts.");
+      if (r.running) Tell(slot, "timer.noclip");
       r.running = false;
       r.inStart = false;
       continue;
@@ -486,7 +508,7 @@ void OnTick(void*, const ru_tick_info* t) {
     const bool inStart = start != nullptr;
     if (inStart && r.running && now - r.startedAt > 1.0) {
       // The map's teleport (a fall) or .rs put the runner back at the start.
-      (void)g_api->chat_to_slot(g_api->self, slot, "Back at the start: timer reset.");
+      Tell(slot, "timer.reset");
     }
     if (inStart) {
       r.running = false;
@@ -495,7 +517,8 @@ void OnTick(void*, const ru_tick_info* t) {
     } else if (r.inStart) {
       r.running = true;  // left the start zone: go
       r.startedAt = now;
-      (void)g_api->chat_to_slot(g_api->self, slot, r.course > 0 ? ("Timer started (" + CourseName(r.course) + ").").c_str() : "Timer started.");
+      if (r.course > 0) Tell(slot, "timer.started_course", {{"course", Course(Lang(slot), r.course)}});
+      else Tell(slot, "timer.started");
     }
     r.inStart = inStart;
     if (r.running && ZoneAt(p, ZoneKind::End, r.course)) FinishRun(slot, now);
@@ -518,7 +541,7 @@ void OnMapStart(void*, const ru_event* e) {
 
 bool CheckActive(const ru_command_ctx* c) {
   if (Active()) return true;
-  Reply(c, MatchLoaded() ? "Movement commands are off during a match." : "This map has no movement mode (surf_, bhop_, kz_).");
+  Reply(c, MatchLoaded() ? "off.match" : "off.map");
   return false;
 }
 
@@ -531,7 +554,8 @@ void TeleportTo(int slot, const Vec3& p, const float* angles) {
 void ToStart(const ru_command_ctx* c, int course) {
   const Zone* z = FirstZone(ZoneKind::Start, course);
   if (!z) {
-    return Reply(c, course > 0 ? "This map has no " + CourseName(course) + "." : "This map has no start zone the timer knows.");
+    if (course > 0) return Reply(c, "start.no_course", {{"course", Course(Lang(c->slot), course)}});
+    return Reply(c, "start.none");
   }
   g.runs[c->slot].running = false;
   TeleportTo(c->slot, Center(z->box), nullptr);
@@ -554,7 +578,7 @@ void OnBonus(void*, const ru_command_ctx* c) {
   int course = g.runs[c->slot].course > 0 ? g.runs[c->slot].course : 1;
   if (c->argc > 1) {
     course = ParseCourse(c->argv[1]);
-    if (course <= 0) return Reply(c, "Usage: .b <number>, e.g. .b 2");
+    if (course <= 0) return Reply(c, "usage.bonus");
   }
   ToStart(c, course);
 }
@@ -563,11 +587,13 @@ void OnBonus(void*, const ru_command_ctx* c) {
 int CourseArg(const ru_command_ctx* c) {
   if (c->argc < 2) return 0;
   const int course = ParseCourse(c->argv[1]);
-  if (course < 0) Reply(c, std::string("Usage: ") + c->argv[0] + " [b<number>], e.g. " + c->argv[0] + " b1");
+  if (course < 0) Reply(c, "usage.course", {{"cmd", c->argv[0]}});
   return course;
 }
 
-std::string Where(int course) { return course > 0 ? g.map + " " + CourseName(course) : g.map; }
+std::string Where(const ru_command_ctx* c, int course) {
+  return course > 0 ? g.map + " " + Course(c->is_console || c->slot < 0 ? "en" : Lang(c->slot), course) : g.map;
+}
 
 void OnPb(void*, const ru_command_ctx* c) {
   if (!CheckActive(c) || c->steamid64 == 0) return;
@@ -576,11 +602,11 @@ void OnPb(void*, const ru_command_ctx* c) {
   const auto all = Top(g.records, g.map, CourseKey(ModeName(g.mode), course), 100000);
   for (size_t i = 0; i < all.size(); ++i) {
     if (all[i].steamid64 == c->steamid64) {
-      return Reply(c, "Your best on " + Where(course) + ": " + FormatTime(all[i].rec.ms) + ", rank " + std::to_string(i + 1) +
-                          " of " + std::to_string(all.size()) + ".");
+      return Reply(c, "pb.best", {{"where", Where(c, course)}, {"time", FormatTime(all[i].rec.ms)},
+                                  {"rank", std::to_string(i + 1)}, {"of", std::to_string(all.size())}});
     }
   }
-  Reply(c, "No time on " + Where(course) + " yet.");
+  Reply(c, "pb.none", {{"where", Where(c, course)}});
 }
 
 void OnTop(void*, const ru_command_ctx* c) {
@@ -588,16 +614,18 @@ void OnTop(void*, const ru_command_ctx* c) {
   const int course = CourseArg(c);
   if (course < 0) return;
   const auto top = Top(g.records, g.map, CourseKey(ModeName(g.mode), course), 10);
-  if (top.empty()) return Reply(c, "No times on " + Where(course) + " yet.");
-  Reply(c, "Top times on " + Where(course) + " (" + ModeName(g.mode) + "):");
+  if (top.empty()) return Reply(c, "top.none", {{"where", Where(c, course)}});
+  Reply(c, "top.title", {{"where", Where(c, course)}, {"mode", ModeName(g.mode)}});
   for (size_t i = 0; i < top.size(); ++i) {
-    Reply(c, std::to_string(i + 1) + ". " + FormatTime(top[i].rec.ms) + "  " + top[i].rec.name);
+    const std::string row = std::to_string(i + 1) + ". " + FormatTime(top[i].rec.ms) + "  " + top[i].rec.name;
+    if (c->is_console || c->slot < 0) ru_logf(g_api, RU_LOG_INFO, "%s", row.c_str());
+    else g_api->chat_to_slot(g_api->self, c->slot, row.c_str());
   }
 }
 
 void OnCheckpoint(void*, const ru_command_ctx* c) {
   if (!CheckActive(c) || c->slot < 0) return;
-  if (g.mode != Mode::Kz) return Reply(c, "Checkpoints are for kz maps.");
+  if (g.mode != Mode::Kz) return Reply(c, "cp.kz_only");
   void* ctrl = g_api->entity_by_index(g_api->self, c->slot + 1);
   void* pawn = ctrl ? g_api->entity_from_handle(g_api->self, Rd<uint32_t>(ctrl, g_off.ctrlPawn)) : nullptr;
   Vec3 p;
@@ -610,13 +638,13 @@ void OnCheckpoint(void*, const ru_command_ctx* c) {
     std::memcpy(r.cpAngles, static_cast<const unsigned char*>(pawn) + g_off.eyeAngles, sizeof(r.cpAngles));
     r.cpAngles[2] = 0;  // no roll
   }
-  Reply(c, "Checkpoint saved.");
+  Reply(c, "cp.saved");
 }
 
 void OnTeleport(void*, const ru_command_ctx* c) {
   if (!CheckActive(c) || c->slot < 0) return;
   Run& r = g.runs[c->slot];
-  if (!r.hasCheckpoint) return Reply(c, "No checkpoint yet: .cp saves one.");
+  if (!r.hasCheckpoint) return Reply(c, "cp.none");
   if (r.running) ++r.teleports;
   TeleportTo(c->slot, r.cp, r.cpHasAngles ? r.cpAngles : nullptr);
 }
@@ -626,7 +654,7 @@ void OnTimer(void*, const ru_command_ctx* c) {
   Run& r = g.runs[c->slot];
   r.hud = !r.hud;
   if (!r.hud) g_api->center_html_release(g_api->self, c->slot);
-  Reply(c, r.hud ? "Timer panel on." : "Timer panel off.");
+  Reply(c, r.hud ? "hud.on" : "hud.off");
 }
 
 
@@ -664,32 +692,32 @@ int Bonuses() {
 std::string MenuSpec(int slot, uint64_t steamid64) {
   const std::string mode = ModeName(g.mode);
   const auto all = Top(g.records, g.map, CourseKey(mode, 0), 100000);
-  std::string best = "No time on this map yet";
+  std::string best = T(slot, "menu.no_time");
   for (size_t i = 0; i < all.size(); ++i) {
     if (all[i].steamid64 == steamid64) {
-      best = "Your best " + FormatTime(all[i].rec.ms) + ", rank " + std::to_string(i + 1) + " of " + std::to_string(all.size());
+      best = T(slot, "menu.your_best", {{"time", FormatTime(all[i].rec.ms)}, {"rank", std::to_string(i + 1)}, {"of", std::to_string(all.size())}});
       break;
     }
   }
   const std::string kindLine = "kind=" + MenuText(mode + " \xC2\xB7 " + g.map) + "\n";
   if (g_menuPage[slot] == "top") {
-    std::string s = "id=move-top\n" + kindLine + "title=Top times\nsub=" + MenuText(best) + "\n";
+    std::string s = "id=move-top\n" + kindLine + "title=" + MenuText(T(slot, "menu.top")) + "\nsub=" + MenuText(best) + "\n";
     for (size_t i = 0; i < all.size() && i < 5; ++i) {
       s += "line=" + std::to_string(i + 1) + ". " + MenuText(all[i].rec.name) + "|" + FormatTime(all[i].rec.ms) + "\n";
     }
-    if (all.empty()) s += "line=No times yet|be the first\n";
-    return s + "close=Back|#home\nmouse=on\n";
+    if (all.empty()) s += "line=" + MenuText(T(slot, "menu.no_times")) + "|" + MenuText(T(slot, "menu.be_first")) + "\n";
+    return s + "close=" + MenuText(T(slot, "menu.back")) + "|#home\nmouse=on\n";
   }
   g_menuPage[slot] = "home";
   std::string s = "id=move-home\n" + kindLine + "title=" + MenuText(best) + "\n";
-  s += MenuBtn("Restart", "green", ".rs");
+  s += MenuBtn(T(slot, "menu.restart"), "green", ".rs");
   const int bonuses = std::min(Bonuses(), 4);
-  for (int b = 1; b <= bonuses; ++b) s += MenuBtn("Bonus " + std::to_string(b), "ghost", ".b " + std::to_string(b));
-  if (g.mode == Mode::Kz) s += MenuBtn("Checkpoint", "ghost", ".cp") + MenuBtn("Teleport", "ghost", ".tp");
-  s += MenuBtn("Top times", "ghost", "#top");
-  s += MenuBtn("Maps", "ghost", "#open mapvote");  // hud.so opens the map vote's menu
-  s += MenuBtn(g.runs[slot].hud ? "Hide timer" : "Show timer", "ghost", ".timerhud");
-  return s + "cols=4\nbw=m\nclose=Close|#close\nmouse=on\n";
+  for (int b = 1; b <= bonuses; ++b) s += MenuBtn(T(slot, "menu.bonus", {{"n", std::to_string(b)}}), "ghost", ".b " + std::to_string(b));
+  if (g.mode == Mode::Kz) s += MenuBtn(T(slot, "menu.checkpoint"), "ghost", ".cp") + MenuBtn(T(slot, "menu.teleport"), "ghost", ".tp");
+  s += MenuBtn(T(slot, "menu.top"), "ghost", "#top");
+  s += MenuBtn(T(slot, "menu.maps"), "ghost", "#open mapvote");  // hud.so opens the map vote's menu
+  s += MenuBtn(T(slot, g.runs[slot].hud ? "menu.hide_timer" : "menu.show_timer"), "ghost", ".timerhud");
+  return s + "cols=4\nbw=m\nclose=" + MenuText(T(slot, "menu.close")) + "|#close\nmouse=on\n";
 }
 
 void MenuDraw(int slot, uint64_t steamid64);
@@ -776,6 +804,9 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
 READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_api_version) {
   if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, player_teleport) || !RU_API_HAS(api, data_dir)) return 1;
   g_api = api;
+  g_text = {};
+  if (const std::string err = g_text.Load(kReadyUpLocales, kReadyUpLocaleCount); !err.empty())
+    ru_logf(api, RU_LOG_WARN, "locales: %s", err.c_str());
   g = State{};
   g_off = Off{};
   g_menuHud = nullptr;

@@ -6,6 +6,7 @@ readyup_add_plugin(movement
   movement_rules.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/json_store.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp)
+readyup_embed_locales(readyup_plugin_movement ${CMAKE_CURRENT_SOURCE_DIR}/locales)
 target_include_directories(readyup_plugin_movement PRIVATE ${CMAKE_SOURCE_DIR}/libs)
 target_compile_definitions(readyup_plugin_movement PRIVATE MOVEMENT_VERSION="${READYUP_SEMVER}")
 
