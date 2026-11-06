@@ -1,0 +1,6 @@
+{
+  "lang.current": "Η γλώσσα σου: {language}. Άλλαξέ την με .lang <κωδικός> ({codes}) ή .lang reset.",
+  "lang.set": "Η γλώσσα ορίστηκε σε {language}.",
+  "lang.reset": "Πίσω στην προεπιλεγμένη γλώσσα: {language}.",
+  "lang.unknown": "Άγνωστη γλώσσα «{name}». Διάλεξε μία από: {codes}"
+}
