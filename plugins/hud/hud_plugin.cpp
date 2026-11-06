@@ -195,6 +195,8 @@ double g_mapStartedAt = -1;
 // set meanwhile is kept and pushed again afterwards.
 double g_pauseUntil = -1;
 bool g_repushAfterPause = false;
+double g_beginMatchAt = -100;      // the last BeginMatch
+bool g_restartAfterBeginMatch = false;  // a round restart began within its pause
 bool Paused() { return g_now < g_pauseUntil; }
 std::map<int, std::vector<double>> g_resendAt;  // slot -> times to push its state again
 std::vector<std::pair<double, std::function<void()>>> g_later;  // work to run at a time (game thread)
@@ -995,6 +997,7 @@ void OnTick(void*, const ru_tick_info* t) {
 void OnRoundPrestart(void*, const char*, const ru_game_event*) {
   g_pauseUntil = std::max(g_pauseUntil, g_now + 1.0);
   g_repushAfterPause = true;
+  if (g_now - g_beginMatchAt < 4.0) g_restartAfterBeginMatch = true;
 }
 
 // The map cleanup is done by round_poststart: the pause ends a few frames later instead of a
@@ -1002,6 +1005,18 @@ void OnRoundPrestart(void*, const char*, const ru_game_event*) {
 // late). A longer pause (BeginMatch's) is left alone.
 void OnRoundPoststart(void*, const char*, const ru_game_event*) {
   if (g_pauseUntil > g_now && g_pauseUntil <= g_now + 1.0) g_pauseUntil = g_now + 0.1;
+  // BeginMatch's pause also ends once the restart after it is done (the first player on a team
+  // waited the full 4 s for their ready card, 2026-11-06). With no restart after it, it runs out.
+  if (g_restartAfterBeginMatch && g_pauseUntil > g_now + 0.1) g_pauseUntil = g_now + 0.1;
+  g_restartAfterBeginMatch = false;
+}
+
+// A player's first full update (entering the game) clears their slot's is-set flags: push their
+// state again right after it, however long their map load took. The resends at connect alone came
+// before the full update for a slow loader, whose card then waited for the next change.
+void OnPlayerActivate(void*, const char*, const ru_game_event* ev) {
+  const int slot = g_api->ev_get_player_slot(g_api->self, ev, "userid");
+  if (slot >= 0 && slot <= 63) g_resendAt[slot] = {g_now + 0.2, g_now + 1.0, g_now + 3.0};
 }
 
 // Long enough for match.so's fallback restart (3 s, modes.h ModesObserveBeginMatch), whose
@@ -1009,6 +1024,8 @@ void OnRoundPoststart(void*, const char*, const ru_game_event*) {
 void OnBeginMatch(void*, const char*, const ru_game_event*) {
   g_pauseUntil = g_now + 4.0;
   g_repushAfterPause = true;
+  g_beginMatchAt = g_now;
+  g_restartAfterBeginMatch = false;
 }
 
 void OnEvent(void*, const ru_event* ev) {
@@ -1826,6 +1843,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   // after it (surf_utopia_njv, 2026-10-27: "WriteEnterPVS" on a team change). Same pause.
   if (!api->subscribe_game_event(api->self, "begin_new_match", &OnBeginMatch, nullptr))
     ru_logf(api, RU_LOG_WARN, "begin_new_match not available");
+  if (!api->subscribe_game_event(api->self, "player_activate", &OnPlayerActivate, nullptr))
+    ru_logf(api, RU_LOG_WARN, "player_activate not available: a joining player's HUD is pushed again 2 and 5 s after connect only");
   api->subscribe(api->self, RU_EVENT_ANY, &OnEvent, nullptr);
   api->register_ru_subcommand(api->self, "hudkit", &OnRu, nullptr);
   api->register_chat_command(api->self, ".dev", &OnDevChat, nullptr);
