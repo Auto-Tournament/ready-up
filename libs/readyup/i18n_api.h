@@ -60,6 +60,22 @@ struct LangSeen {
     const auto it = by_slot.find(slot);
     return it != by_slot.end() && it->second.steamid64 == steamid64 && it->second.lang != LanguageOf(api, slot);
   }
+  // Each tick, for menus: the slots (and SteamIDs) to draw again. Someone else in a slot (the
+  // player left) is forgotten instead.
+  std::vector<std::pair<int, uint64_t>> Stale(const ru_api* api) {
+    std::vector<std::pair<int, uint64_t>> out;
+    for (auto it = by_slot.begin(); it != by_slot.end();) {
+      ru_player p{};
+      p.struct_size = sizeof(p);
+      if (!api->get_player(api->self, it->first, &p) || p.steamid64 != it->second.steamid64) {
+        it = by_slot.erase(it);
+        continue;
+      }
+      if (it->second.lang != LanguageOf(api, it->first)) out.emplace_back(it->first, p.steamid64);
+      ++it;
+    }
+    return out;
+  }
 };
 
 }  // namespace readyup::i18n

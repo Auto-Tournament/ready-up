@@ -457,6 +457,7 @@ void SpawnFirstPlayer(double now) {
 }
 
 void EnsureMenuProvider();
+void MenuFollowLang();
 
 void OnTick(void*, const ru_tick_info* t) {
   const double now = t->now;
@@ -464,6 +465,7 @@ void OnTick(void*, const ru_tick_info* t) {
   // installs it on every server; only the Movement preset (match off) runs it.
   if (MatchPluginLoaded()) return;
   EnsureMenuProvider();
+  MenuFollowLang();
   GoHomeIfEmpty(now);
   // Teams and spawns belong to match.so where it runs (a match's rosters, warmup).
   if (Active() && !MatchPluginLoaded()) AutoTeam(now);
@@ -672,6 +674,7 @@ void OnTimer(void*, const ru_command_ctx* c) {
 constexpr const char* kMenuOwner = "movement";
 const ru_hud_v1* g_menuHud = nullptr;
 std::string g_menuPage[64];
+readyup::i18n::LangSeen g_menuLang;  // slot -> the language its open menu is in
 
 const ru_hud_v1* MenuHud() {
   if (!g_api) return nullptr;
@@ -729,6 +732,7 @@ std::string MenuSpec(int slot, uint64_t steamid64) {
 void MenuDraw(int slot, uint64_t steamid64);
 
 void MenuClose(int slot) {
+  g_menuLang.Forget(slot);
   if (const ru_hud_v1* h = MenuHud()) h->menu(slot, kMenuOwner, "", nullptr, nullptr);
 }
 
@@ -765,7 +769,15 @@ void OnMenuClick(void*, int slot, const char* command) {
 }
 
 void MenuDraw(int slot, uint64_t steamid64) {
-  if (const ru_hud_v1* h = MenuHud()) h->menu(slot, kMenuOwner, MenuSpec(slot, steamid64).c_str(), &OnMenuClick, nullptr);
+  const ru_hud_v1* h = MenuHud();
+  if (!h) return;
+  h->menu(slot, kMenuOwner, MenuSpec(slot, steamid64).c_str(), &OnMenuClick, nullptr);
+  g_menuLang.Drew(slot, steamid64, Lang(slot));
+}
+
+// A player who changed language (.lang, the platform) gets their open menu again in the new one.
+void MenuFollowLang() {
+  for (const auto& [slot, sid] : g_menuLang.Stale(g_api)) MenuDraw(slot, sid);
 }
 
 int OnMenuActive(void*, int) { return Active() ? 1 : 0; }
@@ -786,6 +798,7 @@ void EnsureMenuProvider() {
 void MenuUninstall() {
   if (const ru_hud_v1* h = MenuHud(); h && h == g_menuHud) h->register_menu(kMenuOwner, 20, nullptr, nullptr, nullptr);
   g_menuHud = nullptr;
+  g_menuLang.by_slot.clear();
 }
 
 }  // namespace
