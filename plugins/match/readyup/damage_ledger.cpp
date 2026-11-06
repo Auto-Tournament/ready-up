@@ -18,9 +18,12 @@ int DamageLedger::Health(int key) const {
 
 void DamageLedger::OnHurt(int attacker, int victim, int dmgHealth, int healthAfter) {
   if (victim < 0 || dmgHealth <= 0) return;
-  const int before = Health(victim);
-  const int actual = std::min(dmgHealth, std::max(0, before));
-  health_[victim] = std::clamp(healthAfter, 0, before);
+  const int before = std::max(0, Health(victim));
+  const int after = std::clamp(healthAfter, 0, before);
+  // The health the hit took, not dmg_health: summed over hits, dmg_health came to 98 for a
+  // four-hit kill of a 100 hp bot (cs, 2026-11-06), and it is the full damage on an overkill.
+  const int actual = before - after;
+  health_[victim] = after;
   if (attacker < 0 || attacker == victim || actual <= 0) return;
   Pair& p = dealt_[{attacker, victim}];
   p.dmg += actual;

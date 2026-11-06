@@ -89,6 +89,8 @@ std::recursive_mutex g_mu;
 int g_roundNumber = 0;
 int g_lastMapNumber = 0;
 std::unordered_map<uint64_t, PlayerStats> g_stats;
+// Health left per victim slot this life (absent = 100; a spawn resets it), for the damage tally.
+std::unordered_map<int, int> g_health;
 std::unordered_set<int> g_spawned;  // slots seen in player_spawn this map (stats participants)
 
 int g_swapCount = 0;           // side swaps applied so far on this map
@@ -141,6 +143,7 @@ void MaybeResetForMapLocked(int mapNumber) {
     g_lastMapNumber = mapNumber;
     g_roundNumber = 0;
     g_stats.clear();
+    g_health.clear();
     g_spawned.clear();
     g_swapCount = 0;
     g_lastHalfStartTotal = -1;
@@ -689,10 +692,18 @@ void OnPlayerDeathLocked(const ru_game_event* ev) {
 void OnPlayerHurtLocked(const ru_game_event* ev) {
   const ru_api* a = A();
   const int attackerSlot = a->ev_get_player_slot(a->self, ev, "attacker");
-  const int dmg = a->ev_get_int(a->self, ev, "dmg_health", 0);
+  const int victimSlot = a->ev_get_player_slot(a->self, ev, "userid");
+  // The health the hit took, not dmg_health: that one is the full weapon damage on an overkill
+  // (an AWP's 448 on a 46 hp player) and can sum to less than the health taken. The damage
+  // tiebreak sums this.
+  const auto hp = g_health.find(victimSlot);
+  const int before = std::max(0, hp == g_health.end() ? 100 : hp->second);
+  const int after = std::clamp(a->ev_get_int(a->self, ev, "health", 0), 0, before);
+  if (victimSlot >= 0) g_health[victimSlot] = after;
+  const int dmg = a->ev_get_int(a->self, ev, "dmg_health", 0) > 0 ? before - after : 0;
   const auto attackerSid = SteamForSlot(attackerSlot);
   if (!attackerSid) return;
-  if (!Enemies(attackerSlot, a->ev_get_player_slot(a->self, ev, "userid"))) return;
+  if (!Enemies(attackerSlot, victimSlot)) return;
   auto& s = g_stats[*attackerSid];
   const std::string nm = NameForSlot(attackerSlot);
   if (!nm.empty()) s.name = nm;
@@ -766,6 +777,7 @@ void OnGameEvent(void* /*user*/, const char* name, const ru_game_event* ev) {
   if (std::strcmp(name, "player_spawn") == 0) {
     const int slot = A()->ev_get_player_slot(A()->self, ev, "userid");
     if (slot >= 0) g_spawned.insert(slot);
+    if (slot >= 0) g_health.erase(slot);
     if (slot >= 0) WelcomeObservePlayerSpawn(slot);  // the welcome card waits for this
     return;
   }

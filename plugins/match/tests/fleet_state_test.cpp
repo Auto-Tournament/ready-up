@@ -593,6 +593,29 @@ static void TestRewind() {
 
 // ---------------------------------------------------------------------------- workshop maps
 
+// Damage is the health taken: dmg_health sums to 98 (24 + 24 + 25 + 25) while
+// the victim went 100 -> 0, and an overkill shot counts only the health that was left.
+static void TestDamageFromHealth() {
+  stats::StatsAccumulator st;
+  st.BeginMap(true);
+  st.OnRoundStart();
+  ObserveAll(st, true);
+  st.OnPlayerHurt(B1, A1, 24, 76, "ak47");
+  st.OnPlayerHurt(B1, A1, 24, 51, "ak47");
+  st.OnPlayerHurt(B1, A1, 25, 26, "ak47");
+  st.OnPlayerHurt(B1, A1, 25, 0, "ak47");
+  st.OnPlayerHurt(B2, A2, 448, 0, "awp");
+  const stats::MapStats m = st.Snapshot();
+  int seen = 0;
+  for (const auto& p : m.players) {
+    if (p.id == A1 || p.id == A2) {
+      CHECK(p.stats.damage == 100);
+      ++seen;
+    }
+  }
+  CHECK(seen == 2);
+}
+
 static void TestMapNames() {
   namespace mn = readyup::mapnames;
   mn::ResetBindings();
@@ -914,6 +937,7 @@ int main() {
   TestCodecs();
   TestValidators();
   TestRewind();
+  TestDamageFromHealth();
   TestMapNames();
   TestResume();
   TestServerConfigPlan();
