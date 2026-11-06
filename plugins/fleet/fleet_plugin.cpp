@@ -540,6 +540,40 @@ void OnServerConfig(const std::string& payload) {
   ApplyServerConfigLocal("platform");
 }
 
+// The players' site language for Ready Up's text (match.defs.json $defs/language): on each
+// player of match.assign's team1/team2 and on match.update's add_player op. A player's own
+// `.lang` still wins; no field leaves them on the server's language. Needs core API 1.19.
+void SetLanguage(const fleet::json::Value& player) {
+  const fleet::json::Value* sid = player.Get("steamid64");
+  const fleet::json::Value* lang = player.Get("language");
+  if (!sid || !lang || !lang->IsStr()) return;
+  const uint64_t id = std::strtoull(sid->AsStr().c_str(), nullptr, 10);
+  if (id && !g_api->set_player_language(g_api->self, id, lang->s.c_str()))
+    Log(RU_LOG_INFO, "fleet: no table for language \"%s\"; English for that player", lang->s.c_str());
+}
+
+void OnPlayerLanguages(const std::string& type, const std::string& payload) {
+  if (!RU_API_HAS(g_api, set_player_language) || !g_api->set_player_language) return;
+  fleet::json::Value v;
+  if (!fleet::json::Parse(payload, &v) || !v.IsObj()) return;
+  if (type == "match.assign") {
+    const fleet::json::Value* cfg = v.Get("config");
+    for (const char* team : {"team1", "team2"}) {
+      const fleet::json::Value* t = cfg ? cfg->Get(team) : nullptr;
+      const fleet::json::Value* players = t ? t->Get("players") : nullptr;
+      if (players && players->IsArr()) {
+        for (const auto& p : players->a) SetLanguage(p);
+      }
+    }
+    return;
+  }
+  const fleet::json::Value* ops = v.Get("ops");
+  if (!ops || !ops->IsArr()) return;
+  for (const auto& op : ops->a) {
+    if (op.IsObj() && op.Get("op") && op.Get("op")->AsStr() == "add_player") SetLanguage(op);
+  }
+}
+
 void UpdateHandledTypes() {
   std::set<std::string> types;
   types.insert("server.config");  // fleet.so applies part of it itself (OnServerConfig)
@@ -887,6 +921,7 @@ void DrainTask(void*) {
     m.ref = in.env.ref.c_str();
     m.payload_json = in.payloadJson.c_str();
     if (in.env.type == "server.config") OnServerConfig(in.payloadJson);
+    if (in.env.type == "match.assign" || in.env.type == "match.update") OnPlayerLanguages(in.env.type, in.payloadJson);
     if (in.env.type == "demo.ack") {
       if (auto d = Demos()) {
         d->OnAck(in.payloadJson);
