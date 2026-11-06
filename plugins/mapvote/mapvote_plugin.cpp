@@ -367,6 +367,7 @@ constexpr const char* kMenuOwner = "mapvote";
 constexpr int kMapsPerPage = 6;
 const ru_hud_v1* g_menuHud = nullptr;
 std::map<int, std::string> g_menuPage;  // slot -> "home" | "pool <offset>"
+readyup::i18n::LangSeen g_menuLang;      // slot -> the language its open menu is in
 
 const ru_hud_v1* MenuHud() {
   if (!g_api) return nullptr;
@@ -457,10 +458,17 @@ void MenuDraw(int slot, uint64_t steamid64) {
   else if (g_menuPage[slot].rfind("pool ", 0) == 0) spec = PoolSpec(steamid64, std::atoi(g_menuPage[slot].c_str() + 5), lang);
   else spec = HomeSpec(steamid64, lang);
   h->menu(slot, kMenuOwner, spec.c_str(), &OnMenuClick, nullptr);
+  g_menuLang.Drew(slot, steamid64, lang);
+}
+
+// A player who changed language (.lang, the platform) gets their open menu again in the new one.
+void MenuFollowLang() {
+  for (const auto& [slot, sid] : g_menuLang.Stale(g_api)) MenuDraw(slot, sid);
 }
 
 void MenuClose(int slot) {
   g_menuPage.erase(slot);
+  g_menuLang.Forget(slot);
   if (const ru_hud_v1* h = MenuHud()) h->menu(slot, kMenuOwner, "", nullptr, nullptr);
 }
 
@@ -519,6 +527,7 @@ bool BallotAll() {
 void BallotClose() {
   if (const ru_hud_v1* h = MenuHud()) h->menu(RU_HUD_ALL, kMenuOwner, "", nullptr, nullptr);
   g_menuPage.clear();
+  g_menuLang.by_slot.clear();
 }
 
 int OnMenuActive(void*, int) { return Active() ? 1 : 0; }
@@ -646,6 +655,7 @@ void OnTick(void*, const ru_tick_info* t) {
     }
     return;
   }
+  MenuFollowLang();
   if (!Active() || g.s.mapTimeMinutes <= 0) return;
   const int left = SecondsLeft(g.s, g.mapStartedAt, g.extends, now);
   if (!g.voted && left <= g.s.voteBeforeEndSeconds && Humans() > 0) StartVote(true, now);

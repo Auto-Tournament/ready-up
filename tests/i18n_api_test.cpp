@@ -33,6 +33,13 @@ int ForEach(ru_plugin*, ru_player_fn fn, void* user) {
   }
   return static_cast<int>(g_langs.size());
 }
+std::vector<uint64_t> g_sids;  // by slot, for get_player
+int GetPlayer(ru_plugin*, int slot, ru_player* out) {
+  if (slot < 0 || slot >= static_cast<int>(g_sids.size()) || g_sids[slot] == 0) return 0;
+  out->slot = slot;
+  out->steamid64 = g_sids[slot];
+  return 1;
+}
 const char* Lang(ru_plugin*, int slot) { return slot < 0 ? "en" : g_langs[slot].c_str(); }
 int ChatAll(ru_plugin*, const char* msg, uint32_t) {
   g_sent.push_back(std::string("all:") + msg);
@@ -59,6 +66,7 @@ int main() {
   api.chat_all = &ChatAll;
   api.player_language = &Lang;
   api.chat_to_slot_ex = &ChatSlot;
+  api.get_player = &GetPlayer;
   auto hello = [](const std::string& lang) { return "hi-" + lang; };
 
   g_langs = {"de", "de"};
@@ -96,6 +104,23 @@ int main() {
   seen.Drew(1, 7, "de");
   seen.Forget(1);
   CHECK_EQ(changed(1, 7), "same");
+
+  // Stale: what a menu redraws. Slot 0 switched (still player 7), slot 1 has a new player.
+  auto stale = [&] {
+    std::string s;
+    for (const auto& [slot, sid] : seen.Stale(&api)) s += std::to_string(slot) + "/" + std::to_string(sid) + " ";
+    return s;
+  };
+  seen.by_slot.clear();
+  g_langs = {"de", "de", "de"};
+  g_sids = {7, 9, 11};
+  seen.Drew(0, 7, "de");
+  seen.Drew(1, 8, "de");
+  seen.Drew(2, 11, "de");
+  CHECK_EQ(stale(), "");
+  CHECK_EQ(std::to_string(seen.by_slot.size()), "2");  // slot 1's player left: forgotten
+  g_langs = {"fr", "de", "de"};
+  CHECK_EQ(stale(), "0/7 ");
 
   if (g_failures) {
     std::fprintf(stderr, "i18n_api: %d failure(s)\n", g_failures);

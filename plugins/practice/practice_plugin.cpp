@@ -2008,6 +2008,7 @@ struct MenuState {
   int offset = 0;             // list: the first lineup shown
 };
 std::map<int, MenuState> g_menuState;
+readyup::i18n::LangSeen g_menuLang;  // slot -> the language its open menu is in
 const ru_hud_v1* g_menuHud = nullptr;
 
 const ru_hud_v1* MenuHud() {
@@ -2120,6 +2121,7 @@ void MenuDraw(int slot, uint64_t steamid64);
 
 void MenuClose(int slot) {
   g_menuState.erase(slot);
+  g_menuLang.Forget(slot);
   if (const ru_hud_v1* h = MenuHud()) h->menu(slot, kMenuOwner, "", nullptr, nullptr);
 }
 
@@ -2176,6 +2178,12 @@ void MenuDraw(int slot, uint64_t steamid64) {
   const ru_hud_v1* h = MenuHud();
   if (!h) return;
   h->menu(slot, kMenuOwner, MenuSpec(slot, steamid64).c_str(), &OnMenuClick, nullptr);
+  g_menuLang.Drew(slot, steamid64, Lang(slot));
+}
+
+// A player who changed language (.lang, the platform) gets their open menu again in the new one.
+void MenuFollowLang() {
+  for (const auto& [slot, sid] : g_menuLang.Stale(g_api)) MenuDraw(slot, sid);
 }
 
 int OnMenuActive(void*, int) { return IsActive() ? 1 : 0; }
@@ -2197,10 +2205,12 @@ void MenuUninstall() {
   if (const ru_hud_v1* h = MenuHud(); h && h == g_menuHud) h->register_menu(kMenuOwner, 30, nullptr, nullptr, nullptr);
   g_menuHud = nullptr;
   g_menuState.clear();
+  g_menuLang.by_slot.clear();
 }
 
 void OnTick(void*, const ru_tick_info* t) {
   EnsureMenuProvider();
+  MenuFollowLang();
   if (t->now >= g_nextAlwaysCheck) {
     g_nextAlwaysCheck = t->now + 2.0;
     if (!g_manualOff && ShouldAutoEnter(AlwaysOn(), IsActive(), RuMode())) {
