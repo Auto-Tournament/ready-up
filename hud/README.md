@@ -72,6 +72,22 @@ look needs no publish. In the spec:
 Defaults: the card slides, the ready pill pops, a decision flips, red alerts flash, the rest opens;
 each leaves the way it came. Example: `enter=drop;exit=rise;cls=at-top edge glass-3;cls.title=text-2xl tc-live`.
 
+### "HUD out of date"
+
+`#ui_ver` in `at_ui` is a small pill, top centre, that tells a player to restart CS2 when their
+copy of the addon is older than the server's. The client can't report its version, so the addon
+decides for itself:
+
+- `plugins/hud/hud_addon.h` holds `kAddonVersion`. hud.so puts `check` and `v-<kAddonVersion>` on
+  `#ui_ver` for everyone, and the text (`ui_ver_t`, locale key `hud.outdated`) in each player's
+  language.
+- `at_ui.css` hides the pill for every version up to its own (`.ui-ver.check.v-1` … `v-N`,
+  written by `tools/gen_ui.py`). An older addon doesn't know the server's number, so the pill stays up.
+- No `check` (a server from before this) means no pill. A newer addon than the server stays quiet.
+- Addons from before version 1 have no pill at all.
+
+ctest `hud_addon` fails when `at_ui.css` and `kAddonVersion` disagree.
+
 ## `at_kit`: the Auto Tournament HUD
 
 ```
@@ -156,6 +172,9 @@ To test on your own client without the Workshop, copy the two compiled files int
 
 The first upload creates the Workshop item. Later uploads update the same item.
 
+1. Bump `kAddonVersion` in `plugins/hud/hud_addon.h`, run `python hud/tools/gen_ui.py`, and
+   merge that with the layout change. Servers on the new Ready Up then show players with the
+   old addon the "HUD out of date" pill.
 1. Run `hud/build.ps1`.
 2. Start **Counter-Strike 2 Workshop Tools** from Steam (CS2 › Launch › Workshop Tools, or
    `cs2.exe -tools`). CS2 can't be running at the same time.
