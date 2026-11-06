@@ -1,0 +1,12 @@
+{
+  "panel.changing": "กำลังเปลี่ยนแผนที่เป็น {map}",
+  "panel.reloading": "กำลังโหลด {map} ใหม่",
+  "panel.hold_on": "รอสักครู่...",
+  "panel.downloading": "กำลังดาวน์โหลด {map}",
+  "panel.waiting_steam": "กำลังรอ Steam...",
+  "chat.restarting": "เกมกำลังเริ่มใหม่",
+  "chat.changing": "กำลังเปลี่ยนแผนที่เป็น {map}",
+  "chat.reloading": "กำลังโหลด {map} ใหม่",
+  "help.commands": "คำสั่ง:",
+  "help.ru": ".ru help  คำสั่งทั้งหมดในเซิร์ฟเวอร์นี้"
+}

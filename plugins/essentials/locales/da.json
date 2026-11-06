@@ -1,0 +1,12 @@
+{
+  "panel.changing": "Skifter bane til {map}",
+  "panel.reloading": "Genindlæser {map}",
+  "panel.hold_on": "vent lidt...",
+  "panel.downloading": "Henter {map}",
+  "panel.waiting_steam": "venter på Steam...",
+  "chat.restarting": "spillet genstarter.",
+  "chat.changing": "skifter bane til {map}.",
+  "chat.reloading": "genindlæser {map}.",
+  "help.commands": "Kommandoer:",
+  "help.ru": ".ru help  alle kommandoer på denne server"
+}

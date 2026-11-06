@@ -1,0 +1,12 @@
+{
+  "panel.changing": "Pályaváltás erre: {map}",
+  "panel.reloading": "{map} újratöltése",
+  "panel.hold_on": "egy pillanat...",
+  "panel.downloading": "{map} letöltése",
+  "panel.waiting_steam": "várakozás a Steamre...",
+  "chat.restarting": "a játék újraindul.",
+  "chat.changing": "pályaváltás erre: {map}.",
+  "chat.reloading": "{map} újratöltése.",
+  "help.commands": "Parancsok:",
+  "help.ru": ".ru help  a szerver összes parancsa"
+}

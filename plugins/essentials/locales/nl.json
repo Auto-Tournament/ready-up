@@ -1,0 +1,12 @@
+{
+  "panel.changing": "Mapwissel naar {map}",
+  "panel.reloading": "{map} wordt opnieuw geladen",
+  "panel.hold_on": "even geduld...",
+  "panel.downloading": "{map} wordt gedownload",
+  "panel.waiting_steam": "wachten op Steam...",
+  "chat.restarting": "spel herstart.",
+  "chat.changing": "mapwissel naar {map}.",
+  "chat.reloading": "{map} wordt opnieuw geladen.",
+  "help.commands": "Commando's:",
+  "help.ru": ".ru help  alle commando's op deze server"
+}

@@ -4,7 +4,10 @@
 // a player by a name fragment, when map commands are refused and the default map per mode
 // (default_maps.json). No engine calls.
 
+#include "readyup/i18n.h"
+
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <string>
 #include <vector>
@@ -89,8 +92,10 @@ bool SetDefaultMap(DefaultMaps* maps, const std::string& mode, const std::string
 // HTML-escaped. (CS2's center panel runs no script; the plugin resends this ~10x a second.)
 // The card shown to everyone for a few seconds when an admin changes / reloads the map (before
 // any Workshop download bar): "Changing map to <name>" (or "Reloading <name>"). HTML-escaped.
-std::string MapChangePanelHtml(const std::string& name, bool reload);
+// Text of a locales key in the viewer's language (plugins/essentials/locales).
+using Tr = std::function<std::string(const char* key, const readyup::i18n::Args& args)>;
+std::string MapChangePanelHtml(const Tr& tr, const std::string& name, bool reload);
 
-std::string DownloadPanelHtml(const std::string& name, uint64_t downloaded, uint64_t total, int segments = 30);
+std::string DownloadPanelHtml(const Tr& tr, const std::string& name, uint64_t downloaded, uint64_t total, int segments = 30);
 
 }  // namespace essentials

@@ -1,0 +1,12 @@
+{
+  "panel.changing": "Bytter kart til {map}",
+  "panel.reloading": "Laster inn {map} på nytt",
+  "panel.hold_on": "vent litt ...",
+  "panel.downloading": "Laster ned {map}",
+  "panel.waiting_steam": "venter på Steam ...",
+  "chat.restarting": "spillet starter på nytt.",
+  "chat.changing": "bytter kart til {map}.",
+  "chat.reloading": "laster inn {map} på nytt.",
+  "help.commands": "Kommandoer:",
+  "help.ru": ".ru help  alle kommandoene på denne serveren"
+}

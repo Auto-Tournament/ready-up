@@ -1,0 +1,12 @@
+{
+  "panel.changing": "{map} にマップを変更中",
+  "panel.reloading": "{map} を再読み込み中",
+  "panel.hold_on": "お待ちください...",
+  "panel.downloading": "{map} をダウンロード中",
+  "panel.waiting_steam": "Steam を待っています...",
+  "chat.restarting": "ゲームを再開します。",
+  "chat.changing": "{map} にマップを変更します。",
+  "chat.reloading": "{map} を再読み込みします。",
+  "help.commands": "コマンド:",
+  "help.ru": ".ru help  このサーバーのすべてのコマンド"
+}

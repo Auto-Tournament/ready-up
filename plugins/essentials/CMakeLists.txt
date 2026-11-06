@@ -4,6 +4,7 @@ readyup_add_plugin(essentials essentials_plugin.cpp essentials_rules.cpp
   ${CMAKE_SOURCE_DIR}/plugins/match/readyup/map_names.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp)
 target_include_directories(readyup_plugin_essentials PRIVATE ${CMAKE_SOURCE_DIR}/plugins/match ${CMAKE_SOURCE_DIR}/libs)
 target_compile_definitions(readyup_plugin_essentials PRIVATE ESSENTIALS_VERSION="${READYUP_SEMVER}")
+readyup_embed_locales(readyup_plugin_essentials ${CMAKE_CURRENT_SOURCE_DIR}/locales)
 
 # admins.json, name matching, when map commands are refused, default maps per mode
 # (essentials_rules.h; ctest `essentials_rules`).
@@ -12,4 +13,5 @@ add_executable(essentials_rules_test tests/essentials_rules_test.cpp essentials_
 target_include_directories(essentials_rules_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs
   ${CMAKE_SOURCE_DIR}/plugins/match)
 target_compile_options(essentials_rules_test PRIVATE -Wall -Wextra)
+readyup_embed_locales(essentials_rules_test ${CMAKE_CURRENT_SOURCE_DIR}/locales)
 add_test(NAME essentials_rules COMMAND essentials_rules_test)

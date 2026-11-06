@@ -1,0 +1,12 @@
+{
+  "panel.changing": "Mapwechsel zu {map}",
+  "panel.reloading": "{map} wird neu geladen",
+  "panel.hold_on": "einen Moment...",
+  "panel.downloading": "{map} wird heruntergeladen",
+  "panel.waiting_steam": "warte auf Steam...",
+  "chat.restarting": "Spiel startet neu.",
+  "chat.changing": "Mapwechsel zu {map}.",
+  "chat.reloading": "{map} wird neu geladen.",
+  "help.commands": "Befehle:",
+  "help.ru": ".ru help  alle Befehle auf diesem Server"
+}

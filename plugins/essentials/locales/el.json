@@ -1,0 +1,12 @@
+{
+  "panel.changing": "Αλλαγή χάρτη σε {map}",
+  "panel.reloading": "Επαναφόρτωση του {map}",
+  "panel.hold_on": "μισό λεπτό...",
+  "panel.downloading": "Λήψη του {map}",
+  "panel.waiting_steam": "αναμονή για το Steam...",
+  "chat.restarting": "το παιχνίδι ξεκινά από την αρχή.",
+  "chat.changing": "αλλαγή χάρτη σε {map}.",
+  "chat.reloading": "επαναφόρτωση του {map}.",
+  "help.commands": "Εντολές:",
+  "help.ru": ".ru help  όλες οι εντολές αυτού του server"
+}

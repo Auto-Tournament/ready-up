@@ -16,7 +16,13 @@ static int g_failures = 0;
     }                                                                               \
   } while (0)
 
+extern const readyup::i18n::Locale kReadyUpLocales[];  // plugins/essentials/locales
+extern const size_t kReadyUpLocaleCount;
+
 int main() {
+  readyup::i18n::Catalog cat;
+  CHECK(cat.Load(kReadyUpLocales, kReadyUpLocaleCount).empty());
+  const Tr tr = [&](const char* key, const readyup::i18n::Args& args) { return cat.Tr("en", key, args); };
   constexpr uint64_t A = 76561198000000001ull, B = 76561198000000002ull;
   bool ok = false;
   auto admins = ParseAdmins(R"({"version": 1, "admins": [{"steamid64": "76561198000000001", "name": "alice"},
@@ -55,15 +61,15 @@ int main() {
   for (const char* m : {"match_live", "match_knife", "knife"}) CHECK(MapCommandBlocked(m));
   for (const char* m : {"", "idle", "practice", "scrim_warmup", "match_warmup", "postgame"}) CHECK(!MapCommandBlocked(m));
   {
-    const std::string h = DownloadPanelHtml("de_<x>", 50, 100, 10);
+    const std::string h = DownloadPanelHtml(tr, "de_<x>", 50, 100, 10);
     CHECK(h.find("de_&lt;x&gt;") != std::string::npos);
     CHECK(h.find("50.0%") != std::string::npos);
     CHECK(h.find("<font color='#4ade80'>\u2588\u2588\u2588\u2588\u2588</font>") != std::string::npos);
     CHECK(h.find("<font color='#3f3f46'>\u2588\u2588\u2588\u2588\u2588</font>") != std::string::npos);
-    const std::string w = DownloadPanelHtml("m", 0, 0, 10);
+    const std::string w = DownloadPanelHtml(tr, "m", 0, 0, 10);
     CHECK(w.find("waiting for Steam") != std::string::npos);
     CHECK(w.find("#4ade80") == std::string::npos);
-    const std::string f = DownloadPanelHtml("m", 300, 200, 10);  // clamped
+    const std::string f = DownloadPanelHtml(tr, "m", 300, 200, 10);  // clamped
     CHECK(f.find("100.0%") != std::string::npos);
     CHECK(f.find("#3f3f46") == std::string::npos);
   }
@@ -99,8 +105,8 @@ int main() {
       CHECK(std::find(known.begin(), known.end(), k) != known.end());
     }
   }
-  CHECK(MapChangePanelHtml("de_<x>", false).find("Changing map to de_&lt;x&gt;") != std::string::npos);
-  CHECK(MapChangePanelHtml("m", true).find("Reloading m") != std::string::npos);
+  CHECK(MapChangePanelHtml(tr, "de_<x>", false).find("Changing map to de_&lt;x&gt;") != std::string::npos);
+  CHECK(MapChangePanelHtml(tr, "m", true).find("Reloading m") != std::string::npos);
   // `.ru map change <name>`: what the admin meant.
   const std::vector<std::string> maps = {"de_mirage", "de_dust2", "de_inferno", "de_nuke", "cs_office", "cs_italy",
                                          "ar_shoots", "de_ancient", "de_anubis", "de_train"};

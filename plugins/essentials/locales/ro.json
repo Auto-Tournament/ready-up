@@ -1,0 +1,12 @@
+{
+  "panel.changing": "Se schimbă harta pe {map}",
+  "panel.reloading": "Se reîncarcă {map}",
+  "panel.hold_on": "așteaptă puțin...",
+  "panel.downloading": "Se descarcă {map}",
+  "panel.waiting_steam": "se așteaptă Steam...",
+  "chat.restarting": "jocul repornește.",
+  "chat.changing": "se schimbă harta pe {map}.",
+  "chat.reloading": "se reîncarcă {map}.",
+  "help.commands": "Comenzi:",
+  "help.ru": ".ru help  toate comenzile de pe acest server"
+}
