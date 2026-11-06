@@ -309,8 +309,6 @@ void OnTick(void*, const ru_tick_info* t) {
       if (FeatureEnabled(Feature::ReadyHud)) s.Run("ready_hud", [] { ReadyHudTick(); });  // skips welcome cards
       s.Run("prefix", [&] { PrefixTick(t->now); });
     }
-    // `.ru hud anim` moves every other tick (32/s): smooth enough, half the cost.
-    if (FeatureEnabled(Feature::ReadyHud) && (t->frame & 1u) == 0) s.Run("hud_anim", [] { ReadyHudAnimTick(); });
     s.Report(t->now);
     MaybeLogSectionSummary(t->now);
   });

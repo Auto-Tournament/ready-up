@@ -198,7 +198,6 @@ void GoLiveCardTick() {
     // Another card of ours owns this player's panel right now.
     const char* skip = AdminCallCardActiveFor(slot)              ? ".admin call card"
                        : WelcomeActiveFor(slot, h.steamid64)     ? "welcome card"
-                       : ReadyHudAnimActive(h.steamid64)         ? ".ru hud anim"
                                                                  : nullptr;
     if (!skip && screens) {
       HudScreensNotice(slot, spec, 1.0);

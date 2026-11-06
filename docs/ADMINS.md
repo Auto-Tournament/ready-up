@@ -89,7 +89,6 @@ everything else (`.r`, `.pause`, `.stay` / `.switch`, `.settings`, `.coach`, `.a
 | `.ru dm ffa\|tdm [map]` / `.ru dm off` | admin | deathmatch plugin: free for all / team deathmatch (CS2's deathmatch game mode; loads the map given, else the mode's default map) / back to competitive; `.ru dm status\|top\|hud`: everyone, the only public plugin `.ru` commands ([DEATHMATCH.md](DEATHMATCH.md)) |
 | `.ru admins list` | admin | the admins (essentials plugin) |
 | `.ru admins add\|remove <steamid64\|name_fragment>` | admin (standalone) | edit `admins.json` |
-| `.ru hud test <1-11>` | admin | a HUD test panel, to you only |
 | `.ru whitelist on\|off\|add\|remove\|list\|clear` | admin | whitelist plugin: only listed players may stay (not during a match) |
 | `.ru tv [status]` / `.tv` | admin | tv plugin: GOTV port, delay, clients, insecure observers, password set, the profile in use |
 | `.ru tv set\|match <key> <value\|default>` | admin | tv plugin: server setting (saved) / this match only. Keys `delay_seconds`, `allow_insecure_observers`, `max_clients`, `relay_text_chat`, `relay_voice` ([design/tv-plugin.md](design/tv-plugin.md)) |

@@ -606,34 +606,6 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   }
   if (sc->admin && !requireAdmin()) return;
 
-  // ---- .ru hud -------------------------------------------------------------------------------
-  if (main == "hud") {
-    // Center-HTML test variant to the caller only (what the CS2 client renders).
-    if (steamid64 == 0) {
-      PrintLine("ru hud test: run it from in-game chat (.ru hud test <1-11>); the panel is shown to the caller.");
-      return;
-    }
-    if (!FeatureEnabled(Feature::ReadyHud)) {
-      sendAdmin("hud test: the ready HUD (per-client center HTML) is off on this server; see `ru selftest`.");
-      return;
-    }
-    if (sub == "anim") {
-      const int hz = args.empty() ? 0 : std::atoi(args[0].c_str());
-      const int secs = args.size() < 2 ? 0 : std::atoi(args[1].c_str());
-      sendAdmin("hud anim for " + playerName + ": " + ReadyHudRequestAnim(steamid64, hz, secs) +
-                ". Record it and count the distinct frame numbers in one second.");
-      return;
-    }
-    const int n = args.empty() ? 0 : std::atoi(args[0].c_str());
-    const std::string desc = ReadyHudRequestTest(steamid64, n);
-    if (desc.empty()) {
-      sendAdmin("usage: .ru hud test <n> - 1 fonts, 2 images, 3 unicode, 4 svg, 5 png, 6 wiki png, 7 header, 8 height ruler, 9 width ruler, 10-11 image sizes");
-      return;
-    }
-    sendAdmin("hud test " + std::to_string(n) + " for " + playerName + " (10s): " + desc);
-    return;
-  }
-
   // ---- .ru mode -----------------------------------------------------------------------------
   if (main == "mode") {
     if (sub == "show") {

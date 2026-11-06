@@ -92,18 +92,6 @@ std::unordered_map<int, Sent> g_sent;  // GameFrame thread only
 Clock::time_point g_lastRun{};
 std::atomic<bool> g_showing{false};
 
-// `.ru hud test <n>` requests: steamid64 -> (variant, shown until).
-constexpr auto kTestShowFor = std::chrono::seconds(10);
-std::mutex g_testMu;
-std::unordered_map<uint64_t, std::pair<int, Clock::time_point>> g_tests;
-
-// Public test images for `.ru hud test` (all checked to return 200 with curl).
-constexpr const char* kTestSvg = "https://raw.githubusercontent.com/Auto-Tournament/auto-tournament/main/client/public/icon.svg";
-constexpr const char* kTestPng = "https://raw.githubusercontent.com/Auto-Tournament/auto-tournament/main/client/public/icon-192.png";
-constexpr const char* kTestPngWiki =
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/"
-    "250px-PNG_transparency_demonstration_1.png";
-
 static std::string Esc(const std::string& in, size_t maxBytes) {
   std::string s = in;
   if (s.size() > maxBytes) {
@@ -600,84 +588,6 @@ static std::string LiveSpec(const LiveHudInfo& l, int viewerSide, const std::str
   return {};
 }
 
-// `.ru hud test <n>` variants. Each one fits well under ~1 KB.
-static std::string TestHtml(int n) {
-  const std::string title = Font(kGrey, "hudtest " + std::to_string(n)) + "<br>";
-  switch (n) {
-    case 1:
-      return title +
-             "<font class='fontSize-s'>fontSize-s</font> <font class='fontSize-sm'>sm</font> "
-             "<font class='fontSize-m'>m</font><br>"
-             "<font class='fontSize-l'>fontSize-l</font> <font class='fontSize-xl'>xl</font> "
-             "<font class='fontSize-xxl'>xxl</font><br>"
-             "<span class='fontWeight-Bold'>fontWeight-Bold</span> <b>b-tag</b> <i>i-tag</i> <u>u-tag</u><br>" +
-             Font(kGold, "gold") + " " + Font(kCt, "CT") + " " + Font(kT, "T") + " " + Font(kOk, "ok") + " " +
-             Font(kNo, "no") + " <span style='color:#C084FC'>span-style</span> <font color='red'>named-red</font>";
-    case 2:
-      return title + "A svg " + Img(kTestSvg, 32) + " | B png " + Img(kTestPng, 32) + "<br>C wiki png " +
-             Img(kTestPngWiki, 40) + "<br>" + Font(kGrey, "missing = that format does not render");
-    case 3:
-      return title +
-             "raw utf-8: \xE2\x9C\x94 \xE2\x9C\x96 \xE2\x98\x85 \xC2\xB7 \xE2\x80\xA2 \xE2\x86\x92<br>"
-             "decimal: &#10004; &#10006; &#9733; &#183; &#8226; &#8594;<br>"
-             "hex: &#x2714; &#x2716; &#x2605;<br>"
-             "named: &check; &cross; &star; &middot; &bull; &rarr; &amp; &lt;b&gt;<br>"
-             "emoji: \xF0\x9F\x8F\x86 \xF0\x9F\x94\xAA \xE2\x9C\x85 \xE2\x9D\x8C";
-    case 4:
-      return title + "svg (Auto Tournament icon.svg, height 64)<br>" + Img(kTestSvg, 64);
-    case 5:
-      return title + "png (Auto Tournament icon-192.png, height 64)<br>" + Img(kTestPng, 64);
-    case 6:
-      return title + "png (wikimedia 250px, height 64)<br>" + Img(kTestPngWiki, 64);
-    case 7: {
-      const auto c = Cfg();
-      const std::string url = AttrSafeUrl(c.hud_logo_url);
-      std::string h = title + HudBrandHtml(24, "fontSize-l") + "<br>";
-      h += Font(kGrey, "hud_logo_url=" + (url.empty() ? std::string("(none)") : Esc(url, 80)));
-      if (!c.hud_logo_url.empty() && url.empty()) h += "<br>" + Font(kNo, "hud_logo_url rejected (needs http(s), no quotes/spaces)");
-      return h;
-    }
-    // 8..11: measuring the center panel (how many lines, how wide, how images scale), so HUDs can
-    // be designed to fit. Screenshot each and read the cut-off.
-    case 8: {
-      std::string h = title;
-      for (int i = 1; i <= 18; ++i) h += std::string(i < 10 ? "row 0" : "row ") + std::to_string(i) + (i < 18 ? "<br>" : "");
-      return h;
-    }
-    case 9:
-      return title + "0123456789012345678901234567890123456789012345678901234567890123456789<br>" +
-             "<font class='fontSize-s'>0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890</font><br>" +
-             "<font class='fontSize-l'>01234567890123456789012345678901234567890123456789</font><br>" +
-             "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW";
-    case 10:
-      return title + "a " + Img(kTestPng, 24) + " b " + Img(kTestPng, 48) + " c <img src='" + std::string(kTestPng) +
-             "' style='width:32px;height:32px'> d <img src='" + std::string(kTestPng) + "' height='32'>";
-    case 11:
-      return title + "wide " + "<img src='" + std::string(kTestPngWiki) + "' width='200' height='40'><br>" +
-             "e <img src='" + std::string(kTestPngWiki) + "' width='16' height='16'> f " + Img(kTestSvg, 16) + " g " +
-             Img(kTestSvg, 96);
-    default:
-      return {};
-  }
-}
-
-static const char* TestDescription(int n) {
-  switch (n) {
-    case 1: return "font classes (fontSize-s..xxl, fontWeight-Bold), b/i/u, colors";
-    case 2: return "images: A = Auto Tournament SVG, B = Auto Tournament PNG, C = wikimedia PNG";
-    case 3: return "unicode: raw UTF-8, decimal/hex/named entities, emoji";
-    case 4: return "SVG only (Auto Tournament icon.svg)";
-    case 5: return "PNG only (Auto Tournament icon-192.png)";
-    case 6: return "PNG only (wikimedia 250px)";
-    case 7: return "configured header (hud_logo_url + hud_brand)";
-    case 8: return "height ruler: rows 01-18 (the last row you see = how many lines fit)";
-    case 9: return "width ruler: digits in default / s / l fonts and W's (the last digit you see = the width)";
-    case 10: return "PNG sizes: a width/height 24, b 48, c style 32px, d height 32 only";
-    case 11: return "wide PNG 200x40, tiny PNG 16, SVG 16 and 96";
-    default: return nullptr;
-  }
-}
-
 static bool HudEnabled() {
   return Cfg().ready_hud;
 }
@@ -704,109 +614,8 @@ std::string HudBrandHtml(int imgHeight, const char* fontClass) {
   return h;
 }
 
-// ---- `.ru hud anim`: how fast does the client redraw the panel? --------------------------------
-
-namespace {
-
-struct Anim {
-  int hz = 64;
-  Clock::time_point start{}, until{}, next{};
-  int frame = 0;
-};
-std::mutex g_animMu;
-std::unordered_map<uint64_t, Anim> g_anims;
-
-std::string Blocks(int n) {
-  std::string o;
-  for (int i = 0; i < n; ++i) o += "\u2588";  // full block
-  return o;
-}
-
-// Ease-out cubic over a 2 s loop: fast at the start, settling at the end.
-double EaseOut(double p) { return 1.0 - (1.0 - p) * (1.0 - p) * (1.0 - p); }
-
-std::string AnimHtml(const Anim& a, Clock::time_point now) {
-  const double t = std::chrono::duration<double>(now - a.start).count();
-  const double loop = 2.0;
-  const double p = std::fmod(t, loop) / loop;
-  const double v = EaseOut(p);
-  constexpr int kSegments = 40;
-  const int filled = static_cast<int>(v * kSegments + 0.5);
-  std::string h = "<font class='fontSize-l' color='#FFFFFF'>anim " + std::to_string(a.hz) + " Hz &#183; frame " +
-                  std::to_string(a.frame) + "</font><br>";
-  if (filled > 0) h += "<font color='#4ADE80'>" + Blocks(filled) + "</font>";
-  if (filled < kSegments) h += "<font color='#3F3F46'>" + Blocks(kSegments - filled) + "</font>";
-  char stats[64];
-  std::snprintf(stats, sizeof stats, "%5.1f%% &#183; t=%.2f s", v * 100.0, t);
-  h += "<br><font class='fontSize-m' color='#A3E635'>" + std::string(stats) + "</font>";
-  return h;
-}
-
-}  // namespace
-
-std::string ReadyHudRequestAnim(uint64_t steamid64, int hz, int seconds) {
-  if (steamid64 == 0) return {};
-  hz = std::clamp(hz > 0 ? hz : 64, 1, 64);
-  seconds = std::clamp(seconds > 0 ? seconds : 10, 1, 30);
-  const auto now = Clock::now();
-  Anim a;
-  a.hz = hz;
-  a.start = now;
-  a.next = now;
-  a.until = now + std::chrono::seconds(seconds);
-  std::lock_guard<std::mutex> lk(g_animMu);
-  g_anims[steamid64] = a;
-  return std::to_string(hz) + " Hz for " + std::to_string(seconds) + " s";
-}
-
-bool ReadyHudAnimActive(uint64_t steamid64) {
-  std::lock_guard<std::mutex> lk(g_animMu);
-  return g_anims.count(steamid64) != 0;
-}
-
-void ReadyHudAnimTick() {
-  const auto now = Clock::now();
-  struct Send {
-    int slot;
-    std::string html;
-  };
-  std::vector<Send> sends;
-  {
-    std::lock_guard<std::mutex> lk(g_animMu);
-    if (g_anims.empty()) return;
-    for (auto it = g_anims.begin(); it != g_anims.end();) {
-      if (now >= it->second.until) {
-        it = g_anims.erase(it);
-        continue;
-      }
-      Anim& a = it->second;
-      if (now >= a.next) {
-        const int slot = GameEventsSlotForSteam(it->first).value_or(-1);
-        if (slot >= 0) {
-          ++a.frame;
-          sends.push_back(Send{slot, AnimHtml(a, now)});
-        }
-        // Next frame on the hz grid (no drift); skip missed frames rather than bursting.
-        const auto step = std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(1.0 / a.hz));
-        do a.next += step;
-        while (a.next <= now);
-      }
-      ++it;
-    }
-  }
-  for (const auto& s : sends) SendCenterHtml(s.slot, s.html, 1, RU_HTML_PRIO_NOTICE);
-}
-
 bool ReadyHudShowing() {
   return g_showing.load(std::memory_order_relaxed) && HudEnabled();
-}
-
-std::string ReadyHudRequestTest(uint64_t steamid64, int variant) {
-  const char* desc = TestDescription(variant);
-  if (!desc || steamid64 == 0) return {};
-  std::lock_guard<std::mutex> lk(g_testMu);
-  g_tests[steamid64] = {variant, Clock::now() + kTestShowFor};
-  return desc;
 }
 
 void ReadyHudTick() {
@@ -815,23 +624,9 @@ void ReadyHudTick() {
   if (g_lastRun.time_since_epoch().count() != 0 && (now - g_lastRun) < std::chrono::milliseconds(Cfg().hud_tick_ms)) return;
   g_lastRun = now;
 
-  // Pending `.ru hud test` panels (shown even with ready_hud=0 and outside warmup).
-  std::unordered_map<uint64_t, int> tests;
-  {
-    std::lock_guard<std::mutex> lk(g_testMu);
-    for (auto it = g_tests.begin(); it != g_tests.end();) {
-      if (now >= it->second.second) {
-        it = g_tests.erase(it);
-      } else {
-        tests[it->first] = it->second.first;
-        ++it;
-      }
-    }
-  }
-
   const bool enabled = HudEnabled();
   if (!enabled) g_showing.store(false, std::memory_order_relaxed);
-  if (!enabled && tests.empty()) {
+  if (!enabled) {
     g_sent.clear();
     return;
   }
@@ -874,7 +669,7 @@ void ReadyHudTick() {
   }
 
   // The clickable HUD draws these screens (and menus and votes on top) when it can; the center
-  // HTML then only carries `.ru hud test` panels.
+  // HTML then has nothing to carry.
   if (enabled && HudScreensOn()) {
     const Board hudBoard = what == What::Ready ? BuildBoard(mode, ctx, ListHumans()) : Board{};
     HudScreensRun([&](const HumanIdentity& h) -> std::string {
@@ -898,7 +693,7 @@ void ReadyHudTick() {
     g_showing.store(true, std::memory_order_relaxed);
     what = What::None;
   }
-  if (what == What::None && tests.empty()) {
+  if (what == What::None) {
     g_sent.clear();
     return;
   }
@@ -921,42 +716,28 @@ void ReadyHudTick() {
     if (h.steamid64 == 0 || slot < 0 || slot > 63) continue;
     present.insert(slot);
 
-    std::string html;
-    const auto t = tests.find(h.steamid64);
-    if (t != tests.end()) {
-      html = TestHtml(t->second);  // over the HUD and the welcome card
-    } else {
-      if (what == What::None) continue;
-      // The welcome screen owns the panel while it is up (~5s after joining).
-      if (WelcomeActiveFor(slot, h.steamid64)) continue;
-      if (ReadyHudAnimActive(h.steamid64)) continue;  // `.ru hud anim` owns this player's panel
-      if (AdminCallCardActiveFor(slot)) continue;      // an `.admin` call card (admin_call.h)
-      const std::string lang = i18n::LanguageOf(host::Api(), slot);
-      html = (what == What::Ready)   ? ReadyHtml(board, h.steamid64, footer, lang)
-             : (what == What::Live) ? LiveHtml(live, lang)
-                                    : KnifeHtml(knife, h.team, lang);
-    }
+    // The welcome screen owns the panel while it is up (~5s after joining).
+    if (WelcomeActiveFor(slot, h.steamid64)) continue;
+    if (AdminCallCardActiveFor(slot)) continue;  // an `.admin` call card (admin_call.h)
+    const std::string lang = i18n::LanguageOf(host::Api(), slot);
+    const std::string html = (what == What::Ready)  ? ReadyHtml(board, h.steamid64, footer, lang)
+                             : (what == What::Live) ? LiveHtml(live, lang)
+                                                    : KnifeHtml(knife, h.team, lang);
     if (html.empty()) continue;
 
     // Same HTML: resend every hud_resend_ms (default 0 = every tick; CS2's center panel ignores
     // the event's duration and only stays steady when re-sent every frame, docs/HUD.md).
     // Changed HTML: send right away.
     auto& s = g_sent[slot];
-    const bool changed = (s.html != html);
     if (s.html == html && (now - s.at) < std::chrono::milliseconds(Cfg().hud_resend_ms)) continue;
-    // HUD tests are one-off cards (over another plugin's HUD); the ready HUD is the HUD level.
-    const int sent = SendCenterHtml(slot, html, Cfg().hud_duration_s,
-                                    t != tests.end() ? RU_HTML_PRIO_NOTICE : RU_HTML_PRIO_HUD);
+    const int sent = SendCenterHtml(slot, html, Cfg().hud_duration_s, RU_HTML_PRIO_HUD);
     if (sent < 0) continue;  // another plugin's higher panel (download bar) is up: retry next tick
     const bool ok = sent == 1;
     g_sendOk.store(ok, std::memory_order_relaxed);
     if (ok) {
       s.html = html;
       s.at = now;
-      if (t == tests.end()) g_showing.store(true, std::memory_order_relaxed);
-      if (t != tests.end() && changed) {
-        Debug("ready-hud: hudtest %d -> slot=%d (%zu bytes html)\n", t->second, slot, html.size());
-      }
+      g_showing.store(true, std::memory_order_relaxed);
       if (!s_loggedSize.exchange(true)) Debug("ready-hud: first panel sent (%zu bytes html)\n", html.size());
       static std::atomic<bool> s_warnedBig{false};
       if (html.size() > 1000 && !s_warnedBig.exchange(true)) {
