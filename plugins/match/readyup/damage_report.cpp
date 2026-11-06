@@ -57,7 +57,7 @@ constexpr double kCardSeconds = 12.0;
 // The card's words in o.lang, from the numbers: again when the player's language changes.
 void LocalizeRows(Outgoing& o) {
   auto inHits = [&](int dmg, int hits) {
-    return hits == 0 ? std::string("0") : text::ForLang(o.lang, "dmg.in", {{"dmg", std::to_string(dmg)}, {"hits", std::to_string(hits)}});
+    return hits == 0 ? std::string("0") : text::ForLang(o.lang, "dmg.in", {{"dmg", std::to_string(dmg)}, {"count", std::to_string(hits)}});
   };
   for (auto& r : o.rows) {
     r.given = inHits(r.dmg, r.hitsGiven);

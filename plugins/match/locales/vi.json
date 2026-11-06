@@ -441,7 +441,7 @@
   "restore.restored_live": "hiệp {round} đã được {by} khôi phục. Bắt đầu sau 3 giây.",
   "restore.restored_paused": "hiệp {round} đã được {by} khôi phục. Trận đang tạm dừng; gõ .unpause khi sẵn sàng.",
   "dmg.line": "Gây: {given} trong {given_hits} lần | Nhận: {taken} trong {taken_hits} lần — {name} ({hp} HP)",
-  "dmg.in": "{dmg} / {hits}",
+  "dmg.in_other": "{dmg} với {count} phát",
   "dmg.dead": "CHẾT",
   "dmg.col_given": "GÂY",
   "dmg.col_taken": "NHẬN",

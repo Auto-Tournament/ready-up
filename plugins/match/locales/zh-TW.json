@@ -441,7 +441,7 @@
   "restore.restored_live": "第 {round} 回合已由 {by} 恢復。3 秒後開始。",
   "restore.restored_paused": "第 {round} 回合已由 {by} 恢復。比賽已暫停；準備好後輸入 .unpause。",
   "dmg.line": "造成：{given}（{given_hits} 次命中）| 受到：{taken}（{taken_hits} 次命中）— {name}（{hp} HP）",
-  "dmg.in": "{dmg} / {hits}",
+  "dmg.in_other": "{dmg}，命中 {count} 次",
   "dmg.dead": "陣亡",
   "dmg.col_given": "造成",
   "dmg.col_taken": "受到",

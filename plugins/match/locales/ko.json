@@ -441,7 +441,7 @@
   "restore.restored_live": "{by}이(가) {round}라운드를 복원했습니다. 3초 후 라이브.",
   "restore.restored_paused": "{by}이(가) {round}라운드를 복원했습니다. 경기가 일시정지 중입니다. 준비되면 .unpause를 입력하세요.",
   "dmg.line": "준 피해: {given} ({given_hits}회) | 받은 피해: {taken} ({taken_hits}회) — {name} ({hp} HP)",
-  "dmg.in": "{dmg} / {hits}",
+  "dmg.in_other": "{dmg} ({count}회)",
   "dmg.dead": "사망",
   "dmg.col_given": "준 피해",
   "dmg.col_taken": "받은 피해",
