@@ -3,6 +3,7 @@
 readyup_add_plugin(whitelist whitelist_plugin.cpp whitelist_rules.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp)
 target_include_directories(readyup_plugin_whitelist PRIVATE ${CMAKE_SOURCE_DIR}/libs)
 target_compile_definitions(readyup_plugin_whitelist PRIVATE WHITELIST_VERSION="${READYUP_SEMVER}")
+readyup_embed_locales(readyup_plugin_whitelist ${CMAKE_CURRENT_SOURCE_DIR}/locales)
 
 # whitelist.json and who gets kicked (whitelist_rules.h; ctest `whitelist_rules`).
 add_executable(whitelist_rules_test tests/whitelist_rules_test.cpp whitelist_rules.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp)

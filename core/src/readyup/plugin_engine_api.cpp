@@ -12,6 +12,9 @@
 #include "readyup/features.h"
 #include "readyup/grenades.h"
 #include "readyup/logging.h"
+#include "readyup/chat.h"
+#include "readyup/client_print.h"
+#include "readyup/player_language.h"
 #include "readyup/license_status.h"
 #include "readyup/plugin_loader.h"
 #include "readyup/practice_engine.h"
@@ -289,6 +292,37 @@ const void* ApiSurfaceRttiVtable(ru_plugin* self, const char* key) {
   return reinterpret_cast<const void*>(*vt);
 }
 
+uint64_t SteamIdOfSlot(int slot) {
+  for (const auto& h : ListHumans()) {
+    if (h.slot == slot) return h.steamid64;
+  }
+  return 0;
+}
+
+const char* ApiPlayerLanguage(ru_plugin* self, int slot) {
+  if (!CheckGameThread(self, "player_language") || slot < 0) return lang::ServerDefault();
+  return lang::ForSteamId(SteamIdOfSlot(slot));
+}
+
+int ApiSetPlayerLanguage(ru_plugin* self, uint64_t steamid64, const char* code) {
+  if (!CheckGameThread(self, "set_player_language") || steamid64 == 0) return 0;
+  if (!code || !*code) {
+    lang::SetFromPlugin(steamid64, nullptr);
+    return 1;
+  }
+  const lang::Language* l = lang::Find(code);
+  if (!l) return 0;
+  lang::SetFromPlugin(steamid64, l);
+  return 1;
+}
+
+int ApiChatToSlotEx(ru_plugin* self, int slot, const char* msg, uint32_t flags) {
+  if (!CheckGameThread(self, "chat_to_slot_ex") || !msg || !*msg || slot < 0) return 0;
+  if (flags & RU_CHAT_IMPORTANT) return SendImportantToSlotChat(slot, msg) ? 1 : 0;
+  if (flags & RU_CHAT_RAW) return ClientPrintChat(slot, msg) ? 1 : 0;
+  return SendToSlotChat(slot, msg) ? 1 : 0;
+}
+
 int ApiRunChatCommand(ru_plugin* self, int slot, const char* text) {
   if (!CheckGameThread(self, "run_chat_command") || !text || !*text || slot < 0) return 0;
   for (const auto& h : ListHumans()) {
@@ -532,6 +566,9 @@ void detail::FillEngineApi(ru_api* a) {
   a->license_key = &ApiLicenseKey;                                // v1.16
   a->surface_rtti_vtable = &ApiSurfaceRttiVtable;                 // v1.17
   a->run_chat_command = &ApiRunChatCommand;                       // v1.18
+  a->player_language = &ApiPlayerLanguage;                        // v1.19
+  a->set_player_language = &ApiSetPlayerLanguage;
+  a->chat_to_slot_ex = &ApiChatToSlotEx;
 }
 
 }  // namespace readyup::plugins

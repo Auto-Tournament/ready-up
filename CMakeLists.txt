@@ -380,6 +380,10 @@ target_compile_options(readyup_i18n_test PRIVATE -Wall -Wextra)
 readyup_embed_locales(readyup_i18n_test ${CMAKE_SOURCE_DIR}/tests/fixtures/locales)
 add_test(NAME i18n COMMAND readyup_i18n_test)
 readyup_embed_locales(server_shim ${CMAKE_SOURCE_DIR}/core/locales)
+add_executable(readyup_i18n_api_test tests/i18n_api_test.cpp)
+target_include_directories(readyup_i18n_api_test PRIVATE ${CMAKE_SOURCE_DIR}/libs ${CMAKE_SOURCE_DIR}/core/include)
+target_compile_options(readyup_i18n_api_test PRIVATE -Wall -Wextra)
+add_test(NAME i18n_api COMMAND readyup_i18n_api_test)
 
 # Each player's language: codes, CS2 names, player_languages.json (core/src/readyup/player_language.h).
 add_executable(readyup_player_language_test tests/player_language_test.cpp core/src/readyup/player_language.cpp

@@ -199,6 +199,20 @@ they disappear on unload.
 
 `license` joins the reserved core `ru` subcommands.
 
+### v1.19 (implemented)
+
+| Member | Thread | Purpose |
+|---|---|---|
+| `player_language(self, slot)` | game | the player's language code (`de`, `pt-BR`, ...): their `.lang`, else `set_player_language`, else readyup.cfg `language`; slot -1 = the server's |
+| `set_player_language(self, steamid64, code)` | game | the platform's language for a player (fleet); `.lang` wins; not saved |
+| `chat_to_slot_ex(self, slot, msg, flags)` | game | `chat_to_slot` with `chat_all`'s flags (prefix, `RU_CHAT_RAW`, `RU_CHAT_IMPORTANT`) |
+
+Plugins keep their text in `locales/<code>.json` (docs/DEVELOPMENT.md, Translations) and look it
+up with `libs/readyup/i18n.h`; `libs/readyup/i18n_api.h` adds `LanguageOf(api, slot)` and
+`ChatAll(api, flags, text)`, which sends one `chat_all` when every player shares a language and
+otherwise one line per player in their own. `plugins/whitelist` is the example. `.lang` is a core
+chat command, like `.ru`.
+
 ### v1.10 (implemented)
 
 | Member | Thread | Purpose |
