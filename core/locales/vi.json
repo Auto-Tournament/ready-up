@@ -1,6 +1,7 @@
 {
   "lang.current": "Ngôn ngữ của bạn: {language}. Đổi bằng .lang <mã> ({codes}) hoặc .lang reset.",
   "lang.set": "Đã đặt ngôn ngữ là {language}.",
+  "lang.set_temporary": "Đã đặt ngôn ngữ là {language} đến trận tiếp theo của bạn. Muốn giữ lại, hãy đổi trên trang web.",
   "lang.reset": "Đã về ngôn ngữ mặc định: {language}.",
   "lang.unknown": "Không rõ ngôn ngữ \"{name}\". Hãy chọn một trong: {codes}"
 }

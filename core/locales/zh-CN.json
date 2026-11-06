@@ -1,6 +1,7 @@
 {
   "lang.current": "你的语言：{language}。用 .lang <代码>（{codes}）切换，或用 .lang reset 还原。",
   "lang.set": "语言已设为 {language}。",
+  "lang.set_temporary": "语言已设为 {language}，直到你的下一场比赛。要一直使用，请在网站上更改。",
   "lang.reset": "已恢复默认语言：{language}。",
   "lang.unknown": "未知语言“{name}”。可选：{codes}"
 }

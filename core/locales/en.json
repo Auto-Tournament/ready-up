@@ -1,6 +1,7 @@
 {
   "lang.current": "Your language: {language}. Change it with .lang <code> ({codes}), or .lang reset.",
   "lang.set": "Language set to {language}.",
+  "lang.set_temporary": "Language set to {language} until your next match. To keep it, change it on the site.",
   "lang.reset": "Back to the default language: {language}.",
   "lang.unknown": "Unknown language \"{name}\". Use one of: {codes}"
 }

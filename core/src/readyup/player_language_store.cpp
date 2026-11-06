@@ -85,8 +85,19 @@ void SetChosen(uint64_t steamid64, const Language* lang) {
 void SetFromPlugin(uint64_t steamid64, const Language* lang) {
   if (steamid64 == 0) return;
   std::lock_guard<std::mutex> lk(g_mu);
-  if (lang) g_fromPlugin[steamid64] = lang;
-  else g_fromPlugin.erase(steamid64);
+  if (!lang) {
+    g_fromPlugin.erase(steamid64);
+    return;
+  }
+  g_fromPlugin[steamid64] = lang;
+  // The platform's language wins: a `.lang` choice lasts until the platform sends one again.
+  LoadLocked();
+  if (g_chosen.erase(steamid64)) SaveLocked();
+}
+
+bool HasPluginLanguage(uint64_t steamid64) {
+  std::lock_guard<std::mutex> lk(g_mu);
+  return g_fromPlugin.count(steamid64) > 0;
 }
 
 }  // namespace readyup::lang

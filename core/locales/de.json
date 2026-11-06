@@ -1,6 +1,7 @@
 {
   "lang.current": "Deine Sprache: {language}. Ändern mit .lang <Code> ({codes}) oder .lang reset.",
   "lang.set": "Sprache auf {language} gestellt.",
+  "lang.set_temporary": "Sprache bis zu deinem nächsten Match auf {language} gestellt. Dauerhaft änderst du sie auf der Website.",
   "lang.reset": "Zurück zur Standardsprache: {language}.",
   "lang.unknown": "Unbekannte Sprache „{name}“. Verfügbar: {codes}"
 }

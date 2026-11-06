@@ -1,6 +1,7 @@
 {
   "lang.current": "Твоя мова: {language}. Змінити: .lang <код> ({codes}) або .lang reset.",
   "lang.set": "Мову змінено: {language}.",
+  "lang.set_temporary": "Мову змінено до твого наступного матчу: {language}. Щоб вона лишилася, зміни її на сайті.",
   "lang.reset": "Повернули мову за замовчуванням: {language}.",
   "lang.unknown": "Невідома мова «{name}». Обери одну з: {codes}"
 }

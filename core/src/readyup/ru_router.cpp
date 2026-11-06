@@ -139,7 +139,9 @@ void HandleLang(uint64_t steamid64, const std::vector<std::string>& parts, int s
     return;
   }
   lang::SetChosen(steamid64, l);
-  reply(t.Tr(l->code, "lang.set", {{"language", l->native}}));
+  // On a platform server the site language comes back with the next match (SetFromPlugin).
+  const char* key = lang::HasPluginLanguage(steamid64) ? "lang.set_temporary" : "lang.set";
+  reply(t.Tr(l->code, key, {{"language", l->native}}));
 }
 
 }  // namespace

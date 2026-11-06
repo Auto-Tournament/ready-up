@@ -1,6 +1,7 @@
 {
   "lang.current": "Tu idioma: {language}. Cámbialo con .lang <código> ({codes}) o .lang reset.",
   "lang.set": "Idioma cambiado a {language}.",
+  "lang.set_temporary": "Idioma cambiado a {language} hasta tu próxima partida. Para mantenerlo, cámbialo en el sitio.",
   "lang.reset": "De vuelta al idioma predeterminado: {language}.",
   "lang.unknown": "Idioma desconocido «{name}». Elige uno de: {codes}"
 }

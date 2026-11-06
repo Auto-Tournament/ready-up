@@ -1,6 +1,7 @@
 {
   "lang.current": "Kielesi: {language}. Vaihda komennolla .lang <koodi> ({codes}) tai .lang reset.",
   "lang.set": "Kieleksi asetettiin {language}.",
+  "lang.set_temporary": "Kieleksi asetettiin {language} seuraavaan otteluusi asti. Vaihda se sivustolla, niin se pysyy.",
   "lang.reset": "Takaisin oletuskieleen: {language}.",
   "lang.unknown": "Tuntematon kieli ”{name}”. Valitse jokin näistä: {codes}"
 }

@@ -1,6 +1,7 @@
 {
   "lang.current": "Språket ditt: {language}. Bytt med .lang <kode> ({codes}) eller .lang reset.",
   "lang.set": "Språket er satt til {language}.",
+  "lang.set_temporary": "Språket er satt til {language} fram til neste kamp. Bytt på nettstedet for å beholde det.",
   "lang.reset": "Tilbake til standardspråket: {language}.",
   "lang.unknown": "Ukjent språk «{name}». Velg et av disse: {codes}"
 }
