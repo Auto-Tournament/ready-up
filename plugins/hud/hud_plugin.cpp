@@ -938,13 +938,21 @@ int ParseScale(const std::string& s) {
 
 // "HUD out of date" (#ui_ver in at_ui, hud_addon.h): `check` and `v-<kAddonVersion>` for everyone,
 // the text in each player's language. Once a second, so a cleared slot (ScreenForget) or a new
-// language gets its text back. An addon that knows the version hides the notice itself.
+// language gets its text back. An addon that knows the version hides the notice itself. While
+// another plugin puts `hold` on #ui_ver (match.so: knife round to the end of the map), `check` is
+// off: nobody needs telling mid-match.
 double g_verNextAt = 0;
 void AddonVersionTick() {
   if (g_now < g_verNextAt) return;
   g_verNextAt = g_now + 1.0;
   const int h = IfOpen(kUiLayout);
-  IfSetClass(h, RU_HUD_ALL, "ui_ver", "check", 1);
+  bool hold = false;
+  if (Layout* l = LayoutOf(h)) {
+    const auto& cls = l->slots[RU_HUD_ALL].classes;
+    const auto it = cls.find(Key{"ui_ver", "hold"});
+    hold = it != cls.end() && it->second;
+  }
+  IfSetClass(h, RU_HUD_ALL, "ui_ver", "check", hold ? 0 : 1);
   const std::string ver = "v-" + std::to_string(kAddonVersion);
   IfSetClass(h, RU_HUD_ALL, "ui_ver", ver.c_str(), 1);
   IfSetText(h, RU_HUD_ALL, "ui_ver_t", "text", g_text.Tr("en", "hud.outdated").c_str());

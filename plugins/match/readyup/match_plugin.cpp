@@ -41,6 +41,7 @@
 #include "readyup/match_router.h"
 #include "readyup/match_settings.h"
 #include "readyup/match_status.h"
+#include "readyup/end_screen.h"
 #include "readyup/modes.h"
 #include "readyup/persisted_settings.h"
 #include "readyup/player_registry.h"
@@ -304,6 +305,7 @@ void OnTick(void*, const ru_tick_info* t) {
       // One-off cards before the HUD: the HUD leaves a player's panel alone while one is up.
       if (FeatureEnabled(Feature::MatchFlow)) s.Run("golive_card", [] { GoLiveCardTick(); });
       s.Run("result_card", [] { ResultCardTick(); });  // map / series result (result_card.h)
+      s.Run("hud_outdated", [] { HudOutdatedHoldTick(); });  // "HUD out of date" in warmup only
       s.Run("admin_call", [] { AdminCallTick(); });  // `.admin` cards for in-game admins (admin_call.h)
       if (FeatureEnabled(Feature::WelcomeHtml)) s.Run("welcome", [] { WelcomeTick(); });
       if (FeatureEnabled(Feature::ReadyHud)) s.Run("ready_hud", [] { ReadyHudTick(); });  // skips welcome cards
@@ -336,6 +338,9 @@ void OnEvent(void*, const ru_event* e) {
       fleet_bridge::OnMapStart();
       match_recovery::OnMapStart();  // a recovery changing to the match map continues
       ModesOnMapStart();  // the mode's rules again, also on a reload of the same map
+      // The last map's leaderboard goes with it: hud.so pushes its state again on the new map, so a
+      // countdown that outlived the map change kept it up on the next map (de_train, 2026-11-07).
+      EndScreenHide();
       // Every map of a real match starts without bots: the gamemode cfg brings bot_quota back on
       // each level change, and a bot alive on a team kept a joining player spectating it (live
       // test, map 2). ApplyLoadedMatch did this only once, before the first map change.

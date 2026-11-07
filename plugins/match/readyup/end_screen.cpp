@@ -176,7 +176,9 @@ constexpr int kUsedCols = static_cast<int>(sizeof(kColumns) / sizeof(kColumns[0]
 // The look, as utility classes on #at_end / #at_ecard (hud/styles/at_kit.css, end screen utilities).
 // 110 %: with the game hidden the card can be bigger, its text read small at 90 % (2026-11-03).
 // Only the leaderboard scales; the other HUDs keep their size.
-constexpr const char* kScale = "scale-110";
+// 95 % (2026-11-07): at 110 % the card ran off both sides of a 1920x1080 screen (at 100 % it already
+// reached the edges there), so the first and last columns were cut.
+constexpr const char* kScale = "scale-95";
 // No world blur: the game is hidden behind the brand background, so only our leaderboard shows
 // (2026-11-03; before, the card sat on the clear game).
 constexpr const char* kBlur = "blur-0";
