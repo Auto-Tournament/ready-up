@@ -56,7 +56,7 @@ trap 'rm -rf "$WORK"' EXIT
 EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 SUFFIX="$VERSION-linuxsteamrt64.zip"
 
-for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so plugins/practice.so plugins/essentials.so plugins/deathmatch.so plugins/mapvote.so plugins/community.so plugins/movement.so plugins/addons.so plugins/tv.so plugins/hud.so; do
+for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so plugins/practice.so plugins/essentials.so plugins/deathmatch.so plugins/retakes.so plugins/mapvote.so plugins/community.so plugins/movement.so plugins/addons.so plugins/tv.so plugins/hud.so; do
   [[ -f "$BUILD/$f" ]] || { echo "package-release: missing $BUILD/$f" >&2; exit 1; }
 done
 
@@ -185,6 +185,10 @@ stage_component whitelist "Only listed players may stay on the server (off until
 stage_component deathmatch "Deathmatch: free for all / team deathmatch with kill + time limits and a leaderboard (off until .ru dm ffa|tdm)" \
   "$BUILD/plugins/deathmatch.so:plugins/deathmatch.so:755" \
   "$ROOT_DIR/plugins/deathmatch/needs.json:plugins/deathmatch.needs.json"
+# Retakes (on CS2's own retake spawns): runs when loaded on a map that has them.
+stage_component retakes "Retakes: the bomb is planted, Ts hold the site, CTs retake it (CS2's own retake spawns)" \
+  "$BUILD/plugins/retakes.so:plugins/retakes.so:755" \
+  "$ROOT_DIR/plugins/retakes/needs.json:plugins/retakes.needs.json"
 
 # Map voting (.rtv, .nominate, end-of-map vote) for community servers: off until [mapvote] maps= lists maps,
 # and always off while a match is loaded.
@@ -240,6 +244,7 @@ make_zip "ready-up-midas-$SUFFIX" midas
 make_zip "ready-up-addons-$SUFFIX" addons
 make_zip "ready-up-whitelist-$SUFFIX" whitelist
 make_zip "ready-up-deathmatch-$SUFFIX" deathmatch
+make_zip "ready-up-retakes-$SUFFIX" retakes
 make_zip "ready-up-mapvote-$SUFFIX" mapvote
 make_zip "ready-up-community-$SUFFIX" community
 make_zip "ready-up-movement-$SUFFIX" movement
@@ -249,7 +254,7 @@ make_zip "ready-up-practice-$SUFFIX" practice
 make_zip "ready-up-essentials-plugin-$SUFFIX" essentials
 make_zip "ready-up-fleet-$SUFFIX" fleet
 make_zip "ready-up-essentials-$SUFFIX" core essentials match fleet practice mapvote hud addons
-full=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community movement addons tv hud)
+full=(core essentials match fleet practice skins midas whitelist deathmatch retakes mapvote community movement addons tv hud)
 [[ -d "$WORK/c/tools" ]] && full+=(tools)
 make_zip "ready-up-full-$SUFFIX" "${full[@]}"
 

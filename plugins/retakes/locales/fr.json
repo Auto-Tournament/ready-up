@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes : {map} n’a pas de positions de retake. Passez sur une carte qui en a (de_mirage, de_inferno, de_dust2…).",
+  "queue.waiting": "Retakes : le serveur est plein. Vous êtes n° {place} dans la file et jouerez dès qu’une place se libère.",
+  "teams.scrambled": "Retakes : les T ont gagné trop de manches d’affilée, les équipes sont donc mélangées.",
+  "round.hold": "Tenez {site} : la bombe est posée. Gardez les CT loin d’elle.",
+  "round.retake": "Reprenez {site} : la bombe est posée. Reprenez le site."
+}

@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes: kartalla {map} ei ole retake-paikkoja. Vaihda kartalle, jolla niitä on (de_mirage, de_inferno, de_dust2…).",
+  "queue.waiting": "Retakes: palvelin on täynnä. Olet jonossa {place}. ja pääset pelaamaan, kun paikka vapautuu.",
+  "teams.scrambled": "Retakes: T:t voittivat liian monta erää putkeen, joten joukkueet sekoitetaan.",
+  "round.hold": "Pidä {site}: pommi on asetettu. Pidä CT:t poissa sen luota.",
+  "round.retake": "Ota {site} takaisin: pommi on asetettu. Valtaa paikka takaisin."
+}

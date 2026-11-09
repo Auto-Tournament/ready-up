@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes: {map} nemá pozice pro retake. Přepněte na mapu, která je má (de_mirage, de_inferno, de_dust2…).",
+  "queue.waiting": "Retakes: server je plný. Jste {place}. ve frontě a zahrajete si, jakmile se uvolní místo.",
+  "teams.scrambled": "Retakes: T vyhráli příliš mnoho kol v řadě, týmy se proto zamíchají.",
+  "round.hold": "Udržte {site}: bomba je položená. Nepouštějte k ní CT.",
+  "round.retake": "Získejte zpět {site}: bomba je položená. Vezměte místo zpět."
+}

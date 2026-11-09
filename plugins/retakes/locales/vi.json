@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes: {map} không có vị trí retake. Hãy đổi sang bản đồ có (de_mirage, de_inferno, de_dust2...).",
+  "queue.waiting": "Retakes: máy chủ đã đầy. Bạn đứng thứ {place} trong hàng chờ và sẽ chơi khi có chỗ trống.",
+  "teams.scrambled": "Retakes: phe T thắng quá nhiều ván liên tiếp nên các đội được xáo lại.",
+  "round.hold": "Giữ {site}: bom đã được đặt. Đừng để CT lại gần.",
+  "round.retake": "Chiếm lại {site}: bom đã được đặt. Giành lại khu vực."
+}
