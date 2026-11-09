@@ -77,7 +77,7 @@ struct Settings {
 const char* const kCvars[] = {
     // Competitive rules; CS2's own retakes mode (game_mode 5) must not run alongside.
     "game_type 0",                 "game_mode 1",
-    "mp_autoteambalance 0",        "mp_limitteams 0",            "mp_do_warmup_period 0",
+    "mp_autoteambalance 0",        "mp_limitteams 0",
     "mp_buy_allow_guns 0",         "mp_buy_anywhere 0",          "mp_afterroundmoney 0",
     "mp_give_player_c4 0",         "mp_halftime 0",              "mp_match_can_clinch 0",
     "mp_maxmoney 0",               "mp_startmoney 0",            "mp_playercashawards 0",
@@ -130,6 +130,15 @@ const ru_match_v1* Match() {
 
 uint64_t IdOf(const ru_player& p) { return p.steamid64 ? p.steamid64 : static_cast<uint64_t>(p.slot + 1); }
 
+// SourceTV is listed as a bot (on a team, 2026-11-09): CBasePlayerController::m_bIsHLTV.
+bool IsHltv(int slot) {
+  static const int off = g_api->schema_offset(g_api->self, "CBasePlayerController", "m_bIsHLTV");
+  void* ctrl = off > 0 ? g_api->entity_by_index(g_api->self, slot + 1) : nullptr;
+  bool hltv = false;
+  if (ctrl) std::memcpy(&hltv, static_cast<unsigned char*>(ctrl) + off, sizeof hltv);
+  return hltv;
+}
+
 std::vector<ru_player> Players() {
   std::vector<ru_player> out;
   g_api->for_each_player(
@@ -138,7 +147,8 @@ std::vector<ru_player> Players() {
         if (!p->connected) return 1;
         ru_player q = *p;
         if (q.slot < 0 && q.is_bot) q.slot = q.userid;  // the log id is the slot (as match.so does)
-        if (q.slot >= 0 && q.slot < 64) static_cast<std::vector<ru_player>*>(u)->push_back(q);
+        if (q.slot >= 0 && q.slot < 64 && !(q.is_bot && IsHltv(q.slot)))
+          static_cast<std::vector<ru_player>*>(u)->push_back(q);
         return 1;
       },
       &out);
