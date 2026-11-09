@@ -560,6 +560,22 @@ TEST(TestOwnedCmds) {
   CHECK(!ParseWhitelistSet(J(R"({"enabled": true, "steamids": ["123"]})"), &enabled, &ids, &err));
 
   int pon = 0, palways = 0;
+  // mapvote.set {maps}: map names and workshop entries; [] clears; each checked.
+  {
+    std::vector<std::string> pool;
+    CHECK(ParseMapvoteSet(J(R"({"maps": ["surf_utopia_v3", "workshop/3070212801/surf_kitsune"]})"), &pool, &err) &&
+          pool.size() == 2 && pool[1] == "workshop/3070212801/surf_kitsune");
+    CHECK(ParseMapvoteSet(J(R"({"maps": []})"), &pool, &err) && pool.empty());
+    CHECK(!ParseMapvoteSet(J(R"({})"), &pool, &err));
+    CHECK(!ParseMapvoteSet(J(R"({"maps": ["de_dust2; quit"]})"), &pool, &err));
+    CHECK(!ParseMapvoteSet(J(R"({"maps": ["a,b"]})"), &pool, &err));
+    CHECK(!ParseMapvoteSet(J(R"({"maps": [""]})"), &pool, &err));
+    bool load = false;
+    CHECK(ParseMapvoteSet(J(R"({"maps": ["de_dust2"], "load": true})"), &pool, &err, &load) && load);
+    CHECK(!ParseMapvoteSet(J(R"({"maps": [], "load": true})"), &pool, &err, &load));
+    CHECK(!ParseMapvoteSet(J(R"({"maps": ["de_dust2"], "load": "yes"})"), &pool, &err, &load));
+    CHECK(OwnedByFleet("mapvote.set"));
+  }
   CHECK(ParsePracticeSet(J(R"({"on": true})"), &pon, &palways, &err) && pon == 1 && palways == -1);
   CHECK(ParsePracticeSet(J(R"({"on": true, "always": true})"), &pon, &palways, &err) && pon == 1 && palways == 1);
   CHECK(ParsePracticeSet(J(R"({"always": false})"), &pon, &palways, &err) && pon == -1 && palways == 0);

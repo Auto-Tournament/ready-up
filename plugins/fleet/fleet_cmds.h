@@ -1,6 +1,6 @@
 // The platform commands fleet.so runs itself (FLEET.md §7.4), so a server without the match plugin
 // (a practice server: core + fleet + practice) still takes them: plugins.set, whitelist.set,
-// practice.set, say and tv.set (the tv plugin validates its own args, readyup.tv.v1). Every other cmd goes to the plugins that registered for "cmd" (the match
+// practice.set, mapvote.set, say and tv.set (the tv plugin validates its own args, readyup.tv.v1). Every other cmd goes to the plugins that registered for "cmd" (the match
 // plugin); without one, fleet.so answers it as unsupported. No engine calls here: parsing and the
 // cmd.result payload (fleet_plugin.cpp runs them).
 #pragma once
@@ -14,7 +14,7 @@
 
 namespace fleet::cmds {
 
-// plugins.set, whitelist.set, practice.set, say, tv.set.
+// plugins.set, whitelist.set, practice.set, mapvote.set, say, tv.set.
 bool OwnedByFleet(const std::string& name);
 
 // plugins.set {enable?: [name], disable?: [name]}: [a-z0-9_-]{1,32}, at most 16 each, not both
@@ -29,6 +29,12 @@ bool ParseWhitelistSet(const json::Value& args, bool* enabled, std::vector<uint6
 bool ParsePracticeSet(const json::Value& args, int* on, int* always, std::string* err, bool* hasHomeMap = nullptr,
                       std::string* homeMap = nullptr, bool* hasHomeCvars = nullptr,
                       std::vector<std::string>* homeCvars = nullptr);
+// mapvote.set {maps: [string], load?: bool}: the map vote pool, map names or Workshop entries
+// (workshop/<id>[/<name>]), at most kMapvotePoolMax, each at most 200 bytes with no spaces,
+// quotes or semicolons. [] clears it (mapvote.cfg's maps= again). mapvote.so stores it.
+// load: also load the first map now (a saved setup starting on the server).
+constexpr size_t kMapvotePoolMax = 64;
+bool ParseMapvoteSet(const json::Value& args, std::vector<std::string>* maps, std::string* err, bool* load = nullptr);
 // say: control characters dropped, at most `maxBytes` bytes (cut on a UTF-8 boundary).
 constexpr size_t kSayLineBytes = 190;
 constexpr size_t kSayMaxLines = 3;

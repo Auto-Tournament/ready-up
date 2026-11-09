@@ -38,6 +38,7 @@
 #include "readyup/fleet_iface.h"
 #include "readyup/hud_iface.h"
 #include "readyup/license_checkin.h"
+#include "readyup/mapvote_iface.h"
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
 #include "readyup/plugin_needs_iface.h"
@@ -746,6 +747,25 @@ fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Valu
       const char* why = "";
       if (p->set_active(on, &why) != 1) return Rejected("bad_phase", why && *why ? why : "refused");
     }
+    return Ok();
+  }
+  if (name == "mapvote.set") {
+    // {maps: [entry], load?}: a saved setup's map pool; [] gives the server mapvote.cfg's again.
+    // load: the first map now, through essentials (its change card and Workshop download).
+    std::vector<std::string> maps;
+    bool load = false;
+    if (!ParseMapvoteSet(args, &maps, &err, &load)) return Rejected("bad_args", err);
+    const auto* e = load ? static_cast<const ru_essentials_v1*>(g_api->get_interface(
+                               g_api->self, RU_ESSENTIALS_IFACE_NAME, RU_ESSENTIALS_IFACE_VERSION))
+                         : nullptr;
+    if (load && (!e || !e->load_map)) return Rejected("unsupported", "load needs essentials.so");
+    const auto* m = static_cast<const ru_mapvote_v1*>(
+        g_api->get_interface(g_api->self, RU_MAPVOTE_IFACE_NAME, RU_MAPVOTE_IFACE_VERSION));
+    if (!m || !m->set_pool) return Rejected("unsupported", "the map vote plugin (mapvote.so) is not loaded");
+    std::vector<const char*> ptrs;
+    for (const auto& e : maps) ptrs.push_back(e.c_str());
+    if (m->set_pool(ptrs.data(), static_cast<uint32_t>(ptrs.size())) != 1) return Failed("io", "pool.txt could not be saved");
+    if (load && e->load_map(maps[0].c_str()) != 1) return Rejected("bad_args", "the first map could not be loaded");
     return Ok();
   }
   if (name == "say") {
