@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes: {map} har ingen retake-plasseringer. Bytt til et kart som har det (de_mirage, de_inferno, de_dust2 …).",
+  "queue.waiting": "Retakes: serveren er full. Du er nummer {place} i køen og spiller når det blir ledig plass.",
+  "teams.scrambled": "Retakes: T-laget vant for mange runder på rad, så lagene stokkes om.",
+  "round.hold": "Hold {site}: bomben er plantet. Hold CT-ene unna den.",
+  "round.retake": "Ta tilbake {site}: bomben er plantet. Vinn området tilbake."
+}

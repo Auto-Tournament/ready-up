@@ -158,6 +158,7 @@ echo "addons:";     no_skins addons;     check_manifests "$WORK/addons" addons; 
 echo "whitelist:";  no_skins whitelist;  check_manifests "$WORK/whitelist" whitelist
 echo "practice:";   no_skins practice;   check_manifests "$WORK/practice" practice
 echo "deathmatch:"; no_skins deathmatch; check_manifests "$WORK/deathmatch" deathmatch
+echo "retakes:";    no_skins retakes;    check_manifests "$WORK/retakes" retakes
 echo "mapvote:";    no_skins mapvote;    check_manifests "$WORK/mapvote" mapvote
 echo "community:";  no_skins community;  check_manifests "$WORK/community" community
 echo "tv:";         no_skins tv;         check_manifests "$WORK/tv" tv
@@ -172,6 +173,7 @@ if [[ -e "$WORK/core/readyup/bin/linuxsteamrt64/engine-surface.practice.json" ]]
 for b in core essentials; do
   if [[ -e "$WORK/$b/readyup/plugins/midas.so" ]]; then bad "$b contains midas.so"; else ok "$b: no midas.so"; fi
   if [[ -e "$WORK/$b/readyup/plugins/deathmatch.so" ]]; then bad "$b contains deathmatch.so"; else ok "$b: no deathmatch.so"; fi
+  if [[ -e "$WORK/$b/readyup/plugins/retakes.so" ]]; then bad "$b contains retakes.so"; else ok "$b: no retakes.so"; fi
 done
 if [[ -e "$WORK/core/readyup/plugins/addons.so" ]]; then bad "core contains addons.so"; else ok "core: no addons.so"; fi
 if [[ -e "$WORK/match/readyup/cfg-templates/ReadyUp/deathmatch.cfg" ]]; then bad "match ships deathmatch.cfg"; else ok "match: no deathmatch.cfg"; fi

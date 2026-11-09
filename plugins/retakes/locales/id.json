@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes: {map} tidak punya posisi retake. Ganti ke peta yang punya (de_mirage, de_inferno, de_dust2...).",
+  "queue.waiting": "Retakes: server penuh. Anda nomor {place} di antrean dan bermain saat ada tempat kosong.",
+  "teams.scrambled": "Retakes: T menang terlalu banyak ronde berturut-turut, jadi tim diacak.",
+  "round.hold": "Tahan {site}: bom sudah dipasang. Jauhkan CT dari bom.",
+  "round.retake": "Rebut {site}: bom sudah dipasang. Rebut kembali area itu."
+}

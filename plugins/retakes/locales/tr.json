@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes: {map} haritasında retake konumu yok. Konumu olan bir haritaya geç (de_mirage, de_inferno, de_dust2...).",
+  "queue.waiting": "Retakes: sunucu dolu. Sırada {place}. sıradasın, yer açılınca oynayacaksın.",
+  "teams.scrambled": "Retakes: T'ler üst üste çok fazla raunt kazandı, bu yüzden takımlar karıştırılıyor.",
+  "round.hold": "{site} bölgesini tut: bomba kuruldu. CT'leri ondan uzak tut.",
+  "round.retake": "{site} bölgesini geri al: bomba kuruldu. Bölgeyi geri kazan."
+}

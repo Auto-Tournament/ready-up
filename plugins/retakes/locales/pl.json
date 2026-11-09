@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes: {map} nie ma pozycji do retake. Zmień mapę na taką, która je ma (de_mirage, de_inferno, de_dust2…).",
+  "queue.waiting": "Retakes: serwer jest pełny. Jesteś {place}. w kolejce i zagrasz, gdy zwolni się miejsce.",
+  "teams.scrambled": "Retakes: TT wygrali za dużo rund z rzędu, więc drużyny zostają przemieszane.",
+  "round.hold": "Utrzymaj {site}: bomba podłożona. Nie dopuść do niej CT.",
+  "round.retake": "Odbij {site}: bomba podłożona. Odzyskaj bombsite."
+}

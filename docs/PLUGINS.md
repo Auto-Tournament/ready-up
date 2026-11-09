@@ -101,6 +101,15 @@ Owns the server's GOTV settings so they hold for a whole series: `delay_seconds`
 </details>
 
 <details>
+<summary><b>Retakes</b> (<code>plugins/retakes</code>): the bomb is planted, Ts hold, CTs retake, Full bundle</summary>
+
+<br />
+
+On a map with CS2's own retake spawns (`maps/<map>_retake.txt`, read from the server's `pak01_dir.vpk`), every round starts with the bomb planted on a random site: the Ts hold it, the CTs retake it. 45 % T, a queue past `max_players` (9), the teams shuffled after `scramble_after` (5) T wins in a row, the CTs who scored attack after a CT win. Loadouts from CS2's default-loadout cvars, no money. Runs as the match plugin's external mode `retakes`; a match load ends it. `ru retakes`, `ru retakes site a|b|random`. See [docs/RETAKES.md](RETAKES.md).
+
+</details>
+
+<details>
 <summary><b>Deathmatch</b> (<code>plugins/deathmatch</code>): FFA / team deathmatch, Full bundle</summary>
 
 <br />
