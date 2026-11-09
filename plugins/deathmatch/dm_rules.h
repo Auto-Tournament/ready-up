@@ -28,6 +28,7 @@ struct Settings {
   int timeLimitMinutes = 10;       // time_limit_minutes: then the leader wins (0 = no limit)
   int spawnProtectionSeconds = 2;  // spawn_protection_seconds -> mp_respawn_immunitytime
   bool headshotOnly = false;       // headshot_only -> mp_damage_headshot_only
+  bool reloadOnKill = false;       // reload_on_kill: a kill refills the killer's magazine
   bool hud = true;                 // hud: leaderboard panel
   int hudIntervalMs = 1000;        // hud_interval_ms: panel resend (0 = every tick)
   int endDelaySeconds = 10;        // end_delay_seconds: winner card, then the next game
@@ -62,6 +63,10 @@ bool ValidWeapon(const std::string& w);
 bool IsPistol(const std::string& w);
 // Default-loadout cvars that hand out `weapon` on every spawn ("" = back to the normal loadout).
 std::vector<std::string> WeaponRoundCommands(const std::string& weapon, bool restrictBuy);
+
+// Magazine size of a gun by its item definition index (m_iItemDefinitionIndex), 0 for anything
+// without one (knives, grenades, the Zeus, unknown items). reload_on_kill refills to this.
+int MagazineSize(int itemDefIndex);
 
 // "weapon_deagle" -> "Desert Eagle" for the common ones, else the name without "weapon_".
 std::string WeaponLabel(const std::string& weapon);

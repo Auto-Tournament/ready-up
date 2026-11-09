@@ -80,6 +80,7 @@ Settings LoadSettings(const ConfigLookup& get, std::vector<std::string>* warning
   num("time_limit_minutes", 0, 600, &s.timeLimitMinutes);
   num("spawn_protection_seconds", 0, 30, &s.spawnProtectionSeconds);
   flag("headshot_only", &s.headshotOnly);
+  flag("reload_on_kill", &s.reloadOnKill);
   flag("hud", &s.hud);
   num("hud_interval_ms", 0, 10000, &s.hudIntervalMs);
   num("end_delay_seconds", 3, 120, &s.endDelaySeconds);
@@ -179,6 +180,48 @@ std::vector<std::string> WeaponRoundCommands(const std::string& weapon, bool res
   }
   c.push_back(restrictBuy ? "mp_buy_allow_guns 0" : "mp_buy_allow_guns 255");
   return c;
+}
+
+// shortcut: CS2's magazine sizes as of 1.41.9, by item definition index; reading the weapon's own
+// VData would follow balance changes, but the plugin API has no call for it yet.
+int MagazineSize(int itemDefIndex) {
+  switch (itemDefIndex) {
+    case 1: return 7;      // weapon_deagle
+    case 2: return 30;     // weapon_elite
+    case 3: return 20;     // weapon_fiveseven
+    case 4: return 20;     // weapon_glock
+    case 7: return 30;     // weapon_ak47
+    case 8: return 30;     // weapon_aug
+    case 9: return 5;      // weapon_awp
+    case 10: return 25;    // weapon_famas
+    case 11: return 20;    // weapon_g3sg1
+    case 13: return 35;    // weapon_galilar
+    case 14: return 100;   // weapon_m249
+    case 16: return 30;    // weapon_m4a1 (M4A4)
+    case 17: return 30;    // weapon_mac10
+    case 19: return 50;    // weapon_p90
+    case 23: return 30;    // weapon_mp5sd
+    case 24: return 25;    // weapon_ump45
+    case 25: return 7;     // weapon_xm1014
+    case 26: return 64;    // weapon_bizon
+    case 27: return 5;     // weapon_mag7
+    case 28: return 150;   // weapon_negev
+    case 29: return 7;     // weapon_sawedoff
+    case 30: return 18;    // weapon_tec9
+    case 32: return 13;    // weapon_hkp2000
+    case 33: return 30;    // weapon_mp7
+    case 34: return 30;    // weapon_mp9
+    case 35: return 8;     // weapon_nova
+    case 36: return 13;    // weapon_p250
+    case 38: return 20;    // weapon_scar20
+    case 39: return 30;    // weapon_sg556
+    case 40: return 10;    // weapon_ssg08
+    case 60: return 20;    // weapon_m4a1_silencer
+    case 61: return 12;    // weapon_usp_silencer
+    case 63: return 12;    // weapon_cz75a
+    case 64: return 8;     // weapon_revolver
+    default: return 0;
+  }
 }
 
 std::string WeaponLabel(const std::string& weapon) {

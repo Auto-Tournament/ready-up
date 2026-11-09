@@ -8,23 +8,39 @@
     "center_html_to_slot_prio",
     "chat_all",
     "chat_to_slot",
+    "entity_from_handle",
+    "entity_mark_changed",
+    "entity_system_status",
     "on_tick",
     "register_ru_subcommand",
+    "schema_offset",
     "subscribe_game_event"
   ],
   "surface": [
+    "CBaseEntity_NetworkStateChanged",
     "CCommand",
+    "CEntityInstance::NetworkStateChanged",
     "CGameEventManager",
     "CGameEventManager_Init",
+    "CSchemaSystem",
+    "CSchemaSystemTypeScope",
     "CServerSideClient_GameEventLegacyProxy",
     "ClientPrint",
     "ISource2GameClients::ClientCommand",
     "ISource2Server::GameFrame",
     "LegacyGameEventListener",
-    "UTIL_ClientPrintAll"
+    "UTIL_ClientPrintAll",
+    "UTIL_Remove"
   ],
   "schema": [],
-  "schema_optional": [],
+  "schema_optional": [
+    "CAttributeContainer.m_Item",
+    "CBasePlayerPawn.m_pWeaponServices",
+    "CBasePlayerWeapon.m_iClip1",
+    "CEconEntity.m_AttributeManager",
+    "CEconItemView.m_iItemDefinitionIndex",
+    "CPlayer_WeaponServices.m_hActiveWeapon"
+  ],
   "events": [
     "player_death"
   ]

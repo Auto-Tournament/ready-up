@@ -60,6 +60,7 @@ static void TestModesAndSettings() {
   const Settings d = FromMap({});
   CHECK(d.killLimitFfa == 30 && d.killLimitTdm == 100 && d.timeLimitMinutes == 10 && d.spawnProtectionSeconds == 2);
   CHECK(!d.headshotOnly && d.hud && d.hudIntervalMs == 1000 && d.endDelaySeconds == 10 && !d.restartReloadsMap);
+  CHECK(!d.reloadOnKill);
   CHECK(d.weaponRounds.empty() && d.weaponRoundEveryMinutes == 0 && d.restoreGameType == 0 && d.restoreGameMode == 1);
 
   std::vector<std::string> warnings;
@@ -68,6 +69,7 @@ static void TestModesAndSettings() {
                               {"time_limit_minutes", "0"},
                               {"spawn_protection_seconds", "99"},  // out of range: default
                               {"headshot_only", "yes"},
+                              {"reload_on_kill", "1"},
                               {"hud", "0"},
                               {"hud_interval_ms", "250"},
                               {"restart", "reload"},
@@ -79,7 +81,11 @@ static void TestModesAndSettings() {
                              &warnings);
   CHECK(s.killLimitFfa == 25 && s.killLimitTdm == 150 && s.timeLimitMinutes == 0);
   CHECK(s.spawnProtectionSeconds == 2 && s.endDelaySeconds == 10);
-  CHECK(s.headshotOnly && !s.hud && s.hudIntervalMs == 250 && s.restartReloadsMap);
+  CHECK(s.headshotOnly && s.reloadOnKill && !s.hud && s.hudIntervalMs == 250 && s.restartReloadsMap);
+  // Magazines by item definition index: the M4A1-S and USP-S share their base gun's entity class.
+  CHECK(MagazineSize(7) == 30 && MagazineSize(9) == 5 && MagazineSize(1) == 7 && MagazineSize(64) == 8);
+  CHECK(MagazineSize(16) == 30 && MagazineSize(60) == 20 && MagazineSize(32) == 13 && MagazineSize(61) == 12);
+  CHECK(MagazineSize(42) == 0 && MagazineSize(31) == 0 && MagazineSize(0) == 0);  // knife, Zeus, none
   CHECK(s.weaponRounds.size() == 3 && s.weaponRounds[0] == "weapon_deagle" && s.weaponRounds[1] == "weapon_awp" &&
         s.weaponRounds[2] == "weapon_ssg08");
   CHECK(s.weaponRoundEveryMinutes == 3 && s.weaponRoundSeconds == 45 && s.weaponRoundRestrictBuy);

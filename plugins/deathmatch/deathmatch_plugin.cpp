@@ -525,6 +525,60 @@ void OnRu(void*, const ru_command_ctx* c) {
   else Reply(c, Text(TrOf(c), r));
 }
 
+// ---- reload_on_kill --------------------------------------------------------------------------------
+
+struct WeaponOffsets {
+  bool resolved = false;
+  int weaponServices = -1;  // CBasePlayerPawn::m_pWeaponServices (ptr)
+  int activeWeapon = -1;    // CPlayer_WeaponServices::m_hActiveWeapon (CHandle)
+  int clip1 = -1;           // CBasePlayerWeapon::m_iClip1
+  int attrManager = -1;     // CEconEntity::m_AttributeManager
+  int item = -1;            // CAttributeContainer::m_Item
+  int defIndex = -1;        // CEconItemView::m_iItemDefinitionIndex
+  bool Ok() const {
+    return weaponServices >= 0 && activeWeapon >= 0 && clip1 >= 0 && attrManager >= 0 && item >= 0 && defIndex >= 0;
+  }
+} g_weapon;
+
+bool ResolveWeaponOffsets() {
+  if (g_weapon.resolved) return g_weapon.Ok();
+  if (g_api->entity_system_status(g_api->self) != RU_ENTSYS_OK) return false;
+  auto F = [](const char* c, const char* f) { return g_api->schema_offset(g_api->self, c, f); };
+  g_weapon.weaponServices = F("CBasePlayerPawn", "m_pWeaponServices");
+  g_weapon.activeWeapon = F("CPlayer_WeaponServices", "m_hActiveWeapon");
+  g_weapon.clip1 = F("CBasePlayerWeapon", "m_iClip1");
+  g_weapon.attrManager = F("CEconEntity", "m_AttributeManager");
+  g_weapon.item = F("CAttributeContainer", "m_Item");
+  g_weapon.defIndex = F("CEconItemView", "m_iItemDefinitionIndex");
+  g_weapon.resolved = true;
+  if (!g_weapon.Ok()) Log("deathmatch: weapon schema fields missing; reload_on_kill does nothing");
+  return g_weapon.Ok();
+}
+
+// reload_on_kill: the killer's gun in hand gets a full magazine.
+void RefillMagazine(const ru_game_event* ev) {
+  const ru_api* a = g_api;
+  if (!ResolveWeaponOffsets()) return;
+  auto* pawn = static_cast<unsigned char*>(a->ev_get_player_pawn(a->self, ev, "attacker"));
+  if (!pawn) return;
+  void* services = nullptr;
+  std::memcpy(&services, pawn + g_weapon.weaponServices, sizeof(services));
+  if (!services) return;
+  uint32_t handle = 0;
+  std::memcpy(&handle, static_cast<unsigned char*>(services) + g_weapon.activeWeapon, sizeof(handle));
+  auto* weapon = static_cast<unsigned char*>(a->entity_from_handle(a->self, handle));
+  if (!weapon) return;
+  uint16_t def = 0;
+  std::memcpy(&def, weapon + g_weapon.attrManager + g_weapon.item + g_weapon.defIndex, sizeof(def));
+  const int32_t full = MagazineSize(def);
+  int32_t clip = 0;
+  std::memcpy(&clip, weapon + g_weapon.clip1, sizeof(clip));
+  if (full <= 0 || clip >= full) return;
+  std::memcpy(weapon + g_weapon.clip1, &full, sizeof(full));
+  a->entity_mark_changed(a->self, weapon);
+  if (a->debug_enabled(a->self)) Log("deathmatch: reload_on_kill: item %d, magazine %d -> %d", def, clip, full);
+}
+
 // ---- engine callbacks -----------------------------------------------------------------------------
 
 void OnPlayerDeath(void*, const char* name, const ru_game_event* ev) {
@@ -538,6 +592,7 @@ void OnPlayerDeath(void*, const char* name, const ru_game_event* ev) {
   if (attacker.id) g.board.SeePlayer(attacker.id, attacker.name, attacker.team);
   const double now = Now();
   if (!g.board.OnKill(g.mode, attacker.id, attacker.team, victim.id, victim.team, hs, now)) return;
+  if (g.settings.reloadOnKill) RefillMagazine(ev);
   const Outcome o = CheckEnd(g.mode, g.board, g.settings, Elapsed(now));
   if (o.over) EndGame(now, o);
 }
