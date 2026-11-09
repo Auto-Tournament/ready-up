@@ -570,6 +570,10 @@ TEST(TestOwnedCmds) {
     CHECK(!ParseMapvoteSet(J(R"({"maps": ["de_dust2; quit"]})"), &pool, &err));
     CHECK(!ParseMapvoteSet(J(R"({"maps": ["a,b"]})"), &pool, &err));
     CHECK(!ParseMapvoteSet(J(R"({"maps": [""]})"), &pool, &err));
+    bool load = false;
+    CHECK(ParseMapvoteSet(J(R"({"maps": ["de_dust2"], "load": true})"), &pool, &err, &load) && load);
+    CHECK(!ParseMapvoteSet(J(R"({"maps": [], "load": true})"), &pool, &err, &load));
+    CHECK(!ParseMapvoteSet(J(R"({"maps": ["de_dust2"], "load": "yes"})"), &pool, &err, &load));
     CHECK(OwnedByFleet("mapvote.set"));
   }
   CHECK(ParsePracticeSet(J(R"({"on": true})"), &pon, &palways, &err) && pon == 1 && palways == -1);

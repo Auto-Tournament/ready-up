@@ -69,7 +69,7 @@ bool ParseWhitelistSet(const json::Value& args, bool* enabled, std::vector<uint6
   return true;
 }
 
-bool ParseMapvoteSet(const json::Value& args, std::vector<std::string>* maps, std::string* err) {
+bool ParseMapvoteSet(const json::Value& args, std::vector<std::string>* maps, std::string* err, bool* load) {
   const json::Value* v = args.Get("maps");
   if (!v || !v->IsArr()) return Fail(err, "maps must be an array of strings");
   if (v->a.size() > kMapvotePoolMax) return Fail(err, "maps: at most " + std::to_string(kMapvotePoolMax));
@@ -80,7 +80,14 @@ bool ParseMapvoteSet(const json::Value& args, std::vector<std::string>* maps, st
     if (!ok) return Fail(err, "maps: each a map name or workshop/<id>[/<name>]");
     out.push_back(m.s);
   }
+  bool l = false;
+  if (const json::Value* v = args.Get("load"); v && !v->IsNull()) {
+    if (v->t != json::Value::T::Bool) return Fail(err, "load must be a boolean");
+    l = v->b;
+  }
+  if (l && out.empty()) return Fail(err, "load needs a map in maps");
   if (maps) *maps = std::move(out);
+  if (load) *load = l;
   return true;
 }
 

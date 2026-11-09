@@ -29,11 +29,12 @@ bool ParseWhitelistSet(const json::Value& args, bool* enabled, std::vector<uint6
 bool ParsePracticeSet(const json::Value& args, int* on, int* always, std::string* err, bool* hasHomeMap = nullptr,
                       std::string* homeMap = nullptr, bool* hasHomeCvars = nullptr,
                       std::vector<std::string>* homeCvars = nullptr);
-// mapvote.set {maps: [string]}: the map vote pool, map names or Workshop entries
+// mapvote.set {maps: [string], load?: bool}: the map vote pool, map names or Workshop entries
 // (workshop/<id>[/<name>]), at most kMapvotePoolMax, each at most 200 bytes with no spaces,
 // quotes or semicolons. [] clears it (mapvote.cfg's maps= again). mapvote.so stores it.
+// load: also load the first map now (a saved setup starting on the server).
 constexpr size_t kMapvotePoolMax = 64;
-bool ParseMapvoteSet(const json::Value& args, std::vector<std::string>* maps, std::string* err);
+bool ParseMapvoteSet(const json::Value& args, std::vector<std::string>* maps, std::string* err, bool* load = nullptr);
 // say: control characters dropped, at most `maxBytes` bytes (cut on a UTF-8 boundary).
 constexpr size_t kSayLineBytes = 190;
 constexpr size_t kSayMaxLines = 3;
