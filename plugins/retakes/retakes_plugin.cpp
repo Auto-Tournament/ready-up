@@ -7,8 +7,12 @@
 //                   who scored attack after a CT win) and the team changes;
 //   round_start     a site, everyone on that site's spawns, the planter on the most central T spawn;
 //   freeze end      the bomb is planted where the planter stands (a planted_c4 entity).
-//   round_poststart everyone's rifle (`.guns`, kept in <data_dir>/guns.txt), one AWP per team
-//                   drawn from who wants it; Deagle, armor + helmet and kits are CS2's own cvars.
+//   round_poststart weapons stripped (the knife stays), then everyone's rifle (`.guns`, kept in
+//                   <data_dir>/guns.txt; one AWP per team drawn from who wants it), a Deagle, armor
+//                   + helmet and, on CT, a kit. `.guns` within kSwapSeconds of that, before the
+//                   first shot, swaps the rifle at once.
+// Bots play like everyone else (the core lists them without a slot; their log id is the slot).
+// The cvars go in again every round_prestart: a map reload runs CS2's gamemode cfg over them.
 // HUD (hud.so, readyup.hud.v1; chat without it): the `.guns` menu, a centre panel in freeze time
 // (Retake / Hold <site>, the players on each side), the queue card (at_kit #at_card) while waiting.
 // While it runs, the match plugin is in external mode "retakes" (readyup.match.v1), so no scrim
@@ -27,6 +31,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
+#include <chrono>
 #include <cstring>
 #include <fstream>
 #include <functional>
@@ -72,7 +77,8 @@ struct Settings {
 const char* const kCvars[] = {
     // Competitive rules; CS2's own retakes mode (game_mode 5) must not run alongside.
     "game_type 0",                 "game_mode 1",
-    "bot_quota 0",                 "mp_autoteambalance 0",       "mp_limitteams 0",
+    "mp_autoteambalance 0",        "mp_limitteams 0",            "mp_do_warmup_period 0",
+    "mp_buy_allow_guns 0",         "mp_buy_anywhere 0",          "mp_afterroundmoney 0",
     "mp_give_player_c4 0",         "mp_halftime 0",              "mp_match_can_clinch 0",
     "mp_maxmoney 0",               "mp_startmoney 0",            "mp_playercashawards 0",
     "mp_teamcashawards 0",         "mp_buytime 0",               "mp_freezetime 1",
@@ -100,7 +106,12 @@ struct State {
   float plantPos[3] = {0, 0, 0};
   bool plantPending = false;
   int round = 0;
+  double equippedAt = 0;  // round_poststart
+  std::set<int> fired;    // slots that fired this round
 } g;
+
+constexpr double kSwapSeconds = 10;  // .guns swaps the rifle this long after the round's loadout
+double Now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 
 std::map<uint64_t, retakes::Loadout> g_guns;  // <data_dir>/guns.txt
 std::string g_gunsFile;
@@ -124,7 +135,10 @@ std::vector<ru_player> Players() {
   g_api->for_each_player(
       g_api->self,
       [](void* u, const ru_player* p) {
-        if (p->connected && p->slot >= 0) static_cast<std::vector<ru_player>*>(u)->push_back(*p);
+        if (!p->connected) return 1;
+        ru_player q = *p;
+        if (q.slot < 0 && q.is_bot) q.slot = q.userid;  // the log id is the slot (as match.so does)
+        if (q.slot >= 0 && q.slot < 64) static_cast<std::vector<ru_player>*>(u)->push_back(q);
         return 1;
       },
       &out);
@@ -265,6 +279,68 @@ void SaveGuns() {
   if (!f) Log(RU_LOG_WARN, "retakes: could not write %s", g_gunsFile.c_str());
 }
 
+// ---- weapons ----------------------------------------------------------------------------------
+
+bool Running();
+bool CanEquip() {
+  return RU_API_HAS(g_api, player_give_item) && g_api->player_give_item && RU_API_HAS(g_api, entity_remove) &&
+         g_api->entity_remove;
+}
+
+// Held weapons by owner (m_hOwnerEntity, the pawn's handle), knives left out. One pass.
+std::map<uint32_t, std::vector<void*>> HeldWeapons() {
+  std::map<uint32_t, std::vector<void*>> out;
+  const int owner = g_api->schema_offset(g_api->self, "CBaseEntity", "m_hOwnerEntity");
+  if (owner <= 0) return out;
+  for (int i = 65; i < 16384; ++i) {
+    void* e = g_api->entity_by_index(g_api->self, i);
+    const char* cls = e ? g_api->entity_classname(g_api->self, e) : nullptr;
+    if (!cls || std::strncmp(cls, "weapon_", 7) != 0 || std::strstr(cls, "knife") || std::strstr(cls, "bayonet")) continue;
+    uint32_t h = 0;
+    std::memcpy(&h, static_cast<unsigned char*>(e) + owner, sizeof h);
+    out[h].push_back(e);
+  }
+  return out;
+}
+
+uint32_t PawnHandle(int slot) {
+  const int off = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_hPlayerPawn");
+  void* ctrl = off > 0 ? g_api->entity_by_index(g_api->self, slot + 1) : nullptr;
+  uint32_t h = 0xFFFFFFFFu;
+  if (ctrl) std::memcpy(&h, static_cast<unsigned char*>(ctrl) + off, sizeof h);
+  return h;
+}
+
+// CS2 hands out the player's own pick for a shared loadout slot ("GiveNamedItem: interpreting
+// weapon_m4a1 as ..."): the item is set back to the one asked for.
+void Give(int slot, const std::string& cls) {
+  static const std::map<std::string, const char*> kDef = {
+      {"weapon_m4a1", "16"}, {"weapon_m4a1_silencer", "60"}, {"weapon_deagle", "1"}};
+  void* w = g_api->player_give_item(g_api->self, slot, cls.c_str());
+  const auto it = kDef.find(cls);
+  if (w && it != kDef.end() && RU_API_HAS(g_api, entity_change_subclass) && g_api->entity_change_subclass)
+    g_api->entity_change_subclass(g_api->self, w, it->second);
+}
+
+bool IsPickable(const char* cls) {
+  for (const auto& gun : retakes::Guns())
+    if (cls && std::strcmp(cls, gun.cls) == 0) return true;
+  return false;
+}
+
+// all: strip every weapon but the knife and give the round's loadout; else only swap the rifle.
+void Equip(int slot, bool ct, const std::string& primary, std::map<uint32_t, std::vector<void*>>& held, bool all) {
+  const auto it = held.find(PawnHandle(slot));
+  if (it != held.end())
+    for (void* w : it->second)
+      if (all || IsPickable(g_api->entity_classname(g_api->self, w))) g_api->entity_remove(g_api->self, w);
+  Give(slot, primary);
+  if (!all) return;
+  Give(slot, "weapon_deagle");
+  g_api->player_give_item(g_api->self, slot, "item_assaultsuit");
+  if (ct) g_api->player_give_item(g_api->self, slot, "item_defuser");
+}
+
 // The .guns menu: both sides' rifles (players change sides all the time) and the AWP draw. Each
 // button carries CS2's own weapon icon (at_ui.css wpn-*; an addon without them shows the label).
 void OnMenuClick(void*, int slot, const char* command);
@@ -298,8 +374,17 @@ void CloseMenu(int slot) {
 void SetGun(int slot, uint64_t id, const std::string& word) {
   retakes::Loadout l = LoadoutOf(id);
   if (!retakes::PickGun(word, &l)) return ChatSlotKey(slot, "guns.usage");
+  const retakes::Loadout before = LoadoutOf(id);
   g_guns[id] = l;
   SaveGuns();
+  // Early in the round and no shot yet: the new rifle now, not next round.
+  ru_player p{};
+  if (Running() && CanEquip() && Now() - g.equippedAt <= kSwapSeconds && !g.fired.count(slot) &&
+      g_api->get_player(g_api->self, slot, &p)) {
+    auto held = HeldWeapons();
+    if (p.team == RU_TEAM_T && l.t != before.t) Equip(slot, false, l.t, held, false);
+    if (p.team == RU_TEAM_CT && l.ct != before.ct) Equip(slot, true, l.ct, held, false);
+  }
   if (g_gunsOpen.count(slot)) ShowGuns(slot, id);
   else ChatSlotKey(slot, l.awp ? "guns.saved_awp" : "guns.saved", {{"t", GunName(l.t)}, {"ct", GunName(l.ct)}});
 }
@@ -327,6 +412,17 @@ void ShowRound(int slot, bool ct, int cts, int ts) {
                            Tr(slot, ct ? "round.retake_title" : "round.hold_title", {{"site", site}}) +
                            "\nteams=CT|" + std::to_string(std::min(cts, 5)) + "|5|T|" + std::to_string(std::min(ts, 5)) +
                            "|5\nenter=flip\n";
+  h->menu(slot, kMenuOwner, spec.c_str(), &OnMenuClick, nullptr);
+}
+
+// After freeze time: a small pill at the bottom, the site for the rest of the round.
+void ShowPill(int slot, bool ct) {
+  const ru_hud_v1* h = MenuHud();
+  if (!h || g_gunsOpen.count(slot)) return;
+  const std::string site = g.site == 0 ? "A" : "B";
+  const std::string spec = "id=retakes-pill-" + std::to_string(g.round) + "\nwhere=card\nsize=mini\ncls=at-low\ncolor=" +
+                           (ct ? "acc" : "warn") + "\nkind=" +
+                           Tr(slot, ct ? "round.retake_title" : "round.hold_title", {{"site", site}}) + "\n";
   h->menu(slot, kMenuOwner, spec.c_str(), &OnMenuClick, nullptr);
 }
 
@@ -366,6 +462,10 @@ void HideQueue(int slot) {
 
 bool Running() { return g_set.enabled && g.spawnsOk && g.on; }
 
+void ApplyCvars() {
+  for (const char* c : kCvars) g_api->server_command(g_api->self, c);
+}
+
 void Start() {
   const ru_match_v1* m = Match();
   if (m && m->set_external_mode && m->set_external_mode("retakes") != 1) {
@@ -373,8 +473,7 @@ void Start() {
     return;
   }
   g.on = true;
-  for (const char* c : kCvars) g_api->server_command(g_api->self, c);
-  g_api->server_command(g_api->self, "bot_kick");
+  ApplyCvars();
   Log(RU_LOG_INFO, "retakes: on %s", g.map.c_str());
 }
 
@@ -395,6 +494,7 @@ void OnMapStart(void*, const ru_event*) {
 
 void OnRoundPrestart(void*, const char*, const ru_game_event*) {
   if (!Running()) return;
+  ApplyCvars();
   // Every player on a team plays; spectators who want in wait in order.
   std::vector<retakes::Player> list;
   const auto players = Players();
@@ -446,7 +546,8 @@ void OnRoundStart(void*, const char*, const ru_game_event*) {
     if (p.team == RU_TEAM_T) t.push_back(IdOf(p));
     if (p.team == RU_TEAM_CT) ct.push_back(IdOf(p));
   }
-  const retakes::RoundSpawns placed = retakes::PlaceRound(site, t, ct, Plantable(site), kShuffle);
+  const std::vector<int> plant = Plantable(site);
+  const retakes::RoundSpawns placed = retakes::PlaceRound(site, t, ct, plant, kShuffle);
   static const float kStill[3] = {0, 0, 0};
   auto put = [&](const retakes::Placement& pl, const std::vector<retakes::Spawn>& list) {
     if (pl.spawn < 0 || !slotOf.count(pl.id)) return;
@@ -455,12 +556,9 @@ void OnRoundStart(void*, const char*, const ru_game_event*) {
   };
   for (const auto& pl : placed.t) put(pl, site.t);
   for (const auto& pl : placed.ct) put(pl, site.ct);
-  g.plantPending = false;
-  for (const auto& pl : placed.t) {
-    if (pl.id != placed.planter || pl.spawn < 0) continue;
-    std::memcpy(g.plantPos, site.t[static_cast<size_t>(pl.spawn)].pos, sizeof g.plantPos);
-    g.plantPending = true;
-  }
+  // The bomb goes on the site's plant spot even with no T to stand there.
+  g.plantPending = !plant.empty();
+  if (g.plantPending) std::memcpy(g.plantPos, site.t[static_cast<size_t>(plant[0])].pos, sizeof g.plantPos);
   ++g.round;
   const std::string letter = g.site == 0 ? "A" : "B";
   const bool hud = MenuHud() != nullptr;
@@ -468,14 +566,17 @@ void OnRoundStart(void*, const char*, const ru_game_event*) {
   for (const auto& p : Players()) {
     if (p.team != RU_TEAM_T && p.team != RU_TEAM_CT) continue;
     const bool ct = p.team == RU_TEAM_CT;
+    if (p.is_bot) continue;
     if (hud) ShowRound(p.slot, ct, cts, ts);
     else ChatSlotKey(p.slot, ct ? "round.retake" : "round.hold", {{"site", letter}});
   }
 }
 
-// Everyone's rifle; one AWP per team, drawn from the players who want it.
+// Everyone's loadout; one AWP per team, drawn from the players who want it.
 void OnPostStart(void*, const char*, const ru_game_event*) {
-  if (!Running() || !RU_API_HAS(g_api, player_give_item) || !g_api->player_give_item) return;
+  g.equippedAt = Now();
+  g.fired.clear();
+  if (!Running() || !CanEquip()) return;
   const auto players = Players();
   std::vector<int> want[2];  // T, CT: slots in the AWP draw
   for (const auto& p : players)
@@ -484,11 +585,12 @@ void OnPostStart(void*, const char*, const ru_game_event*) {
   int awper[2] = {-1, -1};
   for (int s = 0; s < 2; ++s)
     if (!want[s].empty()) awper[s] = want[s][g_rng() % want[s].size()];
+  auto held = HeldWeapons();
   for (const auto& p : players) {
     if (p.team != RU_TEAM_T && p.team != RU_TEAM_CT) continue;
     const bool ct = p.team == RU_TEAM_CT;
     const retakes::Loadout l = LoadoutOf(p.steamid64);
-    g_api->player_give_item(g_api->self, p.slot, p.slot == awper[ct] ? "weapon_awp" : ct ? l.ct.c_str() : l.t.c_str());
+    Equip(p.slot, ct, p.slot == awper[ct] ? "weapon_awp" : ct ? l.ct : l.t, held, true);
   }
 }
 
@@ -496,10 +598,19 @@ void OnFreezeEnd(void*, const char*, const ru_game_event*) {
   if (!Running() || !g.plantPending) return;
   g.plantPending = false;
   if (!Plant(g.plantPos, g.site)) Log(RU_LOG_WARN, "retakes: the bomb could not be planted (CS2 build?)");
-  // The round panel goes; CS2's own bomb timer takes over.
-  if (const ru_hud_v1* h = MenuHud())
+  // The round panel becomes a small pill at the bottom for the rest of the round.
+  if (MenuHud())
     for (const auto& p : Players())
-      if (!g_gunsOpen.count(p.slot)) h->menu(p.slot, kMenuOwner, "", nullptr, nullptr);
+      if (!p.is_bot && (p.team == RU_TEAM_T || p.team == RU_TEAM_CT)) ShowPill(p.slot, p.team == RU_TEAM_CT);
+}
+
+void OnFire(void*, const char*, const ru_game_event* ev) {
+  if (Running()) g.fired.insert(g_api->ev_get_player_slot(g_api->self, ev, "userid"));
+}
+
+// CS2 warmup (a map reload starts one): retakes has none.
+void OnWarmup(void*, const char*, const ru_game_event*) {
+  if (Running()) g_api->server_command(g_api->self, "mp_warmup_end");
 }
 
 void OnDisconnect(void*, const ru_event* ev) {
@@ -511,6 +622,9 @@ void OnDisconnect(void*, const ru_event* ev) {
 
 void OnRoundEnd(void*, const char*, const ru_game_event* ev) {
   if (!Running()) return;
+  if (const ru_hud_v1* h = MenuHud())
+    for (const auto& p : Players())
+      if (!g_gunsOpen.count(p.slot)) h->menu(p.slot, kMenuOwner, "", nullptr, nullptr);
   const int w = g_api->ev_get_int(g_api->self, ev, "winner", 0);
   g.lastWinner = w == RU_TEAM_T ? retakes::kT : w == RU_TEAM_CT ? retakes::kCT : 0;
 }
@@ -605,6 +719,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   sub(api->subscribe_game_event(api->self, "round_end", &OnRoundEnd, nullptr) != 0, "round_end");
   sub(api->subscribe_game_event(api->self, "player_death", &OnDeath, nullptr) != 0, "player_death");
   sub(api->subscribe_game_event(api->self, "bomb_defused", &OnDefused, nullptr) != 0, "bomb_defused");
+  sub(api->subscribe_game_event(api->self, "weapon_fire", &OnFire, nullptr) != 0, "weapon_fire");
+  sub(api->subscribe_game_event(api->self, "round_announce_warmup", &OnWarmup, nullptr) != 0, "round_announce_warmup");
   api->subscribe(api->self, RU_EVENT_MAP_START, &OnMapStart, nullptr);
   api->subscribe(api->self, RU_EVENT_PLAYER_DISCONNECT, &OnDisconnect, nullptr);
   if (!api->register_chat_command(api->self, ".guns", &OnGuns, nullptr))
