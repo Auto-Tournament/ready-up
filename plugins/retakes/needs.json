@@ -44,6 +44,12 @@
  ],
  "schema_optional": [],
  "events": [
-  "<non-literal:e>"
+  "bomb_defused",
+  "player_death",
+  "round_end",
+  "round_freeze_end",
+  "round_poststart",
+  "round_prestart",
+  "round_start"
  ]
 }

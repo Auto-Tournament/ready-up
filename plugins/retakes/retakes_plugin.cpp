@@ -594,16 +594,17 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     g_guns = retakes::ParseLoadouts(text.str());
   }
   api->register_ru_subcommand(api->self, "retakes", &OnRu, nullptr);
-  const struct {
-    const char* name;
-    ru_game_event_fn fn;
-  } events[] = {{"round_prestart", &OnRoundPrestart}, {"round_start", &OnRoundStart},
-                {"round_poststart", &OnPostStart},   {"round_freeze_end", &OnFreezeEnd},
-                {"round_end", &OnRoundEnd},
-                {"player_death", &OnDeath},          {"bomb_defused", &OnDefused}};
-  for (const auto& e : events)
-    if (!api->subscribe_game_event(api->self, e.name, e.fn, nullptr))
-      ru_logf(api, RU_LOG_WARN, "could not subscribe to %s", e.name);
+  // Literal names: compat-report checks each against the CS2 build.
+  auto sub = [&](int ok, const char* name) {
+    if (!ok) ru_logf(api, RU_LOG_WARN, "could not subscribe to %s", name);
+  };
+  sub(api->subscribe_game_event(api->self, "round_prestart", &OnRoundPrestart, nullptr) != 0, "round_prestart");
+  sub(api->subscribe_game_event(api->self, "round_start", &OnRoundStart, nullptr) != 0, "round_start");
+  sub(api->subscribe_game_event(api->self, "round_poststart", &OnPostStart, nullptr) != 0, "round_poststart");
+  sub(api->subscribe_game_event(api->self, "round_freeze_end", &OnFreezeEnd, nullptr) != 0, "round_freeze_end");
+  sub(api->subscribe_game_event(api->self, "round_end", &OnRoundEnd, nullptr) != 0, "round_end");
+  sub(api->subscribe_game_event(api->self, "player_death", &OnDeath, nullptr) != 0, "player_death");
+  sub(api->subscribe_game_event(api->self, "bomb_defused", &OnDefused, nullptr) != 0, "bomb_defused");
   api->subscribe(api->self, RU_EVENT_MAP_START, &OnMapStart, nullptr);
   api->subscribe(api->self, RU_EVENT_PLAYER_DISCONNECT, &OnDisconnect, nullptr);
   if (!api->register_chat_command(api->self, ".guns", &OnGuns, nullptr))
