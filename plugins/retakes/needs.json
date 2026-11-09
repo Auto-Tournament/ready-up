@@ -38,6 +38,7 @@
  ],
  "schema": [
   "CBaseEntity.m_hOwnerEntity",
+  "CBasePlayerController.m_bIsHLTV",
   "CCSGameRules.m_bBombDefused",
   "CCSGameRules.m_bBombPlanted",
   "CCSGameRulesProxy.m_pGameRules",
