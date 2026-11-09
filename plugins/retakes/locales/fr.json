@@ -1,7 +1,24 @@
 {
-  "map.no_spawns": "Retakes : {map} n’a pas de positions de retake. Passez sur une carte qui en a (de_mirage, de_inferno, de_dust2…).",
-  "queue.waiting": "Retakes : le serveur est plein. Vous êtes n° {place} dans la file et jouerez dès qu’une place se libère.",
-  "teams.scrambled": "Retakes : les T ont gagné trop de manches d’affilée, les équipes sont donc mélangées.",
+  "map.no_spawns": "Reprises de contrôle : {map} n’a pas de positions de retake. Passez sur une carte qui en a (de_mirage, de_inferno, de_dust2…).",
+  "queue.waiting": "Reprises de contrôle : le serveur est plein. Vous êtes n° {place} dans la file et jouerez dès qu’une place se libère.",
+  "teams.scrambled": "Reprises de contrôle : les T ont gagné trop de manches d’affilée, les équipes sont donc mélangées.",
   "round.hold": "Tenez {site} : la bombe est posée. Gardez les CT loin d’elle.",
-  "round.retake": "Reprenez {site} : la bombe est posée. Reprenez le site."
+  "round.retake": "Reprenez {site} : la bombe est posée. Reprenez le site.",
+  "guns.kind": "Reprises de contrôle",
+  "guns.close": "Fermer",
+  "guns.title": "Sélectionnez un équipement",
+  "round.retake_title": "Reprenez le site {site} !",
+  "round.hold_title": "Défendez le site {site} !",
+  "guns.sub": "Un fusil pour chaque camp. Votre choix reste pour les manches suivantes.",
+  "guns.awp_sub": "1 par équipe",
+  "guns.hint": "Ou tapez .guns ak, sg, m4, m4s, aug ou awp",
+  "guns.usage": "Tapez .guns pour le menu, ou choisissez directement : .guns ak, sg, m4, m4s, aug ou awp. Un joueur par équipe qui veut l’AWP la reçoit.",
+  "guns.saved": "Vos armes : {t} en T, {ct} en CT.",
+  "guns.saved_awp": "Vos armes : {t} en T, {ct} en CT. Vous participez aussi au tirage de l’AWP.",
+  "round.kind": "Reprises de contrôle · manche {round}",
+  "queue.kind": "File d’attente",
+  "queue.title": "En attente d’une place",
+  "queue.playing": "En jeu",
+  "queue.waiting_count": "En attente",
+  "queue.place": "Votre place"
 }

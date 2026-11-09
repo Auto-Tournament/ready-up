@@ -1,7 +1,24 @@
 {
-  "map.no_spawns": "Retakes: {map} nie ma pozycji do retake. Zmień mapę na taką, która je ma (de_mirage, de_inferno, de_dust2…).",
-  "queue.waiting": "Retakes: serwer jest pełny. Jesteś {place}. w kolejce i zagrasz, gdy zwolni się miejsce.",
-  "teams.scrambled": "Retakes: TT wygrali za dużo rund z rzędu, więc drużyny zostają przemieszane.",
+  "map.no_spawns": "Odbijanie: {map} nie ma pozycji do retake. Zmień mapę na taką, która je ma (de_mirage, de_inferno, de_dust2…).",
+  "queue.waiting": "Odbijanie: serwer jest pełny. Jesteś {place}. w kolejce i zagrasz, gdy zwolni się miejsce.",
+  "teams.scrambled": "Odbijanie: TT wygrali za dużo rund z rzędu, więc drużyny zostają przemieszane.",
   "round.hold": "Utrzymaj {site}: bomba podłożona. Nie dopuść do niej CT.",
-  "round.retake": "Odbij {site}: bomba podłożona. Odzyskaj bombsite."
+  "round.retake": "Odbij {site}: bomba podłożona. Odzyskaj bombsite.",
+  "guns.kind": "Odbijanie",
+  "guns.close": "Zamknij",
+  "guns.title": "Wybierz wyposażenie",
+  "round.retake_title": "Odbij strefę {site}!",
+  "round.hold_title": "Obroń strefę {site}!",
+  "guns.sub": "Jeden karabin na każdą stronę. Twój wybór zostaje na kolejne rundy.",
+  "guns.awp_sub": "1 na drużynę",
+  "guns.hint": "Albo wpisz .guns ak, sg, m4, m4s, aug lub awp",
+  "guns.usage": "Wpisz .guns, aby otworzyć menu, albo wybierz od razu: .guns ak, sg, m4, m4s, aug lub awp. AWP dostaje jeden chętny gracz z każdej drużyny.",
+  "guns.saved": "Twoja broń: {t} jako T, {ct} jako CT.",
+  "guns.saved_awp": "Twoja broń: {t} jako T, {ct} jako CT. Bierzesz też udział w losowaniu AWP.",
+  "round.kind": "Odbijanie · runda {round}",
+  "queue.kind": "Kolejka",
+  "queue.title": "Czekasz na wolne miejsce",
+  "queue.playing": "Grają",
+  "queue.waiting_count": "Czekają",
+  "queue.place": "Twoje miejsce"
 }

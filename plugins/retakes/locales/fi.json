@@ -1,7 +1,24 @@
 {
-  "map.no_spawns": "Retakes: kartalla {map} ei ole retake-paikkoja. Vaihda kartalle, jolla niitä on (de_mirage, de_inferno, de_dust2…).",
-  "queue.waiting": "Retakes: palvelin on täynnä. Olet jonossa {place}. ja pääset pelaamaan, kun paikka vapautuu.",
-  "teams.scrambled": "Retakes: T:t voittivat liian monta erää putkeen, joten joukkueet sekoitetaan.",
+  "map.no_spawns": "Uudelleenvaltaus: kartalla {map} ei ole retake-paikkoja. Vaihda kartalle, jolla niitä on (de_mirage, de_inferno, de_dust2…).",
+  "queue.waiting": "Uudelleenvaltaus: palvelin on täynnä. Olet jonossa {place}. ja pääset pelaamaan, kun paikka vapautuu.",
+  "teams.scrambled": "Uudelleenvaltaus: T:t voittivat liian monta erää putkeen, joten joukkueet sekoitetaan.",
   "round.hold": "Pidä {site}: pommi on asetettu. Pidä CT:t poissa sen luota.",
-  "round.retake": "Ota {site} takaisin: pommi on asetettu. Valtaa paikka takaisin."
+  "round.retake": "Ota {site} takaisin: pommi on asetettu. Valtaa paikka takaisin.",
+  "guns.kind": "Uudelleenvaltaus",
+  "guns.close": "Sulje",
+  "guns.title": "Valitse varustus",
+  "round.retake_title": "Valtaa {site}-alue uudelleen!",
+  "round.hold_title": "Puolusta {site}-aluetta!",
+  "guns.sub": "Yksi kivääri kummallekin puolelle. Valintasi pysyy myös myöhemmissä erissä.",
+  "guns.awp_sub": "1 per joukkue",
+  "guns.hint": "Tai kirjoita .guns ak, sg, m4, m4s, aug tai awp",
+  "guns.usage": "Kirjoita .guns avataksesi valikon, tai valitse suoraan: .guns ak, sg, m4, m4s, aug tai awp. AWP:n saa yksi sitä haluava pelaaja kummastakin joukkueesta.",
+  "guns.saved": "Aseesi: {t} T-puolella, {ct} CT-puolella.",
+  "guns.saved_awp": "Aseesi: {t} T-puolella, {ct} CT-puolella. Olet mukana myös AWP:n arvonnassa.",
+  "round.kind": "Uudelleenvaltaus · erä {round}",
+  "queue.kind": "Jono",
+  "queue.title": "Odotetaan vapaata paikkaa",
+  "queue.playing": "Pelaamassa",
+  "queue.waiting_count": "Odottamassa",
+  "queue.place": "Paikkasi"
 }

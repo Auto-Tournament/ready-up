@@ -3,5 +3,22 @@
   "queue.waiting": "Retakes: servern är full. Du är nummer {place} i kön och spelar när en plats blir ledig.",
   "teams.scrambled": "Retakes: T vann för många rundor i rad, så lagen blandas om.",
   "round.hold": "Håll {site}: bomben är placerad. Håll CT borta från den.",
-  "round.retake": "Ta tillbaka {site}: bomben är placerad. Återta platsen."
+  "round.retake": "Ta tillbaka {site}: bomben är placerad. Återta platsen.",
+  "guns.kind": "Retakes",
+  "guns.close": "Stäng",
+  "guns.title": "Välj utrustning",
+  "round.retake_title": "Återta bombplats {site}!",
+  "round.hold_title": "Försvara bombplats {site}!",
+  "guns.sub": "Ett gevär för varje sida. Ditt val gäller även senare rundor.",
+  "guns.awp_sub": "1 per lag",
+  "guns.hint": "Eller skriv .guns ak, sg, m4, m4s, aug eller awp",
+  "guns.usage": "Skriv .guns för menyn, eller välj direkt: .guns ak, sg, m4, m4s, aug eller awp. En spelare per lag som vill ha AWP:n får den.",
+  "guns.saved": "Dina vapen: {t} som T, {ct} som CT.",
+  "guns.saved_awp": "Dina vapen: {t} som T, {ct} som CT. Du är också med i lottningen om AWP:n.",
+  "round.kind": "Retakes · runda {round}",
+  "queue.kind": "Kö",
+  "queue.title": "Väntar på en ledig plats",
+  "queue.playing": "Spelar",
+  "queue.waiting_count": "Väntar",
+  "queue.place": "Din plats"
 }

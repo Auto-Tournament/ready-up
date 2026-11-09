@@ -1,7 +1,24 @@
 {
-  "map.no_spawns": "Retakes: {map} haritasında retake konumu yok. Konumu olan bir haritaya geç (de_mirage, de_inferno, de_dust2...).",
-  "queue.waiting": "Retakes: sunucu dolu. Sırada {place}. sıradasın, yer açılınca oynayacaksın.",
-  "teams.scrambled": "Retakes: T'ler üst üste çok fazla raunt kazandı, bu yüzden takımlar karıştırılıyor.",
+  "map.no_spawns": "Geri Alma: {map} haritasında retake konumu yok. Konumu olan bir haritaya geç (de_mirage, de_inferno, de_dust2...).",
+  "queue.waiting": "Geri Alma: sunucu dolu. Sırada {place}. sıradasın, yer açılınca oynayacaksın.",
+  "teams.scrambled": "Geri Alma: T'ler üst üste çok fazla raunt kazandı, bu yüzden takımlar karıştırılıyor.",
   "round.hold": "{site} bölgesini tut: bomba kuruldu. CT'leri ondan uzak tut.",
-  "round.retake": "{site} bölgesini geri al: bomba kuruldu. Bölgeyi geri kazan."
+  "round.retake": "{site} bölgesini geri al: bomba kuruldu. Bölgeyi geri kazan.",
+  "guns.kind": "Geri Alma",
+  "guns.close": "Kapat",
+  "guns.title": "Bir ekipman seç",
+  "round.retake_title": "{site} Alanını Geri Al!",
+  "round.hold_title": "{site} Alanını Koru!",
+  "guns.sub": "Her taraf için bir tüfek. Seçimin sonraki raundlarda da geçerli.",
+  "guns.awp_sub": "Takım başına 1",
+  "guns.hint": "Ya da .guns ak, sg, m4, m4s, aug veya awp yaz",
+  "guns.usage": "Menü için .guns yaz ya da hemen seç: .guns ak, sg, m4, m4s, aug veya awp. AWP, her takımdan onu isteyen bir oyuncuya verilir.",
+  "guns.saved": "Silahların: T'de {t}, CT'de {ct}.",
+  "guns.saved_awp": "Silahların: T'de {t}, CT'de {ct}. AWP çekilişine de katılıyorsun.",
+  "round.kind": "Geri Alma · {round}. raund",
+  "queue.kind": "Sıra",
+  "queue.title": "Boş yer bekleniyor",
+  "queue.playing": "Oynayan",
+  "queue.waiting_count": "Bekleyen",
+  "queue.place": "Sıran"
 }

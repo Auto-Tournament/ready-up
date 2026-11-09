@@ -1,7 +1,24 @@
 {
-  "map.no_spawns": "Retakes: a(z) {map} pályán nincsenek retake pozíciók. Válts olyan pályára, ahol vannak (de_mirage, de_inferno, de_dust2…).",
-  "queue.waiting": "Retakes: a szerver tele van. A sorban {place}. vagy, és játszol, amint felszabadul egy hely.",
-  "teams.scrambled": "Retakes: a T-k túl sok kört nyertek egymás után, ezért a csapatok összekeverednek.",
+  "map.no_spawns": "Visszafoglalások: a(z) {map} pályán nincsenek retake pozíciók. Válts olyan pályára, ahol vannak (de_mirage, de_inferno, de_dust2…).",
+  "queue.waiting": "Visszafoglalások: a szerver tele van. A sorban {place}. vagy, és játszol, amint felszabadul egy hely.",
+  "teams.scrambled": "Visszafoglalások: a T-k túl sok kört nyertek egymás után, ezért a csapatok összekeverednek.",
   "round.hold": "Tartsd a(z) {site} pontot: a bomba élesítve. Tartsd távol tőle a CT-ket.",
-  "round.retake": "Foglald vissza a(z) {site} pontot: a bomba élesítve. Szerezd vissza a helyet."
+  "round.retake": "Foglald vissza a(z) {site} pontot: a bomba élesítve. Szerezd vissza a helyet.",
+  "guns.kind": "Visszafoglalások",
+  "guns.close": "Bezár",
+  "guns.title": "Válassz felszerelést",
+  "round.retake_title": "Foglald vissza a(z) „{site}” bombahelyet!",
+  "round.hold_title": "Védd a(z) „{site}” bombahelyet!",
+  "guns.sub": "Egy puska mindkét oldalra. A választásod a következő körökben is megmarad.",
+  "guns.awp_sub": "1 csapatonként",
+  "guns.hint": "Vagy írd be: .guns ak, sg, m4, m4s, aug vagy awp",
+  "guns.usage": "Írd be a .guns parancsot a menühöz, vagy válassz rögtön: .guns ak, sg, m4, m4s, aug vagy awp. Az AWP-t csapatonként egy jelentkező játékos kapja.",
+  "guns.saved": "Fegyvereid: {t} T-ként, {ct} CT-ként.",
+  "guns.saved_awp": "Fegyvereid: {t} T-ként, {ct} CT-ként. Az AWP sorsolásában is részt veszel.",
+  "round.kind": "Visszafoglalások · {round}. kör",
+  "queue.kind": "Sor",
+  "queue.title": "Szabad helyre vársz",
+  "queue.playing": "Játszik",
+  "queue.waiting_count": "Vár",
+  "queue.place": "Helyed"
 }

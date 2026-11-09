@@ -1,7 +1,24 @@
 {
-  "map.no_spawns": "Retakes: {map}에는 리테이크 위치가 없습니다. 위치가 있는 맵으로 바꾸세요(de_mirage, de_inferno, de_dust2 등).",
-  "queue.waiting": "Retakes: 서버가 가득 찼습니다. 대기 순서 {place}번이며, 자리가 나면 플레이합니다.",
-  "teams.scrambled": "Retakes: T가 너무 많이 연속으로 이겨 팀을 섞습니다.",
+  "map.no_spawns": "탈환: {map}에는 리테이크 위치가 없습니다. 위치가 있는 맵으로 바꾸세요(de_mirage, de_inferno, de_dust2 등).",
+  "queue.waiting": "탈환: 서버가 가득 찼습니다. 대기 순서 {place}번이며, 자리가 나면 플레이합니다.",
+  "teams.scrambled": "탈환: T가 너무 많이 연속으로 이겨 팀을 섞습니다.",
   "round.hold": "{site} 사수: 폭탄이 설치되었습니다. CT를 막으세요.",
-  "round.retake": "{site} 탈환: 폭탄이 설치되었습니다. 사이트를 되찾으세요."
+  "round.retake": "{site} 탈환: 폭탄이 설치되었습니다. 사이트를 되찾으세요.",
+  "guns.kind": "탈환",
+  "guns.close": "닫기",
+  "guns.title": "로드아웃 선택",
+  "round.retake_title": "폭파 지점 {site}을 탈환하라!",
+  "round.hold_title": "폭파 지점 {site}을 방어하라!",
+  "guns.sub": "진영마다 소총 하나. 선택은 다음 라운드에도 유지됩니다.",
+  "guns.awp_sub": "팀당 1",
+  "guns.hint": "또는 .guns ak, sg, m4, m4s, aug, awp 입력",
+  "guns.usage": "메뉴는 .guns, 바로 고르려면 .guns ak, sg, m4, m4s, aug, awp. AWP는 원하는 플레이어 중 팀당 한 명이 받습니다.",
+  "guns.saved": "내 무기: T는 {t}, CT는 {ct}.",
+  "guns.saved_awp": "내 무기: T는 {t}, CT는 {ct}. AWP 추첨에도 참여합니다.",
+  "round.kind": "탈환 · {round}라운드",
+  "queue.kind": "대기열",
+  "queue.title": "빈자리를 기다리는 중",
+  "queue.playing": "플레이 중",
+  "queue.waiting_count": "대기 중",
+  "queue.place": "내 순서"
 }
