@@ -91,6 +91,7 @@ start. The shipped template is all comments: the defaults below apply.
 | `time_limit_minutes` | 10 | then the leader wins (0 = no time limit) |
 | `spawn_protection_seconds` | 2 | `mp_respawn_immunitytime` (0-30) |
 | `headshot_only` | 0 | 1 = `mp_damage_headshot_only 1` |
+| `reload_on_kill` | 0 | 1 = a counted kill refills the killer's magazine (the gun in hand; reserve ammo stays as it is) |
 | `hud` | 1 | leaderboard panel |
 | `hud_interval_ms` | 1000 | resend interval; 0 = every tick (steadier panel, see [HUD.md](HUD.md)) |
 | `end_delay_seconds` | 10 | winner card, then the next game (3-120) |
