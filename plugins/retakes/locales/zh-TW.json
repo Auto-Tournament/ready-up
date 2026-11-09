@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes：{map} 沒有回防位置。請換到有回防位置的地圖（de_mirage、de_inferno、de_dust2 等）。",
+  "queue.waiting": "Retakes：伺服器已滿。你在排隊第 {place} 位，有空位時即可上場。",
+  "teams.scrambled": "Retakes：T 方連勝太多回合，隊伍將重新打亂。",
+  "round.hold": "守住 {site}：炸彈已安裝。別讓 CT 靠近。",
+  "round.retake": "奪回 {site}：炸彈已安裝。拿回包點。"
+}

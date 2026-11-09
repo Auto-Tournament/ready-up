@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes: {map} nu are poziții de retake. Schimbă pe o hartă care le are (de_mirage, de_inferno, de_dust2...).",
+  "queue.waiting": "Retakes: serverul e plin. Ești al {place}-lea la coadă și joci când se eliberează un loc.",
+  "teams.scrambled": "Retakes: T au câștigat prea multe runde la rând, așa că echipele se amestecă.",
+  "round.hold": "Ține {site}: bomba e plantată. Ține CT departe de ea.",
+  "round.retake": "Recucerește {site}: bomba e plantată. Ia înapoi zona."
+}

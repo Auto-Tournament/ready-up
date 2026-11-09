@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes: {map} ไม่มีตำแหน่ง retake เปลี่ยนเป็นแผนที่ที่มี (de_mirage, de_inferno, de_dust2...)",
+  "queue.waiting": "Retakes: เซิร์ฟเวอร์เต็ม คุณอยู่ลำดับที่ {place} ในคิว และจะได้เล่นเมื่อมีที่ว่าง",
+  "teams.scrambled": "Retakes: ฝ่าย T ชนะติดต่อกันหลายรอบเกินไป จึงสลับทีมใหม่",
+  "round.hold": "ยึด {site} ไว้: วางระเบิดแล้ว อย่าให้ CT เข้าใกล้",
+  "round.retake": "ยึด {site} คืน: วางระเบิดแล้ว ชิงจุดกลับมา"
+}

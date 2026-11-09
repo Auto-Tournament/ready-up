@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes: {map} heeft geen retakeposities. Kies een map die ze wel heeft (de_mirage, de_inferno, de_dust2 …).",
+  "queue.waiting": "Retakes: de server is vol. Je bent nummer {place} in de rij en speelt zodra er plek is.",
+  "teams.scrambled": "Retakes: de T's wonnen te veel rondes op rij, dus de teams worden gehusseld.",
+  "round.hold": "Houd {site}: de bom ligt. Houd de CT's erbij weg.",
+  "round.retake": "Herover {site}: de bom ligt. Neem de site terug."
+}

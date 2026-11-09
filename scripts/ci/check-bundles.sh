@@ -158,6 +158,7 @@ echo "addons:";     no_skins addons;     check_manifests "$WORK/addons" addons; 
 echo "whitelist:";  no_skins whitelist;  check_manifests "$WORK/whitelist" whitelist
 echo "practice:";   no_skins practice;   check_manifests "$WORK/practice" practice
 echo "deathmatch:"; no_skins deathmatch; check_manifests "$WORK/deathmatch" deathmatch
+echo "retakes:";    no_skins retakes;    check_manifests "$WORK/retakes" retakes
 echo "mapvote:";    no_skins mapvote;    check_manifests "$WORK/mapvote" mapvote
 echo "community:";  no_skins community;  check_manifests "$WORK/community" community
 echo "tv:";         no_skins tv;         check_manifests "$WORK/tv" tv
@@ -172,6 +173,7 @@ if [[ -e "$WORK/core/readyup/bin/linuxsteamrt64/engine-surface.practice.json" ]]
 for b in core essentials; do
   if [[ -e "$WORK/$b/readyup/plugins/midas.so" ]]; then bad "$b contains midas.so"; else ok "$b: no midas.so"; fi
   if [[ -e "$WORK/$b/readyup/plugins/deathmatch.so" ]]; then bad "$b contains deathmatch.so"; else ok "$b: no deathmatch.so"; fi
+  if [[ -e "$WORK/$b/readyup/plugins/retakes.so" ]]; then bad "$b contains retakes.so"; else ok "$b: no retakes.so"; fi
 done
 if [[ -e "$WORK/core/readyup/plugins/addons.so" ]]; then bad "core contains addons.so"; else ok "core: no addons.so"; fi
 if [[ -e "$WORK/match/readyup/cfg-templates/ReadyUp/deathmatch.cfg" ]]; then bad "match ships deathmatch.cfg"; else ok "match: no deathmatch.cfg"; fi
@@ -180,8 +182,8 @@ if [[ -e "$WORK/essentials/readyup/plugins/mapvote.so" ]]; then ok "essentials h
 if [[ -e "$WORK/match/readyup/cfg-templates/ReadyUp/addons.cfg" ]]; then bad "match ships addons.cfg"; else ok "match: no addons.cfg"; fi
 echo "skins:";      has_skins skins;     check_manifests "$WORK/skins" skins
 echo "full:";       has_skins full; has_match full; has_fleet full; has_notices full; has_addons full
-full_components=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community movement addons tv hud)
-for f in readyup/plugins/deathmatch.so readyup/cfg-templates/ReadyUp/deathmatch.cfg readyup/plugins/mapvote.so readyup/cfg-templates/ReadyUp/mapvote.cfg readyup/plugins/community.so readyup/cfg-templates/ReadyUp/community.cfg readyup/plugins/tv.so readyup/cfg-templates/ReadyUp/tv.cfg readyup/plugins/movement.so readyup/cfg-templates/ReadyUp/movement.cfg readyup/bin/linuxsteamrt64/engine-surface.practice.json; do
+full_components=(core essentials match fleet practice skins midas whitelist deathmatch retakes mapvote community movement addons tv hud)
+for f in readyup/plugins/deathmatch.so readyup/cfg-templates/ReadyUp/deathmatch.cfg readyup/plugins/retakes.so readyup/cfg-templates/ReadyUp/retakes.cfg readyup/plugins/mapvote.so readyup/cfg-templates/ReadyUp/mapvote.cfg readyup/plugins/community.so readyup/cfg-templates/ReadyUp/community.cfg readyup/plugins/tv.so readyup/cfg-templates/ReadyUp/tv.cfg readyup/plugins/movement.so readyup/cfg-templates/ReadyUp/movement.cfg readyup/bin/linuxsteamrt64/engine-surface.practice.json; do
   if [[ -f "$WORK/full/$f" ]]; then ok "full has $f"; else bad "full lacks $f"; fi
 done
 [[ -f "$WORK/full/readyup/manifests/tools.json" ]] && full_components+=(tools)

@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes: a(z) {map} pályán nincsenek retake pozíciók. Válts olyan pályára, ahol vannak (de_mirage, de_inferno, de_dust2…).",
+  "queue.waiting": "Retakes: a szerver tele van. A sorban {place}. vagy, és játszol, amint felszabadul egy hely.",
+  "teams.scrambled": "Retakes: a T-k túl sok kört nyertek egymás után, ezért a csapatok összekeverednek.",
+  "round.hold": "Tartsd a(z) {site} pontot: a bomba élesítve. Tartsd távol tőle a CT-ket.",
+  "round.retake": "Foglald vissza a(z) {site} pontot: a bomba élesítve. Szerezd vissza a helyet."
+}
