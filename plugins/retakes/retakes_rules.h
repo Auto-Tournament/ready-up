@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -105,5 +106,26 @@ struct RoundSpawns {
 // when there is one, any T spawn otherwise.
 RoundSpawns PlaceRound(const SiteSpawns& site, const std::vector<uint64_t>& t, const std::vector<uint64_t>& ct,
                        const std::vector<int>& plantable, const Shuffle& shuffle);
+
+// ---- loadouts (.guns) -------------------------------------------------------------------------
+
+// The full-buy guns a player can pick: side kT / kCT for a rifle, 0 for the AWP (one per team).
+struct Gun {
+  const char* words;  // what `.guns <word>` accepts, space separated
+  const char* cls;
+  const char* name;
+  int side;
+};
+const std::vector<Gun>& Guns();  // T: AK-47, SG 553; CT: M4A4, M4A1-S, AUG; the AWP
+
+struct Loadout {
+  std::string t = "weapon_ak47", ct = "weapon_m4a1_silencer";
+  bool awp = false;  // in the draw for the team's AWP
+};
+// `.guns <word>` ("ak", "m4s", "awp" toggles, ...): changes `l`; false when the word is no gun.
+bool PickGun(const std::string& word, Loadout* l);
+// guns.txt: one "steamid64 t-weapon ct-weapon awp(0|1)" per line; bad lines are skipped.
+std::map<uint64_t, Loadout> ParseLoadouts(const std::string& text);
+std::string FormatLoadouts(const std::map<uint64_t, Loadout>& all);
 
 }  // namespace retakes

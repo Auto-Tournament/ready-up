@@ -1,7 +1,24 @@
 {
-  "map.no_spawns": "Retakes: {map} ไม่มีตำแหน่ง retake เปลี่ยนเป็นแผนที่ที่มี (de_mirage, de_inferno, de_dust2...)",
-  "queue.waiting": "Retakes: เซิร์ฟเวอร์เต็ม คุณอยู่ลำดับที่ {place} ในคิว และจะได้เล่นเมื่อมีที่ว่าง",
-  "teams.scrambled": "Retakes: ฝ่าย T ชนะติดต่อกันหลายรอบเกินไป จึงสลับทีมใหม่",
+  "map.no_spawns": "ยึดคืน: {map} ไม่มีตำแหน่ง retake เปลี่ยนเป็นแผนที่ที่มี (de_mirage, de_inferno, de_dust2...)",
+  "queue.waiting": "ยึดคืน: เซิร์ฟเวอร์เต็ม คุณอยู่ลำดับที่ {place} ในคิว และจะได้เล่นเมื่อมีที่ว่าง",
+  "teams.scrambled": "ยึดคืน: ฝ่าย T ชนะติดต่อกันหลายรอบเกินไป จึงสลับทีมใหม่",
   "round.hold": "ยึด {site} ไว้: วางระเบิดแล้ว อย่าให้ CT เข้าใกล้",
-  "round.retake": "ยึด {site} คืน: วางระเบิดแล้ว ชิงจุดกลับมา"
+  "round.retake": "ยึด {site} คืน: วางระเบิดแล้ว ชิงจุดกลับมา",
+  "guns.kind": "ยึดคืน",
+  "guns.close": "ปิด",
+  "guns.title": "เลือกชุดอุปกรณ์",
+  "round.retake_title": "ยึดคืนจุด {site}!",
+  "round.hold_title": "ป้องกันจุด {site}!",
+  "guns.sub": "ปืนไรเฟิลหนึ่งกระบอกต่อฝั่ง ตัวเลือกจะใช้ต่อในรอบถัดไป",
+  "guns.awp_sub": "ทีมละ 1",
+  "guns.hint": "หรือพิมพ์ .guns ak, sg, m4, m4s, aug หรือ awp",
+  "guns.usage": "พิมพ์ .guns เพื่อเปิดเมนู หรือเลือกเลย: .guns ak, sg, m4, m4s, aug หรือ awp ผู้เล่นที่ต้องการ AWP จะได้รับทีมละหนึ่งคน",
+  "guns.saved": "อาวุธของคุณ: {t} ฝั่ง T, {ct} ฝั่ง CT",
+  "guns.saved_awp": "อาวุธของคุณ: {t} ฝั่ง T, {ct} ฝั่ง CT และคุณอยู่ในการจับฉลาก AWP ด้วย",
+  "round.kind": "ยึดคืน · รอบที่ {round}",
+  "queue.kind": "คิว",
+  "queue.title": "กำลังรอที่ว่าง",
+  "queue.playing": "กำลังเล่น",
+  "queue.waiting_count": "กำลังรอ",
+  "queue.place": "ลำดับของคุณ"
 }

@@ -3,5 +3,22 @@
   "queue.waiting": "Retakes: de server is vol. Je bent nummer {place} in de rij en speelt zodra er plek is.",
   "teams.scrambled": "Retakes: de T's wonnen te veel rondes op rij, dus de teams worden gehusseld.",
   "round.hold": "Houd {site}: de bom ligt. Houd de CT's erbij weg.",
-  "round.retake": "Herover {site}: de bom ligt. Neem de site terug."
+  "round.retake": "Herover {site}: de bom ligt. Neem de site terug.",
+  "guns.kind": "Retakes",
+  "guns.close": "Sluiten",
+  "guns.title": "Uitrusting kiezen",
+  "round.retake_title": "Herover locatie {site}!",
+  "round.hold_title": "Verdedig locatie {site}!",
+  "guns.sub": "Eén geweer voor elke kant. Je keuze blijft ook voor latere rondes.",
+  "guns.awp_sub": "1 per team",
+  "guns.hint": "Of typ .guns ak, sg, m4, m4s, aug of awp",
+  "guns.usage": "Typ .guns voor het menu, of kies meteen: .guns ak, sg, m4, m4s, aug of awp. Eén speler per team die de AWP wil, krijgt hem.",
+  "guns.saved": "Je wapens: {t} als T, {ct} als CT.",
+  "guns.saved_awp": "Je wapens: {t} als T, {ct} als CT. Je doet ook mee aan de loting voor de AWP.",
+  "round.kind": "Retakes · ronde {round}",
+  "queue.kind": "Wachtrij",
+  "queue.title": "Wachten op een vrije plek",
+  "queue.playing": "Spelend",
+  "queue.waiting_count": "Wachtend",
+  "queue.place": "Jouw plek"
 }

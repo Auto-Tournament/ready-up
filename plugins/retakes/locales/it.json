@@ -1,7 +1,24 @@
 {
-  "map.no_spawns": "Retakes: {map} non ha posizioni di retake. Passa a una mappa che le ha (de_mirage, de_inferno, de_dust2…).",
-  "queue.waiting": "Retakes: il server è pieno. Sei il numero {place} in coda e giocherai appena si libera un posto.",
-  "teams.scrambled": "Retakes: i T hanno vinto troppi round di fila, quindi le squadre vengono mescolate.",
+  "map.no_spawns": "Riconquista: {map} non ha posizioni di retake. Passa a una mappa che le ha (de_mirage, de_inferno, de_dust2…).",
+  "queue.waiting": "Riconquista: il server è pieno. Sei il numero {place} in coda e giocherai appena si libera un posto.",
+  "teams.scrambled": "Riconquista: i T hanno vinto troppi round di fila, quindi le squadre vengono mescolate.",
   "round.hold": "Tieni {site}: la bomba è piazzata. Tieni lontani i CT.",
-  "round.retake": "Riprendi {site}: la bomba è piazzata. Riconquista il sito."
+  "round.retake": "Riprendi {site}: la bomba è piazzata. Riconquista il sito.",
+  "guns.kind": "Riconquista",
+  "guns.close": "Chiudi",
+  "guns.title": "Scegli un assetto",
+  "round.retake_title": "Riconquista il Sito {site}!",
+  "round.hold_title": "Difendi il Sito {site}!",
+  "guns.sub": "Un fucile per ogni lato. La tua scelta resta anche nei round successivi.",
+  "guns.awp_sub": "1 per squadra",
+  "guns.hint": "Oppure scrivi .guns ak, sg, m4, m4s, aug o awp",
+  "guns.usage": "Scrivi .guns per il menu, oppure scegli subito: .guns ak, sg, m4, m4s, aug o awp. L’AWP va a un giocatore per squadra che la vuole.",
+  "guns.saved": "Le tue armi: {t} da T, {ct} da CT.",
+  "guns.saved_awp": "Le tue armi: {t} da T, {ct} da CT. Partecipi anche al sorteggio dell’AWP.",
+  "round.kind": "Riconquista · round {round}",
+  "queue.kind": "Coda",
+  "queue.title": "In attesa di un posto",
+  "queue.playing": "In gioco",
+  "queue.waiting_count": "In attesa",
+  "queue.place": "Il tuo posto"
 }

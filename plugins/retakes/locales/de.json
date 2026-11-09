@@ -1,7 +1,24 @@
 {
-  "map.no_spawns": "Retakes: {map} hat keine Retake-Spawns. Wechsle auf eine Map mit Spawns (de_mirage, de_inferno, de_dust2 …).",
-  "queue.waiting": "Retakes: Der Server ist voll. Du bist Nummer {place} in der Warteschlange und spielst, sobald ein Platz frei wird.",
-  "teams.scrambled": "Retakes: Die Ts haben zu viele Runden in Folge gewonnen, die Teams werden neu gemischt.",
+  "map.no_spawns": "Rückeroberung: {map} hat keine Retake-Spawns. Wechsle auf eine Map mit Spawns (de_mirage, de_inferno, de_dust2 …).",
+  "queue.waiting": "Rückeroberung: Der Server ist voll. Du bist Nummer {place} in der Warteschlange und spielst, sobald ein Platz frei wird.",
+  "teams.scrambled": "Rückeroberung: Die Ts haben zu viele Runden in Folge gewonnen, die Teams werden neu gemischt.",
   "round.hold": "Halte {site}: Die Bombe ist gelegt. Halte die CTs davon fern.",
-  "round.retake": "Hol dir {site} zurück: Die Bombe ist gelegt. Erobere den Bombenplatz zurück."
+  "round.retake": "Hol dir {site} zurück: Die Bombe ist gelegt. Erobere den Bombenplatz zurück.",
+  "guns.kind": "Rückeroberung",
+  "guns.close": "Schließen",
+  "guns.title": "Ausrüstung wählen",
+  "round.retake_title": "Bombenort {site} zurückerobern!",
+  "round.hold_title": "Bombenort {site} verteidigen!",
+  "guns.sub": "Ein Gewehr für jede Seite. Deine Wahl gilt auch für spätere Runden.",
+  "guns.awp_sub": "1 pro Team",
+  "guns.hint": "Oder tippe .guns ak, sg, m4, m4s, aug oder awp",
+  "guns.usage": "Tippe .guns für das Menü oder wähle direkt: .guns ak, sg, m4, m4s, aug oder awp. Ein Spieler pro Team, der die AWP will, bekommt sie.",
+  "guns.saved": "Deine Waffen: {t} als T, {ct} als CT.",
+  "guns.saved_awp": "Deine Waffen: {t} als T, {ct} als CT. Du bist auch bei der Verlosung der AWP dabei.",
+  "round.kind": "Rückeroberung · Runde {round}",
+  "queue.kind": "Warteschlange",
+  "queue.title": "Warte auf einen freien Platz",
+  "queue.playing": "Im Spiel",
+  "queue.waiting_count": "Wartend",
+  "queue.place": "Dein Platz"
 }

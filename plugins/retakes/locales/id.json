@@ -3,5 +3,22 @@
   "queue.waiting": "Retakes: server penuh. Anda nomor {place} di antrean dan bermain saat ada tempat kosong.",
   "teams.scrambled": "Retakes: T menang terlalu banyak ronde berturut-turut, jadi tim diacak.",
   "round.hold": "Tahan {site}: bom sudah dipasang. Jauhkan CT dari bom.",
-  "round.retake": "Rebut {site}: bom sudah dipasang. Rebut kembali area itu."
+  "round.retake": "Rebut {site}: bom sudah dipasang. Rebut kembali area itu.",
+  "guns.kind": "Retakes",
+  "guns.close": "Tutup",
+  "guns.title": "Pilih perlengkapan",
+  "round.retake_title": "Kuasai Site {site}!",
+  "round.hold_title": "Lindungi Site {site}!",
+  "guns.sub": "Satu senapan untuk tiap sisi. Pilihanmu tetap berlaku di ronde berikutnya.",
+  "guns.awp_sub": "1 per tim",
+  "guns.hint": "Atau ketik .guns ak, sg, m4, m4s, aug, atau awp",
+  "guns.usage": "Ketik .guns untuk membuka menu, atau langsung pilih: .guns ak, sg, m4, m4s, aug, atau awp. AWP diberikan ke satu pemain per tim yang menginginkannya.",
+  "guns.saved": "Senjatamu: {t} sebagai T, {ct} sebagai CT.",
+  "guns.saved_awp": "Senjatamu: {t} sebagai T, {ct} sebagai CT. Kamu juga ikut undian AWP.",
+  "round.kind": "Retakes · ronde {round}",
+  "queue.kind": "Antrean",
+  "queue.title": "Menunggu tempat kosong",
+  "queue.playing": "Bermain",
+  "queue.waiting_count": "Menunggu",
+  "queue.place": "Posisimu"
 }
