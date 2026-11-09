@@ -2,11 +2,25 @@ name: Bug report
 description: Something in Ready Up is broken
 labels: [bug]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Start with [troubleshooting](https://docs.autotournament.gg/cs2/ready-up/troubleshooting). Problems with the Auto Tournament site go to [auto-tournament](https://github.com/Auto-Tournament/auto-tournament/issues/new/choose), and problems with installing or running servers to [cs2-server-manager](https://github.com/Auto-Tournament/cs2-server-manager/issues/new/choose).
   - type: textarea
     id: what
     attributes:
       label: What happened
       description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: setup
+    attributes:
+      label: How do you run Ready Up?
+      options:
+        - With Auto Tournament (fleet link)
+        - With CS2 Server Manager, without Auto Tournament
+        - On my own servers, without either
     validations:
       required: true
   - type: input
@@ -20,6 +34,12 @@ body:
     id: selftest
     attributes:
       label: ru selftest output
+      render: text
+  - type: textarea
+    id: plugins
+    attributes:
+      label: ru plugin list output
+      description: Which Ready Up plugins are loaded.
       render: text
   - type: textarea
     id: log
