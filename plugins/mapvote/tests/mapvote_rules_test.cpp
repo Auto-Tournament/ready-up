@@ -94,6 +94,13 @@ int main() {
   CHECK(loaded.voteOptions == 6 && warnings.size() == 1);
   CHECK(!loaded.enabled);
 
+  // A pushed pool (fleet mapvote.set): map names and workshop entries, nothing that splits a line.
+  CHECK(ValidPoolEntry("de_dust2") && ValidPoolEntry("workshop/3070212801/surf_kitsune"));
+  CHECK(!ValidPoolEntry("") && !ValidPoolEntry("de dust2") && !ValidPoolEntry("a,b") && !ValidPoolEntry("x;quit"));
+  CHECK(!ValidPoolEntry(std::string(201, 'a')));
+  // pool.txt is one entry per line.
+  CHECK(ParseMapList("surf_utopia_v3\nworkshop/1/x\n").size() == 2);
+
   if (g_failures) std::fprintf(stderr, "%d failure(s)\n", g_failures);
   else std::printf("mapvote_rules: ok\n");
   return g_failures ? 1 : 0;

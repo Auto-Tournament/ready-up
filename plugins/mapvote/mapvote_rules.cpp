@@ -39,6 +39,14 @@ bool ParseInt(const std::string& v, int lo, int hi, int* out) {
 
 }  // namespace
 
+bool ValidPoolEntry(const std::string& entry) {
+  if (entry.empty() || entry.size() > 200) return false;
+  for (unsigned char c : entry) {
+    if (c <= 0x20 || c == 0x7f || c == '"' || c == ';' || c == ',') return false;
+  }
+  return true;
+}
+
 std::vector<std::string> ParseMapList(const std::string& text) {
   std::vector<std::string> out;
   std::set<std::string> seen;

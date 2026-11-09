@@ -29,6 +29,10 @@ struct Settings {
 // cs_) is on, nothing otherwise (a surf, kz or aim server needs its own list).
 std::vector<std::string> DefaultPool(const std::string& currentMap);
 
+// A pool entry the platform may push: a map name or workshop/<id>[/<name>], 1-200 bytes, no
+// spaces, quotes, semicolons or commas.
+bool ValidPoolEntry(const std::string& entry);
+
 // Parses `maps` (comma or newline separated). Blank entries and duplicates are dropped.
 std::vector<std::string> ParseMapList(const std::string& text);
 

@@ -21,8 +21,8 @@ bool ValidPluginName(const std::string& n) {
 }  // namespace
 
 bool OwnedByFleet(const std::string& name) {
-  return name == "plugins.set" || name == "whitelist.set" || name == "practice.set" || name == "say" ||
-         name == "tv.set";
+  return name == "plugins.set" || name == "whitelist.set" || name == "practice.set" || name == "mapvote.set" ||
+         name == "say" || name == "tv.set";
 }
 
 bool ParsePluginsSet(const json::Value& args, std::vector<std::string>* enable, std::vector<std::string>* disable,
@@ -66,6 +66,21 @@ bool ParseWhitelistSet(const json::Value& args, bool* enabled, std::vector<uint6
   }
   if (enabled) *enabled = e->b;
   if (steamids) *steamids = std::move(ids);
+  return true;
+}
+
+bool ParseMapvoteSet(const json::Value& args, std::vector<std::string>* maps, std::string* err) {
+  const json::Value* v = args.Get("maps");
+  if (!v || !v->IsArr()) return Fail(err, "maps must be an array of strings");
+  if (v->a.size() > kMapvotePoolMax) return Fail(err, "maps: at most " + std::to_string(kMapvotePoolMax));
+  std::vector<std::string> out;
+  for (const json::Value& m : v->a) {
+    bool ok = m.IsStr() && !m.s.empty() && m.s.size() <= 200;
+    for (unsigned char c : ok ? m.s : std::string()) ok = ok && c > 0x20 && c != 0x7f && c != '"' && c != ';' && c != ',';
+    if (!ok) return Fail(err, "maps: each a map name or workshop/<id>[/<name>]");
+    out.push_back(m.s);
+  }
+  if (maps) *maps = std::move(out);
   return true;
 }
 

@@ -19,7 +19,8 @@
 // Admin / console: `ru mapvote start|cancel|status|reload`, `ru mapvote change <map>`.
 //
 // Settings: cfg/ReadyUp/mapvote.cfg (see the file), re-read on every map start and with
-// `ru mapvote reload`. The pool is `maps=` there; the platform is meant to push it later.
+// `ru mapvote reload`. The pool is `maps=` there, unless the platform gave the server its own
+// (fleet `mapvote.set`, readyup.mapvote.v1): that one is kept in <data_dir>/pool.txt and wins.
 // Maps load through essentials (readyup.essentials.v1 load_map: the change card and the
 // Workshop download bar), else plain changelevel / host_workshop_map.
 #include "mapvote_rules.h"
@@ -27,13 +28,16 @@
 #include "readyup/essentials_iface.h"
 #include "readyup/help_iface.h"
 #include "readyup/hud_iface.h"
+#include "readyup/mapvote_iface.h"
 #include "readyup/match_iface.h"
 #include "readyup/plugin_api.h"
 #include "readyup/i18n.h"
 #include "readyup/i18n_api.h"
 
 #include <algorithm>
+#include <cerrno>
 #include <cstddef>
+#include <cstdio>
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
@@ -129,6 +133,36 @@ int Humans() {
   return n;
 }
 
+// <data_dir>/pool.txt: the pool the platform gave this server, one entry per line.
+std::string PoolFile() {
+  const char* d = g_api->data_dir(g_api->self);
+  return std::string(d ? d : ".") + "/pool.txt";
+}
+
+std::vector<std::string> StoredPool() {
+  FILE* f = std::fopen(PoolFile().c_str(), "r");
+  if (!f) return {};
+  std::string text;
+  char buf[4096];
+  for (size_t n; (n = std::fread(buf, 1, sizeof(buf), f)) > 0;) text.append(buf, n);
+  std::fclose(f);
+  return mapvote::ParseMapList(text);
+}
+
+bool StorePool(const std::vector<std::string>& maps) {
+  const std::string path = PoolFile(), tmp = path + ".tmp";
+  if (maps.empty()) return std::remove(path.c_str()) == 0 || errno == ENOENT;
+  FILE* f = std::fopen(tmp.c_str(), "w");
+  if (!f) return false;
+  bool ok = true;
+  for (const auto& m : maps) ok = ok && std::fputs((m + "\n").c_str(), f) >= 0;
+  if (std::fclose(f) != 0 || !ok || std::rename(tmp.c_str(), path.c_str()) != 0) {
+    std::remove(tmp.c_str());
+    return false;
+  }
+  return true;
+}
+
 void LoadSettings() {
   std::vector<std::string> warnings;
   g.s = mapvote::LoadSettings(
@@ -141,8 +175,23 @@ void LoadSettings() {
       },
       &warnings);
   for (const auto& w : warnings) ru_logf(g_api, RU_LOG_WARN, "mapvote.cfg: %s", w.c_str());
+  if (auto stored = StoredPool(); !stored.empty()) g.s.maps = std::move(stored);
   if (g.s.maps.empty()) g.s.maps = mapvote::DefaultPool(g.currentMap);
 }
+
+// readyup.mapvote.v1 set_pool (fleet mapvote.set): replaces the pool and keeps it.
+int IfaceSetPool(const char* const* maps, uint32_t count) {
+  std::vector<std::string> pool;
+  for (uint32_t i = 0; i < count; ++i) {
+    if (!maps || !maps[i] || !mapvote::ValidPoolEntry(maps[i])) return 0;
+    pool.emplace_back(maps[i]);
+  }
+  if (!StorePool(pool)) return 0;
+  LoadSettings();
+  ru_logf(g_api, RU_LOG_INFO, "mapvote: pool set by the platform, %zu map(s)", g.s.maps.size());
+  return 1;
+}
+const ru_mapvote_v1 g_mapvoteIface = {sizeof(ru_mapvote_v1), &IfaceSetPool};
 
 bool LoadMap(const std::string& entry) {
   if (const auto* e = Essentials()) return e->load_map(entry.c_str()) == 1;
@@ -733,6 +782,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   api->subscribe(api->self, RU_EVENT_MAP_START, &OnMapStart, nullptr);
   api->subscribe(api->self, RU_EVENT_PLAYER_DISCONNECT, &OnPlayerEvent, nullptr);
   api->on_tick(api->self, &OnTick, nullptr);
+  api->provide_interface(api->self, RU_MAPVOTE_IFACE_NAME, RU_MAPVOTE_IFACE_VERSION,
+                         const_cast<ru_mapvote_v1*>(&g_mapvoteIface));
   api->provide_interface(api->self, RU_HELP_IFACE_PREFIX "mapvote", RU_HELP_IFACE_VERSION,
                          const_cast<ru_help_v1*>(&g_help));
   ru_logf(api, RU_LOG_INFO, "loaded " MAPVOTE_VERSION ": %zu map(s)%s", g.s.maps.size(), g.s.enabled ? "" : " (disabled)");
