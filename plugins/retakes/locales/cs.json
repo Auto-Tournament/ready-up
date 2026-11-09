@@ -1,7 +1,24 @@
 {
-  "map.no_spawns": "Retakes: {map} nemá pozice pro retake. Přepněte na mapu, která je má (de_mirage, de_inferno, de_dust2…).",
-  "queue.waiting": "Retakes: server je plný. Jste {place}. ve frontě a zahrajete si, jakmile se uvolní místo.",
-  "teams.scrambled": "Retakes: T vyhráli příliš mnoho kol v řadě, týmy se proto zamíchají.",
+  "map.no_spawns": "Přetahovaná: {map} nemá pozice pro retake. Přepněte na mapu, která je má (de_mirage, de_inferno, de_dust2…).",
+  "queue.waiting": "Přetahovaná: server je plný. Jste {place}. ve frontě a zahrajete si, jakmile se uvolní místo.",
+  "teams.scrambled": "Přetahovaná: T vyhráli příliš mnoho kol v řadě, týmy se proto zamíchají.",
   "round.hold": "Udržte {site}: bomba je položená. Nepouštějte k ní CT.",
-  "round.retake": "Získejte zpět {site}: bomba je položená. Vezměte místo zpět."
+  "round.retake": "Získejte zpět {site}: bomba je položená. Vezměte místo zpět.",
+  "guns.kind": "Přetahovaná",
+  "guns.close": "Zavřít",
+  "guns.title": "Vyber si vybavení",
+  "round.retake_title": "Znovu ovládni místo pro bombu {site}!",
+  "round.hold_title": "Ubraň místo pro bombu {site}!",
+  "guns.sub": "Jedna puška pro každou stranu. Vaše volba platí i v dalších kolech.",
+  "guns.awp_sub": "1 na tým",
+  "guns.hint": "Nebo napište .guns ak, sg, m4, m4s, aug nebo awp",
+  "guns.usage": "Napište .guns pro menu, nebo vyberte rovnou: .guns ak, sg, m4, m4s, aug nebo awp. AWP dostane jeden zájemce z každého týmu.",
+  "guns.saved": "Vaše zbraně: {t} za T, {ct} za CT.",
+  "guns.saved_awp": "Vaše zbraně: {t} za T, {ct} za CT. Jste také v losování o AWP.",
+  "round.kind": "Přetahovaná · kolo {round}",
+  "queue.kind": "Fronta",
+  "queue.title": "Čekáte na volné místo",
+  "queue.playing": "Hrají",
+  "queue.waiting_count": "Čekají",
+  "queue.place": "Vaše místo"
 }

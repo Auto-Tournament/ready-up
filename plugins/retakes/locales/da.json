@@ -3,5 +3,22 @@
   "queue.waiting": "Retakes: serveren er fuld. Du er nummer {place} i køen og spiller, når der bliver plads.",
   "teams.scrambled": "Retakes: T vandt for mange runder i træk, så holdene bliver blandet.",
   "round.hold": "Hold {site}: bomben er plantet. Hold CT'erne væk fra den.",
-  "round.retake": "Tag {site} tilbage: bomben er plantet. Generobr sitet."
+  "round.retake": "Tag {site} tilbage: bomben er plantet. Generobr sitet.",
+  "guns.kind": "Retakes",
+  "guns.close": "Luk",
+  "guns.title": "Vælg udstyr",
+  "round.retake_title": "Genindtag bombelokalitet {site}!",
+  "round.hold_title": "Forsvar {site}!",
+  "guns.sub": "Én riffel til hver side. Dit valg gælder også i senere runder.",
+  "guns.awp_sub": "1 pr. hold",
+  "guns.hint": "Eller skriv .guns ak, sg, m4, m4s, aug eller awp",
+  "guns.usage": "Skriv .guns for menuen, eller vælg med det samme: .guns ak, sg, m4, m4s, aug eller awp. Én spiller pr. hold, der vil have AWP'en, får den.",
+  "guns.saved": "Dine våben: {t} på T, {ct} på CT.",
+  "guns.saved_awp": "Dine våben: {t} på T, {ct} på CT. Du er også med i lodtrækningen om AWP'en.",
+  "round.kind": "Retakes · runde {round}",
+  "queue.kind": "Kø",
+  "queue.title": "Venter på en ledig plads",
+  "queue.playing": "Spiller",
+  "queue.waiting_count": "Venter",
+  "queue.place": "Din plads"
 }

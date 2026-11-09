@@ -3,5 +3,22 @@
   "queue.waiting": "Retakes: the server is full. You're number {place} in line and play when a place opens.",
   "teams.scrambled": "Retakes: the Ts won too many in a row, so the teams are shuffled.",
   "round.hold": "Hold {site}: the bomb is planted. Keep the CTs off it.",
-  "round.retake": "Retake {site}: the bomb is planted. Get it back."
+  "round.retake": "Retake {site}: the bomb is planted. Get it back.",
+  "guns.kind": "Retakes",
+  "guns.close": "Close",
+  "guns.title": "Select a loadout",
+  "round.retake_title": "Retake Site {site}!",
+  "round.hold_title": "Defend Site {site}!",
+  "guns.sub": "One rifle for each side. Your pick stays for later rounds.",
+  "guns.awp_sub": "1 per team",
+  "guns.hint": "Or type .guns ak, sg, m4, m4s, aug or awp",
+  "guns.usage": "Type .guns for the menu, or pick straight away: .guns ak, sg, m4, m4s, aug or awp. One player per team who wants the AWP gets it.",
+  "guns.saved": "Your guns: {t} on T, {ct} on CT.",
+  "guns.saved_awp": "Your guns: {t} on T, {ct} on CT. You're also in the draw for the AWP.",
+  "round.kind": "Retakes · round {round}",
+  "queue.kind": "Queue",
+  "queue.title": "Waiting for a place",
+  "queue.playing": "Playing",
+  "queue.waiting_count": "Waiting",
+  "queue.place": "Your place"
 }

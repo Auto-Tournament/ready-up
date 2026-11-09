@@ -3,5 +3,22 @@
   "queue.waiting": "Retakes：伺服器已滿。你在排隊第 {place} 位，有空位時即可上場。",
   "teams.scrambled": "Retakes：T 方連勝太多回合，隊伍將重新打亂。",
   "round.hold": "守住 {site}：炸彈已安裝。別讓 CT 靠近。",
-  "round.retake": "奪回 {site}：炸彈已安裝。拿回包點。"
+  "round.retake": "奪回 {site}：炸彈已安裝。拿回包點。",
+  "guns.kind": "回防",
+  "guns.close": "關閉",
+  "guns.title": "選擇裝備",
+  "round.retake_title": "回防 {site} 點！",
+  "round.hold_title": "防守 {site} 點！",
+  "guns.sub": "每個陣營一把步槍。你的選擇會保留到之後的回合。",
+  "guns.awp_sub": "每隊 1 把",
+  "guns.hint": "或輸入 .guns ak、sg、m4、m4s、aug 或 awp",
+  "guns.usage": "輸入 .guns 開啟選單，或直接選擇：.guns ak、sg、m4、m4s、aug 或 awp。每隊會從想要 AWP 的玩家中選一人獲得。",
+  "guns.saved": "你的武器：T 方 {t}，CT 方 {ct}。",
+  "guns.saved_awp": "你的武器：T 方 {t}，CT 方 {ct}。你也參與了 AWP 抽籤。",
+  "round.kind": "回防 · 第 {round} 回合",
+  "queue.kind": "排隊",
+  "queue.title": "正在等待空位",
+  "queue.playing": "遊戲中",
+  "queue.waiting_count": "等待中",
+  "queue.place": "你的位置"
 }

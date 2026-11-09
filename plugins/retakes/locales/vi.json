@@ -1,7 +1,24 @@
 {
-  "map.no_spawns": "Retakes: {map} không có vị trí retake. Hãy đổi sang bản đồ có (de_mirage, de_inferno, de_dust2...).",
-  "queue.waiting": "Retakes: máy chủ đã đầy. Bạn đứng thứ {place} trong hàng chờ và sẽ chơi khi có chỗ trống.",
-  "teams.scrambled": "Retakes: phe T thắng quá nhiều ván liên tiếp nên các đội được xáo lại.",
+  "map.no_spawns": "Retake: {map} không có vị trí retake. Hãy đổi sang bản đồ có (de_mirage, de_inferno, de_dust2...).",
+  "queue.waiting": "Retake: máy chủ đã đầy. Bạn đứng thứ {place} trong hàng chờ và sẽ chơi khi có chỗ trống.",
+  "teams.scrambled": "Retake: phe T thắng quá nhiều ván liên tiếp nên các đội được xáo lại.",
   "round.hold": "Giữ {site}: bom đã được đặt. Đừng để CT lại gần.",
-  "round.retake": "Chiếm lại {site}: bom đã được đặt. Giành lại khu vực."
+  "round.retake": "Chiếm lại {site}: bom đã được đặt. Giành lại khu vực.",
+  "guns.kind": "Retake",
+  "guns.close": "Đóng",
+  "guns.title": "Chọn trang bị",
+  "round.retake_title": "Chiếm lại khu {site}!",
+  "round.hold_title": "Phòng thủ khu {site}!",
+  "guns.sub": "Mỗi phe một khẩu súng trường. Lựa chọn được giữ cho các hiệp sau.",
+  "guns.awp_sub": "1 mỗi đội",
+  "guns.hint": "Hoặc gõ .guns ak, sg, m4, m4s, aug hoặc awp",
+  "guns.usage": "Gõ .guns để mở menu, hoặc chọn ngay: .guns ak, sg, m4, m4s, aug hoặc awp. Mỗi đội, một người muốn AWP sẽ nhận được nó.",
+  "guns.saved": "Vũ khí của bạn: {t} khi là T, {ct} khi là CT.",
+  "guns.saved_awp": "Vũ khí của bạn: {t} khi là T, {ct} khi là CT. Bạn cũng tham gia bốc thăm AWP.",
+  "round.kind": "Retake · hiệp {round}",
+  "queue.kind": "Hàng chờ",
+  "queue.title": "Đang chờ chỗ trống",
+  "queue.playing": "Đang chơi",
+  "queue.waiting_count": "Đang chờ",
+  "queue.place": "Vị trí của bạn"
 }

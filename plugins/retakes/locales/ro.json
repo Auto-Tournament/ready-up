@@ -3,5 +3,22 @@
   "queue.waiting": "Retakes: serverul e plin. Ești al {place}-lea la coadă și joci când se eliberează un loc.",
   "teams.scrambled": "Retakes: T au câștigat prea multe runde la rând, așa că echipele se amestecă.",
   "round.hold": "Ține {site}: bomba e plantată. Ține CT departe de ea.",
-  "round.retake": "Recucerește {site}: bomba e plantată. Ia înapoi zona."
+  "round.retake": "Recucerește {site}: bomba e plantată. Ia înapoi zona.",
+  "guns.kind": "Retakes",
+  "guns.close": "Închide",
+  "guns.title": "Selectează un echipament",
+  "round.retake_title": "Reia controlul asupra țintei {site}!",
+  "round.hold_title": "Apără zona țintă {site}!",
+  "guns.sub": "O pușcă pentru fiecare tabără. Alegerea rămâne și pentru rundele următoare.",
+  "guns.awp_sub": "1 per echipă",
+  "guns.hint": "Sau scrie .guns ak, sg, m4, m4s, aug sau awp",
+  "guns.usage": "Scrie .guns pentru meniu sau alege direct: .guns ak, sg, m4, m4s, aug sau awp. AWP-ul îl primește câte un jucător din fiecare echipă care îl vrea.",
+  "guns.saved": "Armele tale: {t} ca T, {ct} ca CT.",
+  "guns.saved_awp": "Armele tale: {t} ca T, {ct} ca CT. Participi și la tragerea la sorți pentru AWP.",
+  "round.kind": "Retakes · runda {round}",
+  "queue.kind": "Coadă",
+  "queue.title": "Aștepți un loc liber",
+  "queue.playing": "Joacă",
+  "queue.waiting_count": "Așteaptă",
+  "queue.place": "Locul tău"
 }

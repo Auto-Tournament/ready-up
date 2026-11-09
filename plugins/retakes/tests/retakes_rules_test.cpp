@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <map>
 #include <set>
 #include <string>
 
@@ -194,12 +195,30 @@ static void TestPlace() {
   CHECK(r.planter == 0 && r.t.empty());
 }
 
+static void TestGuns() {
+  Loadout l;
+  CHECK(l.t == "weapon_ak47" && l.ct == "weapon_m4a1_silencer" && !l.awp);
+  CHECK(PickGun("SG", &l) && l.t == "weapon_sg556");
+  CHECK(PickGun("m4", &l) && l.ct == "weapon_m4a1" && l.t == "weapon_sg556");
+  CHECK(PickGun("awp", &l) && l.awp && PickGun("awp", &l) && !l.awp);  // toggles
+  CHECK(!PickGun("negev", &l) && !PickGun("", &l) && l.ct == "weapon_m4a1");
+  l.awp = true;
+  std::map<uint64_t, Loadout> all = {{76561198000000001ull, l}, {76561198000000002ull, Loadout{}}};
+  const std::map<uint64_t, Loadout> back = ParseLoadouts(FormatLoadouts(all));
+  CHECK(back.size() == 2 && back.at(76561198000000001ull).t == "weapon_sg556" &&
+        back.at(76561198000000001ull).ct == "weapon_m4a1" && back.at(76561198000000001ull).awp &&
+        !back.at(76561198000000002ull).awp);
+  // A T gun on the CT side, a gun nobody can pick, a broken line: skipped.
+  CHECK(ParseLoadouts("1 weapon_m4a1 weapon_aug 0\n2 weapon_ak47 weapon_negev 0\nx\n0 weapon_ak47 weapon_aug 0\n3 weapon_ak47 weapon_aug 1\n").size() == 1);
+}
+
 int main() {
   TestVpk();
   TestParse();
   TestTargets();
   TestTeams();
   TestPlace();
+  TestGuns();
   if (g_failures) std::fprintf(stderr, "%d failure(s)\n", g_failures);
   else std::printf("retakes_rules: ok\n");
   return g_failures ? 1 : 0;

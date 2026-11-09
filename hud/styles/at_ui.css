@@ -804,6 +804,16 @@
 .ui-root .ico-bomb { background-image: url( "s2r://panorama/images/icons/ui/bomb.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
 .ui-root .ico-c4 { background-image: url( "s2r://panorama/images/icons/ui/bomb_c4.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
 .ui-root .ico-defuse { background-image: url( "s2r://panorama/images/icons/equipment/defuser.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+/* wpn + wpn-<weapon> on a button (cls.b0..b7, retakes .guns): CS2's own weapon icon above the label. */
+.ui-root .ui-btn.wpn { height: 76px; background-size: auto 40%; background-position: 50% 28%; background-repeat: no-repeat; }
+.ui-root .ui-btn.wpn .ui-btnlabel { vertical-align: bottom; margin-bottom: 8px; font-size: 15px; }
+.ui-root .ui-btn.wpn .ui-btnsub { vertical-align: top; margin-top: 6px; font-size: 11px; }
+.ui-root .ui-btn.wpn-ak47 { background-image: url( "s2r://panorama/images/icons/equipment/ak47.vsvg" ); }
+.ui-root .ui-btn.wpn-sg556 { background-image: url( "s2r://panorama/images/icons/equipment/sg556.vsvg" ); }
+.ui-root .ui-btn.wpn-m4a1 { background-image: url( "s2r://panorama/images/icons/equipment/m4a1.vsvg" ); }
+.ui-root .ui-btn.wpn-m4a1-silencer { background-image: url( "s2r://panorama/images/icons/equipment/m4a1_silencer.vsvg" ); }
+.ui-root .ui-btn.wpn-aug { background-image: url( "s2r://panorama/images/icons/equipment/aug.vsvg" ); }
+.ui-root .ui-btn.wpn-awp { background-image: url( "s2r://panorama/images/icons/equipment/awp.vsvg" ); }
 .ui-root .ico-time { background-image: url( "s2r://panorama/images/icons/ui/timer.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
 .ui-root .ico-hostage { background-image: url( "s2r://panorama/images/icons/ui/rescue.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
 .ui-root .ico-star { background-image: url( "s2r://panorama/images/icons/ui/icon_star.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }

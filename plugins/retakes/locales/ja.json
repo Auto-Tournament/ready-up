@@ -1,7 +1,24 @@
 {
-  "map.no_spawns": "Retakes: {map} にはリテイク用の位置がありません。位置があるマップに変更してください（de_mirage、de_inferno、de_dust2 など）。",
-  "queue.waiting": "Retakes: サーバーが満員です。あなたは待ち順 {place} 番目で、空きが出たらプレイできます。",
-  "teams.scrambled": "Retakes: T が連勝しすぎたため、チームをシャッフルします。",
+  "map.no_spawns": "リテイクス: {map} にはリテイク用の位置がありません。位置があるマップに変更してください（de_mirage、de_inferno、de_dust2 など）。",
+  "queue.waiting": "リテイクス: サーバーが満員です。あなたは待ち順 {place} 番目で、空きが出たらプレイできます。",
+  "teams.scrambled": "リテイクス: T が連勝しすぎたため、チームをシャッフルします。",
   "round.hold": "{site} を守れ: 爆弾は設置済み。CT を近づけるな。",
-  "round.retake": "{site} を奪還せよ: 爆弾は設置済み。サイトを取り返せ。"
+  "round.retake": "{site} を奪還せよ: 爆弾は設置済み。サイトを取り返せ。",
+  "guns.kind": "リテイクス",
+  "guns.close": "閉じる",
+  "guns.title": "装備を選択",
+  "round.retake_title": "{site} を奪還せよ！",
+  "round.hold_title": "{site} を守れ！",
+  "guns.sub": "陣営ごとにライフルを1つ。選択は次のラウンド以降も保持されます。",
+  "guns.awp_sub": "各チーム1",
+  "guns.hint": "または .guns ak、sg、m4、m4s、aug、awp と入力",
+  "guns.usage": "メニューは .guns、直接選ぶなら .guns ak、sg、m4、m4s、aug、awp。AWP は希望者の中から各チーム1人に渡されます。",
+  "guns.saved": "あなたの武器: T は {t}、CT は {ct}。",
+  "guns.saved_awp": "あなたの武器: T は {t}、CT は {ct}。AWP の抽選にも参加しています。",
+  "round.kind": "リテイクス · ラウンド {round}",
+  "queue.kind": "待機列",
+  "queue.title": "空きを待っています",
+  "queue.playing": "プレイ中",
+  "queue.waiting_count": "待機中",
+  "queue.place": "あなたの順番"
 }

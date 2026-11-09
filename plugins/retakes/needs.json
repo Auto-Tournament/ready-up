@@ -11,7 +11,9 @@
   "entity_set_abs_origin",
   "entity_spawn",
   "player_change_team",
+  "player_give_item",
   "player_teleport",
+  "register_chat_command",
   "register_ru_subcommand",
   "schema_offset",
   "subscribe_game_event"
@@ -19,6 +21,7 @@
  "surface": [
   "CBaseEntity_NetworkStateChanged",
   "CBaseEntity_SetAbsOrigin",
+  "CCSPlayer_ItemServices_GiveNamedItem",
   "CCommand",
   "CEntityInstance::NetworkStateChanged",
   "CGameEventManager",
@@ -26,6 +29,7 @@
   "CSchemaSystem",
   "CSchemaSystemTypeScope",
   "ClientPrint",
+  "Host_Say",
   "ISource2GameClients::ClientCommand",
   "UTIL_Remove"
  ],
