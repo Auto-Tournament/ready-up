@@ -202,6 +202,11 @@ void StatsAccumulator::OnPlayerBlind(uint64_t victim, uint64_t attacker, double 
   else a.enemies_flashed += 1;
 }
 
+void StatsAccumulator::OnGrenadeThrown(uint64_t id) {
+  if (!live_ || id == 0) return;
+  P(id).s.grenades_thrown += 1;
+}
+
 void StatsAccumulator::OnBombPlanted(uint64_t id) {
   if (live_ && id) P(id).s.bomb_plants += 1;
 }
@@ -390,6 +395,7 @@ std::string ToJson(const PlayerStats& s) {
       .I("utility_damage", s.utility_damage)
       .I("enemies_flashed", s.enemies_flashed)
       .I("friendlies_flashed", s.friendlies_flashed)
+      .I("grenades_thrown", s.grenades_thrown)
       .I("bomb_plants", s.bomb_plants)
       .I("bomb_defuses", s.bomb_defuses)
       .I("entry_kills_t", s.entry_kills_t)
@@ -532,6 +538,7 @@ PlayerStats JStats(const Value* o) {
   s.utility_damage = JI(o, "utility_damage");
   s.enemies_flashed = JI(o, "enemies_flashed");
   s.friendlies_flashed = JI(o, "friendlies_flashed");
+  s.grenades_thrown = JI(o, "grenades_thrown");
   s.bomb_plants = JI(o, "bomb_plants");
   s.bomb_defuses = JI(o, "bomb_defuses");
   s.entry_kills_t = JI(o, "entry_kills_t");

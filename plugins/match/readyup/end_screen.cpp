@@ -21,6 +21,7 @@ namespace {
 constexpr const char* kKitLayout = "panorama/layout/custom_game/at_kit.xml";
 constexpr int kRoundSlots = 30;  // hud/tools/gen_kit.py END_ROUNDS
 constexpr int kRows = 5;
+constexpr int kAwards = 8;  // hud/tools/gen_kit.py END_AWARDS
 
 // Engine round_end reasons (CS2 RoundEndReason): how the strip letters a round.
 char HowOf(int reason) {
@@ -94,6 +95,10 @@ EndScreenData BuildEndScreenData(const EndScreenInfo& info) {
     r.ud = s.utility_damage;
     r.ek = s.entry_kills_t + s.entry_kills_ct;
     r.mvps = s.mvp;
+    r.ef = s.enemies_flashed;
+    r.gt = s.grenades_thrown;
+    for (int c : s.clutches_won) r.cl += c;
+    r.tf = s.friendlies_flashed;
     (p.team == 1 ? out.team1 : out.team2).push_back(std::move(r));
   }
   auto order = [](std::vector<EndScreenRow>& v) {
@@ -121,6 +126,10 @@ EndScreenData BuildEndScreenData(const EndScreenInfo& info) {
   award("end.award_most_damage", &EndScreenRow::adr, " ADR");
   award("end.award_entry_kills", &EndScreenRow::ek, "");
   award("end.award_utility", &EndScreenRow::ud, "");
+  award("end.award_flashes", &EndScreenRow::ef, "");
+  award("end.award_grenades", &EndScreenRow::gt, "");
+  award("end.award_clutches", &EndScreenRow::cl, "");
+  award("end.award_team_flashes", &EndScreenRow::tf, "");
 
   // Round strip, with a gap at every half: regulation, then each overtime's halves.
   const int regHalf = std::max(1, info.maxRounds / 2);
@@ -130,6 +139,7 @@ EndScreenData BuildEndScreenData(const EndScreenInfo& info) {
     if (n >= kRoundSlots) break;
     EndScreenRound r;
     r.winner = rs.winner_team;
+    r.side = rs.winner_side;
     r.how = HowOf(rs.reason);
     r.halfBefore = n == regHalf || (n > info.maxRounds && (n - info.maxRounds) % otHalf == 0) || n == info.maxRounds;
     out.rounds.push_back(r);
@@ -234,7 +244,7 @@ void ShowViewer(const Writer& w, const ru_hud_v1* h, int k, const EndScreenInfo&
       w.Text(slot, hc + "_tv", text::ForLang(lang, "end.col" + std::to_string(c) + "_body"));
     }
   }
-  for (size_t i = 0; i < d.awards.size() && i < 4; ++i) {
+  for (size_t i = 0; i < d.awards.size() && i < static_cast<size_t>(kAwards); ++i) {
     w.Text(slot, "at_aw" + std::to_string(i) + "_l", text::ForLang(lang, d.awards[i].label));
   }
   std::string head;
@@ -275,14 +285,15 @@ void ShowViewer(const Writer& w, const ru_hud_v1* h, int k, const EndScreenInfo&
       }
     }
   }
-  // The strip: the viewer's team's rounds in the accent (spectators: the winner's).
-  const int accentTeam = myTeam ? myTeam : (info.winner == "team2" ? 2 : 1);
-  for (int i = 0; i < static_cast<int>(d.rounds.size()); ++i) {
-    const EndScreenRound& x = d.rounds[static_cast<size_t>(i)];
+  // The strip: the winner's square in the colour of the side they played, the other one empty.
+  // Per player, so a preview's own values (.enddemo) don't stay over these.
+  for (int i = 0; i < kRoundSlots; ++i) {
+    const bool has = i < static_cast<int>(d.rounds.size());
+    const EndScreenRound x = has ? d.rounds[static_cast<size_t>(i)] : EndScreenRound{};
     const std::string r = "at_rt" + std::to_string(i);
-    const char* fill = x.winner == accentTeam ? "fill-acc" : "fill-muted";
-    w.Only(slot, r + "_u", kFills, x.winner == 1 ? fill : "fill-none");
-    w.Only(slot, r + "_d", kFills, x.winner == 2 ? fill : "fill-none");
+    const char* fill = x.side == 3 ? "fill-ct" : x.side == 2 ? "fill-t" : "fill-muted";
+    w.Only(slot, r + "_u", kFills, has && x.winner == 1 ? fill : "fill-none");
+    w.Only(slot, r + "_d", kFills, has && x.winner == 2 ? fill : "fill-none");
   }
   // Per player too: a preview may have left its own value, and a player may have closed it (.lb).
   w.Class(slot, "at_end", "on", !g.closed.count(slot));
@@ -345,11 +356,24 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
       }
     }
   }
+  w.Text(ALL, "at_e_rla", info.team1);
+  w.Text(ALL, "at_e_rlb", info.team2);
+  w.Class(ALL, "at_e_rla", "empty", false);
+  w.Class(ALL, "at_e_rlb", "empty", false);
+  const int regHalf = std::max(1, info.maxRounds / 2);
   for (int i = 0; i < kRoundSlots; ++i) {
     const std::string r = "at_rt" + std::to_string(i);
     const bool has = i < static_cast<int>(d.rounds.size());
+    // Regulation rounds not played: an outline, with the side-switch line still before the second half.
+    const bool todo = !has && i < info.maxRounds;
     w.Class(ALL, r, "on", has);
-    if (!has) continue;
+    w.Class(ALL, r, "todo", todo);
+    if (!has) {
+      w.Class(ALL, r, "half", todo && i == regHalf);
+      w.Only(ALL, r + "_u", kIcons, nullptr);
+      w.Only(ALL, r + "_d", kIcons, nullptr);
+      continue;
+    }
     const EndScreenRound& x = d.rounds[static_cast<size_t>(i)];
     // An icon for how it ended (ico-*, hud/tools/gen_icons.py), no letter.
     const char* icon = x.how == 'B'   ? "ico-bomb"
@@ -364,7 +388,7 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
     w.Only(ALL, r + "_d", kIcons, x.winner == 2 ? icon : nullptr);
   }
   w.Class(ALL, "at_erounds", "hide", d.rounds.empty());
-  for (int i = 0; i < 4; ++i) {
+  for (int i = 0; i < kAwards; ++i) {
     const std::string a = "at_aw" + std::to_string(i);
     const bool has = i < static_cast<int>(d.awards.size());
     w.Class(ALL, a, "empty", !has);
@@ -510,6 +534,10 @@ EndScreenInfo EndScreenDemoInfo(uint64_t viewer, const std::string& viewerName, 
     s.utility_damage = x[6];
     s.entry_kills_t = x[7];
     s.mvp = x[8];
+    s.enemies_flashed = x[6] / 20;
+    s.grenades_thrown = x[6] / 12 + 9;
+    s.clutches_won[0] = x[8] / 2;
+    s.friendlies_flashed = (i + team) % 3;
     info.stats.players.push_back(p);
   };
   for (int i = 0; i < 5; ++i) add(1, i, a[i]);
@@ -520,6 +548,7 @@ EndScreenInfo EndScreenDemoInfo(uint64_t viewer, const std::string& viewerName, 
     stats::RoundSummary r;
     const bool a1 = (strip[i * 2] == 'a') != lost;
     r.winner_team = a1 ? 1 : 2;
+    r.winner_side = (a1 == (i < 12)) ? 2 : 3;  // team 1 starts T, swaps at 12
     const char how = strip[i * 2 + 1];
     r.reason = how == 'B' ? 1 : how == 'D' ? 7 : how == 'T' ? 12 : 8;
     info.stats.rounds.push_back(r);
