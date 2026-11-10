@@ -265,7 +265,9 @@
 	transition-timing-function: cubic-bezier( 0.55, 0, 1, 0.45 );
 }
 .at-end.on { opacity: 1; transition-duration: 0.4s; transition-delay: 0s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
-.at-eblur { width: 100%; height: 100%; background-color: #00000024; world-blur: gaussian( 1, 1, 1 ); }
+.at-eblur { width: 100%; height: 100%; background-color: #00000024; world-blur: gaussian( 1, 1, 1 ); visibility: collapse; }
+/* Only while it is up: at_end no longer collapses (for its fade out), and the blur must not stay. */
+.at-end.on .at-eblur { visibility: visible; }
 
 .at-ecard
 {
@@ -355,16 +357,19 @@
 .at-efoot { flow-children: right; width: 100%; margin-top: 20px; }
 .at-ewhere { font-family: "Noto Mono"; width: fill-parent-flow( 1.0 ); vertical-align: center; font-size: 12px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
 .at-enext { vertical-align: center; font-size: 15px; color: #c4bcb9; }
-/* Close: comes in last; hover needs the cursor match.so holds while the leaderboard is up. */
+/* Close: a round X over the card's top right, in last; hover needs the cursor match.so holds while
+   the leaderboard is up. Only with can-close (a server that handles the click). */
 .at-eclose
 {
-	vertical-align: center; margin-left: 18px; height: 34px; padding: 0px 18px; border-radius: 17px;
+	visibility: collapse; horizontal-align: right; vertical-align: top; margin: 18px 18px 0px 0px;
+	width: 40px; height: 40px; border-radius: 20px;
 	background-color: #f4edeb14; border: 1px solid #322926; opacity: 0;
 	transition-property: opacity, transform, background-color; transition-duration: 0.15s, 0.14s, 0.14s;
 }
+.at-end.can-close .at-eclose { visibility: visible; }
 .at-end.on .at-eclose { opacity: 1; transition-duration: 0.3s, 0.14s, 0.14s; transition-delay: 0.9s, 0s, 0s; }
-.at-eclose:hover { transform: scale3d( 1.06, 1.06, 1 ); background-color: #ff6a3d; border: 1px solid #ff6a3d; }
-.at-ecloselabel { vertical-align: center; font-family: "Noto Mono"; font-size: 13px; font-weight: bold; letter-spacing: 1.4px; text-transform: uppercase; color: #f4edeb; }
+.at-eclose:hover { transform: scale3d( 1.1, 1.1, 1 ); background-color: #ff6a3d; border: 1px solid #ff6a3d; }
+.at-eclosex { horizontal-align: center; vertical-align: center; margin-top: -3px; font-size: 28px; font-weight: bold; color: #f4edeb; }
 
 /* ---- end screen utilities ------------------------------------------------------------------
    Scoped to #at_end (".at-end .x") so they beat the base styles above. The server combines them:

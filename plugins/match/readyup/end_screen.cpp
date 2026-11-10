@@ -44,6 +44,7 @@ struct State {
   std::string next;
   std::set<int> captured;  // slots holding the cursor
   std::set<int> closed;    // slots that closed it (.lb)
+  std::set<int> cardLogged;  // slots whose Scoreboard button was logged
   bool preview = false;    // .enddemo, not a real end of map
   EndScreenInfo info;      // what is shown, to draw a viewer again in a new language
   int target = RU_HUD_ALL;
@@ -181,10 +182,10 @@ constexpr int kUsedCols = static_cast<int>(sizeof(kColumns) / sizeof(kColumns[0]
 // 95 % (2026-11-07): at 110 % the card ran off both sides of a 1920x1080 screen (at 100 % it already
 // reached the edges there), so the first and last columns were cut.
 constexpr const char* kScale = "scale-95";
-// No world blur: the game is hidden behind the brand background, so only our leaderboard shows
-// (2026-11-03; before, the card sat on the clear game).
-constexpr const char* kBlur = "blur-0";
-constexpr const char* kDim = "dim-solid";
+// The world blurred, no background of our own: chat and the game show behind the card (Discord,
+// 2026-11-10; from 2026-11-03 a solid background hid the game, and the chat with it).
+constexpr const char* kBlur = "blur-3";
+constexpr const char* kDim = "dim-0";
 constexpr const char* kBg = "";  // none: the card's background is hardcoded in at_kit.css (bg-* had no effect)
 // The cursor while it is up, for its Close button (at_e_close): closing gives it back, so players
 // look around and chat again (Discord, 2026-11-10; before, no cursor at all since 2026-10-27).
@@ -284,7 +285,6 @@ void ShowViewer(const Writer& w, const ru_hud_v1* h, int k, const EndScreenInfo&
     w.Only(slot, r + "_d", kFills, x.winner == 2 ? fill : "fill-none");
   }
   // Per player too: a preview may have left its own value, and a player may have closed it (.lb).
-  w.Text(slot, "at_e_close_l", text::ForLang(lang, "menu.close", {}));
   w.Class(slot, "at_end", "on", !g.closed.count(slot));
   if (kHoldCursor && !g.closed.count(slot) && HasCapture(h) && h->set_capture(k, slot, 1)) g.captured.insert(slot);
   g.langs.Drew(slot, hu.steamid64, lang);
@@ -378,6 +378,7 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
                         "scale-110", "scale-115", "scale-120"}) {
     w.Class(ALL, "at_end", c, std::string(c) == kScale);
   }
+  w.Class(ALL, "at_end", "can-close", kHoldCursor);  // its X (at_e_close): this server handles the click
   for (const char* c : {"blur-0", "blur-1", "blur-2", "blur-3"}) w.Class(ALL, "at_end", c, std::string(c) == kBlur);
   for (const char* c : {"dim-0", "dim-1", "dim-2", "dim-3", "dim-solid"}) w.Class(ALL, "at_end", c, std::string(c) == kDim);
   for (int p = 0; p <= 100; p += 5) {
@@ -550,6 +551,7 @@ bool EndScreenToggle(int slot) {
   if (!g.active || k <= 0 || slot < 0 || slot > 63 || (g.target != RU_HUD_ALL && slot != g.target)) return false;
   const bool show = g.closed.erase(slot) > 0;
   if (!show) g.closed.insert(slot);
+  Print("end-screen: slot %d %s\n", slot, show ? "shows it again" : "closed it");
   h->set_class(k, slot, "at_end", "on", show ? 1 : 0);
   if (kHoldCursor && HasCapture(h) && h->set_capture(k, slot, show ? 1 : 0)) {
     if (show) g.captured.insert(slot);
@@ -564,6 +566,7 @@ std::string EndScreenHudSpec(int slot, const std::string& lang) {
     std::lock_guard<std::mutex> lk(g_mu);
     if (!g.active || (g.target != RU_HUD_ALL && slot != g.target)) return {};
     closed = g.closed.count(slot) > 0;
+    if (closed && g.cardLogged.insert(slot).second) Print("end-screen: slot %d gets the Scoreboard button\n", slot);
   }
   // Up, it covers this whole HUD, so its own Close button (at_kit) does that part. Closed: B brings
   // the cursor back for a button that shows it again.
