@@ -271,11 +271,11 @@
 
 .at-ecard
 {
+	/* Leaderboard v5 (HUD kit canvas): one card, centred, as wide as the two tables side by side.
+	   Opaque: CS2 drew #100908f7 at about 80 % (2026-10-27). */
 	horizontal-align: center; vertical-align: center;
-	/* Hardcoded like the HUD cards (at_ui .ui-panel: clipped, 97 %): with overflow noclip CS2 drew
-	   this background see-through and ignored the bg-* classes (2026-10-27). */
-	width: 1440px; height: fit-children; overflow: clip;
-	background-color: #100908f7; border: 1px solid #322926; border-radius: 18px;
+	width: 1330px; height: fit-children; overflow: clip;
+	background-color: #120b0a; border: 1px solid #322926; border-radius: 18px;
 	/* Out: it sinks and shrinks a little, quickly. In: it rises from further down and settles. */
 	transform: translate3d( 0px, 40px, 0px ) scale3d( 0.94, 0.94, 1 ); transition-property: transform; transition-duration: 0.32s;
 	transition-timing-function: cubic-bezier( 0.55, 0, 1, 0.45 );
@@ -285,56 +285,64 @@
 	transform: translate3d( 0px, 0px, 0px ) scale3d( 1, 1, 1 ); transition-duration: 0.66s;
 	transition-timing-function: cubic-bezier( 0.18, 1.08, 0.3, 1 );
 }
-/* A second layer of the card's background: CS2 draws one layer of #100908f7 at about 80 %, two read
-   as solid (2026-10-27). */
-.at-ecardflow { flow-children: down; width: 100%; height: fit-children; padding: 24px 36px 24px 36px; overflow: noclip; background-color: #100908f7; border-radius: 18px; }
-.at-ecard .at-brand { height: 22px; }
-.at-ecard .at-brandlogo { width: 22px; height: 22px; border-radius: 6px; }
-.at-ecard .at-brandname { font-size: 12px; letter-spacing: 2.4px; }
-
-.at-ehead-text { horizontal-align: center; margin-top: 8px; font-size: 48px; font-weight: bold; color: #f4edeb; }
-.at-howbox { horizontal-align: center; margin-top: 8px; padding: 5px 12px; border-radius: 14px; background-color: #f4edeb14; }
+/* Inside the card: the content (1266 px after padding), then the footer bar. */
+.at-ecol { flow-children: down; width: 100%; height: fit-children; }
+.at-ecardflow { flow-children: down; width: 100%; height: fit-children; padding: 20px 32px 0px 32px; overflow: noclip; }
+.at-ehero { flow-children: down; width: 100%; height: fit-children; }
+.at-ehead-text { horizontal-align: center; font-size: 34px; font-weight: bold; color: #f4edeb; }
+.at-howbox { horizontal-align: center; margin-bottom: 4px; padding: 5px 12px; border-radius: 14px; background-color: #f4edeb14; }
 .at-how { font-family: "Noto Mono"; font-size: 13px; font-weight: bold; letter-spacing: 1.4px; text-transform: uppercase; color: #f4edeb; }
 
-.at-escore { flow-children: right; horizontal-align: center; margin: 8px 0px 18px 0px; }
+.at-escore { flow-children: right; horizontal-align: center; margin: 2px 0px 6px 0px; }
 .at-eteambox { flow-children: down; vertical-align: center; width: 320px; }
-.at-eabox { margin-right: 28px; }
-.at-ebbox { margin-left: 28px; }
-.at-eteamname { width: 100%; font-size: 26px; font-weight: bold; color: #f4edeb; }
-.at-esides { width: 100%; margin-top: 4px; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
+.at-eabox { margin-right: 22px; }
+.at-ebbox { margin-left: 22px; }
+.at-eteamname { width: 100%; font-size: 22px; font-weight: bold; color: #f4edeb; }
+/* T 8 · CT 5 under the names: the side-coloured round squares say it now. */
+.at-esides { visibility: collapse; }
 .at-right { text-align: right; }
-.at-enum { vertical-align: center; font-size: 64px; font-weight: bold; color: #f4edeb; }
-.at-ecolon { vertical-align: center; margin: 0px 18px; font-size: 30px; font-weight: bold; color: #938a87; }
+.at-enum { vertical-align: center; font-size: 52px; font-weight: bold; color: #f4edeb; }
+.at-ecolon { vertical-align: center; margin: 0px 14px; font-size: 26px; font-weight: bold; color: #4a3f3b; }
 
-/* Round strip: a tick per round (class on), a gap before it (half); the server fills each part
-   (fill-*) and letters it. */
-.at-erounds { flow-children: right; horizontal-align: center; height: 64px; margin: 4px 0px 14px 0px; }
-.at-rt { visibility: collapse; flow-children: down; width: 26px; height: 64px; margin-left: 4px; }
+/* Round strip: the team names, then an 18 px square per round, Team A's wins on top and Team B's
+   below, in the side colour (fill-ct / fill-t) the winner played. `half` on a slot draws the side
+   switch before it; `todo` is a round not played yet (an outline). */
+.at-estrip { flow-children: right; horizontal-align: center; height: fit-children; margin: 4px 0px 18px 0px; overflow: noclip; }
+.at-erlbox { flow-children: down; vertical-align: center; margin-right: 12px; }
+.at-erl { height: 18px; margin-bottom: 4px; text-align: right; font-size: 13px; font-weight: bold; color: #c4bcb9; }
+.at-erounds { flow-children: right; vertical-align: center; height: 40px; overflow: noclip; }
+.at-rt { visibility: collapse; width: 18px; height: 40px; margin-left: 4px; overflow: noclip; }
 .at-rt.on { visibility: visible; }
+.at-rt.todo { visibility: visible; }
 .at-rt.half { margin-left: 22px; }
-.at-rtp { width: 26px; height: 26px; border-radius: 6px; text-align: center; font-family: "Noto Mono"; font-size: 11px; font-weight: bold; padding-top: 5px; color: #f4edeb; background-color: #00000000; }
-.at-rtmid { width: 26px; height: 2px; margin: 4px 0px; background-color: #322926; }
+.at-rtswitch { visibility: collapse; width: 2px; height: 48px; vertical-align: center; margin-left: -12px; border-radius: 1px; background-color: #938a87; }
+.at-rt.half .at-rtswitch { visibility: visible; }
+.at-rtp { width: 18px; height: 18px; border-radius: 4px; text-align: center; font-family: "Noto Mono"; font-size: 9px; font-weight: bold; padding-top: 3px; color: #140e0c; background-color: #2a201d; }
+.at-end .at-rt .fill-none { background-color: #2a201d; color: #00000000; }
+.at-rtmid { visibility: collapse; }
+.at-rt .at-rtp { vertical-align: top; }
+.at-rt .at-rtd { vertical-align: bottom; }
+.at-rt.todo .at-rtp { background-color: #00000000; border: 1px solid #322926; }
 
-/* Awards. */
-.at-eawards { flow-children: right; width: 100%; margin-bottom: 14px; }
-.at-aw { flow-children: down; width: fill-parent-flow( 1.0 ); margin-right: 10px; padding: 10px 14px; border-radius: 10px; background-color: #18110e; border: 1px solid #211815; }
-.at-awl { font-family: "Noto Mono"; font-size: 11px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
-.at-awrow { flow-children: right; width: 100%; margin-top: 2px; }
-.at-awn { width: fill-parent-flow( 1.0 ); font-size: 15px; font-weight: bold; color: #f4edeb; }
-.at-awv { font-family: "Noto Mono"; font-size: 15px; font-weight: bold; color: #f4edeb; }
+/* Awards: two rows of four, hairline above, no boxes. */
+.at-eawards { flow-children: right-wrap; width: 100%; margin-top: 14px; border-top: 1px solid #322926; }
+.at-aw { flow-children: down; width: 25%; padding: 12px 14px 10px 14px; }
+.at-awl { font-family: "Noto Mono"; font-size: 12px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
+.at-awrow { flow-children: right; width: 100%; margin-top: 3px; }
+.at-awn { width: fill-parent-flow( 1.0 ); font-size: 16px; font-weight: bold; color: #f4edeb; }
+.at-awv { font-family: "Noto Mono"; font-size: 16px; font-weight: bold; color: #ff6a3d; }
 
 /* Tables: a head row of cells (text + a tooltip on hover), then player rows. Cells are 40 px
-   until a cw-* class says otherwise; cw-off hides a column. */
-.at-eteams { flow-children: right; width: 100%; overflow: noclip; }
-/* Fixed widths: two tables of 670 px and a 28 px gap fill the card's 1368 px (fill-parent-flow here
-   let the first table take nearly everything, 2026-10-27). */
-.at-eteam { flow-children: down; width: 670px; overflow: noclip; }
-#at_eta { margin-right: 28px; }
-.at-erow { flow-children: right; width: 100%; height: 36px; margin-bottom: 5px; padding: 0px 12px; border-radius: 8px; background-color: #18110e; border: 1px solid #211815; }
-.at-erow.at-ehead { overflow: noclip noclip; z-index: 5; height: 16px; background-color: #00000000; border: 0px solid #00000000; }
-.at-enbox { flow-children: right; width: fill-parent-flow( 1.0 ); vertical-align: center; }
+   until a cw-* class says otherwise; cw-off hides a column. Side by side, each as wide as its
+   columns: the name column is a fixed 170 px, so the numbers start right after the name. */
+.at-eteams { flow-children: right; horizontal-align: center; width: fit-children; padding-top: 14px; border-top: 1px solid #322926; overflow: noclip; }
+.at-eteam { flow-children: down; width: fit-children; overflow: noclip; }
+#at_eta { margin-right: 32px; }
+.at-erow { flow-children: right; width: fit-children; height: 32px; margin-bottom: 3px; padding: 0px 12px; border-radius: 7px; background-color: #18110e; border: 1px solid #211815; }
+.at-erow.at-ehead { overflow: noclip noclip; z-index: 5; height: 18px; background-color: #00000000; border: 0px solid #00000000; }
+.at-enbox { flow-children: right; width: 170px; vertical-align: center; }
 .at-en { vertical-align: center; font-size: 14px; color: #f4edeb; }
-.at-ehead .at-en { font-size: 11px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; width: fill-parent-flow( 1.0 ); }
+.at-ehead .at-en { font-size: 12px; font-weight: bold; letter-spacing: 1.2px; color: #c4bcb9; width: 170px; }
 .at-etag { visibility: collapse; vertical-align: center; margin-left: 8px; padding: 2px 6px; border-radius: 4px; font-family: "Noto Mono"; font-size: 10px; font-weight: bold; }
 .at-ec { font-family: "Noto Mono"; width: 40px; margin-left: 6px; vertical-align: center; text-align: right; font-size: 14px; color: #c4bcb9; }
 .at-ehc { width: 40px; height: 16px; margin-left: 6px; overflow: noclip noclip; z-index: 5; }
@@ -354,16 +362,17 @@
 .at-tipk { font-size: 14px; font-weight: bold; color: #f4edeb; }
 .at-tipv { margin-top: 3px; font-size: 12px; color: #c4bcb9; }
 
-.at-efoot { flow-children: right; width: 100%; margin-top: 20px; }
+/* What is next: the last line of the card, where people look for it. */
+.at-efoot { flow-children: right; width: 100%; margin-top: 6px; padding: 12px 32px 15px 32px; background-color: #1a1210; border-top: 1px solid #322926; }
 .at-ewhere { font-family: "Noto Mono"; width: fill-parent-flow( 1.0 ); vertical-align: center; font-size: 12px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
-.at-enext { vertical-align: center; font-size: 15px; color: #c4bcb9; }
-/* Close: a round X over the card's top right, in last; hover needs the cursor match.so holds while
-   the leaderboard is up. Only with can-close (a server that handles the click). */
+.at-enext { vertical-align: center; font-size: 17px; font-weight: bold; color: #f4edeb; }
+/* Close: a round X over the card's top right, in last; hover needs the cursor match.so holds
+   while the leaderboard is up. Only with can-close (a server that handles the click). */
 .at-eclose
 {
-	visibility: collapse; horizontal-align: right; vertical-align: top; margin: 18px 18px 0px 0px;
-	width: 40px; height: 40px; border-radius: 20px;
-	background-color: #f4edeb14; border: 1px solid #322926; opacity: 0;
+	visibility: collapse; horizontal-align: right; vertical-align: top; margin: 16px 16px 0px 0px;
+	width: 36px; height: 36px; border-radius: 18px;
+	background-color: #f4edeb14; border: 1px solid #4a3f3a; opacity: 0;
 	transition-property: opacity, transform, background-color; transition-duration: 0.15s, 0.14s, 0.14s;
 }
 .at-end.can-close .at-eclose { visibility: visible; }
