@@ -186,9 +186,9 @@ constexpr const char* kScale = "scale-95";
 constexpr const char* kBlur = "blur-0";
 constexpr const char* kDim = "dim-solid";
 constexpr const char* kBg = "";  // none: the card's background is hardcoded in at_kit.css (bg-* had no effect)
-// No cursor: players move, look around and type in chat ("gg") while it is up. Hover tooltips did
-// not show in CS2, so nothing needs the cursor (2026-10-27).
-constexpr bool kHoldCursor = false;
+// The cursor while it is up, for its Close button (at_e_close): closing gives it back, so players
+// look around and chat again (Discord, 2026-11-10; before, no cursor at all since 2026-10-27).
+constexpr bool kHoldCursor = true;
 
 const char* const kTextTones[] = {"tc-ink", "tc-soft", "tc-muted", "tc-acc", "tc-ban", "tc-pos", "tc-live", "tc-warn", "tc-ct", "tc-t"};
 const char* const kFills[] = {"fill-none", "fill-acc", "fill-muted", "fill-ban", "fill-live", "fill-ct", "fill-t"};
@@ -284,8 +284,9 @@ void ShowViewer(const Writer& w, const ru_hud_v1* h, int k, const EndScreenInfo&
     w.Only(slot, r + "_d", kFills, x.winner == 2 ? fill : "fill-none");
   }
   // Per player too: a preview may have left its own value, and a player may have closed it (.lb).
+  w.Text(slot, "at_e_close_l", text::ForLang(lang, "menu.close", {}));
   w.Class(slot, "at_end", "on", !g.closed.count(slot));
-  if (kHoldCursor && HasCapture(h) && h->set_capture(k, slot, 1)) g.captured.insert(slot);
+  if (kHoldCursor && !g.closed.count(slot) && HasCapture(h) && h->set_capture(k, slot, 1)) g.captured.insert(slot);
   g.langs.Drew(slot, hu.steamid64, lang);
 }
 
@@ -550,6 +551,10 @@ bool EndScreenToggle(int slot) {
   const bool show = g.closed.erase(slot) > 0;
   if (!show) g.closed.insert(slot);
   h->set_class(k, slot, "at_end", "on", show ? 1 : 0);
+  if (kHoldCursor && HasCapture(h) && h->set_capture(k, slot, show ? 1 : 0)) {
+    if (show) g.captured.insert(slot);
+    else g.captured.erase(slot);
+  }
   return true;
 }
 
@@ -560,12 +565,11 @@ std::string EndScreenHudSpec(int slot, const std::string& lang) {
     if (!g.active || (g.target != RU_HUD_ALL && slot != g.target)) return {};
     closed = g.closed.count(slot) > 0;
   }
-  const std::string scoreboard = HudSpecText(text::ForLang(lang, "end.scoreboard", {}));
-  // Up: the cursor is out so Close is one click. Closed: B brings the cursor back for the button.
-  if (!closed) return "id=end-lb\nwhere=card\ncolor=muted\ntitle=" + scoreboard + "\nbtn=" +
-                      HudSpecText(text::ForLang(lang, "menu.close", {})) + "|ghost||.lb\nmouse=on\n";
-  return "id=end-lb-off\nwhere=card\ncolor=muted\nbtn=" + scoreboard + "|green||.lb\nhint=" +
-         HudSpecText(text::ForLang(lang, "spec.press_b", {})) + "\nmouse=b\n";
+  // Up, it covers this whole HUD, so its own Close button (at_kit) does that part. Closed: B brings
+  // the cursor back for a button that shows it again.
+  if (!closed) return {};
+  return "id=end-lb-off\nwhere=card\ncolor=muted\nbtn=" + HudSpecText(text::ForLang(lang, "end.scoreboard", {})) +
+         "|green||.lb\nhint=" + HudSpecText(text::ForLang(lang, "spec.press_b", {})) + "\nmouse=b\n";
 }
 
 }  // namespace readyup

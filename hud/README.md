@@ -127,7 +127,8 @@ parts. Part classes: `hide`, `bold` (+ `c-live` / `c-ban`), `cmd` (+ `main` / `w
 `has-confirm` `has-parts` `has-cmds` `chat` `has-timer` `has-counter`; `go` runs the orange wipe once.
 
 **End** (`at_end`): `at_e_head`, `at_e_how` (class `how`), `at_e_ta/_tb` teams, `at_e_sa/_sb`
-scores, `at_e_where` (bottom left), `at_e_next` (bottom right), team headers `at_ea_name` /
+scores, `at_e_where` (bottom left), `at_e_next` (bottom right), the `at_e_close` button (label
+`at_e_close_l`; hud.so runs `.lb` on a click), team headers `at_ea_name` /
 `at_eb_name`, rows `at_e{a|b}{0..4}` with `_n _k _d _a _g _r _s _h` (name K D A DMG ADR KAST HS),
 row classes `me` (the viewer, by platform name) and `mvp`. End classes `won` / `lost` / `draw`.
 

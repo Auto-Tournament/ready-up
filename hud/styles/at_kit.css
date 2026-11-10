@@ -258,10 +258,13 @@
 
 .at-end
 {
-	width: 100%; height: 100%; visibility: collapse; opacity: 0;
-	transition-property: opacity; transition-duration: 0.4s;
+	/* No visibility: collapse: it would snap away before the fade out plays. hittest is off, so the
+	   faded layer never takes a click. */
+	width: 100%; height: 100%; opacity: 0;
+	transition-property: opacity; transition-duration: 0.3s; transition-delay: 0.1s;
+	transition-timing-function: cubic-bezier( 0.55, 0, 1, 0.45 );
 }
-.at-end.on { visibility: visible; opacity: 1; }
+.at-end.on { opacity: 1; transition-duration: 0.4s; transition-delay: 0s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
 .at-eblur { width: 100%; height: 100%; background-color: #00000024; world-blur: gaussian( 1, 1, 1 ); }
 
 .at-ecard
@@ -271,10 +274,15 @@
 	   this background see-through and ignored the bg-* classes (2026-10-27). */
 	width: 1440px; height: fit-children; overflow: clip;
 	background-color: #100908f7; border: 1px solid #322926; border-radius: 18px;
-	transform: translate3d( 0px, 16px, 0px ) scale3d( 1, 1, 1 ); transition-property: transform; transition-duration: 0.52s;
-	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
+	/* Out: it sinks and shrinks a little, quickly. In: it rises from further down and settles. */
+	transform: translate3d( 0px, 40px, 0px ) scale3d( 0.94, 0.94, 1 ); transition-property: transform; transition-duration: 0.32s;
+	transition-timing-function: cubic-bezier( 0.55, 0, 1, 0.45 );
 }
-.at-end.on .at-ecard { transform: translate3d( 0px, 0px, 0px ) scale3d( 1, 1, 1 ); }
+.at-end.on .at-ecard
+{
+	transform: translate3d( 0px, 0px, 0px ) scale3d( 1, 1, 1 ); transition-duration: 0.66s;
+	transition-timing-function: cubic-bezier( 0.18, 1.08, 0.3, 1 );
+}
 /* A second layer of the card's background: CS2 draws one layer of #100908f7 at about 80 %, two read
    as solid (2026-10-27). */
 .at-ecardflow { flow-children: down; width: 100%; height: fit-children; padding: 24px 36px 24px 36px; overflow: noclip; background-color: #100908f7; border-radius: 18px; }
@@ -347,6 +355,16 @@
 .at-efoot { flow-children: right; width: 100%; margin-top: 20px; }
 .at-ewhere { font-family: "Noto Mono"; width: fill-parent-flow( 1.0 ); vertical-align: center; font-size: 12px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; }
 .at-enext { vertical-align: center; font-size: 15px; color: #c4bcb9; }
+/* Close: comes in last; hover needs the cursor match.so holds while the leaderboard is up. */
+.at-eclose
+{
+	vertical-align: center; margin-left: 18px; height: 34px; padding: 0px 18px; border-radius: 17px;
+	background-color: #f4edeb14; border: 1px solid #322926; opacity: 0;
+	transition-property: opacity, transform, background-color; transition-duration: 0.15s, 0.14s, 0.14s;
+}
+.at-end.on .at-eclose { opacity: 1; transition-duration: 0.3s, 0.14s, 0.14s; transition-delay: 0.9s, 0s, 0s; }
+.at-eclose:hover { transform: scale3d( 1.06, 1.06, 1 ); background-color: #ff6a3d; border: 1px solid #ff6a3d; }
+.at-ecloselabel { vertical-align: center; font-family: "Noto Mono"; font-size: 13px; font-weight: bold; letter-spacing: 1.4px; text-transform: uppercase; color: #f4edeb; }
 
 /* ---- end screen utilities ------------------------------------------------------------------
    Scoped to #at_end (".at-end .x") so they beat the base styles above. The server combines them:
@@ -525,6 +543,49 @@
 #at_eb2 { transition-delay: 0.73s; }
 #at_eb3 { transition-delay: 0.77s; }
 #at_eb4 { transition-delay: 0.81s; }
+/* The score lands with a small overshoot, the winner's side first. */
+.at-enum { transform: scale3d( 0.6, 0.6, 1 ); transition-property: transform; transition-duration: 0.2s; }
+.at-end.on .at-enum { transform: scale3d( 1, 1, 1 ); transition-duration: 0.5s; transition-delay: 0.32s; transition-timing-function: cubic-bezier( 0.34, 1.56, 0.64, 1 ); }
+.at-end.on #at_e_sb { transition-delay: 0.4s; }
+/* The round strip draws itself left to right. */
+.at-rt { opacity: 0; transform: translateY( 10px ); transition-property: opacity, transform; transition-duration: 0.15s; }
+.at-end.on .at-rt { opacity: 1; transform: translateY( 0px ); transition-duration: 0.3s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+.at-end.on #at_rt0 { transition-delay: 0.340s; }
+.at-end.on #at_rt1 { transition-delay: 0.356s; }
+.at-end.on #at_rt2 { transition-delay: 0.372s; }
+.at-end.on #at_rt3 { transition-delay: 0.388s; }
+.at-end.on #at_rt4 { transition-delay: 0.404s; }
+.at-end.on #at_rt5 { transition-delay: 0.420s; }
+.at-end.on #at_rt6 { transition-delay: 0.436s; }
+.at-end.on #at_rt7 { transition-delay: 0.452s; }
+.at-end.on #at_rt8 { transition-delay: 0.468s; }
+.at-end.on #at_rt9 { transition-delay: 0.484s; }
+.at-end.on #at_rt10 { transition-delay: 0.500s; }
+.at-end.on #at_rt11 { transition-delay: 0.516s; }
+.at-end.on #at_rt12 { transition-delay: 0.532s; }
+.at-end.on #at_rt13 { transition-delay: 0.548s; }
+.at-end.on #at_rt14 { transition-delay: 0.564s; }
+.at-end.on #at_rt15 { transition-delay: 0.580s; }
+.at-end.on #at_rt16 { transition-delay: 0.596s; }
+.at-end.on #at_rt17 { transition-delay: 0.612s; }
+.at-end.on #at_rt18 { transition-delay: 0.628s; }
+.at-end.on #at_rt19 { transition-delay: 0.644s; }
+.at-end.on #at_rt20 { transition-delay: 0.660s; }
+.at-end.on #at_rt21 { transition-delay: 0.676s; }
+.at-end.on #at_rt22 { transition-delay: 0.692s; }
+.at-end.on #at_rt23 { transition-delay: 0.708s; }
+.at-end.on #at_rt24 { transition-delay: 0.724s; }
+.at-end.on #at_rt25 { transition-delay: 0.740s; }
+.at-end.on #at_rt26 { transition-delay: 0.756s; }
+.at-end.on #at_rt27 { transition-delay: 0.772s; }
+.at-end.on #at_rt28 { transition-delay: 0.788s; }
+.at-end.on #at_rt29 { transition-delay: 0.804s; }
+.at-aw { opacity: 0; transform: translateY( 12px ); transition-property: opacity, transform; transition-duration: 0.15s; }
+.at-end.on .at-aw { opacity: 1; transform: translateY( 0px ); transition-duration: 0.36s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+.at-end.on #at_aw0 { transition-delay: 0.5s; }
+.at-end.on #at_aw1 { transition-delay: 0.56s; }
+.at-end.on #at_aw2 { transition-delay: 0.62s; }
+.at-end.on #at_aw3 { transition-delay: 0.68s; }
 
 /* ---- more end screen knobs ------------------------------------------------------------------
    On at_ecard: mt- / mb-<0..400, steps of 10> move the card down / up; rad-<0..30, steps of 2>
