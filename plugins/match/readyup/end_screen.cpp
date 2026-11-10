@@ -182,9 +182,9 @@ constexpr int kUsedCols = static_cast<int>(sizeof(kColumns) / sizeof(kColumns[0]
 // 95 % (2026-11-07): at 110 % the card ran off both sides of a 1920x1080 screen (at 100 % it already
 // reached the edges there), so the first and last columns were cut.
 constexpr const char* kScale = "scale-95";
-// The world blurred, no background of our own: chat and the game show behind the card (Discord,
-// 2026-11-10; from 2026-11-03 a solid background hid the game, and the chat with it).
-constexpr const char* kBlur = "blur-3";
+// No background and no blur: both drew over the chat (a solid one from 2026-11-03, then a world blur),
+// so chat stays readable and usable behind the card (Sivert, 2026-11-10).
+constexpr const char* kBlur = "blur-0";
 constexpr const char* kDim = "dim-0";
 constexpr const char* kBg = "";  // none: the card's background is hardcoded in at_kit.css (bg-* had no effect)
 // The cursor while it is up, for its Close button (at_e_close): closing gives it back, so players
