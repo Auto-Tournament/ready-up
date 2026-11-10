@@ -800,12 +800,12 @@
 <Panel class="at-efoot" hittest="false">
 <Label id="at_e_where" class="at-ewhere" text="{s:text}" hittest="false" />
 <Label id="at_e_next" class="at-enext" text="{s:text}" hittest="false" />
-<Button id="at_e_close" class="at-eclose">
-<Label id="at_e_close_l" class="at-ecloselabel" text="{s:text}" hittest="false" />
-</Button>
 </Panel>
 </Panel>
 <Panel class="at-line" hittest="false" />
+<Button id="at_e_close" class="at-eclose">
+<Label class="at-eclosex" text="×" hittest="false" />
+</Button>
 </Panel>
 </Panel>
 </Panel>
