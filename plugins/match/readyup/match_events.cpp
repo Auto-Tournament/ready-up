@@ -353,6 +353,8 @@ void StatsOnGameEventLocked(const char* name, const ru_game_event* ev) {
   } else if (std::strcmp(name, "player_blind") == 0) {
     st.OnPlayerBlind(StatsIdForEvent(ev, "userid"), StatsIdForEvent(ev, "attacker"),
                      a->ev_get_float(a->self, ev, "blind_duration", 0.0));
+  } else if (std::strcmp(name, "grenade_thrown") == 0) {
+    st.OnGrenadeThrown(StatsIdForEvent(ev, "userid"));
   } else if (std::strcmp(name, "bomb_planted") == 0) {
     st.OnBombPlanted(StatsIdForEvent(ev, "userid"));
   } else if (std::strcmp(name, "bomb_defused") == 0) {
@@ -815,7 +817,7 @@ void MatchEventsIgnoreRoundEndsFor(double seconds) {
 void MatchEventsInstall(const ru_api* api) {
   static const char* const kEvents[] = {
       "round_start", "round_end", "round_freeze_end", "round_announce_warmup", "player_spawn", "player_disconnect", "player_death",
-      "player_hurt", "player_blind", "bomb_planted", "bomb_defused", "round_mvp", "begin_new_match",
+      "player_hurt", "player_blind", "grenade_thrown", "bomb_planted", "bomb_defused", "round_mvp", "begin_new_match",
   };
   for (const char* e : kEvents) {
     if (!api->subscribe_game_event(api->self, e, &OnGameEvent, nullptr)) {
