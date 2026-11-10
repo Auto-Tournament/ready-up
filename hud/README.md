@@ -74,11 +74,11 @@ each leaves the way it came. Example: `enter=drop;exit=rise;cls=at-top edge glas
 
 ### "HUD out of date"
 
-`#ui_ver` in `at_ui` is a small pill, top centre, that tells a player to go to autotournament.gg/hud
-(the update steps, on the website) when their copy of the addon is older than the server's. Restarting CS2 is not enough: a player who is
+`#ui_ver` in `at_ui` is a small pill, top centre, that tells a player to open the platform's ? menu and
+choose HUD (the update steps) when their copy of the addon is older than the server's. Restarting CS2 is not enough: a player who is
 not subscribed keeps the copy they got when they first joined, because the server only sends addon
 ids and the game downloads only ids it doesn't have (2026-11-10). Subscribing in the Workshop is
-the fix, and that page says how. The client can't report its version, so the addon decides for
+the fix, and those steps say how. The client can't report its version, so the addon decides for
 itself:
 
 - `plugins/hud/hud_addon.h` holds `kAddonVersion`. hud.so puts `check` and `v-<kAddonVersion>` on
