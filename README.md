@@ -12,9 +12,6 @@
 
 <br />
 
-> [!CAUTION]
-> **Early development.** Ready Up changes often. Expect breaking changes between releases.
-
 Ready Up runs your CS2 server's match flow: players ready up, the match goes live, and results go back to whatever is running the event. It's part of [Auto Tournament](https://github.com/Auto-Tournament/auto-tournament) and does the same job as [MatchZy](https://github.com/shobhit-pathak/MatchZy) and [Get5](https://github.com/splewis/get5). It isn't a fork of either. We borrow their commands and event names where it makes sense, so moving over is easy.
 
 **No Metamod. No CounterStrikeSharp. Nothing else to install.**
@@ -33,12 +30,17 @@ CI checks the file against every new CS2 build, usually within minutes of the up
 - Match configs loaded from the Auto Tournament platform, with a roster whitelist and team locks
 - Pauses (`.pause` / `.unpause`) and captain forfeit
 - Practice mode (its own plugin): `.prac`, `.savepos`/`.loadpos`, `.spawn N`, `.rethrow`, `.bot`, `.noflash`, `.god`; a dedicated practice server with `always=1`; `.scen` replays a recorded pro round with bots ([docs/SCENARIOS.md](docs/SCENARIOS.md))
-- Steam Workshop addons (its own plugin, Full bundle): the server downloads the addons listed in `cfg/ReadyUp/addons.cfg` (`workshop_addons=`) and mounts them with every map change, plus the Auto Tournament HUD addon whenever the HUD plugin runs (every player needs it); otherwise idle until you list one (`ru addons` shows their state)
+- Steam Workshop addons (its own plugin, in both bundles): the server downloads the addons listed in `cfg/ReadyUp/addons.cfg` (`workshop_addons=`) and mounts them with every map change, plus the Auto Tournament HUD addon whenever the HUD plugin runs (every player needs it); otherwise idle until you list one (`ru addons` shows their state)
 - Deathmatch (its own plugin, Full bundle): free for all or team deathmatch with a kill / time limit, a live leaderboard, headshot only and weapon rounds (`.ru dm ffa|tdm [map]`)
 - Admins, settings, crash recovery and skins loadouts in small JSON files, no database (`ru admins add|remove|list`); in fleet mode admins and loadouts come from the platform
 - Per-player center-screen HTML, such as the welcome screen
 - Webhooks and a heartbeat for the platform
-- Knife round (in progress)
+- Knife round and side pick
+- In-game HUD (its own plugin): ready-up, damage and leaderboard cards drawn in CS2's own HUD, through the Auto Tournament HUD addon
+- Map vote (its own plugin) for community servers: `.rtv`, `.nominate` and a vote before the map's time runs out
+- Surf, bhop and kz (Movement plugin, Full bundle): the mode's physics, a run timer, personal bests and the map's top times
+- Community commands (its own plugin, Full bundle): `.rank`, `.top`, `.speclist`, `.kick`
+- GOTV broadcast settings that hold for a whole series (TV plugin, Full bundle)
 
 Skins (weapon paints, knives, gloves, agents) are a separate plugin and aren't in the default release. Skin changers can get a server banned, so you have to download it on purpose.
 
@@ -68,9 +70,14 @@ Ready Up is a small core plus plugins. The core is the only part that touches th
 | Essentials | Admins list and map commands | Essentials |
 | Practice | Practice mode and tools, pro-round scenarios | Essentials |
 | Fleet | Link to the Auto Tournament platform (idle until configured) | Essentials |
+| HUD | Ready-up, damage and leaderboard cards in CS2's HUD | Essentials |
+| Map vote | `.rtv`, `.nominate` and map votes on community servers | Essentials |
+| Addons | Steam Workshop addons, and the HUD addon every player needs | Essentials |
 | Whitelist | Only listed players may join | Full |
 | Deathmatch | Free for all and team deathmatch with a leaderboard | Full |
-| Addons | Steam Workshop addons | Full |
+| Movement | Surf, bhop and kz with a run timer and top times | Full |
+| Community | `.rank`, `.top`, `.speclist`, `.kick` | Full |
+| TV | GOTV broadcast settings | Full |
 | Midas | Fun: the best player's weapons turn gold | Full |
 | Skins | Weapon paints, knives, gloves, agents | Full |
 | Hello | Example plugin to start your own | Full |
