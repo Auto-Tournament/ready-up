@@ -74,9 +74,12 @@ each leaves the way it came. Example: `enter=drop;exit=rise;cls=at-top edge glas
 
 ### "HUD out of date"
 
-`#ui_ver` in `at_ui` is a small pill, top centre, that tells a player to restart CS2 when their
-copy of the addon is older than the server's. The client can't report its version, so the addon
-decides for itself:
+`#ui_ver` in `at_ui` is a small pill, top centre, that tells a player to check the platform when
+their copy of the addon is older than the server's. Restarting CS2 is not enough: a player who is
+not subscribed keeps the copy they got when they first joined, because the server only sends addon
+ids and the game downloads only ids it doesn't have (2026-11-10). Subscribing in the Workshop is
+the fix, and the platform says how. The client can't report its version, so the addon decides for
+itself:
 
 - `plugins/hud/hud_addon.h` holds `kAddonVersion`. hud.so puts `check` and `v-<kAddonVersion>` on
   `#ui_ver` for everyone, and the text (`ui_ver_t`, locale key `hud.outdated`) in each player's
@@ -167,8 +170,8 @@ sources into `content\csgo_addons\at_hud\panorama\…`, runs `game\bin\win64\res
 on each file, checks the compiled files landed in `game\csgo_addons\at_hud\panorama\…`, and deletes
 the tool caches (`_bakeresourcecache`, `tools_thumbnail_cache.sqlite3`, …) so they don't get uploaded.
 
-To test on your own client without the Workshop, copy the two compiled files into
-`game\csgo\panorama\layout\custom_game\` and `game\csgo\panorama\styles\custom_game\`, then restart CS2.
+Loose compiled files in `game\csgo\panorama\…` don't work for a test: on a server the game loads
+the Workshop VPK (2026-11-10). Publish, then subscribe so your client fetches the update.
 
 ## Publish (Windows)
 
