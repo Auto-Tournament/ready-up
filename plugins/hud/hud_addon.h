@@ -11,5 +11,5 @@
 #pragma once
 
 namespace hud {
-constexpr int kAddonVersion = 2;
+constexpr int kAddonVersion = 3;
 }  // namespace hud

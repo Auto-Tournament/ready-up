@@ -816,6 +816,11 @@ void DrainClicks() {
   for (const Click& c : clicks) {
     ru_logf(g_api, RU_LOG_INFO, "click: slot %d button \"%s\" (layout handle 0x%x)", c.slot, c.button.c_str(), c.handle);
     if (ScreenClick(c.slot, c.button)) continue;
+    // at_kit's leaderboard Close: match.so's `.lb` closes it and gives the cursor back.
+    if (c.button == "at_e_close") {
+      if (RU_API_HAS(g_api, run_chat_command)) g_api->run_chat_command(g_api->self, c.slot, ".lb");
+      continue;
+    }
     if (!g_clickOpen.count(c.slot)) continue;
     const int h = IfOpen(kClickLayout);
     if (c.button == "at_btn_close") {

@@ -110,7 +110,9 @@ def end():
     awards = panel("at_eawards", "at-eawards", "".join(
         panel(f"at_aw{n}", "at-aw", label(f"at_aw{n}_l", "at-awl") + panel(cls="at-awrow", children=(
             label(f"at_aw{n}_n", "at-awn") + label(f"at_aw{n}_v", "at-awv")))) for n in range(END_AWARDS)))
-    foot = panel(cls="at-efoot", children=label("at_e_where", "at-ewhere") + label("at_e_next", "at-enext"))
+    # Close (at_e_close): hud.so turns a click on it into `.lb` while match.so holds the cursor.
+    close = '<Button id="at_e_close" class="at-eclose">' + label("at_e_close_l", "at-ecloselabel") + "</Button>"
+    foot = panel(cls="at-efoot", children=label("at_e_where", "at-ewhere") + label("at_e_next", "at-enext") + close)
     flow = panel(cls="at-ecardflow", children=(
         brand() + panel(cls="at-divider")
         + label("at_e_head", "at-ehead-text") + panel("at_e_howbox", "at-howbox", label("at_e_how", "at-how"))
