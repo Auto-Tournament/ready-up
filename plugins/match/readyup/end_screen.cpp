@@ -42,6 +42,9 @@ struct State {
   text::Msg nextLabel;
   std::string next;
   std::set<int> captured;  // slots holding the cursor
+  // Slots shown it per player. Hide clears them all: a player who left meanwhile is no longer in
+  // ListHumans, and their slot kept it for whoever took it next, until a restart (Discord, 2026-11-09).
+  std::set<int> shown;
   bool preview = false;    // .enddemo, not a real end of map
   EndScreenInfo info;      // what is shown, to draw a viewer again in a new language
   int target = RU_HUD_ALL;
@@ -282,6 +285,7 @@ void ShowViewer(const Writer& w, const ru_hud_v1* h, int k, const EndScreenInfo&
     w.Only(slot, r + "_d", kFills, x.winner == 2 ? fill : "fill-none");
   }
   w.Class(slot, "at_end", "on", true);  // per player too: a preview may have left its own value
+  g.shown.insert(slot);
   if (kHoldCursor && HasCapture(h) && h->set_capture(k, slot, 1)) g.captured.insert(slot);
   g.langs.Drew(slot, hu.steamid64, lang);
 }
@@ -384,7 +388,10 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
   // Each player's own view: the headline and its colour, their row, their team's rounds, the cursor.
   std::lock_guard<std::mutex> lk(g_mu);
   if (target == RU_HUD_ALL) {
+    std::set<int> shown;
+    shown.swap(g.shown);  // a show not hidden yet keeps its slots to clear
     g = State{};
+    g.shown.swap(shown);
     g.active = true;
     g.until = host::NowSeconds() + info.seconds;
     g.lastSecs = info.seconds;
@@ -414,11 +421,12 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
 }
 
 void EndScreenHide() {
-  std::set<int> captured;
+  std::set<int> captured, shown;
   {
     std::lock_guard<std::mutex> lk(g_mu);
     if (!g.active) return;
     captured.swap(g.captured);
+    shown.swap(g.shown);
     g = State{};
   }
   const ru_hud_v1* h = Hud();
@@ -428,8 +436,9 @@ void EndScreenHide() {
   h->set_class(k, RU_HUD_ALL, "at_end", "on", 0);
   // Per player too: the show set it per player (a preview only for one).
   for (const auto& hu : ListHumans()) {
-    if (hu.slot >= 0 && hu.slot <= 63) h->set_class(k, hu.slot, "at_end", "on", 0);
+    if (hu.slot >= 0 && hu.slot <= 63) shown.insert(hu.slot);
   }
+  for (int slot : shown) h->set_class(k, slot, "at_end", "on", 0);
   if (HasCapture(h)) {
     for (int slot : captured) h->set_capture(k, slot, 0);
   }
