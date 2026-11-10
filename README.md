@@ -80,7 +80,7 @@ Ready Up is a small core plus plugins. The core is the only part that touches th
 | TV | GOTV broadcast settings | Full |
 | Midas | Fun: the best player's weapons turn gold | Full |
 | Skins | Weapon paints, knives, gloves, agents | Full |
-| Hello | Example plugin to start your own | Full |
+| Hello | Example plugin to start your own | Its own download |
 
 Each plugin in detail, and how they talk to each other: [docs/PLUGINS.md](docs/PLUGINS.md). Running next to Metamod, CounterStrikeSharp or other match plugins: [docs/FAQ.md](docs/FAQ.md).
 
