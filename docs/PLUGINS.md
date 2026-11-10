@@ -110,6 +110,51 @@ Owns the server's GOTV settings so they hold for a whole series: `delay_seconds`
 </details>
 
 <details>
+<summary><b>HUD</b> (<code>plugins/hud</code>): cards in CS2's own HUD, both bundles</summary>
+
+<br />
+
+Draws the ready-up card, the damage card, the leaderboard and menus (the map vote, `.menu`) in CS2's HUD through the `custom_hud_layout` entity. Clients render it from the Auto Tournament HUD Workshop addon (source in `hud/`), which the addons plugin mounts on every map; a player with an older copy is told it is out of date. Without the addon the same information comes as center-screen HTML and chat. Other plugins draw through `readyup.hud.v1` (`core/include/readyup/hud_iface.h`). No settings of its own.
+
+</details>
+
+<details>
+<summary><b>Map vote</b> (<code>plugins/mapvote</code>): map voting on community servers, both bundles</summary>
+
+<br />
+
+`.rtv` / `.unrtv`, `.nominate <map>`, `.maps`, `.nextmap`, `.timeleft`, and a vote before the map's time runs out (`map_time_minutes`, with Extend). Never while a match is loaded. The pool is `maps=` in `cfg/ReadyUp/mapvote.cfg` (empty: the Active Duty maps on a defuse map), unless the platform gave the server its own (fleet `mapvote.set`, `readyup.mapvote.v1`). Admins: `ru mapvote start|cancel|status|reload`, `ru mapvote change <map>`.
+
+</details>
+
+<details>
+<summary><b>Movement</b> (<code>plugins/movement</code>): surf, bhop and kz, Full bundle</summary>
+
+<br />
+
+The mode's physics (from the map name, or `mode=` in `cfg/ReadyUp/movement.cfg`), a run timer between the map's start and end zones, personal bests and the map's top times. Off while a match is loaded. An empty server on a map with no movement mode goes back to `home_map`.
+
+</details>
+
+<details>
+<summary><b>Community</b> (<code>plugins/community</code>): classic community-server commands, Full bundle</summary>
+
+<br />
+
+`.rank`, `.top`, `.speclist` and admin `.kick <name> [reason]`. Kills, deaths, headshots and assists count per SteamID while no match is loaded (`count_in_matches=1` to count those too), in `plugins/community/stats.json`. Settings in `cfg/ReadyUp/community.cfg`.
+
+</details>
+
+<details>
+<summary><b>Addons</b> (<code>plugins/addons</code>): Steam Workshop addons, both bundles</summary>
+
+<br />
+
+Downloads the addons in `cfg/ReadyUp/addons.cfg` (`workshop_addons=`) and mounts them on every map change, plus the HUD addon whenever the HUD plugin runs. Idle otherwise; `ru addons` shows their state. It can't be removed on its own, because every player needs the HUD addon.
+
+</details>
+
+<details>
 <summary><b>Hello</b> (<code>plugins/hello</code>): example plugin</summary>
 
 <br />
@@ -118,5 +163,5 @@ A minimal plugin that registers `.hello` in chat. Start here to write your own.
 
 </details>
 
-Downloads: `ready-up-core`, `ready-up-match`, `ready-up-fleet`, `ready-up-skins`, `ready-up-hello`, `ready-up-midas`, `ready-up-whitelist`, `ready-up-practice`, `ready-up-essentials-plugin`, `ready-up-deathmatch`, `ready-up-addons`, and two bundles: **Essentials** (core + essentials + match + fleet + practice) and **Full** (core + essentials + match + fleet + practice + skins + midas + whitelist + deathmatch + addons + the gamedata checkers). The installer mixes the single components. `fleet` is the link to the Auto Tournament platform; it stays idle until you set a `url` in `cfg/ReadyUp/fleet.cfg` (shipped fully commented out), so it is safe on standalone servers.
+Downloads: `ready-up-core`, `ready-up-match`, `ready-up-fleet`, `ready-up-skins`, `ready-up-hello`, `ready-up-midas`, `ready-up-whitelist`, `ready-up-practice`, `ready-up-essentials-plugin`, `ready-up-deathmatch`, `ready-up-mapvote`, `ready-up-community`, `ready-up-movement`, `ready-up-addons`, `ready-up-tv`, `ready-up-hud`, and two bundles: **Essentials** (core + essentials + match + fleet + practice + mapvote + hud + addons) and **Full** (all of them but hello, plus the gamedata checkers). The installer mixes the single components. `fleet` is the link to the Auto Tournament platform; it stays idle until you set a `url` in `cfg/ReadyUp/fleet.cfg` (shipped fully commented out), so it is safe on standalone servers.
 
