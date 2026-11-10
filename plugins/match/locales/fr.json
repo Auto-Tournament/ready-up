@@ -512,6 +512,7 @@
   "end.next_map": "Carte suivante",
   "end.back_to_warmup": "Retour à l’échauffement",
   "end.server_closes": "Fermeture du serveur",
+  "end.scoreboard": "Tableau des scores",
   "end.col0_title": "Kills",
   "end.col0_body": "Ennemis tués sur cette carte",
   "end.col1_title": "Morts",

@@ -503,6 +503,7 @@
   "end.next_map": "次のマップ",
   "end.back_to_warmup": "ウォームアップに戻る",
   "end.server_closes": "サーバー終了",
+  "end.scoreboard": "スコアボード",
   "end.col0_title": "キル",
   "end.col0_body": "このマップで倒した敵の数",
   "end.col1_title": "デス",

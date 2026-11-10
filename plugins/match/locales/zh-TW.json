@@ -503,6 +503,7 @@
   "end.next_map": "下一張地圖",
   "end.back_to_warmup": "回到熱身",
   "end.server_closes": "伺服器關閉",
+  "end.scoreboard": "記分板",
   "end.col0_title": "擊殺",
   "end.col0_body": "本圖擊殺的敵人數",
   "end.col1_title": "死亡",

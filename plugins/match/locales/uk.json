@@ -526,6 +526,7 @@
   "end.next_map": "Наступна мапа",
   "end.back_to_warmup": "Назад до розминки",
   "end.server_closes": "Сервер закривається",
+  "end.scoreboard": "Таблиця результатів",
   "end.col0_title": "Вбивства",
   "end.col0_body": "Вороги, вбиті на цій мапі",
   "end.col1_title": "Смерті",

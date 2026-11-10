@@ -512,6 +512,7 @@
   "end.next_map": "Prossima mappa",
   "end.back_to_warmup": "Di nuovo al riscaldamento",
   "end.server_closes": "Il server chiude",
+  "end.scoreboard": "Punteggi",
   "end.col0_title": "Kill",
   "end.col0_body": "Nemici uccisi su questa mappa",
   "end.col1_title": "Morti",

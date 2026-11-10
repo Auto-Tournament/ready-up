@@ -512,6 +512,7 @@
   "end.next_map": "Следваща карта",
   "end.back_to_warmup": "Обратно към загрявката",
   "end.server_closes": "Сървърът се затваря",
+  "end.scoreboard": "Табло с резултати",
   "end.col0_title": "Убийства",
   "end.col0_body": "Врагове, убити на тази карта",
   "end.col1_title": "Смърти",

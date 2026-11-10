@@ -512,6 +512,7 @@
   "end.next_map": "Næste bane",
   "end.back_to_warmup": "Tilbage til opvarmning",
   "end.server_closes": "Serveren lukker",
+  "end.scoreboard": "Pointtavle",
   "end.col0_title": "Kills",
   "end.col0_body": "Fjender, du dræbte på denne bane",
   "end.col1_title": "Dødsfald",
