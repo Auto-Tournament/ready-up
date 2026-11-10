@@ -512,6 +512,7 @@
   "end.next_map": "Következő pálya",
   "end.back_to_warmup": "Vissza a bemelegítéshez",
   "end.server_closes": "A szerver bezár",
+  "end.scoreboard": "Eredménytábla",
   "end.col0_title": "Ölések",
   "end.col0_body": "Ezen a pályán megölt ellenfelek",
   "end.col1_title": "Halálok",

@@ -503,6 +503,7 @@
   "end.next_map": "แผนที่ถัดไป",
   "end.back_to_warmup": "กลับไปวอร์มอัป",
   "end.server_closes": "เซิร์ฟเวอร์จะปิด",
+  "end.scoreboard": "กระดานคะแนน",
   "end.col0_title": "ฆ่า",
   "end.col0_body": "ศัตรูที่ฆ่าในแผนที่นี้",
   "end.col1_title": "ตาย",

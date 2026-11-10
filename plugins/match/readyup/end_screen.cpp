@@ -4,6 +4,7 @@
 #include "readyup/host.h"
 #include "readyup/i18n_api.h"
 #include "readyup/hud_iface.h"
+#include "readyup/hud_screens.h"
 #include "readyup/logging.h"
 #include "readyup/players.h"
 #include "readyup/plugin_api.h"
@@ -42,6 +43,7 @@ struct State {
   text::Msg nextLabel;
   std::string next;
   std::set<int> captured;  // slots holding the cursor
+  std::set<int> closed;    // slots that closed it (.lb)
   bool preview = false;    // .enddemo, not a real end of map
   EndScreenInfo info;      // what is shown, to draw a viewer again in a new language
   int target = RU_HUD_ALL;
@@ -281,7 +283,8 @@ void ShowViewer(const Writer& w, const ru_hud_v1* h, int k, const EndScreenInfo&
     w.Only(slot, r + "_u", kFills, x.winner == 1 ? fill : "fill-none");
     w.Only(slot, r + "_d", kFills, x.winner == 2 ? fill : "fill-none");
   }
-  w.Class(slot, "at_end", "on", true);  // per player too: a preview may have left its own value
+  // Per player too: a preview may have left its own value, and a player may have closed it (.lb).
+  w.Class(slot, "at_end", "on", !g.closed.count(slot));
   if (kHoldCursor && HasCapture(h) && h->set_capture(k, slot, 1)) g.captured.insert(slot);
   g.langs.Drew(slot, hu.steamid64, lang);
 }
@@ -537,6 +540,32 @@ void EndScreenHidePreview() {
 bool EndScreenActive() {
   std::lock_guard<std::mutex> lk(g_mu);
   return g.active;
+}
+
+bool EndScreenToggle(int slot) {
+  const ru_hud_v1* h = Hud();
+  const int k = h ? h->open(kKitLayout) : 0;
+  std::lock_guard<std::mutex> lk(g_mu);
+  if (!g.active || k <= 0 || slot < 0 || slot > 63 || (g.target != RU_HUD_ALL && slot != g.target)) return false;
+  const bool show = g.closed.erase(slot) > 0;
+  if (!show) g.closed.insert(slot);
+  h->set_class(k, slot, "at_end", "on", show ? 1 : 0);
+  return true;
+}
+
+std::string EndScreenHudSpec(int slot, const std::string& lang) {
+  bool closed = false;
+  {
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (!g.active || (g.target != RU_HUD_ALL && slot != g.target)) return {};
+    closed = g.closed.count(slot) > 0;
+  }
+  const std::string scoreboard = HudSpecText(text::ForLang(lang, "end.scoreboard", {}));
+  // Up: the cursor is out so Close is one click. Closed: B brings the cursor back for the button.
+  if (!closed) return "id=end-lb\nwhere=card\ncolor=muted\ntitle=" + scoreboard + "\nbtn=" +
+                      HudSpecText(text::ForLang(lang, "menu.close", {})) + "|ghost||.lb\nmouse=on\n";
+  return "id=end-lb-off\nwhere=card\ncolor=muted\nbtn=" + scoreboard + "|green||.lb\nhint=" +
+         HudSpecText(text::ForLang(lang, "spec.press_b", {})) + "\nmouse=b\n";
 }
 
 }  // namespace readyup

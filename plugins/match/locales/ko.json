@@ -503,6 +503,7 @@
   "end.next_map": "다음 맵",
   "end.back_to_warmup": "워밍업으로",
   "end.server_closes": "서버 종료",
+  "end.scoreboard": "점수판",
   "end.col0_title": "킬",
   "end.col0_body": "이 맵에서 처치한 적",
   "end.col1_title": "데스",

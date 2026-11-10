@@ -64,5 +64,10 @@ void EndScreenHidePreview();
 // Once a tick (result_card.cpp): the countdown, and hiding it when its time is up.
 void EndScreenTick();
 bool EndScreenActive();
+// `.lb`: `slot` closes the scoreboard or brings it back, until the map changes. False when it is not up.
+bool EndScreenToggle(int slot);
+// The clickable HUD's screen for `slot` while it is up: Close (cursor out), once closed a Scoreboard
+// button behind B. "" when it is not up for them.
+std::string EndScreenHudSpec(int slot, const std::string& lang);
 
 }  // namespace readyup

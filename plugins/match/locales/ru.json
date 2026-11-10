@@ -526,6 +526,7 @@
   "end.next_map": "Следующая карта",
   "end.back_to_warmup": "Обратно в разминку",
   "end.server_closes": "Сервер закрывается",
+  "end.scoreboard": "Таблица результатов",
   "end.col0_title": "Убийства",
   "end.col0_body": "Враги, убитые на этой карте",
   "end.col1_title": "Смерти",

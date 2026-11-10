@@ -512,6 +512,7 @@
   "end.next_map": "Επόμενος χάρτης",
   "end.back_to_warmup": "Πίσω στην προθέρμανση",
   "end.server_closes": "Ο server κλείνει",
+  "end.scoreboard": "Βαθμολογία",
   "end.col0_title": "Kills",
   "end.col0_body": "Εχθροί που σκότωσες σε αυτόν τον χάρτη",
   "end.col1_title": "Θάνατοι",

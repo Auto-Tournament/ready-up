@@ -512,6 +512,7 @@
   "end.next_map": "Siguiente mapa",
   "end.back_to_warmup": "Vuelta al calentamiento",
   "end.server_closes": "El servidor se cierra",
+  "end.scoreboard": "Marcador",
   "end.col0_title": "Bajas",
   "end.col0_body": "Enemigos eliminados en este mapa",
   "end.col1_title": "Muertes",

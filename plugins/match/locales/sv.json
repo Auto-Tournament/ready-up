@@ -512,6 +512,7 @@
   "end.next_map": "Nästa karta",
   "end.back_to_warmup": "Tillbaka till uppvärmning",
   "end.server_closes": "Servern stänger",
+  "end.scoreboard": "Resultattavla",
   "end.col0_title": "Kills",
   "end.col0_body": "Fiender du dödade på den här kartan",
   "end.col1_title": "Dödsfall",
