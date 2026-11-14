@@ -8,10 +8,12 @@
 #include "readyup/logging.h"
 #include "readyup/modes.h"
 #include "readyup/pause_state.h"
+#include "readyup/ready_hud.h"
 #include "readyup/server_settings.h"
 #include "readyup/wingman.h"
 
 #include <atomic>
+#include <cstdint>
 #include <chrono>
 #include <cstring>
 #include <mutex>
@@ -114,6 +116,13 @@ void MaybeMarkHalftimePause() {
 std::atomic<int> g_gotv{static_cast<int>(GotvState::Unknown)};
 double g_mapStartAt = 0;  // tick_info.now of the first simulating frame after a map start (0 = not yet)
 std::atomic<double> g_sinceMapStart{0};  // RefreshGotv's now - g_mapStartAt, for any thread
+std::atomic<int64_t> g_holdUntilMs{0};    // go-live hold for the GOTV buffer, steady clock
+std::atomic<int64_t> g_holdAskedMs{0};    // last time the gate asked while holding
+
+int64_t SteadyMs() {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
 int g_hltvOffset = -2;    // CBasePlayerController::m_bIsHLTV, -2 = not looked up yet
 GotvState g_gotvLogged = GotvState::Unknown;
 
@@ -275,19 +284,30 @@ bool EsportsGoLiveAllowed(bool forced) {
   lastSaid = {};
   const double wait = GotvBufferWaitSeconds(EsportsGotvState(), demo::TvDelaySeconds(), g_sinceMapStart.load());
   if (wait > 0) {
+    const int64_t ms = SteadyMs();
+    g_holdUntilMs = ms + static_cast<int64_t>(wait * 1000);
+    g_holdAskedMs = ms;
     static std::chrono::steady_clock::time_point lastWaitSaid{};
     if (lastWaitSaid.time_since_epoch().count() == 0 || now - lastWaitSaid >= std::chrono::seconds(30)) {
       lastWaitSaid = now;
       const std::string secs = std::to_string(static_cast<int>(wait + 0.999));
       Print("esports: holding go-live %ss until GOTV has a full tv_delay buffer\n", secs.c_str());
-      text::ChatAll("gotv.buffering", {{"seconds", secs}});
+      if (!HudReplacesChat()) text::ChatAll("gotv.buffering", {{"seconds", secs}});
     }
     return false;
   }
+  g_holdAskedMs = 0;
   if (!v.log.empty() && v.log != lastLog) Print("%s\n", v.log.c_str());
   lastLog = v.log;
   if (!v.chatKey.empty()) text::ChatAll(v.chatKey);
   return true;
+}
+
+int EsportsGoLiveHoldSecondsLeft() {
+  const int64_t ms = SteadyMs(), asked = g_holdAskedMs.load();
+  if (asked == 0 || ms - asked > 2000) return -1;  // the gate stopped asking (someone unreadied)
+  const int64_t left = g_holdUntilMs.load() - ms;
+  return left > 0 ? static_cast<int>((left + 999) / 1000) : -1;
 }
 
 bool AutoPause5v5Enabled() {
