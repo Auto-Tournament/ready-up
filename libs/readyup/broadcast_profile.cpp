@@ -284,10 +284,10 @@ std::vector<std::pair<std::string, std::string>> DesiredCvars(const Profile& eff
     if (effectiveDelay) *effectiveDelay = d;
     out.emplace_back("tv_delay", std::to_string(d));
   }
-  if (eff.allow_insecure_observers) {
-    out.emplace_back("tv_secure_bypass", *eff.allow_insecure_observers ? "1" : "0");
-    if (*eff.allow_insecure_observers) out.emplace_back("sv_deltaticks_enforce", "0");
-  }
+  if (eff.allow_insecure_observers) out.emplace_back("tv_secure_bypass", *eff.allow_insecure_observers ? "1" : "0");
+  // CS2's default 2 kicks GOTV spectators for out-of-order delta acks, ordinary clients too
+  // (2026-11-14), so it is off while a broadcast is set up.
+  if (!eff.Empty()) out.emplace_back("sv_deltaticks_enforce", "0");
   if (eff.max_clients) out.emplace_back("tv_maxclients", std::to_string(*eff.max_clients));
   if (eff.relay_text_chat) out.emplace_back("tv_relaytextchat", *eff.relay_text_chat ? "1" : "0");
   if (eff.relay_voice) out.emplace_back("tv_relayvoice", *eff.relay_voice ? "1" : "0");
