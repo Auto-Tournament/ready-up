@@ -383,6 +383,7 @@
   "pause.halftime": "pause i halvtid. Begge lag skriver .up for å starte andre omgang.",
   "gotv.forced": "går live UTEN GOTV (tvunget av en administrator) – dette kartet blir ikke tatt opp.",
   "gotv.refused": "går ikke live – GOTV er av på dette kartet (Valve-reglene tar opp hvert kart). En administrator laster kartet på nytt (.ru map reload) eller tvinger det: .ru match start force",
+  "gotv.buffering": "kampen går live om {seconds} s, så GOTV rekker å bufre hele forsinkelsen.",
   "reply.teams_locked": "lagene er låst for denne kampen.",
   "reply.menu_between_rounds": "Menyen åpnes mellom rundene. Prøv .help",
   "ot.head": "EKSTRAOMGANG {n}: {rounds} runder, først til {first} vinner den.",

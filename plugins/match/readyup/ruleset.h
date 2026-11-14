@@ -155,6 +155,11 @@ struct GoLiveVerdict {
 // warning); unknown is allowed with a note (the check needs the engine surface).
 GoLiveVerdict GotvGoLiveCheck(Ruleset r, GotvState gotv, bool forced);
 
+// Going live before CSTV holds a full tv_delay of the map freezes its broadcast for good (CS2,
+// tested 2026-11-14). Seconds left to hold go-live; 0 = go. Only when GOTV is up and delayed.
+constexpr double kGotvBufferMarginSeconds = 5.0;
+double GotvBufferWaitSeconds(GotvState gotv, int tvDelaySeconds, double secondsSinceMapStart);
+
 // ---- sv_matchpause_auto_5v5 ------------------------------------------------------------------
 
 // Whether the engine's "not 5v5" pause is on for a match: esports_live.cfg sets it to 1 (valve),
