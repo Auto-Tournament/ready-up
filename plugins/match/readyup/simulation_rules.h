@@ -7,7 +7,7 @@
 // One bot per roster player (a team without a roster gets `fill` anonymous bots). A bot that joins
 // takes a free roster identity of the team on its side and keeps it for the map: its stats and
 // the player events use that SteamID64 and name, so the platform sees the configured roster play.
-// Bots are added one at a time (`bot_join_team CT|T` + `bot_quota n`, the quota only ever goes
+// Bots are added one at a time (`bot_quota n-1` + `bot_add_ct|t`, the quota only ever goes
 // up while the map runs) until every side has its bots; a missing bot is added again.
 
 #include <cmath>

@@ -124,9 +124,10 @@ static void TestCommands() {
   }
   // The quota goes to 0 before the kick (else the engine adds the kicked bots again).
   CHECK(setup[0] == "bot_quota 0" && setup[1] == "bot_kick");
+  // The quota goes to the bots there (3), then bot_add_ct adds the 4th on CT and raises it to 4.
   const auto add = sim::AddBotCommands(3, 4);
-  CHECK(add.size() == 2 && add[0] == "bot_join_team CT" && add[1] == "bot_quota 4");
-  CHECK(sim::AddBotCommands(2, 1)[0] == "bot_join_team T");
+  CHECK(add.size() == 2 && add[0] == "bot_quota 3" && add[1] == "bot_add_ct");
+  CHECK(sim::AddBotCommands(2, 1)[1] == "bot_add_t" && sim::AddBotCommands(2, 1)[0] == "bot_quota 0");
   // Bots on the wrong side start the fill over; short or over on one side only does not.
   CHECK(sim::WrongSides(0, 10, 5, 5));      // all ten on T after an engine refill
   CHECK(sim::WrongSides(6, 4, 5, 5));

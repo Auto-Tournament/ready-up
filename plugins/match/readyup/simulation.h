@@ -4,7 +4,7 @@
 //
 // A loaded match with `simulation: true` (never a scrim) is played by bots:
 //   - each map starts clean (bot_kick, bot_quota 0) once the map is loaded, then one bot per
-//     roster player is added (`bot_join_team`, `bot_quota` one step at a time); a bot that goes
+//     roster player is added (`bot_add_ct|t` one step at a time); a bot that goes
 //     missing is added again;
 //   - every bot plays as a roster player of the team on its side: the ready gate counts that
 //     player as connected, it "types .ready" 1.5-3.5 s after it joined (player_ready webhook),
