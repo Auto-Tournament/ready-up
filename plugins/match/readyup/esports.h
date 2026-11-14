@@ -46,8 +46,6 @@ GotvState EsportsGotvState();
 // down. Logs, tells chat (at most every 30 s) and sets tv_enable 1 so a map reload brings GOTV
 // up. forced: an admin's `ru match start force` / fleet cmd start {"force": true}.
 bool EsportsGoLiveAllowed(bool forced);
-// Seconds left of the hold for GOTV's delay buffer while the go-live gate keeps asking; -1 = none.
-int EsportsGoLiveHoldSecondsLeft();
 // sv_matchpause_auto_5v5 is on for the loaded match (AutoPause5v5On). Any thread.
 bool AutoPause5v5Enabled();
 

@@ -353,16 +353,6 @@ static void TestGotvGoLive() {
   CHECK(v.allowed && v.log.find("gotv=unknown") != std::string::npos && v.chatKey.empty());
 }
 
-static void TestGotvBufferWait() {
-  // Hold go-live until CSTV has tv_delay + margin of the map; nothing to hold without GOTV or delay.
-  CHECK(GotvBufferWaitSeconds(GotvState::Up, 105, 25) == 105 + kGotvBufferMarginSeconds - 25);
-  CHECK(GotvBufferWaitSeconds(GotvState::Up, 105, 105 + kGotvBufferMarginSeconds) == 0);
-  CHECK(GotvBufferWaitSeconds(GotvState::Up, 105, 300) == 0);
-  CHECK(GotvBufferWaitSeconds(GotvState::Up, 0, 5) == 0);
-  CHECK(GotvBufferWaitSeconds(GotvState::Down, 105, 5) == 0);
-  CHECK(GotvBufferWaitSeconds(GotvState::Unknown, 105, 5) == 0);
-}
-
 static void TestAutoPause5v5() {
   // esports_live.cfg turns it on, live.cfg off; a match cvar wins either way.
   CHECK(AutoPause5v5On(Ruleset::Valve, nullptr));
@@ -388,7 +378,6 @@ int main() {
   TestMapSides();
   TestParser();
   TestGotvGoLive();
-  TestGotvBufferWait();
   TestAutoPause5v5();
   std::printf("match_ruleset: %d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;

@@ -555,12 +555,6 @@ GotvState GotvStateFrom(bool scanOk, bool hltvSeen, double secondsSinceMapStart)
   return secondsSinceMapStart >= kGotvGraceSeconds ? GotvState::Down : GotvState::Unknown;
 }
 
-double GotvBufferWaitSeconds(GotvState gotv, int tvDelaySeconds, double secondsSinceMapStart) {
-  if (gotv != GotvState::Up || tvDelaySeconds <= 0) return 0;
-  const double left = tvDelaySeconds + kGotvBufferMarginSeconds - secondsSinceMapStart;
-  return left > 0 ? left : 0;
-}
-
 GoLiveVerdict GotvGoLiveCheck(Ruleset r, GotvState gotv, bool forced) {
   GoLiveVerdict v;
   if (r != Ruleset::Valve || gotv == GotvState::Up) return v;
