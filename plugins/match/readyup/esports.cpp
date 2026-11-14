@@ -3,6 +3,7 @@
 #include "readyup/text.h"
 
 #include "readyup/config.h"
+#include "readyup/demo_recorder.h"
 #include "readyup/engine.h"
 #include "readyup/logging.h"
 #include "readyup/modes.h"
@@ -112,6 +113,7 @@ void MaybeMarkHalftimePause() {
 
 std::atomic<int> g_gotv{static_cast<int>(GotvState::Unknown)};
 double g_mapStartAt = 0;  // tick_info.now of the first simulating frame after a map start (0 = not yet)
+std::atomic<double> g_sinceMapStart{0};  // RefreshGotv's now - g_mapStartAt, for any thread
 int g_hltvOffset = -2;    // CBasePlayerController::m_bIsHLTV, -2 = not looked up yet
 GotvState g_gotvLogged = GotvState::Unknown;
 
@@ -131,6 +133,7 @@ void RefreshGotv(double now) {
       }
     }
   }
+  g_sinceMapStart = now - g_mapStartAt;
   const GotvState st = GotvStateFrom(scanOk, seen, now - g_mapStartAt);
   g_gotv = static_cast<int>(st);
   if (st != g_gotvLogged && st != GotvState::Unknown) {
@@ -246,6 +249,7 @@ void EsportsOnMatchLoaded(const WebhookMatchContext& ctx) {
 
 void EsportsOnMapStart() {
   g_mapStartAt = 0;
+  g_sinceMapStart = 0;
   g_gotv = static_cast<int>(GotvState::Unknown);
   g_gotvLogged = GotvState::Unknown;
 }
@@ -269,6 +273,17 @@ bool EsportsGoLiveAllowed(bool forced) {
     return false;
   }
   lastSaid = {};
+  const double wait = GotvBufferWaitSeconds(EsportsGotvState(), demo::TvDelaySeconds(), g_sinceMapStart.load());
+  if (wait > 0) {
+    static std::chrono::steady_clock::time_point lastWaitSaid{};
+    if (lastWaitSaid.time_since_epoch().count() == 0 || now - lastWaitSaid >= std::chrono::seconds(30)) {
+      lastWaitSaid = now;
+      const std::string secs = std::to_string(static_cast<int>(wait + 0.999));
+      Print("esports: holding go-live %ss until GOTV has a full tv_delay buffer\n", secs.c_str());
+      text::ChatAll("gotv.buffering", {{"seconds", secs}});
+    }
+    return false;
+  }
   if (!v.log.empty() && v.log != lastLog) Print("%s\n", v.log.c_str());
   lastLog = v.log;
   if (!v.chatKey.empty()) text::ChatAll(v.chatKey);
