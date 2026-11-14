@@ -902,7 +902,20 @@ static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContex
   return go;
 }
 
+static bool IsSafeConvarValue(const std::string& s);
+
+// GOTV's password from warmup on: the other match cvars wait for go-live, but spectators join
+// in warmup, and until then the server kept the previous match's password.
+static void ApplyTvPasswordLocked() {
+  const auto ctx = WebhookGetMatchContext();
+  if (!ctx) return;
+  const auto it = ctx->cvars.find("tv_password");
+  if (it == ctx->cvars.end() || !IsSafeConvarValue(it->second)) return;
+  (void)EnqueueServerCommand(("tv_password " + it->second).c_str());
+}
+
 static void ApplyWarmupRulesLocked(State& st) {
+  ApplyTvPasswordLocked();
   // In MatchZy-compat mode, cfg files are authoritative.
   if (st.cfgExecEnabled) {
     bool any = false;
