@@ -593,6 +593,9 @@ add_subdirectory(plugins/movement)
 # readyup-deathmatch (plugins/deathmatch): FFA / team deathmatch, plus its unit test.
 add_subdirectory(plugins/deathmatch)
 
+# readyup-retakes (plugins/retakes): retakes on Valve's retake spawns; its rules' unit test.
+add_subdirectory(plugins/retakes)
+
 # readyup-tv (plugins/tv): GOTV broadcast settings, casters, plus its unit test.
 add_subdirectory(plugins/tv)
 
