@@ -187,8 +187,10 @@ std::vector<std::string> SetupCommands() {
   };
 }
 
+// The quota is pinned to the bots there now, then bot_add_ct / bot_add_t adds one on that side and
+// raises it by one. A quota above the count lets the engine fill on its own side (6 CT, 4 T, 2026-11-14).
 std::vector<std::string> AddBotCommands(int side, int quota) {
-  return {side == 3 ? "bot_join_team CT" : "bot_join_team T", "bot_quota " + std::to_string(quota)};
+  return {"bot_quota " + std::to_string(std::max(0, quota - 1)), side == 3 ? "bot_add_ct" : "bot_add_t"};
 }
 
 bool WrongSides(int ct, int t, int ctWanted, int tWanted) {
