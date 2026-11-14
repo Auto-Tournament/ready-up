@@ -170,6 +170,17 @@ static std::string Printable(const std::string& s) {
   return out;
 }
 
+std::optional<uintptr_t> StoreOfArgGlobal(const Image& img, uintptr_t fn, size_t window) {
+  for (uintptr_t p = fn; p + 7 <= fn + window; ++p) {
+    const uint8_t* b = img.Bytes(p, 7);
+    if (!b || b[0] != 0x48 || b[1] != 0x89 || b[2] != 0x35) continue;
+    int32_t disp = 0;
+    std::memcpy(&disp, b + 3, 4);
+    return p + 7 + static_cast<intptr_t>(disp);
+  }
+  return std::nullopt;
+}
+
 bool CheckAnchor(const Image& img, uintptr_t fn, const Anchor& a, std::string* detail) {
   if (a.type == "string_ref") {
     const bool ok = LeaOfStringInRange(img, fn, fn + a.window, a.str);
@@ -251,6 +262,11 @@ bool CheckAnchor(const Image& img, uintptr_t fn, const Anchor& a, std::string* d
     }
     if (detail) *detail = "FAIL mov_disp " + std::to_string(a.disp) + " (no `mov r,[r+disp32]` in window)";
     return false;
+  }
+  if (a.type == "stores_arg_global") {
+    const bool ok = StoreOfArgGlobal(img, fn, a.window).has_value();
+    if (detail) *detail = ok ? "ok stores_arg_global" : "FAIL stores_arg_global (no `mov [rip+disp32], rsi` in window)";
+    return ok;
   }
   if (detail) *detail = "FAIL unknown anchor type \"" + a.type + "\"";
   return false;

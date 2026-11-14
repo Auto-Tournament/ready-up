@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 19
+#define READYUP_PLUGIN_API_VERSION_MINOR 20
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -109,6 +109,10 @@ typedef struct ru_tick_info {
    * run on non-simulating frames (map load, hibernation) and see 0 there. `frame` only counts
    * simulating frames. */
   int simulating;
+  /* v1.20: the server's game time (CGlobalVars curtime) in seconds. NaN until the core has
+   * found and checked it. Check struct_size first:
+   * struct_size >= offsetof(ru_tick_info, game_time) + sizeof(double). */
+  double game_time;
 } ru_tick_info;
 
 typedef void (*ru_tick_fn)(void* user, const ru_tick_info* tick);

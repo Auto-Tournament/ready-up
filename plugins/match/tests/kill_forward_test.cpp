@@ -1,6 +1,7 @@
 // Offline tests for kills to the platform (readyup/kill_forward.h). ctest `match_kill_forward`.
 #include "readyup/kill_forward.h"
 
+#include <cmath>
 #include <cstdio>
 #include <string>
 
@@ -39,8 +40,11 @@ static void TestHumans() {
   if (!k) return;
   CHECK(k->attacker.name == "a<b> c" && k->attacker.steamid64 == 76561197960265728ULL + 123);
   CHECK(k->victim.steamid64 == 76561197960265728ULL + 456 && !k->headshot && k->weapon == "usp_silencer");
-  const auto d = EventData(*k, 1794670000000LL);
+  const auto d = EventData(*k, 1794670000000LL, std::nan(""));
   CHECK(d.Find("weapon") && d.Find("weapon")->AsString() == "usp_silencer");
+  CHECK(!d.Find("game_time"));  // unknown: left out
+  const auto t = EventData(*k, 1794670000000LL, 2590.5);
+  CHECK(t.Find("game_time") && t.Find("game_time")->AsDouble() == 2590.5);
   CHECK(d.Find("attacker") && d.Find("attacker")->Find("steamid64")->AsString() == "76561197960265851");
 }
 

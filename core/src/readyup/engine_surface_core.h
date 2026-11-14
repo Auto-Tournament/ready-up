@@ -56,6 +56,8 @@ struct Anchor {
   // "mov_disp":      the function loads a register from `[reg + disp32]` (opcode 8B, ModRM mod=10)
   //                  with displacement `disp` within its first `window` bytes. Pins a struct
   //                  layout (e.g. CCommand argc/argv) to the engine code that reads it.
+  // "stores_arg_global": the function stores its second argument (rsi) into a RIP-relative global
+  //                  (`mov [rip+disp32], rsi`) within its first `window` bytes. For setters.
   std::string type;
   std::string str;
   size_t window = 0;
@@ -141,6 +143,8 @@ struct Resolution {
 // Addresses of RIP-relative LEAs (REX.W 8D, mod=00 rm=101) in executable regions whose target is `target`.
 std::vector<uintptr_t> LeaSitesOf(const Image& img, uintptr_t target);
 
+// The global a `mov [rip+disp32], rsi` within the first `window` bytes of fn stores into.
+std::optional<uintptr_t> StoreOfArgGlobal(const Image& img, uintptr_t fn, size_t window);
 bool CheckAnchor(const Image& img, uintptr_t fn, const Anchor& a, std::string* detail);
 Resolution Resolve(const Image& img, const FunctionSpec& spec);
 
