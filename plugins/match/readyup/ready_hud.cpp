@@ -4,7 +4,6 @@
 
 #include "readyup/admin_call.h"
 #include "readyup/engine.h"
-#include "readyup/esports.h"
 #include "readyup/host.h"
 #include "readyup/hud_screens.h"
 #include "readyup/i18n_api.h"
@@ -179,10 +178,6 @@ static Board BuildBoard(ReadyUpMode mode, const std::optional<WebhookMatchContex
   } else {
     b.scrim = (ctx->slug == "scrim");
     b.titleKey = RecoveryGateEnabled() ? "hud.title_recovered" : (b.scrim ? "hud.title_scrim" : "hud.title_match_warmup");
-    if (const int hold = EsportsGoLiveHoldSecondsLeft(); hold > 0) {
-      b.countdownKey = "hud.countdown_live";
-      b.countdownSecs = hold;
-    }
     const auto ms = MatchStateGet();
     const int mapNum = ms.map_number <= 0 ? 1 : ms.map_number;
     bool team1Ct = true;
@@ -441,9 +436,9 @@ static std::string L(const char* k, const std::string& v) { return std::string(k
 
 // Warmup: the card (left, above the chat) with Ready / Unready; the countdown in the centre.
 static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string& name, bool welcome, const std::string& lang) {
-  const int cd = b.scrim ? ScrimCountdownSecondsLeft() : EsportsGoLiveHoldSecondsLeft();
+  const int cd = b.scrim ? ScrimCountdownSecondsLeft() : -1;
   if (cd >= 0) {
-    const bool knife = b.scrim && settings::Bool("knife_enabled_default");
+    const bool knife = settings::Bool("knife_enabled_default");
     return L("id", "countdown") + L("color", "live") + L("kind", T(lang, "spec.everyone_ready")) +
            L("title", T(lang, knife ? "spec.knife_in" : "spec.live_in", {{"seconds", N(cd)}}));
   }
