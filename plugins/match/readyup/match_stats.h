@@ -19,6 +19,7 @@
 //  - damage: health actually removed from enemies (capped at the victim's remaining
 //    health); utility_damage: the part dealt by HE / molotov / incendiary.
 //  - enemies_flashed / friendlies_flashed: player_blind with a duration > 0.
+//  - grenades_thrown: grenade_thrown events (any grenade, decoys too).
 //  - entry_kills_* / entry_deaths_*: the first kill of a round (not a team kill),
 //    split by the side the player was on.
 //  - trade_kills: killing an enemy within 5 s of that enemy killing a teammate; the
@@ -52,6 +53,7 @@ struct PlayerStats {
   int utility_damage = 0;
   int enemies_flashed = 0;
   int friendlies_flashed = 0;
+  int grenades_thrown = 0;
   int bomb_plants = 0;
   int bomb_defuses = 0;
   int entry_kills_t = 0;
@@ -159,6 +161,7 @@ class StatsAccumulator {
   // healthAfter: the victim's health after the hit (player_hurt `health`).
   void OnPlayerHurt(uint64_t victim, uint64_t attacker, int dmgHealth, int healthAfter, const std::string& weapon);
   void OnPlayerBlind(uint64_t victim, uint64_t attacker, double duration);
+  void OnGrenadeThrown(uint64_t id);
   void OnBombPlanted(uint64_t id);
   void OnBombDefused(uint64_t id);
   void OnRoundMvp(uint64_t id);

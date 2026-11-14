@@ -35,18 +35,20 @@ struct EndScreenRow {
   std::string name;
   uint64_t id = 0;
   int k = 0, d = 0, a = 0, adr = 0, kast = 0, hs = 0, ud = 0, ek = 0, mvps = 0;
+  int ef = 0, gt = 0, cl = 0, tf = 0;  // enemies flashed, grenades thrown, clutches won, teammates flashed
 };
 struct EndScreenAward {
   std::string label, name, value;  // label: a locales key
 };
 struct EndScreenRound {
   int winner = 0;    // team slot 1 / 2
+  int side = 0;      // the side the winner played: 3 CT, 2 T, 0 unknown
   char how = 'E';    // E elimination, B bomb, D defuse, T time, R hostages rescued
   bool halfBefore = false;
 };
 struct EndScreenData {
   std::vector<EndScreenRow> team1, team2;  // best first, at most 5 each
-  std::vector<EndScreenAward> awards;      // up to 4
+  std::vector<EndScreenAward> awards;      // up to 8
   std::vector<EndScreenRound> rounds;      // at most 30
   std::string sides1, sides2;              // "T 8 · CT 5"
 };
@@ -64,5 +66,10 @@ void EndScreenHidePreview();
 // Once a tick (result_card.cpp): the countdown, and hiding it when its time is up.
 void EndScreenTick();
 bool EndScreenActive();
+// `.lb`: `slot` closes the scoreboard or brings it back, until the map changes. False when it is not up.
+bool EndScreenToggle(int slot);
+// The clickable HUD's screen for `slot` once they closed it: a Scoreboard button behind B. "" while
+// it is up (its own Close button is on it) or not up for them.
+std::string EndScreenHudSpec(int slot, const std::string& lang);
 
 }  // namespace readyup

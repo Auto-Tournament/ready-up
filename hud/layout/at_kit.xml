@@ -196,16 +196,13 @@
 <Panel id="at_end" class="at-end" hittest="false">
 <Panel class="at-eblur" hittest="false" />
 <Panel id="at_ecard" class="at-ecard" hittest="false">
+<Panel class="at-ecol" hittest="false">
 <Panel class="at-ecardflow" hittest="false">
-<Panel class="at-brand" hittest="false">
-<Panel class="at-brandlogo" hittest="false" />
-<Label class="at-brandname" text="AUTO TOURNAMENT" hittest="false" />
-</Panel>
-<Panel class="at-divider" hittest="false" />
-<Label id="at_e_head" class="at-ehead-text" text="{s:text}" hittest="false" />
+<Panel class="at-ehero" hittest="false">
 <Panel id="at_e_howbox" class="at-howbox" hittest="false">
 <Label id="at_e_how" class="at-how" text="{s:text}" hittest="false" />
 </Panel>
+<Label id="at_e_head" class="at-ehead-text" text="{s:text}" hittest="false" />
 <Panel class="at-escore" hittest="false">
 <Panel class="at-eteambox at-eabox" hittest="false">
 <Label id="at_e_ta" class="at-eteamname at-right" text="{s:text}" hittest="false" />
@@ -219,185 +216,192 @@
 <Label id="at_e_sideb" class="at-esides at-left" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
+<Panel class="at-estrip" hittest="false">
+<Panel class="at-erlbox" hittest="false">
+<Label id="at_e_rla" class="at-erl empty" text="{s:text}" hittest="false" />
+<Label id="at_e_rlb" class="at-erl empty" text="{s:text}" hittest="false" />
+</Panel>
 <Panel id="at_erounds" class="at-erounds" hittest="false">
 <Panel id="at_rt0" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt0_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt0_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt0_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt1" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt1_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt1_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt1_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt2" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt2_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt2_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt2_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt3" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt3_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt3_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt3_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt4" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt4_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt4_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt4_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt5" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt5_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt5_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt5_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt6" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt6_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt6_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt6_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt7" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt7_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt7_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt7_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt8" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt8_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt8_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt8_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt9" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt9_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt9_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt9_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt10" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt10_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt10_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt10_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt11" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt11_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt11_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt11_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt12" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt12_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt12_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt12_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt13" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt13_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt13_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt13_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt14" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt14_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt14_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt14_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt15" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt15_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt15_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt15_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt16" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt16_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt16_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt16_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt17" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt17_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt17_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt17_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt18" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt18_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt18_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt18_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt19" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt19_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt19_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt19_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt20" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt20_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt20_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt20_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt21" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt21_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt21_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt21_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt22" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt22_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt22_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt22_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt23" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt23_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt23_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt23_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt24" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt24_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt24_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt24_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt25" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt25_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt25_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt25_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt26" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt26_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt26_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt26_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt27" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt27_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt27_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt27_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt28" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt28_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt28_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt28_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="at_rt29" class="at-rt" hittest="false">
+<Panel class="at-rtswitch" hittest="false" />
 <Label id="at_rt29_u" class="at-rtp" text="{s:text}" hittest="false" />
 <Panel class="at-rtmid" hittest="false" />
-<Label id="at_rt29_d" class="at-rtp" text="{s:text}" hittest="false" />
+<Label id="at_rt29_d" class="at-rtp at-rtd" text="{s:text}" hittest="false" />
 </Panel>
-</Panel>
-<Panel id="at_eawards" class="at-eawards" hittest="false">
-<Panel id="at_aw0" class="at-aw" hittest="false">
-<Label id="at_aw0_l" class="at-awl" text="{s:text}" hittest="false" />
-<Panel class="at-awrow" hittest="false">
-<Label id="at_aw0_n" class="at-awn" text="{s:text}" hittest="false" />
-<Label id="at_aw0_v" class="at-awv" text="{s:text}" hittest="false" />
-</Panel>
-</Panel>
-<Panel id="at_aw1" class="at-aw" hittest="false">
-<Label id="at_aw1_l" class="at-awl" text="{s:text}" hittest="false" />
-<Panel class="at-awrow" hittest="false">
-<Label id="at_aw1_n" class="at-awn" text="{s:text}" hittest="false" />
-<Label id="at_aw1_v" class="at-awv" text="{s:text}" hittest="false" />
-</Panel>
-</Panel>
-<Panel id="at_aw2" class="at-aw" hittest="false">
-<Label id="at_aw2_l" class="at-awl" text="{s:text}" hittest="false" />
-<Panel class="at-awrow" hittest="false">
-<Label id="at_aw2_n" class="at-awn" text="{s:text}" hittest="false" />
-<Label id="at_aw2_v" class="at-awv" text="{s:text}" hittest="false" />
-</Panel>
-</Panel>
-<Panel id="at_aw3" class="at-aw" hittest="false">
-<Label id="at_aw3_l" class="at-awl" text="{s:text}" hittest="false" />
-<Panel class="at-awrow" hittest="false">
-<Label id="at_aw3_n" class="at-awn" text="{s:text}" hittest="false" />
-<Label id="at_aw3_v" class="at-awv" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
 </Panel>
@@ -797,12 +801,74 @@
 </Panel>
 </Panel>
 </Panel>
+<Panel id="at_eawards" class="at-eawards" hittest="false">
+<Panel id="at_aw0" class="at-aw" hittest="false">
+<Label id="at_aw0_l" class="at-awl" text="{s:text}" hittest="false" />
+<Panel class="at-awrow" hittest="false">
+<Label id="at_aw0_n" class="at-awn" text="{s:text}" hittest="false" />
+<Label id="at_aw0_v" class="at-awv" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Panel id="at_aw1" class="at-aw" hittest="false">
+<Label id="at_aw1_l" class="at-awl" text="{s:text}" hittest="false" />
+<Panel class="at-awrow" hittest="false">
+<Label id="at_aw1_n" class="at-awn" text="{s:text}" hittest="false" />
+<Label id="at_aw1_v" class="at-awv" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Panel id="at_aw2" class="at-aw" hittest="false">
+<Label id="at_aw2_l" class="at-awl" text="{s:text}" hittest="false" />
+<Panel class="at-awrow" hittest="false">
+<Label id="at_aw2_n" class="at-awn" text="{s:text}" hittest="false" />
+<Label id="at_aw2_v" class="at-awv" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Panel id="at_aw3" class="at-aw" hittest="false">
+<Label id="at_aw3_l" class="at-awl" text="{s:text}" hittest="false" />
+<Panel class="at-awrow" hittest="false">
+<Label id="at_aw3_n" class="at-awn" text="{s:text}" hittest="false" />
+<Label id="at_aw3_v" class="at-awv" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Panel id="at_aw4" class="at-aw empty" hittest="false">
+<Label id="at_aw4_l" class="at-awl" text="{s:text}" hittest="false" />
+<Panel class="at-awrow" hittest="false">
+<Label id="at_aw4_n" class="at-awn" text="{s:text}" hittest="false" />
+<Label id="at_aw4_v" class="at-awv" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Panel id="at_aw5" class="at-aw empty" hittest="false">
+<Label id="at_aw5_l" class="at-awl" text="{s:text}" hittest="false" />
+<Panel class="at-awrow" hittest="false">
+<Label id="at_aw5_n" class="at-awn" text="{s:text}" hittest="false" />
+<Label id="at_aw5_v" class="at-awv" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Panel id="at_aw6" class="at-aw empty" hittest="false">
+<Label id="at_aw6_l" class="at-awl" text="{s:text}" hittest="false" />
+<Panel class="at-awrow" hittest="false">
+<Label id="at_aw6_n" class="at-awn" text="{s:text}" hittest="false" />
+<Label id="at_aw6_v" class="at-awv" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Panel id="at_aw7" class="at-aw empty" hittest="false">
+<Label id="at_aw7_l" class="at-awl" text="{s:text}" hittest="false" />
+<Panel class="at-awrow" hittest="false">
+<Label id="at_aw7_n" class="at-awn" text="{s:text}" hittest="false" />
+<Label id="at_aw7_v" class="at-awv" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
 <Panel class="at-efoot" hittest="false">
 <Label id="at_e_where" class="at-ewhere" text="{s:text}" hittest="false" />
 <Label id="at_e_next" class="at-enext" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
 <Panel class="at-line" hittest="false" />
+<Button id="at_e_close" class="at-eclose">
+<Label class="at-eclosex" text="×" hittest="false" />
+</Button>
 </Panel>
 </Panel>
 </Panel>

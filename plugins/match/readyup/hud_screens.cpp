@@ -8,6 +8,7 @@
 
 #include "readyup/admin_check.h"
 #include "readyup/config.h"
+#include "readyup/end_screen.h"
 #include "readyup/engine.h"
 #include "readyup/host.h"
 #include "readyup/logging.h"
@@ -308,7 +309,8 @@ bool HudScreensOn() {
 }
 
 bool HudMidRound() {
-  return GetMode() == ReadyUpMode::MatchLive && !MatchFeaturesInFreeze() && !PauseStateGet().paused;
+  // Not while the end-of-map scoreboard is up: the map is over, and its buttons need the cursor.
+  return GetMode() == ReadyUpMode::MatchLive && !MatchFeaturesInFreeze() && !PauseStateGet().paused && !EndScreenActive();
 }
 
 void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseFor) {

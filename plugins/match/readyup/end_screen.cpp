@@ -4,6 +4,7 @@
 #include "readyup/host.h"
 #include "readyup/i18n_api.h"
 #include "readyup/hud_iface.h"
+#include "readyup/hud_screens.h"
 #include "readyup/logging.h"
 #include "readyup/players.h"
 #include "readyup/plugin_api.h"
@@ -20,6 +21,7 @@ namespace {
 constexpr const char* kKitLayout = "panorama/layout/custom_game/at_kit.xml";
 constexpr int kRoundSlots = 30;  // hud/tools/gen_kit.py END_ROUNDS
 constexpr int kRows = 5;
+constexpr int kAwards = 8;  // hud/tools/gen_kit.py END_AWARDS
 
 // Engine round_end reasons (CS2 RoundEndReason): how the strip letters a round.
 char HowOf(int reason) {
@@ -42,6 +44,8 @@ struct State {
   text::Msg nextLabel;
   std::string next;
   std::set<int> captured;  // slots holding the cursor
+  std::set<int> closed;    // slots that closed it (.lb)
+  std::set<int> cardLogged;  // slots whose Scoreboard button was logged
   bool preview = false;    // .enddemo, not a real end of map
   EndScreenInfo info;      // what is shown, to draw a viewer again in a new language
   int target = RU_HUD_ALL;
@@ -91,6 +95,10 @@ EndScreenData BuildEndScreenData(const EndScreenInfo& info) {
     r.ud = s.utility_damage;
     r.ek = s.entry_kills_t + s.entry_kills_ct;
     r.mvps = s.mvp;
+    r.ef = s.enemies_flashed;
+    r.gt = s.grenades_thrown;
+    for (int c : s.clutches_won) r.cl += c;
+    r.tf = s.friendlies_flashed;
     (p.team == 1 ? out.team1 : out.team2).push_back(std::move(r));
   }
   auto order = [](std::vector<EndScreenRow>& v) {
@@ -118,6 +126,10 @@ EndScreenData BuildEndScreenData(const EndScreenInfo& info) {
   award("end.award_most_damage", &EndScreenRow::adr, " ADR");
   award("end.award_entry_kills", &EndScreenRow::ek, "");
   award("end.award_utility", &EndScreenRow::ud, "");
+  award("end.award_flashes", &EndScreenRow::ef, "");
+  award("end.award_grenades", &EndScreenRow::gt, "");
+  award("end.award_clutches", &EndScreenRow::cl, "");
+  award("end.award_team_flashes", &EndScreenRow::tf, "");
 
   // Round strip, with a gap at every half: regulation, then each overtime's halves.
   const int regHalf = std::max(1, info.maxRounds / 2);
@@ -127,6 +139,7 @@ EndScreenData BuildEndScreenData(const EndScreenInfo& info) {
     if (n >= kRoundSlots) break;
     EndScreenRound r;
     r.winner = rs.winner_team;
+    r.side = rs.winner_side;
     r.how = HowOf(rs.reason);
     r.halfBefore = n == regHalf || (n > info.maxRounds && (n - info.maxRounds) % otHalf == 0) || n == info.maxRounds;
     out.rounds.push_back(r);
@@ -179,14 +192,14 @@ constexpr int kUsedCols = static_cast<int>(sizeof(kColumns) / sizeof(kColumns[0]
 // 95 % (2026-11-07): at 110 % the card ran off both sides of a 1920x1080 screen (at 100 % it already
 // reached the edges there), so the first and last columns were cut.
 constexpr const char* kScale = "scale-95";
-// No world blur: the game is hidden behind the brand background, so only our leaderboard shows
-// (2026-11-03; before, the card sat on the clear game).
+// No background and no blur: both drew over the chat (a solid one from 2026-11-03, then a world blur),
+// so chat stays readable and usable behind the card (Sivert, 2026-11-10).
 constexpr const char* kBlur = "blur-0";
-constexpr const char* kDim = "dim-solid";
+constexpr const char* kDim = "dim-0";
 constexpr const char* kBg = "";  // none: the card's background is hardcoded in at_kit.css (bg-* had no effect)
-// No cursor: players move, look around and type in chat ("gg") while it is up. Hover tooltips did
-// not show in CS2, so nothing needs the cursor (2026-10-27).
-constexpr bool kHoldCursor = false;
+// The cursor while it is up, for its Close button (at_e_close): closing gives it back, so players
+// look around and chat again (Discord, 2026-11-10; before, no cursor at all since 2026-10-27).
+constexpr bool kHoldCursor = true;
 
 const char* const kTextTones[] = {"tc-ink", "tc-soft", "tc-muted", "tc-acc", "tc-ban", "tc-pos", "tc-live", "tc-warn", "tc-ct", "tc-t"};
 const char* const kFills[] = {"fill-none", "fill-acc", "fill-muted", "fill-ban", "fill-live", "fill-ct", "fill-t"};
@@ -231,7 +244,7 @@ void ShowViewer(const Writer& w, const ru_hud_v1* h, int k, const EndScreenInfo&
       w.Text(slot, hc + "_tv", text::ForLang(lang, "end.col" + std::to_string(c) + "_body"));
     }
   }
-  for (size_t i = 0; i < d.awards.size() && i < 4; ++i) {
+  for (size_t i = 0; i < d.awards.size() && i < static_cast<size_t>(kAwards); ++i) {
     w.Text(slot, "at_aw" + std::to_string(i) + "_l", text::ForLang(lang, d.awards[i].label));
   }
   std::string head;
@@ -272,17 +285,19 @@ void ShowViewer(const Writer& w, const ru_hud_v1* h, int k, const EndScreenInfo&
       }
     }
   }
-  // The strip: the viewer's team's rounds in the accent (spectators: the winner's).
-  const int accentTeam = myTeam ? myTeam : (info.winner == "team2" ? 2 : 1);
-  for (int i = 0; i < static_cast<int>(d.rounds.size()); ++i) {
-    const EndScreenRound& x = d.rounds[static_cast<size_t>(i)];
+  // The strip: the winner's square in the colour of the side they played, the other one empty.
+  // Per player, so a preview's own values (.enddemo) don't stay over these.
+  for (int i = 0; i < kRoundSlots; ++i) {
+    const bool has = i < static_cast<int>(d.rounds.size());
+    const EndScreenRound x = has ? d.rounds[static_cast<size_t>(i)] : EndScreenRound{};
     const std::string r = "at_rt" + std::to_string(i);
-    const char* fill = x.winner == accentTeam ? "fill-acc" : "fill-muted";
-    w.Only(slot, r + "_u", kFills, x.winner == 1 ? fill : "fill-none");
-    w.Only(slot, r + "_d", kFills, x.winner == 2 ? fill : "fill-none");
+    const char* fill = x.side == 3 ? "fill-ct" : x.side == 2 ? "fill-t" : "fill-muted";
+    w.Only(slot, r + "_u", kFills, has && x.winner == 1 ? fill : "fill-none");
+    w.Only(slot, r + "_d", kFills, has && x.winner == 2 ? fill : "fill-none");
   }
-  w.Class(slot, "at_end", "on", true);  // per player too: a preview may have left its own value
-  if (kHoldCursor && HasCapture(h) && h->set_capture(k, slot, 1)) g.captured.insert(slot);
+  // Per player too: a preview may have left its own value, and a player may have closed it (.lb).
+  w.Class(slot, "at_end", "on", !g.closed.count(slot));
+  if (kHoldCursor && !g.closed.count(slot) && HasCapture(h) && h->set_capture(k, slot, 1)) g.captured.insert(slot);
   g.langs.Drew(slot, hu.steamid64, lang);
 }
 
@@ -341,11 +356,24 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
       }
     }
   }
+  w.Text(ALL, "at_e_rla", info.team1);
+  w.Text(ALL, "at_e_rlb", info.team2);
+  w.Class(ALL, "at_e_rla", "empty", false);
+  w.Class(ALL, "at_e_rlb", "empty", false);
+  const int regHalf = std::max(1, info.maxRounds / 2);
   for (int i = 0; i < kRoundSlots; ++i) {
     const std::string r = "at_rt" + std::to_string(i);
     const bool has = i < static_cast<int>(d.rounds.size());
+    // Regulation rounds not played: an outline, with the side-switch line still before the second half.
+    const bool todo = !has && i < info.maxRounds;
     w.Class(ALL, r, "on", has);
-    if (!has) continue;
+    w.Class(ALL, r, "todo", todo);
+    if (!has) {
+      w.Class(ALL, r, "half", todo && i == regHalf);
+      w.Only(ALL, r + "_u", kIcons, nullptr);
+      w.Only(ALL, r + "_d", kIcons, nullptr);
+      continue;
+    }
     const EndScreenRound& x = d.rounds[static_cast<size_t>(i)];
     // An icon for how it ended (ico-*, hud/tools/gen_icons.py), no letter.
     const char* icon = x.how == 'B'   ? "ico-bomb"
@@ -360,7 +388,7 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
     w.Only(ALL, r + "_d", kIcons, x.winner == 2 ? icon : nullptr);
   }
   w.Class(ALL, "at_erounds", "hide", d.rounds.empty());
-  for (int i = 0; i < 4; ++i) {
+  for (int i = 0; i < kAwards; ++i) {
     const std::string a = "at_aw" + std::to_string(i);
     const bool has = i < static_cast<int>(d.awards.size());
     w.Class(ALL, a, "empty", !has);
@@ -374,6 +402,7 @@ bool EndScreenShow(const EndScreenInfo& info, int target) {
                         "scale-110", "scale-115", "scale-120"}) {
     w.Class(ALL, "at_end", c, std::string(c) == kScale);
   }
+  w.Class(ALL, "at_end", "can-close", kHoldCursor);  // its X (at_e_close): this server handles the click
   for (const char* c : {"blur-0", "blur-1", "blur-2", "blur-3"}) w.Class(ALL, "at_end", c, std::string(c) == kBlur);
   for (const char* c : {"dim-0", "dim-1", "dim-2", "dim-3", "dim-solid"}) w.Class(ALL, "at_end", c, std::string(c) == kDim);
   for (int p = 0; p <= 100; p += 5) {
@@ -505,6 +534,10 @@ EndScreenInfo EndScreenDemoInfo(uint64_t viewer, const std::string& viewerName, 
     s.utility_damage = x[6];
     s.entry_kills_t = x[7];
     s.mvp = x[8];
+    s.enemies_flashed = x[6] / 20;
+    s.grenades_thrown = x[6] / 12 + 9;
+    s.clutches_won[0] = x[8] / 2;
+    s.friendlies_flashed = (i + team) % 3;
     info.stats.players.push_back(p);
   };
   for (int i = 0; i < 5; ++i) add(1, i, a[i]);
@@ -515,6 +548,7 @@ EndScreenInfo EndScreenDemoInfo(uint64_t viewer, const std::string& viewerName, 
     stats::RoundSummary r;
     const bool a1 = (strip[i * 2] == 'a') != lost;
     r.winner_team = a1 ? 1 : 2;
+    r.winner_side = (a1 == (i < 12)) ? 2 : 3;  // team 1 starts T, swaps at 12
     const char how = strip[i * 2 + 1];
     r.reason = how == 'B' ? 1 : how == 'D' ? 7 : how == 'T' ? 12 : 8;
     info.stats.rounds.push_back(r);
@@ -537,6 +571,37 @@ void EndScreenHidePreview() {
 bool EndScreenActive() {
   std::lock_guard<std::mutex> lk(g_mu);
   return g.active;
+}
+
+bool EndScreenToggle(int slot) {
+  const ru_hud_v1* h = Hud();
+  const int k = h ? h->open(kKitLayout) : 0;
+  std::lock_guard<std::mutex> lk(g_mu);
+  if (!g.active || k <= 0 || slot < 0 || slot > 63 || (g.target != RU_HUD_ALL && slot != g.target)) return false;
+  const bool show = g.closed.erase(slot) > 0;
+  if (!show) g.closed.insert(slot);
+  Print("end-screen: slot %d %s\n", slot, show ? "shows it again" : "closed it");
+  h->set_class(k, slot, "at_end", "on", show ? 1 : 0);
+  if (kHoldCursor && HasCapture(h) && h->set_capture(k, slot, show ? 1 : 0)) {
+    if (show) g.captured.insert(slot);
+    else g.captured.erase(slot);
+  }
+  return true;
+}
+
+std::string EndScreenHudSpec(int slot, const std::string& lang) {
+  bool closed = false;
+  {
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (!g.active || (g.target != RU_HUD_ALL && slot != g.target)) return {};
+    closed = g.closed.count(slot) > 0;
+    if (closed && g.cardLogged.insert(slot).second) Print("end-screen: slot %d gets the Scoreboard button\n", slot);
+  }
+  // Up, it covers this whole HUD, so its own Close button (at_kit) does that part. Closed: B brings
+  // the cursor back for a button that shows it again.
+  if (!closed) return {};
+  return "id=end-lb-off\nwhere=card\ncolor=muted\nbtn=" + HudSpecText(text::ForLang(lang, "end.scoreboard", {})) +
+         "|green||.lb\nhint=" + HudSpecText(text::ForLang(lang, "spec.press_b", {})) + "\nmouse=b\n";
 }
 
 }  // namespace readyup

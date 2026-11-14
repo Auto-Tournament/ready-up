@@ -157,7 +157,9 @@ const std::vector<std::string>& MatchPlayerChatCommands() {
       ".settings", ".readyrequired", ".playout", ".roundknife", ".rk", ".spec", ".whitelist", ".start", ".forcestart",
       ".restart", ".rr", ".endmatch", ".forceend", ".team1", ".team2", ".asay",
       // hud.so .dev: the end screen with made-up numbers (end_screen.h).
-      ".enddemo"};
+      ".enddemo",
+      // The end-of-map scoreboard: close it, or bring it back (its HUD buttons send this).
+      ".lb"};
   return k;
 }
 
@@ -261,6 +263,10 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     if (!EndScreenShow(EndScreenDemoInfo(steamid64, playerName, RestAfterWords(text, 1) == "lost"), slot)) {
       ReplyKey(slot, "reply.leaderboard_needs_hud");
     }
+    return;
+  }
+  if (first == ".lb") {
+    if (slot >= 0) EndScreenToggle(slot);
     return;
   }
   if (first == ".asay") {

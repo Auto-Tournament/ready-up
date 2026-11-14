@@ -83,6 +83,8 @@ static void TestStatsRound1() {
   st.OnPlayerBlind(A1, B2, 2.0);                 // enemy flashed
   st.OnPlayerBlind(B1, B2, 1.0);                 // friendly flashed
   st.OnPlayerBlind(A2, B2, 0.0);                 // zero duration: ignored
+  st.OnGrenadeThrown(B2);
+  st.OnGrenadeThrown(B2);
   st.OnPlayerHurt(A2, B2, 100, 0, "glock");
   st.OnPlayerDeath(A2, B2, 0, false, false, "glock", 12.0);
   // A1 is now alone (1v1) and trades A2 within 5 s.
@@ -126,6 +128,7 @@ static void TestStatsRound1() {
   CHECK_EQ(b2->stats.kills, 1);
   CHECK_EQ(b2->stats.enemies_flashed, 1);
   CHECK_EQ(b2->stats.friendlies_flashed, 1);
+  CHECK_EQ(b2->stats.grenades_thrown, 2);
   CHECK_EQ(b2->stats.kast_rounds, 1);
   CHECK_EQ(b2->stats.clutches_won[1], 0);  // was last alive vs 2 but lost
 
