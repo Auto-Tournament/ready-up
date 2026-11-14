@@ -29,6 +29,17 @@ constexpr double kMapStartWaitSeconds = 20.0;
 constexpr double kAfterSetupSeconds = 1.5;
 constexpr int kFullTeam = 5;
 
+// CS2 counts the GOTV client (SourceTV) as a bot: bot_kick or a lower bot_quota can kick it, and
+// CSTV then stops for good (2026-11-14). Our bots go by userid first, so the quota has none to drop.
+std::vector<std::string> KickBotsOver(std::vector<BotIdentity> bots, size_t keep) {
+  bots.erase(std::remove_if(bots.begin(), bots.end(),
+                            [](const BotIdentity& b) { return b.team == 1 || b.name == "SourceTV" || b.userid < 0; }),
+             bots.end());
+  std::vector<std::string> out;
+  for (size_t i = keep; i < bots.size(); ++i) out.push_back("kickid " + std::to_string(bots[i].userid));
+  return out;
+}
+
 struct FillData {
   uint64_t matchid = 0;
   bool setup = false;
@@ -49,6 +60,7 @@ void FillTick(double now, const std::optional<WebhookMatchContext>& ctx) {
   const bool active = ctx && ctx->bot_fill && ctx->slug != "scrim";
   if (!active) {
     if (s.matchid) {
+      for (const auto& c : KickBotsOver(ListBots(), 0)) (void)EnqueueServerCommand(c.c_str());
       for (const auto& c : sim::FillTeardownCommands()) (void)EnqueueServerCommand(c.c_str());
       const double lastMap = s.lastMap;
       s = FillData();
@@ -74,6 +86,7 @@ void FillTick(double now, const std::optional<WebhookMatchContext>& ctx) {
   if (now < s.resumeAt) return;
   if (!s.setup) {
     for (const auto& c : sim::RealTimeCommands()) (void)EnqueueServerCommand(c.c_str());
+    for (const auto& c : KickBotsOver(ListBots(), 0)) (void)EnqueueServerCommand(c.c_str());
     for (const auto& c : sim::FillSetupCommands()) (void)EnqueueServerCommand(c.c_str());
     s.setup = true;
     s.resumeAt = now + kAfterSetupSeconds;
@@ -280,7 +293,8 @@ void SimulationTick(double now) {
     if (!active && s.matchid != 0) {
       // The simulated match is gone (series over, unloaded, replaced): bots out, defaults back.
       if (s.timescaleOn) cmds = sim::RealTimeCommands();
-      for (const auto& c : fill ? sim::FillTeardownCommands() : sim::TeardownCommands()) cmds.push_back(c);
+      for (const auto& c : KickBotsOver(ListBots(), 0)) cmds.push_back(c);
+      for (const auto& c : sim::FillTeardownCommands()) cmds.push_back(c);
       Print("simulation: match %llu is over - bots removed, bot and timescale defaults restored\n",
             static_cast<unsigned long long>(s.matchid));
       const double lastMap = s.lastMapStartAt;
@@ -350,7 +364,8 @@ void SimulationTick(double now) {
       }
       if (playing && !s.waitMapStart && now >= s.resumeAt) {
         if (!s.setupDone) {
-          for (const auto& c : sim::SetupCommands()) cmds.push_back(c);
+          for (const auto& c : KickBotsOver(botList, 0)) cmds.push_back(c);
+          for (const auto& c : sim::FillSetupCommands()) cmds.push_back(c);
           s.setupDone = true;
           s.resumeAt = now + kAfterSetupSeconds;
           s.feeder.Reset();
@@ -371,6 +386,7 @@ void SimulationTick(double now) {
                                          static_cast<int>(s.ids.size()) + 2, &quota);
           int trimTo = 0;
           if (side == 0 && s.feeder.Trim(now, static_cast<int>(bots.size()), ct, t, ctWanted, tWanted, &trimTo)) {
+            for (const auto& c : KickBotsOver(botList, static_cast<size_t>(std::max(0, trimTo)))) cmds.push_back(c);
             cmds.push_back("bot_quota " + std::to_string(trimTo));
             Print("simulation: %zu bots for %d roster players; bot_quota %d\n", bots.size(), ctWanted + tWanted, trimTo);
           }
