@@ -904,11 +904,16 @@ static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContex
 
 static bool IsSafeConvarValue(const std::string& s);
 
+// Observers whose CS2 runs -insecure (HLAE, HUD tools) may watch over GOTV; the game port stays
+// VAC-secured. Sent in warmup and again after every go-live cfg, which resets it.
+static constexpr const char* kTvSecureBypass = "tv_secure_bypass 1";
+
 // GOTV's password from warmup on: the other match cvars wait for go-live, but spectators join
 // in warmup, and until then the server kept the previous match's password.
 static void ApplyTvPasswordLocked() {
   const auto ctx = WebhookGetMatchContext();
   if (!ctx) return;
+  (void)EnqueueServerCommand(kTvSecureBypass);
   const auto it = ctx->cvars.find("tv_password");
   if (it == ctx->cvars.end() || !IsSafeConvarValue(it->second)) return;
   (void)EnqueueServerCommand(("tv_password " + it->second).c_str());
@@ -1119,6 +1124,7 @@ static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx) {
   // that could not go out then. The reads are queued now, the cvars below only after the cfg.
   cvar_snapshot::CaptureMatchCvars(ctx.cvars);
   std::vector<std::string> cmds;
+  cmds.push_back(kTvSecureBypass);  // first, so a match cvar can still turn it off
   AppendTeamNameCmds(&cmds);
   // Playout (match_settings.h): the engine must not end the map at the clinch either. A match
   // cvar mp_match_can_clinch wins (it follows below).
