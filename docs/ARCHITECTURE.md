@@ -213,6 +213,14 @@ up with `libs/readyup/i18n.h`; `libs/readyup/i18n_api.h` adds `LanguageOf(api, s
 otherwise one line per player in their own. `plugins/whitelist` is the example. `.lang` is a core
 chat command, like `.ru`.
 
+### v1.20 (implemented)
+
+| Field | Purpose |
+|---|---|
+| `ru_tick_info.game_time` | the server's game time (CGlobalVars curtime, seconds); NaN until the core has found it through `ISource2Server::SetGlobals` and seen it advance a tick at a time for a second. Check `struct_size` before reading it |
+
+The match plugin puts it on `event.kill` as `game_time`.
+
 ### v1.10 (implemented)
 
 | Member | Thread | Purpose |

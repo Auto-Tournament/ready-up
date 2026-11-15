@@ -143,6 +143,14 @@
         { "type": "string_ref", "string": "GameFrame", "window": 64 }
       ]
     },
+    "ISource2Server::SetGlobals": {
+      "linux": 12,
+      "class": "CSource2Server",
+      "note": "11 IAppSystem slots + 1. Read only, never patched: the target stores its CGlobalVars* argument in a global (`mov [rip+x], rsi`), which game_time.cpp reads curtime through.",
+      "anchors": [
+        { "type": "stores_arg_global", "window": 64 }
+      ]
+    },
     "ISource2GameClients::ClientCommand": {
       "linux": 17,
       "class": "CSource2GameClients",

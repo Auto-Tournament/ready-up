@@ -90,6 +90,16 @@ int main() {
   Check(move.hints.size() == 1 && move.hints[0].rfind("Method Entity.Move invoked with bad value", 0) == 0,
         "reworded string: the new wording as hint");
 
+  // stores_arg_global (ISource2Server::SetGlobals): `mov [rip+disp32], rsi` within the window.
+  constexpr uintptr_t kSetter = 0x1A00, kGlobal = kData + 0x800;
+  p = Put(kSetter, {0x48, 0x85, 0xF6});  // test rsi, rsi
+  p = PutRel(p, {0x48, 0x89, 0x35}, kGlobal);
+  Put(p, {0xC3});
+  es::Anchor store{"stores_arg_global", "", 64};
+  Check(es::CheckAnchor(img, kSetter, store, nullptr), "stores_arg_global: finds the store");
+  Check(es::StoreOfArgGlobal(img, kSetter, 64) == kGlobal, "stores_arg_global: the global it stores into");
+  Check(!es::CheckAnchor(img, kFn, store, nullptr), "stores_arg_global: no store, no match");
+
   std::printf("%s\n", g_failed ? "FAILED" : "OK");
   return g_failed ? 1 : 0;
 }

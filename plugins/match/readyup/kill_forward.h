@@ -30,6 +30,7 @@ struct Kill {
 // ` killed "`.
 std::optional<Kill> ParseKillLogLine(const std::string& line);
 
-status::Json EventData(const Kill& k, long long atUnixMs);
+// gameTime: the server's curtime when the line came in (NaN = unknown, the field is left out).
+status::Json EventData(const Kill& k, long long atUnixMs, double gameTime);
 
 }  // namespace readyup::kill_forward

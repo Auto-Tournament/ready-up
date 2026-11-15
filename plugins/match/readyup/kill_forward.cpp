@@ -3,6 +3,7 @@
 #include "readyup/admin_call_logic.h"
 #include "readyup/steamid.h"
 
+#include <cmath>
 #include <cstdio>
 
 namespace readyup::kill_forward {
@@ -73,7 +74,7 @@ std::optional<Kill> ParseKillLogLine(const std::string& line) {
   return kill;
 }
 
-status::Json EventData(const Kill& k, long long atUnixMs) {
+status::Json EventData(const Kill& k, long long atUnixMs, double gameTime) {
   const auto fighter = [](const Fighter& f) {
     status::Json j = status::Json::Object();
     j["name"] = CleanAdminCallMessage(f.name, 64);
@@ -92,6 +93,7 @@ status::Json EventData(const Kill& k, long long atUnixMs) {
   d["weapon"] = k.weapon;
   d["headshot"] = k.headshot;
   d["at"] = atUnixMs;
+  if (std::isfinite(gameTime)) d["game_time"] = gameTime;
   return d;
 }
 

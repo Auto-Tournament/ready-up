@@ -41,6 +41,7 @@
 #include "readyup/webhook.h"
 #include "readyup/workers.h"
 
+#include <cmath>
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -2097,11 +2098,14 @@ static void ForwardChat(const char* line) {
   signals::Emit("chat", std::move(d));
 }
 
+// The server's game time at the last tick, for kill events (NaN = unknown).
+static double g_gameTime = NAN;
+
 // Kills (kill_forward.h): every `killed` line of a live match, as `event.kill`.
 static void ForwardKill(const char* line) {
   if (!g_asg.active || !signals::Enabled() || !IsLiveMode() || !std::strstr(line, " killed \"")) return;
   const auto k = kill_forward::ParseKillLogLine(line);
-  if (k) signals::Emit("kill", kill_forward::EventData(*k, UnixMs()));
+  if (k) signals::Emit("kill", kill_forward::EventData(*k, UnixMs(), g_gameTime));
 }
 
 void OnLogLine(const char* line) {
@@ -2117,8 +2121,9 @@ void OnLogLine(const char* line) {
   }
 }
 
-void Tick(double now) {
+void Tick(double now, double gameTime) {
   g_now = now;
+  g_gameTime = gameTime;
   EnsureHandlers();
   RunDeferredRestore();
   const ru_fleet_v1* f = Fleet();

@@ -32,8 +32,8 @@ namespace readyup::fleet_bridge {
 void Install(const ru_api* api);
 // readyup_plugin_unload: unregisters the fleet handlers (fleet.so may stay loaded).
 void Uninstall();
-// on_tick.
-void Tick(double now);
+// on_tick. gameTime: ru_tick_info::game_time (NaN when the core has none).
+void Tick(double now, double gameTime);
 // Core events (player connect / disconnect / team) and server log lines (exec output capture).
 void OnCoreEvent(const ru_event* e);
 // RU_EVENT_MAP_START: a match load's map change is done (CheckLoaded).

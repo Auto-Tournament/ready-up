@@ -6,6 +6,7 @@
 #include "readyup/engine_surface.h"
 #include "readyup/features.h"
 #include "readyup/game_events.h"
+#include "readyup/game_time.h"
 #include "readyup/license_status.h"
 #include "readyup/logging.h"
 #include "readyup/plugin_loader.h"
@@ -66,6 +67,8 @@ static void Hook_GameFrame(void* thisptr, bool simulating, bool bFirstTick, bool
   if (g_simTicks.fetch_add(1, std::memory_order_relaxed) == 0 && DebugEnabled()) {
     DebugLine("gameframe: first simulating tick observed");
   }
+  readyup::game_time::Frame();
+  readyup::plugins::SetGameTime(readyup::game_time::Now());
   // Engine event listener: register / verify (throttled; gated by the "events" feature).
   readyup::GameEventsFrameTick();
   // Entity primitives status (once the entity system verified on the first map). Skins itself
@@ -136,6 +139,7 @@ void InstallGameFrameHook(void* source2ServerIface) {
 
   g_orig = reinterpret_cast<GameFrameFn>(old);
   g_ok.store(true, std::memory_order_release);
+  readyup::game_time::Init(source2ServerIface);
   MarkEngineVtablePatched(kSlotName, old);
   Print("gameframe: hooked GameFrame vtbl[%d] (verified) old=%p new=%p\n", index, old,
         reinterpret_cast<void*>(&Hook_GameFrame));
