@@ -359,19 +359,19 @@ chat_prefix="<Green>[PUG #1]<Default>"
 - Warmup can run for hours, so nothing piles up on the ground: in scrim and match warmup
   nothing drops on death (`mp_death_drop_gun/grenade/defuser/taser 0`) and there is no bomb
   (`mp_give_player_c4 0`: nobody can plant, warmup never ends a round). Both are sent with the
-  warmup rules whether or not `ru_cfg_exec_enable` runs `warmup.cfg`; `idle.cfg` and
-  `knife.cfg` have no bomb either, `prac.cfg` keeps it for plant practice. In idle, scrim warmup
+  warmup rules whether or not `ru_cfg_exec_enable` applies the full warmup rules; the idle and
+  knife rules have no bomb either, the prac rules keep it for plant practice. In idle, scrim warmup
   and match warmup a weapon with no owner for 2 seconds is removed (G-drops included, and a
   bomb handed out before warmup started once it is dropped). readyup.cfg
   `warmup_weapon_cleanup=0` turns the removal off. Going live puts CS2's defaults back
-  (`live.cfg` / `esports_live.cfg`, or the plugin without cfg exec).
+  (the live or esports_live rules, or the short code rules without cfg exec).
 
 ### Knife round
 
 - Real matches: `map_sides: "knife"` for a map; a map with no entry in `map_sides` gets the
   knife round when `knife_enabled_default` is on (default). Scrims: `knife_enabled_default`
   (`.roundknife`; readyup.cfg `scrim_knife=` still works).
-- After everyone is ready: `exec ReadyUp/knife.cfg` (+ overrides so the emulated
+- After everyone is ready: the knife rules (+ overrides so the emulated
   warmup is undone, and `mp_logdetail 3` for the round), restart, knife round.
 - Works from server log lines alone (engine events are used when they arrive):
   the round end is read from `Team "CT"|"TERRORIST" triggered "SFUI_Notice_*"`.
@@ -382,7 +382,7 @@ chat_prefix="<Green>[PUG #1]<Default>"
   admins can use `.ru match side ...`. Window: match `knifeDecisionSeconds` (default 60),
   scrims `knife_pick_seconds` (default 60). No pick = stay. Winning side with no
   humans (bots only) = stay after 3s.
-- Then `mp_swapteams` (if switching), `exec ReadyUp/live.cfg`, `mp_restartgame 1`,
+- Then `mp_swapteams` (if switching), the live rules, `mp_restartgame 1`,
   and LIVE on the next `Round_Start`.
 
 ### Reloading config
@@ -525,15 +525,13 @@ Ready Up maintains its own lightweight mode state machine and can display a **no
   - `ru_warmup_buy_anywhere 0|1` (toggles `mp_buy_anywhere`)
   - `ru_warmup_infinite_ammo 0|1` (toggles `sv_infinite_ammo`)
     - `1` sets `sv_infinite_ammo 2` (infinite ammo with reload)
-- **Mode cfg exec (optional, MatchZy-style)**:
+- **Full phase rules (optional, MatchZy-style)**:
   - `ru_cfg_exec_enable 0|1`
-  - When enabled, Ready Up will:
-    - `exec ReadyUp/warmup.cfg` when applying warmup rules
-    - `exec ReadyUp/live.cfg` when applying live rules
-    - `exec ReadyUp/prac.cfg` when applying practice rules
-    - `exec ReadyUp/knife.cfg` when applying knife-only rules
-    - `exec ReadyUp/idle.cfg` once when entering idle mode
-  - Templates live in this repo at `cfg/ReadyUp/` and should be copied to your server at `game/csgo/cfg/ReadyUp/`
+  - When enabled, Ready Up sends the full built-in rules (`libs/readyup/phase_cvars.h`) for warmup,
+    practice, idle and live, as the old `cfg/ReadyUp/*.cfg` files did; off, those phases get the
+    short code rules. The knife round always gets its full rules, and so does live under the valve
+    ruleset and for wingman.
+  - A cvar the match config sets replaces the built-in line for it. There are no cfg files to copy.
 
 ### Behavior
 

@@ -36,7 +36,7 @@ Your manual match must include (at minimum):
   - `maxOvertimes`: `0..N` (max overtime blocks; each block is `2*overtimeSegments` rounds). Use `0` to disallow full overtime blocks while still allowing sudden-death if enabled.
 - **Optional (game mode / bots)**:
   - `wingman`: `true` for 2v2 on CS2's wingman mode: `game_type 0` / `game_mode 2` before the map
-    load, go-live execs `ReadyUp/live_wingman.cfg` (MR8; `maxRounds` defaults to 16 and
+    load, go-live applies the built-in live_wingman rules (MR8; `maxRounds` defaults to 16 and
     `overtimeSegments` to 2 when not set). Not with `"ruleset": "valve"`.
   - `bot_fill`: `true` fills each side with anonymous bots up to `players_per_team` (1..32).
     Connected roster players reserve their team's slots, including while spectating. Bots leave

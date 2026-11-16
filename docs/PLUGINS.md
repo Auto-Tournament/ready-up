@@ -48,7 +48,7 @@ Server basics kept apart from the match flow, so every kind of server has them: 
 
 <br />
 
-`.prac` (admin) switches practice on or off: `cfg/ReadyUp/prac.cfg` (cheats, a full grenade set, infinite ammo) and everyone respawns with it. Tools: `.savepos`/`.loadpos [name]`, `.back`, `.spawn N` / `.ctspawn N` / `.tspawn N`, `.rethrow`, `.clear`, `.noflash`, `.god`, `.bot`/`.cbot`/`.boost`, `.nobots`. Scenarios: `.scen load <id> [player] [start]` puts you where a pro stood in a recorded round while bots replay the other nine ([docs/SCENARIOS.md](SCENARIOS.md); converter in `tools/scenario/`). Runs with the match plugin (which then shows practice as its mode and refuses it while a match is loaded) or without it: `always=1` in `cfg/ReadyUp/practice.cfg` makes a dedicated practice server. Never active under the valve ruleset. In both bundles.
+`.prac` (admin) switches practice on or off: the built-in prac rules (cheats, a full grenade set, infinite ammo; `libs/readyup/phase_cvars.h`) and everyone respawns with it. Tools: `.savepos`/`.loadpos [name]`, `.back`, `.spawn N` / `.ctspawn N` / `.tspawn N`, `.rethrow`, `.clear`, `.noflash`, `.god`, `.bot`/`.cbot`/`.boost`, `.nobots`. Scenarios: `.scen load <id> [player] [start]` puts you where a pro stood in a recorded round while bots replay the other nine ([docs/SCENARIOS.md](SCENARIOS.md); converter in `tools/scenario/`). Runs with the match plugin (which then shows practice as its mode and refuses it while a match is loaded) or without it: `always=1` in `cfg/ReadyUp/practice.cfg` makes a dedicated practice server. Never active under the valve ruleset. In both bundles.
 
 </details>
 
