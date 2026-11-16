@@ -1,5 +1,6 @@
 // Rulesets, engine side (esports.h).
 #include "readyup/esports.h"
+#include "readyup/simulation.h"
 #include "readyup/text.h"
 
 #include "readyup/config.h"
@@ -277,7 +278,7 @@ bool EsportsGoLiveAllowed(bool forced) {
 
 bool AutoPause5v5Enabled() {
   const auto ctx = WebhookGetMatchContext();
-  if (!ctx) return false;
+  if (!ctx || SimulationActive()) return false;  // modes.cpp turns the pause off for bots-only matches
   const auto it = ctx->cvars.find("sv_matchpause_auto_5v5");
   return AutoPause5v5On(CtxRuleset(&*ctx), it == ctx->cvars.end() ? nullptr : &it->second);
 }
