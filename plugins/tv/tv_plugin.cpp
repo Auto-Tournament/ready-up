@@ -63,6 +63,10 @@ Observed g_observed;
 LaunchInfo g_launch;
 std::optional<bool> g_passwordObserved;  // an observed `tv_password` console line: set / empty
 std::optional<MatchProfile> g_restore;   // active.json, handed to the tracker on the first frame
+// A match that just went keeps its GOTV settings while GOTV airs its last tv_delay seconds:
+// reverting tv_secure_bypass at once kicked insecure observers before the stream reached Game Over.
+std::optional<MatchProfile> g_lingering;
+double g_lingerUntil = -1;
 
 // Scheduling (seconds on the plugin clock, g_now).
 std::vector<std::pair<double, bool>> g_applyAt;  // (when, force)
@@ -169,14 +173,37 @@ Profile ServerProfile() { return bc::Overlay(g_cfgProfile, g_settings.server); }
 Profile Effective(int* floor) {
   Profile eff = ServerProfile();
   int f = 0;
-  if (g_tracker.active) {
+  const MatchProfile* m = g_tracker.active ? &*g_tracker.active : g_lingering && g_now < g_lingerUntil ? &*g_lingering : nullptr;
+  if (m) {
     // Server < the match's own cvars < rules.broadcast < the admin's match override.
-    eff = bc::Overlay(eff, bc::ProfileFromMatchCvars(g_tracker.active->matchCvars));
-    eff = bc::Overlay(bc::Overlay(eff, g_tracker.active->profile), g_tracker.active->override_);
-    f = g_tracker.active->delayFloor;
+    eff = bc::Overlay(eff, bc::ProfileFromMatchCvars(m->matchCvars));
+    eff = bc::Overlay(bc::Overlay(eff, m->profile), m->override_);
+    f = m->delayFloor;
   }
   if (floor) *floor = f;
   return eff;
+}
+
+void ScheduleApply(double in, bool force);
+
+// The match `prev` is gone: its settings stay for the GOTV delay (+15 s), then the server's come back.
+void Linger(const std::optional<MatchProfile>& prev) {
+  if (!prev || g_tracker.active) return;
+  g_lingering = prev;
+  g_lingerUntil = 1e18;
+  int floor = 0, delay = 0;
+  (void)bc::DesiredCvars(Effective(&floor), floor, &delay);
+  if (delay < 0) {  // tv_delay not managed by tv.so: what the engine last reported
+    auto it = g_observed.cvars.find("tv_delay");
+    delay = it == g_observed.cvars.end() ? 0 : std::atoi(it->second.c_str());
+  }
+  const double hold = delay > 0 ? delay + 15.0 : 0.0;
+  g_lingerUntil = g_now + hold;
+  if (hold > 0) {
+    ru_logf(g_api, RU_LOG_INFO, "tv: match %s gone: its GOTV settings stay %.0f s while GOTV airs the rest",
+            prev->matchId.c_str(), hold);
+    ScheduleApply(hold + 0.5, true);
+  }
 }
 
 std::optional<bool> PasswordSet() {
@@ -340,7 +367,7 @@ std::string CurrentMode() {
   return {};
 }
 
-void OnTrackEvent(TrackEvent ev) {
+void OnTrackEvent(TrackEvent ev, const std::optional<MatchProfile>& prev = std::nullopt) {
   if (ev == TrackEvent::Activated) {
     ru_logf(g_api, RU_LOG_INFO, "tv: match %s: broadcast profile %s (GOTV delay minimum %d s)",
             g_tracker.active->matchId.c_str(), bc::ProfileJson(g_tracker.active->profile).c_str(),
@@ -348,6 +375,7 @@ void OnTrackEvent(TrackEvent ev) {
     PersistActive();
     Apply(true);
   } else if (ev == TrackEvent::Deactivated) {
+    Linger(prev);
     ru_logf(g_api, RU_LOG_INFO, "tv: the match is gone: back to the server's broadcast settings");
     PersistActive();
     Apply(true);
@@ -405,8 +433,9 @@ void OnUnassign(void*, const ru_fleet_msg* msg) {
       const auto v = readyup::minijson::Parse(msg->payload_json, &pe);
       if (v && v->get("match_id") && v->get("match_id")->type == Value::Type::String) id = v->get("match_id")->str;
     }
-    const bool wasActive = g_tracker.active.has_value();
-    if (g_tracker.Unassign(id) && wasActive && !g_tracker.active) {
+    const std::optional<MatchProfile> prev = g_tracker.active;
+    if (g_tracker.Unassign(id) && prev && !g_tracker.active) {
+      Linger(prev);
       ru_logf(g_api, RU_LOG_INFO, "tv: match unassigned: back to the server's broadcast settings");
       PersistActive();
       Apply(true);
@@ -783,7 +812,8 @@ void OnFrame(void*, const ru_tick_info* t) {
       g_lastMode = mode;
     }
     int64_t loadedRev = -1;
-    OnTrackEvent(g_tracker.Observe(LoadedMatchId(mode, &loadedRev), g_now));
+    const std::optional<MatchProfile> prev = g_tracker.active;
+    OnTrackEvent(g_tracker.Observe(LoadedMatchId(mode, &loadedRev), g_now), prev);
     MaybeApplyUpdate(loadedRev);
     if (g_now - g_lastGuestPush >= 5.0) {
       g_lastGuestPush = g_now;
