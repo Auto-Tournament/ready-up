@@ -5,19 +5,19 @@
   "patch": "1.41.9.7"
  },
  "readyup": {
-  "version": "0.1.0-beta.70-dev.61bf32b",
-  "commit": "61bf32b66a8aeca105e17efb4ee51946c247f62e"
+  "version": "0.1.0-beta.70-dev.30c846d",
+  "commit": "30c846d95c450af2f34855776b9f6c78af3096ff"
  },
  "run": {
-  "id": "43932545905",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/43932545905",
+  "id": "43932688760",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/43932688760",
   "trigger": "code_change",
-  "stage": "live",
-  "state": "pass",
-  "started_at": "2026-11-16T18:47:38Z",
-  "finished_at": "2026-11-16T19:15:00Z"
+  "stage": "selftest",
+  "state": "fail",
+  "started_at": "2026-11-16T19:15:15Z",
+  "finished_at": "2026-11-16T19:20:08Z"
  },
- "overall": "pass",
+ "overall": "fail",
  "components": [
   {
    "id": "core",
@@ -335,8 +335,8 @@
     {
      "kind": "event",
      "status": "pass",
-     "passed": 16,
-     "total": 16,
+     "passed": 17,
+     "total": 17,
      "failures": []
     },
     {
@@ -348,9 +348,9 @@
     },
     {
      "kind": "livetest",
-     "status": "pass",
-     "passed": 3,
-     "total": 3,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -810,13 +810,43 @@
     },
     {
      "kind": "livetest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
+    }
+   ]
+  },
+  {
+   "id": "retakes",
+   "name": "Retakes",
+   "status": "fail",
+   "checks": [
+    {
+     "kind": "schema",
+     "status": "pending",
+     "passed": 0,
+     "total": 10,
+     "failures": []
+    },
+    {
+     "kind": "event",
+     "status": "pending",
+     "passed": 0,
+     "total": 9,
+     "failures": []
+    },
+    {
+     "kind": "selftest",
+     "status": "fail",
+     "passed": 0,
+     "total": 1,
+     "failures": [
+      "not loaded (not in the plugin host's list)"
+     ]
     }
    ]
   }
  ],
- "checked_at": "2026-11-16T19:15:00Z"
+ "checked_at": "2026-11-16T19:20:08Z"
 }
