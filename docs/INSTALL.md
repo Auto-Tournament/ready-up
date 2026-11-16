@@ -533,6 +533,22 @@ Ready Up maintains its own lightweight mode state machine and can display a **no
     ruleset and for wingman.
   - A cvar the match config sets replaces the built-in line for it. There are no cfg files to copy.
 
+### Phase cvars
+
+Each phase's cvars are built in (`libs/readyup/phase_cvars.h`). To change one on your server, add a
+section named after the phase to `readyup.cfg`: `[idle]`, `[warmup]`, `[knife]`, `[prac]`, `[live]`,
+`[live_wingman]` or `[esports_live]`.
+
+```ini
+[prac]
+sv_infinite_ammo = 2
+sv_showimpacts = 0
+```
+
+A cvar that's already in the phase gets your value; one that isn't is added. A match config that sets
+the same cvar still wins. Ready Up reads the section each time the phase starts, so a change applies the next
+time that phase begins.
+
 ### Behavior
 
 - When `ru match load` succeeds, Ready Up enters **match_warmup** and begins showing a CenterHtml banner to roster players who are **not ready** (with `ru_warmup_enable 0` there is no ready-up: see above).

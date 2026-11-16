@@ -260,6 +260,8 @@ std::atomic<int> g_devBotsScrimOverride{-1};
 
 }  // namespace
 
+std::string ReadyupCfgPath() { return CorePath(); }
+
 ReadyUpCfg Cfg() {
   auto& st = State();
   std::lock_guard<std::mutex> lk(st.mu);

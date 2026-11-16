@@ -311,6 +311,31 @@ static bool CfgSets(const std::string& cfg, const std::string& cmd) {
   return false;
 }
 
+static void TestPhaseOverrides() {
+  using namespace phase_cvars;
+  static const char* lines[] = {"sv_cheats 1", "sv_infinite_ammo 1", "mp_warmup_end"};
+  const Phase p{"prac", lines, 3};
+  const auto none = [](const std::string&) { return false; };
+  // No overrides: the built-in lines as they are.
+  CHECK((Commands(p, {}, none) == std::vector<std::string>{"sv_cheats 1", "sv_infinite_ammo 1", "mp_warmup_end"}));
+  // An override keeps its place with the new value; a new cvar goes at the end.
+  const Overrides over{{"sv_infinite_ammo", "2"}, {"sv_showimpacts", "1"}};
+  CHECK((Commands(p, over, none) ==
+         std::vector<std::string>{"sv_cheats 1", "sv_infinite_ammo 2", "mp_warmup_end", "sv_showimpacts 1"}));
+  // A cvar the match config sets is left out, built-in or override.
+  const auto match = [](const std::string& c) { return c == "sv_infinite_ammo" || c == "sv_showimpacts"; };
+  CHECK((Commands(p, over, match) == std::vector<std::string>{"sv_cheats 1", "mp_warmup_end"}));
+  // readyup.cfg: only [prac], names lowercased, a line that could chain a command is dropped.
+  const std::string path = "/tmp/ru_phase_overrides_test.cfg";
+  {
+    std::ofstream f(path);
+    f << "debug=1\n[practice]\nalways=1\n[PRAC]\nSV_Infinite_Ammo = 2\n// note\nsv_cheats = 1; quit\nbad name = 1\n[live]\nmp_maxmoney = 1\n";
+  }
+  CHECK((ReadOverrides(path, "prac") == Overrides{{"sv_infinite_ammo", "2"}}));
+  CHECK(ReadOverrides(path, "warmup").empty() && ReadOverrides("/nonexistent/readyup.cfg", "prac").empty());
+  std::remove(path.c_str());
+}
+
 static void TestWeaponCleanup() {
   // Sweep: idle, scrim warmup, match warmup; not once go-live is pending, not when off.
   CHECK(WeaponCleanupActive("idle", false, true) && WeaponCleanupActive("scrim_warmup", false, true));
@@ -413,6 +438,7 @@ int main() {
   CHECK(WarmupMoneyActive("scrim_warmup", true) && WarmupMoneyActive("match_warmup", true));
   CHECK(!WarmupMoneyActive("scrim_warmup", false) && !WarmupMoneyActive("match_live", true));
   CHECK(!WarmupMoneyActive("practice", true) && !WarmupMoneyActive("idle", true) && !WarmupMoneyActive(nullptr, true));
+  TestPhaseOverrides();
   TestWeaponCleanup();
   std::printf("match_rules: %d checks, %d failures\n", g_checks, g_failures);
   return g_failures == 0 ? 0 : 1;

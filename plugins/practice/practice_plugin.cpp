@@ -464,6 +464,13 @@ void ChatAllKey(const char* key, const readyup::i18n::Args& args = {}) {
   readyup::i18n::ChatAll(g_api, 0, [&](const std::string& lang) { return g_text.Tr(lang, key, args); });
 }
 
+// A phase's built-in commands with readyup.cfg's [<phase>] overrides (docs/INSTALL.md "Phase cvars").
+void SendPhase(const readyup::phase_cvars::Phase& p) {
+  const char* dir = g_api->config_dir(g_api->self);
+  const auto over = readyup::phase_cvars::ReadOverrides(dir ? std::string(dir) + "/readyup.cfg" : std::string(), p.name);
+  for (const auto& c : readyup::phase_cvars::Commands(p, over, [](const std::string&) { return false; })) Cmd(c.c_str());
+}
+
 void Reply(int slot, uint64_t steamid64, const std::string& msg) {
   Log("practice: slot %d: %s", slot, msg.c_str());
   if (steamid64 != 0 && slot >= 0) g_api->chat_to_slot(g_api->self, slot, (" \x04[ReadyUp]\x01 " + msg).c_str());
@@ -535,7 +542,7 @@ bool Enter(const char** why) {
   g_manualOff = false;
   g_toggles = Toggles{};
   g_dryRun = g_dryArmed = false;
-  for (const char* c : readyup::phase_cvars::kPrac) Cmd(c);
+  SendPhase(readyup::phase_cvars::kPracPhase);
   g_homeCvarsApplied = false;  // prac.cfg may set them back: the home map's settings again
   // Respawn everyone so they get prac.cfg's grenade set and weapons now, not on their next death.
   Cmd("mp_restartgame 1");
@@ -546,7 +553,7 @@ bool Enter(const char** why) {
 void Leave() {
   if (MatchOwnsMode()) (void)Match()->set_practice(0);
   g_standaloneActive = false;
-  for (const char* c : readyup::phase_cvars::kIdle) Cmd(c);
+  SendPhase(readyup::phase_cvars::kIdlePhase);
   // Everyone respawns with the normal loadout: the practice grenades and rifles go.
   Cmd("mp_restartgame 1");
   ClearState(/*restorePawns=*/true);
@@ -603,7 +610,7 @@ void StartDryRun() {
 void EndDryRun(const char* key) {
   g_dryRun = g_dryArmed = false;
   g_toggles = Toggles{};
-  for (const char* c : readyup::phase_cvars::kPrac) Cmd(c);
+  SendPhase(readyup::phase_cvars::kPracPhase);
   Cmd("mp_restartgame 1");
   Log("practice: dry run over (%s)", key);
   ChatAllKey(key);
@@ -1988,7 +1995,7 @@ void OnMapStart(void*, const ru_event*) {
   ClearState(/*restorePawns=*/false);
   g_projHigh = 0;
   g_manualOff = false;
-  if (!MatchOwnsMode() && g_standaloneActive) for (const char* c : readyup::phase_cvars::kPrac) Cmd(c);
+  if (!MatchOwnsMode() && g_standaloneActive) SendPhase(readyup::phase_cvars::kPracPhase);
 }
 
 

@@ -2,7 +2,12 @@
 // whose cvar the match config sets is skipped: the platform's value goes out instead. Later lines win.
 #pragma once
 
+#include <cctype>
 #include <cstddef>
+#include <fstream>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace readyup::phase_cvars {
 
@@ -535,5 +540,57 @@ inline constexpr Phase kPracPhase{"prac", kPrac, sizeof(kPrac) / sizeof(kPrac[0]
 inline constexpr Phase kLivePhase{"live", kLive, sizeof(kLive) / sizeof(kLive[0])};
 inline constexpr Phase kLiveWingmanPhase{"live_wingman", kLiveWingman, sizeof(kLiveWingman) / sizeof(kLiveWingman[0])};
 inline constexpr Phase kEsportsLivePhase{"esports_live", kEsportsLive, sizeof(kEsportsLive) / sizeof(kEsportsLive[0])};
+
+// The phase's commands with readyup.cfg `[<phase name>]` overrides: an overridden cvar keeps its place
+// with the new value, the others go at the end. `matchSets(cvar)`: the match config sets it (skipped).
+using Overrides = std::vector<std::pair<std::string, std::string>>;
+template <class MatchSets>
+std::vector<std::string> Commands(const Phase& p, const Overrides& over, MatchSets matchSets) {
+  std::vector<std::string> out;
+  std::vector<bool> used(over.size(), false);
+  for (size_t i = 0; i < p.count; ++i) {
+    const std::string line = p.lines[i];
+    const std::string cvar = line.substr(0, line.find(' '));
+    if (matchSets(cvar)) continue;
+    size_t o = 0;
+    while (o < over.size() && over[o].first != cvar) ++o;
+    if (o < over.size()) used[o] = true;
+    out.push_back(o < over.size() ? cvar + " " + over[o].second : line);
+  }
+  for (size_t o = 0; o < over.size(); ++o) {
+    if (!used[o] && !matchSets(over[o].first)) out.push_back(over[o].first + " " + over[o].second);
+  }
+  return out;
+}
+
+// `cvar = value` lines of readyup.cfg's `[<phase>]` section. Lines that could run a second command
+// (anything but [a-z0-9_] in the name; ; " or a newline in the value) are dropped.
+inline Overrides ReadOverrides(const std::string& path, const std::string& phase) {
+  Overrides out;
+  std::ifstream f(path);
+  std::string line, cur;
+  const auto trim = [](std::string s) {
+    const size_t a = s.find_first_not_of(" \t\r"), b = s.find_last_not_of(" \t\r");
+    return a == std::string::npos ? std::string() : s.substr(a, b - a + 1);
+  };
+  while (std::getline(f, line)) {
+    line = trim(line);
+    if (line.empty() || line[0] == '#' || line.rfind("//", 0) == 0) continue;
+    if (line.front() == '[' && line.back() == ']') {
+      cur = trim(line.substr(1, line.size() - 2));
+      for (auto& c : cur) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+      continue;
+    }
+    const size_t eq = line.find('=');
+    if (cur != phase || eq == std::string::npos) continue;
+    std::string key = trim(line.substr(0, eq)), val = trim(line.substr(eq + 1));
+    for (auto& c : key) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    bool ok = !key.empty() && !val.empty() && val.size() < 128;
+    for (char c : key) ok = ok && (std::isalnum(static_cast<unsigned char>(c)) || c == '_');
+    ok = ok && val.find_first_of(";\"\n") == std::string::npos;
+    if (ok) out.emplace_back(key, val);
+  }
+  return out;
+}
 
 }  // namespace readyup::phase_cvars

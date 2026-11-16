@@ -93,6 +93,8 @@ struct ReadyUpCfg {
 };
 
 ReadyUpCfg Cfg();
+// readyup.cfg next to the core ("" when unknown).
+std::string ReadyupCfgPath();
 // ru_api debug_enabled (readyup.cfg debug=1 or READYUP_DEBUG=1). Any thread.
 bool DebugEnabled();
 bool ChatDebugEnabled();

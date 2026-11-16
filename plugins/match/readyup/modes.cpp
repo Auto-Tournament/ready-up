@@ -276,11 +276,10 @@ static void EnqueueAfterCfg(std::vector<std::string> cmds) {
 // ApplyMatchCvarsLocked sends the platform's value instead.
 static bool ApplyPhase(const phase_cvars::Phase& phase) {
   const auto ctx = WebhookGetMatchContext();
+  const auto over = phase_cvars::ReadOverrides(ReadyupCfgPath(), phase.name);
   bool any = false;
-  for (size_t i = 0; i < phase.count; ++i) {
-    const std::string line = phase.lines[i];
-    if (ctx && ctx->cvars.count(line.substr(0, line.find(' ')))) continue;
-    if (EnqueueServerCommand(line.c_str())) any = true;
+  for (const auto& c : phase_cvars::Commands(phase, over, [&](const std::string& cvar) { return ctx && ctx->cvars.count(cvar); })) {
+    if (EnqueueServerCommand(c.c_str())) any = true;
   }
   Debug("modes: applied %s (%zu lines)\n", phase.name, phase.count);
   return any;
