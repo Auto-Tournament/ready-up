@@ -28,7 +28,7 @@
 #                                            addons.cfg template (Steam Workshop addons; idle until
 #                                            workshop_addons is set)
 #   ready-up-whitelist-<v>-linuxsteamrt64.zip plugins/whitelist.so (only listed players; off by default)
-#   ready-up-practice-<v>-linuxsteamrt64.zip  plugins/practice.so + engine-surface.practice.json + prac.cfg /
+#   ready-up-practice-<v>-linuxsteamrt64.zip  plugins/practice.so + engine-surface.practice.json +
 #                                            practice.cfg templates + tools/scenario/ru_scenario.py + seed scenarios
 #   ready-up-essentials-plugin-<v>-...zip   plugins/essentials.so (admins, map commands); "essentials" alone is the bundle
 #   ready-up-deathmatch-<v>-linuxsteamrt64.zip plugins/deathmatch.so + deathmatch.cfg template (off until .ru dm ffa|tdm)
@@ -106,13 +106,9 @@ printf '%s\n' "$VERSION" >"$WORK/VERSION"
 core_files+=("$WORK/VERSION:VERSION" "$WORK/BUILD_INFO:BUILD_INFO")
 stage_component core "Ready Up core: libserver.so, engine surface, plugin host, status endpoint" "${core_files[@]}"
 
-# The match flow (plugins/match) and the ReadyUp/*.cfg files it execs (warmup, knife, live, ...).
+# The match flow (plugins/match). Its phase rules (warmup, knife, live, ...) are built in (phase_cvars.h).
 match_files=("$BUILD/plugins/match.so:plugins/match.so:755"
   "$ROOT_DIR/plugins/match/needs.json:plugins/match.needs.json")
-for f in "$ROOT_DIR"/cfg/ReadyUp/*.cfg; do
-  case "$(basename "$f")" in fleet.cfg | midas.cfg | prac.cfg | practice.cfg | deathmatch.cfg | mapvote.cfg | community.cfg | movement.cfg | addons.cfg | tv.cfg) continue ;; esac  # the fleet / midas / practice / deathmatch / addons components' own
-  match_files+=("$f:cfg-templates/ReadyUp/$(basename "$f")")
-done
 stage_component match "Ready-up, scrims, knife round, pauses, practice, match configs, webhooks, demos" "${match_files[@]}"
 
 # The platform link. fleet.so stays idle without a url, and the template is all comments. The
@@ -165,7 +161,7 @@ stage_component essentials "Server basics: admins (admins.json), map change / re
   "$ROOT_DIR/plugins/essentials/needs.json:plugins/essentials.needs.json"
 
 # Practice mode + tools (.prac, .savepos, .rethrow, .bot, ...): its own plugin, so a server can
-# run it without the match flow. Ships prac.cfg (the cvars it execs) and its settings template, its
+# run it without the match flow. Ships its settings template, its
 # gamedata fragment (engine-surface.practice.json: the grenade projectile factories behind ru_api
 # grenade_spawn, next to the core's engine-surface.json like the skins / addons ones), the
 # scenario converter (tools/scenario/ru_scenario.py, `ru scenario convert`) and the seed scenarios
@@ -174,7 +170,6 @@ stage_component essentials "Server basics: admins (admins.json), map change / re
 practice_files=("$BUILD/plugins/practice.so:plugins/practice.so:755"
   "$ROOT_DIR/plugins/practice/needs.json:plugins/practice.needs.json"
   "$ROOT_DIR/gamedata/engine-surface.practice.json:bin/linuxsteamrt64/engine-surface.practice.json"
-  "$ROOT_DIR/cfg/ReadyUp/prac.cfg:cfg-templates/ReadyUp/prac.cfg"
   "$ROOT_DIR/cfg/ReadyUp/practice.cfg:cfg-templates/ReadyUp/practice.cfg"
   "$ROOT_DIR/tools/scenario/ru_scenario.py:tools/scenario/ru_scenario.py:755")
 for f in "$ROOT_DIR"/plugins/practice/scenarios/*.json; do

@@ -16,7 +16,6 @@
 namespace readyup {
 namespace wingman {
 
-constexpr const char* kLiveCfg = "ReadyUp/live_wingman.cfg";
 // Regulation rounds (MR8) and overtime rounds per half (mp_overtime_maxrounds 4) when the match
 // config sets neither maxRounds / mp_maxrounds nor overtimeSegments.
 constexpr int kMaxRounds = 16;

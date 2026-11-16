@@ -217,7 +217,7 @@ add_test(NAME match_ru_commands COMMAND match_ru_commands_test)
 
 # Simulation mode and wingman (readyup/simulation_rules.h, readyup/wingman.h): timescale, roster
 # identities, bot -> identity assignment, when to add a bot, the setup / teardown commands, the game
-# mode, the match config fields and cfg/ReadyUp/live_wingman.cfg (ctest `match_simulation`).
+# mode, the match config fields and the live_wingman phase (ctest `match_simulation`).
 add_executable(match_simulation_test tests/simulation_test.cpp readyup/simulation_rules.cpp readyup/wingman.cpp
   readyup/match_config_parser.cpp readyup/ruleset.cpp readyup/match_rules.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp

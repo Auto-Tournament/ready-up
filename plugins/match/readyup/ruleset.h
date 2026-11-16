@@ -110,8 +110,8 @@ EffectiveRuleSet ResolveEffective(const RulesInput& in);
 // overridden cvar-backed rules, tv_broadcast_url + tv_broadcast, tv_allow_camera_man_steamid.
 std::vector<std::string> RuleCommands(const EffectiveRuleSet& e);
 
-// The cfg go-live execs.
-const char* LiveCfgFor(Ruleset r);  // "ReadyUp/live.cfg" | "ReadyUp/esports_live.cfg"
+// The name of the go-live phase (phase_cvars.h) for logs.
+const char* LiveCfgFor(Ruleset r);  // "live" | "esports_live"
 
 // MatchState `effective_rules`: {ruleset, rules: {...}, differs: [...], preset: {differing keys}}.
 // Never contains null (unmanaged values are left out).

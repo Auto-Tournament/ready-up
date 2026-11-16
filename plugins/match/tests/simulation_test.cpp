@@ -1,8 +1,9 @@
 // Offline tests for readyup/simulation_rules.h and readyup/wingman.h: timescale, roster identities,
 // the bot -> identity assignment (kept across halftime), when to add the next bot, the setup /
 // teardown commands, wingman's game mode, the match config fields (wingman defaults, valve refused,
-// simulation + timescale, roster names) and cfg/ReadyUp/live_wingman.cfg.
+// simulation + timescale, roster names) and the live_wingman phase (phase_cvars.h).
 // ctest `match_simulation`.
+#include "readyup/phase_cvars.h"
 #include "readyup/match_config_parser.h"
 #include "readyup/simulation_rules.h"
 #include "readyup/weapon_cleanup.h"
@@ -188,11 +189,18 @@ static void TestParser() {
   CHECK(c && !c->simulation && c->simulation_timescale == 1.0);
 }
 
+// The built-in phase commands (phase_cvars.h) by their old file name, one per line.
 static std::string ReadCfg(const char* name) {
-  std::ifstream f(std::string(READYUP_CFG_DIR) + "/" + name);
-  std::stringstream ss;
-  ss << f.rdbuf();
-  return ss.str();
+  using namespace phase_cvars;
+  const std::string n = std::string(name).substr(0, std::string(name).find(".cfg"));
+  for (const Phase* p : {&kIdlePhase, &kWarmupPhase, &kKnifePhase, &kPracPhase, &kLivePhase, &kLiveWingmanPhase,
+                         &kEsportsLivePhase}) {
+    if (n != p->name) continue;
+    std::string out;
+    for (size_t i = 0; i < p->count; ++i) out += std::string(p->lines[i]) + "\n";
+    return out;
+  }
+  return "";
 }
 
 static bool CfgSets(const std::string& cfg, const std::string& cmd) {
@@ -209,8 +217,7 @@ static bool CfgSets(const std::string& cfg, const std::string& cmd) {
 }
 
 static void TestWingmanCfg() {
-  const std::string cfgName = std::string(wingman::kLiveCfg).substr(std::string("ReadyUp/").size());
-  const std::string w = ReadCfg(cfgName.c_str()), live = ReadCfg("live.cfg");
+  const std::string w = ReadCfg("live_wingman"), live = ReadCfg("live.cfg");
   CHECK(!w.empty() && !live.empty());
   for (const char* c : {"mp_maxrounds 16", "mp_maxmoney 8000", "mp_overtime_maxrounds 4", "mp_freezetime 10",
                         "mp_roundtime 1.5", "mp_roundtime_defuse 1.5", "cash_team_loser_bonus 2000",
@@ -224,9 +231,7 @@ static void TestWingmanCfg() {
     if (!CfgSets(w, l)) std::fprintf(stderr, "live_wingman.cfg lacks `%s`\n", l);
     CHECK(CfgSets(w, l));
   }
-  CHECK(w.find("exec ReadyUp/live_wingman_override.cfg") != std::string::npos);
-  CHECK(w.find("exec ReadyUp/live_override.cfg") == std::string::npos);
-  CHECK(!ReadCfg("live_wingman_override.cfg").empty());
+  CHECK(w.find("exec ") == std::string::npos);  // no cfg files left to exec
 }
 
 static void TestFeederTrim() {

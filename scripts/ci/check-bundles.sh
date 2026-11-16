@@ -85,7 +85,7 @@ no_skins() {  # <bundle>
 
 has_match() {  # <bundle>
   local dir="$WORK/$1"
-  for f in readyup/plugins/match.so readyup/cfg-templates/ReadyUp/live.cfg; do
+  for f in readyup/plugins/match.so; do
     if [[ -f "$dir/$f" ]]; then ok "$1 has $f"; else bad "$1 lacks $f"; fi
   done
 }
