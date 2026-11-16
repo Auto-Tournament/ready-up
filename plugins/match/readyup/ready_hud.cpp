@@ -3,6 +3,7 @@
 #include "readyup/plugin_api.h"
 
 #include "readyup/admin_call.h"
+#include "readyup/end_screen.h"
 #include "readyup/engine.h"
 #include "readyup/host.h"
 #include "readyup/hud_screens.h"
@@ -677,6 +678,7 @@ void ReadyHudTick() {
     HudScreensRun([&](const HumanIdentity& h) -> std::string {
       const int slot = h.slot >= 0 ? h.slot : h.userid;
       const std::string lang = i18n::LanguageOf(host::Api(), slot);
+      if (std::string e = EndScreenHudSpec(slot, lang); !e.empty()) return e;
       // The walkover choice can't be skipped: it replaces the ready card (walkover.h).
       if (ctx && mode == ReadyUpMode::MatchWarmup) {
         if (std::string w = WalkoverHudSpec(*ctx, h.steamid64, lang); !w.empty()) return w;

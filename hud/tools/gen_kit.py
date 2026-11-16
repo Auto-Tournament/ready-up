@@ -82,7 +82,7 @@ def mid():
 END_COLS = 12    # table columns per team (header text, tooltip and width all from the server)
 END_ROWS = 6     # player rows per team
 END_ROUNDS = 30  # round history slots
-END_AWARDS = 4
+END_AWARDS = 8
 
 
 def end():
@@ -104,18 +104,32 @@ def end():
     score = panel(cls="at-escore", children=(
         teambox("a", "at-right") + label("at_e_sa", "at-enum") + label(cls="at-ecolon", text=":")
         + label("at_e_sb", "at-enum") + teambox("b", "at-left")))
+    # Round strip (Leaderboard v5): team names on the left (at_e_rla / at_e_rlb, hidden with
+    # `empty` until the server fills them), then a square per round. A slot with `half` gets the
+    # side-switch line before it; a slot with `todo` is a round not played yet (an outline).
+    strip_names = panel(cls="at-erlbox", children=(
+        label("at_e_rla", "at-erl empty") + label("at_e_rlb", "at-erl empty")))
     rounds = panel("at_erounds", "at-erounds", "".join(
-        panel(f"at_rt{n}", "at-rt", label(f"at_rt{n}_u", "at-rtp") + panel(cls="at-rtmid") + label(f"at_rt{n}_d", "at-rtp"))
+        panel(f"at_rt{n}", "at-rt", panel(cls="at-rtswitch") + label(f"at_rt{n}_u", "at-rtp")
+              + panel(cls="at-rtmid") + label(f"at_rt{n}_d", "at-rtp at-rtd"))
         for n in range(END_ROUNDS)))
+    strip = panel(cls="at-estrip", children=strip_names + rounds)
+    # Awards: two rows of four. Slots past the ones an older server fills start `empty`.
     awards = panel("at_eawards", "at-eawards", "".join(
-        panel(f"at_aw{n}", "at-aw", label(f"at_aw{n}_l", "at-awl") + panel(cls="at-awrow", children=(
+        panel(f"at_aw{n}", "at-aw" + (" empty" if n >= 4 else ""), label(f"at_aw{n}_l", "at-awl") + panel(cls="at-awrow", children=(
             label(f"at_aw{n}_n", "at-awn") + label(f"at_aw{n}_v", "at-awv")))) for n in range(END_AWARDS)))
+    # Close (at_e_close), an X over the card's top right: hud.so turns a click into `.lb` while
+    # match.so holds the cursor. Shown only with `can-close` on at_end, so older servers never show it.
+    close = '<Button id="at_e_close" class="at-eclose">' + label(cls="at-eclosex", text="×") + "</Button>"
+    # One card as wide as its content (Leaderboard v5 on the HUD kit canvas): the result, the round
+    # strip, the two teams side by side with a fixed name column, the awards, then what is next.
+    hero = panel(cls="at-ehero", children=(
+        panel("at_e_howbox", "at-howbox", label("at_e_how", "at-how"))
+        + label("at_e_head", "at-ehead-text") + score + strip))
+    teams = panel(cls="at-eteams", children=table("a") + table("b"))
     foot = panel(cls="at-efoot", children=label("at_e_where", "at-ewhere") + label("at_e_next", "at-enext"))
-    flow = panel(cls="at-ecardflow", children=(
-        brand() + panel(cls="at-divider")
-        + label("at_e_head", "at-ehead-text") + panel("at_e_howbox", "at-howbox", label("at_e_how", "at-how"))
-        + score + rounds + awards + panel(cls="at-eteams", children=table("a") + table("b")) + foot))
-    card_ = panel("at_ecard", "at-ecard", flow + panel(cls="at-line"))
+    flow = panel(cls="at-ecardflow", children=hero + teams + awards)
+    card_ = panel("at_ecard", "at-ecard", panel(cls="at-ecol", children=flow + foot) + panel(cls="at-line") + close)
     return panel("at_end", "at-end", panel(cls="at-eblur") + card_)
 
 
