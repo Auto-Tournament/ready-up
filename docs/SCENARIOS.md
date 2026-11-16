@@ -21,7 +21,7 @@ practice mode can use them, like the other practice tools.
 | `.scen info <id>` | Shows the players, length, grenades, bomb and source. |
 | `.scen load <id> [player] [start]` | Starts a scenario. You can shorten this to `.scen <id> ...`. |
 | `.scen r` | Plays the same scenario again from the same start. Bots are reused when the teams still match. |
-| `.scen stop` | Ends the scenario. Bots are kicked and `prac.cfg` is run again. |
+| `.scen stop` | Ends the scenario. Bots are kicked and the prac rules are applied again. |
 
 - `<id>`: the scenario id, or any unique part of it (`b_exec` finds `nuke_vitality_b_execute`).
 - `[player]`: a name (`zywoo`, or a unique part of one), the number from `.scen info`, or a

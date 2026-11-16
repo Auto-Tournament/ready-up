@@ -79,7 +79,7 @@ scrims) and the commands that work: `.p` / `.pause` / `.tech`, `.up` / `.unpause
 the card starts `welcome_round_delay_ms` (5 s) after the go-live round start, like the welcome
 card, and the same HTML is re-sent every frame (`hud_resend_ms` / `hud_duration_s`, like the ready
 HUD, see "Refresh rules") at `RU_HTML_PRIO_NOTICE` for the full `golive_card_seconds`. It ends when
-the go-live round's freeze time ends at the latest (the defaults, 5 s + 10 s, fit in `live.cfg`'s
+the go-live round's freeze time ends at the latest (the defaults, 5 s + 10 s, fit in the live rules'
 18 s `mp_freezetime`; a shorter freeze time cuts the card short), and early when a pause or a
 forfeit countdown needs the panel (the live panel above takes over). With `debug=1` (readyup.cfg), the log
 shows when the card was armed, shown, skipped for a player (welcome / `.admin` card,

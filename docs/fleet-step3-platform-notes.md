@@ -247,7 +247,7 @@ Proposed schema: `match.defs.json` `rules.ruleset`, `rules.overrides`, `matchSta
 `matchState.effective_rules`.
 
 - **`rules.ruleset`**: `"default"` (Ready Up's cfgs) or `"valve"`. Left out, the server's
-  `readyup.cfg` `ruleset=` applies. Under `valve` the server execs `ReadyUp/esports_live.cfg` at
+  `readyup.cfg` `ruleset=` applies. Under `valve` the server applies the built-in esports_live rules at
   go-live (Premier defaults + Valve's exception list), refuses maps whose `sides` is `knife`
   (send the veto result: `team1_ct` / `team2_ct`), keeps the skins plugin inert (players' own
   inventories only), counts technical pauses (1 per team, 120 s), pauses at halftime (both
