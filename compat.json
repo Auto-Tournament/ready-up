@@ -5,19 +5,19 @@
   "patch": "1.41.9.7"
  },
  "readyup": {
-  "version": "0.1.0-beta.70-dev.11c9282",
-  "commit": "11c9282078806eaecb9ca475ddaf43b04bc052de"
+  "version": "0.1.0-beta.70-dev.fd944fa",
+  "commit": "fd944faf58653dab03598b95e03b6c7397e15e32"
  },
  "run": {
-  "id": "43867776855",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/43867776855",
+  "id": "43881735380",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/43881735380",
   "trigger": "code_change",
   "stage": "live",
-  "state": "warn",
-  "started_at": "2026-11-16T12:34:24Z",
-  "finished_at": "2026-11-16T12:57:54Z"
+  "state": "pass",
+  "started_at": "2026-11-16T14:03:05Z",
+  "finished_at": "2026-11-16T14:31:15Z"
  },
- "overall": "warn",
+ "overall": "pass",
  "components": [
   {
    "id": "core",
@@ -810,15 +810,13 @@
     },
     {
      "kind": "livetest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
-     "failures": [
-      "fleet: failed (exit 1); advisory (not required yet), see the run"
-     ]
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
+     "failures": []
     }
    ]
   }
  ],
- "checked_at": "2026-11-16T12:57:54Z"
+ "checked_at": "2026-11-16T14:31:15Z"
 }
