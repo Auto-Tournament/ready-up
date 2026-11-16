@@ -1145,6 +1145,7 @@ static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx) {
   }
   if (ctx.cvars.empty()) {
     AppendRuleCommands(&cmds);  // ruleset overrides win over the cfg (esports.h)
+    if (SimulationActive()) cmds.push_back("sv_matchpause_auto_5v5 0");
     EnqueueAfterCfg(std::move(cmds));
     return;
   }
@@ -1167,6 +1168,8 @@ static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx) {
     cmds.push_back(cmd);
   }
   AppendRuleCommands(&cmds);
+  // CS2 counts only people for this pause, so a bots-only match would stay paused for good.
+  if (SimulationActive()) cmds.push_back("sv_matchpause_auto_5v5 0");
   EnqueueAfterCfg(std::move(cmds));
 }
 
