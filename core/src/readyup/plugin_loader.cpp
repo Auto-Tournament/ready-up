@@ -18,6 +18,7 @@
 #include "readyup/plugin_api.h"
 #include "readyup/selftest_iface.h"
 
+#include <cmath>
 #include <dirent.h>
 #include <dlfcn.h>
 #include <sys/stat.h>
@@ -1300,6 +1301,8 @@ void DeliverLogLines(const std::deque<std::string>& lines) {
   }
 }
 
+double g_gameTime = std::nan("");  // SetGameTime, for ru_tick_info::game_time
+
 // on_tick (kind Tick, simulating frames only) and on_frame (kind Frame, every frame).
 void RunTicks(RegKind kind, bool simulating) {
   const std::vector<ru_handle> ids = RegIds(kind);
@@ -1309,6 +1312,7 @@ void RunTicks(RegKind kind, bool simulating) {
   t.frame = g_frame;
   t.now = NowSeconds();
   t.simulating = simulating ? 1 : 0;
+  t.game_time = g_gameTime;
   for (ru_handle id : ids) {
     Reg reg;
     Instance* inst = nullptr;
@@ -1506,6 +1510,8 @@ bool TryDispatchConsole(const std::string& line) {
 }
 
 void LoadAllFromDirForTest() { LoadAllFromDir(); }
+
+void SetGameTime(double seconds) { g_gameTime = seconds; }
 
 void Frame(bool simulating) {
   if (!g_haveGameThread.load(std::memory_order_relaxed)) {

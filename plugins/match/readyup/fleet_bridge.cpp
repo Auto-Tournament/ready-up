@@ -7,6 +7,7 @@
 #include "readyup/admin_check.h"
 #include "readyup/backup_files.h"
 #include "readyup/chat_forward.h"
+#include "readyup/kill_forward.h"
 #include "readyup/cs2_update_check.h"
 #include "readyup/cs2_version.h"
 #include "readyup/demo_recorder.h"
@@ -40,6 +41,7 @@
 #include "readyup/webhook.h"
 #include "readyup/workers.h"
 
+#include <cmath>
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -705,7 +707,7 @@ void Derive(const Json& prev, const Json& cur, std::vector<Ev>* out) {
 
 // Events that say nothing about MatchState: they bump live_rev (the protocol wants a rev on
 // every event.*) but carry no state diff, so a chat line does not drag the state with it.
-bool RevOnlyEvent(const std::string& type) { return type == "chat"; }
+bool RevOnlyEvent(const std::string& type) { return type == "chat" || type == "kill"; }
 
 void EmitAll(const Json& st, std::vector<Ev>& evs) {
   const long long epoch = g_asg.epoch;
@@ -2096,9 +2098,20 @@ static void ForwardChat(const char* line) {
   signals::Emit("chat", std::move(d));
 }
 
+// The server's game time at the last tick, for kill events (NaN = unknown).
+static double g_gameTime = NAN;
+
+// Kills (kill_forward.h): every `killed` line of a live match, as `event.kill`.
+static void ForwardKill(const char* line) {
+  if (!g_asg.active || !signals::Enabled() || !IsLiveMode() || !std::strstr(line, " killed \"")) return;
+  const auto k = kill_forward::ParseKillLogLine(line);
+  if (k) signals::Emit("kill", kill_forward::EventData(*k, UnixMs(), g_gameTime));
+}
+
 void OnLogLine(const char* line) {
   if (!line) return;
   ForwardChat(line);
+  ForwardKill(line);
   if (g_execs.empty()) return;
   for (auto& x : g_execs) {
     if (x.output.size() >= kExecOutputMax) continue;
@@ -2108,8 +2121,9 @@ void OnLogLine(const char* line) {
   }
 }
 
-void Tick(double now) {
+void Tick(double now, double gameTime) {
   g_now = now;
+  g_gameTime = gameTime;
   EnsureHandlers();
   RunDeferredRestore();
   const ru_fleet_v1* f = Fleet();

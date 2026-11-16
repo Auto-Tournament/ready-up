@@ -20,9 +20,9 @@ extern "C" {
 
 typedef struct ru_mapvote_v1 {
   uint32_t struct_size; /* sizeof(ru_mapvote_v1) of the provider */
-  /* Replaces the map pool and saves it (<data_dir>/pool.txt), so it wins over mapvote.cfg's maps=
+  /* Replaces the map pool and saves it (<data_dir>/pool.txt), so it wins over [mapvote]'s maps=
    * from now on and after restarts. Entries: map names or "workshop/<id>[/<name>]". count 0 clears
-   * the saved pool (mapvote.cfg again). 1 = saved and in use. */
+   * the saved pool ([mapvote] again). 1 = saved and in use. */
   int (*set_pool)(const char* const* maps, uint32_t count);
 } ru_mapvote_v1;
 

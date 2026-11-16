@@ -750,7 +750,7 @@ fleet::cmds::Result RunOwnedCmd(const std::string& name, const fleet::json::Valu
     return Ok();
   }
   if (name == "mapvote.set") {
-    // {maps: [entry], load?}: a saved setup's map pool; [] gives the server mapvote.cfg's again.
+    // {maps: [entry], load?}: a saved setup's map pool; [] gives the server [mapvote]'s again.
     // load: the first map now, through essentials (its change card and Workshop download).
     std::vector<std::string> maps;
     bool load = false;

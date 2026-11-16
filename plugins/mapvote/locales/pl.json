@@ -10,7 +10,7 @@
   "vote.wins_random": "Głosowanie na mapę: wygrywa {map} (nikt nie głosował, wybrana losowo). Zmiana mapy za 5 sekund.",
   "vote.wins": "Głosowanie na mapę: wygrywa {map}. Zmiana mapy za 5 sekund.",
   "off.match": "Głosowanie na mapę jest wyłączone podczas meczu.",
-  "off.no_pool": "Głosowanie na mapę jest wyłączone na tym serwerze: brak listy map (maps= w mapvote.cfg).",
+  "off.no_pool": "Głosowanie na mapę jest wyłączone na tym serwerze: brak listy map (maps= w readyup.cfg [mapvote]).",
   "off.off": "Głosowanie na mapę jest wyłączone na tym serwerze.",
   "rtv.picked": "Następna mapa jest już wybrana: {map}.",
   "rtv.running": "Trwa głosowanie na mapę: wpisz jej numer.",

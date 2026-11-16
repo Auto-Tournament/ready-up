@@ -11,9 +11,9 @@
 //   .menu                (hud.so) restart, bonuses, checkpoints, the timer and top times as buttons
 //
 // Chat: the runner hears when the timer starts and stops (left the start, died, noclip) and
-// their time. Others hear a finish per movement.cfg finish_chat (default: only server records).
+// their time. Others hear a finish per [movement] finish_chat (default: only server records).
 //
-// The mode comes from cfg/ReadyUp/movement.cfg `mode=` (auto: from the map prefix surf_ / bhop_ /
+// The mode comes from readyup.cfg [movement] `mode=` (auto: from the map prefix surf_ / bhop_ /
 // kz_). Zones are the map's own triggers and buttons by name (map_start / map_end,
 // timer_startzone / timer_endzone, climb_startbutton / climb_endbutton, ...): their boxes are read
 // on map start, players are checked against them every tick. Bonus courses (b1_start / b1_end,
@@ -91,9 +91,9 @@ struct Run {
 };
 
 struct State {
-  Mode configured = Mode::Off;  // from movement.cfg; Off = auto
+  Mode configured = Mode::Off;  // from [movement]; Off = auto
   FinishChat finishChat = FinishChat::Records;
-  std::string homeMap = "3073875025";  // movement.cfg home_map (surf_utopia_njv)
+  std::string homeMap = "3073875025";  // [movement] home_map (surf_utopia_njv)
   double homeAskedAt = -1e9;
   bool autoMode = true;
   Mode mode = Mode::Off;        // this map's
@@ -269,7 +269,7 @@ void LoadSettings() {
     bool ok = false;
     g.configured = ParseMode(buf, &ok);
     g.autoMode = !ok;
-    if (!ok) ru_logf(g_api, RU_LOG_WARN, "movement.cfg: mode=%s is not auto, surf, bhop, kz or off", buf);
+    if (!ok) ru_logf(g_api, RU_LOG_WARN, "[movement]: mode=%s is not auto, surf, bhop, kz or off", buf);
   }
   char hm[128] = {};
   g.homeMap = g_api->config_get(g_api->self, "home_map", hm, sizeof(hm)) >= 0 ? std::string(hm) : "3073875025";
@@ -278,7 +278,7 @@ void LoadSettings() {
   if (g_api->config_get(g_api->self, "finish_chat", fc, sizeof(fc)) >= 0 && fc[0]) {
     bool ok = false;
     g.finishChat = ParseFinishChat(fc, &ok);
-    if (!ok) ru_logf(g_api, RU_LOG_WARN, "movement.cfg: finish_chat=%s is not records, self or all", fc);
+    if (!ok) ru_logf(g_api, RU_LOG_WARN, "[movement]: finish_chat=%s is not records, self or all", fc);
   }
 }
 

@@ -10,7 +10,7 @@
   "vote.wins_random": "Voto mappa: vince {map} (nessuno ha votato, scelta a caso). Cambio mappa tra 5 secondi.",
   "vote.wins": "Voto mappa: vince {map}. Cambio mappa tra 5 secondi.",
   "off.match": "Il voto mappa è disattivato durante un match.",
-  "off.no_pool": "Il voto mappa è disattivato su questo server: nessuna lista di mappe (maps= in mapvote.cfg).",
+  "off.no_pool": "Il voto mappa è disattivato su questo server: nessuna lista di mappe (maps= in readyup.cfg [mapvote]).",
   "off.off": "Il voto mappa è disattivato su questo server.",
   "rtv.picked": "La prossima mappa è già scelta: {map}.",
   "rtv.running": "C'è un voto mappa in corso: scrivi il suo numero.",

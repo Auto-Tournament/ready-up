@@ -10,7 +10,7 @@
   "vote.wins_random": "맵 투표: {map} 선택(아무도 투표하지 않아 무작위 선택). 5초 후 맵 변경.",
   "vote.wins": "맵 투표: {map} 선택. 5초 후 맵 변경.",
   "off.match": "경기 중에는 맵 투표가 꺼져 있습니다.",
-  "off.no_pool": "이 서버는 맵 투표가 꺼져 있습니다: 맵 풀이 없습니다(mapvote.cfg의 maps=).",
+  "off.no_pool": "이 서버는 맵 투표가 꺼져 있습니다: 맵 풀이 없습니다(readyup.cfg [mapvote]의 maps=).",
   "off.off": "이 서버는 맵 투표가 꺼져 있습니다.",
   "rtv.picked": "다음 맵이 이미 정해졌습니다: {map}.",
   "rtv.running": "맵 투표 중입니다: 번호를 입력하세요.",

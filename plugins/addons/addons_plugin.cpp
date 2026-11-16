@@ -1,6 +1,6 @@
 // readyup-addons (plugins/addons, addons.so): Steam Workshop addons for the server.
 //
-// The server downloads the addons listed in cfg/ReadyUp/addons.cfg (`workshop_addons=<id>,...`),
+// The server downloads the addons listed in readyup.cfg [addons] (`workshop_addons=<id>,...`),
 // plus the Auto Tournament HUD addon every player needs (addons_rules.h kHudAddon), and the
 // engine mounts them on the next map change, like it mounts a workshop map. Making
 // connecting players download them comes next (the connect / signon flow).
@@ -106,7 +106,7 @@ struct Item {
   bool updateChecked = false;  // DownloadItem asked for an installed item (Steam fetches a newer version)
   uint32_t lastState = 0xFFFFFFFFu;
 };
-std::vector<uint64_t> g_ids;  // from addons.cfg, in order
+std::vector<uint64_t> g_ids;  // from [addons], in order
 std::map<uint64_t, Item> g_items;
 double g_lastConfig = -1e9, g_lastPoll = -1e9;
 std::string g_hookStatus = "not installed";
@@ -186,7 +186,7 @@ using ManifestEventFn = void (*)(void*, const void*);
 using AddResourceFn = void (*)(void*, const char*);
 ManifestEventFn g_origManifest = nullptr;
 std::string g_precacheStatus = "not installed";
-std::vector<std::string> g_precache;  // `precache=` from addons.cfg
+std::vector<std::string> g_precache;  // `precache=` from [addons]
 
 bool IsAddResourceThunk(const void* fn) {
   static const uint8_t kThunk[] = {0x45, 0x31, 0xC0, 0x45, 0x31, 0xC9, 0x31, 0xC9, 0x31, 0xD2, 0xE9};
@@ -493,7 +493,7 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
       "addons",
       ADDONS_VERSION,
       "Ready Up",
-      "Steam Workshop addons for the server (cfg/ReadyUp/addons.cfg)",
+      "Steam Workshop addons for the server (readyup.cfg [addons])",
   };
   return &info;
 }
@@ -521,7 +521,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "addons", RU_SELFTEST_IFACE_VERSION,
                            const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
   }
-  ru_logf(api, RU_LOG_INFO, "loaded " ADDONS_VERSION " (workshop_addons in cfg/ReadyUp/addons.cfg; map-change hook %s)",
+  ru_logf(api, RU_LOG_INFO, "loaded " ADDONS_VERSION " (workshop_addons in readyup.cfg [addons]; map-change hook %s)",
           g_hookStatus.c_str());
   return 0;
 }

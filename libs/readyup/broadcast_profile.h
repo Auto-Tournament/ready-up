@@ -95,9 +95,8 @@ std::string ConflictWithMatchCvars(const Profile& eff, int delayFloor,
 const std::vector<std::string>& OwnedCvars();
 
 // The cvars `eff` asks for, in OwnedCvars order. delay_seconds is raised to `delayFloor`
-// (*effectiveDelay = what goes into tv_delay, -1 when tv_delay is not set). allow_insecure_observers
-// true sets tv_secure_bypass 1 and sv_deltaticks_enforce 0 together; false sets
-// tv_secure_bypass 0 only (sv_deltaticks_enforce goes back to its baseline).
+// (*effectiveDelay = what goes into tv_delay, -1 when tv_delay is not set). sv_deltaticks_enforce
+// is 0 whenever the profile sets anything; allow_insecure_observers sets tv_secure_bypass.
 std::vector<std::pair<std::string, std::string>> DesiredCvars(const Profile& eff, int delayFloor,
                                                               int* effectiveDelay = nullptr);
 

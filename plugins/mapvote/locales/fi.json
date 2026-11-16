@@ -10,7 +10,7 @@
   "vote.wins_random": "Karttaäänestys: {map} voittaa (kukaan ei äänestänyt, valittu satunnaisesti). Kartta vaihtuu 5 sekunnin päästä.",
   "vote.wins": "Karttaäänestys: {map} voittaa. Kartta vaihtuu 5 sekunnin päästä.",
   "off.match": "Karttaäänestys on pois päältä ottelun aikana.",
-  "off.no_pool": "Karttaäänestys on pois päältä tällä palvelimella: ei karttapoolia (maps= tiedostossa mapvote.cfg).",
+  "off.no_pool": "Karttaäänestys on pois päältä tällä palvelimella: ei karttapoolia (maps= tiedostossa readyup.cfg [mapvote]).",
   "off.off": "Karttaäänestys on pois päältä tällä palvelimella.",
   "rtv.picked": "Seuraava kartta on jo valittu: {map}.",
   "rtv.running": "Karttaäänestys on käynnissä: kirjoita sen numero.",

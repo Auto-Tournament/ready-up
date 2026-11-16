@@ -115,6 +115,7 @@ Table `match_live_state (match_id, epoch, server_id, live_rev, config_rev, state
 | `event.forfeit` / `event.gg` | admin notification / result proposal |
 | `event.admin_called {call_id, player, message, called_at}` | a player typed `.admin [message]`: notify admins, resolve on the platform (same fields as the `admin_called` webhook, docs/ADMINS.md) |
 | `event.chat {player, message, team_only, at}` | a player's chat line (not a command), for the admin match view; at most 5 lines per player per 5 s |
+| `event.kill {attacker, victim, weapon, headshot, at, game_time?}` | each kill of a live match, bots included, with both players' positions and the server's game time |
 | `event.backup` | backup store (section 7) |
 
 Bots: player ids in the dev-bot range (`PlayerLine.bot = true`) are dropped unless the match is a
@@ -246,7 +247,7 @@ Proposed schema: `match.defs.json` `rules.ruleset`, `rules.overrides`, `matchSta
 `matchState.effective_rules`.
 
 - **`rules.ruleset`**: `"default"` (Ready Up's cfgs) or `"valve"`. Left out, the server's
-  `readyup.cfg` `ruleset=` applies. Under `valve` the server execs `ReadyUp/esports_live.cfg` at
+  `readyup.cfg` `ruleset=` applies. Under `valve` the server applies the built-in esports_live rules at
   go-live (Premier defaults + Valve's exception list), refuses maps whose `sides` is `knife`
   (send the veto result: `team1_ct` / `team2_ct`), keeps the skins plugin inert (players' own
   inventories only), counts technical pauses (1 per team, 120 s), pauses at halftime (both

@@ -92,17 +92,16 @@ Cleanup also restores `bot_join_team any`, `mp_autoteambalance 1` and the old `b
 ### Esports mode (`--ruleset valve`)
 
 The Valve ruleset (docs/ESPORTS-MODE.md) with a few overrides (`freezetime 5`,
-`spectators_max 8`, `default_models`, `overtime.startmoney 12500`). Needs
-`cfg/ReadyUp/esports_live.cfg` on the server (`scripts/dev-deploy.sh --cfg esports_live.cfg --cfg
-esports_override.cfg --cfg live.cfg`).
+`spectators_max 8`, `default_models`, `overtime.startmoney 12500`). The rules are built into the
+match plugin (`libs/readyup/phase_cvars.h`), so nothing extra is needed on the server.
 
 | Step | Driven by | Checked by |
 |---|---|---|
 | knife refused | `ru match load` of a valve config with `map_sides: ["knife"]` | `match-load[..]: error: ... knife ... allow_knife` |
-| match load | a valve config, `map_sides: ["team1_ct"]`, the overrides | `esports: ruleset=valve (match config) go-live cfg=ReadyUp/esports_live.cfg differs=freezetime,overtime.startmoney,spectators_max,default_models` |
+| match load | a valve config, `map_sides: ["team1_ct"]`, the overrides | `esports: ruleset=valve (match config) go-live cfg=esports_live differs=freezetime,overtime.startmoney,spectators_max,default_models` |
 | live | automatic (empty roster) | `mode=match_live` without a knife round |
-| bots back | `bot_quota 4` (esports_live.cfg sets `bot_quota 0` + `bot_kick`) | bots on both sides |
-| cvars | every Valve exception cvar of `esports_live.cfg` section 2, the Premier values and the overrides, queried from the console | each value (e.g. `mp_freezetime 5`, `mp_team_timeout_time 31`, `mp_weapons_allow_zeus 5`, `mp_spectators_max 8`, `sv_matchpause_auto_5v5 1`, `mp_maxrounds` = the match cvar) |
+| bots back | `bot_quota 4` (the esports_live rules set `bot_quota 0` + `bot_kick`) | bots on both sides |
+| cvars | every `cvar value` line of the built-in esports_live rules, the Premier values and the overrides, queried from the console | each value (e.g. `mp_freezetime 5`, `mp_team_timeout_time 31`, `mp_weapons_allow_zeus 5`, `mp_spectators_max 8`, `sv_matchpause_auto_5v5 1`, `mp_maxrounds` = the match cvar) |
 | `ru match rules` | `ru match rules` | `rules: differs from valve: freezetime 20->5 (override); ...` |
 | skins inert | `skins_status` | `skins inert (valve ruleset)` (SKIP without skins.so) |
 | default models | bot spawns | `esports: default_models: slot N (CT) -> agents/models/...` for CT and T |
@@ -131,7 +130,7 @@ Bots do not knife each other, so a bots-only knife round always runs to the time
 limit. With `dev_bots_ready` or `dev_bots_scrim` on, or a simulated match, and no human on
 CT/T, Ready Up sets the knife round time to 0.5 min (`knife: dev flag on and no humans on
 CT/T ...` / `knife: simulation and no humans ...`); the knife step shows
-`[dev knife time 0.5 min]` when that happened. `live.cfg` restores the real round time before
+`[dev knife time 0.5 min]` when that happened. The live rules restore the real round time before
 going live. Servers without dev flags are unchanged.
 
 Afterwards it always puts the server back the way it was: `ru mode idle`, then `ru mode scrim`

@@ -118,15 +118,13 @@ for mm in 0 1; do
   check "no skins gamedata in essentials" test ! -e "$CS/readyup/bin/linuxsteamrt64/engine-surface.skins.json"
   check "no deathmatch.so in essentials (Full only)" test ! -e "$CS/readyup/plugins/deathmatch.so"
   check "readyup.cfg created from the example" test -f "$CS/readyup/bin/linuxsteamrt64/readyup.cfg"
-  check "cfg/ReadyUp templates seeded" test -f "$CS/cfg/ReadyUp/live.cfg"
   check "fleet.so installed" test -x "$CS/readyup/plugins/fleet.so"
   check "fleet.cfg seeded, all comments (fleet stays idle)" idle_cfg "$CS/cfg/ReadyUp/fleet.cfg"
   check "practice.so installed (essentials)" test -x "$CS/readyup/plugins/practice.so"
   check "practice gamedata next to the core (grenade spawning)" test -f "$CS/readyup/bin/linuxsteamrt64/engine-surface.practice.json"
   check "essentials.so installed (essentials bundle)" test -x "$CS/readyup/plugins/essentials.so"
   check "mapvote.so installed (essentials bundle)" test -x "$CS/readyup/plugins/mapvote.so"
-  check "prac.cfg seeded by the practice component" test -f "$CS/cfg/ReadyUp/prac.cfg"
-  check "practice.cfg seeded, all comments (always off)" idle_cfg "$CS/cfg/ReadyUp/practice.cfg"
+  check "no practice.cfg seeded (defaults are built in)" test ! -e "$CS/cfg/ReadyUp/practice.cfg"
   check "installed.json lists addons core essentials fleet match practice" test "$(installed "$S")" = "addons core essentials fleet hud mapvote match practice"
   for gi in gameinfo.gi gameinfo_branchspecific.gi; do
     check "$gi: exactly one readyup line" test "$(count_ru "$CS/$gi")" = 1
@@ -138,24 +136,24 @@ for mm in 0 1; do
   done
 
   echo "== rerun is a no-op; user config kept"
-  echo "// my edit" >>"$CS/cfg/ReadyUp/live.cfg"
+  echo "// my edit" >>"$CS/cfg/ReadyUp/fleet.cfg"
   echo "debug=1" >>"$CS/readyup/bin/linuxsteamrt64/readyup.cfg"
   cp "$CS/gameinfo.gi" "$T/gi.before"
   nbak="$(compgen -G "$CS/gameinfo.gi.readyup-backup-*" | wc -l)"
   run --dir "$S" --zip "$ESS" essentials >"$T/out" 2>&1 || { cat "$T/out"; fail "rerun exited non-zero"; }
   check "gameinfo.gi unchanged on rerun" cmp -s "$T/gi.before" "$CS/gameinfo.gi"
   check "no new backup on rerun" test "$(compgen -G "$CS/gameinfo.gi.readyup-backup-*" | wc -l)" = "$nbak"
-  check "edited live.cfg kept" grep -q "my edit" "$CS/cfg/ReadyUp/live.cfg"
+  check "edited fleet.cfg kept" grep -q "my edit" "$CS/cfg/ReadyUp/fleet.cfg"
   check "edited readyup.cfg kept" grep -q "^debug=1" "$CS/readyup/bin/linuxsteamrt64/readyup.cfg"
-  check "no .default when the template did not change" test ! -e "$CS/cfg/ReadyUp/live.cfg.default"
+  check "no .default when the template did not change" test ! -e "$CS/cfg/ReadyUp/fleet.cfg.default"
   check "rerun reports up to date" grep -q "already up to date" "$T/out"
   check "rerun uses the saved license choice" grep -q "license: noncommercial use (accepted earlier" "$T/out"
 
   echo "== changed template -> .default next to the user's copy"
-  echo "// older template" >>"$CS/readyup/cfg-templates/ReadyUp/live.cfg"
+  echo "// older template" >>"$CS/readyup/cfg-templates/ReadyUp/fleet.cfg"
   run --dir "$S" --zip "$ESS" -y >"$T/out" 2>&1 || { cat "$T/out"; fail "update exited non-zero"; }
-  check "live.cfg.default written" test -f "$CS/cfg/ReadyUp/live.cfg.default"
-  check "user live.cfg still kept" grep -q "my edit" "$CS/cfg/ReadyUp/live.cfg"
+  check "fleet.cfg.default written" test -f "$CS/cfg/ReadyUp/fleet.cfg.default"
+  check "user fleet.cfg still kept" grep -q "my edit" "$CS/cfg/ReadyUp/fleet.cfg"
 done
 
 S="$T/server-mm0"
@@ -174,7 +172,7 @@ check "installed.json back to core essentials fleet match practice" test "$(inst
 echo "== add midas from the full zip (off by default), then remove it"
 run --dir "$S" --zip "$FULL" midas >"$T/out" 2>&1 || { cat "$T/out"; fail "midas install exited non-zero"; }
 check "midas.so installed" test -x "$CS/readyup/plugins/midas.so"
-check "midas.cfg seeded, all comments (midas stays off)" idle_cfg "$CS/cfg/ReadyUp/midas.cfg"
+check "no midas.cfg seeded (defaults are built in)" test ! -e "$CS/cfg/ReadyUp/midas.cfg"
 run --dir "$S" --remove midas >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove midas exited non-zero"; }
 check "midas.so removed" test ! -e "$CS/readyup/plugins/midas.so"
 
@@ -187,14 +185,14 @@ check "whitelist.so removed" test ! -e "$CS/readyup/plugins/whitelist.so"
 echo "== add deathmatch from the full zip (off until .ru dm ffa|tdm), then remove it"
 run --dir "$S" --zip "$FULL" deathmatch >"$T/out" 2>&1 || { cat "$T/out"; fail "deathmatch install exited non-zero"; }
 check "deathmatch.so installed" test -x "$CS/readyup/plugins/deathmatch.so"
-check "deathmatch.cfg seeded, all comments (defaults)" idle_cfg "$CS/cfg/ReadyUp/deathmatch.cfg"
+check "no deathmatch.cfg seeded (defaults are built in)" test ! -e "$CS/cfg/ReadyUp/deathmatch.cfg"
 run --dir "$S" --remove deathmatch >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove deathmatch exited non-zero"; }
 check "deathmatch.so removed" test ! -e "$CS/readyup/plugins/deathmatch.so"
 
 echo "== addons comes with core (the HUD addon every player needs) and can't be removed"
 check "addons.so installed" test -x "$CS/readyup/plugins/addons.so"
 check "addons gamedata next to the core" test -f "$CS/readyup/bin/linuxsteamrt64/engine-surface.addons.json"
-check "addons.cfg seeded, all comments (no workshop_addons)" idle_cfg "$CS/cfg/ReadyUp/addons.cfg"
+check "no addons.cfg seeded (defaults are built in)" test ! -e "$CS/cfg/ReadyUp/addons.cfg"
 if run --dir "$S" --remove addons >"$T/out" 2>&1; then fail "--remove addons should be refused"; fi
 check "--remove addons says why" grep -q "addons can't be removed" "$T/out"
 check "addons.so still there" test -x "$CS/readyup/plugins/addons.so"
@@ -407,7 +405,7 @@ for mm in 0 1; do
   [[ $mm == 1 ]] && check "metamod line untouched" test -n "$(line_of "$CS/gameinfo.gi" csgo/addons/metamod)"
   check "libserver.so removed" test ! -e "$CS/readyup/bin/linuxsteamrt64/libserver.so"
   check "readyup.cfg kept" test -f "$CS/readyup/bin/linuxsteamrt64/readyup.cfg"
-  check "cfg/ReadyUp kept" test -f "$CS/cfg/ReadyUp/live.cfg"
+  check "cfg/ReadyUp kept" test -f "$CS/cfg/ReadyUp/fleet.cfg"
 done
 S="$T/server-mm0"
 run --dir "$S" --uninstall --purge >"$T/out" 2>&1 || { cat "$T/out"; fail "purge exited non-zero"; }

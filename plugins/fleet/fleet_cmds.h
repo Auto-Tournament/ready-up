@@ -31,7 +31,7 @@ bool ParsePracticeSet(const json::Value& args, int* on, int* always, std::string
                       std::vector<std::string>* homeCvars = nullptr);
 // mapvote.set {maps: [string], load?: bool}: the map vote pool, map names or Workshop entries
 // (workshop/<id>[/<name>]), at most kMapvotePoolMax, each at most 200 bytes with no spaces,
-// quotes or semicolons. [] clears it (mapvote.cfg's maps= again). mapvote.so stores it.
+// quotes or semicolons. [] clears it ([mapvote]'s maps= again). mapvote.so stores it.
 // load: also load the first map now (a saved setup starting on the server).
 constexpr size_t kMapvotePoolMax = 64;
 bool ParseMapvoteSet(const json::Value& args, std::vector<std::string>* maps, std::string* err, bool* load = nullptr);

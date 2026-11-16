@@ -144,21 +144,15 @@ VALVE_ABSENT = {"sv_maxusrcmdprocessticks", "sv_max_dropped_packets_to_process",
 
 
 def valve_exception_cvars() -> dict:
-    """Section 2 of cfg/ReadyUp/esports_live.cfg (Valve's exception list): cvar -> value."""
+    """Every `cvar value` line of the built-in esports_live phase (libs/readyup/phase_cvars.h)."""
     out: dict = {}
-    section = 0
-    with open(os.path.join(REPO_ROOT, "cfg", "ReadyUp", "esports_live.cfg")) as fh:
-        for raw in fh:
-            line = raw.strip()
-            if line.startswith("// 2)"):
-                section = 2
-            elif line.startswith("// 3)"):
-                break
-            if section != 2 or not line or line.startswith("//"):
-                continue
-            parts = line.split("//", 1)[0].split()
-            if len(parts) == 2 and parts[0] != "log":
-                out[parts[0]] = parts[1]
+    with open(os.path.join(REPO_ROOT, "libs", "readyup", "phase_cvars.h")) as fh:
+        text = fh.read()
+    body = text.split("kEsportsLive[] = {", 1)[1].split("};", 1)[0]
+    for line in re.findall(r'"([^"\\]*)"', body):
+        parts = line.split()
+        if len(parts) == 2 and parts[0] not in ("log", "exec"):
+            out[parts[0]] = parts[1]
     return out
 
 
@@ -1149,7 +1143,7 @@ class Runner:
             _, rs, src, cfg, differs = es[-1]
             self.match_loaded = True
             f.our_matchid = f.loaded[1]
-            if (rs, src, cfg, differs) != ("valve", "match config", "ReadyUp/esports_live.cfg", VALVE_DIFFERS):
+            if (rs, src, cfg, differs) != ("valve", "match config", "esports_live", VALVE_DIFFERS):
                 return f"esports line: ruleset={rs} ({src}) cfg={cfg} differs={differs}; want valve / {VALVE_DIFFERS}"
             return True
 

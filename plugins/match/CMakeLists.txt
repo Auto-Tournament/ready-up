@@ -13,6 +13,7 @@ set(MATCH_SOURCES
   readyup/at_payloads.cpp
   readyup/backup_files.cpp
   readyup/chat_forward.cpp
+  readyup/kill_forward.cpp
   readyup/card_html.cpp
   readyup/golive_card_logic.cpp
   readyup/coach.cpp
@@ -216,7 +217,7 @@ add_test(NAME match_ru_commands COMMAND match_ru_commands_test)
 
 # Simulation mode and wingman (readyup/simulation_rules.h, readyup/wingman.h): timescale, roster
 # identities, bot -> identity assignment, when to add a bot, the setup / teardown commands, the game
-# mode, the match config fields and cfg/ReadyUp/live_wingman.cfg (ctest `match_simulation`).
+# mode, the match config fields and the live_wingman phase (ctest `match_simulation`).
 add_executable(match_simulation_test tests/simulation_test.cpp readyup/simulation_rules.cpp readyup/wingman.cpp
   readyup/match_config_parser.cpp readyup/ruleset.cpp readyup/match_rules.cpp
   ${CMAKE_SOURCE_DIR}/libs/readyup/minijson.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp
@@ -279,6 +280,13 @@ add_executable(match_chat_forward_test tests/chat_forward_test.cpp readyup/chat_
 target_include_directories(match_chat_forward_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
 target_compile_options(match_chat_forward_test PRIVATE -Wall -Wextra)
 add_test(NAME match_chat_forward COMMAND match_chat_forward_test)
+
+# Kills to the platform (readyup/kill_forward.h: log line parser, event.kill data) (ctest `match_kill_forward`).
+add_executable(match_kill_forward_test tests/kill_forward_test.cpp readyup/kill_forward.cpp readyup/admin_call_logic.cpp
+  ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/steamid.cpp)
+target_include_directories(match_kill_forward_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/libs)
+target_compile_options(match_kill_forward_test PRIVATE -Wall -Wextra)
+add_test(NAME match_kill_forward COMMAND match_kill_forward_test)
 
 # The walkover choice's HUD screen and event data (readyup/walkover_logic.h) (ctest `match_walkover`).
 add_executable(match_walkover_test tests/walkover_test.cpp readyup/walkover_logic.cpp readyup/text_lang.cpp

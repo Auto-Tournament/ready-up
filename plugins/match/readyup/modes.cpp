@@ -261,10 +261,8 @@ static void FinishMapLocked(State& st, const WebhookMatchContext& ctx, int map_n
 // Ready Up's (emulated) warmup set and knife.cfg does not touch, so the round
 // can actually end and nobody keeps a gun. mp_logdetail 3 adds `attacked`
 // log lines (with the victim's remaining health) for the time-out tiebreak.
-// CS2 runs an `exec`ed cfg's lines after the commands already queued behind the exec,
-// so a cvar enqueued right after `exec ReadyUp/live.cfg` is overwritten by the cfg.
-// Commands that must win over a cfg go out this much later (well before the
-// mp_restartgame 1 that follows every cfg exec here).
+// Commands that must win over a phase's built-in lines (and over CS2 game mode cfgs a phase execs)
+// go out this much later, well before the mp_restartgame 1 that follows.
 constexpr double kAfterCfgSeconds = 0.25;
 
 static void EnqueueAfterCfg(std::vector<std::string> cmds) {
@@ -272,6 +270,20 @@ static void EnqueueAfterCfg(std::vector<std::string> cmds) {
   ScheduleOnGameThread(kAfterCfgSeconds, [cmds = std::move(cmds)]() {
     for (const auto& c : cmds) (void)EnqueueServerCommand(c.c_str());
   });
+}
+
+// A phase's built-in commands (phase_cvars.h). A line whose cvar the match config sets is left out:
+// ApplyMatchCvarsLocked sends the platform's value instead.
+static bool ApplyPhase(const phase_cvars::Phase& phase) {
+  const auto ctx = WebhookGetMatchContext();
+  bool any = false;
+  for (size_t i = 0; i < phase.count; ++i) {
+    const std::string line = phase.lines[i];
+    if (ctx && ctx->cvars.count(line.substr(0, line.find(' ')))) continue;
+    if (EnqueueServerCommand(line.c_str())) any = true;
+  }
+  Debug("modes: applied %s (%zu lines)\n", phase.name, phase.count);
+  return any;
 }
 
 static bool AnyHumanOnCtOrT() {
@@ -283,7 +295,7 @@ static bool AnyHumanOnCtOrT() {
 
 static void ApplyKnifeRulesLocked(State& st) {
   bool any = false;
-  if (EnqueueServerCommand("exec ReadyUp/knife.cfg")) any = true;
+  if (ApplyPhase(phase_cvars::kKnifePhase)) any = true;
   // Dev flags (dev_bots_ready / dev_bots_scrim) or a simulated match with nobody human on CT/T:
   // bots do not knife each other, so the round would run knife.cfg's full 1:55 to a time-out.
   // Cut it to 30s. live.cfg (and match cvars) set the real round time before going live.
@@ -581,7 +593,7 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
   st.warmupRulesApplied = true;   // don't re-apply warmup rules
   st.matchLoadedChatSent = true;  // no "type .r" prompt
   bool any = false;
-  if (EnqueueServerCommand(LiveCfgExecCommand().c_str())) any = true;
+  if (ApplyPhase(LivePhase())) any = true;
   ApplyMatchCvarsLocked(ctx);
   if (EnqueueServerCommand("mp_warmup_pausetimer 0")) any = true;
   if (EnqueueServerCommand("mp_warmup_end")) any = true;
@@ -589,7 +601,7 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
   if (EnqueueServerCommand("mp_restartgame 1")) any = true;
   st.startTriggered = any;
   st.lastGateCmd = std::chrono::steady_clock::now();
-  Print("knife: side picked by %s: %s (%s) -> %s; exec live.cfg + mp_restartgame 1\n", by.c_str(), c.c_str(),
+  Print("knife: side picked by %s: %s (%s) -> %s; live rules + mp_restartgame 1\n", by.c_str(), c.c_str(),
         winnerName.c_str(), stayed ? "stay" : "mp_swapteams");
 
   // Let players know.
@@ -813,7 +825,8 @@ static bool GoLiveCheckLocked(State& st, const WebhookMatchContext& ctx, std::st
   // below (.r from everyone present). Live as soon as anyone was back skipped both, and a match
   // came back live with a player missing and nobody ready (2026-10-15). An admin start is the
   // way on without someone.
-  if (fleet_bridge::ResumeWaiting()) {
+  // Bot fill: absent roster players never come back (bots hold their seats); the grace below waits instead.
+  if (fleet_bridge::ResumeWaiting() && !ctx.bot_fill) {
     const ResumeHeadcount head = ResumeCount(roster, present, ctx.players_per_team);
     if (!ResumeMayGoLive(head.needed, head.back)) {
       *why = "failover resume: " + std::to_string(head.back) + "/" + std::to_string(head.needed) + " players back";
@@ -902,11 +915,29 @@ static bool AllRosterReadyAndConnectedLocked(State& st, const WebhookMatchContex
   return go;
 }
 
+static bool IsSafeConvarValue(const std::string& s);
+
+// Observers whose CS2 runs -insecure (HLAE, HUD tools) may watch over GOTV; the game port stays
+// VAC-secured. Sent in warmup and again after every go-live cfg, which resets it.
+static constexpr const char* kTvSecureBypass = "tv_secure_bypass 1";
+
+// GOTV's password from warmup on: the other match cvars wait for go-live, but spectators join
+// in warmup, and until then the server kept the previous match's password.
+static void ApplyTvPasswordLocked() {
+  const auto ctx = WebhookGetMatchContext();
+  if (!ctx) return;
+  (void)EnqueueServerCommand(kTvSecureBypass);
+  const auto it = ctx->cvars.find("tv_password");
+  if (it == ctx->cvars.end() || !IsSafeConvarValue(it->second)) return;
+  (void)EnqueueServerCommand(("tv_password " + it->second).c_str());
+}
+
 static void ApplyWarmupRulesLocked(State& st) {
+  ApplyTvPasswordLocked();
   // In MatchZy-compat mode, cfg files are authoritative.
   if (st.cfgExecEnabled) {
     bool any = false;
-    if (EnqueueServerCommand("exec ReadyUp/warmup.cfg")) any = true;
+    if (ApplyPhase(phase_cvars::kWarmupPhase)) any = true;
     // Emulated warmup: CS2's own warmup text hides Ready Up's center HTML, so
     // it is ended even if an older warmup.cfg still starts it.
     const char* off[] = {"mp_warmup_pausetimer 0", "mp_warmuptime 0", "mp_team_intro_time 0", "mp_warmup_end"};
@@ -1009,7 +1040,7 @@ static void ApplyScrimWarmupRulesLocked(State& st) {
   // cfg-exec mode: warmup.cfg is the baseline; the lines below override it,
   // including ending the real warmup that warmup.cfg starts.
   if (st.cfgExecEnabled) {
-    if (EnqueueServerCommand("exec ReadyUp/warmup.cfg")) any = true;
+    if (ApplyPhase(phase_cvars::kWarmupPhase)) any = true;
   }
   const char* cmds[] = {
       "mp_autoteambalance 0",
@@ -1106,6 +1137,7 @@ static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx) {
   // that could not go out then. The reads are queued now, the cvars below only after the cfg.
   cvar_snapshot::CaptureMatchCvars(ctx.cvars);
   std::vector<std::string> cmds;
+  cmds.push_back(kTvSecureBypass);  // first, so a match cvar can still turn it off
   AppendTeamNameCmds(&cmds);
   // Playout (match_settings.h): the engine must not end the map at the clinch either. A match
   // cvar mp_match_can_clinch wins (it follows below).
@@ -1114,6 +1146,7 @@ static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx) {
   }
   if (ctx.cvars.empty()) {
     AppendRuleCommands(&cmds);  // ruleset overrides win over the cfg (esports.h)
+    if (SimulationActive()) cmds.push_back("sv_matchpause_auto_5v5 0");
     EnqueueAfterCfg(std::move(cmds));
     return;
   }
@@ -1136,6 +1169,8 @@ static void ApplyMatchCvarsLocked(const WebhookMatchContext& ctx) {
     cmds.push_back(cmd);
   }
   AppendRuleCommands(&cmds);
+  // CS2 counts only people for this pause, so a bots-only match would stay paused for good.
+  if (SimulationActive()) cmds.push_back("sv_matchpause_auto_5v5 0");
   EnqueueAfterCfg(std::move(cmds));
 }
 
@@ -1194,7 +1229,7 @@ static void ApplyLiveRulesAndRestartLocked(State& st, const WebhookMatchContext&
   ApplyMatchCvarsLocked(ctx);
   // The valve ruleset is its cfg: it runs even with ru_cfg_exec_enable 0 (esports.h).
   if (st.cfgExecEnabled || LiveCfgRequired()) {
-    if (EnqueueServerCommand(LiveCfgExecCommand().c_str())) any = true;
+    if (ApplyPhase(LivePhase())) any = true;
   } else {
     const char* cmds[] = {
         // End CS2 built-in warmup if it came back (e.g. after a map change).
@@ -1348,7 +1383,7 @@ static void ApplyPracticeRulesLocked(State& st) {
   bool any = false;
   if (st.cfgExecEnabled) {
     // In MatchZy-compat mode, cfg files are authoritative.
-    if (EnqueueServerCommand("exec ReadyUp/prac.cfg")) any = true;
+    if (ApplyPhase(phase_cvars::kPracPhase)) any = true;
   } else {
     const char* cmds[] = {
         "sv_cheats 1",
@@ -1595,7 +1630,7 @@ bool ScrimGoLive(int restartSeconds) {
   ApplyMatchCvarsLocked(*ctxOpt);
   bool any = false;
   // Always use the live baseline cfg for scrims (it ends with mp_warmup_end).
-  if (EnqueueServerCommand(LiveCfgExecCommand().c_str())) any = true;
+  if (ApplyPhase(LivePhase())) any = true;
   if (EnqueueServerCommand("mp_warmup_pausetimer 0")) any = true;
   if (EnqueueServerCommand("mp_warmup_end")) any = true;
   round_restore::EnableRoundBackups(ctxOpt->matchid, std::max(1, MatchStateGet().map_number));
@@ -1604,7 +1639,7 @@ bool ScrimGoLive(int restartSeconds) {
   if (any) {
     st.startTriggered = true;
     st.lastGateCmd = std::chrono::steady_clock::now();
-    DebugLine("modes: scrim go-live -> exec live.cfg + mp_warmup_end + mp_restartgame");
+    DebugLine("modes: scrim go-live -> live rules + mp_warmup_end + mp_restartgame");
   }
   return any;
 }
@@ -2711,7 +2746,7 @@ void Tick() {
       PrintLine("modes: wingman match over; game_type 0 / game_mode 1 (competitive) from the next map load");
     }
     if (st.cfgExecEnabled && !st.idleCfgExecuted) {
-      if (EnqueueServerCommand("exec ReadyUp/idle.cfg")) {
+      if (ApplyPhase(phase_cvars::kIdlePhase)) {
         st.idleCfgExecuted = true;
         st.idleIgnoreWinSent = -1;  // idle.cfg may set it: send ours after
       }

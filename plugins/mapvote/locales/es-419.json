@@ -10,7 +10,7 @@
   "vote.wins_random": "Votación de mapa: gana {map} (nadie votó, elegido al azar). Cambio de mapa en 5 segundos.",
   "vote.wins": "Votación de mapa: gana {map}. Cambio de mapa en 5 segundos.",
   "off.match": "La votación de mapa está desactivada durante una partida.",
-  "off.no_pool": "La votación de mapa está desactivada en este servidor: no hay lista de mapas (maps= en mapvote.cfg).",
+  "off.no_pool": "La votación de mapa está desactivada en este servidor: no hay lista de mapas (maps= en readyup.cfg [mapvote]).",
   "off.off": "La votación de mapa está desactivada en este servidor.",
   "rtv.picked": "El siguiente mapa ya está elegido: {map}.",
   "rtv.running": "Hay una votación de mapa en curso: escribe su número.",

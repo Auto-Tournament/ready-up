@@ -18,6 +18,7 @@
 //            the rest keep following their paths (they may aim and shoot while doing so). Damage between
 //            bots is undone while both still follow the script.
 //   end      at the end of the recording every bot is handed over; `.scen r` replays, `.scen stop` ends.
+#include "readyup/phase_cvars.h"
 #include "practice_scenarios.h"
 
 #include "scenario.h"
@@ -438,7 +439,7 @@ void Stop(Restore restore, const char* why) {
     Cmd("bot_stop 0");
     Cmd("bot_ignore_players 0");
   }
-  if (restore == Restore::kPractice) Cmd("exec ReadyUp/prac.cfg");
+  if (restore == Restore::kPractice) for (const char* c : readyup::phase_cvars::kPrac) Cmd(c);
   g_run = Run{};
   SetPhase(Phase::kIdle);
 }
@@ -1064,7 +1065,7 @@ void CmdConvert(const Out& out, const std::vector<std::string>& a, bool roundsOn
     const std::string core = g_api->config_dir(g_api->self);  // csgo/readyup/bin/linuxsteamrt64
     converter = core + "/../../tools/scenario/ru_scenario.py";
   }
-  if (!FileExists(converter)) return out("converter not found: " + converter + " (scenario_converter in practice.cfg)");
+  if (!FileExists(converter)) return out("converter not found: " + converter + " (scenario_converter in [practice])");
   std::vector<std::string> argv = {Config("scenario_python", "python3"), converter, roundsOnly ? "rounds" : "convert", path};
   if (!roundsOnly) {
     const std::string& rounds = a[1];

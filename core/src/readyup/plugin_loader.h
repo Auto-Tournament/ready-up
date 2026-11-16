@@ -73,6 +73,8 @@ bool TryDispatchConsole(const std::string& line);
 // every plugin in the plugins dir; then pending load/unload/reload requests run, then
 // queued tasks / commands / events are delivered; per-tick callbacks only when simulating.
 void Frame(bool simulating);
+// The server's game time for the next ticks' ru_tick_info::game_time (NaN = unknown).
+void SetGameTime(double seconds);
 // readyup.cfg perf_warn_ms / perf_gap_warn_ms (0 = no gap lines): a simulated frame whose plugin
 // callbacks took longer, or that came that long after the previous one, is logged (`ru perf`).
 void SetPerfThresholds(int warnMs, int gapWarnMs);

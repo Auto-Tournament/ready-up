@@ -10,7 +10,7 @@
   "vote.wins_random": "Mapstemming: {map} wint (niemand stemde, willekeurig gekozen). Mapwissel over 5 seconden.",
   "vote.wins": "Mapstemming: {map} wint. Mapwissel over 5 seconden.",
   "off.match": "Mapstemming staat uit tijdens een match.",
-  "off.no_pool": "Mapstemming staat uit op deze server: geen mappool (maps= in mapvote.cfg).",
+  "off.no_pool": "Mapstemming staat uit op deze server: geen mappool (maps= in readyup.cfg [mapvote]).",
   "off.off": "Mapstemming staat uit op deze server.",
   "rtv.picked": "De volgende map is al gekozen: {map}.",
   "rtv.running": "Er loopt een mapstemming: typ het nummer.",

@@ -59,6 +59,8 @@
 #include "readyup/welcome.h"
 #include "readyup/workers.h"
 
+#include <cstddef>
+#include <cmath>
 #include <algorithm>
 #include <map>
 #include <atomic>
@@ -300,7 +302,8 @@ void OnTick(void*, const ru_tick_info* t) {
       }
     }
     // Fleet link (no-op without fleet.so): platform handlers, MatchState patches, events.
-    s.Run("fleet", [&] { fleet_bridge::Tick(t->now); });
+    const double gameTime = t->struct_size >= offsetof(ru_tick_info, game_time) + sizeof(double) ? t->game_time : NAN;
+    s.Run("fleet", [&] { fleet_bridge::Tick(t->now, gameTime); });
     if (light) {
       // One-off cards before the HUD: the HUD leaves a player's panel alone while one is up.
       if (FeatureEnabled(Feature::MatchFlow)) s.Run("golive_card", [] { GoLiveCardTick(); });

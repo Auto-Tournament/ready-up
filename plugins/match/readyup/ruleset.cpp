@@ -463,7 +463,7 @@ std::vector<std::string> RuleCommands(const EffectiveRuleSet& e) {
   return out;
 }
 
-const char* LiveCfgFor(Ruleset r) { return r == Ruleset::Valve ? "ReadyUp/esports_live.cfg" : "ReadyUp/live.cfg"; }
+const char* LiveCfgFor(Ruleset r) { return r == Ruleset::Valve ? "esports_live" : "live"; }
 
 Json EffectiveRulesJson(const EffectiveRuleSet& e) {
   Json j = Json::Object();

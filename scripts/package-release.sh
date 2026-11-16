@@ -23,17 +23,16 @@
 #                                            until a url is configured, so bundles carry it.
 #   ready-up-skins-<v>-linuxsteamrt64.zip   plugins/skins.so + engine-surface.skins.json
 #   ready-up-hello-<v>-linuxsteamrt64.zip   plugins/hello.so (example plugin)
-#   ready-up-midas-<v>-linuxsteamrt64.zip   plugins/midas.so + cfg template (fun: gold weapons, off by default)
-#   ready-up-addons-<v>-linuxsteamrt64.zip  plugins/addons.so + engine-surface.addons.json + an all-comments
-#                                            addons.cfg template (Steam Workshop addons; idle until
-#                                            workshop_addons is set)
+#   ready-up-midas-<v>-linuxsteamrt64.zip   plugins/midas.so (fun: gold weapons, off by default)
+#   ready-up-addons-<v>-linuxsteamrt64.zip  plugins/addons.so + engine-surface.addons.json (Steam Workshop
+#                                            addons; idle until workshop_addons is set)
 #   ready-up-whitelist-<v>-linuxsteamrt64.zip plugins/whitelist.so (only listed players; off by default)
-#   ready-up-practice-<v>-linuxsteamrt64.zip  plugins/practice.so + engine-surface.practice.json + prac.cfg /
-#                                            practice.cfg templates + tools/scenario/ru_scenario.py + seed scenarios
+#   ready-up-practice-<v>-linuxsteamrt64.zip  plugins/practice.so + engine-surface.practice.json +
+#                                            tools/scenario/ru_scenario.py + seed scenarios
 #   ready-up-essentials-plugin-<v>-...zip   plugins/essentials.so (admins, map commands); "essentials" alone is the bundle
-#   ready-up-deathmatch-<v>-linuxsteamrt64.zip plugins/deathmatch.so + deathmatch.cfg template (off until .ru dm ffa|tdm)
-#   ready-up-tv-<v>-linuxsteamrt64.zip      plugins/tv.so + an all-comments tv.cfg template (GOTV broadcast
-#                                            settings; touches nothing until a key is set)
+#   ready-up-deathmatch-<v>-linuxsteamrt64.zip plugins/deathmatch.so (off until .ru dm ffa|tdm)
+#   ready-up-tv-<v>-linuxsteamrt64.zip      plugins/tv.so (GOTV settings; touches nothing
+#                                            until a key is set)
 # Bundles (for manual download):
 #   ready-up-essentials-<v>-...zip          core + essentials + match + fleet + practice. The default. NO skins.
 #   ready-up-full-<v>-...zip                core + essentials + match + fleet + practice + skins + midas + whitelist + deathmatch + addons + readyup_sigcheck/hookcheck
@@ -106,13 +105,9 @@ printf '%s\n' "$VERSION" >"$WORK/VERSION"
 core_files+=("$WORK/VERSION:VERSION" "$WORK/BUILD_INFO:BUILD_INFO")
 stage_component core "Ready Up core: libserver.so, engine surface, plugin host, status endpoint" "${core_files[@]}"
 
-# The match flow (plugins/match) and the ReadyUp/*.cfg files it execs (warmup, knife, live, ...).
+# The match flow (plugins/match). Its phase rules (warmup, knife, live, ...) are built in (phase_cvars.h).
 match_files=("$BUILD/plugins/match.so:plugins/match.so:755"
   "$ROOT_DIR/plugins/match/needs.json:plugins/match.needs.json")
-for f in "$ROOT_DIR"/cfg/ReadyUp/*.cfg; do
-  case "$(basename "$f")" in fleet.cfg | midas.cfg | prac.cfg | practice.cfg | deathmatch.cfg | mapvote.cfg | community.cfg | movement.cfg | addons.cfg | tv.cfg) continue ;; esac  # the fleet / midas / practice / deathmatch / addons components' own
-  match_files+=("$f:cfg-templates/ReadyUp/$(basename "$f")")
-done
 stage_component match "Ready-up, scrims, knife round, pauses, practice, match configs, webhooks, demos" "${match_files[@]}"
 
 # The platform link. fleet.so stays idle without a url, and the template is all comments. The
@@ -139,20 +134,17 @@ stage_component skins "Weapon paints, knives, gloves, agents (servers running sk
 stage_component hello "Example plugin (.hello, hello_status); for plugin developers" \
   "$BUILD/plugins/hello.so:plugins/hello.so:755"
 
-# Fun plugin; the template keeps it off (enabled=0).
+# Fun plugin; off by default (enabled=0).
 stage_component midas "Fun: weapons picked up by chosen players turn gold (off by default, never under the valve ruleset)" \
   "$BUILD/plugins/midas.so:plugins/midas.so:755" \
-  "$ROOT_DIR/plugins/midas/needs.json:plugins/midas.needs.json" \
-  "$ROOT_DIR/cfg/ReadyUp/midas.cfg:cfg-templates/ReadyUp/midas.cfg"
+  "$ROOT_DIR/plugins/midas/needs.json:plugins/midas.needs.json"
 
 # Steam Workshop addons (downloaded, mounted with every map change, their models precached). Idle
-# without workshop_addons: the template is all comments, so it downloads nothing and never reloads
-# the map. Its gamedata fragment ships next to the core's engine-surface.json, like the skins one.
-stage_component addons "Steam Workshop addons for the server: the Auto Tournament HUD addon every player needs, plus workshop_addons in addons.cfg (always on)" \
+# without workshop_addons: it downloads nothing and never reloads the map. Its gamedata fragment ships next to the core's engine-surface.json, like the skins one.
+stage_component addons "Steam Workshop addons for the server: the Auto Tournament HUD addon every player needs, plus workshop_addons in readyup.cfg [addons] (always on)" \
   "$BUILD/plugins/addons.so:plugins/addons.so:755" \
   "$ROOT_DIR/plugins/addons/needs.json:plugins/addons.needs.json" \
-  "$ROOT_DIR/gamedata/engine-surface.addons.json:bin/linuxsteamrt64/engine-surface.addons.json" \
-  "$ROOT_DIR/cfg/ReadyUp/addons.cfg:cfg-templates/ReadyUp/addons.cfg"
+  "$ROOT_DIR/gamedata/engine-surface.addons.json:bin/linuxsteamrt64/engine-surface.addons.json"
 
 # Custom in-game HUDs (custom_hud_layout) for the Auto Tournament HUD workshop addon (repo hud/).
 # Every player needs the addon: the addons plugin mounts it on every server and is always on
@@ -165,8 +157,7 @@ stage_component essentials "Server basics: admins (admins.json), map change / re
   "$ROOT_DIR/plugins/essentials/needs.json:plugins/essentials.needs.json"
 
 # Practice mode + tools (.prac, .savepos, .rethrow, .bot, ...): its own plugin, so a server can
-# run it without the match flow. Ships prac.cfg (the cvars it execs) and its settings template, its
-# gamedata fragment (engine-surface.practice.json: the grenade projectile factories behind ru_api
+# run it without the match flow. Ships its gamedata fragment (engine-surface.practice.json: the grenade projectile factories behind ru_api
 # grenade_spawn, next to the core's engine-surface.json like the skins / addons ones), the
 # scenario converter (tools/scenario/ru_scenario.py, `ru scenario convert`) and the seed scenarios
 # (plugins/practice/scenarios/*.json: derived data with attribution, docs/SCENARIOS.md). Scenarios
@@ -174,8 +165,6 @@ stage_component essentials "Server basics: admins (admins.json), map change / re
 practice_files=("$BUILD/plugins/practice.so:plugins/practice.so:755"
   "$ROOT_DIR/plugins/practice/needs.json:plugins/practice.needs.json"
   "$ROOT_DIR/gamedata/engine-surface.practice.json:bin/linuxsteamrt64/engine-surface.practice.json"
-  "$ROOT_DIR/cfg/ReadyUp/prac.cfg:cfg-templates/ReadyUp/prac.cfg"
-  "$ROOT_DIR/cfg/ReadyUp/practice.cfg:cfg-templates/ReadyUp/practice.cfg"
   "$ROOT_DIR/tools/scenario/ru_scenario.py:tools/scenario/ru_scenario.py:755")
 for f in "$ROOT_DIR"/plugins/practice/scenarios/*.json; do
   [[ -f "$f" ]] && practice_files+=("$f:plugins/practice/scenarios/$(basename "$f")")
@@ -195,33 +184,28 @@ stage_component whitelist "Only listed players may stay on the server (off until
 # Deathmatch (FFA / TDM on CS2's deathmatch game mode): off until an admin switches it on.
 stage_component deathmatch "Deathmatch: free for all / team deathmatch with kill + time limits and a leaderboard (off until .ru dm ffa|tdm)" \
   "$BUILD/plugins/deathmatch.so:plugins/deathmatch.so:755" \
-  "$ROOT_DIR/plugins/deathmatch/needs.json:plugins/deathmatch.needs.json" \
-  "$ROOT_DIR/cfg/ReadyUp/deathmatch.cfg:cfg-templates/ReadyUp/deathmatch.cfg"
+  "$ROOT_DIR/plugins/deathmatch/needs.json:plugins/deathmatch.needs.json"
 
-# Map voting (.rtv, .nominate, end-of-map vote) for community servers: off until mapvote.cfg has maps,
+# Map voting (.rtv, .nominate, end-of-map vote) for community servers: off until [mapvote] maps= lists maps,
 # and always off while a match is loaded.
-stage_component mapvote "Map voting: .rtv, .nominate, an end-of-map vote and .timeleft (off until mapvote.cfg lists maps; never during a match)" \
+stage_component mapvote "Map voting: .rtv, .nominate, an end-of-map vote and .timeleft (off until [mapvote] maps= lists maps; never during a match)" \
   "$BUILD/plugins/mapvote.so:plugins/mapvote.so:755" \
-  "$ROOT_DIR/plugins/mapvote/needs.json:plugins/mapvote.needs.json" \
-  "$ROOT_DIR/cfg/ReadyUp/mapvote.cfg:cfg-templates/ReadyUp/mapvote.cfg"
+  "$ROOT_DIR/plugins/mapvote/needs.json:plugins/mapvote.needs.json"
 
 # Community-server commands (.rank, .top, .speclist, admin .kick); stats only while no match is loaded.
 stage_component community "Community commands: .rank, .top, .speclist and admin .kick (stats counted while no match is loaded)" \
   "$BUILD/plugins/community.so:plugins/community.so:755" \
-  "$ROOT_DIR/plugins/community/needs.json:plugins/community.needs.json" \
-  "$ROOT_DIR/cfg/ReadyUp/community.cfg:cfg-templates/ReadyUp/community.cfg"
+  "$ROOT_DIR/plugins/community/needs.json:plugins/community.needs.json"
 # Surf / bhop / kz timers: zones from the map's triggers, personal bests sent to the platform.
 stage_component movement "Movement: surf / bhop / kz run timer, zones from the map, records (.rs, .pb, .wr, .cp/.tp)" \
   "$BUILD/plugins/movement.so:plugins/movement.so:755" \
-  "$ROOT_DIR/plugins/movement/needs.json:plugins/movement.needs.json" \
-  "$ROOT_DIR/cfg/ReadyUp/movement.cfg:cfg-templates/ReadyUp/movement.cfg"
+  "$ROOT_DIR/plugins/movement/needs.json:plugins/movement.needs.json"
 
-# GOTV broadcast settings (docs/design/tv-plugin.md): the template is all comments, so it touches
-# nothing until a key is set (or a platform match carries rules.broadcast).
-stage_component tv "GOTV broadcast settings: delay, insecure observers for HUD tools, casters (idle until set)" \
+# GOTV settings (docs/design/tv-plugin.md): touches nothing until a key is set (or a
+# platform match carries rules.broadcast).
+stage_component tv "GOTV settings: delay, insecure observers for HUD tools, casters (idle until set)" \
   "$BUILD/plugins/tv.so:plugins/tv.so:755" \
-  "$ROOT_DIR/plugins/tv/needs.json:plugins/tv.needs.json" \
-  "$ROOT_DIR/cfg/ReadyUp/tv.cfg:cfg-templates/ReadyUp/tv.cfg"
+  "$ROOT_DIR/plugins/tv/needs.json:plugins/tv.needs.json"
 
 extras=()
 for t in readyup_sigcheck readyup_hookcheck; do

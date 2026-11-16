@@ -10,7 +10,7 @@
   "vote.wins_random": "Harita oylaması: {map} kazandı (kimse oy vermedi, rastgele seçildi). Harita 5 saniye içinde değişiyor.",
   "vote.wins": "Harita oylaması: {map} kazandı. Harita 5 saniye içinde değişiyor.",
   "off.match": "Harita oylaması maç sırasında kapalı.",
-  "off.no_pool": "Harita oylaması bu sunucuda kapalı: harita listesi yok (mapvote.cfg içinde maps=).",
+  "off.no_pool": "Harita oylaması bu sunucuda kapalı: harita listesi yok (readyup.cfg [mapvote] içinde maps=).",
   "off.off": "Harita oylaması bu sunucuda kapalı.",
   "rtv.picked": "Sonraki harita zaten seçildi: {map}.",
   "rtv.running": "Bir harita oylaması sürüyor: numarasını yaz.",

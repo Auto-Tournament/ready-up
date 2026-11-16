@@ -147,7 +147,8 @@ static void DesiredTests() {
   int d = 0;
   p.delay_seconds = 60;
   auto v = bc::DesiredCvars(p, 105, &d);
-  CHECK(v.size() == 1 && v[0].first == "tv_delay" && v[0].second == "105" && d == 105);  // raised to the floor
+  CHECK(v.size() == 2 && v[0].first == "tv_delay" && v[0].second == "105" && d == 105);  // raised to the floor
+  CHECK(v[1] == std::make_pair(std::string("sv_deltaticks_enforce"), std::string("0")));  // any broadcast: off
   v = bc::DesiredCvars(p, 0, &d);
   CHECK(v[0].second == "60" && d == 60);
   // Insecure observers: the pair together.
@@ -158,16 +159,16 @@ static void DesiredTests() {
         v[1] == std::make_pair(std::string("sv_deltaticks_enforce"), std::string("0")));
   q.allow_insecure_observers = false;
   v = bc::DesiredCvars(q, 0);
-  CHECK(v.size() == 1 && v[0].first == "tv_secure_bypass" && v[0].second == "0");
+  CHECK(v.size() == 2 && v[0].first == "tv_secure_bypass" && v[0].second == "0" && v[1].first == "sv_deltaticks_enforce");
   Profile r;
   r.max_clients = 8;
   r.relay_text_chat = true;
   r.relay_voice = false;
   v = bc::DesiredCvars(r, 0);
-  CHECK(v.size() == 3 && v[0].first == "tv_maxclients" && v[1].first == "tv_relaytextchat" && v[1].second == "1" &&
-        v[2].first == "tv_relayvoice" && v[2].second == "0");
+  CHECK(v.size() == 4 && v[0].first == "sv_deltaticks_enforce" && v[1].first == "tv_maxclients" &&
+        v[2].first == "tv_relaytextchat" && v[2].second == "1" && v[3].first == "tv_relayvoice" && v[3].second == "0");
   // A floor without a delay setting: tv_delay stays the match's (not touched).
-  CHECK(bc::DesiredCvars(r, 105, &d).size() == 3 && d == -1);
+  CHECK(bc::DesiredCvars(r, 105, &d).size() == 4 && d == -1);
 }
 
 static void ApplyTests() {

@@ -50,7 +50,7 @@ const ru_api* g_api = nullptr;
 std::string g_dir;
 double g_now = 0;
 
-// Config (tv.cfg) and runtime settings (settings.json).
+// Config ([tv]) and runtime settings (settings.json).
 bool g_enabled = true;
 int g_clientsPollSeconds = 60;
 Profile g_cfgProfile;
@@ -140,10 +140,10 @@ void LoadConfig() {
   }
   std::vector<std::string> errors;
   g_cfgProfile = ProfileFromConfig(kv, &errors);
-  for (const auto& e : errors) ru_logf(g_api, RU_LOG_WARN, "tv.cfg: %s (ignored)", e.c_str());
+  for (const auto& e : errors) ru_logf(g_api, RU_LOG_WARN, "[tv]: %s (ignored)", e.c_str());
   int bad = 0;
   g_cfgCasters = ParseSteamIdList(Cfg("casters"), &bad);
-  if (bad) ru_logf(g_api, RU_LOG_WARN, "tv.cfg: casters: %d entr%s not a SteamID64 (ignored)", bad, bad == 1 ? "y is" : "ies are");
+  if (bad) ru_logf(g_api, RU_LOG_WARN, "[tv]: casters: %d entr%s not a SteamID64 (ignored)", bad, bad == 1 ? "y is" : "ies are");
 }
 
 std::string SettingsPath() { return g_dir.empty() ? std::string() : g_dir + "/settings.json"; }
@@ -602,7 +602,7 @@ void RunTv(const ru_command_ctx* ctx, const std::vector<std::string>& args) {
   if (sub == "status") return Status(ctx);
   if (sub == "reapply") {
     Apply(true);
-    return Reply(ctx, g_enabled ? "GOTV settings sent again" : "off (tv.cfg enabled=0)");
+    return Reply(ctx, g_enabled ? "GOTV settings sent again" : "off ([tv] enabled=0)");
   }
   if (sub == "set" || sub == "match") {
     Key k;
@@ -896,7 +896,7 @@ const ru_tv_v1 g_iface = {sizeof(ru_tv_v1), &IfaceStateRev, &IfaceStateJson, &If
 void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   int floor = 0;
   const Profile eff = Effective(&floor);
-  std::string d = std::string(g_enabled ? "on" : "off (tv.cfg enabled=0)") + ", " +
+  std::string d = std::string(g_enabled ? "on" : "off ([tv] enabled=0)") + ", " +
                   (g_tracker.active ? "match " + g_tracker.active->matchId : std::string("server profile")) + " " +
                   bc::ProfileJson(eff) + ", " + std::to_string(Casters().size()) + " caster(s)";
   add(ctx, "INFO", "tv", d.c_str());
@@ -958,7 +958,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   LoadConfig();
   bool ok = true;
   g_settings = ParseSettings(ReadFile(SettingsPath()), &ok);
-  if (!ok) ru_logf(api, RU_LOG_WARN, "%s is not valid; using tv.cfg only", SettingsPath().c_str());
+  if (!ok) ru_logf(api, RU_LOG_WARN, "%s is not valid; using [tv] only", SettingsPath().c_str());
   // What this process already did to the engine (a `ru plugin reload tv`).
   g_applier = Applier{};
   {
@@ -993,7 +993,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
                          const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
   ScheduleApply(0.0, true);
   RefreshState();
-  ru_logf(api, RU_LOG_INFO, "loaded " TV_VERSION ": %s, server profile %s, %zu caster(s)%s", g_enabled ? "on" : "off (tv.cfg enabled=0)",
+  ru_logf(api, RU_LOG_INFO, "loaded " TV_VERSION ": %s, server profile %s, %zu caster(s)%s", g_enabled ? "on" : "off ([tv] enabled=0)",
           bc::ProfileJson(ServerProfile()).c_str(), Casters().size(), g_launch.insecure ? "; this server runs -insecure" : "");
   return 0;
 }

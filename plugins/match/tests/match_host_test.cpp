@@ -6,6 +6,7 @@
 //   4. `ru match load <url>` (served by this test), reload again: the loaded match survives
 //   5. unload removes everything, lifts round-termination suppression, unmaps the image
 //   build/plugins/match/match_host_test <match.so>
+#include "readyup/phase_cvars.h"
 #include "readyup/plugin_loader.h"
 
 #include "readyup/match_iface.h"
@@ -503,7 +504,7 @@ int main(int argc, char** argv) {
     Check(rp::ChatCommandOwned(".prac", &pf) && rp::ChatCommandOwned(".rethrow", &pf), ".prac / .rethrow owned by practice.so");
     rp::TryDispatchRu(true, 0, "Console", "ru mode practice");
     rp::Frame(true);
-    Check(Sent("exec ReadyUp/prac.cfg") && Sent("mp_restartgame 1"), "practice on: prac.cfg + respawn everyone");
+    Check(Sent(readyup::phase_cvars::kPrac[0]) && Sent("mp_restartgame 1"), "practice on: prac rules + respawn everyone");
     Check(Has(Summary(), "\"ru_mode\":\"practice\""), "match flow mode is practice");
     rp::TryDispatchChat(76561198000000001ull, "alice", ".prac", 2);
     rp::Frame(true);
@@ -511,7 +512,7 @@ int main(int argc, char** argv) {
     ClearCmds();
     rp::TryDispatchRu(true, 0, "Console", "ru practice off");
     rp::Frame(true);
-    Check(Sent("exec ReadyUp/idle.cfg") && Sent("mp_restartgame 1"), "practice off: idle.cfg + respawn everyone");
+    Check(Sent(readyup::phase_cvars::kIdle[0]) && Sent("mp_restartgame 1"), "practice off: idle rules + respawn everyone");
     Check(!Has(Summary(), "\"ru_mode\":\"practice\""), "match flow left practice");
   }
 
@@ -878,9 +879,9 @@ int main(int argc, char** argv) {
     mapStart.map = "de_mixed";
     mapStart.type = RU_EVENT_MAP_START;
     rp::PostEvent(mapStart);
-    Check(FramesUntil([] { return Sent("bot_join_team CT") && Sent("bot_quota 1"); }, 7000), "mixed: first empty slot gets a CT bot");
+    Check(FramesUntil([] { return Sent("bot_quota 0") && Sent("bot_add_ct"); }, 7000), "mixed: first empty slot gets a CT bot");
     g_players.push_back({10, 110, 0, 3, true, "CT bot"});
-    Check(FramesUntil([] { return Sent("bot_join_team T") && Sent("bot_quota 2"); }, 3000), "mixed: the other empty slot gets a T bot");
+    Check(FramesUntil([] { return Sent("bot_quota 1") && Sent("bot_add_t"); }, 3000), "mixed: the other empty slot gets a T bot");
     g_players.push_back({11, 111, 0, 2, true, "T bot"});
     Check(!Sent("bot_kick") && !Sent("kickid 99"), "mixed: SourceTV is preserved");
     Check(Has(Summary(), "\"ru_mode\":\"match_warmup\""), "mixed: bots do not ready up for humans");
@@ -893,13 +894,13 @@ int main(int argc, char** argv) {
     g_players.pop_back();
     g_players.erase(g_players.begin() + 3);  // engine applied kickid 110
     ClearCmds();
-    Check(FramesUntil([] { return Sent("bot_join_team CT") && Sent("bot_quota 2"); }, 3000), "mixed: human disconnect refills the empty slot");
+    Check(FramesUntil([] { return Sent("bot_quota 1") && Sent("bot_add_ct"); }, 3000), "mixed: human disconnect refills the empty slot");
     // A map start clears the old quota, then fills the new map after its cfg has settled.
     g_players.erase(g_players.begin() + 3);  // old map's T bot
     ClearCmds();
     mapStart.map = "de_mixed2";
     rp::PostEvent(mapStart);
-    Check(FramesUntil([] { return Sent("bot_quota 0") && Sent("bot_join_team CT"); }, 7000), "mixed: map change refills after setup");
+    Check(FramesUntil([] { return Sent("bot_quota 0") && Sent("bot_add_ct"); }, 7000), "mixed: map change refills after setup");
     Check(!Sent("bot_kick"), "mixed: map setup keeps SourceTV");
     ClearCmds();
     rp::TryDispatchRu(true, 0, "Console", "ru match end");

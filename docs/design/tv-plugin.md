@@ -29,7 +29,7 @@ own its broadcast settings and put them back itself.
 ## Goals
 
 1. A **broadcast profile**: `delay_seconds`, `allow_insecure_observers`, `max_clients`,
-   `relay_text_chat`, `relay_voice`. Server defaults (`cfg/ReadyUp/tv.cfg`, changed at runtime
+   `relay_text_chat`, `relay_voice`. Server defaults (`readyup.cfg` `[tv]`, changed at runtime
    with `ru tv set` / fleet `tv.set`), plus a per-match override from `match.assign`
    `config.rules.broadcast`.
 2. **Applied and kept**: on load, on assign, after every map load, `mp_restartgame` (match start)
@@ -69,7 +69,7 @@ own its broadcast settings and put them back itself.
 | `relay_text_chat` (`textchat`) | bool | | `tv_relaytextchat` | left alone |
 | `relay_voice` (`voice`) | bool | | `tv_relayvoice` | left alone |
 
-Precedence, per key: built-in "unset" < `tv.cfg` < runtime server setting (`ru tv set`, fleet
+Precedence, per key: built-in "unset" < `readyup.cfg` `[tv]` < runtime server setting (`ru tv set`, fleet
 `tv.set {scope: server}`, saved in `csgo/readyup/plugins/tv/settings.json`) < the match profile
 (`rules.broadcast`) < a runtime match override (`ru tv match`, `tv.set {scope: match}`, dropped
 with the match).
@@ -83,7 +83,7 @@ viewer ghost for a team, so this is integrity, not taste. `match.assign` is refu
 validator (`libs/readyup/broadcast_profile.h`). A server default below the floor is raised to
 the floor for that match (and `ru tv status` says so).
 
-Other `tv.cfg` keys: `casters` (comma separated SteamID64s), `clients_poll_seconds` (default 60;
+Other `[tv]` keys: `casters` (comma separated SteamID64s), `clients_poll_seconds` (default 60;
 how often `tv_status` is read for the client count while the fleet link is up; 0 = only on
 `ru tv status`), `enabled` (default 1; 0 = load but touch nothing).
 
@@ -157,7 +157,7 @@ All in `plugins/fleet/protocol/v1`, written in the platform's style:
 
 ```json
 {
-  "available": true,             // tv.so loaded and applying (false: enabled=0 in tv.cfg)
+  "available": true,             // tv.so loaded and applying (false: enabled=0 in [tv])
   "port": 27020,                 // GOTV port (+tv_port, else tv_port cvar); null = unknown
   "enabled": true,               // tv_enable as the engine reports it; null = unknown
   "delay_seconds": 105,          // engine value (observed); null = unknown
