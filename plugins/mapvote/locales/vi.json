@@ -10,7 +10,7 @@
   "vote.wins_random": "Bình chọn bản đồ: {map} thắng (không ai bình chọn, chọn ngẫu nhiên). Đổi bản đồ sau 5 giây.",
   "vote.wins": "Bình chọn bản đồ: {map} thắng. Đổi bản đồ sau 5 giây.",
   "off.match": "Bình chọn bản đồ bị tắt trong lúc thi đấu.",
-  "off.no_pool": "Bình chọn bản đồ bị tắt trên máy chủ này: không có danh sách bản đồ (maps= trong mapvote.cfg).",
+  "off.no_pool": "Bình chọn bản đồ bị tắt trên máy chủ này: không có danh sách bản đồ (maps= trong readyup.cfg [mapvote]).",
   "off.off": "Bình chọn bản đồ bị tắt trên máy chủ này.",
   "rtv.picked": "Bản đồ tiếp theo đã được chọn: {map}.",
   "rtv.running": "Đang có bình chọn bản đồ: gõ số của nó.",

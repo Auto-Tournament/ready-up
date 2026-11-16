@@ -11,7 +11,7 @@
 // kill, 1 per headshot, 1 per assist, -1 per death. A player needs min_kills_to_rank kills
 // before they get a rank.
 //
-// Settings: cfg/ReadyUp/community.cfg (enabled, count_in_matches, min_kills_to_rank).
+// Settings: readyup.cfg [community] (enabled, count_in_matches, min_kills_to_rank).
 #include "community_rules.h"
 
 #include "readyup/json_store.h"

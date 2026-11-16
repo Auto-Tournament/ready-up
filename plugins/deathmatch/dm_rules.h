@@ -20,7 +20,7 @@ using Tr = std::function<std::string(const char* key, const readyup::i18n::Args&
 const char* ModeKey(Mode m);  // mode.ffa | mode.tdm
 bool ParseMode(const std::string& s, Mode* out);  // ffa / tdm (case-insensitive); "dm" = ffa
 
-// ---- settings (cfg/ReadyUp/deathmatch.cfg or readyup.cfg [deathmatch]) --------------------------
+// ---- settings (readyup.cfg [deathmatch]) ---------------------------------------------------
 
 struct Settings {
   int killLimitFfa = 30;           // kill_limit_ffa: first player to N kills wins (0 = no limit)

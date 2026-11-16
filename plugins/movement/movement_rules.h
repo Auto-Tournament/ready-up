@@ -15,7 +15,7 @@ const char* ModeName(Mode m);
 Mode ParseMode(const std::string& s, bool* ok);
 Mode ModeForMap(const std::string& map);
 
-// Who sees a finished run in chat (movement.cfg finish_chat).
+// Who sees a finished run in chat ([movement] finish_chat).
 enum class FinishChat { Records, Self, All };
 // "records" / "self" / "all"; anything else = Records and *ok = false.
 FinishChat ParseFinishChat(const std::string& s, bool* ok);

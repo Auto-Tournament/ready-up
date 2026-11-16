@@ -1,5 +1,5 @@
 # readyup-addons -> build/plugins/addons.so (csgo/readyup/plugins/addons.so): Steam Workshop addons
-# for the server (cfg/ReadyUp/addons.cfg). Engine entries: gamedata/engine-surface.addons.json.
+# for the server (readyup.cfg [addons]). Engine entries: gamedata/engine-surface.addons.json.
 readyup_add_plugin(addons addons_plugin.cpp addons_rules.cpp addons_vpk.cpp
   ${CMAKE_SOURCE_DIR}/plugins/match/readyup/map_names.cpp ${CMAKE_SOURCE_DIR}/libs/readyup/status_snapshot.cpp)
 target_include_directories(readyup_plugin_addons PRIVATE ${CMAKE_SOURCE_DIR}/plugins/match ${CMAKE_SOURCE_DIR}/libs)

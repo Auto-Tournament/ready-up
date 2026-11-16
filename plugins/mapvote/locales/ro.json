@@ -10,7 +10,7 @@
   "vote.wins_random": "Vot de hartă: câștigă {map} (n-a votat nimeni, aleasă la întâmplare). Se schimbă harta în 5 secunde.",
   "vote.wins": "Vot de hartă: câștigă {map}. Se schimbă harta în 5 secunde.",
   "off.match": "Votul de hartă e oprit în timpul unui meci.",
-  "off.no_pool": "Votul de hartă e oprit pe acest server: nu există listă de hărți (maps= în mapvote.cfg).",
+  "off.no_pool": "Votul de hartă e oprit pe acest server: nu există listă de hărți (maps= în readyup.cfg [mapvote]).",
   "off.off": "Votul de hartă e oprit pe acest server.",
   "rtv.picked": "Harta următoare e deja aleasă: {map}.",
   "rtv.running": "E în curs un vot de hartă: scrie numărul.",

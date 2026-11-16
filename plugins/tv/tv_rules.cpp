@@ -455,7 +455,7 @@ std::string StateJson(const View& v) {
 std::vector<std::string> StatusLines(const View& v) {
   std::vector<std::string> out;
   const Observed& o = v.observed;
-  if (!v.available) out.push_back("off (tv.cfg enabled=0): Ready Up does not touch the GOTV settings");
+  if (!v.available) out.push_back("off ([tv] enabled=0): Ready Up does not touch the GOTV settings");
   std::optional<int> port;
   if (v.port > 0) port = v.port;
   else port = CvarInt(o, "tv_port");

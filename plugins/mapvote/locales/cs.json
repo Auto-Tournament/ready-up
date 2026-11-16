@@ -10,7 +10,7 @@
   "vote.wins_random": "Hlasování o mapě: vyhrává {map} (nikdo nehlasoval, vybráno náhodně). Změna mapy za 5 sekund.",
   "vote.wins": "Hlasování o mapě: vyhrává {map}. Změna mapy za 5 sekund.",
   "off.match": "Hlasování o mapě je během zápasu vypnuté.",
-  "off.no_pool": "Hlasování o mapě je na tomto serveru vypnuté: žádný seznam map (maps= v mapvote.cfg).",
+  "off.no_pool": "Hlasování o mapě je na tomto serveru vypnuté: žádný seznam map (maps= v readyup.cfg [mapvote]).",
   "off.off": "Hlasování o mapě je na tomto serveru vypnuté.",
   "rtv.picked": "Další mapa už je vybraná: {map}.",
   "rtv.running": "Probíhá hlasování o mapě: napiš její číslo.",

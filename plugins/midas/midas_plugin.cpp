@@ -24,7 +24,7 @@
 // a StatTrak counter = the player's kills on this map (the match plugin's stats while they record,
 // else Midas's own player_death count since the map started), rewritten when it changes.
 //
-//   cfg/ReadyUp/midas.cfg (or readyup.cfg [midas]), re-read every 5 s: see that file.
+//   readyup.cfg [midas], re-read every 5 s: docs/PLUGIN-SETTINGS.md.
 //
 // Never active under the valve ruleset (the match plugin's ruleset, else readyup.cfg's): going
 // inert puts every weapon it touched back (white / handed back to skins.so), and so does
@@ -241,7 +241,7 @@ int ItemDefIndex(void* w) {
   return v;
 }
 
-// model_def_<n> (midas.cfg) > models.txt > model_<classname> (midas.cfg).
+// model_def_<n> ([midas]) > models.txt > model_<classname> ([midas]).
 std::string ModelForDef(int def, const char* classname) {
   if (def > 0) {
     const std::string byCfg = ConfigValue(("model_def_" + std::to_string(def)).c_str());
@@ -355,7 +355,7 @@ void UseNormalMesh(void* w) {
   if (RU_API_HAS(g_api, entity_set_bodygroup_by_name)) g_api->entity_set_bodygroup_by_name(g_api->self, w, "body", 0);
   g_api->entity_mark_changed(g_api->self, w);
 }
-bool g_configRead = false;   // midas.cfg read once since load
+bool g_configRead = false;   // [midas] read once since load
 bool g_refreshHeld = false;  // the finish changed: refresh held weapons after the next sync
 
 // Swaps every Midas player's held weapons for new ones (skins.so refresh_weapons), so a new finish
@@ -367,7 +367,7 @@ void RefreshMidasWeapons() {
     const int slot = g_api->slot_for_steamid(g_api->self, sid);
     if (slot < 0 || slot >= 64) continue;
     s->refresh_weapons(slot);
-    g_api->chat_to_slot(g_api->self, slot, ("Midas: midas.cfg applied: finish " + std::to_string(g_paintKit) + ", wear " +
+    g_api->chat_to_slot(g_api->self, slot, ("Midas: settings applied: finish " + std::to_string(g_paintKit) + ", wear " +
                                             std::to_string(g_paintWear).substr(0, 4) + ", seed " + std::to_string(g_paintSeed)).c_str());
   }
 }
@@ -477,7 +477,7 @@ void RefreshConfig(double now) {
     g_paintWear = wear;
     g_paintSeed = seed;
     RestoreAll("finish changed", false);  // no-op on the first read; Midas weapons are swapped below
-    g_refreshHeld = g_configRead;   // midas.cfg saved: swap Midas players' held weapons for new ones
+    g_refreshHeld = g_configRead;   // [midas] saved: swap Midas players' held weapons for new ones
     ru_logf(g_api, RU_LOG_INFO, "finish %s, paint kit %d (wear %.2f, seed %d)", finish == Finish::kTint ? "tint" : "auto",
             kit, static_cast<double>(wear), seed);
     for (int& p : g_pending) p = 16;
@@ -610,7 +610,7 @@ std::string g_bestWhyKey;                // why.adr / why.kills (the chat line)
 // Player-facing text (plugins/midas/locales) in each player's language.
 readyup::i18n::Catalog g_text;
 std::string LangOf(uint64_t sid) { return readyup::i18n::LanguageOf(g_api, g_api->slot_for_steamid(g_api->self, sid)); }
-// The card texts in `lang`: midas.cfg's card_* when set (the server's own words), else locales/.
+// The card texts in `lang`: [midas]'s card_* when set (the server's own words), else locales/.
 CardTexts TextsFor(const std::string& lang) {
   CardTexts t;
   auto pick = [&](const std::string& cfg, const char* key) { return cfg.empty() ? g_text.Tr(lang, key) : cfg; };
@@ -733,7 +733,7 @@ void ProcessCards() {
 
 void ReadCardConfig() {
   g_cardsOn = ParseBool(ConfigValue("cards"), true);
-  // Only what midas.cfg sets; the rest comes from locales/ in each player's language (TextsFor).
+  // Only what [midas] sets; the rest comes from locales/ in each player's language (TextsFor).
   g_cardTexts.title = ConfigValue("card_title");
   g_cardTexts.best = ConfigValue("card_best");
   g_cardTexts.given = ConfigValue("card_given");
@@ -1135,7 +1135,7 @@ std::string DescribeWho(uint64_t sid) {
 }
 
 std::string StateLine() {
-  if (!g_enabled) return "Midas is off (enabled=0 in midas.cfg)";
+  if (!g_enabled) return "Midas is off (enabled=0 in [midas])";
   if (!g_active) return "Midas is inert (valve ruleset)";
   return "Midas is on";
 }
@@ -1242,7 +1242,7 @@ void OnRuMidas(void*, const ru_command_ctx* ctx) {
     const unsigned why = WhyAnyway(sid);
     if (why) {
       Reply(ctx, name + " is Midas through " + DescribeReasons(why) + ", not given by an admin: take can't remove that" +
-                     ((why & kWhyConfig) ? " (edit midas_steamids in midas.cfg)" : "") +
+                     ((why & kWhyConfig) ? " (edit midas_steamids in [midas])" : "") +
                      ((why & kWhyBest) ? " (best player: best_player=0, or someone plays better)" : ""));
     } else {
       Reply(ctx, name + " is not Midas");
@@ -1443,7 +1443,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "midas", RU_SELFTEST_IFACE_VERSION,
                            const_cast<ru_selftest_iface_v1*>(&g_selftestIface));
   }
-  ru_logf(api, RU_LOG_INFO, "loaded " MIDAS_VERSION " (enable with enabled=1 and midas_steamids in cfg/ReadyUp/midas.cfg)");
+  ru_logf(api, RU_LOG_INFO, "loaded " MIDAS_VERSION " (enable with enabled=1 and midas_steamids in readyup.cfg [midas])");
   return 0;
 }
 

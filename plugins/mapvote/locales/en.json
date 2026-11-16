@@ -10,7 +10,7 @@
   "vote.wins_random": "Map vote: {map} wins (nobody voted, picked at random). Changing map in 5 seconds.",
   "vote.wins": "Map vote: {map} wins. Changing map in 5 seconds.",
   "off.match": "Map vote is off during a match.",
-  "off.no_pool": "Map vote is off on this server: no map pool (maps= in mapvote.cfg).",
+  "off.no_pool": "Map vote is off on this server: no map pool (maps= in readyup.cfg [mapvote]).",
   "off.off": "Map vote is off on this server.",
   "rtv.picked": "The next map is already picked: {map}.",
   "rtv.running": "A map vote is running: type its number.",

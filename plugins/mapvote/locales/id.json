@@ -10,7 +10,7 @@
   "vote.wins_random": "Vote map: {map} menang (tidak ada yang vote, dipilih acak). Ganti map dalam 5 detik.",
   "vote.wins": "Vote map: {map} menang. Ganti map dalam 5 detik.",
   "off.match": "Vote map mati selama pertandingan.",
-  "off.no_pool": "Vote map mati di server ini: tidak ada daftar map (maps= di mapvote.cfg).",
+  "off.no_pool": "Vote map mati di server ini: tidak ada daftar map (maps= di readyup.cfg [mapvote]).",
   "off.off": "Vote map mati di server ini.",
   "rtv.picked": "Map berikutnya sudah dipilih: {map}.",
   "rtv.running": "Vote map sedang berjalan: ketik nomornya.",

@@ -151,7 +151,7 @@ PlayerMatch ResolvePlayerName(const std::string& query, const std::vector<std::s
 // ---- gold equipment in flight / planted ----------------------------------------------------------
 
 // The item a thrown projectile / planted bomb stands for, by its classname: its item definition
-// index (models.txt is keyed by it) and the weapon classname (model_<classname> in midas.cfg).
+// index (models.txt is keyed by it) and the weapon classname (model_<classname> in [midas]).
 // molotov_projectile is shared by the molotov (46) and the incendiary (48): `incendiary` picks.
 // 0 / "" for anything else.
 struct EquipmentItem {
@@ -162,7 +162,7 @@ EquipmentItem EquipmentItemFor(const std::string& entityClass, bool incendiary);
 
 // ---- cards: center HTML to a player who gains / loses Midas (`cards=1`, default) ------------------
 
-// midas.cfg card_title / card_best / card_given / card_config / card_lost / card_passed (empty =
+// [midas] card_title / card_best / card_given / card_config / card_lost / card_passed (empty =
 // the default). Placeholders: {stat} ("ADR" / "kills"), {value} (the number), {name} (who it passed to).
 struct CardTexts {
   std::string title = "Blessed by Midas";

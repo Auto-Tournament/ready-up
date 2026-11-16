@@ -10,7 +10,7 @@
   "vote.wins_random": "Pályaszavazás: {map} nyert (senki sem szavazott, véletlenszerűen választva). Pályaváltás 5 másodperc múlva.",
   "vote.wins": "Pályaszavazás: {map} nyert. Pályaváltás 5 másodperc múlva.",
   "off.match": "A pályaszavazás meccs közben ki van kapcsolva.",
-  "off.no_pool": "A pályaszavazás ki van kapcsolva ezen a szerveren: nincs pályalista (maps= a mapvote.cfg-ben).",
+  "off.no_pool": "A pályaszavazás ki van kapcsolva ezen a szerveren: nincs pályalista (maps= a readyup.cfg [mapvote]-ben).",
   "off.off": "A pályaszavazás ki van kapcsolva ezen a szerveren.",
   "rtv.picked": "A következő pálya már ki van választva: {map}.",
   "rtv.running": "Pályaszavazás zajlik: írd be a számát.",

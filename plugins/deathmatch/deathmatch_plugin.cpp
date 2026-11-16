@@ -13,7 +13,7 @@
 //   ru dm status | top | hud     anyone: state, the top 5 + your rank, your leaderboard panel on / off
 //   (chat: `.ru dm ...` / `.ru deathmatch ...`)
 //
-// Rules (cfg/ReadyUp/deathmatch.cfg or readyup.cfg [deathmatch]; docs/DEATHMATCH.md): kill limit
+// Rules (readyup.cfg [deathmatch]; docs/DEATHMATCH.md): kill limit
 // per mode, time limit, spawn protection (mp_respawn_immunitytime), headshot only
 // (mp_damage_headshot_only), weapon rounds (every N minutes everyone spawns with a given weapon:
 // the default-loadout cvars, optionally mp_buy_allow_guns 0). Kills are counted from player_death;
@@ -166,7 +166,7 @@ void LoadConfig() {
         return true;
       },
       &warnings);
-  for (const auto& w : warnings) ru_logf(g_api, RU_LOG_WARN, "deathmatch.cfg: %s", w.c_str());
+  for (const auto& w : warnings) ru_logf(g_api, RU_LOG_WARN, "[deathmatch]: %s", w.c_str());
 }
 
 double Elapsed(double now) { return g.phase == Phase::Waiting ? 0 : std::max(0.0, now - g.startedAt); }
