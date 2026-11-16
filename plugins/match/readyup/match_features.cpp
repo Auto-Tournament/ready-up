@@ -214,6 +214,16 @@ bool MaybeMarkAuto5v5Pause() {
   if (c == Auto5v5Check::Wait) return false;
   if (c == Auto5v5Check::Done) return true;
   const int side = Auto5v5ShortSide(ct, t);
+  // CS2 counts only people, so a seat a bot fills keeps this pause on for good (bot fill, restore).
+  if (ctx->bot_fill || ctx->simulation) {
+    const auto bots = ListBots();
+    if (std::any_of(bots.begin(), bots.end(), [side](const BotIdentity& b) { return b.team == side; })) {
+      (void)EnqueueServerCommand("sv_matchpause_auto_5v5 0");
+      (void)EnqueueServerCommand("mp_unpause_match");
+      Print("pause: auto_5v5 lifted: bots fill seats on the short side; sv_matchpause_auto_5v5 0 for the rest of the map\n");
+      return true;
+    }
+  }
   const WebhookTeam shortTeam = CsSideOf(*ctx, WebhookTeam::Team1) == side ? WebhookTeam::Team1 : WebhookTeam::Team2;
   PauseStateOnPaused("auto_5v5", "server", shortTeam);
   WebhookEmitMatchPaused(MatchStateGet().map_number, WebhookPlayer{0, "server", shortTeam}, /*is_tactical=*/false,
