@@ -66,7 +66,7 @@ void ChatSlotKey(int slot, const char* key, const Args& args = {}) {
   g_api->chat_to_slot(g_api->self, slot, text.c_str());
 }
 
-// cfg/ReadyUp/retakes.cfg
+// readyup.cfg [retakes]
 struct Settings {
   bool enabled = true;
   int maxPlayers = 9;
