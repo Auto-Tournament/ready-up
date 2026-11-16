@@ -85,6 +85,7 @@
     "begin_new_match",
     "bomb_defused",
     "bomb_planted",
+    "grenade_thrown",
     "item_purchase",
     "player_blind",
     "player_changename",
