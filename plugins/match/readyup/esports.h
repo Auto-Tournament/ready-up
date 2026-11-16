@@ -5,6 +5,7 @@
 // whether the engine's auto 5v5 pause is on, `ru match rules`, and what the skins plugin asks
 // (readyup.match.v1 inventory_locked).
 
+#include "readyup/phase_cvars.h"
 #include "readyup/plugin_api.h"
 #include "readyup/ruleset.h"
 #include "readyup/webhook.h"
@@ -20,9 +21,9 @@ EffectiveRuleSet CurrentEffectiveRules();
 // Same inputs for a given context (no cache).
 EffectiveRuleSet EffectiveRulesFor(const WebhookMatchContext* ctx);
 
-// "exec ReadyUp/live.cfg" | "exec ReadyUp/esports_live.cfg" for the loaded match.
-std::string LiveCfgExecCommand();
-// True under the valve ruleset: go-live execs its cfg even with ru_cfg_exec_enable 0.
+// The go-live commands for the loaded match: live, esports_live (valve ruleset) or live_wingman.
+const phase_cvars::Phase& LivePhase();
+// True under the valve ruleset and for wingman: go-live applies LivePhase even with ru_cfg_exec_enable 0.
 bool LiveCfgRequired();
 // Rule commands that go out after the go-live cfg and the match cvars (RuleCommands).
 void AppendRuleCommands(std::vector<std::string>* cmds);

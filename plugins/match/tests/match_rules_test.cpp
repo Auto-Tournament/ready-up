@@ -2,6 +2,7 @@
 // rule, the auto-unpause countdown, the engine's auto 5v5 pause, the .forceready threshold, team
 // name sanitizing and the team-left forfeit timer, warmup money and the warmup weapon cleanup.
 // ctest `match_rules`.
+#include "readyup/phase_cvars.h"
 #include "readyup/match_rules.h"
 #include "readyup/warmup_money.h"
 #include "readyup/weapon_cleanup.h"
@@ -282,11 +283,18 @@ static void TestForfeit() {
 }
 
 // Whole cfg file (READYUP_CFG_DIR = cfg/ReadyUp), "" if missing.
+// The built-in phase commands (phase_cvars.h) by their old file name, one per line.
 static std::string ReadCfg(const char* name) {
-  std::ifstream f(std::string(READYUP_CFG_DIR) + "/" + name);
-  std::stringstream ss;
-  ss << f.rdbuf();
-  return ss.str();
+  using namespace phase_cvars;
+  const std::string n = std::string(name).substr(0, std::string(name).find(".cfg"));
+  for (const Phase* p : {&kIdlePhase, &kWarmupPhase, &kKnifePhase, &kPracPhase, &kLivePhase, &kLiveWingmanPhase,
+                         &kEsportsLivePhase}) {
+    if (n != p->name) continue;
+    std::string out;
+    for (size_t i = 0; i < p->count; ++i) out += std::string(p->lines[i]) + "\n";
+    return out;
+  }
+  return "";
 }
 
 // "cvar value" appears as a line of the cfg (columns may be padded with spaces).

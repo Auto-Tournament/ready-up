@@ -53,8 +53,8 @@ static void TestRulesetNames() {
   CHECK(!ParseRuleset("esports", &r));
   CHECK(!ParseRuleset("", &r));
   CHECK(std::string(RulesetName(Ruleset::Valve)) == "valve");
-  CHECK(std::string(LiveCfgFor(Ruleset::Valve)) == "ReadyUp/esports_live.cfg");
-  CHECK(std::string(LiveCfgFor(Ruleset::Default)) == "ReadyUp/live.cfg");
+  CHECK(std::string(LiveCfgFor(Ruleset::Valve)) == "esports_live");
+  CHECK(std::string(LiveCfgFor(Ruleset::Default)) == "live");
   // Every preset has a value (or None) for every table key.
   for (Ruleset rs : {Ruleset::Default, Ruleset::Valve}) {
     const RuleMap p = PresetRules(rs);

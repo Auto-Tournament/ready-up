@@ -6,6 +6,7 @@
 //   4. `ru match load <url>` (served by this test), reload again: the loaded match survives
 //   5. unload removes everything, lifts round-termination suppression, unmaps the image
 //   build/plugins/match/match_host_test <match.so>
+#include "readyup/phase_cvars.h"
 #include "readyup/plugin_loader.h"
 
 #include "readyup/match_iface.h"
@@ -503,7 +504,7 @@ int main(int argc, char** argv) {
     Check(rp::ChatCommandOwned(".prac", &pf) && rp::ChatCommandOwned(".rethrow", &pf), ".prac / .rethrow owned by practice.so");
     rp::TryDispatchRu(true, 0, "Console", "ru mode practice");
     rp::Frame(true);
-    Check(Sent("exec ReadyUp/prac.cfg") && Sent("mp_restartgame 1"), "practice on: prac.cfg + respawn everyone");
+    Check(Sent(readyup::phase_cvars::kPrac[0]) && Sent("mp_restartgame 1"), "practice on: prac rules + respawn everyone");
     Check(Has(Summary(), "\"ru_mode\":\"practice\""), "match flow mode is practice");
     rp::TryDispatchChat(76561198000000001ull, "alice", ".prac", 2);
     rp::Frame(true);
@@ -511,7 +512,7 @@ int main(int argc, char** argv) {
     ClearCmds();
     rp::TryDispatchRu(true, 0, "Console", "ru practice off");
     rp::Frame(true);
-    Check(Sent("exec ReadyUp/idle.cfg") && Sent("mp_restartgame 1"), "practice off: idle.cfg + respawn everyone");
+    Check(Sent(readyup::phase_cvars::kIdle[0]) && Sent("mp_restartgame 1"), "practice off: idle rules + respawn everyone");
     Check(!Has(Summary(), "\"ru_mode\":\"practice\""), "match flow left practice");
   }
 

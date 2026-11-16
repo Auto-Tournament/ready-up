@@ -50,7 +50,7 @@ bool SetModeScrimWarmup();
 void SetModeMatchWarmupForRecovery();
 
 // Scrim go-live (called right after the scrim match context was created and
-// OnMatchLoaded() ran): exec ReadyUp/live.cfg, mp_warmup_end, mp_restartgame N.
+// OnMatchLoaded() ran): the live phase (phase_cvars.h), mp_warmup_end, mp_restartgame N.
 // Mode stays match_warmup (start triggered) until the next Round_Start log
 // line / event flips it to match_live via OnMatchRoundStarted().
 bool ScrimGoLive(int restartSeconds);
@@ -196,11 +196,11 @@ std::string WarmupHtmlMessage();
 
 // Optional: exec cfg hooks per RU mode (inspired by MatchZy cfg structure).
 // When enabled, Ready Up will `exec` these files at key transitions:
-// - warmup rules apply:      exec ReadyUp/warmup.cfg
-// - practice rules apply:    exec ReadyUp/prac.cfg
-// - knife rules apply:       exec ReadyUp/knife.cfg
-// - live rules apply:        exec ReadyUp/live.cfg
-// - idle mode entered:       exec ReadyUp/idle.cfg
+// - warmup rules apply:      the warmup phase (phase_cvars.h)
+// - practice rules apply:    the prac phase
+// - knife rules apply:       the knife phase
+// - live rules apply:        the live phase (LivePhase)
+// - idle mode entered:       the idle phase
 void SetCfgExecEnabled(bool enabled);
 bool CfgExecEnabled();
 

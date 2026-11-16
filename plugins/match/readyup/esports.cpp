@@ -194,10 +194,10 @@ EffectiveRuleSet CurrentEffectiveRules() {
   return e;
 }
 
-std::string LiveCfgExecCommand() {
+const phase_cvars::Phase& LivePhase() {
   const auto ctx = WebhookGetMatchContext();
-  if (ctx && ctx->wingman) return std::string("exec ") + wingman::kLiveCfg;
-  return std::string("exec ") + LiveCfgFor(CtxRuleset(ctx ? &*ctx : nullptr));
+  if (ctx && ctx->wingman) return phase_cvars::kLiveWingmanPhase;
+  return CtxRuleset(ctx ? &*ctx : nullptr) == Ruleset::Valve ? phase_cvars::kEsportsLivePhase : phase_cvars::kLivePhase;
 }
 
 bool LiveCfgRequired() {
@@ -236,7 +236,7 @@ void EsportsOnMatchLoaded(const WebhookMatchContext& ctx) {
   std::string d;
   for (const auto& k : differs) d += (d.empty() ? "" : ",") + k;
   Print("esports: ruleset=%s (%s) go-live cfg=%s differs=%s\n", RulesetName(e.ruleset),
-        ctx.ruleset.empty() ? "readyup.cfg" : "match config", ctx.wingman ? wingman::kLiveCfg : LiveCfgFor(e.ruleset),
+        ctx.ruleset.empty() ? "readyup.cfg" : "match config", ctx.wingman ? phase_cvars::kLiveWingmanPhase.name : LiveCfgFor(e.ruleset),
         d.empty() ? "none" : d.c_str());
   if ((e.ruleset == Ruleset::Valve || ctx.wingman) && !ctx.ruleset_notes.empty()) {
     for (const auto& n : ctx.ruleset_notes) Print("esports: %s\n", n.c_str());

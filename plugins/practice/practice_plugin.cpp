@@ -85,6 +85,7 @@
 // in ru_mode, no scrim warmup) and refuses while a match is loaded; without it this plugin keeps
 // the flag itself. It publishes readyup.practice.v1 (the match plugin hands `.ru mode practice`
 // to it). Log lines: `practice: ...`.
+#include "readyup/phase_cvars.h"
 #include "readyup/i18n.h"
 #include "readyup/i18n_api.h"
 #include "practice_feedback.h"
@@ -534,7 +535,7 @@ bool Enter(const char** why) {
   g_manualOff = false;
   g_toggles = Toggles{};
   g_dryRun = g_dryArmed = false;
-  Cmd("exec ReadyUp/prac.cfg");
+  for (const char* c : readyup::phase_cvars::kPrac) Cmd(c);
   g_homeCvarsApplied = false;  // prac.cfg may set them back: the home map's settings again
   // Respawn everyone so they get prac.cfg's grenade set and weapons now, not on their next death.
   Cmd("mp_restartgame 1");
@@ -545,7 +546,7 @@ bool Enter(const char** why) {
 void Leave() {
   if (MatchOwnsMode()) (void)Match()->set_practice(0);
   g_standaloneActive = false;
-  Cmd("exec ReadyUp/idle.cfg");
+  for (const char* c : readyup::phase_cvars::kIdle) Cmd(c);
   // Everyone respawns with the normal loadout: the practice grenades and rifles go.
   Cmd("mp_restartgame 1");
   ClearState(/*restorePawns=*/true);
@@ -590,7 +591,6 @@ void StartDryRun() {
   g_buddhaOff = false;
   g_delayed.clear();
   for (const char* c : kDryRunCvars) Cmd(c);
-  Cmd("exec ReadyUp/dryrun.cfg");  // optional overrides; a missing file only logs a console line
   Cmd("mp_restartgame 1");
   g_dryRun = true;
   g_dryArmed = false;
@@ -603,7 +603,7 @@ void StartDryRun() {
 void EndDryRun(const char* key) {
   g_dryRun = g_dryArmed = false;
   g_toggles = Toggles{};
-  Cmd("exec ReadyUp/prac.cfg");
+  for (const char* c : readyup::phase_cvars::kPrac) Cmd(c);
   Cmd("mp_restartgame 1");
   Log("practice: dry run over (%s)", key);
   ChatAllKey(key);
@@ -1988,7 +1988,7 @@ void OnMapStart(void*, const ru_event*) {
   ClearState(/*restorePawns=*/false);
   g_projHigh = 0;
   g_manualOff = false;
-  if (!MatchOwnsMode() && g_standaloneActive) Cmd("exec ReadyUp/prac.cfg");
+  if (!MatchOwnsMode() && g_standaloneActive) for (const char* c : readyup::phase_cvars::kPrac) Cmd(c);
 }
 
 
