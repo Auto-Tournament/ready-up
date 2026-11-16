@@ -601,7 +601,7 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
   if (EnqueueServerCommand("mp_restartgame 1")) any = true;
   st.startTriggered = any;
   st.lastGateCmd = std::chrono::steady_clock::now();
-  Print("knife: side picked by %s: %s (%s) -> %s; exec live.cfg + mp_restartgame 1\n", by.c_str(), c.c_str(),
+  Print("knife: side picked by %s: %s (%s) -> %s; live rules + mp_restartgame 1\n", by.c_str(), c.c_str(),
         winnerName.c_str(), stayed ? "stay" : "mp_swapteams");
 
   // Let players know.
@@ -1635,7 +1635,7 @@ bool ScrimGoLive(int restartSeconds) {
   if (any) {
     st.startTriggered = true;
     st.lastGateCmd = std::chrono::steady_clock::now();
-    DebugLine("modes: scrim go-live -> exec live.cfg + mp_warmup_end + mp_restartgame");
+    DebugLine("modes: scrim go-live -> live rules + mp_warmup_end + mp_restartgame");
   }
   return any;
 }
