@@ -232,7 +232,8 @@ maps=
 `[practice]` in readyup.cfg.
 
 ```ini
-// readyup-practice (plugins/practice) settings. The practice cvars themselves are in prac.cfg.
+// readyup-practice (plugins/practice) settings. Practice mode's cvars are built in and can't be changed
+// per server; open an issue if a default should change.
 //
 // always=1 makes this a dedicated practice server: practice mode is switched on at load and on
 // every map (unless a match is loaded). An admin's .prac still turns it off until the next map.
