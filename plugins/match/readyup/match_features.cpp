@@ -204,6 +204,18 @@ void CountSides(int* ct, int* t) {
 std::mutex g_leftMu;
 std::set<uint64_t> g_left;  // rostered players who left a live map, for the "back" line
 
+// CS2 counts only people, so a seat a bot fills keeps this pause on for good (bot fill, restore).
+// Lifts it for the rest of the map when bots sit on the short side `side` (2 T, 3 CT).
+bool LiftAuto5v5ForBots(const WebhookMatchContext& ctx, int side) {
+  if (!ctx.bot_fill && !ctx.simulation) return false;
+  const auto bots = ListBots();
+  if (std::none_of(bots.begin(), bots.end(), [side](const BotIdentity& b) { return b.team == side; })) return false;
+  (void)EnqueueServerCommand("sv_matchpause_auto_5v5 0");
+  (void)EnqueueServerCommand("mp_unpause_match");
+  Print("pause: auto_5v5 lifted: bots fill seats on the short side; sv_matchpause_auto_5v5 0 for the rest of the map\n");
+  return true;
+}
+
 // True when the check is over for this round (marked, or nothing to mark); false = look again.
 bool MaybeMarkAuto5v5Pause() {
   const auto ctx = WebhookGetMatchContext();
@@ -214,16 +226,7 @@ bool MaybeMarkAuto5v5Pause() {
   if (c == Auto5v5Check::Wait) return false;
   if (c == Auto5v5Check::Done) return true;
   const int side = Auto5v5ShortSide(ct, t);
-  // CS2 counts only people, so a seat a bot fills keeps this pause on for good (bot fill, restore).
-  if (ctx->bot_fill || ctx->simulation) {
-    const auto bots = ListBots();
-    if (std::any_of(bots.begin(), bots.end(), [side](const BotIdentity& b) { return b.team == side; })) {
-      (void)EnqueueServerCommand("sv_matchpause_auto_5v5 0");
-      (void)EnqueueServerCommand("mp_unpause_match");
-      Print("pause: auto_5v5 lifted: bots fill seats on the short side; sv_matchpause_auto_5v5 0 for the rest of the map\n");
-      return true;
-    }
-  }
+  if (LiftAuto5v5ForBots(*ctx, side)) return true;
   const WebhookTeam shortTeam = CsSideOf(*ctx, WebhookTeam::Team1) == side ? WebhookTeam::Team1 : WebhookTeam::Team2;
   PauseStateOnPaused("auto_5v5", "server", shortTeam);
   WebhookEmitMatchPaused(MatchStateGet().map_number, WebhookPlayer{0, "server", shortTeam}, /*is_tactical=*/false,
@@ -300,6 +303,7 @@ void EnginePauseTick(double now) {
   WebhookTeam shortTeam = WebhookTeam::Unknown;
   if (ct < full || t < full) {
     const int side = ct <= t ? 3 : 2;
+    if (autoType && LiftAuto5v5ForBots(*ctx, side)) return;
     shortTeam = CsSideOf(*ctx, WebhookTeam::Team1) == side ? WebhookTeam::Team1 : WebhookTeam::Team2;
   }
   PauseStateOnPaused(autoType ? "auto_5v5" : "engine", "server", shortTeam);
