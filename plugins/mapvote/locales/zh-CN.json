@@ -10,7 +10,7 @@
   "vote.wins_random": "地图投票：{map} 胜出（无人投票，随机选择）。5 秒后换图。",
   "vote.wins": "地图投票：{map} 胜出。5 秒后换图。",
   "off.match": "比赛期间地图投票关闭。",
-  "off.no_pool": "此服务器的地图投票已关闭：没有地图池（mapvote.cfg 中的 maps=）。",
+  "off.no_pool": "此服务器的地图投票已关闭：没有地图池（readyup.cfg [mapvote] 中的 maps=）。",
   "off.off": "此服务器的地图投票已关闭。",
   "rtv.picked": "下一张地图已选定：{map}。",
   "rtv.running": "地图投票正在进行：输入编号即可投票。",

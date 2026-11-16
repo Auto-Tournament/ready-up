@@ -25,7 +25,7 @@ struct Settings {
   int recentMapsExcluded = 3;     // the last N maps are not on the ballot
 };
 
-// The pool when mapvote.cfg sets none: CS2's Active Duty maps while a defuse or hostage map (de_,
+// The pool when [mapvote] sets none: CS2's Active Duty maps while a defuse or hostage map (de_,
 // cs_) is on, nothing otherwise (a surf, kz or aim server needs its own list).
 std::vector<std::string> DefaultPool(const std::string& currentMap);
 

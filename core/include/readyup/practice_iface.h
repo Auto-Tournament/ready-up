@@ -31,7 +31,7 @@ typedef struct ru_practice_v1 {
    * that round end (practice otherwise suppresses round termination). */
   int (*dry_run)(void);
   /* Appended (check struct_size): the always=1 setting (a dedicated practice server). set_always
-   * stores it in the plugin's data dir (always.txt), where it wins over practice.cfg until it is
+   * stores it in the plugin's data dir (always.txt), where it wins over [practice] until it is
    * set again; on = 1 also switches practice on when nothing blocks it. Returns 1 when stored. */
   int (*always)(void);
   int (*set_always)(int on);

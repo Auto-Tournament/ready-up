@@ -10,7 +10,7 @@
   "vote.wins_random": "Kartavstemning: {map} vinner (ingen stemte, valgt tilfeldig). Bytter kart om 5 sekunder.",
   "vote.wins": "Kartavstemning: {map} vinner. Bytter kart om 5 sekunder.",
   "off.match": "Kartavstemning er av under en kamp.",
-  "off.no_pool": "Kartavstemning er av på denne serveren: ingen kartutvalg (maps= i mapvote.cfg).",
+  "off.no_pool": "Kartavstemning er av på denne serveren: ingen kartutvalg (maps= i readyup.cfg [mapvote]).",
   "off.off": "Kartavstemning er av på denne serveren.",
   "rtv.picked": "Neste kart er allerede valgt: {map}.",
   "rtv.running": "En kartavstemning pågår: skriv nummeret.",

@@ -7,7 +7,7 @@
 //   ru practice on|off|status   the same from the console / `.ru practice ...` (admin)
 //   ru practice as <slot> <.command> [args]   console only: run a tool as that player (bot tests)
 //   ru practice dryrun      the same as .dryrun (admin)
-//   cfg/ReadyUp/practice.cfg (or readyup.cfg [practice]):
+//   readyup.cfg [practice]:
 //     always=0              1 = dedicated practice server: practice is switched on at load and on
 //                           every map, whenever nothing blocks it. The platform's practice.set
 //                           {always} stores it in <data_dir>/always.txt, which wins over the cfg
@@ -1587,7 +1587,7 @@ int AlwaysStored() {  // -1 = none
 }
 int g_alwaysStored = -2;  // -2 = not read yet
 
-// always=1 in cfg/ReadyUp/practice.cfg or readyup.cfg [practice], unless always.txt says otherwise.
+// always=1 in readyup.cfg [practice], unless always.txt says otherwise.
 bool AlwaysOn() {
   if (g_alwaysStored == -2) g_alwaysStored = AlwaysStored();
   if (g_alwaysStored >= 0) return g_alwaysStored == 1;
@@ -1875,7 +1875,7 @@ void OnRu(void*, const ru_command_ctx* c) {
 
 // ---- feedback: flashes and damage in chat (practice_feedback.h) -------------------------------------
 
-// feedback=0 in cfg/ReadyUp/practice.cfg turns the lines off.
+// feedback=0 in readyup.cfg [practice] turns the lines off.
 // Read at most once every 5 s (player_hurt can fire many times a tick with fire); never under the
 // valve ruleset.
 bool FeedbackOn() {

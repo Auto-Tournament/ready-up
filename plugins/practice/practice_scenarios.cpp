@@ -1065,7 +1065,7 @@ void CmdConvert(const Out& out, const std::vector<std::string>& a, bool roundsOn
     const std::string core = g_api->config_dir(g_api->self);  // csgo/readyup/bin/linuxsteamrt64
     converter = core + "/../../tools/scenario/ru_scenario.py";
   }
-  if (!FileExists(converter)) return out("converter not found: " + converter + " (scenario_converter in practice.cfg)");
+  if (!FileExists(converter)) return out("converter not found: " + converter + " (scenario_converter in [practice])");
   std::vector<std::string> argv = {Config("scenario_python", "python3"), converter, roundsOnly ? "rounds" : "convert", path};
   if (!roundsOnly) {
     const std::string& rounds = a[1];

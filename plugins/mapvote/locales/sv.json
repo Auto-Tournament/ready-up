@@ -10,7 +10,7 @@
   "vote.wins_random": "Kartomröstning: {map} vinner (ingen röstade, vald slumpvis). Byter karta om 5 sekunder.",
   "vote.wins": "Kartomröstning: {map} vinner. Byter karta om 5 sekunder.",
   "off.match": "Kartomröstningen är av under en match.",
-  "off.no_pool": "Kartomröstningen är av på den här servern: ingen kartpool (maps= i mapvote.cfg).",
+  "off.no_pool": "Kartomröstningen är av på den här servern: ingen kartpool (maps= i readyup.cfg [mapvote]).",
   "off.off": "Kartomröstningen är av på den här servern.",
   "rtv.picked": "Nästa karta är redan vald: {map}.",
   "rtv.running": "En kartomröstning pågår: skriv dess nummer.",

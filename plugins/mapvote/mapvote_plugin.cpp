@@ -18,7 +18,7 @@
 //
 // Admin / console: `ru mapvote start|cancel|status|reload`, `ru mapvote change <map>`.
 //
-// Settings: cfg/ReadyUp/mapvote.cfg (see the file), re-read on every map start and with
+// Settings: readyup.cfg [mapvote] (docs/PLUGIN-SETTINGS.md), re-read on every map start and with
 // `ru mapvote reload`. The pool is `maps=` there, unless the platform gave the server its own
 // (fleet `mapvote.set`, readyup.mapvote.v1): that one is kept in <data_dir>/pool.txt and wins.
 // Maps load through essentials (readyup.essentials.v1 load_map: the change card and the
@@ -174,7 +174,7 @@ void LoadSettings() {
         return true;
       },
       &warnings);
-  for (const auto& w : warnings) ru_logf(g_api, RU_LOG_WARN, "mapvote.cfg: %s", w.c_str());
+  for (const auto& w : warnings) ru_logf(g_api, RU_LOG_WARN, "[mapvote]: %s", w.c_str());
   if (auto stored = StoredPool(); !stored.empty()) g.s.maps = std::move(stored);
   if (g.s.maps.empty()) g.s.maps = mapvote::DefaultPool(g.currentMap);
 }

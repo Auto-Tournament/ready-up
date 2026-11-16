@@ -10,7 +10,7 @@
   "vote.wins_random": "地圖投票：{map} 勝出（無人投票，隨機選擇）。5 秒後換圖。",
   "vote.wins": "地圖投票：{map} 勝出。5 秒後換圖。",
   "off.match": "比賽期間地圖投票關閉。",
-  "off.no_pool": "此伺服器的地圖投票已關閉：沒有地圖池（mapvote.cfg 中的 maps=）。",
+  "off.no_pool": "此伺服器的地圖投票已關閉：沒有地圖池（readyup.cfg [mapvote] 中的 maps=）。",
   "off.off": "此伺服器的地圖投票已關閉。",
   "rtv.picked": "下一張地圖已選定：{map}。",
   "rtv.running": "地圖投票正在進行：輸入編號即可投票。",

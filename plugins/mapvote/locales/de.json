@@ -10,7 +10,7 @@
   "vote.wins_random": "Map-Abstimmung: {map} gewinnt (niemand hat abgestimmt, zufällig gewählt). Mapwechsel in 5 Sekunden.",
   "vote.wins": "Map-Abstimmung: {map} gewinnt. Mapwechsel in 5 Sekunden.",
   "off.match": "Die Map-Abstimmung ist während eines Matches aus.",
-  "off.no_pool": "Die Map-Abstimmung ist auf diesem Server aus: kein Map-Pool (maps= in mapvote.cfg).",
+  "off.no_pool": "Die Map-Abstimmung ist auf diesem Server aus: kein Map-Pool (maps= in readyup.cfg [mapvote]).",
   "off.off": "Die Map-Abstimmung ist auf diesem Server aus.",
   "rtv.picked": "Die nächste Map steht schon fest: {map}.",
   "rtv.running": "Eine Map-Abstimmung läuft: tippe ihre Nummer.",

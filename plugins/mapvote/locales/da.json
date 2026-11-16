@@ -10,7 +10,7 @@
   "vote.wins_random": "Baneafstemning: {map} vinder (ingen stemte, valgt tilfældigt). Skifter bane om 5 sekunder.",
   "vote.wins": "Baneafstemning: {map} vinder. Skifter bane om 5 sekunder.",
   "off.match": "Baneafstemning er slået fra under en kamp.",
-  "off.no_pool": "Baneafstemning er slået fra på denne server: ingen banepulje (maps= i mapvote.cfg).",
+  "off.no_pool": "Baneafstemning er slået fra på denne server: ingen banepulje (maps= i readyup.cfg [mapvote]).",
   "off.off": "Baneafstemning er slået fra på denne server.",
   "rtv.picked": "Næste bane er allerede valgt: {map}.",
   "rtv.running": "En baneafstemning er i gang: skriv dens nummer.",

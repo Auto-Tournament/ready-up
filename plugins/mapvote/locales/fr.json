@@ -10,7 +10,7 @@
   "vote.wins_random": "Vote de carte : {map} l’emporte (personne n’a voté, tirée au sort). Changement de carte dans 5 secondes.",
   "vote.wins": "Vote de carte : {map} l’emporte. Changement de carte dans 5 secondes.",
   "off.match": "Le vote de carte est désactivé pendant un match.",
-  "off.no_pool": "Le vote de carte est désactivé sur ce serveur : pas de liste de cartes (maps= dans mapvote.cfg).",
+  "off.no_pool": "Le vote de carte est désactivé sur ce serveur : pas de liste de cartes (maps= dans readyup.cfg [mapvote]).",
   "off.off": "Le vote de carte est désactivé sur ce serveur.",
   "rtv.picked": "La prochaine carte est déjà choisie : {map}.",
   "rtv.running": "Un vote de carte est en cours : tape son numéro.",

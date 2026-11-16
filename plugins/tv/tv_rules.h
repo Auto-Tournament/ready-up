@@ -103,16 +103,16 @@ bool ParseMatchProfile(const std::string& json, MatchProfile* out);
 struct Settings {
   Profile server;
   std::set<uint64_t> casters;
-  bool castersSet = false;  // the casters list was changed at runtime (else tv.cfg's applies)
+  bool castersSet = false;  // the casters list was changed at runtime (else [tv]'s applies)
 };
 Settings ParseSettings(const std::string& json, bool* ok);
 std::string SettingsJson(const Settings& s);
 
 uint64_t ParseSteamId64(const std::string& s);
-// "7656..., 7656..." (tv.cfg casters). Bad entries are skipped and counted in *bad.
+// "7656..., 7656..." ([tv] casters). Bad entries are skipped and counted in *bad.
 std::set<uint64_t> ParseSteamIdList(const std::string& s, int* bad = nullptr);
 
-// tv.cfg profile keys (canonical names): "delay_seconds" -> "105". Unknown / bad values are
+// [tv] profile keys (canonical names): "delay_seconds" -> "105". Unknown / bad values are
 // reported in *errors ("max_clients: an integer 0..255").
 Profile ProfileFromConfig(const std::map<std::string, std::string>& kv, std::vector<std::string>* errors);
 
