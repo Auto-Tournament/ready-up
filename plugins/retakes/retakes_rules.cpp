@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <sstream>
 
 namespace retakes {
 namespace {
@@ -329,6 +330,59 @@ RoundSpawns PlaceRound(const SiteSpawns& site, const std::vector<uint64_t>& tIn,
   const std::vector<int> ctPool = order(site.ct.size());
   for (size_t i = 0; i < ct.size(); ++i) out.ct.push_back({ct[i], i < ctPool.size() ? ctPool[i] : -1});
   return out;
+}
+
+const std::vector<Gun>& Guns() {
+  static const std::vector<Gun> k = {
+      {"ak ak47 ak-47", "weapon_ak47", "AK-47", kT},
+      {"sg sg553 sg556", "weapon_sg556", "SG 553", kT},
+      {"m4 m4a4", "weapon_m4a1", "M4A4", kCT},
+      {"m4s m4a1s m4a1-s", "weapon_m4a1_silencer", "M4A1-S", kCT},
+      {"aug", "weapon_aug", "AUG", kCT},
+      {"awp", "weapon_awp", "AWP", 0},
+  };
+  return k;
+}
+
+bool PickGun(const std::string& word, Loadout* l) {
+  const std::string w = Lower(word);
+  for (const Gun& g : Guns()) {
+    std::istringstream words(g.words);
+    for (std::string a; words >> a;) {
+      if (a != w) continue;
+      if (g.side == kT) l->t = g.cls;
+      else if (g.side == kCT) l->ct = g.cls;
+      else l->awp = !l->awp;
+      return true;
+    }
+  }
+  return false;
+}
+
+std::map<uint64_t, Loadout> ParseLoadouts(const std::string& text) {
+  auto known = [](const std::string& cls, int side) {
+    for (const Gun& g : Guns())
+      if (g.side == side && cls == g.cls) return true;
+    return false;
+  };
+  std::map<uint64_t, Loadout> out;
+  std::istringstream in(text);
+  for (std::string line; std::getline(in, line);) {
+    std::istringstream f(line);
+    uint64_t id = 0;
+    int awp = 0;
+    Loadout l;
+    if (!(f >> id >> l.t >> l.ct >> awp) || !id || !known(l.t, kT) || !known(l.ct, kCT)) continue;
+    l.awp = awp != 0;
+    out[id] = l;
+  }
+  return out;
+}
+
+std::string FormatLoadouts(const std::map<uint64_t, Loadout>& all) {
+  std::string s;
+  for (const auto& [id, l] : all) s += std::to_string(id) + " " + l.t + " " + l.ct + (l.awp ? " 1\n" : " 0\n");
+  return s;
 }
 
 }  // namespace retakes

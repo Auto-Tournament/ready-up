@@ -1,7 +1,24 @@
 {
-  "map.no_spawns": "Retakes: {map} não tem posições de retake. Mude para um mapa que as tenha (de_mirage, de_inferno, de_dust2...).",
-  "queue.waiting": "Retakes: o servidor está cheio. É o número {place} na fila e joga quando houver vaga.",
-  "teams.scrambled": "Retakes: os T ganharam demasiadas rondas seguidas, por isso as equipas são baralhadas.",
+  "map.no_spawns": "Recapturas: {map} não tem posições de retake. Mude para um mapa que as tenha (de_mirage, de_inferno, de_dust2...).",
+  "queue.waiting": "Recapturas: o servidor está cheio. É o número {place} na fila e joga quando houver vaga.",
+  "teams.scrambled": "Recapturas: os T ganharam demasiadas rondas seguidas, por isso as equipas são baralhadas.",
   "round.hold": "Segure {site}: a bomba está armada. Mantenha os CT longe dela.",
-  "round.retake": "Recupere {site}: a bomba está armada. Retome o local."
+  "round.retake": "Recupere {site}: a bomba está armada. Retome o local.",
+  "guns.kind": "Recapturas",
+  "guns.close": "Fechar",
+  "guns.title": "Seleciona o teu equipamento",
+  "round.retake_title": "Recapturem o local {site}!",
+  "round.hold_title": "Defendam o local {site}!",
+  "guns.sub": "Uma espingarda para cada lado. A sua escolha mantém-se nas rondas seguintes.",
+  "guns.awp_sub": "1 por equipa",
+  "guns.hint": "Ou escreva .guns ak, sg, m4, m4s, aug ou awp",
+  "guns.usage": "Escreva .guns para abrir o menu ou escolha já: .guns ak, sg, m4, m4s, aug ou awp. A AWP vai para um jogador por equipa que a queira.",
+  "guns.saved": "As suas armas: {t} como T, {ct} como CT.",
+  "guns.saved_awp": "As suas armas: {t} como T, {ct} como CT. Também está no sorteio da AWP.",
+  "round.kind": "Recapturas · ronda {round}",
+  "queue.kind": "Fila",
+  "queue.title": "À espera de um lugar",
+  "queue.playing": "A jogar",
+  "queue.waiting_count": "À espera",
+  "queue.place": "O seu lugar"
 }

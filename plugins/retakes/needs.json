@@ -5,20 +5,26 @@
   "chat_to_slot",
   "engine_feature_available",
   "entity_by_index",
+  "entity_change_subclass",
   "entity_classname",
   "entity_create",
   "entity_mark_changed",
+  "entity_remove",
   "entity_set_abs_origin",
   "entity_spawn",
   "player_change_team",
+  "player_give_item",
   "player_teleport",
+  "register_chat_command",
   "register_ru_subcommand",
   "schema_offset",
   "subscribe_game_event"
  ],
  "surface": [
+  "CBaseEntity_ChangeSubclass",
   "CBaseEntity_NetworkStateChanged",
   "CBaseEntity_SetAbsOrigin",
+  "CCSPlayer_ItemServices_GiveNamedItem",
   "CCommand",
   "CEntityInstance::NetworkStateChanged",
   "CGameEventManager",
@@ -26,13 +32,17 @@
   "CSchemaSystem",
   "CSchemaSystemTypeScope",
   "ClientPrint",
+  "Host_Say",
   "ISource2GameClients::ClientCommand",
   "UTIL_Remove"
  ],
  "schema": [
+  "CBaseEntity.m_hOwnerEntity",
+  "CBasePlayerController.m_bIsHLTV",
   "CCSGameRules.m_bBombDefused",
   "CCSGameRules.m_bBombPlanted",
   "CCSGameRulesProxy.m_pGameRules",
+  "CCSPlayerController.m_hPlayerPawn",
   "CPlantedC4.m_bBombTicking",
   "CPlantedC4.m_bCannotBeDefused",
   "CPlantedC4.m_bHasExploded",
@@ -40,6 +50,14 @@
  ],
  "schema_optional": [],
  "events": [
-  "<non-literal:e>"
+  "bomb_defused",
+  "player_death",
+  "round_announce_warmup",
+  "round_end",
+  "round_freeze_end",
+  "round_poststart",
+  "round_prestart",
+  "round_start",
+  "weapon_fire"
  ]
 }
