@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes: {map} にはリテイク用の位置がありません。位置があるマップに変更してください（de_mirage、de_inferno、de_dust2 など）。",
+  "queue.waiting": "Retakes: サーバーが満員です。あなたは待ち順 {place} 番目で、空きが出たらプレイできます。",
+  "teams.scrambled": "Retakes: T が連勝しすぎたため、チームをシャッフルします。",
+  "round.hold": "{site} を守れ: 爆弾は設置済み。CT を近づけるな。",
+  "round.retake": "{site} を奪還せよ: 爆弾は設置済み。サイトを取り返せ。"
+}

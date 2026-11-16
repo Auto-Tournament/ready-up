@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes: {map} has no retake spawns. Change to a map that has them (de_mirage, de_inferno, de_dust2, ...).",
+  "queue.waiting": "Retakes: the server is full. You're number {place} in line and play when a place opens.",
+  "teams.scrambled": "Retakes: the Ts won too many in a row, so the teams are shuffled.",
+  "round.hold": "Hold {site}: the bomb is planted. Keep the CTs off it.",
+  "round.retake": "Retake {site}: the bomb is planted. Get it back."
+}

@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes: {map}에는 리테이크 위치가 없습니다. 위치가 있는 맵으로 바꾸세요(de_mirage, de_inferno, de_dust2 등).",
+  "queue.waiting": "Retakes: 서버가 가득 찼습니다. 대기 순서 {place}번이며, 자리가 나면 플레이합니다.",
+  "teams.scrambled": "Retakes: T가 너무 많이 연속으로 이겨 팀을 섞습니다.",
+  "round.hold": "{site} 사수: 폭탄이 설치되었습니다. CT를 막으세요.",
+  "round.retake": "{site} 탈환: 폭탄이 설치되었습니다. 사이트를 되찾으세요."
+}

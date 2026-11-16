@@ -1,0 +1,7 @@
+{
+  "map.no_spawns": "Retakes: {map} har inga retake-positioner. Byt till en karta som har det (de_mirage, de_inferno, de_dust2 …).",
+  "queue.waiting": "Retakes: servern är full. Du är nummer {place} i kön och spelar när en plats blir ledig.",
+  "teams.scrambled": "Retakes: T vann för många rundor i rad, så lagen blandas om.",
+  "round.hold": "Håll {site}: bomben är placerad. Håll CT borta från den.",
+  "round.retake": "Ta tillbaka {site}: bomben är placerad. Återta platsen."
+}
