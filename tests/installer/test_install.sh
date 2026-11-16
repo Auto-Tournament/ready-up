@@ -124,7 +124,7 @@ for mm in 0 1; do
   check "practice gamedata next to the core (grenade spawning)" test -f "$CS/readyup/bin/linuxsteamrt64/engine-surface.practice.json"
   check "essentials.so installed (essentials bundle)" test -x "$CS/readyup/plugins/essentials.so"
   check "mapvote.so installed (essentials bundle)" test -x "$CS/readyup/plugins/mapvote.so"
-  check "practice.cfg seeded, all comments (always off)" idle_cfg "$CS/cfg/ReadyUp/practice.cfg"
+  check "no practice.cfg seeded (defaults are built in)" test ! -e "$CS/cfg/ReadyUp/practice.cfg"
   check "installed.json lists addons core essentials fleet match practice" test "$(installed "$S")" = "addons core essentials fleet hud mapvote match practice"
   for gi in gameinfo.gi gameinfo_branchspecific.gi; do
     check "$gi: exactly one readyup line" test "$(count_ru "$CS/$gi")" = 1
@@ -172,7 +172,7 @@ check "installed.json back to core essentials fleet match practice" test "$(inst
 echo "== add midas from the full zip (off by default), then remove it"
 run --dir "$S" --zip "$FULL" midas >"$T/out" 2>&1 || { cat "$T/out"; fail "midas install exited non-zero"; }
 check "midas.so installed" test -x "$CS/readyup/plugins/midas.so"
-check "midas.cfg seeded, all comments (midas stays off)" idle_cfg "$CS/cfg/ReadyUp/midas.cfg"
+check "no midas.cfg seeded (defaults are built in)" test ! -e "$CS/cfg/ReadyUp/midas.cfg"
 run --dir "$S" --remove midas >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove midas exited non-zero"; }
 check "midas.so removed" test ! -e "$CS/readyup/plugins/midas.so"
 
@@ -185,14 +185,14 @@ check "whitelist.so removed" test ! -e "$CS/readyup/plugins/whitelist.so"
 echo "== add deathmatch from the full zip (off until .ru dm ffa|tdm), then remove it"
 run --dir "$S" --zip "$FULL" deathmatch >"$T/out" 2>&1 || { cat "$T/out"; fail "deathmatch install exited non-zero"; }
 check "deathmatch.so installed" test -x "$CS/readyup/plugins/deathmatch.so"
-check "deathmatch.cfg seeded, all comments (defaults)" idle_cfg "$CS/cfg/ReadyUp/deathmatch.cfg"
+check "no deathmatch.cfg seeded (defaults are built in)" test ! -e "$CS/cfg/ReadyUp/deathmatch.cfg"
 run --dir "$S" --remove deathmatch >"$T/out" 2>&1 || { cat "$T/out"; fail "--remove deathmatch exited non-zero"; }
 check "deathmatch.so removed" test ! -e "$CS/readyup/plugins/deathmatch.so"
 
 echo "== addons comes with core (the HUD addon every player needs) and can't be removed"
 check "addons.so installed" test -x "$CS/readyup/plugins/addons.so"
 check "addons gamedata next to the core" test -f "$CS/readyup/bin/linuxsteamrt64/engine-surface.addons.json"
-check "addons.cfg seeded, all comments (no workshop_addons)" idle_cfg "$CS/cfg/ReadyUp/addons.cfg"
+check "no addons.cfg seeded (defaults are built in)" test ! -e "$CS/cfg/ReadyUp/addons.cfg"
 if run --dir "$S" --remove addons >"$T/out" 2>&1; then fail "--remove addons should be refused"; fi
 check "--remove addons says why" grep -q "addons can't be removed" "$T/out"
 check "addons.so still there" test -x "$CS/readyup/plugins/addons.so"

@@ -11,9 +11,9 @@
 #   - match / essentials / full contain plugins/match.so (+ the cfg/ReadyUp templates); the core
 #     zip does not, and its libserver.so has no match flow in it (it must run without match.so)
 #   - practice / essentials / full contain engine-surface.practice.json (grenade spawning); core does not
-#   - addons / essentials / full contain plugins/addons.so + engine-surface.addons.json + an
-#     all-comments addons.cfg template (no workshop_addons: it mounts only the HUD addon); core does
-#     not (the installer adds the addons component to every install), and match does not ship addons.cfg
+#   - addons / essentials / full contain plugins/addons.so + engine-surface.addons.json; core does
+#     not (the installer adds the addons component to every install)
+#   - no zip ships a plugin settings template (defaults are in the plugins; docs/PLUGIN-SETTINGS.md)
 #
 #   scripts/ci/check-bundles.sh <dist-dir> <version>
 set -euo pipefail
@@ -125,16 +125,9 @@ has_skins() {  # <bundle>
 has_addons() {  # <bundle>
   local dir="$WORK/$1"
   for f in readyup/plugins/addons.so readyup/plugins/addons.needs.json \
-    readyup/bin/linuxsteamrt64/engine-surface.addons.json readyup/cfg-templates/ReadyUp/addons.cfg; do
+    readyup/bin/linuxsteamrt64/engine-surface.addons.json; do
     if [[ -f "$dir/$f" ]]; then ok "$1 has $f"; else bad "$1 lacks $f"; fi
   done
-  # Inert by default: no active (uncommented) setting, so no workshop_addons to download.
-  local tpl="$dir/readyup/cfg-templates/ReadyUp/addons.cfg"
-  if [[ -f "$tpl" ]] && grep -Ev '^[[:space:]]*(//|#|$)' "$tpl" | grep -q .; then
-    bad "$1: addons.cfg template has active settings (addons must stay idle by default)"
-  else
-    ok "$1: addons.cfg template is all comments"
-  fi
 }
 
 has_notices() {  # <bundle> -- every zip carrying the core component ships the license +
@@ -173,14 +166,17 @@ for b in core essentials; do
   if [[ -e "$WORK/$b/readyup/plugins/deathmatch.so" ]]; then bad "$b contains deathmatch.so"; else ok "$b: no deathmatch.so"; fi
 done
 if [[ -e "$WORK/core/readyup/plugins/addons.so" ]]; then bad "core contains addons.so"; else ok "core: no addons.so"; fi
-if [[ -e "$WORK/match/readyup/cfg-templates/ReadyUp/deathmatch.cfg" ]]; then bad "match ships deathmatch.cfg"; else ok "match: no deathmatch.cfg"; fi
-if [[ -e "$WORK/match/readyup/cfg-templates/ReadyUp/mapvote.cfg" ]]; then bad "match ships mapvote.cfg"; else ok "match: no mapvote.cfg"; fi
 if [[ -e "$WORK/essentials/readyup/plugins/mapvote.so" ]]; then ok "essentials has mapvote.so"; else bad "essentials lacks mapvote.so"; fi
-if [[ -e "$WORK/match/readyup/cfg-templates/ReadyUp/addons.cfg" ]]; then bad "match ships addons.cfg"; else ok "match: no addons.cfg"; fi
+for z in "$WORK"/*/; do
+  for n in addons community deathmatch mapvote midas movement practice tv; do
+    if [[ -e "$z/readyup/cfg-templates/ReadyUp/$n.cfg" ]]; then bad "$(basename "$z") ships $n.cfg"; fi
+  done
+done
+ok "no plugin settings templates"
 echo "skins:";      has_skins skins;     check_manifests "$WORK/skins" skins
 echo "full:";       has_skins full; has_match full; has_fleet full; has_notices full; has_addons full
 full_components=(core essentials match fleet practice skins midas whitelist deathmatch mapvote community movement addons tv hud)
-for f in readyup/plugins/deathmatch.so readyup/cfg-templates/ReadyUp/deathmatch.cfg readyup/plugins/mapvote.so readyup/cfg-templates/ReadyUp/mapvote.cfg readyup/plugins/community.so readyup/cfg-templates/ReadyUp/community.cfg readyup/plugins/tv.so readyup/cfg-templates/ReadyUp/tv.cfg readyup/plugins/movement.so readyup/cfg-templates/ReadyUp/movement.cfg readyup/bin/linuxsteamrt64/engine-surface.practice.json; do
+for f in readyup/plugins/deathmatch.so readyup/plugins/mapvote.so readyup/plugins/community.so readyup/plugins/tv.so readyup/plugins/movement.so readyup/bin/linuxsteamrt64/engine-surface.practice.json; do
   if [[ -f "$WORK/full/$f" ]]; then ok "full has $f"; else bad "full lacks $f"; fi
 done
 [[ -f "$WORK/full/readyup/manifests/tools.json" ]] && full_components+=(tools)

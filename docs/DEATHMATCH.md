@@ -81,7 +81,7 @@ have yet (a follow-up).
 
 ## Config
 
-`cfg/ReadyUp/deathmatch.cfg` (or a `[deathmatch]` section in `readyup.cfg`), read at every game
+a `[deathmatch]` section in `readyup.cfg`, read at every game
 start. The shipped template is all comments: the defaults below apply.
 
 | Key | Default | |

@@ -123,7 +123,7 @@ recording write). The demo name is a path relative to one of those folders. Abso
 `..` are refused. `ru scenario rounds <demo.dem>` lists the rounds first. Only the console and
 admins may convert.
 
-The server needs `python3` with demoparser2. Settings go in `cfg/ReadyUp/practice.cfg`:
+The server needs `python3` with demoparser2. Settings go in `readyup.cfg` `[practice]`:
 
 | Key | Default | |
 |---|---|---|

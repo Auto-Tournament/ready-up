@@ -8,6 +8,9 @@ zip and can be installed, hot reloaded, or turned off (`ru plugin disable <name>
 bundles below are just zips with several of them. The in-house plugins use nothing but that public
 API, so they double as examples for your own.
 
+Each plugin's settings and defaults are built in. Change one under a `[<plugin>]` section in
+`readyup.cfg`; [PLUGIN-SETTINGS.md](PLUGIN-SETTINGS.md) lists every key.
+
 Plugins cooperate through named interfaces (`provide_interface` / `get_interface`): the match plugin
 publishes `readyup.match.v1` (mode, ruleset, map stats; `set_external_mode` lets another plugin such as deathmatch take the server), the practice plugin `readyup.practice.v1`, the whitelist
 plugin `readyup.whitelist.v1` (its list, and other plugins' guests: the tv plugin's casters), the tv plugin `readyup.tv.v1` (GOTV state, `tv.set`), the skins plugin `readyup.skins.v1` (paint one weapon; Midas uses it), the essentials plugin `readyup.essentials.v1` (default map per mode, map loads). The match plugin owns the match phase; the others read it and stand
@@ -48,7 +51,7 @@ Server basics kept apart from the match flow, so every kind of server has them: 
 
 <br />
 
-`.prac` (admin) switches practice on or off: the built-in prac rules (cheats, a full grenade set, infinite ammo; `libs/readyup/phase_cvars.h`) and everyone respawns with it. Tools: `.savepos`/`.loadpos [name]`, `.back`, `.spawn N` / `.ctspawn N` / `.tspawn N`, `.rethrow`, `.clear`, `.noflash`, `.god`, `.bot`/`.cbot`/`.boost`, `.nobots`. Scenarios: `.scen load <id> [player] [start]` puts you where a pro stood in a recorded round while bots replay the other nine ([docs/SCENARIOS.md](SCENARIOS.md); converter in `tools/scenario/`). Runs with the match plugin (which then shows practice as its mode and refuses it while a match is loaded) or without it: `always=1` in `cfg/ReadyUp/practice.cfg` makes a dedicated practice server. Never active under the valve ruleset. In both bundles.
+`.prac` (admin) switches practice on or off: the built-in prac rules (cheats, a full grenade set, infinite ammo; `libs/readyup/phase_cvars.h`) and everyone respawns with it. Tools: `.savepos`/`.loadpos [name]`, `.back`, `.spawn N` / `.ctspawn N` / `.tspawn N`, `.rethrow`, `.clear`, `.noflash`, `.god`, `.bot`/`.cbot`/`.boost`, `.nobots`. Scenarios: `.scen load <id> [player] [start]` puts you where a pro stood in a recorded round while bots replay the other nine ([docs/SCENARIOS.md](SCENARIOS.md); converter in `tools/scenario/`). Runs with the match plugin (which then shows practice as its mode and refuses it while a match is loaded) or without it: `always=1` in `readyup.cfg` `[practice]` makes a dedicated practice server. Never active under the valve ruleset. In both bundles.
 
 </details>
 
@@ -75,9 +78,9 @@ Weapon paints, knives, gloves and agents from `loadouts.json` ([contract](../plu
 
 <br />
 
-Weapons picked up by Midas players turn gold, and stay gold when someone else picks them up. Off by default (`cfg/ReadyUp/midas.cfg`, `enabled=1`) and never active under the valve ruleset. Hot reloads with `ru plugin reload midas`.
+Weapons picked up by Midas players turn gold, and stay gold when someone else picks them up. Off by default (`readyup.cfg` `[midas]`, `enabled=1`) and never active under the valve ruleset. Hot reloads with `ru plugin reload midas`.
 
-- **Who**: the players in `midas_steamids`, the players an admin gives it to (`.ru midas give <player>`: part of a name or a SteamID64, again to take it back; `.ru midas take <player>`; `.ru midas` shows who is Midas and why; kept in `plugins/midas/given.txt`), and with `best_player=1` the best player of the map: top ADR or kills (`best_player_stat=adr|kills`) from the match plugin's stats, picked a few ticks after each round start once `best_player_min_rounds` (3) rounds are played, or at the start of every new half (`best_player_when=half`). Scrims only; real matches need `best_player_in_matches=1`. Ties go to the other stat, then fewer deaths, then the current Midas. A player who becomes Midas (or loses it) gets a card in the middle of the screen at their next spawn or round start ("Blessed by Midas"; texts in `midas.cfg`, `cards=0` turns them off); everyone else gets the chat line.
+- **Who**: the players in `midas_steamids`, the players an admin gives it to (`.ru midas give <player>`: part of a name or a SteamID64, again to take it back; `.ru midas take <player>`; `.ru midas` shows who is Midas and why; kept in `plugins/midas/given.txt`), and with `best_player=1` the best player of the map: top ADR or kills (`best_player_stat=adr|kills`) from the match plugin's stats, picked a few ticks after each round start once `best_player_min_rounds` (3) rounds are played, or at the start of every new half (`best_player_when=half`). Scrims only; real matches need `best_player_in_matches=1`. Ties go to the other stat, then fewer deaths, then the current Midas. A player who becomes Midas (or loses it) gets a card in the middle of the screen at their next spawn or round start ("Blessed by Midas"; texts under `[midas]`, `cards=0` turns them off); everyone else gets the chat line.
 - **Gold**: with the skins plugin loaded, a gold paint kit through its `readyup.skins.v1` interface (`paint_kit=1025`, "Gold Brick", a pattern finish that fits every gun; `paint_wear`, `paint_seed`; any paint kit id works). Knives, grenades and the C4, and every weapon without skins.so or with `finish=tint`, get the render colour `color=255,200,40` instead (a server can't send custom textures). With the readyup_midas Workshop addon, gold models by item (`plugins/midas/models.txt`), also on the grenades a Midas player throws and the bomb they plant.
 
 </details>
@@ -96,7 +99,7 @@ For practice and scrim servers: `ru whitelist on`, `ru whitelist add <steamid64>
 
 <br />
 
-Owns the server's GOTV settings so they hold for a whole series: `delay_seconds` (`tv_delay`), `allow_insecure_observers` (`tv_secure_bypass 1` + `sv_deltaticks_enforce 0` together, for observers whose CS2 runs `-insecure`, e.g. HLAE / Lexogrine HUD Manager; GOTV only, the game port stays VAC-secured), `max_clients`, `relay_text_chat`, `relay_voice`. Server defaults in `cfg/ReadyUp/tv.cfg` (all comments: it touches nothing until a key is set) or `.ru tv set <key> <value>`; a platform match's `rules.broadcast` (or `.ru tv match <key> <value>`) wins for that match. Applied again after every map load, `mp_restartgame` and match phase change, and put back when the match ends. Never lowers `tv_delay` below what the match asks for (ruleset valve: 105). `.ru tv caster add <steamid64>`: casters may join the game port as spectators (needs the whitelist plugin; the match plugin lets them in as spectators). `.ru tv` (or `.tv`) shows the GOTV port, delay, clients and whether a password is set. Reports the state to the platform (`hello.tv`, `server.tv`) and takes `cmd tv.set`. See [docs/design/tv-plugin.md](design/tv-plugin.md).
+Owns the server's GOTV settings so they hold for a whole series: `delay_seconds` (`tv_delay`), `allow_insecure_observers` (`tv_secure_bypass 1` + `sv_deltaticks_enforce 0` together, for observers whose CS2 runs `-insecure`, e.g. HLAE / Lexogrine HUD Manager; GOTV only, the game port stays VAC-secured), `max_clients`, `relay_text_chat`, `relay_voice`. Server defaults under `[tv]` in `readyup.cfg` (none set: it touches nothing until a key is set) or `.ru tv set <key> <value>`; a platform match's `rules.broadcast` (or `.ru tv match <key> <value>`) wins for that match. Applied again after every map load, `mp_restartgame` and match phase change, and put back when the match ends. Never lowers `tv_delay` below what the match asks for (ruleset valve: 105). `.ru tv caster add <steamid64>`: casters may join the game port as spectators (needs the whitelist plugin; the match plugin lets them in as spectators). `.ru tv` (or `.tv`) shows the GOTV port, delay, clients and whether a password is set. Reports the state to the platform (`hello.tv`, `server.tv`) and takes `cmd tv.set`. See [docs/design/tv-plugin.md](design/tv-plugin.md).
 
 </details>
 
@@ -105,7 +108,7 @@ Owns the server's GOTV settings so they hold for a whole series: `delay_seconds`
 
 <br />
 
-`.ru dm ffa [map]` / `.ru dm tdm [map]` (admin) switch the server to CS2's own deathmatch game mode (`game_type 1` / `game_mode 2`, so a map loads: the one given, else the mode's default map from essentials, else the current map again), free for all (`mp_teammates_are_enemies 1`) or team deathmatch (`0`, team kills score for the team). Ready Up's rules on top, in `cfg/ReadyUp/deathmatch.cfg`: first player / team to the kill limit (30 / 100) or the leader after the time limit (10 min) wins, announced in chat and on a winner card, then the next game starts. A small leaderboard (top 5 + your rank) is on every player's screen (`.ru dm hud` hides yours), plus spawn protection, `headshot_only=1` and weapon rounds (every N minutes everyone spawns with the next weapon of a list). `.ru dm status` / `.ru dm top` for everyone, `.ru dm off` (admin) goes back to competitive and the match plugin's idle / scrim. While it is on, the match plugin steps aside (no scrim warmup or ready panel); a match load or `.ru mode idle` ends it. See [docs/DEATHMATCH.md](DEATHMATCH.md).
+`.ru dm ffa [map]` / `.ru dm tdm [map]` (admin) switch the server to CS2's own deathmatch game mode (`game_type 1` / `game_mode 2`, so a map loads: the one given, else the mode's default map from essentials, else the current map again), free for all (`mp_teammates_are_enemies 1`) or team deathmatch (`0`, team kills score for the team). Ready Up's rules on top, in `readyup.cfg` `[deathmatch]`: first player / team to the kill limit (30 / 100) or the leader after the time limit (10 min) wins, announced in chat and on a winner card, then the next game starts. A small leaderboard (top 5 + your rank) is on every player's screen (`.ru dm hud` hides yours), plus spawn protection, `headshot_only=1` and weapon rounds (every N minutes everyone spawns with the next weapon of a list). `.ru dm status` / `.ru dm top` for everyone, `.ru dm off` (admin) goes back to competitive and the match plugin's idle / scrim. While it is on, the match plugin steps aside (no scrim warmup or ready panel); a match load or `.ru mode idle` ends it. See [docs/DEATHMATCH.md](DEATHMATCH.md).
 
 </details>
 
@@ -123,7 +126,7 @@ Draws the ready-up card, the damage card, the leaderboard and menus (the map vot
 
 <br />
 
-`.rtv` / `.unrtv`, `.nominate <map>`, `.maps`, `.nextmap`, `.timeleft`, and a vote before the map's time runs out (`map_time_minutes`, with Extend). Never while a match is loaded. The pool is `maps=` in `cfg/ReadyUp/mapvote.cfg` (empty: the Active Duty maps on a defuse map), unless the platform gave the server its own (fleet `mapvote.set`, `readyup.mapvote.v1`). Admins: `ru mapvote start|cancel|status|reload`, `ru mapvote change <map>`.
+`.rtv` / `.unrtv`, `.nominate <map>`, `.maps`, `.nextmap`, `.timeleft`, and a vote before the map's time runs out (`map_time_minutes`, with Extend). Never while a match is loaded. The pool is `maps=` in `readyup.cfg` `[mapvote]` (empty: the Active Duty maps on a defuse map), unless the platform gave the server its own (fleet `mapvote.set`, `readyup.mapvote.v1`). Admins: `ru mapvote start|cancel|status|reload`, `ru mapvote change <map>`.
 
 </details>
 
@@ -132,7 +135,7 @@ Draws the ready-up card, the damage card, the leaderboard and menus (the map vot
 
 <br />
 
-The mode's physics (from the map name, or `mode=` in `cfg/ReadyUp/movement.cfg`), a run timer between the map's start and end zones, personal bests and the map's top times. Off while a match is loaded. An empty server on a map with no movement mode goes back to `home_map`.
+The mode's physics (from the map name, or `mode=` in `readyup.cfg` `[movement]`), a run timer between the map's start and end zones, personal bests and the map's top times. Off while a match is loaded. An empty server on a map with no movement mode goes back to `home_map`.
 
 </details>
 
@@ -141,7 +144,7 @@ The mode's physics (from the map name, or `mode=` in `cfg/ReadyUp/movement.cfg`)
 
 <br />
 
-`.rank`, `.top`, `.speclist` and admin `.kick <name> [reason]`. Kills, deaths, headshots and assists count per SteamID while no match is loaded (`count_in_matches=1` to count those too), in `plugins/community/stats.json`. Settings in `cfg/ReadyUp/community.cfg`.
+`.rank`, `.top`, `.speclist` and admin `.kick <name> [reason]`. Kills, deaths, headshots and assists count per SteamID while no match is loaded (`count_in_matches=1` to count those too), in `plugins/community/stats.json`. Settings in `readyup.cfg` `[community]`.
 
 </details>
 
@@ -150,7 +153,7 @@ The mode's physics (from the map name, or `mode=` in `cfg/ReadyUp/movement.cfg`)
 
 <br />
 
-Downloads the addons in `cfg/ReadyUp/addons.cfg` (`workshop_addons=`) and mounts them on every map change, plus the HUD addon whenever the HUD plugin runs. Idle otherwise; `ru addons` shows their state. It can't be removed on its own, because every player needs the HUD addon.
+Downloads the addons in `readyup.cfg` `[addons]` (`workshop_addons=`) and mounts them on every map change, plus the HUD addon whenever the HUD plugin runs. Idle otherwise; `ru addons` shows their state. It can't be removed on its own, because every player needs the HUD addon.
 
 </details>
 
