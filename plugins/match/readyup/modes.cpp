@@ -825,7 +825,8 @@ static bool GoLiveCheckLocked(State& st, const WebhookMatchContext& ctx, std::st
   // below (.r from everyone present). Live as soon as anyone was back skipped both, and a match
   // came back live with a player missing and nobody ready (2026-10-15). An admin start is the
   // way on without someone.
-  if (fleet_bridge::ResumeWaiting()) {
+  // Bot fill: absent roster players never come back (bots hold their seats); the grace below waits instead.
+  if (fleet_bridge::ResumeWaiting() && !ctx.bot_fill) {
     const ResumeHeadcount head = ResumeCount(roster, present, ctx.players_per_team);
     if (!ResumeMayGoLive(head.needed, head.back)) {
       *why = "failover resume: " + std::to_string(head.back) + "/" + std::to_string(head.needed) + " players back";
