@@ -5,17 +5,17 @@
   "patch": "1.41.9.7"
  },
  "readyup": {
-  "version": "0.1.0-beta.70-dev.8ea757f",
-  "commit": "8ea757f8340d87e3ef3df2967621d633b3ec2a70"
+  "version": "0.1.0-beta.70-dev.b2b24bd",
+  "commit": "b2b24bdf2b4d97132f95499411c3f452d6992674"
  },
  "run": {
-  "id": "43830883517",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/43830883517",
+  "id": "43839148712",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/43839148712",
   "trigger": "code_change",
   "stage": "live",
   "state": "pass",
-  "started_at": "2026-11-16T08:24:05Z",
-  "finished_at": "2026-11-16T08:51:58Z"
+  "started_at": "2026-11-16T09:22:34Z",
+  "finished_at": "2026-11-16T09:51:45Z"
  },
  "overall": "pass",
  "components": [
@@ -818,5 +818,5 @@
    ]
   }
  ],
- "checked_at": "2026-11-16T08:51:58Z"
+ "checked_at": "2026-11-16T09:51:45Z"
 }
