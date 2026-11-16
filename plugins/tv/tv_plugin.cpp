@@ -184,6 +184,8 @@ Profile Effective(int* floor) {
   return eff;
 }
 
+void ScheduleApply(double in, bool force);
+
 // The match `prev` is gone: its settings stay for the GOTV delay (+15 s), then the server's come back.
 void Linger(const std::optional<MatchProfile>& prev) {
   if (!prev || g_tracker.active) return;
