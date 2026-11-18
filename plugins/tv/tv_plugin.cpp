@@ -187,8 +187,8 @@ Profile Effective(int* floor) {
 void ScheduleApply(double in, bool force);
 
 // The match `prev` is gone: its settings stay for the GOTV delay (+15 s), then the server's come back.
-void Linger(const std::optional<MatchProfile>& prev) {
-  if (!prev || g_tracker.active) return;
+bool Linger(const std::optional<MatchProfile>& prev) {
+  if (!prev || g_tracker.active) return false;
   g_lingering = prev;
   g_lingerUntil = 1e18;
   int floor = 0, delay = 0;
@@ -204,6 +204,7 @@ void Linger(const std::optional<MatchProfile>& prev) {
             prev->matchId.c_str(), hold);
     ScheduleApply(hold + 0.5, true);
   }
+  return hold > 0;
 }
 
 std::optional<bool> PasswordSet() {
@@ -375,8 +376,7 @@ void OnTrackEvent(TrackEvent ev, const std::optional<MatchProfile>& prev = std::
     PersistActive();
     Apply(true);
   } else if (ev == TrackEvent::Deactivated) {
-    Linger(prev);
-    ru_logf(g_api, RU_LOG_INFO, "tv: the match is gone: back to the server's broadcast settings");
+    if (!Linger(prev)) ru_logf(g_api, RU_LOG_INFO, "tv: the match is gone: back to the server's GOTV settings");
     PersistActive();
     Apply(true);
   } else if (ev == TrackEvent::Dropped) {
@@ -435,8 +435,7 @@ void OnUnassign(void*, const ru_fleet_msg* msg) {
     }
     const std::optional<MatchProfile> prev = g_tracker.active;
     if (g_tracker.Unassign(id) && prev && !g_tracker.active) {
-      Linger(prev);
-      ru_logf(g_api, RU_LOG_INFO, "tv: match unassigned: back to the server's broadcast settings");
+      if (!Linger(prev)) ru_logf(g_api, RU_LOG_INFO, "tv: match unassigned: back to the server's GOTV settings");
       PersistActive();
       Apply(true);
     }
