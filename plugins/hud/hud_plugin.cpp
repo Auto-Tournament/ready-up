@@ -1681,10 +1681,40 @@ bool HeldButtons(int slot, uint64_t* held, bool* defusing) {
   return true;
 }
 
-// What holding Use does for `slot` now: the open card's first live button (its id in *button),
-// else `.menu` (*button empty). False: nothing, the chip hides.
+// A class's state as `slot` sees it in a layout we already have (never opens one): the slot's own
+// value if it set one, else everyone's.
+bool ClassOn(const char* path, int slot, const char* panel, const char* cls) {
+  for (const Layout& l : g_layouts) {
+    if (l.path != path) continue;
+    const Key k{panel, cls};
+    auto s = l.slots.find(slot);
+    if (s != l.slots.end()) {
+      auto c = s->second.classes.find(k);
+      if (c != s->second.classes.end()) return c->second;
+    }
+    auto a = l.slots.find(RU_HUD_ALL);
+    if (a != l.slots.end()) {
+      auto c = a->second.classes.find(k);
+      if (c != a->second.classes.end()) return c->second;
+    }
+    return false;
+  }
+  return false;
+}
+
+const char* kKitLayout = "panorama/layout/custom_game/at_kit.xml";
+
+// What holding Use does for `slot` now: close the end-of-map leaderboard while it is up (`.lb`,
+// *button "#cmd .lb"), else the open card's first live button (its id in *button; with the
+// leaderboard closed that is match.so's Scoreboard), else `.menu` (*button empty). False:
+// nothing, the chip hides.
 bool HoldAction(int slot, std::string* label, std::string* button) {
   button->clear();
+  if (ClassOn(kKitLayout, slot, "at_end", "on") && ClassOn(kKitLayout, slot, "at_end", "can-close")) {
+    *label = g_text.Tr(readyup::i18n::LanguageOf(g_api, slot), "hud.hold_close");
+    *button = "#cmd .lb";
+    return true;
+  }
   auto it = g_screens.find(slot);
   if (it != g_screens.end() && it->second.shown && !it->second.dismissed && !it->second.clicked && !DemoActive(slot)) {
     const Screen& s = it->second.cur;
@@ -1750,7 +1780,9 @@ void HoldTick() {
       hs.fired = true;
       ru_logf(g_api, RU_LOG_INFO, "hold: slot %d %s", slot, button.empty() ? "opens .menu" : button.c_str());
       HoldShow(slot, hs, has ? label : "", false);
-      if (!button.empty()) {
+      if (button.rfind("#cmd ", 0) == 0) {
+        if (RU_API_HAS(g_api, run_chat_command)) g_api->run_chat_command(g_api->self, slot, button.substr(5).c_str());
+      } else if (!button.empty()) {
         ScreenClick(slot, button);
       } else {
         for (const auto& pr : g_providers) {

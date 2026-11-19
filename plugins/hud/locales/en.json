@@ -1,5 +1,6 @@
 {
   "menu.none": "No menu on this server right now.",
   "hud.outdated": "HUD out of date. On the platform, click ? and choose HUD.",
-  "hud.hold_menu": "Menu"
+  "hud.hold_menu": "Menu",
+  "hud.hold_close": "Close"
 }

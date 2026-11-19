@@ -1,5 +1,6 @@
 {
   "menu.none": "このサーバーには今メニューがありません。",
   "hud.outdated": "HUDが古くなっています。プラットフォームで ? をクリックし、HUD を選んでください。",
-  "hud.hold_menu": "メニュー"
+  "hud.hold_menu": "メニュー",
+  "hud.hold_close": "閉じる"
 }

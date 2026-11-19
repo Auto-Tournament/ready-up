@@ -1,5 +1,6 @@
 {
   "menu.none": "Most nincs menü ezen a szerveren.",
   "hud.outdated": "A HUD elavult. A platformon kattints a ? gombra, és válaszd a HUD-ot.",
-  "hud.hold_menu": "Menü"
+  "hud.hold_menu": "Menü",
+  "hud.hold_close": "Bezárás"
 }
