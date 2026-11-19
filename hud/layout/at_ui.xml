@@ -471,5 +471,17 @@
 <Panel id="ui_ver" class="ui-ver" hittest="false">
 <Label id="ui_ver_t" class="ui-vertext" text="{s:text}" hittest="false" />
 </Panel>
+<Panel id="ui_hold" class="ui-hold" hittest="false">
+<Panel class="ui-holdbg" hittest="false" />
+<Panel class="ui-holdfill" hittest="false" />
+<Panel class="ui-holdbody" hittest="false">
+<Panel class="ui-kc" hittest="false">
+<Panel class="ui-kcbr ui-kcl" hittest="false" />
+<Panel class="ui-kcbr ui-kcr" hittest="false" />
+<Label id="ui_hold_k" class="ui-kct" text="{g:csgo_key:k}" hittest="false" />
+</Panel>
+<Label id="ui_hold_t" class="ui-holdt" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
 </Panel>
 </root>

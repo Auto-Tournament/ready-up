@@ -1,4 +1,5 @@
 {
   "menu.none": "Det er ingen meny på denne serveren akkurat nå.",
-  "hud.outdated": "HUD-en er utdatert. Klikk på ? på plattformen og velg HUD."
+  "hud.outdated": "HUD-en er utdatert. Klikk på ? på plattformen og velg HUD.",
+  "hud.hold_menu": "Meny"
 }

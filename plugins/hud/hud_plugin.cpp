@@ -924,6 +924,8 @@ void ProbeTick() {
   g_probe.last = held;
 }
 
+void HoldTick();  // hold Use: defined with the menu providers below
+
 // ---- ticks and events ------------------------------------------------------------------------
 
 // HUD scale (at_ui's wraps, scale-70 .. scale-100): `scale=` in the plugin's cfg, `ru hudkit scale` (default 75).
@@ -979,6 +981,7 @@ void OnTick(void*, const ru_tick_info* t) {
   DrainClicks();
   CaptureSweep();
   ProbeTick();
+  HoldTick();
   TourTick();
   for (size_t i = 0; i < g_later.size();) {
     if (g_later[i].first <= g_now) {
@@ -1632,6 +1635,135 @@ bool OpenProviderMenu(int slot, const std::string& owner) {
     return true;
   }
   return false;
+}
+
+// ---- hold Use --------------------------------------------------------------------------------
+// Holding the key bound to +use (E) for kHoldSeconds does the obvious thing without the mouse: it
+// presses the first live button of the open card (Ready, Unready, a vote), or else opens `.menu`.
+// #ui_hold in at_ui shows the player's own key and the action, `on` when there is one, `hold`
+// while the key is down (its fill runs for the same time in at_ui.css). Never while defusing,
+// and the key must come up before it can fire again.
+
+constexpr double kHoldSeconds = 0.6;  // = the 0.6s animations in at_ui.css (.ui-hold.hold)
+constexpr uint64_t kInUse = 1ull << 5;  // CS2's IN_USE in m_pButtonStates[0] (see ButtonName)
+
+struct HoldSlot {
+  bool down = false;     // the key is held and counting
+  bool fired = false;    // it did its thing: wait for the key to come up
+  double since = 0;
+  std::string label;     // what #ui_hold says now ("" = hidden)
+  bool holdClass = false;
+};
+std::map<int, HoldSlot> g_hold;
+
+// The held buttons of a slot's pawn and whether it is defusing. False if it has none (dead, spectating).
+bool HeldButtons(int slot, uint64_t* held, bool* defusing) {
+  static int ctrlPawn = -2, pawnMove = -2, moveButtons = -2, btnStates = -2, isDefusing = -2;
+  if (ctrlPawn == -2) {
+    ctrlPawn = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_hPlayerPawn");
+    pawnMove = g_api->schema_offset(g_api->self, "CBasePlayerPawn", "m_pMovementServices");
+    moveButtons = g_api->schema_offset(g_api->self, "CPlayer_MovementServices", "m_nButtons");
+    btnStates = g_api->schema_offset(g_api->self, "CInButtonState", "m_pButtonStates");
+    isDefusing = g_api->schema_offset(g_api->self, "CCSPlayerPawn", "m_bIsDefusing");
+  }
+  if (ctrlPawn < 0 || pawnMove < 0 || moveButtons < 0 || btnStates < 0) return false;
+  void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
+  if (!ctrl) return false;
+  uint32_t h = 0;
+  std::memcpy(&h, static_cast<uint8_t*>(ctrl) + ctrlPawn, sizeof(h));
+  void* pawn = g_api->entity_from_handle(g_api->self, h);
+  if (!pawn) return false;
+  void* move = nullptr;
+  std::memcpy(&move, static_cast<uint8_t*>(pawn) + pawnMove, sizeof(move));
+  if (!move) return false;
+  std::memcpy(held, static_cast<uint8_t*>(move) + moveButtons + btnStates, sizeof(*held));
+  *defusing = isDefusing >= 0 && *(static_cast<uint8_t*>(pawn) + isDefusing) != 0;
+  return true;
+}
+
+// What holding Use does for `slot` now: the open card's first live button (its id in *button),
+// else `.menu` (*button empty). False: nothing, the chip hides.
+bool HoldAction(int slot, std::string* label, std::string* button) {
+  button->clear();
+  auto it = g_screens.find(slot);
+  if (it != g_screens.end() && it->second.shown && !it->second.dismissed && !it->second.clicked && !DemoActive(slot)) {
+    const Screen& s = it->second.cur;
+    for (size_t i = 0; i < s.buttons.size(); ++i) {
+      const Button& b = s.buttons[i];
+      if (b.state == "off" || b.cmd.empty() || b.label.empty()) continue;
+      *label = b.label;
+      *button = PanelOf(s) + "_b" + std::to_string(i);
+      return true;
+    }
+  }
+  if (HasMenu(slot)) return false;  // a menu is already open
+  for (const auto& p : g_providers) {
+    if (p.active(p.user, slot)) {
+      *label = g_text.Tr(readyup::i18n::LanguageOf(g_api, slot), "hud.hold_menu");
+      return true;
+    }
+  }
+  return false;
+}
+
+void HoldShow(int slot, HoldSlot& hs, const std::string& label, bool hold) {
+  const int h = IfOpen(kUiLayout);
+  if (label != hs.label) {
+    if (!label.empty()) {
+      IfSetText(h, slot, "ui_hold_t", "text", label.c_str());
+      IfSetText(h, slot, "ui_hold_k", "k", "+use");
+    }
+    IfSetClass(h, slot, "ui_hold", "on", label.empty() ? 0 : 1);
+    hs.label = label;
+  }
+  if (hold != hs.holdClass) {
+    IfSetClass(h, slot, "ui_hold", "hold", hold ? 1 : 0);
+    hs.holdClass = hold;
+  }
+}
+
+void HoldTick() {
+  for (int slot = 0; slot <= 63; ++slot) {
+    ru_player p{};
+    p.struct_size = sizeof(p);
+    const bool human = g_api->get_player(g_api->self, slot, &p) && p.connected && !p.is_bot && p.steamid64;
+    if (!human) {
+      g_hold.erase(slot);
+      continue;
+    }
+    HoldSlot& hs = g_hold[slot];
+    std::string label, button;
+    const bool has = HoldAction(slot, &label, &button);
+    uint64_t held = 0;
+    bool defusing = false;
+    const bool use = HeldButtons(slot, &held, &defusing) && (held & kInUse) && !defusing;
+    if (!use) {
+      hs.down = false;
+      hs.fired = false;
+    } else if (has && !hs.down && !hs.fired) {
+      hs.down = true;
+      hs.since = g_now;
+    }
+    if (!has) hs.down = false;
+    if (hs.down && !hs.fired && g_now - hs.since >= kHoldSeconds) {
+      hs.down = false;
+      hs.fired = true;
+      ru_logf(g_api, RU_LOG_INFO, "hold: slot %d %s", slot, button.empty() ? "opens .menu" : button.c_str());
+      HoldShow(slot, hs, has ? label : "", false);
+      if (!button.empty()) {
+        ScreenClick(slot, button);
+      } else {
+        for (const auto& pr : g_providers) {
+          if (pr.active(pr.user, slot)) {
+            pr.open(pr.user, slot, p.steamid64);
+            break;
+          }
+        }
+      }
+      continue;
+    }
+    HoldShow(slot, hs, has ? label : "", hs.down);
+  }
 }
 
 void OnMenuChat(void*, const ru_command_ctx* ctx) {

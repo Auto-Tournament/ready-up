@@ -1,4 +1,5 @@
 {
   "menu.none": "Şu anda bu sunucuda menü yok.",
-  "hud.outdated": "HUD güncel değil. Platformda ? simgesine tıkla ve HUD'u seç."
+  "hud.outdated": "HUD güncel değil. Platformda ? simgesine tıkla ve HUD'u seç.",
+  "hud.hold_menu": "Menü"
 }

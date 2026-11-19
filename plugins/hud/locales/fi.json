@@ -1,4 +1,5 @@
 {
   "menu.none": "Tällä palvelimella ei ole nyt valikkoa.",
-  "hud.outdated": "HUD on vanhentunut. Napsauta alustalla ? ja valitse HUD."
+  "hud.outdated": "HUD on vanhentunut. Napsauta alustalla ? ja valitse HUD.",
+  "hud.hold_menu": "Valikko"
 }
