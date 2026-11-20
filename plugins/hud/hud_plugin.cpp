@@ -1655,10 +1655,10 @@ struct HoldSlot {
   bool holdClass = false;
 };
 std::map<int, HoldSlot> g_hold;
-// What {g:csgo_key:k} in #ui_hold_k looks up: the binding whose key the client shows. CS2 printed
-// "+use" back as text, so the lookup wants another spelling; `ru hudkit holdkey <value>` tries
-// one live (2026-11-20).
-std::string g_holdKey = "use";
+// The key the hold chip and buttons show. {g:csgo_key:k} in at_ui gives the value back as it is
+// ("+use" and "use" both showed as text, 2026-11-20), so this is the key itself: E, CS2's default
+// for +use. `ru hudkit holdkey <text>` changes it live.
+std::string g_holdKey = "E";
 
 // The held buttons of a slot's pawn and whether it is defusing. False if it has none (dead, spectating).
 bool HeldButtons(int slot, uint64_t* held, bool* defusing) {
