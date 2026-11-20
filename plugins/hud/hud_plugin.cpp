@@ -1655,6 +1655,10 @@ struct HoldSlot {
   bool holdClass = false;
 };
 std::map<int, HoldSlot> g_hold;
+// What {g:csgo_key:k} in #ui_hold_k looks up: the binding whose key the client shows. CS2 printed
+// "+use" back as text, so the lookup wants another spelling; `ru hudkit holdkey <value>` tries
+// one live (2026-11-20).
+std::string g_holdKey = "use";
 
 // The held buttons of a slot's pawn and whether it is defusing. False if it has none (dead, spectating).
 bool HeldButtons(int slot, uint64_t* held, bool* defusing) {
@@ -1741,7 +1745,7 @@ void HoldShow(int slot, HoldSlot& hs, const std::string& label, bool hold) {
   if (label != hs.label) {
     if (!label.empty()) {
       IfSetText(h, slot, "ui_hold_t", "text", label.c_str());
-      IfSetText(h, slot, "ui_hold_k", "k", "+use");
+      IfSetText(h, slot, "ui_hold_k", "k", g_holdKey.c_str());
     }
     IfSetClass(h, slot, "ui_hold", "on", label.empty() ? 0 : 1);
     hs.label = label;
@@ -1913,6 +1917,11 @@ void OnRu(void*, const ru_command_ctx* ctx) {
       DemoShow(slot, name);
     }
     Reply(ctx, "demo " + name + " for " + std::to_string(slots.size()) + " player(s) (60 s); click hook " + g_clickHookStatus);
+  } else if (sub == "holdkey") {  // ru hudkit holdkey <binding>: what the hold chip's key lookup gets
+    if (ctx->argc < 4) return Reply(ctx, "holdkey: " + g_holdKey);
+    g_holdKey = ctx->argv[3];
+    for (auto& kv : g_hold) kv.second.label.clear();  // rewrite every chip next tick
+    Reply(ctx, "holdkey: " + g_holdKey);
   } else if (sub == "scale") {  // ru hudkit scale [70..100]: the HUD's size (until a restart; cfg scale= keeps it)
     if (ctx->argc < 4) return Reply(ctx, "HUD scale: " + std::to_string(g_scale) + "% (70 to 100, steps of 5)");
     const int v = ParseScale(ctx->argv[3]);
