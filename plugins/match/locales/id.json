@@ -167,6 +167,8 @@
   "spec.kind_warmup": "Pemanasan",
   "spec.press_b": "Tekan B untuk klik",
   "spec.or_type": "Atau ketik",
+  "spec.hold_ready": "Tahan E untuk siap, atau ketik",
+  "spec.hold_unready": "Tahan E untuk batal siap, atau ketik",
   "spec.knife_round": "Ronde pisau",
   "spec.winners_pick": "Pemenang memilih sisi",
   "spec.you_won_knife": "Tim Anda menang ronde pisau",

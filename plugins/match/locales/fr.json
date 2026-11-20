@@ -171,6 +171,8 @@
   "spec.kind_warmup": "Échauffement",
   "spec.press_b": "Appuie sur B pour cliquer",
   "spec.or_type": "Ou tape",
+  "spec.hold_ready": "Maintiens E pour être prêt, ou tape",
+  "spec.hold_unready": "Maintiens E pour ne plus être prêt, ou tape",
   "spec.knife_round": "Manche knife",
   "spec.winners_pick": "Les gagnants choisissent un camp",
   "spec.you_won_knife": "Vous avez gagné la manche knife",

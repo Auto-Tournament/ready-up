@@ -506,7 +506,8 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
   // Ready can be typed as well: the button needs the buy menu (B), which a dead player can't open.
   if (!btn.empty()) {
     s += btn + L("bw", "l") + L("hint", T(lang, "spec.press_b")) +
-         L("cmd", T(lang, "spec.or_type") + (me && me->ready ? "|.ur" : "|.r")) + L("mouse", "b");
+         L("cmd", T(lang, me && me->ready ? "spec.hold_unready" : "spec.hold_ready") + (me && me->ready ? "|.ur" : "|.r")) +
+         L("mouse", "b");
   }
   return s;
 }

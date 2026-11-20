@@ -171,6 +171,8 @@
   "spec.kind_warmup": "Aquecimento",
   "spec.press_b": "Aperte B para clicar",
   "spec.or_type": "Ou digite",
+  "spec.hold_ready": "Segure E para ficar pronto, ou digite",
+  "spec.hold_unready": "Segure E para deixar de estar pronto, ou digite",
   "spec.knife_round": "Round de faca",
   "spec.winners_pick": "Os vencedores escolhem o lado",
   "spec.you_won_knife": "Vocês venceram o round de faca",

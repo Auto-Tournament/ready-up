@@ -171,6 +171,8 @@
   "spec.kind_warmup": "Uppvärmning",
   "spec.press_b": "Tryck B för att klicka",
   "spec.or_type": "Eller skriv",
+  "spec.hold_ready": "Håll E för att bli redo, eller skriv",
+  "spec.hold_unready": "Håll E för att bli inte redo, eller skriv",
   "spec.knife_round": "Knivrunda",
   "spec.winners_pick": "Vinnarna väljer sida",
   "spec.you_won_knife": "Ni vann knivrundan",

@@ -171,6 +171,8 @@
   "spec.kind_warmup": "Προθέρμανση",
   "spec.press_b": "Πάτα B για κλικ",
   "spec.or_type": "Ή γράψε",
+  "spec.hold_ready": "Κράτα το E για έτοιμος, ή γράψε",
+  "spec.hold_unready": "Κράτα το E για μη έτοιμος, ή γράψε",
   "spec.knife_round": "Γύρος με μαχαίρια",
   "spec.winners_pick": "Οι νικητές διαλέγουν πλευρά",
   "spec.you_won_knife": "Κερδίσατε τον γύρο με μαχαίρια",
