@@ -60,6 +60,9 @@
               },
               "role": {
                 "$ref": "../match.defs.json#/$defs/role"
+              },
+              "rating": {
+                "$ref": "../match.defs.json#/$defs/rating"
               }
             }
           },
