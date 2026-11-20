@@ -66,8 +66,15 @@ def block(p):
     rows = panel(f"{p}_lines", "ui-lines", children="".join(
         panel(f"{p}_n{n}", "ui-row", label(f"{p}_n{n}_k", "ui-rowk") + label(f"{p}_n{n}_v", "ui-rowv"))
         for n in range(5)))
+    # The first button can be held with Use (hud.so puts `holdable` on it, then `hold` while the key
+    # is down): a fill behind the label and the player's own key ({g:csgo_key:k}) at its left.
+    def hold_parts(n):
+        if n:
+            return ""
+        return panel(cls="ui-btnfill") + panel(cls="ui-btnkey", children=(
+            panel(cls="ui-kcbr ui-kcl") + panel(cls="ui-kcbr ui-kcr") + label(f"{p}_b0_k", "ui-kct", "{g:csgo_key:k}")))
     buttons = panel(f"{p}_buttons", "ui-buttons", children="".join(
-        button(f"{p}_b{n}", "ui-btn", panel(cls="ui-btnglow") + label(f"{p}_b{n}_l", "ui-btnlabel") + label(f"{p}_b{n}_s", "ui-btnsub"))
+        button(f"{p}_b{n}", "ui-btn", panel(cls="ui-btnglow") + hold_parts(n) + label(f"{p}_b{n}_l", "ui-btnlabel") + label(f"{p}_b{n}_s", "ui-btnsub"))
         for n in range(24)))
     close = button(f"{p}_close", "ui-close", label(f"{p}_close_l", "ui-closelabel"))
     # Behind the content: a wash of the accent from the left and a few breathing pixels (cs2-ui-kit).

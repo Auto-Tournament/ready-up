@@ -1638,11 +1638,10 @@ bool OpenProviderMenu(int slot, const std::string& owner) {
 }
 
 // ---- hold Use --------------------------------------------------------------------------------
-// Holding the key bound to +use (E) for kHoldSeconds does the obvious thing without the mouse: it
-// presses the first live button of the open card (Ready, Unready, a vote), or else opens `.menu`.
-// #ui_hold in at_ui shows the player's own key and the action, `on` when there is one, `hold`
-// while the key is down (its fill runs for the same time in at_ui.css). Never while defusing,
-// and the key must come up before it can fire again.
+// Holding the key bound to +use (E) for kHoldSeconds does the obvious thing without the mouse (see
+// HoldAction): close the leaderboard or a menu, press the open card's first button (Ready), or
+// open `.menu`. The card button shows the player's own key and fills while held; otherwise #ui_hold
+// in at_ui does. Never while defusing, and the key must come up before it can fire again.
 
 constexpr double kHoldSeconds = 0.6;  // = the 0.6s animations in at_ui.css (.ui-hold.hold)
 constexpr uint64_t kInUse = 1ull << 5;  // CS2's IN_USE in m_pButtonStates[0] (see ButtonName)
@@ -1652,6 +1651,7 @@ struct HoldSlot {
   bool fired = false;    // it did its thing: wait for the key to come up
   double since = 0;
   std::string label;     // what #ui_hold says now ("" = hidden)
+  std::string button;    // the card button that has `holdable` ("" = none)
   bool holdClass = false;
 };
 std::map<int, HoldSlot> g_hold;
@@ -1708,50 +1708,82 @@ bool ClassOn(const char* path, int slot, const char* panel, const char* cls) {
 
 const char* kKitLayout = "panorama/layout/custom_game/at_kit.xml";
 
-// What holding Use does for `slot` now: close the end-of-map leaderboard while it is up (`.lb`,
-// *button "#cmd .lb"), else the open card's first live button (its id in *button; with the
-// leaderboard closed that is match.so's Scoreboard), else `.menu` (*button empty). False:
-// nothing, the chip hides.
-bool HoldAction(int slot, std::string* label, std::string* button) {
-  button->clear();
+// What holding Use does for `slot` now, in order:
+//  - the end-of-map leaderboard is up: close it (`.lb`), on the chip;
+//  - a menu is open: close it (its close button), on the chip, never one of its buttons;
+//  - a card is up and its first button is live (Ready, Unready, Scoreboard): press it, shown on
+//    that button itself (`holdable`, `hold`) and not on the chip;
+//  - a menu provider is active: open `.menu`, on the chip.
+// False: nothing to do, chip and button stay plain.
+struct HoldTarget {
+  std::string label;   // the chip's text ("" when the button shows it)
+  std::string action;  // "#cmd <chat>", a button id for ScreenClick, or "" for `.menu`
+  std::string button;  // the button that shows the hold ("" = the chip)
+};
+
+bool HoldAction(int slot, HoldTarget* t) {
+  *t = HoldTarget{};
+  const std::string lang = readyup::i18n::LanguageOf(g_api, slot);
   if (ClassOn(kKitLayout, slot, "at_end", "on") && ClassOn(kKitLayout, slot, "at_end", "can-close")) {
-    *label = g_text.Tr(readyup::i18n::LanguageOf(g_api, slot), "hud.hold_close");
-    *button = "#cmd .lb";
+    t->label = g_text.Tr(lang, "hud.hold_close");
+    t->action = "#cmd .lb";
     return true;
   }
   auto it = g_screens.find(slot);
-  if (it != g_screens.end() && it->second.shown && !it->second.dismissed && !it->second.clicked && !DemoActive(slot)) {
-    const Screen& s = it->second.cur;
-    for (size_t i = 0; i < s.buttons.size(); ++i) {
-      const Button& b = s.buttons[i];
-      if (b.state == "off" || b.cmd.empty() || b.label.empty()) continue;
-      *label = b.label;
-      *button = PanelOf(s) + "_b" + std::to_string(i);
+  const bool card = it != g_screens.end() && it->second.shown && !it->second.dismissed && !DemoActive(slot);
+  if (HasMenu(slot)) {
+    if (!card) return false;
+    t->label = g_text.Tr(lang, "hud.hold_close");
+    t->action = PanelOf(it->second.cur) + "_close";
+    return true;
+  }
+  if (card && !it->second.clicked && !it->second.cur.buttons.empty()) {
+    const Button& b = it->second.cur.buttons[0];
+    if (b.state != "off" && !b.cmd.empty() && !b.label.empty()) {
+      t->button = PanelOf(it->second.cur) + "_b0";
+      t->action = t->button;
       return true;
     }
   }
-  if (HasMenu(slot)) return false;  // a menu is already open
   for (const auto& p : g_providers) {
     if (p.active(p.user, slot)) {
-      *label = g_text.Tr(readyup::i18n::LanguageOf(g_api, slot), "hud.hold_menu");
+      t->label = g_text.Tr(lang, "hud.hold_menu");
       return true;
     }
   }
   return false;
 }
 
-void HoldShow(int slot, HoldSlot& hs, const std::string& label, bool hold) {
+// Draws the hold: the chip (#ui_hold) or a card button, and `hold` on whichever shows it.
+void HoldShow(int slot, HoldSlot& hs, const HoldTarget& t, bool has, bool hold) {
   const int h = IfOpen(kUiLayout);
-  if (label != hs.label) {
-    if (!label.empty()) {
-      IfSetText(h, slot, "ui_hold_t", "text", label.c_str());
+  const std::string chip = has && t.button.empty() ? t.label : "";
+  if (chip != hs.label) {
+    if (!chip.empty()) {
+      IfSetText(h, slot, "ui_hold_t", "text", chip.c_str());
       IfSetText(h, slot, "ui_hold_k", "k", g_holdKey.c_str());
     }
-    IfSetClass(h, slot, "ui_hold", "on", label.empty() ? 0 : 1);
-    hs.label = label;
+    IfSetClass(h, slot, "ui_hold", "on", chip.empty() ? 0 : 1);
+    hs.label = chip;
+  }
+  const std::string button = has ? t.button : "";
+  if (button != hs.button) {
+    if (!hs.button.empty()) {
+      IfSetClass(h, slot, hs.button.c_str(), "hold", 0);
+      IfSetClass(h, slot, hs.button.c_str(), "holdable", 0);
+      IfSetClass(h, slot, hs.button.substr(0, hs.button.size() - 3).c_str(), "holdable", 0);  // the panel
+    }
+    if (!button.empty()) {
+      IfSetText(h, slot, (button + "_k").c_str(), "k", g_holdKey.c_str());
+      IfSetClass(h, slot, button.c_str(), "holdable", 1);
+      IfSetClass(h, slot, button.substr(0, button.size() - 3).c_str(), "holdable", 1);
+    }
+    hs.button = button;
+    hs.holdClass = false;
+    IfSetClass(h, slot, "ui_hold", "hold", 0);
   }
   if (hold != hs.holdClass) {
-    IfSetClass(h, slot, "ui_hold", "hold", hold ? 1 : 0);
+    IfSetClass(h, slot, hs.button.empty() ? "ui_hold" : hs.button.c_str(), "hold", hold ? 1 : 0);
     hs.holdClass = hold;
   }
 }
@@ -1766,8 +1798,8 @@ void HoldTick() {
       continue;
     }
     HoldSlot& hs = g_hold[slot];
-    std::string label, button;
-    const bool has = HoldAction(slot, &label, &button);
+    HoldTarget t;
+    const bool has = HoldAction(slot, &t);
     uint64_t held = 0;
     bool defusing = false;
     const bool use = HeldButtons(slot, &held, &defusing) && (held & kInUse) && !defusing;
@@ -1782,12 +1814,12 @@ void HoldTick() {
     if (hs.down && !hs.fired && g_now - hs.since >= kHoldSeconds) {
       hs.down = false;
       hs.fired = true;
-      ru_logf(g_api, RU_LOG_INFO, "hold: slot %d %s", slot, button.empty() ? "opens .menu" : button.c_str());
-      HoldShow(slot, hs, has ? label : "", false);
-      if (button.rfind("#cmd ", 0) == 0) {
-        if (RU_API_HAS(g_api, run_chat_command)) g_api->run_chat_command(g_api->self, slot, button.substr(5).c_str());
-      } else if (!button.empty()) {
-        ScreenClick(slot, button);
+      ru_logf(g_api, RU_LOG_INFO, "hold: slot %d %s", slot, t.action.empty() ? "opens .menu" : t.action.c_str());
+      HoldShow(slot, hs, t, has, false);
+      if (t.action.rfind("#cmd ", 0) == 0) {
+        if (RU_API_HAS(g_api, run_chat_command)) g_api->run_chat_command(g_api->self, slot, t.action.substr(5).c_str());
+      } else if (!t.action.empty()) {
+        ScreenClick(slot, t.action);
       } else {
         for (const auto& pr : g_providers) {
           if (pr.active(pr.user, slot)) {
@@ -1798,7 +1830,7 @@ void HoldTick() {
       }
       continue;
     }
-    HoldShow(slot, hs, has ? label : "", hs.down);
+    HoldShow(slot, hs, t, has, hs.down);
   }
 }
 
