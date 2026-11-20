@@ -928,8 +928,8 @@ void HoldTick();  // hold Use: defined with the menu providers below
 
 // ---- rank test ---------------------------------------------------------------------------------
 // `ru hudkit rank <slot|all> <type> <value> [wins]`: writes CCSPlayerController's competitive rank
-// (m_iCompetitiveRankType, m_iCompetitiveRanking, m_iCompetitiveWins) and keeps writing it once a
-// second, to see what the Tab scoreboard shows for each type (the platform rating as a CS Rating,
+// (m_iCompetitiveRankType, m_iCompetitiveRanking, m_iCompetitiveWins) and keeps writing it every
+// tick, to see what the Tab scoreboard shows for each type (the platform rating as a CS Rating,
 // 2026-11-20). `ru hudkit rank off` stops (the values stay until the game overwrites them).
 struct RankTest {
   int type = 0, value = 0, wins = 0;
@@ -961,8 +961,9 @@ void RankWrite(int slot, const RankTest& r) {
 }
 
 void RankTick() {
-  if (g_rankTest.empty() || g_now < g_rankNext) return;
-  g_rankNext = g_now + 1.0;
+  // Every tick: CS2 writes its own values back between our writes, and once a second flickered
+  // (2026-11-20). RankWrite only marks the controller changed when a value differs.
+  if (g_rankTest.empty()) return;
   for (int slot = 0; slot <= 63; ++slot) {
     auto it = g_rankTest.find(slot);
     if (it == g_rankTest.end()) it = g_rankTest.find(RU_HUD_ALL);
