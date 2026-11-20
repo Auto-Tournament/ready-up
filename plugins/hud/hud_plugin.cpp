@@ -926,6 +926,54 @@ void ProbeTick() {
 
 void HoldTick();  // hold Use: defined with the menu providers below
 
+// ---- rank test ---------------------------------------------------------------------------------
+// `ru hudkit rank <slot|all> <type> <value> [wins]`: writes CCSPlayerController's competitive rank
+// (m_iCompetitiveRankType, m_iCompetitiveRanking, m_iCompetitiveWins) and keeps writing it once a
+// second, to see what the Tab scoreboard shows for each type (the platform rating as a CS Rating,
+// 2026-11-20). `ru hudkit rank off` stops (the values stay until the game overwrites them).
+struct RankTest {
+  int type = 0, value = 0, wins = 0;
+};
+std::map<int, RankTest> g_rankTest;  // slot (RU_HUD_ALL = everyone) -> what to write
+double g_rankNext = 0;
+
+void RankWrite(int slot, const RankTest& r) {
+  static int offType = -2, offRank = -2, offWins = -2;
+  if (offType == -2) {
+    offType = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_iCompetitiveRankType");
+    offRank = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_iCompetitiveRanking");
+    offWins = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_iCompetitiveWins");
+    ru_logf(g_api, RU_LOG_INFO, "rank test: offsets type=%d ranking=%d wins=%d", offType, offRank, offWins);
+  }
+  if (offType < 0 || offRank < 0) return;
+  void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
+  if (!ctrl) return;
+  auto* b = static_cast<uint8_t*>(ctrl);
+  const int8_t type = static_cast<int8_t>(r.type);
+  const int32_t value = r.value, wins = r.wins;
+  if (*reinterpret_cast<int8_t*>(b + offType) == type && *reinterpret_cast<int32_t*>(b + offRank) == value &&
+      (offWins < 0 || *reinterpret_cast<int32_t*>(b + offWins) == wins))
+    return;
+  std::memcpy(b + offType, &type, sizeof(type));
+  std::memcpy(b + offRank, &value, sizeof(value));
+  if (offWins >= 0) std::memcpy(b + offWins, &wins, sizeof(wins));
+  g_api->entity_mark_changed(g_api->self, ctrl);
+}
+
+void RankTick() {
+  if (g_rankTest.empty() || g_now < g_rankNext) return;
+  g_rankNext = g_now + 1.0;
+  for (int slot = 0; slot <= 63; ++slot) {
+    auto it = g_rankTest.find(slot);
+    if (it == g_rankTest.end()) it = g_rankTest.find(RU_HUD_ALL);
+    if (it == g_rankTest.end()) continue;
+    ru_player p{};
+    p.struct_size = sizeof(p);
+    if (!g_api->get_player(g_api->self, slot, &p) || !p.connected) continue;
+    RankWrite(slot, it->second);
+  }
+}
+
 // ---- ticks and events ------------------------------------------------------------------------
 
 // HUD scale (at_ui's wraps, scale-70 .. scale-100): `scale=` in the plugin's cfg, `ru hudkit scale` (default 75).
@@ -982,6 +1030,7 @@ void OnTick(void*, const ru_tick_info* t) {
   CaptureSweep();
   ProbeTick();
   HoldTick();
+  RankTick();
   TourTick();
   for (size_t i = 0; i < g_later.size();) {
     if (g_later[i].first <= g_now) {
@@ -1946,6 +1995,20 @@ void OnRu(void*, const ru_command_ctx* ctx) {
       DemoShow(slot, name);
     }
     Reply(ctx, "demo " + name + " for " + std::to_string(slots.size()) + " player(s) (60 s); click hook " + g_clickHookStatus);
+  } else if (sub == "rank") {  // ru hudkit rank <slot|all> <type> <value> [wins] | off
+    if (ctx->argc >= 4 && std::strcmp(ctx->argv[3], "off") == 0) {
+      g_rankTest.clear();
+      return Reply(ctx, "rank test: off");
+    }
+    if (ctx->argc < 6) return Reply(ctx, "usage: ru hudkit rank <slot|all> <type> <value> [wins] | off");
+    RankTest r;
+    r.type = std::atoi(ctx->argv[4]);
+    r.value = std::atoi(ctx->argv[5]);
+    r.wins = ctx->argc > 6 ? std::atoi(ctx->argv[6]) : 100;
+    g_rankTest[ParseSlot(ctx->argv[3])] = r;
+    g_rankNext = 0;
+    Reply(ctx, "rank test: slot " + std::string(ctx->argv[3]) + " type " + std::to_string(r.type) + " value " +
+                   std::to_string(r.value) + " wins " + std::to_string(r.wins));
   } else if (sub == "holdkey") {  // ru hudkit holdkey <binding>: what the hold chip's key lookup gets
     if (ctx->argc < 4) return Reply(ctx, "holdkey: " + g_holdKey);
     g_holdKey = ctx->argv[3];
