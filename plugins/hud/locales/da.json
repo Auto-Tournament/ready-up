@@ -1,4 +1,6 @@
 {
   "menu.none": "Der er ingen menu på denne server lige nu.",
-  "hud.outdated": "HUD'en er forældet. Klik på ? på platformen, og vælg HUD."
+  "hud.outdated": "HUD'en er forældet. Klik på ? på platformen, og vælg HUD.",
+  "hud.hold_menu": "Menu",
+  "hud.hold_close": "Luk"
 }

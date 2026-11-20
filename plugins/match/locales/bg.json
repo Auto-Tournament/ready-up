@@ -171,6 +171,8 @@
   "spec.kind_warmup": "Загрявка",
   "spec.press_b": "Натисни B, за да кликнеш",
   "spec.or_type": "Или напиши",
+  "spec.hold_ready": "Задръж E, за да си готов, или напиши",
+  "spec.hold_unready": "Задръж E, за да не си готов, или напиши",
   "spec.knife_round": "Рунд с ножове",
   "spec.winners_pick": "Победителите избират страна",
   "spec.you_won_knife": "Спечелихте рунда с ножове",

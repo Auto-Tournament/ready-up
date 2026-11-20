@@ -167,6 +167,8 @@
   "spec.kind_warmup": "วอร์มอัป",
   "spec.press_b": "กด B เพื่อคลิก",
   "spec.or_type": "หรือพิมพ์",
+  "spec.hold_ready": "กด E ค้างไว้เพื่อพร้อม หรือพิมพ์",
+  "spec.hold_unready": "กด E ค้างไว้เพื่อยกเลิกความพร้อม หรือพิมพ์",
   "spec.knife_round": "รอบมีด",
   "spec.winners_pick": "ผู้ชนะเลือกฝั่ง",
   "spec.you_won_knife": "ทีมคุณชนะรอบมีด",

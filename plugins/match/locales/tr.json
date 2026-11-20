@@ -171,6 +171,8 @@
   "spec.kind_warmup": "Isınma",
   "spec.press_b": "Tıklamak için B'ye bas",
   "spec.or_type": "Ya da yaz",
+  "spec.hold_ready": "Hazır olmak için E'yi basılı tut ya da yaz",
+  "spec.hold_unready": "Hazırı iptal etmek için E'yi basılı tut ya da yaz",
   "spec.knife_round": "Bıçak raundu",
   "spec.winners_pick": "Kazananlar tarafı seçer",
   "spec.you_won_knife": "Bıçak raundunu kazandınız",

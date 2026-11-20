@@ -167,6 +167,8 @@
   "spec.kind_warmup": "ウォームアップ",
   "spec.press_b": "B を押してクリック",
   "spec.or_type": "または入力",
+  "spec.hold_ready": "Eを長押しで準備完了、または入力",
+  "spec.hold_unready": "Eを長押しで準備解除、または入力",
   "spec.knife_round": "ナイフラウンド",
   "spec.winners_pick": "勝者がサイドを選びます",
   "spec.you_won_knife": "ナイフラウンドに勝ちました",

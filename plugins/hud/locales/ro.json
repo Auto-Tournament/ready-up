@@ -1,4 +1,6 @@
 {
   "menu.none": "Acum nu există meniu pe acest server.",
-  "hud.outdated": "HUD-ul nu este actualizat. Pe platformă, apasă pe ? și alege HUD."
+  "hud.outdated": "HUD-ul nu este actualizat. Pe platformă, apasă pe ? și alege HUD.",
+  "hud.hold_menu": "Meniu",
+  "hud.hold_close": "Închide"
 }

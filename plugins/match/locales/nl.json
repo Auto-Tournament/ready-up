@@ -171,6 +171,8 @@
   "spec.kind_warmup": "Warming-up",
   "spec.press_b": "Druk op B om te klikken",
   "spec.or_type": "Of typ",
+  "spec.hold_ready": "Houd E ingedrukt om klaar te zijn, of typ",
+  "spec.hold_unready": "Houd E ingedrukt om niet meer klaar te zijn, of typ",
   "spec.knife_round": "Knife-round",
   "spec.winners_pick": "De winnaars kiezen een kant",
   "spec.you_won_knife": "Knife-round gewonnen",

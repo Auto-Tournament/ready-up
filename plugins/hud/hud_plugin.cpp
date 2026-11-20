@@ -924,6 +924,57 @@ void ProbeTick() {
   g_probe.last = held;
 }
 
+void HoldTick();  // hold Use: defined with the menu providers below
+
+// ---- rank test ---------------------------------------------------------------------------------
+// `ru hudkit rank <slot|all> <type> <value> [wins]`: writes CCSPlayerController's competitive rank
+// (m_iCompetitiveRankType, m_iCompetitiveRanking, m_iCompetitiveWins) and keeps writing it every
+// tick, to see what the Tab scoreboard shows for each type (the platform rating as a CS Rating,
+// 2026-11-20). `ru hudkit rank off` stops (the values stay until the game overwrites them).
+struct RankTest {
+  int type = 0, value = 0, wins = 0;
+};
+std::map<int, RankTest> g_rankTest;  // slot (RU_HUD_ALL = everyone) -> what to write
+double g_rankNext = 0;
+
+void RankWrite(int slot, const RankTest& r) {
+  static int offType = -2, offRank = -2, offWins = -2;
+  if (offType == -2) {
+    offType = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_iCompetitiveRankType");
+    offRank = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_iCompetitiveRanking");
+    offWins = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_iCompetitiveWins");
+    ru_logf(g_api, RU_LOG_INFO, "rank test: offsets type=%d ranking=%d wins=%d", offType, offRank, offWins);
+  }
+  if (offType < 0 || offRank < 0) return;
+  void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
+  if (!ctrl) return;
+  auto* b = static_cast<uint8_t*>(ctrl);
+  const int8_t type = static_cast<int8_t>(r.type);
+  const int32_t value = r.value, wins = r.wins;
+  if (*reinterpret_cast<int8_t*>(b + offType) == type && *reinterpret_cast<int32_t*>(b + offRank) == value &&
+      (offWins < 0 || *reinterpret_cast<int32_t*>(b + offWins) == wins))
+    return;
+  std::memcpy(b + offType, &type, sizeof(type));
+  std::memcpy(b + offRank, &value, sizeof(value));
+  if (offWins >= 0) std::memcpy(b + offWins, &wins, sizeof(wins));
+  g_api->entity_mark_changed(g_api->self, ctrl);
+}
+
+void RankTick() {
+  // Every tick: CS2 writes its own values back between our writes, and once a second flickered
+  // (2026-11-20). RankWrite only marks the controller changed when a value differs.
+  if (g_rankTest.empty()) return;
+  for (int slot = 0; slot <= 63; ++slot) {
+    auto it = g_rankTest.find(slot);
+    if (it == g_rankTest.end()) it = g_rankTest.find(RU_HUD_ALL);
+    if (it == g_rankTest.end()) continue;
+    ru_player p{};
+    p.struct_size = sizeof(p);
+    if (!g_api->get_player(g_api->self, slot, &p) || !p.connected) continue;
+    RankWrite(slot, it->second);
+  }
+}
+
 // ---- ticks and events ------------------------------------------------------------------------
 
 // HUD scale (at_ui's wraps, scale-70 .. scale-100): `scale=` in the plugin's cfg, `ru hudkit scale` (default 75).
@@ -979,6 +1030,8 @@ void OnTick(void*, const ru_tick_info* t) {
   DrainClicks();
   CaptureSweep();
   ProbeTick();
+  HoldTick();
+  RankTick();
   TourTick();
   for (size_t i = 0; i < g_later.size();) {
     if (g_later[i].first <= g_now) {
@@ -1634,6 +1687,200 @@ bool OpenProviderMenu(int slot, const std::string& owner) {
   return false;
 }
 
+// ---- hold Use --------------------------------------------------------------------------------
+// Holding the key bound to +use (E) for kHoldSeconds does the obvious thing without the mouse (see
+// HoldAction): close the leaderboard or a menu, press the open card's first button (Ready), or
+// open `.menu`. The card button shows the player's own key and fills while held; otherwise #ui_hold
+// in at_ui does. Never while defusing, and the key must come up before it can fire again.
+
+constexpr double kHoldSeconds = 0.6;  // = the 0.6s animations in at_ui.css (.ui-hold.hold)
+constexpr uint64_t kInUse = 1ull << 5;  // CS2's IN_USE in m_pButtonStates[0] (see ButtonName)
+
+struct HoldSlot {
+  bool down = false;     // the key is held and counting
+  bool fired = false;    // it did its thing: wait for the key to come up
+  double since = 0;
+  std::string label;     // what #ui_hold says now ("" = hidden)
+  std::string button;    // the card button that has `holdable` ("" = none)
+  bool holdClass = false;
+};
+std::map<int, HoldSlot> g_hold;
+// The key the hold chip and buttons show. {g:csgo_key:k} in at_ui gives the value back as it is
+// ("+use" and "use" both showed as text, 2026-11-20), so this is the key itself: E, CS2's default
+// for +use. `ru hudkit holdkey <text>` changes it live.
+std::string g_holdKey = "E";
+
+// The held buttons of a slot's pawn and whether it is defusing. False if it has none (dead, spectating).
+bool HeldButtons(int slot, uint64_t* held, bool* defusing) {
+  static int ctrlPawn = -2, pawnMove = -2, moveButtons = -2, btnStates = -2, isDefusing = -2;
+  if (ctrlPawn == -2) {
+    ctrlPawn = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_hPlayerPawn");
+    pawnMove = g_api->schema_offset(g_api->self, "CBasePlayerPawn", "m_pMovementServices");
+    moveButtons = g_api->schema_offset(g_api->self, "CPlayer_MovementServices", "m_nButtons");
+    btnStates = g_api->schema_offset(g_api->self, "CInButtonState", "m_pButtonStates");
+    isDefusing = g_api->schema_offset(g_api->self, "CCSPlayerPawn", "m_bIsDefusing");
+  }
+  if (ctrlPawn < 0 || pawnMove < 0 || moveButtons < 0 || btnStates < 0) return false;
+  void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
+  if (!ctrl) return false;
+  uint32_t h = 0;
+  std::memcpy(&h, static_cast<uint8_t*>(ctrl) + ctrlPawn, sizeof(h));
+  void* pawn = g_api->entity_from_handle(g_api->self, h);
+  if (!pawn) return false;
+  void* move = nullptr;
+  std::memcpy(&move, static_cast<uint8_t*>(pawn) + pawnMove, sizeof(move));
+  if (!move) return false;
+  std::memcpy(held, static_cast<uint8_t*>(move) + moveButtons + btnStates, sizeof(*held));
+  *defusing = isDefusing >= 0 && *(static_cast<uint8_t*>(pawn) + isDefusing) != 0;
+  return true;
+}
+
+// A class's state as `slot` sees it in a layout we already have (never opens one): the slot's own
+// value if it set one, else everyone's.
+bool ClassOn(const char* path, int slot, const char* panel, const char* cls) {
+  for (const Layout& l : g_layouts) {
+    if (l.path != path) continue;
+    const Key k{panel, cls};
+    auto s = l.slots.find(slot);
+    if (s != l.slots.end()) {
+      auto c = s->second.classes.find(k);
+      if (c != s->second.classes.end()) return c->second;
+    }
+    auto a = l.slots.find(RU_HUD_ALL);
+    if (a != l.slots.end()) {
+      auto c = a->second.classes.find(k);
+      if (c != a->second.classes.end()) return c->second;
+    }
+    return false;
+  }
+  return false;
+}
+
+const char* kKitLayout = "panorama/layout/custom_game/at_kit.xml";
+
+// What holding Use does for `slot` now, in order:
+//  - the end-of-map leaderboard is up: close it (`.lb`), on the chip;
+//  - a menu is open: close it (its close button), on the chip, never one of its buttons;
+//  - a card that asks for it (`hold=1`) is up and its first button is live (Ready, Unready,
+//    Scoreboard): press it, shown on that button itself (`holdable`, `hold`), not on the chip.
+// False: nothing to do, chip and button stay plain.
+struct HoldTarget {
+  std::string label;   // the chip's text ("" when the button shows it)
+  std::string action;  // "#cmd <chat>", a button id for ScreenClick, or "" for `.menu`
+  std::string button;  // the button that shows the hold ("" = the chip)
+};
+
+bool HoldAction(int slot, HoldTarget* t) {
+  *t = HoldTarget{};
+  const std::string lang = readyup::i18n::LanguageOf(g_api, slot);
+  if (ClassOn(kKitLayout, slot, "at_end", "on") && ClassOn(kKitLayout, slot, "at_end", "can-close")) {
+    t->label = g_text.Tr(lang, "hud.hold_close");
+    t->action = "#cmd .lb";
+    return true;
+  }
+  auto it = g_screens.find(slot);
+  const bool card = it != g_screens.end() && it->second.shown && !it->second.dismissed && !DemoActive(slot);
+  if (HasMenu(slot)) {
+    if (!card) return false;
+    t->label = g_text.Tr(lang, "hud.hold_close");
+    t->action = PanelOf(it->second.cur) + "_close";
+    return true;
+  }
+  // Only a card that asks for it (`hold=1`: Ready, Scoreboard): match.so draws its admin menu as a
+  // plain card too, and holding pressed its first button, Pause (2026-11-20).
+  if (card && it->second.cur.hold && !it->second.clicked && !it->second.cur.buttons.empty()) {
+    const Button& b = it->second.cur.buttons[0];
+    if (b.state != "off" && !b.cmd.empty() && !b.label.empty()) {
+      t->button = PanelOf(it->second.cur) + "_b0";
+      t->action = t->button;
+      return true;
+    }
+  }
+  // No "hold for .menu": a chip on screen all the time, live rounds included, was too much
+  // (Sivert, 2026-11-20). `.menu` is still typed.
+  return false;
+}
+
+// Draws the hold: the chip (#ui_hold) or a card button, and `hold` on whichever shows it.
+void HoldShow(int slot, HoldSlot& hs, const HoldTarget& t, bool has, bool hold) {
+  const int h = IfOpen(kUiLayout);
+  const std::string chip = has && t.button.empty() ? t.label : "";
+  if (chip != hs.label) {
+    if (!chip.empty()) {
+      IfSetText(h, slot, "ui_hold_t", "text", chip.c_str());
+      IfSetText(h, slot, "ui_hold_k", "k", g_holdKey.c_str());
+    }
+    IfSetClass(h, slot, "ui_hold", "on", chip.empty() ? 0 : 1);
+    hs.label = chip;
+  }
+  const std::string button = has ? t.button : "";
+  if (button != hs.button) {
+    if (!hs.button.empty()) {
+      IfSetClass(h, slot, hs.button.c_str(), "hold", 0);
+      IfSetClass(h, slot, hs.button.c_str(), "holdable", 0);
+      IfSetClass(h, slot, hs.button.substr(0, hs.button.size() - 3).c_str(), "holdable", 0);  // the panel
+    }
+    if (!button.empty()) {
+      IfSetText(h, slot, (button + "_k").c_str(), "k", g_holdKey.c_str());
+      IfSetClass(h, slot, button.c_str(), "holdable", 1);
+      IfSetClass(h, slot, button.substr(0, button.size() - 3).c_str(), "holdable", 1);
+    }
+    hs.button = button;
+    hs.holdClass = false;
+    IfSetClass(h, slot, "ui_hold", "hold", 0);
+  }
+  if (hold != hs.holdClass) {
+    IfSetClass(h, slot, hs.button.empty() ? "ui_hold" : hs.button.c_str(), "hold", hold ? 1 : 0);
+    hs.holdClass = hold;
+  }
+}
+
+void HoldTick() {
+  for (int slot = 0; slot <= 63; ++slot) {
+    ru_player p{};
+    p.struct_size = sizeof(p);
+    const bool human = g_api->get_player(g_api->self, slot, &p) && p.connected && !p.is_bot && p.steamid64;
+    if (!human) {
+      g_hold.erase(slot);
+      continue;
+    }
+    HoldSlot& hs = g_hold[slot];
+    HoldTarget t;
+    const bool has = HoldAction(slot, &t);
+    uint64_t held = 0;
+    bool defusing = false;
+    const bool use = HeldButtons(slot, &held, &defusing) && (held & kInUse) && !defusing;
+    if (!use) {
+      hs.down = false;
+      hs.fired = false;
+    } else if (has && !hs.down && !hs.fired) {
+      hs.down = true;
+      hs.since = g_now;
+    }
+    if (!has) hs.down = false;
+    if (hs.down && !hs.fired && g_now - hs.since >= kHoldSeconds) {
+      hs.down = false;
+      hs.fired = true;
+      ru_logf(g_api, RU_LOG_INFO, "hold: slot %d %s", slot, t.action.empty() ? "opens .menu" : t.action.c_str());
+      HoldShow(slot, hs, t, has, false);
+      if (t.action.rfind("#cmd ", 0) == 0) {
+        if (RU_API_HAS(g_api, run_chat_command)) g_api->run_chat_command(g_api->self, slot, t.action.substr(5).c_str());
+      } else if (!t.action.empty()) {
+        ScreenClick(slot, t.action);
+      } else {
+        for (const auto& pr : g_providers) {
+          if (pr.active(pr.user, slot)) {
+            pr.open(pr.user, slot, p.steamid64);
+            break;
+          }
+        }
+      }
+      continue;
+    }
+    HoldShow(slot, hs, t, has, hs.down);
+  }
+}
+
 void OnMenuChat(void*, const ru_command_ctx* ctx) {
   if (ctx->slot < 0) return;
   for (const auto& p : g_providers) {
@@ -1749,6 +1996,25 @@ void OnRu(void*, const ru_command_ctx* ctx) {
       DemoShow(slot, name);
     }
     Reply(ctx, "demo " + name + " for " + std::to_string(slots.size()) + " player(s) (60 s); click hook " + g_clickHookStatus);
+  } else if (sub == "rank") {  // ru hudkit rank <slot|all> <type> <value> [wins] | off
+    if (ctx->argc >= 4 && std::strcmp(ctx->argv[3], "off") == 0) {
+      g_rankTest.clear();
+      return Reply(ctx, "rank test: off");
+    }
+    if (ctx->argc < 6) return Reply(ctx, "usage: ru hudkit rank <slot|all> <type> <value> [wins] | off");
+    RankTest r;
+    r.type = std::atoi(ctx->argv[4]);
+    r.value = std::atoi(ctx->argv[5]);
+    r.wins = ctx->argc > 6 ? std::atoi(ctx->argv[6]) : 100;
+    g_rankTest[ParseSlot(ctx->argv[3])] = r;
+    g_rankNext = 0;
+    Reply(ctx, "rank test: slot " + std::string(ctx->argv[3]) + " type " + std::to_string(r.type) + " value " +
+                   std::to_string(r.value) + " wins " + std::to_string(r.wins));
+  } else if (sub == "holdkey") {  // ru hudkit holdkey <binding>: what the hold chip's key lookup gets
+    if (ctx->argc < 4) return Reply(ctx, "holdkey: " + g_holdKey);
+    g_holdKey = ctx->argv[3];
+    for (auto& kv : g_hold) kv.second.label.clear();  // rewrite every chip next tick
+    Reply(ctx, "holdkey: " + g_holdKey);
   } else if (sub == "scale") {  // ru hudkit scale [70..100]: the HUD's size (until a restart; cfg scale= keeps it)
     if (ctx->argc < 4) return Reply(ctx, "HUD scale: " + std::to_string(g_scale) + "% (70 to 100, steps of 5)");
     const int v = ParseScale(ctx->argv[3]);

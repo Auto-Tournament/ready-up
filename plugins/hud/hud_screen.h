@@ -82,6 +82,7 @@ struct Screen {
   std::string closeLabel, closeCmd;
   Mouse mouse = Mouse::Off;
   bool chips = false;
+  bool hold = false;  // `hold=1`: holding Use presses the first button (hud.so HoldAction)
 
   bool empty() const { return title.empty() && kind.empty(); }
 };

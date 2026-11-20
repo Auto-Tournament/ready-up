@@ -1,4 +1,6 @@
 {
   "menu.none": "Gerade gibt es auf diesem Server kein Menü.",
-  "hud.outdated": "HUD veraltet. Klicke auf der Plattform auf ? und wähle HUD."
+  "hud.outdated": "HUD veraltet. Klicke auf der Plattform auf ? und wähle HUD.",
+  "hud.hold_menu": "Menü",
+  "hud.hold_close": "Schließen"
 }

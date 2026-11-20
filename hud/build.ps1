@@ -74,10 +74,28 @@ foreach ($job in $jobs) {
 # panorama\images\custom_game; only the .vtex is compiled, to <name>.vtex_c.
 $imgDst = Join-Path $content "panorama\images\custom_game"
 New-Item -ItemType Directory -Force -Path $imgDst | Out-Null
-Copy-Item (Join-Path $here "images\*") $imgDst -Force
+Get-ChildItem (Join-Path $here "images") -File | Copy-Item -Destination $imgDst -Force
 foreach ($file in Get-ChildItem (Join-Path $here "images") -Filter "*.vtex") {
     & $compiler -i (Join-Path $imgDst $file.Name) | Out-Host
     $out = Join-Path $game ("panorama\images\custom_game\" + $file.BaseName + ".vtex_c")
+    if (Test-Path $out) {
+        Write-Output ("OK      {0} ({1} bytes)" -f $out, (Get-Item $out).Length)
+    } else {
+        Write-Output "FAILED  $out"
+        $failed++
+    }
+}
+
+# Icons over CS2's own: images\icons\<name>.svg goes to panorama\images\icons\ui\<name>.svg and
+# compiles to .vsvg_c at the same path as the game's file, which the mounted addon wins over
+# (ct_logo_1c / t_logo_1c: the emblem between health and ammo).
+$iconDst = Join-Path $content "panorama\images\icons\ui"
+New-Item -ItemType Directory -Force -Path $iconDst | Out-Null
+foreach ($file in Get-ChildItem (Join-Path $here "images\icons") -Filter "*.svg") {
+    $target = Join-Path $iconDst $file.Name
+    Copy-Item $file.FullName $target -Force
+    & $compiler -i $target | Out-Host
+    $out = Join-Path $game ("panorama\images\icons\ui\" + $file.BaseName + ".vsvg_c")
     if (Test-Path $out) {
         Write-Output ("OK      {0} ({1} bytes)" -f $out, (Get-Item $out).Length)
     } else {

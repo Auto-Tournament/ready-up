@@ -171,6 +171,8 @@
   "spec.kind_warmup": "Bemelegítés",
   "spec.press_b": "Kattintáshoz nyomd meg a B-t",
   "spec.or_type": "Vagy írd be",
+  "spec.hold_ready": "Tartsd lenyomva az E-t a készenléthez, vagy írd be",
+  "spec.hold_unready": "Tartsd lenyomva az E-t a készenlét visszavonásához, vagy írd be",
   "spec.knife_round": "Késes kör",
   "spec.winners_pick": "A győztesek oldalt választanak",
   "spec.you_won_knife": "Megnyertétek a késes kört",

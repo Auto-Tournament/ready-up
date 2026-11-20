@@ -1,4 +1,6 @@
 {
   "menu.none": "Hiện máy chủ này không có menu.",
-  "hud.outdated": "HUD đã cũ. Trên nền tảng, nhấn ? rồi chọn HUD."
+  "hud.outdated": "HUD đã cũ. Trên nền tảng, nhấn ? rồi chọn HUD.",
+  "hud.hold_menu": "Menu",
+  "hud.hold_close": "Đóng"
 }
