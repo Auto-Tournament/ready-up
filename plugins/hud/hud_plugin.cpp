@@ -1711,9 +1711,8 @@ const char* kKitLayout = "panorama/layout/custom_game/at_kit.xml";
 // What holding Use does for `slot` now, in order:
 //  - the end-of-map leaderboard is up: close it (`.lb`), on the chip;
 //  - a menu is open: close it (its close button), on the chip, never one of its buttons;
-//  - a card is up and its first button is live (Ready, Unready, Scoreboard): press it, shown on
-//    that button itself (`holdable`, `hold`) and not on the chip;
-//  - a menu provider is active: open `.menu`, on the chip.
+//  - a card that asks for it (`hold=1`) is up and its first button is live (Ready, Unready,
+//    Scoreboard): press it, shown on that button itself (`holdable`, `hold`), not on the chip.
 // False: nothing to do, chip and button stay plain.
 struct HoldTarget {
   std::string label;   // the chip's text ("" when the button shows it)
@@ -1737,7 +1736,9 @@ bool HoldAction(int slot, HoldTarget* t) {
     t->action = PanelOf(it->second.cur) + "_close";
     return true;
   }
-  if (card && !it->second.clicked && !it->second.cur.buttons.empty()) {
+  // Only a card that asks for it (`hold=1`: Ready, Scoreboard): match.so draws its admin menu as a
+  // plain card too, and holding pressed its first button, Pause (2026-11-20).
+  if (card && it->second.cur.hold && !it->second.clicked && !it->second.cur.buttons.empty()) {
     const Button& b = it->second.cur.buttons[0];
     if (b.state != "off" && !b.cmd.empty() && !b.label.empty()) {
       t->button = PanelOf(it->second.cur) + "_b0";
@@ -1745,12 +1746,8 @@ bool HoldAction(int slot, HoldTarget* t) {
       return true;
     }
   }
-  for (const auto& p : g_providers) {
-    if (p.active(p.user, slot)) {
-      t->label = g_text.Tr(lang, "hud.hold_menu");
-      return true;
-    }
-  }
+  // No "hold for .menu": a chip on screen all the time, live rounds included, was too much
+  // (Sivert, 2026-11-20). `.menu` is still typed.
   return false;
 }
 
