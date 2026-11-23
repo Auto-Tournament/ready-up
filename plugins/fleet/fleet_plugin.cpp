@@ -579,13 +579,16 @@ void OnPlayerLanguages(const std::string& type, const std::string& payload) {
 // ---- platform rating on the Tab scoreboard ----------------------------------------------------
 // The platform's `rating` on each player of match.assign (and a joining player's add_player,
 // match.defs.json $defs/rating) is shown as the CS Rating (Premier style) next to their name in
-// Tab: CCSPlayerController m_iCompetitiveRankType 11, m_iCompetitiveRanking, m_iCompetitiveWins.
+// Tab: CCSPlayerController m_iCompetitiveRankType 11, m_iCompetitiveRanking, and m_iCompetitiveWins from
+// `rating_wins` (0 without one: CS2 shows the number at any wins, tested 2026-11-20).
 // Written every tick: CS2 writes its own values back in between (a once-a-second write flickered,
 // 2026-11-20); the controller is only marked changed when a value differs. A new match.assign
 // replaces the list; match.unassign clears it (the values go back to CS2's own at the next write).
-std::map<uint64_t, int32_t> g_ratings;  // steamid64 -> rating; game thread only
+struct Rating {
+  int32_t value = 0, wins = 0;
+};
+std::map<uint64_t, Rating> g_ratings;  // steamid64 -> rating; game thread only
 constexpr int8_t kRatingRankType = 11;   // Premier: the number in its tier colour
-constexpr int32_t kRatingWins = 10;      // CS2 shows a Premier rating from 10 wins on
 
 void SetRating(const fleet::json::Value& player) {
   const fleet::json::Value* sid = player.Get("steamid64");
@@ -593,7 +596,10 @@ void SetRating(const fleet::json::Value& player) {
   if (!sid || !rating || !rating->IsNum()) return;
   const uint64_t id = std::strtoull(sid->AsStr().c_str(), nullptr, 10);
   const int64_t r = rating->AsInt(-1);
-  if (id && r >= 0 && r <= 99999) g_ratings[id] = static_cast<int32_t>(r);
+  if (!id || r < 0 || r > 99999) return;
+  const fleet::json::Value* wins = player.Get("rating_wins");
+  const int64_t w = wins && wins->IsNum() ? wins->AsInt(0) : 0;
+  g_ratings[id] = Rating{static_cast<int32_t>(r), static_cast<int32_t>(w < 0 ? 0 : w > 999999 ? 999999 : w)};
 }
 
 void OnPlayerRatings(const std::string& type, const std::string& payload) {
@@ -642,13 +648,13 @@ void RatingTick() {
     void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
     if (!ctrl) continue;
     auto* b = static_cast<uint8_t*>(ctrl);
-    const int32_t value = it->second;
+    const int32_t value = it->second.value, wins = it->second.wins;
     if (*reinterpret_cast<int8_t*>(b + offType) == kRatingRankType && *reinterpret_cast<int32_t*>(b + offRank) == value &&
-        (offWins < 0 || *reinterpret_cast<int32_t*>(b + offWins) == kRatingWins))
+        (offWins < 0 || *reinterpret_cast<int32_t*>(b + offWins) == wins))
       continue;
     std::memcpy(b + offType, &kRatingRankType, sizeof(kRatingRankType));
     std::memcpy(b + offRank, &value, sizeof(value));
-    if (offWins >= 0) std::memcpy(b + offWins, &kRatingWins, sizeof(kRatingWins));
+    if (offWins >= 0) std::memcpy(b + offWins, &wins, sizeof(wins));
     g_api->entity_mark_changed(g_api->self, ctrl);
   }
 }
