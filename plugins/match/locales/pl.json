@@ -174,6 +174,8 @@
   "spec.kind_warmup": "Rozgrzewka",
   "spec.press_b": "Naciśnij B, aby kliknąć",
   "spec.or_type": "Albo wpisz",
+  "spec.hold_ready": "Przytrzymaj E, aby być gotowym, lub wpisz",
+  "spec.hold_unready": "Przytrzymaj E, aby cofnąć gotowość, lub wpisz",
   "spec.knife_round": "Runda nożowa",
   "spec.winners_pick": "Zwycięzcy wybierają stronę",
   "spec.you_won_knife": "Wygraliście rundę nożową",

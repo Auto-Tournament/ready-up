@@ -171,6 +171,8 @@
   "spec.kind_warmup": "Riscaldamento",
   "spec.press_b": "Premi B per cliccare",
   "spec.or_type": "Oppure scrivi",
+  "spec.hold_ready": "Tieni premuto E per essere pronto, o scrivi",
+  "spec.hold_unready": "Tieni premuto E per non essere più pronto, o scrivi",
   "spec.knife_round": "Knife round",
   "spec.winners_pick": "I vincitori scelgono il lato",
   "spec.you_won_knife": "Avete vinto il knife round",

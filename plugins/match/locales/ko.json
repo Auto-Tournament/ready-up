@@ -167,6 +167,8 @@
   "spec.kind_warmup": "워밍업",
   "spec.press_b": "B를 눌러 클릭",
   "spec.or_type": "또는 입력",
+  "spec.hold_ready": "E를 길게 눌러 준비, 또는 입력",
+  "spec.hold_unready": "E를 길게 눌러 준비 취소, 또는 입력",
   "spec.knife_round": "칼전",
   "spec.winners_pick": "승자가 진영을 고릅니다",
   "spec.you_won_knife": "칼전 승리",

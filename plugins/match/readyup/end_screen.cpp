@@ -601,7 +601,7 @@ std::string EndScreenHudSpec(int slot, const std::string& lang) {
   // the cursor back for a button that shows it again.
   if (!closed) return {};
   return "id=end-lb-off\nwhere=card\ncolor=muted\nbtn=" + HudSpecText(text::ForLang(lang, "end.scoreboard", {})) +
-         "|green||.lb\nhint=" + HudSpecText(text::ForLang(lang, "spec.press_b", {})) + "\nmouse=b\n";
+         "|green||.lb\nhint=" + HudSpecText(text::ForLang(lang, "spec.press_b", {})) + "\nmouse=b\nhold=1\n";
 }
 
 }  // namespace readyup

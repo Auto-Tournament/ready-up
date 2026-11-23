@@ -171,6 +171,8 @@
   "spec.kind_warmup": "Aufwärmen",
   "spec.press_b": "B drücken zum Klicken",
   "spec.or_type": "Oder tippe",
+  "spec.hold_ready": "Halte E, um bereit zu sein, oder tippe",
+  "spec.hold_unready": "Halte E, um nicht mehr bereit zu sein, oder tippe",
   "spec.knife_round": "Knife-Runde",
   "spec.winners_pick": "Die Sieger wählen eine Seite",
   "spec.you_won_knife": "Knife-Runde gewonnen",

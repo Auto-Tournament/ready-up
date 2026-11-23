@@ -167,6 +167,8 @@
   "spec.kind_warmup": "熱身",
   "spec.press_b": "按 B 點擊",
   "spec.or_type": "或輸入",
+  "spec.hold_ready": "按住 E 準備，或輸入",
+  "spec.hold_unready": "按住 E 取消準備，或輸入",
   "spec.knife_round": "刀局",
   "spec.winners_pick": "獲勝方選擇陣營",
   "spec.you_won_knife": "你們贏下了刀局",

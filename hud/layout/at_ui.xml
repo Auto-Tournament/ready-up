@@ -88,6 +88,12 @@
 <Panel id="ui_card_buttons" class="ui-buttons" hittest="false">
 <Button id="ui_card_b0" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel class="ui-btnfill" hittest="false" />
+<Panel class="ui-btnkey" hittest="false">
+<Panel class="ui-kcbr ui-kcl" hittest="false" />
+<Panel class="ui-kcbr ui-kcr" hittest="false" />
+<Label id="ui_card_b0_k" class="ui-kct" text="{g:csgo_key:k}" hittest="false" />
+</Panel>
 <Label id="ui_card_b0_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b0_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
@@ -318,6 +324,12 @@
 <Panel id="ui_mid_buttons" class="ui-buttons" hittest="false">
 <Button id="ui_mid_b0" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel class="ui-btnfill" hittest="false" />
+<Panel class="ui-btnkey" hittest="false">
+<Panel class="ui-kcbr ui-kcl" hittest="false" />
+<Panel class="ui-kcbr ui-kcr" hittest="false" />
+<Label id="ui_mid_b0_k" class="ui-kct" text="{g:csgo_key:k}" hittest="false" />
+</Panel>
 <Label id="ui_mid_b0_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b0_s" class="ui-btnsub" text="{s:text}" hittest="false" />
 </Button>
@@ -470,6 +482,18 @@
 </Panel>
 <Panel id="ui_ver" class="ui-ver" hittest="false">
 <Label id="ui_ver_t" class="ui-vertext" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_hold" class="ui-hold" hittest="false">
+<Panel class="ui-holdbg" hittest="false" />
+<Panel class="ui-holdfill" hittest="false" />
+<Panel class="ui-holdbody" hittest="false">
+<Panel class="ui-kc" hittest="false">
+<Panel class="ui-kcbr ui-kcl" hittest="false" />
+<Panel class="ui-kcbr ui-kcr" hittest="false" />
+<Label id="ui_hold_k" class="ui-kct" text="{g:csgo_key:k}" hittest="false" />
+</Panel>
+<Label id="ui_hold_t" class="ui-holdt" text="{s:text}" hittest="false" />
+</Panel>
 </Panel>
 </Panel>
 </root>

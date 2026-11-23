@@ -63,6 +63,7 @@ Screen ParseScreen(const std::string& spec) {
     else if (k == "timer") s.timer = v;
     else if (k == "counter") s.counter = v;
     else if (k == "hint") s.hint = v;
+    else if (k == "hold") s.hold = v == "1";
     else if (k == "teams") {
       const auto p = SplitBar(v);
       s.hasTeams = true;

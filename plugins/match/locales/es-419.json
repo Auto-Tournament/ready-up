@@ -171,6 +171,8 @@
   "spec.kind_warmup": "Calentamiento",
   "spec.press_b": "Presiona B para hacer clic",
   "spec.or_type": "O escribe",
+  "spec.hold_ready": "Mantén E para estar listo, o escribe",
+  "spec.hold_unready": "Mantén E para dejar de estar listo, o escribe",
   "spec.knife_round": "Ronda de knife",
   "spec.winners_pick": "Los ganadores eligen lado",
   "spec.you_won_knife": "Ganaron la ronda de knife",

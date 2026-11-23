@@ -498,15 +498,16 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
   // waited for the welcome to end, which starts over at every respawn, so in warmup it stayed big
   // (2026-11-07).
   if (ok && !btn.empty()) {
-    s += L("id", "ready") + L("kind", T(lang, "spec.kind_ready") + " \xC2\xB7 " + count) + L("size", "mini") + btn + L("bw", "s") + L("mouse", "b");
+    s += L("id", "ready") + L("kind", T(lang, "spec.kind_ready") + " \xC2\xB7 " + count) + L("size", "mini") + btn + L("bw", "s") + L("mouse", "b") + L("hold", "1");
     return s;
   }
   // The team dots already say who is ready; the count only stands in when there are none (Miller).
   if (total[0] == 0 && total[1] == 0) s += L("counter", count);
   // Ready can be typed as well: the button needs the buy menu (B), which a dead player can't open.
   if (!btn.empty()) {
-    s += btn + L("bw", "l") + L("hint", T(lang, "spec.press_b")) +
-         L("cmd", T(lang, "spec.or_type") + (me && me->ready ? "|.ur" : "|.r")) + L("mouse", "b");
+    s += btn + L("bw", "l") + L("hold", "1") + L("hint", T(lang, "spec.press_b")) +
+         L("cmd", T(lang, me && me->ready ? "spec.hold_unready" : "spec.hold_ready") + (me && me->ready ? "|.ur" : "|.r")) +
+         L("mouse", "b");
   }
   return s;
 }
