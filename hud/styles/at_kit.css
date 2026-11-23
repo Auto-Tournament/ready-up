@@ -62,12 +62,12 @@
 .at-part.cmd .at-parttext { font-family: "Noto Mono"; font-size: 15px; font-weight: bold; }
 .at-part.cmd.main { background-color: #ff6a3d; border: 1px solid #ff6a3d; }
 .at-part.cmd.warn { background-color: #e6b33c; border: 1px solid #e6b33c; }
-.at-part.cmd.side-ct { background-color: #7b9be0; border: 1px solid #7b9be0; }
-.at-part.cmd.side-t { background-color: #de9b35; border: 1px solid #de9b35; }
+.at-part.cmd.side-ct { background-color: #2b44d6; border: 1px solid #2b44d6; }
+.at-part.cmd.side-t { background-color: #e2232f; border: 1px solid #e2232f; }
 .at-part.cmd.main .at-parttext { color: #140e0c; }
 .at-part.cmd.warn .at-parttext { color: #140e0c; }
-.at-part.cmd.side-ct .at-parttext { color: #140e0c; }
-.at-part.cmd.side-t .at-parttext { color: #140e0c; }
+.at-part.cmd.side-ct .at-parttext { color: #ffffff; }
+.at-part.cmd.side-t .at-parttext { color: #ffffff; }
 
 /* ---- the card ------------------------------------------------------------------------------ */
 
@@ -403,8 +403,8 @@
 .at-end .tc-pos { color: #7fd7a8; }
 .at-end .tc-live { color: #3fc168; }
 .at-end .tc-warn { color: #e6b33c; }
-.at-end .tc-ct { color: #7b9be0; }
-.at-end .tc-t { color: #de9b35; }
+.at-end .tc-ct { color: #2b44d6; }
+.at-end .tc-t { color: #e2232f; }
 .at-end .bold { font-weight: bold; }
 .at-end .normal { font-weight: normal; }
 
@@ -413,16 +413,16 @@
 .at-end .fill-muted { background-color: #4a3f3b; color: #f4edeb; }
 .at-end .fill-ban { background-color: #f2645f; color: #140e0c; }
 .at-end .fill-live { background-color: #3fc168; color: #140e0c; }
-.at-end .fill-ct { background-color: #7b9be0; color: #140e0c; }
-.at-end .fill-t { background-color: #de9b35; color: #140e0c; }
+.at-end .fill-ct { background-color: #2b44d6; color: #ffffff; }
+.at-end .fill-t { background-color: #e2232f; color: #ffffff; }
 
 .at-end .tint-none { background-color: #18110e; border: 1px solid #211815; }
 .at-end .tint-acc { background-color: #ff6a3d1f; border: 1px solid #ff6a3d99; }
 .at-end .tint-ink { background-color: #f4edeb12; border: 1px solid #f4edeb66; }
 .at-end .tint-ban { background-color: #f2645f1f; border: 1px solid #f2645f99; }
 .at-end .tint-live { background-color: #3fc1681f; border: 1px solid #3fc16899; }
-.at-end .tint-ct { background-color: #7b9be01f; border: 1px solid #7b9be099; }
-.at-end .tint-t { background-color: #de9b351f; border: 1px solid #de9b3599; }
+.at-end .tint-ct { background-color: #2b44d61f; border: 1px solid #2b44d699; }
+.at-end .tint-t { background-color: #e2232f1f; border: 1px solid #e2232f99; }
 
 .at-end .tag-acc { visibility: visible; background-color: #ff6a3d22; color: #ff6a3d; }
 .at-end .tag-muted { visibility: visible; background-color: #f4edeb14; color: #c4bcb9; }

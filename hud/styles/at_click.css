@@ -36,10 +36,10 @@
 	transition-property: background-color, transform; transition-duration: 0.15s;
 }
 .ac-btntext { horizontal-align: center; vertical-align: center; font-size: 22px; font-weight: bold; color: #140e0c; }
-.ac-ct { background-color: #7b9be0; }
-.ac-t { background-color: #de9b35; }
-.ac-ct:hover { background-color: #9bb4ea; transform: scale3d( 1.04, 1.04, 1 ); }
-.ac-t:hover { background-color: #e8b260; transform: scale3d( 1.04, 1.04, 1 ); }
+.ac-ct { background-color: #2b44d6; }
+.ac-t { background-color: #e2232f; }
+.ac-ct:hover { background-color: #4a60e0; transform: scale3d( 1.04, 1.04, 1 ); }
+.ac-t:hover { background-color: #ea4a54; transform: scale3d( 1.04, 1.04, 1 ); }
 .ac-btn.picked { transform: scale3d( 1.08, 1.08, 1 ); }
 
 .ac-status { horizontal-align: center; margin-top: 12px; font-size: 15px; color: #c4bcb9; }

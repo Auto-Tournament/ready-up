@@ -150,23 +150,23 @@
 .ui-btn.has-sub .ui-btnlabel { width: fit-children; text-align: left; horizontal-align: left; margin-left: 18px; }
 .ui-btn:hover { transform: scale3d( 1.04, 1.04, 1 ); border: 2px solid #c4bcb9; }
 .ui-btn.t-green { background-color: #3fc168; border: 2px solid #3fc168; }
-.ui-btn.t-ct { background-color: #7b9be0; border: 2px solid #7b9be0; }
-.ui-btn.t-t { background-color: #de9b35; border: 2px solid #de9b35; }
+.ui-btn.t-ct { background-color: #2b44d6; border: 2px solid #2b44d6; }
+.ui-btn.t-t { background-color: #e2232f; border: 2px solid #e2232f; }
 .ui-btn.t-warn { background-color: #e6b33c; border: 2px solid #e6b33c; }
 .ui-btn.t-danger { background-color: #f2645f; border: 2px solid #f2645f; }
 .ui-btn.t-green:hover { background-color: #63d185; border: 2px solid #63d185; }
-.ui-btn.t-ct:hover { background-color: #9bb4ea; border: 2px solid #9bb4ea; }
-.ui-btn.t-t:hover { background-color: #e8b260; border: 2px solid #e8b260; }
+.ui-btn.t-ct:hover { background-color: #4a60e0; border: 2px solid #4a60e0; }
+.ui-btn.t-t:hover { background-color: #ea4a54; border: 2px solid #ea4a54; }
 .ui-btn.t-warn:hover { background-color: #efc764; border: 2px solid #efc764; }
 .ui-btn.t-danger:hover { background-color: #f6847f; border: 2px solid #f6847f; }
 .t-green .ui-btnlabel { color: #140e0c; }
-.t-ct .ui-btnlabel { color: #140e0c; }
-.t-t .ui-btnlabel { color: #140e0c; }
+.t-ct .ui-btnlabel { color: #ffffff; }
+.t-t .ui-btnlabel { color: #ffffff; }
 .t-warn .ui-btnlabel { color: #140e0c; }
 .t-danger .ui-btnlabel { color: #140e0c; }
 .t-green .ui-btnsub { color: #140e0c; }
-.t-ct .ui-btnsub { color: #140e0c; }
-.t-t .ui-btnsub { color: #140e0c; }
+.t-ct .ui-btnsub { color: #ffffffcc; }
+.t-t .ui-btnsub { color: #ffffffcc; }
 .t-warn .ui-btnsub { color: #140e0c; }
 .t-danger .ui-btnsub { color: #140e0c; }
 .ui-btn.picked { transform: scale3d( 1.06, 1.06, 1 ); border: 2px solid #f4edeb; }
@@ -381,8 +381,8 @@
 .ui-root .ui-panel.c-live.edge { border-left: 3px solid #3fc168; }
 .ui-root .ui-panel.c-warn.edge { border-left: 3px solid #e6b33c; }
 .ui-root .ui-panel.c-ban.edge { border-left: 3px solid #f2645f; }
-.ui-root .ui-panel.c-ct.edge { border-left: 3px solid #7b9be0; }
-.ui-root .ui-panel.c-t.edge { border-left: 3px solid #de9b35; }
+.ui-root .ui-panel.c-ct.edge { border-left: 3px solid #2b44d6; }
+.ui-root .ui-panel.c-t.edge { border-left: 3px solid #e2232f; }
 .ui-root .ui-panel.round-s { border-radius: 8px; }
 .ui-root .ui-panel.round-l { border-radius: 24px; }
 .ui-root .ui-panel.no-line .ui-line { visibility: collapse; }
@@ -400,8 +400,8 @@
 .c-warn .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #e6b33c26 ), color-stop( 0.5, #e6b33c00 ), to( #e6b33c00 ) ); }
 .c-ban .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #f2645f2e ), color-stop( 0.5, #f2645f00 ), to( #f2645f00 ) ); }
 .c-muted .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #938a871f ), color-stop( 0.5, #938a8700 ), to( #938a8700 ) ); }
-.c-ct .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #7b9be026 ), color-stop( 0.5, #7b9be000 ), to( #7b9be000 ) ); }
-.c-t .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #de9b3526 ), color-stop( 0.5, #de9b3500 ), to( #de9b3500 ) ); }
+.c-ct .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #2b44d626 ), color-stop( 0.5, #2b44d600 ), to( #2b44d600 ) ); }
+.c-t .ui-wash { background-color: gradient( linear, 0% 0%, 100% 0%, from( #e2232f26 ), color-stop( 0.5, #e2232f00 ), to( #e2232f00 ) ); }
 .no-wash .ui-wash { visibility: collapse; }
 
 /* pixels: a few pixels of the accent breathe on their own cycles (cs2-ui-kit toasts); no-px */
@@ -416,8 +416,8 @@
 .c-warn .ui-px { background-color: #e6b33c; }
 .c-ban .ui-px { background-color: #f2645f; }
 .c-muted .ui-px { background-color: #938a87; }
-.c-ct .ui-px { background-color: #7b9be0; }
-.c-t .ui-px { background-color: #de9b35; }
+.c-ct .ui-px { background-color: #2b44d6; }
+.c-t .ui-px { background-color: #e2232f; }
 .ui-px.p0 { width: 5px; height: 5px; horizontal-align: right; margin: 14px 120px 0px 0px; }
 .ui-px.p1 { width: 4px; height: 4px; horizontal-align: right; margin: 40px 92px 0px 0px; }
 .ui-px.p2 { width: 6px; height: 6px; horizontal-align: right; margin: 10px 70px 0px 0px; }
@@ -477,12 +477,12 @@
 .no-px .ui-pixels { visibility: collapse; }
 
 /* ---- team colours as accents (spec color=ct / color=t) ------------------------------------- */
-.c-ct .ui-kind { color: #7b9be0; }
-.c-t .ui-kind { color: #de9b35; }
-.c-ct .ui-timer { color: #7b9be0; }
-.c-t .ui-timer { color: #de9b35; }
-.c-ct .ui-line { background-color: #7b9be0; }
-.c-t .ui-line { background-color: #de9b35; }
+.c-ct .ui-kind { color: #2b44d6; }
+.c-t .ui-kind { color: #e2232f; }
+.c-ct .ui-timer { color: #2b44d6; }
+.c-t .ui-timer { color: #e2232f; }
+.c-ct .ui-line { background-color: #2b44d6; }
+.c-t .ui-line { background-color: #e2232f; }
 
 /* ---- size and place ------------------------------------------------------------------------ */
 .ui-root .ui-panel.w-280 { width: 280px; min-width: 0px; }
@@ -521,8 +521,8 @@
 .ui-root .ui-panel .tc-live { color: #3fc168; }
 .ui-root .ui-panel .tc-warn { color: #e6b33c; }
 .ui-root .ui-panel .tc-ban { color: #f2645f; }
-.ui-root .ui-panel .tc-ct { color: #7b9be0; }
-.ui-root .ui-panel .tc-t { color: #de9b35; }
+.ui-root .ui-panel .tc-ct { color: #2b44d6; }
+.ui-root .ui-panel .tc-t { color: #e2232f; }
 .ui-root .ui-panel .hide { visibility: collapse; }
 
 /* ---- position and background knobs (2026-10-27: no publish for a nudge) ----------------------
