@@ -179,7 +179,8 @@ static void SendToChatImpl(const char* msg) {
 }
 
 // Important lines stand out the way big community servers do it: an empty line, then each
-// sentence on its own line behind an orange star (U+2605), in plain white. No "[Ready Up]" tag.
+// sentence on its own line behind an orange star (U+2605), in white with commands in green. No
+// "[Ready Up]" tag.
 static std::vector<std::string> ImportantLines(const std::string& msg) {
   const std::string text = WithoutReadyUpLeadIn(Trim(StripNewlines(msg)));
   std::vector<std::string> out;
@@ -197,7 +198,7 @@ static std::vector<std::string> ImportantLines(const std::string& msg) {
   std::vector<std::string> lines;
   if (out.empty()) return lines;
   lines.push_back(std::string(1, ChatColors::Default));  // the empty line above
-  for (const auto& sentence : out) lines.push_back(star + sentence);
+  for (const auto& sentence : out) lines.push_back(star + HighlightChatText(sentence));
   return lines;
 }
 
