@@ -27,7 +27,7 @@ std::string For(int slot, const std::string& key, const Args& args = {});
 
 // SendToChat: everyone, each in their own language.
 void ChatAll(const std::string& key, Args args = {});
-// SendImportantToChat: gold, three times, and in the center for `centerSeconds` (0: chat only).
+// SendImportantToChat: an empty line, then each sentence behind an orange star, and in the center for `centerSeconds` (0: chat only).
 void ImportantAll(const std::string& key, Args args = {}, int centerSeconds = 12);
 // The same, for a line built per language from several keys.
 using TextFn = std::function<std::string(const std::string& lang)>;

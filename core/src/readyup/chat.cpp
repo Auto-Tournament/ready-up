@@ -17,6 +17,7 @@
 #include <string_view>
 #include <mutex>
 #include <string>
+#include <vector>
 
 namespace readyup {
 namespace {
@@ -177,11 +178,31 @@ static void SendToChatImpl(const char* msg) {
   SendSayPayload(coloredPrefix + HighlightChatText(WithoutReadyUpLeadIn(s)));
 }
 
+// Important lines stand out the way big community servers do it: an empty line, then each
+// sentence on its own line behind an orange star (U+2605), in plain white. No "[Ready Up]" tag.
+static std::vector<std::string> ImportantLines(const std::string& msg) {
+  const std::string text = WithoutReadyUpLeadIn(Trim(StripNewlines(msg)));
+  std::vector<std::string> out;
+  std::string cur;
+  for (size_t i = 0; i < text.size(); ++i) {
+    cur.push_back(text[i]);
+    const char c = text[i];
+    if ((c == '.' || c == '!' || c == '?') && i + 1 < text.size() && text[i + 1] == ' ') {
+      if (!Trim(cur).empty()) out.push_back(Trim(cur));
+      cur.clear();
+    }
+  }
+  if (!Trim(cur).empty()) out.push_back(Trim(cur));
+  const std::string star = std::string(1, ChatColors::Orange) + "\xE2\x98\x85 " + std::string(1, ChatColors::Default);
+  std::vector<std::string> lines;
+  if (out.empty()) return lines;
+  lines.push_back(std::string(1, ChatColors::Default));  // the empty line above
+  for (const auto& sentence : out) lines.push_back(star + sentence);
+  return lines;
+}
+
 void SendImportantToChat(const char* msg) {
-  std::string s = Trim(StripNewlines(msg ? msg : ""));
-  if (s.empty()) return;
-  const std::string line = ChatPrefix() + " " + std::string(1, ChatColors::Gold) + WithoutReadyUpLeadIn(s);
-  for (int i = 0; i < 3; ++i) SendSayPayload(line);
+  for (const auto& line : ImportantLines(msg ? msg : "")) SendSayPayload(line);
 }
 
 void AnnounceToChat(const char* msg) {
@@ -202,10 +223,11 @@ bool SendToSlotChat(int slot, const char* msg) {
 bool SendImportantToSlotChat(int slot, const char* msg) {
   const std::string s = Trim(StripNewlines(msg ? msg : ""));
   if (slot < 0 || s.empty()) return false;
-  const std::string line =
-      SanitizeForSay(ChatPrefix() + " " + std::string(1, ChatColors::Gold) + WithoutReadyUpLeadIn(s));
   bool ok = true;
-  for (int i = 0; i < 3 && ok; ++i) ok = ClientPrintChat(slot, line.c_str());
+  for (const auto& line : ImportantLines(s)) {
+    const std::string p = SanitizeForSay(line);
+    if (ok && !p.empty()) ok = ClientPrintChat(slot, p.c_str());
+  }
   return ok;
 }
 
