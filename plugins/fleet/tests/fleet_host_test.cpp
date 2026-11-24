@@ -55,6 +55,7 @@ void Debug(const char* fmt, ...) {
 }
 void PrintLine(const char* msg) { Print("%s", msg); }
 bool DebugEnabled() { return true; }
+bool DevEnabled() { return false; }
 void SendToChat(const char*) {}
 void SendRawToChat(const char*) {}
 void SendImportantToChat(const char*) {}

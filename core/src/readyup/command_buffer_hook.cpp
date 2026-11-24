@@ -128,7 +128,7 @@ static bool HandleRuCommandLine(const std::string& line) {
     return true;
   }
 
-  if (parts[1] == "chatcolors") {
+  if (parts[1] == "chatcolors" && DevEnabled()) {
     // Every chat colour code as a star, to choose one by eye (2026-11-24). 0x0D is a line break.
     static const char* const kNames[] = {"", "default / white", "dark red", "light purple", "green", "olive",
                                          "lime", "red", "grey", "yellow", "silver / blue grey", "blue / light blue",
@@ -144,7 +144,7 @@ static bool HandleRuCommandLine(const std::string& line) {
     return true;
   }
 
-  if (parts[1] == "sigtest") {
+  if (parts[1] == "sigtest" && DevEnabled()) {
     const bool ok = RunSigTest(/*verbose=*/true);
     PrintLine(ok ? "sigtest OK" : "sigtest FAIL");
     return true;

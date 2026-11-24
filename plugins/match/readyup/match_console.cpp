@@ -264,7 +264,14 @@ static bool HandleWarmupEnableCommand(const std::string& line) {
 
 // DEBUG ONLY: runtime override of readyup.cfg `dev_bots_scrim` (the live test turns it on
 // for one run and back to `cfg` afterwards).
+// readyup.cfg dev=1 (or READYUP_DEV): the developer commands (ru_dev_bots_scrim) exist only then.
+static bool DevMode() {
+  const ru_api* a = host::Api();
+  return a && RU_API_HAS(a, dev_mode) && a->dev_mode && a->dev_mode(a->self);
+}
+
 static bool HandleDevBotsScrimCommand(const std::string& line) {
+  if (!DevMode()) return false;
   std::string t = Trim(line);
   if (t.empty()) return false;
   if (!StartsWithToken(t, "ru_dev_bots_scrim")) return false;
@@ -677,7 +684,9 @@ const std::vector<std::string>& MatchConsoleCommands() {
       // round_restore.h
       "ru_pause_after_restore", "ru_listbackups", "ru_loadbackup"};
   static const std::vector<std::string> all = [] {
-    std::vector<std::string> v = k;
+    std::vector<std::string> v;
+    for (const auto& c : k)
+      if (c != "ru_dev_bots_scrim" || DevMode()) v.push_back(c);
     for (const auto& c : match_settings::ConsoleCommands()) v.push_back(c);  // ru_<server setting>
     return v;
   }();

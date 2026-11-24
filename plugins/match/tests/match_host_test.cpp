@@ -75,6 +75,7 @@ void Debug(const char* fmt, ...) {
 }
 void PrintLine(const char* msg) { Print("%s", msg); }
 bool DebugEnabled() { return false; }
+bool DevEnabled() { return false; }
 void SendToChat(const char* msg) {
   std::lock_guard<std::mutex> lk(g_logMu);
   g_chat.push_back(msg);

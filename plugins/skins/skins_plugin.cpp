@@ -390,7 +390,9 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     api->register_console_command(api->self, "skins_status", OnStatus, nullptr);
     api->register_console_command(api->self, "skins_refresh", OnRefresh, nullptr);
     api->register_chat_command(api->self, ".skins", OnSkinsChat, nullptr);
-    api->register_console_command(api->self, "skins_debug_as", OnDebugAs, nullptr);
+    // A bot dressed in a player's loadout, for testing: only on a dev server (dev=1).
+    if (RU_API_HAS(api, dev_mode) && api->dev_mode && api->dev_mode(api->self))
+      api->register_console_command(api->self, "skins_debug_as", OnDebugAs, nullptr);
     if (RU_API_HAS(api, provide_interface)) {
       api->provide_interface(api->self, RU_SELFTEST_IFACE_PREFIX "skins", RU_SELFTEST_IFACE_VERSION,
                              const_cast<ru_selftest_iface_v1*>(&g_selftestIface));

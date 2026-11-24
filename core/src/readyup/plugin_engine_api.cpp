@@ -316,6 +316,8 @@ int ApiSetPlayerLanguage(ru_plugin* self, uint64_t steamid64, const char* code) 
   return 1;
 }
 
+int ApiDevMode(ru_plugin*) { return DevEnabled() ? 1 : 0; }
+
 int ApiChatToSlotEx(ru_plugin* self, int slot, const char* msg, uint32_t flags) {
   if (!CheckGameThread(self, "chat_to_slot_ex") || !msg || !*msg || slot < 0) return 0;
   if (flags & RU_CHAT_IMPORTANT) return SendImportantToSlotChat(slot, msg) ? 1 : 0;
@@ -569,6 +571,7 @@ void detail::FillEngineApi(ru_api* a) {
   a->player_language = &ApiPlayerLanguage;                        // v1.19
   a->set_player_language = &ApiSetPlayerLanguage;
   a->chat_to_slot_ex = &ApiChatToSlotEx;
+  a->dev_mode = &ApiDevMode;                                      // v1.21
 }
 
 }  // namespace readyup::plugins

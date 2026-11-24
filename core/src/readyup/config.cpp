@@ -156,6 +156,7 @@ bool LoadCfgFromDisk(ReadyUpCfg* out, std::string* err, bool allowMissing) {
 
     // (Match keys in the same file are read by plugins/match.)
     if (key == "debug") out->debug = ParseBool(val, out->debug);
+    else if (key == "dev") out->dev = ParseBool(val, out->dev);
     else if (key == "banner") out->banner = ParseBool(val, out->banner);
     else if (key == "chat_debug") out->chat_debug = ParseBool(val, out->chat_debug);
     else if (key == "chat_prefix") out->chat_prefix = ExpandChatColorTokens(val);
@@ -210,6 +211,12 @@ bool ReloadCfg(std::string* err) {
 bool DebugEnabled() {
   const char* v = std::getenv("READYUP_DEBUG");
   if (!v || !*v) return Cfg().debug;
+  return !(v[0] == '0' || v[0] == 'n' || v[0] == 'N' || v[0] == 'f' || v[0] == 'F');
+}
+
+bool DevEnabled() {
+  const char* v = std::getenv("READYUP_DEV");
+  if (!v || !*v) return Cfg().dev;
   return !(v[0] == '0' || v[0] == 'n' || v[0] == 'N' || v[0] == 'f' || v[0] == 'F');
 }
 
