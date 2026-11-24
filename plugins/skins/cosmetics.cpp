@@ -3,6 +3,7 @@
 #include "apply_internal.h"
 #include "knife_swap.h"
 
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
@@ -80,13 +81,30 @@ std::string PawnModelName(void* pawn) {
   return out;
 }
 
-// Hides the model's built-in gloves (bodygroup default_gloves) under a glove skin; logs the model
-// when it has none (#395: agents/models/tm_professional/tm_professional_varf4.vmdl, 2026-11-24).
-int HideDefaultGloves(void* pawn, uint64_t steamid64) {
-  const int bg = SetBodygroupByName(pawn, "default_gloves", 1);
+// The built-in hands under a glove skin. CS2's agent models have no "default_gloves" any more: the
+// bodygroup "first_or_third_person" switches them (0 thirdperson_default, 1
+// thirdperson_hide_default_gloves, 2 firstperson_default, 3 firstperson_hide_default_gloves). The
+// game sets 1 when it equips an inventory glove; without it the econ glove never shows (#395; the
+// WeaponPaints fix, their issue #551). As they do: 0 when the gloves go on, 1 a moment later, so
+// the change is sent.
+constexpr const char* kHandsGroup = "first_or_third_person";
+constexpr auto kHandsHideAfter = std::chrono::milliseconds(180);
+std::unordered_map<uint64_t, std::chrono::steady_clock::time_point> g_handsResetAt;
+
+int HideDefaultGloves(void* pawn, uint64_t steamid64, bool gloveJustWritten) {
+  const auto now = std::chrono::steady_clock::now();
+  int bg;
+  if (gloveJustWritten) {
+    bg = SetBodygroupByName(pawn, kHandsGroup, 0);
+    if (bg == RU_BODYGROUP_OK) g_handsResetAt[steamid64] = now;
+  } else {
+    const auto it = g_handsResetAt.find(steamid64);
+    if (it != g_handsResetAt.end() && now - it->second < kHandsHideAfter) return RU_BODYGROUP_OK;  // a later pass
+    bg = SetBodygroupByName(pawn, kHandsGroup, 1);
+  }
   if (bg == RU_BODYGROUP_NO_GROUP) {
     const std::string cur = PawnModelName(pawn);
-    WarnOnce(steamid64, ("no default_gloves bodygroup on " + (cur.empty() ? std::string("an unknown model") : cur)).c_str());
+    WarnOnce(steamid64, ("no first_or_third_person bodygroup on " + (cur.empty() ? std::string("an unknown model") : cur)).c_str());
   }
   return bg;
 }
@@ -131,12 +149,19 @@ bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late) {
       } else if (StampMatches(g_gloveStamps[steamid64], detail::ItemIdOf(item), *gloveDef, skin.paint_id, skin.seed,
                               skin.wear)) {
         // Already on: only the default-gloves bodygroup (the model may have loaded since).
-        (void)HideDefaultGloves(pawn, steamid64);
+        (void)HideDefaultGloves(pawn, steamid64, false);
       } else {
         BounceModel(pawn, steamid64);
         const uint16_t def = static_cast<uint16_t>(*gloveDef);
         std::memcpy(static_cast<unsigned char*>(item) + detail::ItemDefIndexOffset(), &def, sizeof(def));
         const uint64_t id = detail::WritePaint(nullptr, item, steamid64, skin);
+        // No owner account on gloves: inventory gloves carry the owner's account id, so with one the
+        // client looks the item up in the player's own inventory and, for a player with no gloves of
+        // their own, draws none (#395). WeaponPaints never sets it on gloves either.
+        if (detail::ItemAccountIdOffset() >= 0) {
+          const uint32_t none = 0;
+          std::memcpy(static_cast<unsigned char*>(item) + detail::ItemAccountIdOffset(), &none, sizeof(none));
+        }
         g_gloveStamps[steamid64] = PaintStamp{id, *gloveDef, skin.paint_id, skin.seed, skin.wear};
         if (detail::ItemInitializedOffset() >= 0) {
           const bool init = true;
@@ -149,11 +174,11 @@ bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late) {
         }
         // Hides the agent model's built-in gloves. Retried on every cosmetics pass: on the spawn
         // frame the (new) agent model is often not loaded yet (GetModel == null).
-        const auto bg = HideDefaultGloves(pawn, steamid64);
+        const auto bg = HideDefaultGloves(pawn, steamid64, true);
         if (bg == RU_BODYGROUP_OK) {
-          WarnOnce(steamid64, "default_gloves bodygroup set");
+          WarnOnce(steamid64, "first_or_third_person 0 set (1 follows)");
         } else {
-          const std::string why = std::string("SetBodygroup(default_gloves,1) not applied yet: ") +
+          const std::string why = std::string("SetBodygroup(first_or_third_person) not applied yet: ") +
                                   BodygroupResultName(bg);
           WarnOnce(steamid64, why.c_str());
         }
