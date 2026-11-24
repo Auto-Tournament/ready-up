@@ -532,7 +532,8 @@ static bool ViewerTeamShort(const Board& b, uint64_t viewer) {
 // Knife: "knives only" before the fight, then the side pick (winners) or the wait (everyone else).
 static std::string KnifeSpec(const KnifeHudInfo& k, int viewerSide, const std::string& lang) {
   if (k.phase == KnifePhase::Starting) {
-    return L("id", "knife") + L("color", "live") + L("kind", T(lang, "spec.knife_round")) + L("title", T(lang, "spec.winners_pick"));
+    // Orange, not green: green read as "someone already won" (Sivert, 2026-11-24). Green = done / live.
+    return L("id", "knife") + L("kind", T(lang, "spec.knife_round")) + L("title", T(lang, "spec.winners_pick"));
   }
   const std::string secs = std::to_string(std::max(0, k.secondsLeft));
   if (viewerSide == k.winnerCs) {
