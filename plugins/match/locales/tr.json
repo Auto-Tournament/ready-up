@@ -538,5 +538,7 @@
   "end.col8_title": "İlk leşler",
   "end.col8_body": "Rauntun ilk leşi",
   "knife.captain_only": "tarafı yalnızca kaptanın seçer.",
-  "tip.menu": "mola, admin ya da pes mi? .menu yaz"
+  "tip.menu": "mola, admin ya da pes mi? .menu yaz",
+  "notice.winners_stay": "Bıçak kazananları {side} kalıyor",
+  "notice.winners_start": "Bıçak kazananları {side} başlıyor"
 }

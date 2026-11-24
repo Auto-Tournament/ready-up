@@ -538,5 +538,7 @@
   "end.col8_title": "Πρώτα kills",
   "end.col8_body": "Το πρώτο kill ενός γύρου",
   "knife.captain_only": "μόνο ο αρχηγός σου διαλέγει πλευρά.",
-  "tip.menu": "χρειάζεσαι παύση, admin ή να παραδοθείς; Γράψε .menu"
+  "tip.menu": "χρειάζεσαι παύση, admin ή να παραδοθείς; Γράψε .menu",
+  "notice.winners_stay": "Οι νικητές με μαχαίρι μένουν {side}",
+  "notice.winners_start": "Οι νικητές με μαχαίρι ξεκινούν {side}"
 }

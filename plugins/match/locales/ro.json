@@ -552,5 +552,7 @@
   "end.col8_title": "Entry kills",
   "end.col8_body": "Primul kill dintr-o rundă",
   "knife.captain_only": "doar căpitanul tău alege partea.",
-  "tip.menu": "ai nevoie de pauză, de un admin sau vrei să renunți? Scrie .menu"
+  "tip.menu": "ai nevoie de pauză, de un admin sau vrei să renunți? Scrie .menu",
+  "notice.winners_stay": "Câștigătorii rundei de cuțit rămân {side}",
+  "notice.winners_start": "Câștigătorii rundei de cuțit încep {side}"
 }

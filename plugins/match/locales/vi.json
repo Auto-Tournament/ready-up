@@ -529,5 +529,7 @@
   "end.col8_title": "Mở màn",
   "end.col8_body": "Pha hạ gục đầu tiên của hiệp",
   "knife.captain_only": "chỉ đội trưởng của bạn chọn phe.",
-  "tip.menu": "cần tạm dừng, gọi admin hay đầu hàng? Gõ .menu"
+  "tip.menu": "cần tạm dừng, gọi admin hay đầu hàng? Gõ .menu",
+  "notice.winners_stay": "Đội thắng dao giữ {side}",
+  "notice.winners_start": "Đội thắng dao bắt đầu {side}"
 }

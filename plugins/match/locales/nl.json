@@ -538,5 +538,7 @@
   "end.col8_title": "Entry-kills",
   "end.col8_body": "De eerste kill van een ronde",
   "knife.captain_only": "alleen je captain kiest de kant.",
-  "tip.menu": "pauze, een admin of opgeven? Typ .menu"
+  "tip.menu": "pauze, een admin of opgeven? Typ .menu",
+  "notice.winners_stay": "Mes-winnaars blijven {side}",
+  "notice.winners_start": "Mes-winnaars starten {side}"
 }

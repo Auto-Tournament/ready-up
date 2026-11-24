@@ -552,5 +552,7 @@
   "end.col8_title": "První zabití",
   "end.col8_body": "První zabití v kole",
   "knife.captain_only": "stranu vybírá jen tvůj kapitán.",
-  "tip.menu": "potřebuješ pauzu, admina nebo se vzdát? Napiš .menu"
+  "tip.menu": "potřebuješ pauzu, admina nebo se vzdát? Napiš .menu",
+  "notice.winners_stay": "Vítězové nožů zůstávají {side}",
+  "notice.winners_start": "Vítězové nožů začínají {side}"
 }

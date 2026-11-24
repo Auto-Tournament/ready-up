@@ -604,14 +604,19 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
   Print("knife: side picked by %s: %s (%s) -> %s; live rules + mp_restartgame 1\n", by.c_str(), c.c_str(),
         winnerName.c_str(), stayed ? "stay" : "mp_swapteams");
 
-  // Let players know.
-  text::ChatAll(std::string(pickerName == "timeout" ? "knife.picked_timeout" : "knife.picked") + (stayed ? "_stay" : "_swap"),
-                {{"team", winnerName}, {"side", *winnerWantsCt ? "CT" : "T"}});
+  // Let players know: the Sides card with the HUD, chat without it.
+  if (!HudScreensOn())
+    text::ChatAll(std::string(pickerName == "timeout" ? "knife.picked_timeout" : "knife.picked") + (stayed ? "_stay" : "_swap"),
+                  {{"team", winnerName}, {"side", *winnerWantsCt ? "CT" : "T"}});
   if (HudScreensOn()) {
     const bool timedOut = pickerName == "timeout";
     const std::string side = *winnerWantsCt ? "CT" : "T";
     HudScreensNoticeAll(NoticeSpec(std::string("id=sides\ncolor=") + (timedOut ? "muted" : (*winnerWantsCt ? "ct" : "t")) + "\n",
-                                   timedOut ? "walkover.time_up" : "notice.sides_chosen", stayed ? "notice.team_stays" : "notice.team_starts",
+                                   timedOut ? "walkover.time_up" : "notice.sides_chosen",
+                                   // A scrim's teams are called CT and T: "CT stays CT" made no sense.
+                                   (winnerName == "CT" || winnerName == "T")
+                                       ? (stayed ? "notice.winners_stay" : "notice.winners_start")
+                                       : (stayed ? "notice.team_stays" : "notice.team_starts"),
                                    {}, {{"team", winnerName}, {"side", side}}),
                         8.0);
   }
@@ -1723,8 +1728,11 @@ void OnMatchRoundStarted() {
   readyup::persisted_match_state::PersistLiveFlag(true);
   match_recovery::NoteProgress();
   WebhookSetHeartbeatStatus("live");
-  text::ChatAll("match.live");
-  if (const auto ctx = WebhookGetMatchContext()) {
+  // With the HUD the LIVE card says it (and .menu has the rules): no chat lines (Sivert,
+  // 2026-11-24: "why does it spam the chat"). Without it, chat as before.
+  const bool hudSays = HudScreensOn();
+  if (!hudSays) text::ChatAll("match.live");
+  if (const auto ctx = hudSays ? std::nullopt : WebhookGetMatchContext()) {
     const int mapNo = std::max(1, MatchStateGet().map_number);
     const std::string mapName = mapNo - 1 < static_cast<int>(ctx->maplist.size()) ? ctx->maplist[mapNo - 1] : "";
     for (const auto& line : GoLiveRulesLines(mapNo, std::max(1, ctx->num_maps), mapName, ctx->maxRounds,

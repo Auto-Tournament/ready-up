@@ -538,5 +538,7 @@
   "end.col8_title": "Åpningsdrap",
   "end.col8_body": "Det første drapet i en runde",
   "knife.captain_only": "bare kapteinen din velger side.",
-  "tip.menu": "trenger du pause, en admin eller vil gi opp? Skriv .menu"
+  "tip.menu": "trenger du pause, en admin eller vil gi opp? Skriv .menu",
+  "notice.winners_stay": "Knivvinnerne blir {side}",
+  "notice.winners_start": "Knivvinnerne starter {side}"
 }

@@ -538,5 +538,7 @@
   "end.col8_title": "Entry kill",
   "end.col8_body": "La prima kill di un round",
   "knife.captain_only": "solo il tuo capitano sceglie il lato.",
-  "tip.menu": "serve una pausa, un admin o arrenderti? Scrivi .menu"
+  "tip.menu": "serve una pausa, un admin o arrenderti? Scrivi .menu",
+  "notice.winners_stay": "I vincitori del coltello restano {side}",
+  "notice.winners_start": "I vincitori del coltello iniziano {side}"
 }

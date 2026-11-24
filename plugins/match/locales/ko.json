@@ -529,5 +529,7 @@
   "end.col8_title": "엔트리 킬",
   "end.col8_body": "라운드의 첫 킬",
   "knife.captain_only": "진영은 주장만 선택할 수 있습니다.",
-  "tip.menu": "일시정지, 관리자 호출, 항복은 .menu"
+  "tip.menu": "일시정지, 관리자 호출, 항복은 .menu",
+  "notice.winners_stay": "칼전 승리 팀은 {side} 유지",
+  "notice.winners_start": "칼전 승리 팀은 {side}로 시작"
 }

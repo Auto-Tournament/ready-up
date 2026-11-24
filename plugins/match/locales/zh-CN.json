@@ -529,5 +529,7 @@
   "end.col8_title": "首杀",
   "end.col8_body": "一回合的第一个击杀",
   "knife.captain_only": "只有你的队长可以选边。",
-  "tip.menu": "需要暂停、呼叫管理员或投降？输入 .menu"
+  "tip.menu": "需要暂停、呼叫管理员或投降？输入 .menu",
+  "notice.winners_stay": "刀局胜方留在{side}",
+  "notice.winners_start": "刀局胜方从{side}开始"
 }

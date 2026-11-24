@@ -538,5 +538,7 @@
   "end.col8_title": "Entry kills",
   "end.col8_body": "O primeiro abate de uma ronda",
   "knife.captain_only": "só o teu capitão escolhe o lado.",
-  "tip.menu": "precisas de pausa, de um admin ou de desistir? Escreve .menu"
+  "tip.menu": "precisas de pausa, de um admin ou de desistir? Escreve .menu",
+  "notice.winners_stay": "Vencedores da faca ficam {side}",
+  "notice.winners_start": "Vencedores da faca começam {side}"
 }
