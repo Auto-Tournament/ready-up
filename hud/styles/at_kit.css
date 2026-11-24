@@ -73,10 +73,10 @@
 
 .at-card
 {
-	horizontal-align: left; vertical-align: bottom; margin-left: 24px; margin-bottom: 320px;
+	horizontal-align: right; vertical-align: bottom; margin-right: 24px; margin-bottom: 320px;
 	width: fit-children; height: fit-children; min-width: 300px; overflow: clip;
-	background-color: #140e0cf7; border: 1px solid #322926; border-radius: 12px;
-	opacity: 0; transform: translateX( -48px );
+	background-color: #140e0ce6; border: 1px solid #ff6a3d40; border-radius: 12px;
+	opacity: 0; transform: translateX( 48px );
 	transition-property: opacity, transform; transition-duration: 0.2s;
 	transition-timing-function: cubic-bezier( 0.55, 0, 1, 0.45 );
 }
@@ -87,9 +87,10 @@
 }
 .HUD_BUYMENU_VISIBLE .at-card.on { opacity: 0; }
 /* A second layer of the card's background: one layer renders see-through in CS2 (as on #at_ecard). */
-.at-cardflow { flow-children: down; width: fit-children; height: fit-children; background-color: #140e0cf7; }
-.at-brandrow { width: 100%; padding: 12px 14px 0px 14px; }
-.at-carddivider { margin-bottom: 0px; }
+.at-cardflow { flow-children: down; width: fit-children; height: fit-children; background-color: #140e0ce6; }
+/* v4: no brand row on the side card (the card is right, above the weapons; the menu list is left). */
+.at-brandrow { visibility: collapse; width: 100%; padding: 12px 14px 0px 14px; }
+.at-carddivider { visibility: collapse; margin-bottom: 0px; }
 .at-content { flow-children: down; width: fit-children; height: fit-children; padding: 12px 14px 15px 14px; }
 .at-card.chat .at-chat { visibility: visible; margin-left: 20px; }
 
@@ -142,15 +143,15 @@
 .at-line-body { margin-left: 20px; }
 
 /* Cells hold CS2's own "100 w 5 trafieniach" (pl, the longest with th): 156 px each, the name keeps ~130. */
-.at-dmg { flow-children: down; width: 532px; }
+.at-dmg { flow-children: down; width: 400px; }
 .at-drow { flow-children: right; width: 100%; height: 28px; margin-bottom: 5px; padding: 0px 9px; border-radius: 7px; background-color: #211815; }
 .at-drow.gone { visibility: collapse; }
 .at-drow.at-dhead { height: 16px; background-color: #00000000; }
 /* Grey unless you hit them: white names are the players you damaged (2026-11-03). */
 .at-dname { width: fill-parent-flow( 1.0 ); vertical-align: center; font-size: 13px; color: #938a87; }
 /* Given / taken are short sentences ("100 in 3 hits"), left-aligned under their header (2026-11-07). */
-.at-dnum { font-family: "Noto Mono"; width: 156px; margin-left: 8px; vertical-align: center; text-align: left; font-size: 13px; color: #938a87; }
-.at-dhp { font-family: "Noto Mono"; width: 48px; margin-left: 8px; vertical-align: center; text-align: right; font-size: 13px; font-weight: bold; color: #c4bcb9; }
+.at-dnum { font-family: "Noto Mono"; width: 118px; margin-left: 6px; vertical-align: center; text-align: left; font-size: 13px; color: #938a87; }
+.at-dhp { font-family: "Noto Mono"; width: 40px; margin-left: 6px; vertical-align: center; text-align: right; font-size: 13px; font-weight: bold; color: #c4bcb9; }
 .at-dhead .at-dnum { font-size: 11px; font-weight: bold; letter-spacing: 1.2px; }
 .at-dhead .at-dhp { font-size: 11px; letter-spacing: 1.2px; color: #938a87; }
 .at-dhead .at-dname { font-family: "Noto Mono"; font-size: 11px; font-weight: bold; letter-spacing: 1.2px; color: #938a87; }
