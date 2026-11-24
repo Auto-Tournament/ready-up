@@ -498,7 +498,9 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
   // (hud.so where=chip), green once ready; holding E presses it. Spectators and players without a
   // button (waiting for the team) still get the small card below.
   if (!btn.empty()) {
-    return L("id", ok ? "ready" : "warm") + L("where", "chip") + L("color", ok ? "live" : "acc") + L("kind", kind) +
+    // One id for both states: the chip updates in place (slides down, turns green) instead of
+    // fading out and in when you ready up (Sivert, 2026-11-24).
+    return L("id", "readychip") + L("where", "chip") + L("color", ok ? "live" : "acc") + L("kind", kind) +
            L("title", title) + btn + L("counter", count) + L("hold", "1");
   }
   // Ready: the card shrinks to a one-line pill (dots, count, a small Unready), welcome or not. It

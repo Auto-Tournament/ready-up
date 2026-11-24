@@ -893,7 +893,10 @@
 	transition-property: opacity, transform; transition-duration: 0.2s; transition-timing-function: ease-out;
 }
 .ui-hold.on { opacity: 1; transform: translateY( 0px ); }
-.ui-holdbg { width: 100%; height: 100%; background-color: #140e0cd9; border: 1px solid #322926; border-radius: 19px; }
+/* Ready (green, c-live): the chip slides down a little instead of fading out, so you see it move
+   as it turns green (Sivert, 2026-11-24). */
+.ui-hold.on.c-live { transform: translateY( 56px ); transition-duration: 0.35s; transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 ); }
+.ui-holdbg { width: 100%; height: 100%; background-color: #140e0cd9; border: 1px solid #322926; border-radius: 19px; transition-property: background-color, border; transition-duration: 0.35s; }
 .ui-hold.on .ui-holdbg { animation-name: ui-hold-pulse; animation-duration: 1.4s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
 .ui-hold.hold .ui-holdbg { animation-name: none; border: 1px solid #ff6a3d; }
 @keyframes 'ui-hold-pulse'
@@ -960,7 +963,7 @@
 .ui-root .ui-panel.chiphold .ui-cmds { visibility: collapse; }
 .ui-root .ui-panel.chiphold .ui-close { visibility: collapse; }
 /* The chip when it is done (Ready): green, full, no pulse; holding E runs the fill again. */
-.ui-hold.c-live .ui-holdbg { animation-name: none; border: 1px solid #3fc168; }
+.ui-hold.c-live .ui-holdbg { animation-name: none; border: 1px solid #3fc168; background-color: #0f2417e0; }
 .ui-hold.c-live .ui-holdfill { background-color: #3fc16840; }
 .ui-hold.c-live.hold .ui-holdfill { background-color: #3fc16873; }
 
