@@ -112,6 +112,18 @@ foreach ($file in Get-ChildItem (Join-Path $here "images\icons") -Filter "*.svg"
         $out2 = Join-Path $game ("panorama\images\icons\" + $side + "_logo.vsvg_c")
         if (Test-Path $out2) { Write-Output ("OK      {0} ({1} bytes)" -f $out2, (Get-Item $out2).Length) } else { Write-Output "FAILED  $out2"; $failed++ }
     }
+    # The same ram as a team logo (mp_teamlogo_1/2 autotournament, set by hud.so): CS2 draws the team
+    # logo in that circle and loads it by name when needed, so unlike the icons above (cached at
+    # startup) it shows every time.
+    if ($file.BaseName -eq "ct_logo_1c") {
+        $teamDir = Join-Path $content "panorama\images\tournaments\teams"
+        New-Item -ItemType Directory -Force -Path $teamDir | Out-Null
+        $team = Join-Path $teamDir "autotournament.svg"
+        Copy-Item $file.FullName $team -Force
+        & $compiler -i $team | Out-Host
+        $out3 = Join-Path $game "panorama\images\tournaments\teams\autotournament.vsvg_c"
+        if (Test-Path $out3) { Write-Output ("OK      {0} ({1} bytes)" -f $out3, (Get-Item $out3).Length) } else { Write-Output "FAILED  $out3"; $failed++ }
+    }
 }
 
 # Tool caches must not end up in the Workshop upload.
