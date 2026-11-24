@@ -1267,14 +1267,14 @@ void OnBeginMatch(void*, const char*, const ru_game_event*) {
 }
 
 // The AT ram as both teams' logo: CS2 draws the team logo in the circle between health and ammo.
-// The addon ships it at panorama/images/tournaments/teams/autotournament (hud/build.ps1), a path CS2
+// The addon ships it at panorama/images/tournaments/teams/atram (hud/build.ps1; CS2 cuts a logo name at 7 characters, "autotournament" looked for "autotou"), a path CS2
 // has never loaded, so it shows every time; replacing icons/ui/ct_logo_1c only worked right after a
 // download, because CS2 keeps the emblem it loaded at startup (2026-11-24, found by setting
 // mp_teamlogo_1 navi). A match config's own mp_teamlogo_* goes out after this and wins.
 void SetTeamLogos() {
   if (!g_api || !g_api->server_command) return;
-  g_api->server_command(g_api->self, "mp_teamlogo_1 autotournament");
-  g_api->server_command(g_api->self, "mp_teamlogo_2 autotournament");
+  g_api->server_command(g_api->self, "mp_teamlogo_1 atram");
+  g_api->server_command(g_api->self, "mp_teamlogo_2 atram");
 }
 
 void OnEvent(void*, const ru_event* ev) {
