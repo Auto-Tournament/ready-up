@@ -5,17 +5,17 @@
   "patch": "1.42.0.1"
  },
  "readyup": {
-  "version": "0.1.0-beta.70-dev.b07aad9",
-  "commit": "b07aad95be1edffe463963c79be2b85d99da8b0d"
+  "version": "0.1.0-beta.70-dev.8b92660",
+  "commit": "8b926605db47bca739dc9de649a73e6a2c19daac"
  },
  "run": {
-  "id": "45478113910",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/45478113910",
+  "id": "45482025032",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/45482025032",
   "trigger": "code_change",
   "stage": "live",
   "state": "fail",
-  "started_at": "2026-11-24T20:11:18Z",
-  "finished_at": "2026-11-24T20:33:14Z"
+  "started_at": "2026-11-24T20:33:30Z",
+  "finished_at": "2026-11-24T20:58:08Z"
  },
  "overall": "fail",
  "components": [
@@ -265,8 +265,8 @@
     {
      "kind": "schema",
      "status": "pass",
-     "passed": 36,
-     "total": 36,
+     "passed": 37,
+     "total": 37,
      "failures": []
     },
     {
@@ -882,13 +882,15 @@
     },
     {
      "kind": "livetest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
-     "failures": []
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
+     "failures": [
+      "fleet: failed (exit 1); advisory (not required yet), see the run"
+     ]
     }
    ]
   }
  ],
- "checked_at": "2026-11-24T20:33:14Z"
+ "checked_at": "2026-11-24T20:58:08Z"
 }
