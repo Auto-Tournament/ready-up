@@ -1169,9 +1169,28 @@ void AddonVersionTick() {
   }
 }
 
+// Dev servers (readyup.cfg dev=1): the build line on every player's HUD, the addon's own stamp
+// (hud/build.ps1) next to this hud.so's version and commit, to see who has an old HUD.
+void DevBuildTick() {
+  static double next = 0;
+  if (g_now < next) return;
+  next = g_now + 2.0;
+  if (!(RU_API_HAS(g_api, dev_mode) && g_api->dev_mode && g_api->dev_mode(g_api->self))) return;
+  const int h = IfOpen(kUiLayout);
+  if (h <= 0) return;
+  for (int slot = 0; slot <= 63; ++slot) {
+    ru_player p{};
+    p.struct_size = sizeof(p);
+    if (!g_api->get_player(g_api->self, slot, &p) || !p.connected || p.is_bot) continue;
+    IfSetClass(h, slot, "ui_dev", "on", 1);
+    IfSetText(h, slot, "ui_dev_srv", "text", "server hud " HUD_VERSION " " HUD_GIT_SHA);
+  }
+}
+
 void OnTick(void*, const ru_tick_info* t) {
   g_now = t->now;
   SlotOffRefresh();
+  DevBuildTick();
   if (!g_origSvcUm && g_eng.ok) InstallClickHook();
   if (g_layouts.empty() || std::none_of(g_layouts.begin(), g_layouts.end(), [](const Layout& l) { return l.path == kUiLayout; }))
     IfOpen(kUiLayout);

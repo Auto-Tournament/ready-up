@@ -58,6 +58,14 @@ foreach ($job in $jobs) {
     foreach ($file in Get-ChildItem (Join-Path $here $job.Src) -Filter "*.$($job.Ext)") {
         $target = Join-Path $dstDir $file.Name
         Copy-Item $file.FullName $target -Force
+        # The dev build line (ui_dev): this build's commit and time, so a dev server shows which HUD
+        # each player has.
+        if ($job.Ext -eq "xml") {
+            $sha = (& git -C $here rev-parse --short HEAD 2>$null)
+            if (-not $sha) { $sha = "nogit" }
+            $stamp = "$sha " + (Get-Date -Format "yyyy-MM-dd HH:mm")
+            (Get-Content $target -Raw) -replace "__AT_HUD_BUILD__", $stamp | Set-Content $target -NoNewline -Encoding utf8
+        }
         # The compiler works out the addon from the content\csgo_addons\<addon> path.
         & $compiler -i $target | Out-Host
         $out = Join-Path $game (Join-Path $job.Dst ($file.BaseName + "." + $job.Out))

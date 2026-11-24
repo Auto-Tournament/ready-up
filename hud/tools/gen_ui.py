@@ -102,6 +102,10 @@ def main():
     body += panel("ui_leftwrap", "ui-leftwrap", block("ui_left"))
     # "Your HUD addon is out of date": shown unless hud.so's v-<n> class is one this addon knows.
     body += panel("ui_ver", "ui-ver", label("ui_ver_t", "ui-vertext"))
+    # Dev servers (readyup.cfg dev=1): which HUD this client has and which hud.so the server runs.
+    # __AT_HUD_BUILD__ is replaced by hud/build.ps1 with the commit and build time.
+    body += panel("ui_dev", "ui-dev", label(cls="ui-devt", text="HUD __AT_HUD_BUILD__")
+                  + label("ui_dev_srv", "ui-devt"))
     # The watermark either side of the AT logo between health and ammo (Sivert, 2026-11-24, draft G):
     # "PLAYED ON" left of the circle above CS2's health line, "AUTO TOURNAMENT" right of it below.
     body += panel("ui_wm", "ui-wm", panel(cls="ui-wmhalf ui-wml", children=label(cls="ui-wmt", text="PLAYED ON"))

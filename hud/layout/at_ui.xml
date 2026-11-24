@@ -772,6 +772,10 @@
 <Panel id="ui_ver" class="ui-ver" hittest="false">
 <Label id="ui_ver_t" class="ui-vertext" text="{s:text}" hittest="false" />
 </Panel>
+<Panel id="ui_dev" class="ui-dev" hittest="false">
+<Label class="ui-devt" text="HUD __AT_HUD_BUILD__" hittest="false" />
+<Label id="ui_dev_srv" class="ui-devt" text="{s:text}" hittest="false" />
+</Panel>
 <Panel id="ui_wm" class="ui-wm" hittest="false">
 <Panel class="ui-wmhalf ui-wml" hittest="false">
 <Label class="ui-wmt" text="PLAYED ON" hittest="false" />

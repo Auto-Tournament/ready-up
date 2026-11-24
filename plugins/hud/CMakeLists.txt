@@ -6,7 +6,7 @@ readyup_add_plugin(hud hud_plugin.cpp hud_vec.cpp hud_screen.cpp)
 readyup_embed_locales(readyup_plugin_hud ${CMAKE_CURRENT_SOURCE_DIR}/locales)
 target_include_directories(readyup_plugin_hud PRIVATE ${CMAKE_SOURCE_DIR}/libs)
 target_include_directories(readyup_plugin_hud PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_compile_definitions(readyup_plugin_hud PRIVATE HUD_VERSION="${READYUP_SEMVER}")
+target_compile_definitions(readyup_plugin_hud PRIVATE HUD_VERSION="${READYUP_SEMVER}" HUD_GIT_SHA="${READYUP_GIT_SHA}")
 target_link_libraries(readyup_plugin_hud PRIVATE dl)
 
 # Raw CUtlVector helpers (hud_vec.h; ctest `hud_vec`).
