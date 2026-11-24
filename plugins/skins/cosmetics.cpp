@@ -80,34 +80,25 @@ std::string PawnModelName(void* pawn) {
   return out;
 }
 
-// CS2 1.41 left characters/models/<x>/<y>.vmdl as small stubs with no bodygroups; the same agent
-// with them is agents/models/<x>/<y>.vmdl. "" when `model` is not such a stub or has no agents
-// twin in 1.42's pak01 (heavy armour, jumpsuit: checked 2026-11-24).
-std::string AgentForStub(const std::string& model) {
-  static const std::string kStub = "characters/models/";
-  if (model.rfind(kStub, 0) != 0 || model.size() < kStub.size() + 6 || model.compare(model.size() - 5, 5, ".vmdl") != 0)
-    return {};
-  const std::string rest = model.substr(kStub.size());
-  for (const char* no : {"ctm_heavy/", "tm_jumpsuit/", "tm_phoenix_heavy/"})
-    if (rest.rfind(no, 0) == 0) return {};
-  return "agents/models/" + rest;
-}
-
-// Hides the model's built-in gloves (bodygroup default_gloves) under a glove skin. Without an
-// agent the pawn often has one of those stubs, so the stock gloves stayed on when the player had
-// no gloves of their own in CS2 (#395, 2026-11-24: "model has no such bodygroup"). The stub is
-// swapped for its agents twin; a later pass sets the bodygroup once that model has loaded.
+// Hides the model's built-in gloves (bodygroup default_gloves) under a glove skin; logs the model
+// when it has none (#395: agents/models/tm_professional/tm_professional_varf4.vmdl, 2026-11-24).
 int HideDefaultGloves(void* pawn, uint64_t steamid64) {
   const int bg = SetBodygroupByName(pawn, "default_gloves", 1);
-  if (bg != RU_BODYGROUP_NO_GROUP) return bg;
-  const std::string cur = PawnModelName(pawn);
-  const std::string agent = AgentForStub(cur);
-  if (!agent.empty() && SetModel(pawn, agent.c_str())) {
-    WarnOnce(steamid64, ("stub model " + cur + " -> " + agent + " (for default_gloves)").c_str());
-  } else {
+  if (bg == RU_BODYGROUP_NO_GROUP) {
+    const std::string cur = PawnModelName(pawn);
     WarnOnce(steamid64, ("no default_gloves bodygroup on " + (cur.empty() ? std::string("an unknown model") : cur)).c_str());
   }
   return bg;
+}
+
+// The WeaponPaints way to make the client rebuild the hands: set another model and the pawn's own
+// one again, in the same frame. Without it a player with no gloves of their own in CS2 kept the
+// stock gloves over the glove skin (#395); with gloves of their own the client rebuilt them anyway.
+void BounceModel(void* pawn, uint64_t steamid64) {
+  const std::string cur = PawnModelName(pawn);
+  if (cur.empty() || cur.find("tm_jumpsuit") != std::string::npos) return;
+  if (SetModel(pawn, "characters/models/tm_jumpsuit/tm_jumpsuit_varianta.vmdl") && SetModel(pawn, cur.c_str()))
+    WarnOnce(steamid64, ("model bounced for the gloves: " + cur).c_str());
 }
 
 }  // namespace
@@ -142,6 +133,7 @@ bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late) {
         // Already on: only the default-gloves bodygroup (the model may have loaded since).
         (void)HideDefaultGloves(pawn, steamid64);
       } else {
+        BounceModel(pawn, steamid64);
         const uint16_t def = static_cast<uint16_t>(*gloveDef);
         std::memcpy(static_cast<unsigned char*>(item) + detail::ItemDefIndexOffset(), &def, sizeof(def));
         const uint64_t id = detail::WritePaint(nullptr, item, steamid64, skin);
