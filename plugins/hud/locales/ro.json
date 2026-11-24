@@ -1,7 +1,10 @@
 {
   "menu.none": "Acum nu există meniu pe acest server.",
+  "menu.chat_help": "Comenzi: .r gata · .p pauză tehnică · .tac timeout · .gg abandon · .admin cheamă un admin · .hud HUD",
+  "hud.now_off": "HUD oprit: Ready Up îți scrie în chat. .hud îl pornește din nou.",
+  "hud.now_on": "HUD pornit.",
   "hud.outdated": "HUD-ul nu este actualizat. Pe platformă, apasă pe ? și alege HUD.",
   "hud.hold_menu": "Meniu",
   "hud.hold_close": "Închide",
-  "hud.menu_hint": "W S: mută · Ține E: alege"
+  "hud.menu_hint": "W ↑ · S ↓ · Ține E: alege"
 }

@@ -1,7 +1,10 @@
 {
   "menu.none": "ตอนนี้เซิร์ฟเวอร์นี้ไม่มีเมนู",
+  "menu.chat_help": "คำสั่ง: .r พร้อม · .p หยุดเทคนิค · .tac ไทม์เอาต์ · .gg ยอมแพ้ · .admin เรียกแอดมิน · .hud HUD",
+  "hud.now_off": "ปิด HUD: Ready Up จะแจ้งในแชท .hud เพื่อเปิดอีกครั้ง",
+  "hud.now_on": "เปิด HUD",
   "hud.outdated": "HUD ไม่เป็นปัจจุบัน บนแพลตฟอร์ม คลิก ? แล้วเลือก HUD",
   "hud.hold_menu": "เมนู",
   "hud.hold_close": "ปิด",
-  "hud.menu_hint": "W S: เลื่อน · กด E ค้าง: เลือก"
+  "hud.menu_hint": "W ↑ · S ↓ · กด E ค้าง: เลือก"
 }

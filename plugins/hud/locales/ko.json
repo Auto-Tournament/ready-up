@@ -1,7 +1,10 @@
 {
   "menu.none": "지금 이 서버에는 메뉴가 없습니다.",
+  "menu.chat_help": "명령어: .r 준비 · .p 기술적 일시정지 · .tac 타임아웃 · .gg 항복 · .admin 관리자 호출 · .hud HUD",
+  "hud.now_off": "HUD 끔: Ready Up이 채팅으로 알려 드립니다. .hud로 다시 켭니다.",
+  "hud.now_on": "HUD 켬.",
   "hud.outdated": "HUD가 오래되었습니다. 플랫폼에서 ? 를 누르고 HUD를 선택하세요.",
   "hud.hold_menu": "메뉴",
   "hud.hold_close": "닫기",
-  "hud.menu_hint": "W S: 이동 · E 길게: 선택"
+  "hud.menu_hint": "W ↑ · S ↓ · E 길게: 선택"
 }

@@ -74,6 +74,12 @@ typedef struct ru_hud_v1 {
    * own), on (1) or off (0): hover (CSS :hover, tooltips) needs it. Give it back when done and on
    * disconnect. `screen` and `menu` manage at_ui's cursor themselves. 1 = done. */
   int (*set_capture)(int hud, int slot, int on);
+  /* v1.4 (check struct_size): a player who plays without the custom HUD (`.hud off`, or the
+   * platform's player setting through set_player_off). For them screen / menu / set_text /
+   * set_class do nothing (menu returns 0): send chat and the centre panel instead. player_off: 1 =
+   * off. set_player_off: off 1 / on 0, saved by hud.so; 1 = done. */
+  int (*player_off)(uint64_t steamid64);
+  int (*set_player_off)(uint64_t steamid64, int off);
   /* v1.x: members are appended here. */
 } ru_hud_v1;
 

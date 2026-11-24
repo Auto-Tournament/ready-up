@@ -1,7 +1,10 @@
 {
   "menu.none": "このサーバーには今メニューがありません。",
+  "menu.chat_help": "コマンド: .r 準備完了 · .p 技術的ポーズ · .tac タイムアウト · .gg 降参 · .admin 管理者を呼ぶ · .hud HUD",
+  "hud.now_off": "HUDオフ: Ready Upはチャットでお知らせします。.hudで元に戻せます。",
+  "hud.now_on": "HUDオン。",
   "hud.outdated": "HUDが古くなっています。プラットフォームで ? をクリックし、HUD を選んでください。",
   "hud.hold_menu": "メニュー",
   "hud.hold_close": "閉じる",
-  "hud.menu_hint": "W S: 移動 · E 長押し: 決定"
+  "hud.menu_hint": "W ↑ · S ↓ · E 長押し: 決定"
 }

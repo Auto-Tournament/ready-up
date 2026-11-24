@@ -970,7 +970,7 @@
 #ui_left .ui-kind { horizontal-align: left; margin: 0px 16px 4px 16px; }
 #ui_left .ui-title { horizontal-align: left; text-align: left; margin: 0px 16px 10px 16px; font-size: 24px; color: #ff6a3d; }
 #ui_left .ui-sub { horizontal-align: left; text-align: left; margin: 0px 16px 8px 16px; }
-#ui_left .ui-hint { horizontal-align: left; margin: 10px 16px 0px 16px; font-size: 15px; color: #c4bcb9; }
+#ui_left .ui-hint { horizontal-align: left; margin: 10px 16px 0px 16px; font-size: 15px; color: #c4bcb9; white-space: nowrap; }  /* W ↑ · S ↓ · Hold E: pick, one row */
 #ui_left .ui-timer { margin: 16px 16px 0px 0px; }
 #ui_left .ui-buttons { horizontal-align: left; width: 100%; margin-top: 0px; flow-children: down; }
 #ui_left .ui-btn

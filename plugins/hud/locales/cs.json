@@ -1,7 +1,10 @@
 {
   "menu.none": "Na tomto serveru teď není žádné menu.",
+  "menu.chat_help": "Příkazy: .r připraven · .p tech. pauza · .tac timeout · .gg vzdát · .admin admin · .hud HUD",
+  "hud.now_off": "HUD vypnut: Ready Up vám píše do chatu. .hud ho zase zapne.",
+  "hud.now_on": "HUD zapnut.",
   "hud.outdated": "HUD je zastaralý. Na platformě klikni na ? a vyber HUD.",
   "hud.hold_menu": "Menu",
   "hud.hold_close": "Zavřít",
-  "hud.menu_hint": "W S: posun · Podrž E: vyber"
+  "hud.menu_hint": "W ↑ · S ↓ · Podrž E: vyber"
 }

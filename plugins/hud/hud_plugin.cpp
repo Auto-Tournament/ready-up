@@ -34,6 +34,7 @@
 #include <dlfcn.h>
 #include <link.h>
 #include <algorithm>
+#include <bitset>
 #include <climits>
 
 #include <cstdarg>
@@ -41,6 +42,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <functional>
 #include <map>
 #include <mutex>
@@ -384,7 +386,62 @@ int IfOpen(const char* path) {
   return static_cast<int>(g_layouts.size());
 }
 
+// ---- players who play without the custom HUD (`.hud off`, or the platform's player setting) ----
+// Their slots get nothing from screen / menu / set_text / set_class: the callers send chat and the
+// centre panel instead (ru_hud_v1 player_off, v1.4). Kept in <data_dir>/hud_off.txt, one SteamID64
+// a line (Sivert, 2026-11-24: chat as the fallback, a choice per player).
+std::set<uint64_t> g_hudOff;
+std::bitset<64> g_slotOff;  // the slots of g_hudOff's players: every tick and on a change
+
+std::string HudOffPath() {
+  if (!RU_API_HAS(g_api, data_dir) || !g_api->data_dir) return {};
+  const char* d = g_api->data_dir(g_api->self);
+  return d && *d ? std::string(d) + "/hud_off.txt" : std::string();
+}
+
+void HudOffLoad() {
+  g_hudOff.clear();
+  const std::string p = HudOffPath();
+  if (p.empty()) return;
+  std::ifstream f(p);
+  unsigned long long id = 0;
+  while (f >> id)
+    if (id) g_hudOff.insert(static_cast<uint64_t>(id));
+}
+
+void HudOffSave() {
+  const std::string p = HudOffPath();
+  if (p.empty()) return;
+  std::ofstream f(p, std::ios::trunc);
+  for (uint64_t id : g_hudOff) f << static_cast<unsigned long long>(id) << "\n";
+}
+
+int SlotOfSteamId(uint64_t id) {
+  for (int slot = 0; slot <= 63; ++slot) {
+    ru_player p{};
+    p.struct_size = sizeof(p);
+    if (g_api->get_player(g_api->self, slot, &p) && p.connected && !p.is_bot && p.steamid64 == id) return slot;
+  }
+  return -1;
+}
+
+void SlotOffRefresh() {
+  std::bitset<64> next;
+  if (!g_hudOff.empty()) {
+    for (int slot = 0; slot <= 63; ++slot) {
+      ru_player p{};
+      p.struct_size = sizeof(p);
+      if (g_api->get_player(g_api->self, slot, &p) && p.connected && !p.is_bot && p.steamid64 && g_hudOff.count(p.steamid64))
+        next.set(static_cast<size_t>(slot));
+    }
+  }
+  g_slotOff = next;
+}
+
+bool SlotOff(int slot) { return slot >= 0 && slot <= 63 && g_slotOff.test(static_cast<size_t>(slot)); }
+
 int IfSetText(int hud, int slot, const char* panel, const char* var, const char* value) {
+  if (SlotOff(slot)) return 1;  // HUD off for this player
   Layout* l = LayoutOf(hud);
   if (!l || !panel || !var || slot < RU_HUD_ALL || slot > 63) return 0;
   const Key k{panel, var};
@@ -405,6 +462,7 @@ int IfSetText(int hud, int slot, const char* panel, const char* var, const char*
 }
 
 int IfSetClass(int hud, int slot, const char* panel, const char* cls, int on) {
+  if (SlotOff(slot)) return 1;  // HUD off for this player
   Layout* l = LayoutOf(hud);
   if (!l || !panel || !cls || slot < RU_HUD_ALL || slot > 63) return 0;
   const Key k{panel, cls};
@@ -721,7 +779,7 @@ bool DemoDefer(int slot, const std::string& spec, ru_hud_click_fn onClick, void*
 
 int IfScreen(int slot, const char* specIn, ru_hud_click_fn onClick, void* user) {
   if (slot < 0 || slot > 63) return 0;
-  const std::string spec = specIn ? specIn : "";
+  const std::string spec = SlotOff(slot) ? std::string() : std::string(specIn ? specIn : "");  // HUD off: hidden
   if (DemoDefer(slot, spec, onClick, user)) return 1;
   ScreenSlot& ss = g_screens[slot];
   ss.onClick = onClick;
@@ -833,8 +891,33 @@ void ScreenForget(int slot) {
   }
 }
 
+// Turns the custom HUD off (or back on) for one player and saves the choice. Off: whatever is shown
+// goes away now; on: the callers' next screen / card draws again.
+bool SetPlayerOff(uint64_t id, bool off) {
+  if (!id || (g_hudOff.count(id) != 0) == off) return false;
+  const int slot = SlotOfSteamId(id);
+  if (off && slot >= 0) {
+    IfScreen(slot, "", nullptr, nullptr);
+    MenuForget(slot);
+  }
+  if (off)
+    g_hudOff.insert(id);
+  else
+    g_hudOff.erase(id);
+  HudOffSave();
+  SlotOffRefresh();
+  if (!off && slot >= 0) ScreenForget(slot);
+  return true;
+}
+
+int IfPlayerOff(uint64_t id) { return id && g_hudOff.count(id) ? 1 : 0; }
+int IfSetPlayerOff(uint64_t id, int off) {
+  SetPlayerOff(id, off != 0);
+  return id ? 1 : 0;
+}
+
 const ru_hud_v1 g_iface = {sizeof(ru_hud_v1), &IfAvailable, &IfOpen, &IfSetText, &IfSetClass, &IfClearSlot, &IfScreen, &IfMenu, &IfRegisterMenu,
-                            &IfSetCapture};
+                            &IfSetCapture, &IfPlayerOff, &IfSetPlayerOff};
 
 // `ru hudkit click [slot]`: the CT / T proof of concept for one player, or every human.
 const char* kClickLayout = "panorama/layout/custom_game/at_click.xml";
@@ -1086,6 +1169,7 @@ void AddonVersionTick() {
 
 void OnTick(void*, const ru_tick_info* t) {
   g_now = t->now;
+  SlotOffRefresh();
   if (!g_origSvcUm && g_eng.ok) InstallClickHook();
   if (g_layouts.empty() || std::none_of(g_layouts.begin(), g_layouts.end(), [](const Layout& l) { return l.path == kUiLayout; }))
     IfOpen(kUiLayout);
@@ -1697,6 +1781,7 @@ void MenuRefresh(int slot) {
 
 int IfMenu(int slot, const char* ownerIn, const char* specIn, ru_hud_click_fn onClick, void* user) {
   if (!ownerIn || !*ownerIn) return 0;
+  if (SlotOff(slot) && specIn && *specIn) return 0;  // HUD off for this player: the caller uses chat
   const std::string owner = ownerIn, spec = specIn ? specIn : "";
   std::vector<int> slots;
   if (slot == RU_HUD_ALL) {
@@ -2055,6 +2140,11 @@ void HoldTick() {
 
 void OnMenuChat(void*, const ru_command_ctx* ctx) {
   if (ctx->slot < 0) return;
+  if (SlotOff(ctx->slot)) {
+    // HUD off for this player: the commands in chat instead of a menu.
+    g_api->chat_to_slot(g_api->self, ctx->slot, g_text.Tr(readyup::i18n::LanguageOf(g_api, ctx->slot), "menu.chat_help").c_str());
+    return;
+  }
   for (const auto& p : g_providers) {
     if (p.active(p.user, ctx->slot)) {
       p.open(p.user, ctx->slot, ctx->steamid64);
@@ -2062,6 +2152,17 @@ void OnMenuChat(void*, const ru_command_ctx* ctx) {
     }
   }
   g_api->chat_to_slot(g_api->self, ctx->slot, g_text.Tr(readyup::i18n::LanguageOf(g_api, ctx->slot), "menu.none").c_str());
+}
+
+// `.hud` (toggle), `.hud off`, `.hud on`: the custom HUD for this player. Off: Ready Up uses the
+// chat and the centre panel for them (saved; the platform's player setting sets the same).
+void OnHudChat(void*, const ru_command_ctx* ctx) {
+  if (ctx->slot < 0 || !ctx->steamid64) return;
+  const std::string a = ctx->argc > 1 && ctx->argv[1] ? ctx->argv[1] : "";
+  const bool off = a == "off" || a == "0" ? true : a == "on" || a == "1" ? false : !g_hudOff.count(ctx->steamid64);
+  SetPlayerOff(ctx->steamid64, off);
+  g_api->chat_to_slot(g_api->self, ctx->slot,
+                      g_text.Tr(readyup::i18n::LanguageOf(g_api, ctx->slot), off ? "hud.now_off" : "hud.now_on").c_str());
 }
 
 void OnDemoClick(void*, int slot, const char* command) {
@@ -2304,6 +2405,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_pauseUntil = -1;
   g_repushAfterPause = false;
   g_scale = 75;
+  HudOffLoad();
+  g_slotOff.reset();
   if (RU_API_HAS(api, config_get)) {
     char buf[16] = {};
     if (api->config_get(api->self, "scale", buf, sizeof(buf)) > 0 && ParseScale(buf) > 0) g_scale = ParseScale(buf);
@@ -2324,6 +2427,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   api->register_ru_subcommand(api->self, "hudkit", &OnRu, nullptr);
   api->register_chat_command(api->self, ".dev", &OnDevChat, nullptr);
   api->register_chat_command(api->self, ".menu", &OnMenuChat, nullptr);
+  api->register_chat_command(api->self, ".hud", &OnHudChat, nullptr);
   if (RU_API_HAS(api, filter_client_command)) {
     api->filter_client_command(api->self, "open_buymenu", &OnBuyMenu, nullptr);
     api->filter_client_command(api->self, "close_buymenu", &OnBuyMenu, nullptr);

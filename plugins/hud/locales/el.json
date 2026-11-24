@@ -1,7 +1,10 @@
 {
   "menu.none": "Δεν υπάρχει μενού σε αυτόν τον server αυτή τη στιγμή.",
+  "menu.chat_help": "Εντολές: .r έτοιμος · .p τεχνική παύση · .tac timeout · .gg παραίτηση · .admin admin · .hud HUD",
+  "hud.now_off": "HUD κλειστό: το Ready Up σας γράφει στο chat. Το .hud το ανοίγει ξανά.",
+  "hud.now_on": "HUD ανοιχτό.",
   "hud.outdated": "Το HUD δεν είναι ενημερωμένο. Στην πλατφόρμα, πάτησε ? και διάλεξε HUD.",
   "hud.hold_menu": "Μενού",
   "hud.hold_close": "Κλείσιμο",
-  "hud.menu_hint": "W S: μετακίνηση · Κράτα E: επιλογή"
+  "hud.menu_hint": "W ↑ · S ↓ · Κράτα E: επιλογή"
 }

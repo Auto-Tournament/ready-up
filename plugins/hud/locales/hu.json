@@ -1,7 +1,10 @@
 {
   "menu.none": "Most nincs menü ezen a szerveren.",
+  "menu.chat_help": "Parancsok: .r kész · .p technikai szünet · .tac időkérés · .gg feladás · .admin admin hívása · .hud HUD",
+  "hud.now_off": "HUD kikapcsolva: a Ready Up a chatben ír neked. A .hud visszakapcsolja.",
+  "hud.now_on": "HUD bekapcsolva.",
   "hud.outdated": "A HUD elavult. A platformon kattints a ? gombra, és válaszd a HUD-ot.",
   "hud.hold_menu": "Menü",
   "hud.hold_close": "Bezárás",
-  "hud.menu_hint": "W S: mozgatás · E nyomva: választás"
+  "hud.menu_hint": "W ↑ · S ↓ · E nyomva: választás"
 }
