@@ -328,7 +328,9 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
     present.insert(slot);
     std::string spec;
     auto m = g_menus.find(slot);
-    if (m != g_menus.end() && (now > m->second.until || mid || m->second.steamid64 != h.steamid64)) {
+    // A menu stays open through a round start (Sivert, 2026-11-24: a pause or an admin is needed
+    // mid-round too); W S and hold E need no cursor.
+    if (m != g_menus.end() && (now > m->second.until || m->second.steamid64 != h.steamid64)) {
       g_menus.erase(m);
       m = g_menus.end();
     }
@@ -352,7 +354,7 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
       }
     }
     if (spec.empty()) spec = baseFor(h);
-    if (!spec.empty() && mid) spec += "chips=1\n";
+    if (!spec.empty() && mid && m == g_menus.end()) spec += "chips=1\n";  // a menu keeps its rows
     hud->screen(slot, spec.c_str(), &OnClick, nullptr);
   }
   for (int slot : g_shown) {
@@ -397,7 +399,7 @@ void HudScreensUninstall() {
 }
 
 bool HudScreensOpenMenu(int slot, uint64_t steamid64, const std::string& which) {
-  if (slot < 0 || slot > 63 || !HudScreensOn() || HudMidRound()) return false;
+  if (slot < 0 || slot > 63 || !HudScreensOn()) return false;  // mid-round too
   const ReadyUpMode mode = GetMode();
   if (mode == ReadyUpMode::Practice || mode == ReadyUpMode::External) return false;
   if (which == "admin" && !IsReadyUpAdmin(steamid64)) return false;
