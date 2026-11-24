@@ -537,5 +537,6 @@
   "end.col7_body": "Vahinko HE-kranaateista ja tulesta",
   "end.col8_title": "Avaustapot",
   "end.col8_body": "Kierroksen ensimmäinen tappo",
-  "knife.captain_only": "vain kapteenisi valitsee puolen."
+  "knife.captain_only": "vain kapteenisi valitsee puolen.",
+  "tip.menu": "tarvitsetko tauon, adminin tai haluatko luovuttaa? Kirjoita .menu"
 }

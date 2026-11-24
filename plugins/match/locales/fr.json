@@ -537,5 +537,6 @@
   "end.col7_body": "Dégâts des grenades HE et du feu",
   "end.col8_title": "Entry kills",
   "end.col8_body": "Le premier kill d’une manche",
-  "knife.captain_only": "seul ton capitaine choisit le camp."
+  "knife.captain_only": "seul ton capitaine choisit le camp.",
+  "tip.menu": "besoin d’une pause, d’un admin ou d’abandonner ? Tape .menu"
 }

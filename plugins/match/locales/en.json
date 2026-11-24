@@ -537,5 +537,6 @@
   "end.col7_body": "Damage from HE grenades and fire",
   "end.col8_title": "Entry kills",
   "end.col8_body": "The first kill of a round",
-  "knife.captain_only": "only your captain picks the side."
+  "knife.captain_only": "only your captain picks the side.",
+  "tip.menu": "need a pause, an admin or to forfeit? Type .menu"
 }

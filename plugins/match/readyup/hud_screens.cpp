@@ -405,6 +405,18 @@ bool HudScreensOpenMenu(int slot, uint64_t steamid64, const std::string& which) 
   return true;
 }
 
+void WarmupMenuTipTick() {
+  static double next = 0;
+  const double now = host::NowSeconds();
+  if (!Warmup()) {
+    next = now + 20;  // the first tip 20 s into the next warmup
+    return;
+  }
+  if (now < next) return;
+  next = now + 60;
+  text::ChatAll("tip.menu");
+}
+
 void HudOutdatedHoldTick() {
   const ReadyUpMode mode = GetMode();
   const bool hold = mode == ReadyUpMode::MatchKnife || mode == ReadyUpMode::MatchLive ||

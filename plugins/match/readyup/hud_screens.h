@@ -36,6 +36,8 @@ bool HudMidRound();
 // the knife round to the next map's warmup (and in modes another plugin runs) it sets class `hold`
 // on #ui_ver, and hud.so leaves the pill off. Once a tick, game thread.
 void HudOutdatedHoldTick();
+// Warmup: every 60 s a chat tip that .menu has pause, admin and forfeit (tip.menu).
+void WarmupMenuTipTick();
 
 // One tick: shows every connected human their screen (menu, vote, else baseFor(h); "" = none)
 // and hides it for players who left. Game thread.

@@ -537,5 +537,6 @@
   "end.col7_body": "Schaden durch HE-Granaten und Feuer",
   "end.col8_title": "Entry-Kills",
   "end.col8_body": "Der erste Kill einer Runde",
-  "knife.captain_only": "nur dein Kapitän wählt die Seite."
+  "knife.captain_only": "nur dein Kapitän wählt die Seite.",
+  "tip.menu": "Pause, Admin oder aufgeben? Schreib .menu"
 }
