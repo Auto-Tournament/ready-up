@@ -602,6 +602,43 @@ void SetRating(const fleet::json::Value& player) {
   g_ratings[id] = Rating{static_cast<int32_t>(r), static_cast<int32_t>(w < 0 ? 0 : w > 999999 ? 999999 : w)};
 }
 
+// ---- the platform's HUD choice per player --------------------------------------------------------
+// `hud: false` on a player of match.assign (or an add_player op) turns the custom HUD off for them
+// on hud.so (ru_hud_v1 1.4 set_player_off), as `.hud off` would; `hud: true` turns it back on. No
+// field: the player's own choice stays.
+void SetHudChoice(const fleet::json::Value& player) {
+  const fleet::json::Value* sid = player.Get("steamid64");
+  const fleet::json::Value* hud = player.Get("hud");
+  if (!sid || !hud || hud->t != fleet::json::Value::T::Bool) return;
+  const uint64_t id = std::strtoull(sid->AsStr().c_str(), nullptr, 10);
+  if (!id) return;
+  const auto* h = static_cast<const ru_hud_v1*>(g_api->get_interface(g_api->self, RU_HUD_IFACE_NAME, 1));
+  if (!h || h->struct_size < offsetof(ru_hud_v1, set_player_off) + sizeof(h->set_player_off) || !h->set_player_off) return;
+  h->set_player_off(id, hud->b ? 0 : 1);
+}
+
+void OnPlayerHud(const std::string& type, const std::string& payload) {
+  fleet::json::Value v;
+  if (!fleet::json::Parse(payload, &v) || !v.IsObj()) return;
+  if (type == "match.assign") {
+    const fleet::json::Value* cfg = v.Get("config");
+    for (const char* team : {"team1", "team2"}) {
+      const fleet::json::Value* t = cfg ? cfg->Get(team) : nullptr;
+      const fleet::json::Value* players = t ? t->Get("players") : nullptr;
+      if (players && players->IsArr()) {
+        for (const auto& p : players->a) SetHudChoice(p);
+      }
+    }
+    return;
+  }
+  const fleet::json::Value* ops = v.Get("ops");
+  if (!ops || !ops->IsArr()) return;
+  for (const auto& op : ops->a) {
+    const fleet::json::Value* kind = op.IsObj() ? op.Get("op") : nullptr;
+    if (kind && kind->AsStr() == "add_player") SetHudChoice(op);
+  }
+}
+
 void OnPlayerRatings(const std::string& type, const std::string& payload) {
   if (type == "match.unassign") {
     g_ratings.clear();
@@ -1026,6 +1063,7 @@ void DrainTask(void*) {
     m.payload_json = in.payloadJson.c_str();
     if (in.env.type == "server.config") OnServerConfig(in.payloadJson);
     if (in.env.type == "match.assign" || in.env.type == "match.update") OnPlayerLanguages(in.env.type, in.payloadJson);
+    if (in.env.type == "match.assign" || in.env.type == "match.update") OnPlayerHud(in.env.type, in.payloadJson);
     if (in.env.type == "match.assign" || in.env.type == "match.update" || in.env.type == "match.unassign")
       OnPlayerRatings(in.env.type, in.payloadJson);
     if (in.env.type == "demo.ack") {
