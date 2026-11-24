@@ -43,11 +43,13 @@ void ImportantAll(const std::string& key, Args args, int centerSeconds) {
   ImportantAllFn([key, args = std::move(args)](const std::string& lang) { return ForLang(lang, key, args); }, centerSeconds);
 }
 
-void ImportantAllFn(TextFn text, int centerSeconds) {
-  host::RunOnGameThread([text = std::move(text), centerSeconds] {
+namespace {
+// flags: RU_CHAT_IMPORTANT (star lines: tips) or 0 ([Ready Up] line: a match event).
+void AllWithCenter(TextFn text, int centerSeconds, int flags) {
+  host::RunOnGameThread([text = std::move(text), centerSeconds, flags] {
     const ru_api* a = host::Api();
     if (!a) return;
-    i18n::ChatAll(a, RU_CHAT_IMPORTANT, text);
+    i18n::ChatAll(a, flags, text);
     if (centerSeconds <= 0) return;
     std::vector<int> slots;
     a->for_each_player(
@@ -60,10 +62,22 @@ void ImportantAllFn(TextFn text, int centerSeconds) {
     for (int slot : slots) SendCenterHtml(slot, GoldHtml(text(i18n::LanguageOf(a, slot))), centerSeconds, RU_HTML_PRIO_ALERT);
   });
 }
+}  // namespace
+
+void ImportantAllFn(TextFn text, int centerSeconds) { AllWithCenter(std::move(text), centerSeconds, RU_CHAT_IMPORTANT); }
+
+void EventAll(const std::string& key, Args args, int centerSeconds) {
+  EventAllFn([key, args = std::move(args)](const std::string& lang) { return ForLang(lang, key, args); }, centerSeconds);
+}
+
+void EventAllFn(TextFn text, int centerSeconds) { AllWithCenter(std::move(text), centerSeconds, 0); }
 
 void ChatSlot(int slot, const std::string& key, Args args) {
   host::RunOnGameThread([slot, key, args = std::move(args)] {
-    ClientPrintChat(slot, (" \x04[ReadyUp]\x01 " + For(slot, key, args)).c_str());
+    // The server's prefix (light red [Ready Up] by default), like every other Ready Up line; this
+    // one had its own green "[ReadyUp]".
+    const ru_api* a = host::Api();
+    if (a) a->chat_to_slot(a->self, slot, For(slot, key, args).c_str());
   });
 }
 

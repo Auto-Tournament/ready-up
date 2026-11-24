@@ -50,7 +50,7 @@ void AnnounceOvertimeRules(int overtimeNumber, int seg) {
   const text::Args args{{"n", std::to_string(overtimeNumber)}, {"rounds", std::to_string(2 * seg)},
                         {"first", std::to_string(seg + 1)}, {"max", std::to_string(maxOt)}, {"left", std::to_string(left)}};
   // Until the overtime's first round starts: in chat and in the middle of the screen.
-  text::ImportantAllFn(
+  text::EventAllFn(
       [=](const std::string& lang) {
         std::string msg = text::ForLang(lang, "ot.head", args);
         if (maxOt > 0) {

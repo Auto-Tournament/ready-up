@@ -2125,7 +2125,7 @@ static void FinishMapLocked(State& st, const WebhookMatchContext& ctx, int map_n
     in.team1Damage = dmg.first;
     in.team2Damage = dmg.second;
     const std::string winnerName = std::strcmp(winner, "team1") == 0 ? ctx.team1_name : ctx.team2_name;
-    text::ImportantAll("match.damage_decides",
+    text::EventAll("match.damage_decides",
                        {{"score1", std::to_string(in.team1Score)}, {"score2", std::to_string(in.team2Score)},
                         {"winner", winnerName}, {"team1", ctx.team1_name}, {"damage1", std::to_string(dmg.first)},
                         {"damage2", std::to_string(dmg.second)}, {"team2", ctx.team2_name}});
