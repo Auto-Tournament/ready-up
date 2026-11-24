@@ -286,3 +286,4 @@
 2026-11-24T14:27:07Z CS2 dynamic check: selftest fail 26798866
 2026-11-24T16:17:23Z CS2 dynamic check: selftest fail 26879581
 2026-11-24T16:27:00Z buildid=26879581 patch=1.42.0.1 status=pass commit=8ada16ac7325a09a0cfe871d49922ac8ad57d86e surface=9b78109040af905716391a349ccbeda0ceaca013625a5e6aab127dcbf7efdf51
+2026-11-24T16:32:41Z CS2 dynamic check: selftest fail 26879581
