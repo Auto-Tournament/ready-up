@@ -2,5 +2,6 @@
   "menu.none": "Na tym serwerze nie ma teraz menu.",
   "hud.outdated": "HUD jest nieaktualny. Na platformie kliknij ? i wybierz HUD.",
   "hud.hold_menu": "Menu",
-  "hud.hold_close": "Zamknij"
+  "hud.hold_close": "Zamknij",
+  "hud.menu_hint": "W S: ruch · Przytrzymaj E: wybierz"
 }

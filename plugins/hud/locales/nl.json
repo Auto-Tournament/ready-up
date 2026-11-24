@@ -2,5 +2,6 @@
   "menu.none": "Er is nu geen menu op deze server.",
   "hud.outdated": "HUD verouderd. Klik op het platform op ? en kies HUD.",
   "hud.hold_menu": "Menu",
-  "hud.hold_close": "Sluiten"
+  "hud.hold_close": "Sluiten",
+  "hud.menu_hint": "W S: bewegen · E ingedrukt: kiezen"
 }

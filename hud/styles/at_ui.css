@@ -15,13 +15,14 @@
    sits, the card bottom right, the centre panel bottom centre. No class: 100 %. */
 .ui-cardwrap { width: 100%; height: 100%; transform-origin: 100% 100%; }
 .ui-midwrap { width: 100%; height: 100%; transform-origin: 50% 100%; }
-.ui-cardwrap.scale-70, .ui-midwrap.scale-70 { transform: scale3d( 0.7, 0.7, 1 ); }
-.ui-cardwrap.scale-75, .ui-midwrap.scale-75 { transform: scale3d( 0.75, 0.75, 1 ); }
-.ui-cardwrap.scale-80, .ui-midwrap.scale-80 { transform: scale3d( 0.8, 0.8, 1 ); }
-.ui-cardwrap.scale-85, .ui-midwrap.scale-85 { transform: scale3d( 0.85, 0.85, 1 ); }
-.ui-cardwrap.scale-90, .ui-midwrap.scale-90 { transform: scale3d( 0.9, 0.9, 1 ); }
-.ui-cardwrap.scale-95, .ui-midwrap.scale-95 { transform: scale3d( 0.95, 0.95, 1 ); }
-.ui-cardwrap.scale-100, .ui-midwrap.scale-100 { transform: scale3d( 1, 1, 1 ); }
+.ui-leftwrap { width: 100%; height: 100%; transform-origin: 0% 50%; }
+.ui-cardwrap.scale-70, .ui-midwrap.scale-70, .ui-leftwrap.scale-70 { transform: scale3d( 0.7, 0.7, 1 ); }
+.ui-cardwrap.scale-75, .ui-midwrap.scale-75, .ui-leftwrap.scale-75 { transform: scale3d( 0.75, 0.75, 1 ); }
+.ui-cardwrap.scale-80, .ui-midwrap.scale-80, .ui-leftwrap.scale-80 { transform: scale3d( 0.8, 0.8, 1 ); }
+.ui-cardwrap.scale-85, .ui-midwrap.scale-85, .ui-leftwrap.scale-85 { transform: scale3d( 0.85, 0.85, 1 ); }
+.ui-cardwrap.scale-90, .ui-midwrap.scale-90, .ui-leftwrap.scale-90 { transform: scale3d( 0.9, 0.9, 1 ); }
+.ui-cardwrap.scale-95, .ui-midwrap.scale-95, .ui-leftwrap.scale-95 { transform: scale3d( 0.95, 0.95, 1 ); }
+.ui-cardwrap.scale-100, .ui-midwrap.scale-100, .ui-leftwrap.scale-100 { transform: scale3d( 1, 1, 1 ); }
 
 .ui-panel
 {
@@ -862,19 +863,28 @@
 }
 .ui-ver.check { visibility: visible; }
 .ui-vertext { font-size: 15px; font-weight: bold; color: #e6b33c; }
-/* Hold Use (#ui_hold): top right, under CS2's ping. `on` when holding the key does something,
+/* Hold Use (#ui_hold): bottom centre, right above the AT logo between ammo and weapon (Sivert,
+   2026-11-24; was top right). Its border pulses orange until E is held, to catch the eye. `on` when holding the key does something,
    `hold` while it is down: the fill runs left to right over the hold time and the keycap's
    brackets close in. hud.so takes `hold` off on release, which resets both. The hold time is
    0.6 s in hud.so; keep kHoldSeconds and the 0.6s below the same. */
 .ui-hold
 {
-	horizontal-align: right; vertical-align: top; margin: 40px 14px 0px 0px;
+	horizontal-align: center; vertical-align: bottom; margin-bottom: 92px;
 	width: fit-children; height: 38px; flow-children: none; overflow: clip; border-radius: 19px;
 	opacity: 0; transform: translateY( -6px );
 	transition-property: opacity, transform; transition-duration: 0.2s; transition-timing-function: ease-out;
 }
 .ui-hold.on { opacity: 1; transform: translateY( 0px ); }
 .ui-holdbg { width: 100%; height: 100%; background-color: #140e0cd9; border: 1px solid #322926; border-radius: 19px; }
+.ui-hold.on .ui-holdbg { animation-name: ui-hold-pulse; animation-duration: 1.4s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.ui-hold.hold .ui-holdbg { animation-name: none; border: 1px solid #ff6a3d; }
+@keyframes 'ui-hold-pulse'
+{
+	0% { border: 1px solid #322926; }
+	50% { border: 1px solid #ff6a3d; }
+	100% { border: 1px solid #322926; }
+}
 .ui-holdfill
 {
 	width: 100%; height: 100%; border-radius: 19px; background-color: #ff6a3d73;
@@ -916,10 +926,71 @@
 .ui-btn.hold .ui-kcr { animation-name: ui-hold-kcr; animation-duration: 0.6s; animation-timing-function: linear; animation-fill-mode: forwards; }
 .ui-panel.holdable .ui-hint { visibility: collapse; }
 
+/* ---- Menu panel (#ui_left, v4 Hold E) ----------------------------------------------------------
+   A list on the left, vertically centred, a quarter of the screen wide. hud.so marks the chosen row
+   `sel` (W S move it, wrapping) and puts `hold` on it while E is down: the accent slides across it
+   in 0.6 s (= kHoldSeconds), then it is picked. The close row is always last. Mouse clicks work too. */
+.ui-left
+{
+	horizontal-align: left; vertical-align: center; margin-left: 38px;
+	width: 440px; border: 1px solid #ff6a3d40; border-radius: 12px; background-color: #140e0ce6;
+	transform: translate3d( -40px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 );
+}
+#ui_left .ui-back { background-color: #140e0ce6; }
+#ui_left .ui-wash { visibility: collapse; }
+#ui_left .ui-pixels { visibility: collapse; }
+#ui_left .ui-line { visibility: collapse; }
+#ui_left .ui-flow { horizontal-align: left; width: 100%; min-width: 100%; padding: 14px 0px 12px 0px; }
+#ui_left .ui-brand { visibility: collapse; }
+#ui_left .ui-kind { horizontal-align: left; margin: 0px 16px 4px 16px; }
+#ui_left .ui-title { horizontal-align: left; text-align: left; margin: 0px 16px 10px 16px; font-size: 24px; color: #ff6a3d; }
+#ui_left .ui-sub { horizontal-align: left; text-align: left; margin: 0px 16px 8px 16px; }
+#ui_left .ui-hint { horizontal-align: left; margin: 10px 16px 0px 16px; font-size: 15px; color: #c4bcb9; }
+#ui_left .ui-timer { margin: 16px 16px 0px 0px; }
+#ui_left .ui-buttons { horizontal-align: left; width: 100%; margin-top: 0px; flow-children: down; }
+#ui_left .ui-btn
+{
+	horizontal-align: left; width: 100%; height: 38px; margin: 0px; padding: 0px;
+	border-radius: 0px; background-color: #00000000; border: 0px solid #00000000; transform: none;
+	transition-property: background-color; transition-duration: 0.12s;
+}
+#ui_left .ui-btn:hover { transform: none; background-color: #ff6a3d1f; border: 0px solid #00000000; }
+#ui_left .ui-btnglow { visibility: collapse; }
+#ui_left .ui-btnfill { border-radius: 0px; background-color: #ff6a3d; }
+#ui_left .ui-rowmark
+{
+	horizontal-align: left; vertical-align: center; margin-left: 12px;
+	width: 3px; height: 18px; border-radius: 2px; background-color: #00000000;
+}
+#ui_left .ui-btnlabel { horizontal-align: left; text-align: left; width: fit-children; margin-left: 24px; padding-left: 0px; font-size: 19px; font-weight: normal; color: #f4edeb; }
+#ui_left .ui-btnsub { visibility: visible; margin-right: 16px; font-weight: normal; color: #938a87; }
+#ui_left .ui-btn.sel { background-color: #ff6a3d2e; }
+#ui_left .ui-btn.sel .ui-rowmark { background-color: #ff6a3d; }
+#ui_left .ui-btn.sel .ui-btnlabel { font-weight: bold; color: #ffffff; }
+#ui_left .ui-btn.off .ui-btnlabel { color: #736966; }
+#ui_left .ui-btn.picked .ui-btnlabel { color: #ff6a3d; }
+#ui_left .t-green .ui-btnlabel { color: #3fc168; }
+#ui_left .t-ct .ui-btnlabel { color: #8fa0ff; }
+#ui_left .t-t .ui-btnlabel { color: #ff7a82; }
+#ui_left .t-warn .ui-btnlabel { color: #e6b33c; }
+#ui_left .t-danger .ui-btnlabel { color: #f2645f; }
+#ui_left .ui-close
+{
+	visibility: visible; horizontal-align: left; width: 100%; height: 38px; margin: 6px 0px 0px 0px; padding: 0px;
+	border-radius: 0px; background-color: #00000000; border: 0px solid #00000000; transform: none;
+}
+#ui_left .ui-close:hover { transform: none; background-color: #ff6a3d1f; }
+#ui_left .ui-closelabel { horizontal-align: left; margin-left: 24px; font-size: 19px; font-weight: normal; color: #c4bcb9; }
+#ui_left .ui-close.sel { background-color: #ff6a3d2e; }
+#ui_left .ui-close.sel .ui-rowmark { background-color: #ff6a3d; }
+#ui_left .ui-close.sel .ui-closelabel { font-weight: bold; color: #ffffff; }
+#ui_left .ui-close.hold .ui-btnfill { animation-name: ui-hold-fill; animation-duration: 0.6s; animation-timing-function: linear; animation-fill-mode: forwards; }
+
 /* addon version (generated by hud/tools/gen_ui.py from plugins/hud/hud_addon.h) */
 .ui-ver.check.v-1 { visibility: collapse; }
 .ui-ver.check.v-2 { visibility: collapse; }
 .ui-ver.check.v-3 { visibility: collapse; }
 .ui-ver.check.v-4 { visibility: collapse; }
 .ui-ver.check.v-5 { visibility: collapse; }
+.ui-ver.check.v-6 { visibility: collapse; }
 /* end addon version */

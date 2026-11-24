@@ -529,8 +529,11 @@ static std::string KnifeSpec(const KnifeHudInfo& k, int viewerSide, const std::s
   }
   const std::string secs = std::to_string(std::max(0, k.secondsLeft));
   if (viewerSide == k.winnerCs) {
-    return L("id", "pick") + L("color", "live") + L("kind", T(lang, "spec.you_won_knife")) + L("title", T(lang, "spec.which_side")) +
-           L("timer", secs) + "btn=CT|ct||.ct\nbtn=T|t||.t\n" + L("mouse", "on");
+    // The menu panel on the left (v4, Hold E): W S choose, holding E picks. The side the team is on
+    // now comes first, so holding E at once stays.
+    const std::string rows = viewerSide == 2 ? "btn=T|t||.t\nbtn=CT|ct||.ct\n" : "btn=CT|ct||.ct\nbtn=T|t||.t\n";
+    return L("id", "pick") + L("where", "left") + L("color", "live") + L("kind", T(lang, "spec.you_won_knife")) +
+           L("title", T(lang, "spec.which_side")) + L("timer", secs) + rows + L("mouse", "on");
   }
   const bool playing = viewerSide == 2 || viewerSide == 3;
   return L("id", "lost") + L("kind", T(lang, playing ? "spec.you_lost_knife" : "spec.knife_round")) +

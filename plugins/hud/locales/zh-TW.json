@@ -2,5 +2,6 @@
   "menu.none": "此伺服器目前沒有選單。",
   "hud.outdated": "HUD 已過期。請在平台上點擊 ? 並選擇 HUD。",
   "hud.hold_menu": "選單",
-  "hud.hold_close": "關閉"
+  "hud.hold_close": "關閉",
+  "hud.menu_hint": "W S：移動 · 長按 E：選擇"
 }

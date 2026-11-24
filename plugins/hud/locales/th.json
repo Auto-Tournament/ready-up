@@ -2,5 +2,6 @@
   "menu.none": "ตอนนี้เซิร์ฟเวอร์นี้ไม่มีเมนู",
   "hud.outdated": "HUD ไม่เป็นปัจจุบัน บนแพลตฟอร์ม คลิก ? แล้วเลือก HUD",
   "hud.hold_menu": "เมนู",
-  "hud.hold_close": "ปิด"
+  "hud.hold_close": "ปิด",
+  "hud.menu_hint": "W S: เลื่อน · กด E ค้าง: เลือก"
 }

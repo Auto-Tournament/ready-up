@@ -2,5 +2,6 @@
   "menu.none": "Şu anda bu sunucuda menü yok.",
   "hud.outdated": "HUD güncel değil. Platformda ? simgesine tıkla ve HUD'u seç.",
   "hud.hold_menu": "Menü",
-  "hud.hold_close": "Kapat"
+  "hud.hold_close": "Kapat",
+  "hud.menu_hint": "W S: hareket · E basılı tut: seç"
 }

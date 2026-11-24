@@ -55,7 +55,7 @@ Screen ParseScreen(const std::string& spec) {
     if (eq == std::string::npos) continue;
     const std::string k = line.substr(0, eq), v = line.substr(eq + 1);
     if (k == "id") s.id = v;
-    else if (k == "where") s.where = v == "card" ? "card" : "mid";
+    else if (k == "where") s.where = v == "card" ? "card" : v == "left" ? "left" : "mid";
     else if (k == "color") s.color = v;
     else if (k == "kind") s.kind = v;
     else if (k == "title") s.title = v;

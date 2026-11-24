@@ -4,7 +4,8 @@
 //
 //   id=pick                      the screen's identity: a new id plays the leave / enter animation,
 //                                the same id updates in place (countdowns, ready dots)
-//   where=mid                    card (right, above the weapons) | mid (centre of the lower half)
+//   where=mid                    card (right, above the weapons) | mid (centre of the lower half) |
+//                                left (menus: a list, rows chosen with W S, held with E; a close row)
 //   color=live                   acc (default) | live | warn | ban | muted | ct | t
 //   kind=You won the knife       small coloured label above the title
 //   title=Which side do you want?

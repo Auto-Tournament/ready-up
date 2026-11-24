@@ -2,5 +2,6 @@
   "menu.none": "Server ini sedang tidak punya menu.",
   "hud.outdated": "HUD sudah usang. Di platform, klik ? lalu pilih HUD.",
   "hud.hold_menu": "Menu",
-  "hud.hold_close": "Tutup"
+  "hud.hold_close": "Tutup",
+  "hud.menu_hint": "W S: pindah · Tahan E: pilih"
 }

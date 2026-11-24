@@ -579,6 +579,8 @@ struct ScreenSlot {
   bool dismissed = false;    // closed with a plain close button: hidden until the id changes
   std::set<std::pair<std::string, std::string>> utils;  // utility classes applied (element, class)
   bool captured = false;
+  int sel = 0;               // ui_left: the chosen row (0..buttons-1, then the close row), W S move it
+  std::string selId;         // the row that has `sel` now
   unsigned gen = 0;          // bumps on every new id, so a stale delayed enter does nothing
   ru_hud_click_fn onClick = nullptr;
   void* user = nullptr;
@@ -586,7 +588,8 @@ struct ScreenSlot {
 std::map<int, ScreenSlot> g_screens;
 std::set<int> g_buyOpen;  // slots whose buy menu is open (open_buymenu .. close_buymenu)
 
-std::string PanelOf(const Screen& s) { return s.where == "card" ? "ui_card" : "ui_mid"; }
+std::string PanelOf(const Screen& s) { return s.where == "card" ? "ui_card" : s.where == "left" ? "ui_left" : "ui_mid"; }
+const char* const kPanels[] = {"ui_card", "ui_mid", "ui_left"};
 
 void UpdateCapture(int slot, bool force = false) {
   auto it = g_screens.find(slot);
@@ -611,6 +614,48 @@ void CaptureSweep() {
   for (auto& kv : g_screens) UpdateCapture(kv.first, true);
 }
 
+// ---- the menu panel (ui_left): W S choose a row, holding E picks it (HoldAction) ----------------
+// Rows are the buttons that are a choice (a label and a command, not off), then the close row.
+std::vector<std::string> NavRows(const ScreenSlot& ss) {
+  std::vector<std::string> rows;
+  for (size_t i = 0; i < ss.cur.buttons.size() && i < static_cast<size_t>(kMaxButtons); ++i) {
+    const Button& b = ss.cur.buttons[i];
+    if (!b.label.empty() && !b.cmd.empty() && b.state != "off") rows.push_back("ui_left_b" + std::to_string(i));
+  }
+  if (ss.cur.hasClose) rows.push_back("ui_left_close");
+  return rows;
+}
+
+// `sel` on the chosen row only (clamped: the rows can change under it).
+void NavDraw(int slot, ScreenSlot& ss) {
+  const std::vector<std::string> rows = NavRows(ss);
+  std::string want;
+  if (!rows.empty()) {
+    const int n = static_cast<int>(rows.size());
+    ss.sel = ((ss.sel % n) + n) % n;
+    want = rows[static_cast<size_t>(ss.sel)];
+  }
+  if (want == ss.selId) return;
+  const int h = IfOpen(kUiLayout);
+  if (!ss.selId.empty()) IfSetClass(h, slot, ss.selId.c_str(), "sel", 0);
+  if (!want.empty()) IfSetClass(h, slot, want.c_str(), "sel", 1);
+  ss.selId = want;
+}
+
+// A left panel always ends with a close row and says how to use it.
+void LeftDefaults(int slot, Screen& s) {
+  const std::string lang = readyup::i18n::LanguageOf(g_api, slot);
+  if (!s.hasClose) {
+    s.hasClose = true;
+    s.closeLabel = g_text.Tr(lang, "hud.hold_close");
+    s.closeCmd.clear();
+  }
+  s.hint = g_text.Tr(lang, "hud.menu_hint");
+  // A captured cursor takes the keyboard too, and W S must reach the server: the cursor only
+  // with the buy menu open (B), as on the cards.
+  if (s.mouse == Mouse::On) s.mouse = Mouse::B;
+}
+
 void DrawScreen(int slot, ScreenSlot& ss) {
   const int h = IfOpen(kUiLayout);
   const std::string p = PanelOf(ss.cur);
@@ -632,7 +677,8 @@ void DrawScreen(int slot, ScreenSlot& ss) {
   for (const auto& u : want) IfSetClass(h, slot, u.first.c_str(), u.second.c_str(), 1);
   ss.utils.swap(want);
   const bool show = !ss.dismissed && !ss.cur.empty();
-  IfSetClass(h, slot, p == "ui_card" ? "ui_mid" : "ui_card", "on", 0);
+  for (const char* other : kPanels)
+    if (p != other) IfSetClass(h, slot, other, "on", 0);
   ss.shown = show;
   if (show && !wasShown) {
     // `on` a moment later, so the client has the enter pose before it animates out of it.
@@ -647,6 +693,7 @@ void DrawScreen(int slot, ScreenSlot& ss) {
     IfSetClass(h, slot, p.c_str(), "on", show ? 1 : 0);
   }
   UpdateCapture(slot);
+  if (p == "ui_left") NavDraw(slot, ss);
 }
 
 std::string ButtonsKey(const Screen& s) {
@@ -670,6 +717,7 @@ int IfScreen(int slot, const char* specIn, ru_hud_click_fn onClick, void* user) 
   if (spec == ss.spec) return 1;
   ss.spec = spec;
   Screen next = ParseScreen(spec);
+  if (next.where == "left") LeftDefaults(slot, next);
   const int h = IfOpen(kUiLayout);
   const bool sameId = !next.empty() && !ss.cur.empty() && next.id == ss.cur.id && next.where == ss.cur.where;
   if (sameId) {
@@ -705,6 +753,9 @@ int IfScreen(int slot, const char* specIn, ru_hud_click_fn onClick, void* user) 
   ss.shown = false;
   ss.clicked = false;
   ss.dismissed = false;
+  if (!ss.selId.empty()) IfSetClass(h, slot, ss.selId.c_str(), "sel", 0);
+  ss.sel = 0;
+  ss.selId.clear();
   ss.cur = std::move(next);
   UpdateCapture(slot);
   if (ss.cur.empty()) return 1;
@@ -1615,7 +1666,10 @@ void MenuRefresh(int slot) {
   if (HasMenu(slot)) {
     const MenuEntry top = g_menus[slot].back();
     g_drawingMenu = true;
-    IfScreen(slot, top.spec.c_str(), top.onClick, top.user);
+    // Every menu is the list on the left (v4, Hold E): W S choose, holding E picks, a close row last.
+    const std::string spec = top.spec + "
+where=left";
+    IfScreen(slot, spec.c_str(), top.onClick, top.user);
     g_drawingMenu = false;
     return;
   }
@@ -1703,6 +1757,8 @@ struct HoldSlot {
   std::string label;     // what #ui_hold says now ("" = hidden)
   std::string button;    // the card button that has `holdable` ("" = none)
   bool holdClass = false;
+  uint64_t prev = 0;     // last tick's buttons: W S move the menu row on the press, not while held
+  bool frozen = false;   // we stopped the pawn moving while the menu panel is up (FreezeFor)
 };
 std::map<int, HoldSlot> g_hold;
 // The key the hold chip and buttons show. {g:csgo_key:k} in at_ui gives the value back as it is
@@ -1780,6 +1836,12 @@ bool HoldAction(int slot, HoldTarget* t) {
   }
   auto it = g_screens.find(slot);
   const bool card = it != g_screens.end() && it->second.shown && !it->second.dismissed && !DemoActive(slot);
+  // The menu panel: holding E picks the chosen row (W S choose it); the row itself fills.
+  if (card && PanelOf(it->second.cur) == "ui_left" && !it->second.selId.empty() && !it->second.clicked) {
+    t->button = it->second.selId;
+    t->action = it->second.selId;
+    return true;
+  }
   if (HasMenu(slot)) {
     if (!card) return false;
     t->label = g_text.Tr(lang, "hud.hold_close");
@@ -1815,15 +1877,20 @@ void HoldShow(int slot, HoldSlot& hs, const HoldTarget& t, bool has, bool hold) 
   }
   const std::string button = has ? t.button : "";
   if (button != hs.button) {
+    std::string panel;
+    int index = 0;
     if (!hs.button.empty()) {
       IfSetClass(h, slot, hs.button.c_str(), "hold", 0);
-      IfSetClass(h, slot, hs.button.c_str(), "holdable", 0);
-      IfSetClass(h, slot, hs.button.substr(0, hs.button.size() - 3).c_str(), "holdable", 0);  // the panel
+      if (ParseButtonId(hs.button, &panel, &index) && panel != "ui_left") {
+        IfSetClass(h, slot, hs.button.c_str(), "holdable", 0);
+        IfSetClass(h, slot, panel.c_str(), "holdable", 0);
+      }
     }
-    if (!button.empty()) {
+    // Menu rows (ui_left) show the hold as their fill only: no key, no `holdable`.
+    if (!button.empty() && ParseButtonId(button, &panel, &index) && panel != "ui_left") {
       IfSetText(h, slot, (button + "_k").c_str(), "k", g_holdKey.c_str());
       IfSetClass(h, slot, button.c_str(), "holdable", 1);
-      IfSetClass(h, slot, button.substr(0, button.size() - 3).c_str(), "holdable", 1);
+      IfSetClass(h, slot, panel.c_str(), "holdable", 1);
     }
     hs.button = button;
     hs.holdClass = false;
@@ -1833,6 +1900,87 @@ void HoldShow(int slot, HoldSlot& hs, const HoldTarget& t, bool has, bool hold) 
     IfSetClass(h, slot, hs.button.empty() ? "ui_hold" : hs.button.c_str(), "hold", hold ? 1 : 0);
     hs.holdClass = hold;
   }
+}
+
+// ---- the menu panel holds the player still --------------------------------------------------
+// While ui_left is up W S choose rows, so in warmup (where players can walk) the pawn is held in
+// place, the way CS2 plugins freeze players (MOVETYPE_OBSOLETE in m_MoveType and m_nActualMoveType,
+// MOVETYPE_WALK to let go). Freeze time already holds players, and a live round is never frozen:
+// a menu left open into a round only moves its row.
+constexpr uint64_t kInForward = 1ull << 3;  // W (IN_FORWARD)
+constexpr uint64_t kInBack = 1ull << 4;     // S (IN_BACK)
+constexpr uint8_t kMoveObsolete = 1, kMoveWalk = 2;
+
+void* PawnOf(int slot) {
+  static int ctrlPawn = -2;
+  if (ctrlPawn == -2) ctrlPawn = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_hPlayerPawn");
+  if (ctrlPawn < 0) return nullptr;
+  void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
+  if (!ctrl) return nullptr;
+  uint32_t h = 0;
+  std::memcpy(&h, static_cast<uint8_t*>(ctrl) + ctrlPawn, sizeof(h));
+  return g_api->entity_from_handle(g_api->self, h);
+}
+
+// CCSGameRules::m_bWarmupPeriod through the cs_gamerules proxy (looked up once, checked each time).
+bool InWarmup() {
+  static int proxyIndex = -1, rulesPtr = -2, warmup = -2;
+  if (rulesPtr == -2) {
+    rulesPtr = g_api->schema_offset(g_api->self, "CCSGameRulesProxy", "m_pGameRules");
+    warmup = g_api->schema_offset(g_api->self, "CCSGameRules", "m_bWarmupPeriod");
+  }
+  if (rulesPtr < 0 || warmup < 0) return false;
+  auto isProxy = [](int i) {
+    void* e = g_api->entity_by_index(g_api->self, i);
+    const char* cls = e ? g_api->entity_classname(g_api->self, e) : nullptr;
+    return cls && std::strcmp(cls, "cs_gamerules") == 0;
+  };
+  if (proxyIndex < 0 || !isProxy(proxyIndex)) {
+    proxyIndex = -1;
+    for (int i = 65; i < 2048 && proxyIndex < 0; ++i)
+      if (isProxy(i)) proxyIndex = i;
+    if (proxyIndex < 0) return false;
+  }
+  void* proxy = g_api->entity_by_index(g_api->self, proxyIndex);
+  void* rules = nullptr;
+  std::memcpy(&rules, static_cast<uint8_t*>(proxy) + rulesPtr, sizeof(rules));
+  return rules && *(static_cast<uint8_t*>(rules) + warmup) != 0;
+}
+
+bool FreezeFor(int slot, bool on) {
+  static int moveType = -2, actual = -2;
+  if (moveType == -2) {
+    moveType = g_api->schema_offset(g_api->self, "CBaseEntity", "m_MoveType");
+    actual = g_api->schema_offset(g_api->self, "CBaseEntity", "m_nActualMoveType");
+  }
+  void* pawn = PawnOf(slot);
+  if (moveType < 0 || actual < 0 || !pawn) return false;
+  const uint8_t v = on ? kMoveObsolete : kMoveWalk;
+  *(static_cast<uint8_t*>(pawn) + moveType) = v;
+  *(static_cast<uint8_t*>(pawn) + actual) = v;
+  g_api->entity_mark_changed(g_api->self, pawn);
+  return true;
+}
+
+// W S move the chosen row (on the press, wrapping); the pawn is held still in warmup.
+void NavTick(int slot, HoldSlot& hs, bool gotButtons, uint64_t held) {
+  auto it = g_screens.find(slot);
+  const bool left = it != g_screens.end() && it->second.shown && !it->second.dismissed &&
+                    PanelOf(it->second.cur) == "ui_left" && !DemoActive(slot);
+  if (left && gotButtons) {
+    const uint64_t pressed = held & ~hs.prev;
+    int step = 0;
+    if (pressed & kInForward) --step;
+    if (pressed & kInBack) ++step;
+    if (step) {
+      it->second.sel += step;
+      NavDraw(slot, it->second);
+      hs.down = false;  // a hold on the old row does not carry over
+    }
+  }
+  hs.prev = gotButtons ? held : 0;
+  const bool freeze = left && InWarmup();
+  if (freeze != hs.frozen && FreezeFor(slot, freeze)) hs.frozen = freeze;
 }
 
 void HoldTick() {
@@ -1845,11 +1993,13 @@ void HoldTick() {
       continue;
     }
     HoldSlot& hs = g_hold[slot];
-    HoldTarget t;
-    const bool has = HoldAction(slot, &t);
     uint64_t held = 0;
     bool defusing = false;
-    const bool use = HeldButtons(slot, &held, &defusing) && (held & kInUse) && !defusing;
+    const bool got = HeldButtons(slot, &held, &defusing);
+    NavTick(slot, hs, got, held);
+    HoldTarget t;
+    const bool has = HoldAction(slot, &t);
+    const bool use = got && (held & kInUse) && !defusing;
     if (!use) {
       hs.down = false;
       hs.fired = false;
