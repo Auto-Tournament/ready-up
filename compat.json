@@ -1,28 +1,28 @@
 {
  "schema": 1,
  "cs2": {
-  "buildid": "26798866",
-  "patch": "1.42.0.0"
+  "buildid": "26879581",
+  "patch": "1.42.0.1"
  },
  "readyup": {
   "version": "0.1.0-beta.70-dev.ccffa0b",
   "commit": "ccffa0b08b5963dfff0c9dc699378a43ed342a47"
  },
  "run": {
-  "id": "45273842273",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/45273842273",
+  "id": "45335007996",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/45335007996",
   "trigger": "build_change",
-  "stage": "selftest",
+  "stage": "static",
   "state": "fail",
-  "started_at": "2026-11-23T21:51:17Z",
-  "finished_at": "2026-11-23T21:57:18Z"
+  "started_at": "2026-11-24T05:40:58Z",
+  "finished_at": "2026-11-24T05:42:12Z"
  },
  "overall": "fail",
  "components": [
   {
    "id": "core",
    "name": "Core",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -40,10 +40,12 @@
     },
     {
      "kind": "vtable",
-     "status": "pass",
-     "passed": 3,
+     "status": "fail",
+     "passed": 2,
      "total": 3,
-     "failures": []
+     "failures": [
+      "ISource2Server::GameFrame: [19] CSource2Server vtable 0x2651c88 slot[19]=0xaa6db0; FAIL string_ref \"GameFrame\""
+     ]
     },
     {
      "kind": "hook_site",
@@ -61,9 +63,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 119,
-     "total": 119,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -71,7 +73,7 @@
   {
    "id": "addons",
    "name": "Addons",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -82,10 +84,12 @@
     },
     {
      "kind": "vtable",
-     "status": "pass",
-     "passed": 2,
+     "status": "fail",
+     "passed": 1,
      "total": 2,
-     "failures": []
+     "failures": [
+      "ISource2Server::GameFrame: [19] CSource2Server vtable 0x2651c88 slot[19]=0xaa6db0; FAIL string_ref \"GameFrame\""
+     ]
     },
     {
      "kind": "hook_site",
@@ -103,9 +107,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -138,23 +142,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 18,
+     "status": "pending",
+     "passed": 0,
      "total": 18,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 3,
+     "status": "pending",
+     "passed": 0,
      "total": 3,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -162,7 +166,7 @@
   {
    "id": "practice",
    "name": "Practice",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -180,10 +184,12 @@
     },
     {
      "kind": "vtable",
-     "status": "pass",
-     "passed": 5,
+     "status": "fail",
+     "passed": 4,
      "total": 5,
-     "failures": []
+     "failures": [
+      "ISource2Server::GameFrame: [19] CSource2Server vtable 0x2651c88 slot[19]=0xaa6db0; FAIL string_ref \"GameFrame\""
+     ]
     },
     {
      "kind": "hook_site",
@@ -201,23 +207,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 32,
+     "status": "pending",
+     "passed": 0,
      "total": 32,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 6,
+     "status": "pending",
+     "passed": 0,
      "total": 6,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 2,
-     "total": 2,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -225,14 +231,16 @@
   {
    "id": "skins",
    "name": "Skins",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
-     "status": "pass",
-     "passed": 12,
+     "status": "fail",
+     "passed": 11,
      "total": 12,
-     "failures": []
+     "failures": [
+      "CBaseEntity_ChangeSubclass: optional matches=2 signature matched 2 times (want 1)"
+     ]
     },
     {
      "kind": "rtti",
@@ -243,10 +251,12 @@
     },
     {
      "kind": "vtable",
-     "status": "pass",
-     "passed": 3,
+     "status": "fail",
+     "passed": 2,
      "total": 3,
-     "failures": []
+     "failures": [
+      "ISource2Server::GameFrame: [19] CSource2Server vtable 0x2651c88 slot[19]=0xaa6db0; FAIL string_ref \"GameFrame\""
+     ]
     },
     {
      "kind": "hook_site",
@@ -264,23 +274,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 36,
+     "status": "pending",
+     "passed": 0,
      "total": 36,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 6,
+     "status": "pending",
+     "passed": 0,
      "total": 6,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -288,7 +298,7 @@
   {
    "id": "match",
    "name": "Match",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -306,10 +316,12 @@
     },
     {
      "kind": "vtable",
-     "status": "pass",
-     "passed": 3,
+     "status": "fail",
+     "passed": 2,
      "total": 3,
-     "failures": []
+     "failures": [
+      "ISource2Server::GameFrame: [19] CSource2Server vtable 0x2651c88 slot[19]=0xaa6db0; FAIL string_ref \"GameFrame\""
+     ]
     },
     {
      "kind": "hook_site",
@@ -327,23 +339,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 30,
+     "status": "pending",
+     "passed": 0,
      "total": 30,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 17,
+     "status": "pending",
+     "passed": 0,
      "total": 17,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 2,
-     "total": 2,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     },
     {
@@ -358,7 +370,7 @@
   {
    "id": "essentials",
    "name": "Essentials",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -376,10 +388,12 @@
     },
     {
      "kind": "vtable",
-     "status": "pass",
-     "passed": 2,
+     "status": "fail",
+     "passed": 1,
      "total": 2,
-     "failures": []
+     "failures": [
+      "ISource2Server::GameFrame: [19] CSource2Server vtable 0x2651c88 slot[19]=0xaa6db0; FAIL string_ref \"GameFrame\""
+     ]
     },
     {
      "kind": "hook_site",
@@ -397,9 +411,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -407,7 +421,7 @@
   {
    "id": "midas",
    "name": "Midas",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -425,10 +439,12 @@
     },
     {
      "kind": "vtable",
-     "status": "pass",
-     "passed": 3,
+     "status": "fail",
+     "passed": 2,
      "total": 3,
-     "failures": []
+     "failures": [
+      "ISource2Server::GameFrame: [19] CSource2Server vtable 0x2651c88 slot[19]=0xaa6db0; FAIL string_ref \"GameFrame\""
+     ]
     },
     {
      "kind": "hook_site",
@@ -446,23 +462,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 23,
+     "status": "pending",
+     "passed": 0,
      "total": 23,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 7,
+     "status": "pending",
+     "passed": 0,
      "total": 7,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -470,7 +486,7 @@
   {
    "id": "whitelist",
    "name": "Whitelist",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -481,10 +497,12 @@
     },
     {
      "kind": "vtable",
-     "status": "pass",
-     "passed": 2,
+     "status": "fail",
+     "passed": 1,
      "total": 2,
-     "failures": []
+     "failures": [
+      "ISource2Server::GameFrame: [19] CSource2Server vtable 0x2651c88 slot[19]=0xaa6db0; FAIL string_ref \"GameFrame\""
+     ]
     },
     {
      "kind": "layout",
@@ -495,9 +513,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -505,7 +523,7 @@
   {
    "id": "deathmatch",
    "name": "Deathmatch",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -523,10 +541,12 @@
     },
     {
      "kind": "vtable",
-     "status": "pass",
-     "passed": 3,
+     "status": "fail",
+     "passed": 2,
      "total": 3,
-     "failures": []
+     "failures": [
+      "ISource2Server::GameFrame: [19] CSource2Server vtable 0x2651c88 slot[19]=0xaa6db0; FAIL string_ref \"GameFrame\""
+     ]
     },
     {
      "kind": "hook_site",
@@ -544,23 +564,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 6,
+     "status": "pending",
+     "passed": 0,
      "total": 6,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 1,
+     "status": "pending",
+     "passed": 0,
      "total": 1,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -572,10 +592,12 @@
    "checks": [
     {
      "kind": "signature",
-     "status": "pass",
-     "passed": 8,
+     "status": "fail",
+     "passed": 7,
      "total": 8,
-     "failures": []
+     "failures": [
+      "CBaseEntity_ChangeSubclass: optional matches=2 signature matched 2 times (want 1)"
+     ]
     },
     {
      "kind": "rtti",
@@ -621,19 +643,17 @@
     },
     {
      "kind": "selftest",
-     "status": "fail",
+     "status": "pending",
      "passed": 0,
-     "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "total": 0,
+     "failures": []
     }
    ]
   },
   {
    "id": "movement",
    "name": "Movement",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -651,10 +671,12 @@
     },
     {
      "kind": "vtable",
-     "status": "pass",
-     "passed": 1,
+     "status": "fail",
+     "passed": 0,
      "total": 1,
-     "failures": []
+     "failures": [
+      "ISource2Server::GameFrame: [19] CSource2Server vtable 0x2651c88 slot[19]=0xaa6db0; FAIL string_ref \"GameFrame\""
+     ]
     },
     {
      "kind": "hook_site",
@@ -665,16 +687,16 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 13,
+     "status": "pending",
+     "passed": 0,
      "total": 13,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -682,7 +704,7 @@
   {
    "id": "mapvote",
    "name": "Map vote",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -700,10 +722,12 @@
     },
     {
      "kind": "vtable",
-     "status": "pass",
-     "passed": 2,
+     "status": "fail",
+     "passed": 1,
      "total": 2,
-     "failures": []
+     "failures": [
+      "ISource2Server::GameFrame: [19] CSource2Server vtable 0x2651c88 slot[19]=0xaa6db0; FAIL string_ref \"GameFrame\""
+     ]
     },
     {
      "kind": "hook_site",
@@ -721,9 +745,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -731,7 +755,7 @@
   {
    "id": "community",
    "name": "Community",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -749,10 +773,12 @@
     },
     {
      "kind": "vtable",
-     "status": "pass",
-     "passed": 1,
+     "status": "fail",
+     "passed": 0,
      "total": 1,
-     "failures": []
+     "failures": [
+      "ISource2Server::GameFrame: [19] CSource2Server vtable 0x2651c88 slot[19]=0xaa6db0; FAIL string_ref \"GameFrame\""
+     ]
     },
     {
      "kind": "hook_site",
@@ -763,23 +789,23 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 4,
+     "status": "pending",
+     "passed": 0,
      "total": 4,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pass",
-     "passed": 1,
+     "status": "pending",
+     "passed": 0,
      "total": 1,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -787,7 +813,7 @@
   {
    "id": "tv",
    "name": "TV",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -798,10 +824,12 @@
     },
     {
      "kind": "vtable",
-     "status": "pass",
-     "passed": 2,
+     "status": "fail",
+     "passed": 1,
      "total": 2,
-     "failures": []
+     "failures": [
+      "ISource2Server::GameFrame: [19] CSource2Server vtable 0x2651c88 slot[19]=0xaa6db0; FAIL string_ref \"GameFrame\""
+     ]
     },
     {
      "kind": "hook_site",
@@ -819,9 +847,9 @@
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     }
    ]
@@ -829,7 +857,7 @@
   {
    "id": "fleet",
    "name": "Fleet",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -847,10 +875,12 @@
     },
     {
      "kind": "vtable",
-     "status": "pass",
-     "passed": 3,
+     "status": "fail",
+     "passed": 2,
      "total": 3,
-     "failures": []
+     "failures": [
+      "ISource2Server::GameFrame: [19] CSource2Server vtable 0x2651c88 slot[19]=0xaa6db0; FAIL string_ref \"GameFrame\""
+     ]
     },
     {
      "kind": "hook_site",
@@ -868,16 +898,16 @@
     },
     {
      "kind": "schema",
-     "status": "pass",
-     "passed": 3,
+     "status": "pending",
+     "passed": 0,
      "total": 3,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "pass",
-     "passed": 1,
-     "total": 1,
+     "status": "pending",
+     "passed": 0,
+     "total": 0,
      "failures": []
     },
     {
@@ -890,5 +920,5 @@
    ]
   }
  ],
- "checked_at": "2026-11-23T21:57:18Z"
+ "checked_at": "2026-11-24T05:42:12Z"
 }
