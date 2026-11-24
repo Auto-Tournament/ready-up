@@ -1,21 +1,21 @@
 {
  "schema": 1,
  "cs2": {
-  "buildid": "26798866",
-  "patch": "1.42.0.0"
+  "buildid": "26879581",
+  "patch": "1.42.0.1"
  },
  "readyup": {
-  "version": "0.1.0-beta.70-dev.ccffa0b",
-  "commit": "ccffa0b08b5963dfff0c9dc699378a43ed342a47"
+  "version": "0.1.0-beta.70-dev.8ada16a",
+  "commit": "8ada16ac7325a09a0cfe871d49922ac8ad57d86e"
  },
  "run": {
-  "id": "45412051704",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/45412051704",
-  "trigger": "nightly",
+  "id": "45434328864",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/45434328864",
+  "trigger": "code_change",
   "stage": "selftest",
   "state": "fail",
-  "started_at": "2026-11-24T14:15:30Z",
-  "finished_at": "2026-11-24T14:27:05Z"
+  "started_at": "2026-11-24T16:12:10Z",
+  "finished_at": "2026-11-24T16:17:21Z"
  },
  "overall": "fail",
  "components": [
@@ -63,16 +63,10 @@
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 92,
-     "total": 97,
-     "failures": [
-      "selftest-and-quit: no simulating GameFrame within 300 s (map never loaded or GameFrame not hooked)",
-      "fn CBaseEntity_ChangeSubclass: - UNVERIFIED; signature matched 2 times (want 1)",
-      "vtable ISource2Server::GameFrame [19]: CSource2Server vtable 0x7f1672df0c88 slot[19]=0x7f1671245db0; FAIL string_ref \"GameFrame\"",
-      "hook GameFrame (tick): CSource2Server vtable 0x7f1672df0c88 slot[19]=0x7f1671245db0; FAIL string_ref \"GameFrame\"",
-      "engine event delivery: manager=yes listener=no delivered=no (0 events)"
-     ]
+     "status": "pass",
+     "passed": 119,
+     "total": 119,
+     "failures": []
     }
    ]
   },
@@ -113,19 +107,17 @@
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "failures": []
     }
    ]
   },
   {
    "id": "hud",
    "name": "Hud",
-   "status": "fail",
+   "status": "pass",
    "checks": [
     {
      "kind": "signature",
@@ -157,19 +149,17 @@
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 3,
+     "total": 3,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "failures": []
     }
    ]
   },
@@ -224,19 +214,17 @@
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 6,
+     "total": 6,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
-     "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
     }
    ]
   },
@@ -293,19 +281,17 @@
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 6,
+     "total": 6,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "failures": []
     }
    ]
   },
@@ -360,19 +346,17 @@
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 17,
+     "total": 17,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
-     "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "status": "pass",
+     "passed": 2,
+     "total": 2,
+     "failures": []
     },
     {
      "kind": "livetest",
@@ -427,12 +411,10 @@
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "failures": []
     }
    ]
   },
@@ -487,19 +469,17 @@
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 7,
+     "total": 7,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "failures": []
     }
    ]
   },
@@ -533,12 +513,10 @@
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "failures": []
     }
    ]
   },
@@ -593,19 +571,17 @@
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "failures": []
     }
    ]
   },
@@ -720,12 +696,10 @@
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "failures": []
     }
    ]
   },
@@ -773,12 +747,10 @@
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "failures": []
     }
    ]
   },
@@ -826,19 +798,17 @@
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
+     "status": "pass",
+     "passed": 1,
+     "total": 1,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "failures": []
     }
    ]
   },
@@ -879,12 +849,10 @@
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "failures": []
     }
    ]
   },
@@ -939,12 +907,10 @@
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "failures": []
     },
     {
      "kind": "livetest",
@@ -956,5 +922,5 @@
    ]
   }
  ],
- "checked_at": "2026-11-24T14:27:05Z"
+ "checked_at": "2026-11-24T16:17:21Z"
 }
