@@ -886,9 +886,9 @@
 .ui-wml .ui-wmt { horizontal-align: right; margin-right: 52px; margin-bottom: 61px; }
 .ui-wmr .ui-wmt { horizontal-align: left; margin-left: 52px; margin-bottom: 31px; }
 /* The badge (#ui_badge): CS2's ring is ~61px across, its centre 51px above the bottom, ~3px thick
-   (1080p screenshot, 2026-11-24). The disc fills inside it, opaque, in a cool grey like Valve's own (Sivert: not our brown), and covers the
+   (1080p screenshot, 2026-11-24). The disc fills inside it, opaque, in the mid grey of Valve's own on a bright wall (Sivert picked it from the draft, 2026-11-25), and covers the
    CT/T emblem; the ram is the team logo file (images/team/atram.svg, built by hud/build.ps1). */
-.ui-badge { width: 56px; height: 56px; horizontal-align: center; vertical-align: bottom; margin-bottom: 23px; border-radius: 50%; background-color: #45474d; opacity: 0; transition-property: opacity; transition-duration: 0.2s; }
+.ui-badge { width: 56px; height: 56px; horizontal-align: center; vertical-align: bottom; margin-bottom: 23px; border-radius: 50%; background-color: #6c6b6c; opacity: 0; transition-property: opacity; transition-duration: 0.2s; }
 .ui-badge.on { opacity: 1; }
 .ui-badgeram { width: 46px; height: 46px; horizontal-align: center; vertical-align: center; background-image: url( "s2r://panorama/images/tournaments/teams/atram.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
 .ui-vertext { font-size: 15px; font-weight: bold; color: #e6b33c; }
