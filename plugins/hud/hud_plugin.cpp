@@ -1191,6 +1191,11 @@ void OnTick(void*, const ru_tick_info* t) {
   g_now = t->now;
   SlotOffRefresh();
   DevBuildTick();
+  static double nextLogo = 0;
+  if (g_now >= nextLogo) {
+    nextLogo = g_now + 2.0;
+    WriteTeamLogos();
+  }
   if (!g_origSvcUm && g_eng.ok) InstallClickHook();
   if (g_layouts.empty() || std::none_of(g_layouts.begin(), g_layouts.end(), [](const Layout& l) { return l.path == kUiLayout; }))
     IfOpen(kUiLayout);
@@ -1294,6 +1299,31 @@ void SetTeamLogos() {
   if (!g_api || !g_api->server_command) return;
   g_api->server_command(g_api->self, "mp_teamlogo_1 atram");
   g_api->server_command(g_api->self, "mp_teamlogo_2 atram");
+}
+
+// The cvars only reach the teams at a round start, and warmup has none: the logo showed in the
+// scoreboard only after an mp_restartgame (2026-11-24). So the team entities get it directly too
+// (CCSTeam::m_szTeamLogoImage, what clients read), unless a logo of its own is set there.
+void WriteTeamLogos() {
+  static int off = -2, teamOff = -2;
+  if (off == -2) {
+    off = RU_API_HAS(g_api, schema_offset) && g_api->schema_offset ? g_api->schema_offset(g_api->self, "CCSTeam", "m_szTeamLogoImage") : -1;
+    teamOff = off >= 0 ? g_api->schema_offset(g_api->self, "CBaseEntity", "m_iTeamNum") : -1;
+  }
+  if (off < 0 || teamOff < 0 || !g_api->entity_by_index || !g_api->entity_classname) return;
+  for (int i = 1; i < 256; ++i) {
+    void* e = g_api->entity_by_index(g_api->self, i);
+    if (!e) continue;
+    const char* cls = g_api->entity_classname(g_api->self, e);
+    if (!cls || std::strcmp(cls, "cs_team_manager") != 0) continue;
+    uint8_t team = 0;
+    std::memcpy(&team, static_cast<unsigned char*>(e) + teamOff, sizeof(team));
+    if (team != 2 && team != 3) continue;
+    char* logo = static_cast<char*>(e) + off;
+    if (logo[0] != 0) continue;  // atram already, or a match's own logo
+    std::memcpy(logo, "atram", 6);
+    if (g_api->entity_mark_changed) g_api->entity_mark_changed(g_api->self, e);
+  }
 }
 
 void OnEvent(void*, const ru_event* ev) {
