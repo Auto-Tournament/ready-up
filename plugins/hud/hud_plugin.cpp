@@ -1189,10 +1189,51 @@ void DevBuildTick() {
   }
 }
 
+// The ram in CS2's team badge (#ui_badge) and the watermark beside it (#ui_wm) only while the
+// player is alive on T or CT: in team select, dead, or spectating there is no badge to sit in (CS2
+// draws the watched player's avatar in that circle), and they floated on their own (Sivert,
+// 2026-11-24). Sent on a change, and again every 3 s in case the layout entity was recreated.
+void BadgeTick() {
+  static double next = 0, nextAll = 0;
+  static int8_t last[64];
+  static bool init = false;
+  if (!init) {
+    std::memset(last, -1, sizeof(last));
+    init = true;
+  }
+  if (g_now < next) return;
+  next = g_now + 0.2;
+  const bool all = g_now >= nextAll;
+  if (all) nextAll = g_now + 3.0;
+  static int offAlive = -2;
+  if (offAlive == -2) offAlive = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_bPawnIsAlive");
+  const int h = IfOpen(kUiLayout);
+  if (h <= 0) return;
+  for (int slot = 0; slot <= 63; ++slot) {
+    ru_player p{};
+    p.struct_size = sizeof(p);
+    if (!g_api->get_player(g_api->self, slot, &p) || !p.connected || p.is_bot) {
+      last[slot] = -1;
+      continue;
+    }
+    bool alive = false;
+    if (offAlive >= 0 && (p.team == RU_TEAM_T || p.team == RU_TEAM_CT)) {
+      if (void* ctrl = g_api->entity_by_index(g_api->self, slot + 1))
+        alive = *(static_cast<uint8_t*>(ctrl) + offAlive) != 0;
+    }
+    const int8_t on = alive ? 1 : 0;
+    if (on == last[slot] && !all) continue;
+    last[slot] = on;
+    IfSetClass(h, slot, "ui_badge", "on", on);
+    IfSetClass(h, slot, "ui_wm", "on", on);
+  }
+}
+
 void OnTick(void*, const ru_tick_info* t) {
   g_now = t->now;
   SlotOffRefresh();
   DevBuildTick();
+  BadgeTick();
   static double nextLogo = 0;
   if (g_now >= nextLogo) {
     nextLogo = g_now + 2.0;
