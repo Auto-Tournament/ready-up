@@ -56,6 +56,60 @@ std::string NormalizeAgentModel(const std::string& raw) {
   return m;
 }
 
+// The pawn's model path (CModelState::m_ModelName, a CUtlSymbolLarge: a char pointer), "" unknown.
+std::string PawnModelName(void* pawn) {
+  static int body = -2, skel = -1, state = -1, name = -1;
+  if (body == -2) {
+    body = SchemaOffset("CBaseEntity", "m_CBodyComponent");
+    skel = SchemaOffset("CBodyComponentSkeletonInstance", "m_skeletonInstance");
+    state = SchemaOffset("CSkeletonInstance", "m_modelState");
+    name = SchemaOffset("CModelState", "m_ModelName");
+  }
+  if (!pawn || body < 0 || skel < 0 || state < 0 || name < 0) return {};
+  void* bc = nullptr;
+  std::memcpy(&bc, static_cast<unsigned char*>(pawn) + body, sizeof(bc));
+  if (!bc) return {};
+  const char* s = nullptr;
+  std::memcpy(&s, static_cast<unsigned char*>(bc) + skel + state + name, sizeof(s));
+  if (!s) return {};
+  std::string out;
+  for (size_t i = 0; i < 260 && s[i]; ++i) {
+    if (s[i] < 0x20 || s[i] > 0x7e) return {};  // not a path
+    out.push_back(s[i]);
+  }
+  return out;
+}
+
+// CS2 1.41 left characters/models/<x>/<y>.vmdl as small stubs with no bodygroups; the same agent
+// with them is agents/models/<x>/<y>.vmdl. "" when `model` is not such a stub or has no agents
+// twin in 1.42's pak01 (heavy armour, jumpsuit: checked 2026-11-24).
+std::string AgentForStub(const std::string& model) {
+  static const std::string kStub = "characters/models/";
+  if (model.rfind(kStub, 0) != 0 || model.size() < kStub.size() + 6 || model.compare(model.size() - 5, 5, ".vmdl") != 0)
+    return {};
+  const std::string rest = model.substr(kStub.size());
+  for (const char* no : {"ctm_heavy/", "tm_jumpsuit/", "tm_phoenix_heavy/"})
+    if (rest.rfind(no, 0) == 0) return {};
+  return "agents/models/" + rest;
+}
+
+// Hides the model's built-in gloves (bodygroup default_gloves) under a glove skin. Without an
+// agent the pawn often has one of those stubs, so the stock gloves stayed on when the player had
+// no gloves of their own in CS2 (#395, 2026-11-24: "model has no such bodygroup"). The stub is
+// swapped for its agents twin; a later pass sets the bodygroup once that model has loaded.
+int HideDefaultGloves(void* pawn, uint64_t steamid64) {
+  const int bg = SetBodygroupByName(pawn, "default_gloves", 1);
+  if (bg != RU_BODYGROUP_NO_GROUP) return bg;
+  const std::string cur = PawnModelName(pawn);
+  const std::string agent = AgentForStub(cur);
+  if (!agent.empty() && SetModel(pawn, agent.c_str())) {
+    WarnOnce(steamid64, ("stub model " + cur + " -> " + agent + " (for default_gloves)").c_str());
+  } else {
+    WarnOnce(steamid64, ("no default_gloves bodygroup on " + (cur.empty() ? std::string("an unknown model") : cur)).c_str());
+  }
+  return bg;
+}
+
 }  // namespace
 
 bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late) {
@@ -86,7 +140,7 @@ bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late) {
       } else if (StampMatches(g_gloveStamps[steamid64], detail::ItemIdOf(item), *gloveDef, skin.paint_id, skin.seed,
                               skin.wear)) {
         // Already on: only the default-gloves bodygroup (the model may have loaded since).
-        (void)SetBodygroupByName(pawn, "default_gloves", 1);
+        (void)HideDefaultGloves(pawn, steamid64);
       } else {
         const uint16_t def = static_cast<uint16_t>(*gloveDef);
         std::memcpy(static_cast<unsigned char*>(item) + detail::ItemDefIndexOffset(), &def, sizeof(def));
@@ -103,7 +157,7 @@ bool ApplySpawnCosmetics(void* pawn, uint64_t steamid64, int team, bool late) {
         }
         // Hides the agent model's built-in gloves. Retried on every cosmetics pass: on the spawn
         // frame the (new) agent model is often not loaded yet (GetModel == null).
-        const auto bg = SetBodygroupByName(pawn, "default_gloves", 1);
+        const auto bg = HideDefaultGloves(pawn, steamid64);
         if (bg == RU_BODYGROUP_OK) {
           WarnOnce(steamid64, "default_gloves bodygroup set");
         } else {
