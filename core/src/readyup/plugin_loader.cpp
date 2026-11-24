@@ -29,6 +29,7 @@
 #include <cctype>
 #include <cerrno>
 #include <cstdlib>
+#include <unistd.h>
 #include <cstring>
 #include <ctime>
 #include <deque>
@@ -1357,6 +1358,14 @@ void UnloadPluginsAtQuit() {
   if (names.empty()) return;
   std::fprintf(stderr, "[ReadyUp] quit: unloading %zu plugin(s)\n", names.size());
   for (auto it = names.rbegin(); it != names.rend(); ++it) (void)UnloadNow(*it, nullptr);
+  // Then end the process here. The rest of exit() still crashed with SIGSEGV after every plugin
+  // was gone (exit code 139 on every quit since at least 2026-11-17: csm and the CS2 dynamic check
+  // saw a crash, and autotournament.gg/compatibility said "Not compatible" while the selftest
+  // passed). CS2 has already shut down (Source2Shutdown runs before exit()); only static
+  // destructors are left, so skipping them loses nothing. Logs first, then a clean 0.
+  std::fprintf(stderr, "[ReadyUp] quit: plugins unloaded, exiting\n");
+  std::fflush(nullptr);
+  _exit(0);
 }
 
 }  // namespace
