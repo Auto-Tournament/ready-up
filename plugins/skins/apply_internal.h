@@ -37,6 +37,7 @@ namespace detail {
 bool EconOffsetsReady();
 int ItemDefIndexOffset();     // CEconItemView::m_iItemDefinitionIndex
 int ItemInitializedOffset();  // CEconItemView::m_bInitialized (may be -1)
+int ItemAccountIdOffset();    // CEconItemView::m_iAccountID (may be -1)
 
 // Writes paint/seed/wear/StatTrak/nametag + a fake item ID onto a CEconItemView (and the fallback
 // fields of `ownerEconEntity` if non-null).
