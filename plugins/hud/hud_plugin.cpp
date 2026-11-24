@@ -462,7 +462,9 @@ int IfSetText(int hud, int slot, const char* panel, const char* var, const char*
 }
 
 int IfSetClass(int hud, int slot, const char* panel, const char* cls, int on) {
-  if (SlotOff(slot)) return 1;  // HUD off for this player
+  // HUD off for this player: nothing new is shown, but what was up can still be taken away (the
+  // Hold E chip stayed on screen when the off write was blocked too, 2026-11-24).
+  if (SlotOff(slot) && on) return 1;
   Layout* l = LayoutOf(hud);
   if (!l || !panel || !cls || slot < RU_HUD_ALL || slot > 63) return 0;
   const Key k{panel, cls};
