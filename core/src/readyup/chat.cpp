@@ -179,7 +179,7 @@ static void SendToChatImpl(const char* msg) {
 }
 
 // Important lines stand out the way big community servers do it: an empty line, then each
-// sentence on its own line behind an orange star (U+2605), in white with commands in green. No
+// sentence on its own line behind a light red star (U+2605), in white with commands in green. No
 // "[Ready Up]" tag.
 static std::vector<std::string> ImportantLines(const std::string& msg) {
   const std::string text = WithoutReadyUpLeadIn(Trim(StripNewlines(msg)));
@@ -194,7 +194,9 @@ static std::vector<std::string> ImportantLines(const std::string& msg) {
     }
   }
   if (!Trim(cur).empty()) out.push_back(Trim(cur));
-  const std::string star = std::string(1, ChatColors::Orange) + "\xE2\x98\x85 " + std::string(1, ChatColors::Default);
+  // Light red (0x0F): the closest of CS2's chat colours to the Auto Tournament orange; its "orange"
+  // (0x10) is a gold (picked in game with `ru chatcolors`, 2026-11-24).
+  const std::string star = std::string(1, ChatColors::LightRed) + "\xE2\x98\x85 " + std::string(1, ChatColors::Default);
   std::vector<std::string> lines;
   if (out.empty()) return lines;
   lines.push_back(std::string(1, ChatColors::Default));  // the empty line above
