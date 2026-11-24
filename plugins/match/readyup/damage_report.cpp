@@ -69,6 +69,8 @@ void LocalizeRows(Outgoing& o) {
 void FillCard(Outgoing& o, const DamageParticipant& self, const std::vector<DamageParticipant>& players,
               const DamageLedger& ledger) {
   for (const auto& p : players) {
+    // Damage on teammates counts in "Dealt X damage" too (Sivert, 2026-11-24); rows stay enemies only.
+    if (p.key != self.key && p.team == self.team && (p.team == 2 || p.team == 3)) o.total += ledger.Dealt(self.key, p.key).dmg;
     if (p.key == self.key || (p.team != 2 && p.team != 3) || p.team == self.team) continue;
     const auto to = ledger.Dealt(self.key, p.key);
     const auto from = ledger.Dealt(p.key, self.key);
