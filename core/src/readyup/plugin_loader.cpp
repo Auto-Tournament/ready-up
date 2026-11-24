@@ -1373,11 +1373,12 @@ void UnloadPluginsAtQuit() {
 bool IsCoreRuSubcommand(const std::string& sub) {
   static const char* const kCore[] = {
       // The core's own (engine / plugin host); the match flow's are plugins/match's.
-      "help", "list", "plugin", "plugins", "version", "selftest", "sigtest", "reload", "status_http", "license"};
+      "help", "list", "plugin", "plugins", "version", "selftest", "reload", "status_http", "license"};
   for (const char* c : kCore) {
     if (sub == c) return true;
   }
-  return false;
+  // Developer / test commands: only with readyup.cfg dev=1.
+  return DevEnabled() && (sub == "sigtest" || sub == "chatcolors");
 }
 
 void PostEvent(LifecycleEvent ev) {

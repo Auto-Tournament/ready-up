@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 20
+#define READYUP_PLUGIN_API_VERSION_MINOR 21
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -784,7 +784,14 @@ typedef struct ru_api {
    * thread. */
   int (*chat_to_slot_ex)(ru_plugin* self, int slot, const char* msg, uint32_t flags);
 
-  /* v1.19+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.21 ===========================================================
+   * Appended in 1.21. Check RU_API_HAS() before use.
+   */
+  /* 1 when readyup.cfg has dev=1: register developer / test commands (demos, act-as, debug
+   * dumps) only then, so a real server's help and chat show what admins use. Read at load. */
+  int (*dev_mode)(ru_plugin* self);
+
+  /* v1.21+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

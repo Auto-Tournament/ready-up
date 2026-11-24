@@ -193,7 +193,9 @@ static void OnRuAs(void*, const ru_command_ctx* c) {
 }
 
 void VotesInstall(const ru_api* api) {
-  if (!api->register_ru_subcommand(api->self, "as", &OnRuAs, nullptr)) Print("vote: could not register `ru as`\n");
+  // `ru as` (a vote or .stop as another player) is for testing: only on a dev server (dev=1).
+  const bool dev = RU_API_HAS(api, dev_mode) && api->dev_mode && api->dev_mode(api->self);
+  if (dev && !api->register_ru_subcommand(api->self, "as", &OnRuAs, nullptr)) Print("vote: could not register `ru as`\n");
   if (!api->subscribe_game_event(api->self, "round_start", &OnGameEvent, nullptr)) {
     Print("vote: could not subscribe to round_start\n");
   }
