@@ -174,7 +174,7 @@
   "spec.hold_ready": "Κράτα το E για έτοιμος, ή γράψε",
   "spec.hold_unready": "Κράτα το E για μη έτοιμος, ή γράψε",
   "spec.knife_round": "Γύρος με μαχαίρια",
-  "spec.winners_pick": "Οι νικητές διαλέγουν πλευρά",
+  "spec.winners_pick": "Κερδίστε για να διαλέξετε πλευρά",
   "spec.you_won_knife": "Κερδίσατε τον γύρο με μαχαίρια",
   "spec.which_side": "Ποια πλευρά θέλετε;",
   "spec.you_lost_knife": "Χάσατε τον γύρο με μαχαίρια",
@@ -460,7 +460,7 @@
   "dmg.col_hp": "HP",
   "dmg.header": "Αναφορά ζημιάς:",
   "dmg.card_round": "Γύρος {round}",
-  "dmg.card_total": "Ζημιά: {total}",
+  "dmg.card_total": "Προκαλέσατε {total} ζημιά",
   "admin.practice_on": "η λειτουργία προπόνησης ενεργοποιήθηκε.",
   "admin.practice_off": "η λειτουργία προπόνησης απενεργοποιήθηκε.",
   "admin.mode_idle": "η λειτουργία ορίστηκε σε αδράνεια (η αυτόματη προθέρμανση scrim είναι κλειστή μέχρι το .ru mode scrim ή μια αλλαγή χάρτη).",
@@ -540,5 +540,8 @@
   "knife.captain_only": "μόνο ο αρχηγός σου διαλέγει πλευρά.",
   "tip.menu": "χρειάζεσαι παύση, admin ή να παραδοθείς; Γράψε .menu",
   "notice.winners_stay": "Οι νικητές με μαχαίρι μένουν {side}",
-  "notice.winners_start": "Οι νικητές με μαχαίρι ξεκινούν {side}"
+  "notice.winners_start": "Οι νικητές με μαχαίρι ξεκινούν {side}",
+  "notice.you_chose": "Επιλέξατε {side}",
+  "notice.opponents_chose": "Οι αντίπαλοι επέλεξαν {side}",
+  "notice.you_start": "Ξεκινάτε ως {side}"
 }

@@ -170,7 +170,7 @@
   "spec.hold_ready": "กด E ค้างไว้เพื่อพร้อม หรือพิมพ์",
   "spec.hold_unready": "กด E ค้างไว้เพื่อยกเลิกความพร้อม หรือพิมพ์",
   "spec.knife_round": "รอบมีด",
-  "spec.winners_pick": "ผู้ชนะเลือกฝั่ง",
+  "spec.winners_pick": "ชนะเพื่อเลือกฝั่ง",
   "spec.you_won_knife": "ทีมคุณชนะรอบมีด",
   "spec.which_side": "จะเลือกฝั่งไหน?",
   "spec.you_lost_knife": "ทีมคุณแพ้รอบมีด",
@@ -451,7 +451,7 @@
   "dmg.col_hp": "HP",
   "dmg.header": "รายงานความเสียหาย:",
   "dmg.card_round": "รอบที่ {round}",
-  "dmg.card_total": "ความเสียหาย {total}",
+  "dmg.card_total": "สร้างความเสียหาย {total}",
   "admin.practice_on": "เปิดโหมดฝึกแล้ว",
   "admin.practice_off": "ปิดโหมดฝึกแล้ว",
   "admin.mode_idle": "ตั้งโหมดเป็นว่าง (ปิดวอร์มอัปสกริมอัตโนมัติจนกว่าจะใช้ .ru mode scrim หรือเปลี่ยนแผนที่)",
@@ -531,5 +531,8 @@
   "knife.captain_only": "มีแค่กัปตันของคุณที่เลือกฝั่ง",
   "tip.menu": "ต้องการพัก เรียกแอดมิน หรือยอมแพ้? พิมพ์ .menu",
   "notice.winners_stay": "ผู้ชนะรอบมีดอยู่ฝั่ง {side}",
-  "notice.winners_start": "ผู้ชนะรอบมีดเริ่มฝั่ง {side}"
+  "notice.winners_start": "ผู้ชนะรอบมีดเริ่มฝั่ง {side}",
+  "notice.you_chose": "คุณเลือก {side}",
+  "notice.opponents_chose": "คู่แข่งเลือก {side}",
+  "notice.you_start": "คุณเริ่มเป็น {side}"
 }

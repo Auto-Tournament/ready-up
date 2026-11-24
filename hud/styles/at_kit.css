@@ -144,6 +144,10 @@
 
 /* Cells hold CS2's own "100 w 5 trafieniach" (pl, the longest with th): 156 px each, the name keeps ~130. */
 .at-dmg { flow-children: down; width: 400px; }
+/* Damage card header: "ROUND 1" left, "Dealt 100 damage" right (Sivert, 2026-11-24: justify them). */
+.b-dmg .at-head { width: 400px; }
+.b-dmg .at-textbox { width: fill-parent-flow( 1.0 ); margin-right: 0px; }
+.b-dmg .at-textbox .at-text { horizontal-align: right; }
 .at-drow { flow-children: right; width: 100%; height: 28px; margin-bottom: 5px; padding: 0px 9px; border-radius: 7px; background-color: #211815; }
 .at-drow.gone { visibility: collapse; }
 .at-drow.at-dhead { height: 16px; background-color: #00000000; }

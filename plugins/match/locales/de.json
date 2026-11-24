@@ -174,7 +174,7 @@
   "spec.hold_ready": "Halte E, um bereit zu sein, oder tippe",
   "spec.hold_unready": "Halte E, um nicht mehr bereit zu sein, oder tippe",
   "spec.knife_round": "Knife-Runde",
-  "spec.winners_pick": "Die Sieger wählen eine Seite",
+  "spec.winners_pick": "Gewinnt, um eure Seite zu wählen",
   "spec.you_won_knife": "Knife-Runde gewonnen",
   "spec.which_side": "Welche Seite willst du?",
   "spec.you_lost_knife": "Knife-Runde verloren",
@@ -460,7 +460,7 @@
   "dmg.col_hp": "HP",
   "dmg.header": "Schadensbericht:",
   "dmg.card_round": "Runde {round}",
-  "dmg.card_total": "{total} Schaden",
+  "dmg.card_total": "{total} Schaden verursacht",
   "admin.practice_on": "Trainingsmodus eingeschaltet.",
   "admin.practice_off": "Trainingsmodus ausgeschaltet.",
   "admin.mode_idle": "Modus auf Leerlauf gesetzt (automatisches Scrim-Aufwärmen aus bis .ru mode scrim oder Mapwechsel).",
@@ -540,5 +540,8 @@
   "knife.captain_only": "nur dein Kapitän wählt die Seite.",
   "tip.menu": "Pause, Admin oder aufgeben? Schreib .menu",
   "notice.winners_stay": "Messer-Gewinner bleiben {side}",
-  "notice.winners_start": "Messer-Gewinner starten {side}"
+  "notice.winners_start": "Messer-Gewinner starten {side}",
+  "notice.you_chose": "Ihr habt {side} gewählt",
+  "notice.opponents_chose": "Gegner haben {side} gewählt",
+  "notice.you_start": "Ihr startet als {side}"
 }

@@ -177,7 +177,7 @@
   "spec.hold_ready": "Przytrzymaj E, aby być gotowym, lub wpisz",
   "spec.hold_unready": "Przytrzymaj E, aby cofnąć gotowość, lub wpisz",
   "spec.knife_round": "Runda nożowa",
-  "spec.winners_pick": "Zwycięzcy wybierają stronę",
+  "spec.winners_pick": "Wygraj, aby wybrać stronę",
   "spec.you_won_knife": "Wygraliście rundę nożową",
   "spec.which_side": "Którą stronę bierzecie?",
   "spec.you_lost_knife": "Przegraliście rundę nożową",
@@ -474,7 +474,7 @@
   "dmg.col_hp": "HP",
   "dmg.header": "Raport obrażeń:",
   "dmg.card_round": "Runda {round}",
-  "dmg.card_total": "Obrażenia: {total}",
+  "dmg.card_total": "Zadano {total} obrażeń",
   "admin.practice_on": "tryb treningu włączony.",
   "admin.practice_off": "tryb treningu wyłączony.",
   "admin.mode_idle": "tryb ustawiony na bezczynny (automatyczna rozgrzewka scrima wyłączona do .ru mode scrim lub zmiany mapy).",
@@ -554,5 +554,8 @@
   "knife.captain_only": "tylko twój kapitan wybiera stronę.",
   "tip.menu": "potrzebujesz pauzy, admina lub chcesz się poddać? Wpisz .menu",
   "notice.winners_stay": "Zwycięzcy noży zostają {side}",
-  "notice.winners_start": "Zwycięzcy noży zaczynają {side}"
+  "notice.winners_start": "Zwycięzcy noży zaczynają {side}",
+  "notice.you_chose": "Wybraliście {side}",
+  "notice.opponents_chose": "Przeciwnicy wybrali {side}",
+  "notice.you_start": "Zaczynacie jako {side}"
 }

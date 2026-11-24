@@ -174,7 +174,7 @@
   "spec.hold_ready": "Maintiens E pour être prêt, ou tape",
   "spec.hold_unready": "Maintiens E pour ne plus être prêt, ou tape",
   "spec.knife_round": "Manche knife",
-  "spec.winners_pick": "Les gagnants choisissent un camp",
+  "spec.winners_pick": "Gagnez pour choisir votre camp",
   "spec.you_won_knife": "Vous avez gagné la manche knife",
   "spec.which_side": "Quel camp voulez-vous ?",
   "spec.you_lost_knife": "Vous avez perdu la manche knife",
@@ -460,7 +460,7 @@
   "dmg.col_hp": "PV",
   "dmg.header": "Rapport de dégâts :",
   "dmg.card_round": "Manche {round}",
-  "dmg.card_total": "{total} dégâts",
+  "dmg.card_total": "{total} dégâts infligés",
   "admin.practice_on": "mode entraînement activé.",
   "admin.practice_off": "mode entraînement désactivé.",
   "admin.mode_idle": "mode mis au repos (échauffement scrim automatique désactivé jusqu’à .ru mode scrim ou un changement de carte).",
@@ -540,5 +540,8 @@
   "knife.captain_only": "seul ton capitaine choisit le camp.",
   "tip.menu": "besoin d’une pause, d’un admin ou d’abandonner ? Tape .menu",
   "notice.winners_stay": "Les gagnants au couteau restent {side}",
-  "notice.winners_start": "Les gagnants au couteau commencent {side}"
+  "notice.winners_start": "Les gagnants au couteau commencent {side}",
+  "notice.you_chose": "Vous avez choisi {side}",
+  "notice.opponents_chose": "Les adversaires ont choisi {side}",
+  "notice.you_start": "Vous commencez en {side}"
 }

@@ -177,7 +177,7 @@
   "spec.hold_ready": "Ține apăsat E ca să fii gata, sau scrie",
   "spec.hold_unready": "Ține apăsat E ca să nu mai fii gata, sau scrie",
   "spec.knife_round": "Runda de cuțit",
-  "spec.winners_pick": "Câștigătorii aleg partea",
+  "spec.winners_pick": "Câștigă ca să alegi partea",
   "spec.you_won_knife": "Ați câștigat runda de cuțit",
   "spec.which_side": "Ce parte vreți?",
   "spec.you_lost_knife": "Ați pierdut runda de cuțit",
@@ -474,7 +474,7 @@
   "dmg.col_hp": "HP",
   "dmg.header": "Raport de damage:",
   "dmg.card_round": "Runda {round}",
-  "dmg.card_total": "{total} damage",
+  "dmg.card_total": "Ai provocat {total} daune",
   "admin.practice_on": "modul antrenament a fost pornit.",
   "admin.practice_off": "modul antrenament a fost oprit.",
   "admin.mode_idle": "modul a fost pus pe inactiv (încălzirea automată de scrim e oprită până la .ru mode scrim sau o schimbare de hartă).",
@@ -554,5 +554,8 @@
   "knife.captain_only": "doar căpitanul tău alege partea.",
   "tip.menu": "ai nevoie de pauză, de un admin sau vrei să renunți? Scrie .menu",
   "notice.winners_stay": "Câștigătorii rundei de cuțit rămân {side}",
-  "notice.winners_start": "Câștigătorii rundei de cuțit încep {side}"
+  "notice.winners_start": "Câștigătorii rundei de cuțit încep {side}",
+  "notice.you_chose": "Ați ales {side}",
+  "notice.opponents_chose": "Adversarii au ales {side}",
+  "notice.you_start": "Începeți ca {side}"
 }

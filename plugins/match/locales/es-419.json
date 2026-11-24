@@ -174,7 +174,7 @@
   "spec.hold_ready": "Mantén E para estar listo, o escribe",
   "spec.hold_unready": "Mantén E para dejar de estar listo, o escribe",
   "spec.knife_round": "Ronda de knife",
-  "spec.winners_pick": "Los ganadores eligen lado",
+  "spec.winners_pick": "Gana para elegir tu lado",
   "spec.you_won_knife": "Ganaron la ronda de knife",
   "spec.which_side": "¿Qué lado quieren?",
   "spec.you_lost_knife": "Perdieron la ronda de knife",
@@ -460,7 +460,7 @@
   "dmg.col_hp": "HP",
   "dmg.header": "Informe de daño:",
   "dmg.card_round": "Ronda {round}",
-  "dmg.card_total": "{total} de daño",
+  "dmg.card_total": "Infligiste {total} de daño",
   "admin.practice_on": "modo práctica activado.",
   "admin.practice_off": "modo práctica desactivado.",
   "admin.mode_idle": "modo en reposo (calentamiento de scrim automático desactivado hasta .ru mode scrim o un cambio de mapa).",
@@ -540,5 +540,8 @@
   "knife.captain_only": "solo tu capitán elige el lado.",
   "tip.menu": "¿necesitas una pausa, un admin o rendirte? Escribe .menu",
   "notice.winners_stay": "Los ganadores del cuchillo se quedan en {side}",
-  "notice.winners_start": "Los ganadores del cuchillo empiezan en {side}"
+  "notice.winners_start": "Los ganadores del cuchillo empiezan en {side}",
+  "notice.you_chose": "Elegiste {side}",
+  "notice.opponents_chose": "Los rivales eligieron {side}",
+  "notice.you_start": "Empiezas como {side}"
 }

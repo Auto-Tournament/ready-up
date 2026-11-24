@@ -174,7 +174,7 @@
   "spec.hold_ready": "Houd E ingedrukt om klaar te zijn, of typ",
   "spec.hold_unready": "Houd E ingedrukt om niet meer klaar te zijn, of typ",
   "spec.knife_round": "Knife-round",
-  "spec.winners_pick": "De winnaars kiezen een kant",
+  "spec.winners_pick": "Win om je kant te kiezen",
   "spec.you_won_knife": "Knife-round gewonnen",
   "spec.which_side": "Welke kant wil je?",
   "spec.you_lost_knife": "Knife-round verloren",
@@ -460,7 +460,7 @@
   "dmg.col_hp": "HP",
   "dmg.header": "Schaderapport:",
   "dmg.card_round": "Ronde {round}",
-  "dmg.card_total": "{total} schade",
+  "dmg.card_total": "{total} schade gedaan",
   "admin.practice_on": "trainingsmodus aangezet.",
   "admin.practice_off": "trainingsmodus uitgezet.",
   "admin.mode_idle": "modus op idle gezet (automatische scrim-warming-up uit tot .ru mode scrim of een mapwissel).",
@@ -540,5 +540,8 @@
   "knife.captain_only": "alleen je captain kiest de kant.",
   "tip.menu": "pauze, een admin of opgeven? Typ .menu",
   "notice.winners_stay": "Mes-winnaars blijven {side}",
-  "notice.winners_start": "Mes-winnaars starten {side}"
+  "notice.winners_start": "Mes-winnaars starten {side}",
+  "notice.you_chose": "Jullie kozen {side}",
+  "notice.opponents_chose": "Tegenstanders kozen {side}",
+  "notice.you_start": "Jullie beginnen als {side}"
 }

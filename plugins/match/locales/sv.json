@@ -174,7 +174,7 @@
   "spec.hold_ready": "Håll E för att bli redo, eller skriv",
   "spec.hold_unready": "Håll E för att bli inte redo, eller skriv",
   "spec.knife_round": "Knivrunda",
-  "spec.winners_pick": "Vinnarna väljer sida",
+  "spec.winners_pick": "Vinn för att välja sida",
   "spec.you_won_knife": "Ni vann knivrundan",
   "spec.which_side": "Vilken sida vill ni ha?",
   "spec.you_lost_knife": "Ni förlorade knivrundan",
@@ -460,7 +460,7 @@
   "dmg.col_hp": "HP",
   "dmg.header": "Skaderapport:",
   "dmg.card_round": "Runda {round}",
-  "dmg.card_total": "{total} skada",
+  "dmg.card_total": "Gav {total} skada",
   "admin.practice_on": "träningsläget påslaget.",
   "admin.practice_off": "träningsläget avstängt.",
   "admin.mode_idle": "läget satt till vila (automatisk scrim-uppvärmning av tills .ru mode scrim eller kartbyte).",
@@ -540,5 +540,8 @@
   "knife.captain_only": "bara din kapten väljer sida.",
   "tip.menu": "behöver du paus, en admin eller vill ge upp? Skriv .menu",
   "notice.winners_stay": "Knivvinnarna stannar {side}",
-  "notice.winners_start": "Knivvinnarna börjar {side}"
+  "notice.winners_start": "Knivvinnarna börjar {side}",
+  "notice.you_chose": "Ni valde {side}",
+  "notice.opponents_chose": "Motståndarna valde {side}",
+  "notice.you_start": "Ni börjar som {side}"
 }

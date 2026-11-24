@@ -170,7 +170,7 @@
   "spec.hold_ready": "按住 E 準備，或輸入",
   "spec.hold_unready": "按住 E 取消準備，或輸入",
   "spec.knife_round": "刀局",
-  "spec.winners_pick": "獲勝方選擇陣營",
+  "spec.winners_pick": "獲勝即可選邊",
   "spec.you_won_knife": "你們贏下了刀局",
   "spec.which_side": "選哪個陣營？",
   "spec.you_lost_knife": "你們輸掉了刀局",
@@ -451,7 +451,7 @@
   "dmg.col_hp": "HP",
   "dmg.header": "傷害報告：",
   "dmg.card_round": "第 {round} 回合",
-  "dmg.card_total": "傷害 {total}",
+  "dmg.card_total": "造成 {total} 傷害",
   "admin.practice_on": "練習模式已開啟。",
   "admin.practice_off": "練習模式已關閉。",
   "admin.mode_idle": "模式已設為閒置（自動練習賽熱身已關閉，直到 .ru mode scrim 或換圖）。",
@@ -531,5 +531,8 @@
   "knife.captain_only": "只有你的隊長可以選邊。",
   "tip.menu": "需要暫停、呼叫管理員或投降？輸入 .menu",
   "notice.winners_stay": "刀局勝方留在{side}",
-  "notice.winners_start": "刀局勝方從{side}開始"
+  "notice.winners_start": "刀局勝方從{side}開始",
+  "notice.you_chose": "你們選擇了 {side}",
+  "notice.opponents_chose": "對手選擇了 {side}",
+  "notice.you_start": "你們從 {side} 開始"
 }

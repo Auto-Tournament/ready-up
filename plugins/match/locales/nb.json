@@ -174,7 +174,7 @@
   "spec.hold_ready": "Hold E for å bli klar, eller skriv",
   "spec.hold_unready": "Hold E for å bli ikke klar, eller skriv",
   "spec.knife_round": "Knivrunde",
-  "spec.winners_pick": "Vinnerne velger side",
+  "spec.winners_pick": "Vinn for å velge side",
   "spec.you_won_knife": "Dere vant knivrunden",
   "spec.which_side": "Hvilken side vil dere ha?",
   "spec.you_lost_knife": "Dere tapte knivrunden",
@@ -460,7 +460,7 @@
   "dmg.col_hp": "HP",
   "dmg.header": "Skaderapport:",
   "dmg.card_round": "Runde {round}",
-  "dmg.card_total": "{total} skade",
+  "dmg.card_total": "Ga {total} skade",
   "admin.practice_on": "treningsmodus er slått på.",
   "admin.practice_off": "treningsmodus er slått av.",
   "admin.mode_idle": "modus satt til tomgang (automatisk scrim-oppvarming er av til .ru mode scrim eller kartbytte).",
@@ -540,5 +540,8 @@
   "knife.captain_only": "bare kapteinen din velger side.",
   "tip.menu": "trenger du pause, en admin eller vil gi opp? Skriv .menu",
   "notice.winners_stay": "Knivvinnerne blir {side}",
-  "notice.winners_start": "Knivvinnerne starter {side}"
+  "notice.winners_start": "Knivvinnerne starter {side}",
+  "notice.you_chose": "Dere valgte {side}",
+  "notice.opponents_chose": "Motstanderne valgte {side}",
+  "notice.you_start": "Dere starter som {side}"
 }

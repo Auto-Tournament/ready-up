@@ -170,7 +170,7 @@
   "spec.hold_ready": "按住 E 准备，或输入",
   "spec.hold_unready": "按住 E 取消准备，或输入",
   "spec.knife_round": "刀局",
-  "spec.winners_pick": "获胜方选择阵营",
+  "spec.winners_pick": "获胜即可选边",
   "spec.you_won_knife": "你们赢下了刀局",
   "spec.which_side": "选哪个阵营？",
   "spec.you_lost_knife": "你们输掉了刀局",
@@ -451,7 +451,7 @@
   "dmg.col_hp": "HP",
   "dmg.header": "伤害报告：",
   "dmg.card_round": "第 {round} 回合",
-  "dmg.card_total": "伤害 {total}",
+  "dmg.card_total": "造成 {total} 伤害",
   "admin.practice_on": "练习模式已开启。",
   "admin.practice_off": "练习模式已关闭。",
   "admin.mode_idle": "模式已设为空闲（自动练习赛热身已关闭，直到 .ru mode scrim 或换图）。",
@@ -531,5 +531,8 @@
   "knife.captain_only": "只有你的队长可以选边。",
   "tip.menu": "需要暂停、呼叫管理员或投降？输入 .menu",
   "notice.winners_stay": "刀局胜方留在{side}",
-  "notice.winners_start": "刀局胜方从{side}开始"
+  "notice.winners_start": "刀局胜方从{side}开始",
+  "notice.you_chose": "你们选择了 {side}",
+  "notice.opponents_chose": "对手选择了 {side}",
+  "notice.you_start": "你们从 {side} 开始"
 }

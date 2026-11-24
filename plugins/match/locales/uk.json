@@ -177,7 +177,7 @@
   "spec.hold_ready": "Утримуй E, щоб бути готовим, або введи",
   "spec.hold_unready": "Утримуй E, щоб скасувати готовність, або введи",
   "spec.knife_round": "Ножовий раунд",
-  "spec.winners_pick": "Переможці обирають сторону",
+  "spec.winners_pick": "Перемагайте, щоб обрати сторону",
   "spec.you_won_knife": "Ви виграли ножовий раунд",
   "spec.which_side": "Яку сторону берете?",
   "spec.you_lost_knife": "Ви програли ножовий раунд",
@@ -474,7 +474,7 @@
   "dmg.col_hp": "HP",
   "dmg.header": "Звіт про шкоду:",
   "dmg.card_round": "Раунд {round}",
-  "dmg.card_total": "Шкода: {total}",
+  "dmg.card_total": "Завдано {total} шкоди",
   "admin.practice_on": "режим тренування увімкнено.",
   "admin.practice_off": "режим тренування вимкнено.",
   "admin.mode_idle": "режим: простій (авторозминка скриму вимкнена до .ru mode scrim або зміни мапи).",
@@ -554,5 +554,8 @@
   "knife.captain_only": "сторону обирає лише твій капітан.",
   "tip.menu": "потрібна пауза, адмін чи здатися? Напиши .menu",
   "notice.winners_stay": "Переможці ножового раунду лишаються за {side}",
-  "notice.winners_start": "Переможці ножового раунду починають за {side}"
+  "notice.winners_start": "Переможці ножового раунду починають за {side}",
+  "notice.you_chose": "Ви обрали {side}",
+  "notice.opponents_chose": "Суперники обрали {side}",
+  "notice.you_start": "Ви починаєте за {side}"
 }

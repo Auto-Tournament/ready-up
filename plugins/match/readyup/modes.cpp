@@ -611,14 +611,33 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
   if (HudScreensOn()) {
     const bool timedOut = pickerName == "timeout";
     const std::string side = *winnerWantsCt ? "CT" : "T";
-    HudScreensNoticeAll(NoticeSpec(std::string("id=sides\ncolor=") + (timedOut ? "muted" : (*winnerWantsCt ? "ct" : "t")) + "\n",
-                                   timedOut ? "walkover.time_up" : "notice.sides_chosen",
-                                   // A scrim's teams are called CT and T: "CT stays CT" made no sense.
-                                   (winnerName == "CT" || winnerName == "T")
-                                       ? (stayed ? "notice.winners_stay" : "notice.winners_start")
-                                       : (stayed ? "notice.team_stays" : "notice.team_starts"),
-                                   {}, {{"team", winnerName}, {"side", side}}),
-                        8.0);
+    const std::string otherSide = *winnerWantsCt ? "T" : "CT";
+    const std::string head = std::string("id=sides\ncolor=") + (timedOut ? "muted" : (*winnerWantsCt ? "ct" : "t")) + "\n";
+    const char* kind = timedOut ? "walkover.time_up" : "notice.sides_chosen";
+    // Each player reads it from their own team: "You chose CT" / "Opponents chose CT" (Sivert,
+    // 2026-11-24: "Knife winners start CT" read as nonsense). The swap is still queued, so the
+    // players are on their knife sides here: team1 had CT in the knife round.
+    const int winnerKnifeTeam = winnerIsTeam1 ? 3 : 2;
+    for (const auto& h : ListHumans()) {
+      const int slot = h.slot >= 0 ? h.slot : h.userid;
+      if (h.team != 2 && h.team != 3) {
+        // Spectators: the team line. A scrim's teams are called CT and T: "CT stays CT" made no sense.
+        HudScreensNotice(slot,
+                         NoticeSpec(head, kind,
+                                    (winnerName == "CT" || winnerName == "T")
+                                        ? (stayed ? "notice.winners_stay" : "notice.winners_start")
+                                        : (stayed ? "notice.team_stays" : "notice.team_starts"),
+                                    {}, {{"team", winnerName}, {"side", side}}),
+                         8.0);
+        continue;
+      }
+      const bool won = h.team == winnerKnifeTeam;
+      if (timedOut)
+        HudScreensNotice(slot, NoticeSpec(head, kind, "notice.you_start", {}, {{"side", won ? side : otherSide}}), 8.0);
+      else
+        HudScreensNotice(slot, NoticeSpec(head, kind, won ? "notice.you_chose" : "notice.opponents_chose", {}, {{"side", side}}),
+                         8.0);
+    }
   }
   return true;
 }

@@ -174,7 +174,7 @@
   "spec.hold_ready": "Задръж E, за да си готов, или напиши",
   "spec.hold_unready": "Задръж E, за да не си готов, или напиши",
   "spec.knife_round": "Рунд с ножове",
-  "spec.winners_pick": "Победителите избират страна",
+  "spec.winners_pick": "Спечелете, за да изберете страна",
   "spec.you_won_knife": "Спечелихте рунда с ножове",
   "spec.which_side": "Коя страна искате?",
   "spec.you_lost_knife": "Загубихте рунда с ножове",
@@ -460,7 +460,7 @@
   "dmg.col_hp": "HP",
   "dmg.header": "Отчет за щетите:",
   "dmg.card_round": "Рунд {round}",
-  "dmg.card_total": "Щети: {total}",
+  "dmg.card_total": "Нанесени {total} щети",
   "admin.practice_on": "режимът тренировка е включен.",
   "admin.practice_off": "режимът тренировка е изключен.",
   "admin.mode_idle": "режимът е неактивен (автоматичната загрявка за скрим е изключена до .ru mode scrim или смяна на картата).",
@@ -540,5 +540,8 @@
   "knife.captain_only": "само капитанът ти избира страна.",
   "tip.menu": "пауза, админ или отказване? Напиши .menu",
   "notice.winners_stay": "Победителите с нож остават {side}",
-  "notice.winners_start": "Победителите с нож започват {side}"
+  "notice.winners_start": "Победителите с нож започват {side}",
+  "notice.you_chose": "Избрахте {side}",
+  "notice.opponents_chose": "Противниците избраха {side}",
+  "notice.you_start": "Започвате като {side}"
 }

@@ -170,7 +170,7 @@
   "spec.hold_ready": "E를 길게 눌러 준비, 또는 입력",
   "spec.hold_unready": "E를 길게 눌러 준비 취소, 또는 입력",
   "spec.knife_round": "칼전",
-  "spec.winners_pick": "승자가 진영을 고릅니다",
+  "spec.winners_pick": "이기면 진영을 고릅니다",
   "spec.you_won_knife": "칼전 승리",
   "spec.which_side": "어느 진영을 고를까요?",
   "spec.you_lost_knife": "칼전 패배",
@@ -451,7 +451,7 @@
   "dmg.col_hp": "HP",
   "dmg.header": "피해 보고:",
   "dmg.card_round": "{round}라운드",
-  "dmg.card_total": "피해 {total}",
+  "dmg.card_total": "{total} 피해를 입힘",
   "admin.practice_on": "연습 모드를 켰습니다.",
   "admin.practice_off": "연습 모드를 껐습니다.",
   "admin.mode_idle": "모드를 대기로 설정했습니다(.ru mode scrim이나 맵 변경 전까지 자동 스크림 워밍업 꺼짐).",
@@ -531,5 +531,8 @@
   "knife.captain_only": "진영은 주장만 선택할 수 있습니다.",
   "tip.menu": "일시정지, 관리자 호출, 항복은 .menu",
   "notice.winners_stay": "칼전 승리 팀은 {side} 유지",
-  "notice.winners_start": "칼전 승리 팀은 {side}로 시작"
+  "notice.winners_start": "칼전 승리 팀은 {side}로 시작",
+  "notice.you_chose": "{side}을(를) 선택했습니다",
+  "notice.opponents_chose": "상대가 {side}을(를) 선택했습니다",
+  "notice.you_start": "{side}(으)로 시작합니다"
 }

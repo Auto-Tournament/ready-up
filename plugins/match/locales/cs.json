@@ -177,7 +177,7 @@
   "spec.hold_ready": "Podrž E pro připravenost, nebo napiš",
   "spec.hold_unready": "Podrž E pro zrušení připravenosti, nebo napiš",
   "spec.knife_round": "Nožové kolo",
-  "spec.winners_pick": "Vítězové volí stranu",
+  "spec.winners_pick": "Vyhrajte a vyberte si stranu",
   "spec.you_won_knife": "Vyhráli jste nožové kolo",
   "spec.which_side": "Kterou stranu chcete?",
   "spec.you_lost_knife": "Prohráli jste nožové kolo",
@@ -474,7 +474,7 @@
   "dmg.col_hp": "HP",
   "dmg.header": "Hlášení o poškození:",
   "dmg.card_round": "Kolo {round}",
-  "dmg.card_total": "Poškození: {total}",
+  "dmg.card_total": "Způsobeno {total} poškození",
   "admin.practice_on": "tréninkový režim zapnut.",
   "admin.practice_off": "tréninkový režim vypnut.",
   "admin.mode_idle": "režim nastaven na nečinný (automatické rozehřívání scrimu vypnuté do .ru mode scrim nebo změny mapy).",
@@ -554,5 +554,8 @@
   "knife.captain_only": "stranu vybírá jen tvůj kapitán.",
   "tip.menu": "potřebuješ pauzu, admina nebo se vzdát? Napiš .menu",
   "notice.winners_stay": "Vítězové nožů zůstávají {side}",
-  "notice.winners_start": "Vítězové nožů začínají {side}"
+  "notice.winners_start": "Vítězové nožů začínají {side}",
+  "notice.you_chose": "Vybrali jste {side}",
+  "notice.opponents_chose": "Soupeři vybrali {side}",
+  "notice.you_start": "Začínáte za {side}"
 }

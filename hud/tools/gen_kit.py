@@ -42,7 +42,7 @@ def card():
     head = panel(cls="at-head", children=(
         panel(cls="at-dot")
         + panel(cls="at-lyrbox at-kindbox", children=label("at_kind_a", "at-lyr at-kind cur") + label("at_kind_b", "at-lyr at-kind old"))
-        + panel(cls="at-lyrbox", children=label("at_text_a", "at-lyr at-text cur") + label("at_text_b", "at-lyr at-text old"))))
+        + panel(cls="at-lyrbox at-textbox", children=label("at_text_a", "at-lyr at-text cur") + label("at_text_b", "at-lyr at-text old"))))
     rules = panel(cls="at-body at-rules", children="".join(
         panel(f"at_r{n}", "at-rule", label(f"at_r{n}_k", "at-rulek") + label(f"at_r{n}_v", "at-rulev")) for n in range(3)))
     line = panel(cls="at-body at-line-body", children=sentence("at_p"))
