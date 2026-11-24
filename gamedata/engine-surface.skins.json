@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "game_version": "1.41.8.4",
-    "steam_buildid": 25515854,
+    "game_version": "1.42.0.1",
+    "steam_buildid": 26879581,
     "binary": "game/csgo/bin/linuxsteamrt64/libserver.so",
     "notes": "Owned by readyup-skins. The core merges every engine-surface.<name>.json next to the shim into engine-surface.json at load; readyup_sigcheck/readyup_hookcheck take it as an extra argument. Ships only in the skins packages. Entries may reference rtti classes from the base file."
   },
@@ -17,7 +17,7 @@
     },
     "CBaseEntity_ChangeSubclass": {
       "library": "server",
-      "linux": "55 48 89 E5 41 57 49 89 F7 41 56 41 55 41 54 53 48 89 FB 48 81 EC A8 00 00 00",
+      "linux": "55 48 89 E5 41 57 49 89 F7 41 56 41 55 41 54 53 48 89 FB 48 81 EC A8 00 00 00 E8 ? ? ? ? 84 C0 74",
       "required": false,
       "description": "CBaseEntity::ChangeSubclass(this, const char* subclass). Knives: subclass = item defindex (\"507\"), same as the ChangeSubclass input / `subclass_change`. Weapon paints only.",
       "anchors": [
