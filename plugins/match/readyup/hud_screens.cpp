@@ -333,7 +333,11 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
       m = g_menus.end();
     }
     const std::string lang = i18n::LanguageOf(host::Api(), slot);
-    if (m != g_menus.end()) spec = MenuSpec(m->second, h.team, lang);
+    if (m != g_menus.end()) {
+      spec = MenuSpec(m->second, h.team, lang);
+      // Menus are the list on the left (hud.so ui_left, v4 Hold E): W S choose, holding E picks.
+      if (!spec.empty()) spec += Line("where", "left");
+    }
     if (spec.empty()) spec = VoteSpec(slot, h.steamid64, h.team, lang);
     if (spec.empty()) {
       std::lock_guard<std::mutex> lk(g_noticeMu);
