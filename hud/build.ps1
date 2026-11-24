@@ -124,6 +124,9 @@ foreach ($file in Get-ChildItem (Join-Path $here "images\icons") -Filter "*.svg"
     # logo in that circle and loads it by name when needed, so unlike the icons above (cached at
     # startup) it shows every time.
     if ($file.BaseName -eq "ct_logo_1c") {
+        # The full-colour AT logo (images/team/atram.svg) when there is one; else the ram above.
+        $teamSrc = Join-Path $here "images\team\atram.svg"
+        if (Test-Path $teamSrc) { $file = Get-Item $teamSrc }
         $teamDir = Join-Path $content "panorama\images\tournaments\teams"
         New-Item -ItemType Directory -Force -Path $teamDir | Out-Null
         $team = Join-Path $teamDir "atram.svg"
