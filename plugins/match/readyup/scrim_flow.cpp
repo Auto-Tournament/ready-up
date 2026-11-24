@@ -9,6 +9,7 @@
 #include "readyup/logging.h"
 #include "readyup/match_state.h"
 #include "readyup/modes.h"
+#include "readyup/hud_screens.h"
 #include "readyup/ready_hud.h"
 #include "readyup/players.h"
 #include "readyup/server_settings.h"
@@ -220,12 +221,13 @@ static std::string NotReadyNames(const ScrimRoster& roster, int maxNames) {
 }
 
 static void SendReminder(const ScrimRoster& roster, const ScrimCounts& c) {
-  if (HudReplacesChat()) return;  // the ready panel shows this
+  // The ready HUD shows this; players who turned it off get it in chat.
+  const bool hud = HudReplacesChat() || ReadyHudShowing();
   const std::string waiting = NotReadyNames(roster, 5);
   text::Args args = ReadyArgs(c);
   args.emplace_back("names", waiting);
-  text::ChatAll(waiting.empty() ? "scrim.reminder" : "scrim.reminder_waiting", args);
-  if (!c.bothSides) text::ChatAll(DevBotsReadyEnabled() ? "scrim.need_both_sides_bots" : "scrim.need_both_sides");
+  ChatUnlessHud(hud, waiting.empty() ? "scrim.reminder" : "scrim.reminder_waiting", args);
+  if (!c.bothSides) ChatUnlessHud(hud, DevBotsReadyEnabled() ? "scrim.need_both_sides_bots" : "scrim.need_both_sides");
 }
 
 static void CancelCountdownLocked(FlowState& f) {
@@ -300,7 +302,7 @@ static void ScrimWarmupStepLocked(FlowState& f, Clock::time_point now, const Scr
   // note); chat reminders only when it is not on screen.
   if (IsZero(f.lastReminder) || (now - f.lastReminder) >= kReminderInterval) {
     f.lastReminder = now;
-    if (!ReadyHudShowing()) SendReminder(roster, c);
+    SendReminder(roster, c);
   }
 }
 

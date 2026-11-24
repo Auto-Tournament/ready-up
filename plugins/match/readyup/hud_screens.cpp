@@ -422,6 +422,11 @@ bool HudScreensOpenMenu(int slot, uint64_t steamid64, const std::string& which) 
   return true;
 }
 
+void ChatUnlessHud(bool hudShows, const std::string& key, const i18n::Args& args) {
+  if (hudShows) ChatHudOff(key, args);
+  else text::ChatAll(key, args);
+}
+
 void WarmupMenuTipTick() {
   static double next = 0;
   const double now = host::NowSeconds();

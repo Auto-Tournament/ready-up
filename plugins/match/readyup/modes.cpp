@@ -702,8 +702,7 @@ static void MaybeShowWarmupUiLocked(State& st) {
   // Periodic chat reminder listing who is not ready yet (cap for spam). Only
   // when the ready HUD is not on screen: the HUD is the ready-up UI.
   const auto chatInterval = std::chrono::seconds(12);
-  if (!ReadyHudShowing() &&
-      (st.lastNotReadyChat.time_since_epoch().count() == 0 || (now - st.lastNotReadyChat) >= chatInterval)) {
+  if (st.lastNotReadyChat.time_since_epoch().count() == 0 || (now - st.lastNotReadyChat) >= chatInterval) {
     std::string list;
     int count = 0;
     const int maxNames = 6;
@@ -728,7 +727,8 @@ static void MaybeShowWarmupUiLocked(State& st) {
     }
 
     if (!list.empty() && rosterTotal > 0 && rosterReady < rosterTotal) {
-      text::ChatAll("match.waiting_for",
+      // The ready HUD shows this; players who turned it off get it in chat.
+      ChatUnlessHud(ReadyHudShowing(), "match.waiting_for",
                     {{"ready", std::to_string(rosterReady)}, {"total", std::to_string(rosterTotal)}, {"names", list}});
       st.lastNotReadyChat = now;
     }

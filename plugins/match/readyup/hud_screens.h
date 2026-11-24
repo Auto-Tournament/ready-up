@@ -33,6 +33,9 @@ bool HudScreensOn();
 bool HudOffFor(uint64_t steamid64);
 // What the HUD says, in chat for the players who turned it off (when the HUD is on for the rest).
 void ChatHudOff(const std::string& key, const i18n::Args& args = {});
+// A chat line for everyone when the HUD doesn't show it (hudShows false), else only for the players
+// who turned the HUD off (.hud off): chat is their whole ready-up UI.
+void ChatUnlessHud(bool hudShows, const std::string& key, const i18n::Args& args = {});
 
 // A live round is running (not freeze time, not paused): nothing may take the cursor.
 bool HudMidRound();

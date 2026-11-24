@@ -199,8 +199,9 @@ void GoLiveCardTick() {
     const char* skip = AdminCallCardActiveFor(slot)              ? ".admin call card"
                        : WelcomeActiveFor(slot, h.steamid64)     ? "welcome card"
                                                                  : nullptr;
-    if (!skip && screens && !HudOffFor(h.steamid64)) {
-      HudScreensNotice(slot, spec, 1.0);
+    if (!skip && screens) {
+      // HUD off (.hud off): no card; modes.cpp sends them the go-live lines in chat.
+      if (!HudOffFor(h.steamid64)) HudScreensNotice(slot, spec, 1.0);
       ++ok;
       continue;
     }

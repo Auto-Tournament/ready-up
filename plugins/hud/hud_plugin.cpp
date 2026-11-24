@@ -1189,10 +1189,52 @@ void DevBuildTick() {
   }
 }
 
-// The ram in CS2's team badge (#ui_badge) and the watermark beside it (#ui_wm) only while the
-// player is alive on T or CT: in team select, dead, or spectating there is no badge to sit in (CS2
-// draws the watched player's avatar in that circle), and they floated on their own (Sivert,
-// 2026-11-24). Sent on a change, and again every 3 s in case the layout entity was recreated.
+// The ram in CS2's team badge (#ui_badge) and the watermark beside it (#ui_wm), by what CS2 draws
+// at the bottom (Sivert, 2026-11-24):
+// - alive on T or CT: the badge, the watermark either side of it (`on` on both);
+// - watching a player (in-eye or chase): CS2's spectator bar, with the watched player's avatar in
+//   that circle, so no badge and the watermark on one line above the bar (`spec` on ui_wm);
+// - else (team select, the death cam, free roam, the buy menu open): neither.
+// Sent on a change, and again every 3 s in case the layout entity was recreated.
+namespace badge {
+struct Off {
+  int alive = -2, obsPawn = -1, obsSvc = -1, obsMode = -1, obsTarget = -1;
+};
+Off& Offsets() {
+  static Off o;
+  if (o.alive == -2) {
+    o.alive = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_bPawnIsAlive");
+    o.obsPawn = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_hObserverPawn");
+    o.obsSvc = g_api->schema_offset(g_api->self, "CBasePlayerPawn", "m_pObserverServices");
+    o.obsMode = g_api->schema_offset(g_api->self, "CPlayer_ObserverServices", "m_iObserverMode");
+    o.obsTarget = g_api->schema_offset(g_api->self, "CPlayer_ObserverServices", "m_hObserverTarget");
+    ru_logf(g_api, RU_LOG_INFO, "badge: offsets alive=%d obsPawn=%d obsSvc=%d obsMode=%d obsTarget=%d", o.alive,
+            o.obsPawn, o.obsSvc, o.obsMode, o.obsTarget);
+  }
+  return o;
+}
+
+uint32_t ReadU32(const void* base, int off) {
+  uint32_t v = 0;
+  std::memcpy(&v, static_cast<const uint8_t*>(base) + off, sizeof(v));
+  return v;
+}
+
+// Watching a player in-eye (2) or in chase (3): the modes CS2 shows its spectator bar in.
+bool Watching(void* ctrl) {
+  const Off& o = Offsets();
+  if (o.obsPawn < 0 || o.obsSvc < 0 || o.obsMode < 0 || o.obsTarget < 0) return false;
+  void* pawn = g_api->entity_from_handle(g_api->self, ReadU32(ctrl, o.obsPawn));
+  if (!pawn) return false;
+  void* svc = nullptr;
+  std::memcpy(&svc, static_cast<uint8_t*>(pawn) + o.obsSvc, sizeof(svc));
+  if (!svc) return false;
+  const uint8_t mode = *(static_cast<uint8_t*>(svc) + o.obsMode);
+  if (mode != 2 && mode != 3) return false;
+  return g_api->entity_from_handle(g_api->self, ReadU32(svc, o.obsTarget)) != nullptr;
+}
+}  // namespace badge
+
 void BadgeTick() {
   static double next = 0, nextAll = 0;
   static int8_t last[64];
@@ -1205,8 +1247,7 @@ void BadgeTick() {
   next = g_now + 0.2;
   const bool all = g_now >= nextAll;
   if (all) nextAll = g_now + 3.0;
-  static int offAlive = -2;
-  if (offAlive == -2) offAlive = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_bPawnIsAlive");
+  const badge::Off& o = badge::Offsets();
   const int h = IfOpen(kUiLayout);
   if (h <= 0) return;
   for (int slot = 0; slot <= 63; ++slot) {
@@ -1216,16 +1257,19 @@ void BadgeTick() {
       last[slot] = -1;
       continue;
     }
-    bool alive = false;
-    if (offAlive >= 0 && (p.team == RU_TEAM_T || p.team == RU_TEAM_CT)) {
-      if (void* ctrl = g_api->entity_by_index(g_api->self, slot + 1))
-        alive = *(static_cast<uint8_t*>(ctrl) + offAlive) != 0;
+    int8_t state = 0;  // 0 neither, 1 alive, 2 watching a player
+    if (void* ctrl = g_api->entity_by_index(g_api->self, slot + 1)) {
+      const bool alive = o.alive >= 0 && (p.team == RU_TEAM_T || p.team == RU_TEAM_CT) &&
+                         *(static_cast<uint8_t*>(ctrl) + o.alive) != 0;
+      if (alive) state = 1;
+      else if (badge::Watching(ctrl)) state = 2;
     }
-    const int8_t on = alive ? 1 : 0;
-    if (on == last[slot] && !all) continue;
-    last[slot] = on;
-    IfSetClass(h, slot, "ui_badge", "on", on);
-    IfSetClass(h, slot, "ui_wm", "on", on);
+    if (g_buyOpen.count(slot)) state = 0;  // the buy menu covers the bottom bar (fades out, then back in)
+    if (state == last[slot] && !all) continue;
+    last[slot] = state;
+    IfSetClass(h, slot, "ui_badge", "on", state == 1 ? 1 : 0);
+    IfSetClass(h, slot, "ui_wm", "on", state == 1 ? 1 : 0);
+    IfSetClass(h, slot, "ui_wm", "spec", state == 2 ? 1 : 0);
   }
 }
 

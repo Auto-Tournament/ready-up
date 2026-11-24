@@ -873,8 +873,12 @@
    centred, so each half ends / starts 52 px from the middle. "PLAYED ON" above CS2's health line,
    "AUTO TOURNAMENT" below it. */
 .ui-wm { width: 100%; height: 100%; opacity: 0; transition-property: opacity; transition-duration: 0.2s; }
-/* #ui_wm and #ui_badge: `on` (hud.so) only while the player is alive on T or CT. */
-.ui-wm.on { opacity: 1; }
+/* #ui_wm and #ui_badge: `on` (hud.so) only while the player is alive on T or CT. `spec` on ui_wm
+   while watching a player: one line, "PLAYED ON AUTO TOURNAMENT", just above CS2's spectator bar
+   (its top is ~88px above the bottom at 1080p, 2026-11-24). */
+.ui-wm.on, .ui-wm.spec { opacity: 1; }
+.ui-wm.spec .ui-wml .ui-wmt { margin-right: 6px; margin-bottom: 96px; }
+.ui-wm.spec .ui-wmr .ui-wmt { margin-left: 6px; margin-bottom: 96px; }
 .ui-wmhalf { width: 50%; height: 100%; }
 .ui-wml { horizontal-align: left; }
 .ui-wmr { horizontal-align: right; }
@@ -882,9 +886,9 @@
 .ui-wml .ui-wmt { horizontal-align: right; margin-right: 52px; margin-bottom: 61px; }
 .ui-wmr .ui-wmt { horizontal-align: left; margin-left: 52px; margin-bottom: 31px; }
 /* The badge (#ui_badge): CS2's ring is ~61px across, its centre 51px above the bottom, ~3px thick
-   (1080p screenshot, 2026-11-24). The disc fills inside it, opaque like Valve's own, and covers the
+   (1080p screenshot, 2026-11-24). The disc fills inside it, opaque, in a cool grey like Valve's own (Sivert: not our brown), and covers the
    CT/T emblem; the ram is the team logo file (images/team/atram.svg, built by hud/build.ps1). */
-.ui-badge { width: 56px; height: 56px; horizontal-align: center; vertical-align: bottom; margin-bottom: 23px; border-radius: 50%; background-color: #1d1d1f; opacity: 0; transition-property: opacity; transition-duration: 0.2s; }
+.ui-badge { width: 56px; height: 56px; horizontal-align: center; vertical-align: bottom; margin-bottom: 23px; border-radius: 50%; background-color: #45474d; opacity: 0; transition-property: opacity; transition-duration: 0.2s; }
 .ui-badge.on { opacity: 1; }
 .ui-badgeram { width: 46px; height: 46px; horizontal-align: center; vertical-align: center; background-image: url( "s2r://panorama/images/tournaments/teams/atram.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
 .ui-vertext { font-size: 15px; font-weight: bold; color: #e6b33c; }
