@@ -68,7 +68,9 @@ void ChatSlotKey(int slot, const char* key, const Args& args = {}) {
 
 // readyup.cfg [retakes]
 struct Settings {
-  bool enabled = true;
+  // Off until a server asks for it ([retakes] enabled=1): installed with "full" since v0.2.24, it
+  // took over every idle server (2026-11-24). The other modes are off in plugins.json instead.
+  bool enabled = false;
   int maxPlayers = 9;
   int scrambleAfter = 5;
 } g_set;
