@@ -86,6 +86,7 @@ struct Screen {
   Mouse mouse = Mouse::Off;
   bool chips = false;
   bool hold = false;  // `hold=1`: holding Use presses the first button (hud.so HoldAction)
+  bool noCloseRow = false;  // `closerow=0`: a where=left list without its close row (a choice that must be made)
 
   bool empty() const { return title.empty() && kind.empty(); }
 };

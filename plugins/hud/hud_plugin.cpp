@@ -645,7 +645,7 @@ void NavDraw(int slot, ScreenSlot& ss) {
 // A left panel always ends with a close row and says how to use it.
 void LeftDefaults(int slot, Screen& s) {
   const std::string lang = readyup::i18n::LanguageOf(g_api, slot);
-  if (!s.hasClose) {
+  if (!s.hasClose && !s.noCloseRow) {
     s.hasClose = true;
     s.closeLabel = g_text.Tr(lang, "hud.hold_close");
     s.closeCmd.clear();

@@ -138,6 +138,7 @@ void TestButtonIds() {
   // The menu list (where=left): its rows and its close row.
   CHECK(hud::ParseButtonId("ui_left_b4", &p, &i) && p == "ui_left" && i == 4);
   CHECK(hud::ParseButtonId("ui_left_close", &p, &i) && p == "ui_left" && i == -1);
+  CHECK(hud::ParseScreen(std::string("id=pick") + char(10) + "closerow=0" + char(10)).noCloseRow);
   CHECK(hud::ParseScreen("id=m\ntitle=Menu\nwhere=left\n").where == "left");
   CHECK(hud::EnterOf(hud::ParseScreen("id=m\ntitle=Menu\nwhere=left\n"), "ui_left") == "fx-slide-left");
   CHECK(!hud::ParseButtonId("ui_mid_b24", &p, &i));
