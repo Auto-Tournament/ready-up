@@ -1034,7 +1034,7 @@ void ApplyScale() {
   const int h = IfOpen(kUiLayout);
   for (int pct = 70; pct <= 100; pct += 5) {
     const std::string c = "scale-" + std::to_string(pct);
-    for (const char* wrap : {"ui_cardwrap", "ui_midwrap"}) IfSetClass(h, RU_HUD_ALL, wrap, c.c_str(), pct == g_scale ? 1 : 0);
+    for (const char* wrap : {"ui_cardwrap", "ui_midwrap", "ui_leftwrap"}) IfSetClass(h, RU_HUD_ALL, wrap, c.c_str(), pct == g_scale ? 1 : 0);
   }
 }
 int ParseScale(const std::string& s) {

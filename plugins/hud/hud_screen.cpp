@@ -240,7 +240,7 @@ std::vector<Write> RenderScreen(const Screen& s, const std::string& p) {
 }
 
 bool ParseButtonId(const std::string& id, std::string* panel, int* index) {
-  for (const char* p : {"ui_card", "ui_mid"}) {
+  for (const char* p : {"ui_card", "ui_mid", "ui_left"}) {
     const std::string pre = std::string(p) + "_";
     if (id.compare(0, pre.size(), pre) != 0) continue;
     const std::string rest = id.substr(pre.size());
@@ -267,6 +267,7 @@ std::string EnterOf(const Screen& s, const std::string& p) {
     if (want == f) return want;
   const bool decision = s.mouse == Mouse::On && !s.buttons.empty() && !s.hasClose;
   if (s.mini) return "fx-pop";
+  if (p == "ui_left") return "fx-slide-left";  // the menu list comes in from the left
   if (p == "ui_card") return s.color == "ban" ? "fx-alert" : "fx-slide";
   return decision ? "fx-flip" : s.color == "ban" ? "fx-alert" : "fx-open";
 }
