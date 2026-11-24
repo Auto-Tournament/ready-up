@@ -887,13 +887,13 @@
 	horizontal-align: center; vertical-align: center; margin-top: 240px;
 	width: fit-children; height: 38px; flow-children: none; overflow: clip; border-radius: 19px;
 	opacity: 0; transform: translateY( -6px );
-	transition-property: opacity, transform; transition-duration: 0.2s; transition-timing-function: ease-out;
+	transition-property: opacity, transform; transition-duration: 0.2s, 1s; transition-timing-function: ease-out, ease-in-out;  /* the move: 1 s ease-in-out both ways */
 }
 .ui-hold.on { opacity: 1; transform: translateY( 0px ); }
 /* Ready (green, c-live): the chip slides down to just above the AT logo instead of fading out, so
    you see it move as it turns green (Sivert, 2026-11-24). From the crosshair spot (centre 660 at
    1080p) to centre ~935, clear of CS2's card icon above the logo circle. */
-.ui-hold.on.c-live { transform: translateY( 275px ); transition-duration: 1s; transition-timing-function: ease-out; }  /* 1 s ease-out (Sivert, 2026-11-24) */
+.ui-hold.on.c-live { transform: translateY( 275px ); }  /* moves with .ui-hold's 1 s ease-in-out, down and back up */
 .ui-holdbg { width: 100%; height: 100%; background-color: #140e0cd9; border: 1px solid #322926; border-radius: 19px; transition-property: background-color, border; transition-duration: 0.35s; }
 .ui-hold.on .ui-holdbg { animation-name: ui-hold-pulse; animation-duration: 1.4s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
 .ui-hold.hold .ui-holdbg { animation-name: none; border: 1px solid #ff6a3d; }
