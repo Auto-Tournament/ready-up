@@ -541,7 +541,7 @@
   "end.col8_title": "Entry kills",
   "end.col8_body": "The first kill of a round",
   "knife.captain_only": "only your captain picks the side.",
-  "tip.menu": "need a pause, an admin or to forfeit? Type .menu",
+  "tip.menu": "Need a pause, an admin or to forfeit? Type .menu in chat.",
   "notice.winners_stay": "Knife winners stay {side}",
   "notice.winners_start": "Knife winners start {side}",
   "notice.you_chose": "You chose {side}",

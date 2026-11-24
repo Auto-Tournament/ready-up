@@ -414,7 +414,7 @@ void WarmupMenuTipTick() {
   }
   if (now < next) return;
   next = now + 60;
-  text::ChatAll("tip.menu");
+  text::ImportantAll("tip.menu", {}, 0);  // a star line (chat only): the HUD has the rest
 }
 
 void HudOutdatedHoldTick() {
