@@ -429,8 +429,10 @@ void OnTick(void*, const ru_tick_info* t) {
   if (t->now - g_lastConfig >= 5.0) {
     g_lastConfig = t->now;
     int bad = 0;
-    // The HUD addon, which every player needs, first.
-    auto ids = WithHudAddon(ParseIds(ConfigValue("workshop_addons"), &bad));
+    // The HUD addon, which every player needs, first; `hud_addon=<id>` swaps in a test build of it.
+    int badHud = 0;
+    const auto hud = ParseIds(ConfigValue("hud_addon"), &badHud);
+    auto ids = WithHudAddon(ParseIds(ConfigValue("workshop_addons"), &bad), hud.empty() ? kHudAddon : hud.front());
     if (ids != g_ids) {
       g_ids = std::move(ids);
       ru_logf(g_api, RU_LOG_INFO, "workshop_addons: %zu addon(s)%s", g_ids.size(), bad ? " (some entries are not workshop ids)" : "");

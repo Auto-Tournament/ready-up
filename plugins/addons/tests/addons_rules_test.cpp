@@ -29,6 +29,9 @@ int main() {
   CHECK(WithHudAddon({}) == std::vector<uint64_t>{kHudAddon});
   CHECK((WithHudAddon({123}) == std::vector<uint64_t>{kHudAddon, 123}));
   CHECK((WithHudAddon({123, kHudAddon}) == std::vector<uint64_t>{123, kHudAddon}));
+  // hud_addon=<id>: a test build of the HUD instead of the real one, never both.
+  CHECK((WithHudAddon({123, kHudAddon}, 999) == std::vector<uint64_t>{999, 123}));
+  CHECK((WithHudAddon({999}, 999) == std::vector<uint64_t>{999}));
 
   CHECK(ItemStateText(0) == "not installed");
   CHECK(ItemStateText(kItemInstalled) == "installed");
