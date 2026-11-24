@@ -34,7 +34,7 @@ While it runs the match plugin is in external mode `retakes` (no scrim warmup or
 
 ## Settings
 
-`[retakes]` in `readyup.cfg`: `enabled`, `max_players` (2-10, default 9), `scramble_after` (0 = never, default 5).
+`[retakes]` in `readyup.cfg`: `enabled` (off by default: set `enabled=1` to run retakes), `max_players` (2-10, default 9), `scramble_after` (0 = never, default 5).
 
 Console: `ru retakes` (status), `ru retakes site a|b|random`.
 

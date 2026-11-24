@@ -296,7 +296,8 @@ maps=
 // de_overpass, de_train, de_vertigo. Re-read when the plugin loads.
 // Every value below is the default; remove the // to change one.
 //
-// enabled=1
+// Off until you turn it on: while it is on, retakes runs whenever no match is loaded.
+// enabled=0
 //
 // Players on a team; anyone past this waits in spectator for a free place (2-10).
 // max_players=9
