@@ -252,8 +252,8 @@ std::string GoLiveCardSpec(const GoLiveCardInfo& info, const std::string& lang) 
     s += std::string("vs=") + SpecText(info.team1.empty() ? T(lang, "card.team1") : info.team1) + "|" + side(info.team1Side) + "|" +
          SpecText(info.team2.empty() ? T(lang, "card.team2") : info.team2) + "|" + side(side2) + "\n";
   }
-  // One line: "Type [.menu] in chat to open the match menu" (Sivert, 2026-11-24: not three commands).
-  s += "cmd=" + SpecText(T(lang, "card.menu_type")) + "|.menu|" + SpecText(T(lang, "card.menu_after")) + "\n";
+  // One short line: "[.menu] in chat for commands" (Sivert, 2026-11-24: not three commands, few words).
+  s += "cmd=|.menu|" + SpecText(T(lang, "card.menu_after")) + "\n";
   return s;
 }
 

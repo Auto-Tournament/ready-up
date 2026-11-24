@@ -414,7 +414,14 @@ void WarmupMenuTipTick() {
   }
   if (now < next) return;
   next = now + 60;
-  text::ImportantAll("tip.menu", {}, 0);  // a star line (chat only): the HUD has the rest
+  // Star lines (chat only), one per sentence: "Hold E to ready up." (with the HUD's chip; Sivert,
+  // 2026-11-24) and the .menu tip.
+  const bool holdTip = HudScreensOn() && GetMode() == ReadyUpMode::MatchWarmup;
+  text::ImportantAllFn(
+      [holdTip](const std::string& lang) {
+        return (holdTip ? text::ForLang(lang, "tip.ready_hold") + " " : std::string()) + text::ForLang(lang, "tip.menu");
+      },
+      0);
 }
 
 void HudOutdatedHoldTick() {

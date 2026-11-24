@@ -866,14 +866,15 @@
 }
 .ui-ver.check { visibility: visible; }
 .ui-vertext { font-size: 15px; font-weight: bold; color: #e6b33c; }
-/* Hold Use (#ui_hold): bottom centre, right above the AT logo between ammo and weapon (Sivert,
-   2026-11-24; was top right). Its border pulses orange until E is held, to catch the eye. `on` when holding the key does something,
+/* Hold Use (#ui_hold): right under the crosshair, where every player looks (Sivert, 2026-11-24:
+   was above the AT logo, before that top right). margin-top 240px with vertical-align center puts
+   it ~120px below the centre. Its border pulses orange until E is held, to catch the eye. `on` when holding the key does something,
    `hold` while it is down: the fill runs left to right over the hold time and the keycap's
    brackets close in. hud.so takes `hold` off on release, which resets both. The hold time is
    0.6 s in hud.so; keep kHoldSeconds and the 0.6s below the same. */
 .ui-hold
 {
-	horizontal-align: center; vertical-align: bottom; margin-bottom: 92px;
+	horizontal-align: center; vertical-align: center; margin-top: 240px;
 	width: fit-children; height: 38px; flow-children: none; overflow: clip; border-radius: 19px;
 	opacity: 0; transform: translateY( -6px );
 	transition-property: opacity, transform; transition-duration: 0.2s; transition-timing-function: ease-out;
