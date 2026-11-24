@@ -102,6 +102,10 @@ def main():
     body += panel("ui_leftwrap", "ui-leftwrap", block("ui_left"))
     # "Your HUD addon is out of date": shown unless hud.so's v-<n> class is one this addon knows.
     body += panel("ui_ver", "ui-ver", label("ui_ver_t", "ui-vertext"))
+    # The watermark either side of the AT logo between health and ammo (Sivert, 2026-11-24, draft G):
+    # "PLAYED ON" left of the circle above CS2's health line, "AUTO TOURNAMENT" right of it below.
+    body += panel("ui_wm", "ui-wm", panel(cls="ui-wmhalf ui-wml", children=label(cls="ui-wmt", text="PLAYED ON"))
+                  + panel(cls="ui-wmhalf ui-wmr", children=label(cls="ui-wmt", text="AUTO TOURNAMENT")))
     # Hold Use: a chip top right that names the key the player bound to +use ({g:csgo_key:k}, k set
     # to "+use" by hud.so) and what holding it does. hud.so puts `hold` on it while the key is down,
     # which runs the fill; at the end it presses the open card's button or opens .menu.
