@@ -463,6 +463,7 @@
   "dmg.header": "Damage report:",
   "dmg.card_round": "Round {round}",
   "dmg.card_total": "Dealt {total} damage",
+  "dmg.card_totals": "Dealt {total} · Took {took}",
   "admin.practice_on": "practice mode enabled.",
   "admin.practice_off": "practice mode disabled.",
   "admin.mode_idle": "mode set to idle (auto scrim warmup off until .ru mode scrim or a map change).",

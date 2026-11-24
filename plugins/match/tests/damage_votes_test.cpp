@@ -43,6 +43,14 @@ static void TestLedger() {
   l.OnHurt(-1, 2, 10, 90);
   l.OnHurt(2, 2, 15, 75);
   CHECK(l.Health(2) == 75 && l.Dealt(2, 2).dmg == 0 && !l.Dealt(-1, 2).hits);
+  // ...and they are the player's own damage (the card's row under their name) and in what they took.
+  CHECK(l.Self(2).dmg == 25 && l.Self(2).hits == 2 && l.Taken(2) == 25);
+  // A fire is one hit, however many ticks: an HE, then a molotov burning three times.
+  l.OnHurt(8, 9, 30, 70);
+  l.OnHurt(8, 9, 8, 62, true);
+  l.OnHurt(8, 9, 8, 54, true);
+  l.OnHurt(8, 9, 8, 46, true);
+  CHECK(l.Dealt(8, 9).dmg == 54 && l.Dealt(8, 9).hits == 2 && l.Taken(9) == 54);
   // A hit on a player with 0 hp left (dead) counts nothing more.
   l.OnHurt(3, 5, 20, 0);
   CHECK(l.Dealt(3, 5).dmg == 0 && l.Dealt(3, 5).hits == 0);

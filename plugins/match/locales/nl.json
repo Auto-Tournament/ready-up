@@ -463,6 +463,7 @@
   "dmg.header": "Schaderapport:",
   "dmg.card_round": "Ronde {round}",
   "dmg.card_total": "{total} schade gedaan",
+  "dmg.card_totals": "Gedaan {total} · Gekregen {took}",
   "admin.practice_on": "trainingsmodus aangezet.",
   "admin.practice_off": "trainingsmodus uitgezet.",
   "admin.mode_idle": "modus op idle gezet (automatische scrim-warming-up uit tot .ru mode scrim of een mapwissel).",

@@ -454,6 +454,7 @@
   "dmg.header": "伤害报告：",
   "dmg.card_round": "第 {round} 回合",
   "dmg.card_total": "造成 {total} 伤害",
+  "dmg.card_totals": "造成 {total} · 承受 {took}",
   "admin.practice_on": "练习模式已开启。",
   "admin.practice_off": "练习模式已关闭。",
   "admin.mode_idle": "模式已设为空闲（自动练习赛热身已关闭，直到 .ru mode scrim 或换图）。",

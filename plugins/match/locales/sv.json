@@ -463,6 +463,7 @@
   "dmg.header": "Skaderapport:",
   "dmg.card_round": "Runda {round}",
   "dmg.card_total": "Gav {total} skada",
+  "dmg.card_totals": "Gav {total} · Tog {took}",
   "admin.practice_on": "träningsläget påslaget.",
   "admin.practice_off": "träningsläget avstängt.",
   "admin.mode_idle": "läget satt till vila (automatisk scrim-uppvärmning av tills .ru mode scrim eller kartbyte).",

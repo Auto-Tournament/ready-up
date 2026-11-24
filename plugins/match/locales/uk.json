@@ -477,6 +477,7 @@
   "dmg.header": "Звіт про шкоду:",
   "dmg.card_round": "Раунд {round}",
   "dmg.card_total": "Завдано {total} шкоди",
+  "dmg.card_totals": "Завдано {total} · Отримано {took}",
   "admin.practice_on": "режим тренування увімкнено.",
   "admin.practice_off": "режим тренування вимкнено.",
   "admin.mode_idle": "режим: простій (авторозминка скриму вимкнена до .ru mode scrim або зміни мапи).",

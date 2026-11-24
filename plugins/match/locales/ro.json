@@ -477,6 +477,7 @@
   "dmg.header": "Raport de damage:",
   "dmg.card_round": "Runda {round}",
   "dmg.card_total": "Ai provocat {total} daune",
+  "dmg.card_totals": "Provocat {total} · Primit {took}",
   "admin.practice_on": "modul antrenament a fost pornit.",
   "admin.practice_off": "modul antrenament a fost oprit.",
   "admin.mode_idle": "modul a fost pus pe inactiv (încălzirea automată de scrim e oprită până la .ru mode scrim sau o schimbare de hartă).",

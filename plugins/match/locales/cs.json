@@ -477,6 +477,7 @@
   "dmg.header": "Hlášení o poškození:",
   "dmg.card_round": "Kolo {round}",
   "dmg.card_total": "Způsobeno {total} poškození",
+  "dmg.card_totals": "Způsobeno {total} · Utrženo {took}",
   "admin.practice_on": "tréninkový režim zapnut.",
   "admin.practice_off": "tréninkový režim vypnut.",
   "admin.mode_idle": "režim nastaven na nečinný (automatické rozehřívání scrimu vypnuté do .ru mode scrim nebo změny mapy).",

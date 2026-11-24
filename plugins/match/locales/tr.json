@@ -463,6 +463,7 @@
   "dmg.header": "Hasar raporu:",
   "dmg.card_round": "{round}. raunt",
   "dmg.card_total": "{total} hasar verdin",
+  "dmg.card_totals": "Verilen {total} · Alınan {took}",
   "admin.practice_on": "antrenman modu açıldı.",
   "admin.practice_off": "antrenman modu kapatıldı.",
   "admin.mode_idle": "mod boşta olarak ayarlandı (otomatik scrim ısınması .ru mode scrim ya da harita değişene kadar kapalı).",

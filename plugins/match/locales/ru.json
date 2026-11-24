@@ -477,6 +477,7 @@
   "dmg.header": "Отчёт об уроне:",
   "dmg.card_round": "Раунд {round}",
   "dmg.card_total": "Нанесено {total} урона",
+  "dmg.card_totals": "Нанесено {total} · Получено {took}",
   "admin.practice_on": "режим тренировки включён.",
   "admin.practice_off": "режим тренировки выключен.",
   "admin.mode_idle": "режим: простой (авторазминка скрима выключена до .ru mode scrim или смены карты).",

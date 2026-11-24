@@ -454,6 +454,7 @@
   "dmg.header": "รายงานความเสียหาย:",
   "dmg.card_round": "รอบที่ {round}",
   "dmg.card_total": "สร้างความเสียหาย {total}",
+  "dmg.card_totals": "ทำ {total} · รับ {took}",
   "admin.practice_on": "เปิดโหมดฝึกแล้ว",
   "admin.practice_off": "ปิดโหมดฝึกแล้ว",
   "admin.mode_idle": "ตั้งโหมดเป็นว่าง (ปิดวอร์มอัปสกริมอัตโนมัติจนกว่าจะใช้ .ru mode scrim หรือเปลี่ยนแผนที่)",

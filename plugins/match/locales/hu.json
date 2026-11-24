@@ -463,6 +463,7 @@
   "dmg.header": "Sebzésjelentés:",
   "dmg.card_round": "{round}. kör",
   "dmg.card_total": "{total} sebzést okoztál",
+  "dmg.card_totals": "Okozott {total} · Kapott {took}",
   "admin.practice_on": "edzésmód bekapcsolva.",
   "admin.practice_off": "edzésmód kikapcsolva.",
   "admin.mode_idle": "mód tétlenre állítva (az automatikus scrim-bemelegítés ki van kapcsolva a .ru mode scrim parancsig vagy pályaváltásig).",

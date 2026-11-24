@@ -463,6 +463,7 @@
   "dmg.header": "Отчет за щетите:",
   "dmg.card_round": "Рунд {round}",
   "dmg.card_total": "Нанесени {total} щети",
+  "dmg.card_totals": "Нанесени {total} · Поети {took}",
   "admin.practice_on": "режимът тренировка е включен.",
   "admin.practice_off": "режимът тренировка е изключен.",
   "admin.mode_idle": "режимът е неактивен (автоматичната загрявка за скрим е изключена до .ru mode scrim или смяна на картата).",

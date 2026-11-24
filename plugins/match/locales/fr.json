@@ -463,6 +463,7 @@
   "dmg.header": "Rapport de dégâts :",
   "dmg.card_round": "Manche {round}",
   "dmg.card_total": "{total} dégâts infligés",
+  "dmg.card_totals": "Infligés {total} · Subis {took}",
   "admin.practice_on": "mode entraînement activé.",
   "admin.practice_off": "mode entraînement désactivé.",
   "admin.mode_idle": "mode mis au repos (échauffement scrim automatique désactivé jusqu’à .ru mode scrim ou un changement de carte).",

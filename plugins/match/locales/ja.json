@@ -454,6 +454,7 @@
   "dmg.header": "ダメージレポート:",
   "dmg.card_round": "ラウンド {round}",
   "dmg.card_total": "{total} ダメージを与えた",
+  "dmg.card_totals": "与えた {total} · 受けた {took}",
   "admin.practice_on": "練習モードをオンにしました。",
   "admin.practice_off": "練習モードをオフにしました。",
   "admin.mode_idle": "モードを待機にしました（自動スクリムのウォームアップは .ru mode scrim かマップ変更までオフ）。",

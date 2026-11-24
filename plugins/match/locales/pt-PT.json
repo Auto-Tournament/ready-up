@@ -463,6 +463,7 @@
   "dmg.header": "Relatório de dano:",
   "dmg.card_round": "Ronda {round}",
   "dmg.card_total": "Causaste {total} de dano",
+  "dmg.card_totals": "Causado {total} · Recebido {took}",
   "admin.practice_on": "modo de treino ligado.",
   "admin.practice_off": "modo de treino desligado.",
   "admin.mode_idle": "modo definido como parado (aquecimento de scrim automático desligado até .ru mode scrim ou uma mudança de mapa).",

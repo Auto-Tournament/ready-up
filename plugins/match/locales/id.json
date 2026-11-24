@@ -454,6 +454,7 @@
   "dmg.header": "Laporan damage:",
   "dmg.card_round": "Ronde {round}",
   "dmg.card_total": "Memberi {total} damage",
+  "dmg.card_totals": "Diberi {total} · Diterima {took}",
   "admin.practice_on": "mode latihan diaktifkan.",
   "admin.practice_off": "mode latihan dimatikan.",
   "admin.mode_idle": "mode diatur ke diam (pemanasan scrim otomatis mati sampai .ru mode scrim atau ganti map).",

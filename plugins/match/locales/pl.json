@@ -477,6 +477,7 @@
   "dmg.header": "Raport obrażeń:",
   "dmg.card_round": "Runda {round}",
   "dmg.card_total": "Zadano {total} obrażeń",
+  "dmg.card_totals": "Zadane {total} · Otrzymane {took}",
   "admin.practice_on": "tryb treningu włączony.",
   "admin.practice_off": "tryb treningu wyłączony.",
   "admin.mode_idle": "tryb ustawiony na bezczynny (automatyczna rozgrzewka scrima wyłączona do .ru mode scrim lub zmiany mapy).",

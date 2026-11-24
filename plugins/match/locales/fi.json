@@ -463,6 +463,7 @@
   "dmg.header": "Vahinkoraportti:",
   "dmg.card_round": "Kierros {round}",
   "dmg.card_total": "Teit {total} vahinkoa",
+  "dmg.card_totals": "Tehty {total} · Otettu {took}",
   "admin.practice_on": "harjoitustila päällä.",
   "admin.practice_off": "harjoitustila pois päältä.",
   "admin.mode_idle": "tila asetettu lepoon (automaattinen scrim-lämmittely pois päältä, kunnes .ru mode scrim tai kartanvaihto).",

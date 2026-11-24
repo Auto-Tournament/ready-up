@@ -25,7 +25,10 @@ class DamageLedger {
   void Reset();
   // player_hurt. attacker < 0 (world, fall damage, the bomb) or == victim only moves the
   // victim's health. healthAfter: the event's `health`.
-  void OnHurt(int attacker, int victim, int dmgHealth, int healthAfter);
+  // burn: a fire tick (weapon "inferno": molotov / incendiary). A fire counts as one hit per
+  // attacker and victim, like CS2's own damage report, not one per tick (2026-11-24: "in 6"
+  // where CS2 said 3 for a grenade and a molotov).
+  void OnHurt(int attacker, int victim, int dmgHealth, int healthAfter, bool burn = false);
   // player_death: the victim has 0 hp for the report.
   void OnDeath(int victim);
 
@@ -33,12 +36,19 @@ class DamageLedger {
   int Health(int key) const;
   // Damage `attacker` did to `victim` this round.
   Pair Dealt(int attacker, int victim) const;
+  // Damage `key` did to themselves this round: their own grenades and fire, falling (world).
+  Pair Self(int key) const;
+  // All the health `key` lost this round, from anyone.
+  int Taken(int key) const;
   // Any damage between different players this round (the caller decides what "enemy" means).
   bool AnyPlayerDamage() const { return !dealt_.empty(); }
 
  private:
   std::map<int, int> health_;
   std::map<std::pair<int, int>, Pair> dealt_;  // (attacker, victim)
+  std::map<int, Pair> self_;   // victim -> own / world damage
+  std::map<int, int> taken_;   // victim -> all health lost
+  std::map<std::pair<int, int>, bool> burning_;  // (attacker, victim) already hit by fire this round
 };
 
 struct DamageParticipant {

@@ -463,6 +463,7 @@
   "dmg.header": "Rapporto danni:",
   "dmg.card_round": "Round {round}",
   "dmg.card_total": "Hai inflitto {total} danni",
+  "dmg.card_totals": "Inflitti {total} · Subiti {took}",
   "admin.practice_on": "modalità allenamento attivata.",
   "admin.practice_off": "modalità allenamento disattivata.",
   "admin.mode_idle": "modalità impostata su inattiva (riscaldamento scrim automatico disattivato fino a .ru mode scrim o a un cambio mappa).",

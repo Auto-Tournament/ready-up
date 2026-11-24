@@ -463,6 +463,7 @@
   "dmg.header": "Schadensbericht:",
   "dmg.card_round": "Runde {round}",
   "dmg.card_total": "{total} Schaden verursacht",
+  "dmg.card_totals": "Verursacht {total} · Erlitten {took}",
   "admin.practice_on": "Trainingsmodus eingeschaltet.",
   "admin.practice_off": "Trainingsmodus ausgeschaltet.",
   "admin.mode_idle": "Modus auf Leerlauf gesetzt (automatisches Scrim-Aufwärmen aus bis .ru mode scrim oder Mapwechsel).",

@@ -454,6 +454,7 @@
   "dmg.header": "피해 보고:",
   "dmg.card_round": "{round}라운드",
   "dmg.card_total": "{total} 피해를 입힘",
+  "dmg.card_totals": "가함 {total} · 받음 {took}",
   "admin.practice_on": "연습 모드를 켰습니다.",
   "admin.practice_off": "연습 모드를 껐습니다.",
   "admin.mode_idle": "모드를 대기로 설정했습니다(.ru mode scrim이나 맵 변경 전까지 자동 스크림 워밍업 꺼짐).",
