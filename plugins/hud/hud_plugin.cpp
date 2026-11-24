@@ -1764,8 +1764,11 @@ void MenuRefresh(int slot) {
   if (HasMenu(slot)) {
     const MenuEntry top = g_menus[slot].back();
     g_drawingMenu = true;
-    // Every menu is the list on the left (v4, Hold E): W S choose, holding E picks, a close row last.
-    const std::string spec = top.spec + "\nwhere=left";
+    // A menu with buttons is the list on the left (v4, Hold E): W S choose, holding E picks, a close
+    // row last. One with no buttons (retakes' "Retake site B!" banner) keeps its own place: as a list
+    // it was a bare Close row (2026-11-24).
+    const bool list = top.spec.find("btn=") != std::string::npos;
+    const std::string spec = list ? top.spec + "\nwhere=left" : top.spec;
     IfScreen(slot, spec.c_str(), top.onClick, top.user);
     g_drawingMenu = false;
     return;
