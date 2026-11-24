@@ -1171,6 +1171,8 @@ void AddonVersionTick() {
 
 // Dev servers (readyup.cfg dev=1): the build line on every player's HUD, the addon's own stamp
 // (hud/build.ps1) next to this hud.so's version and commit, to see who has an old HUD.
+void WriteTeamLogos();  // below: the team logo on the team entities
+
 void DevBuildTick() {
   static double next = 0;
   if (g_now < next) return;
