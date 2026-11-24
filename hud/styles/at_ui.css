@@ -926,6 +926,27 @@
 .ui-btn.hold .ui-kcr { animation-name: ui-hold-kcr; animation-duration: 0.6s; animation-timing-function: linear; animation-fill-mode: forwards; }
 .ui-panel.holdable .ui-hint { visibility: collapse; }
 
+/* ---- v4 look for every card (Hold E redesign, 2026-11-24; canvas page Hold E, "Every card") ----
+   One style everywhere: our dark surface, a thin orange border, 12 px corners, a small coloured
+   label, one bold line, a 3 px line in the label's colour. No brand row, wash or pixels. */
+.ui-root .ui-panel { background-color: #140e0ce6; border: 1px solid #ff6a3d40; border-radius: 12px; }
+.ui-root .ui-back { background-color: #140e0ce6; }
+.ui-root .ui-brand { visibility: collapse; }
+.ui-root .ui-wash { visibility: collapse; }
+.ui-root .ui-pixels { visibility: collapse; }
+.ui-root .ui-line { height: 3px; }
+.ui-root .ui-title { font-size: 26px; }
+.ui-root .ui-flow { padding: 14px 24px 16px 24px; }
+/* hold=1: the chip above the logo carries the first button, so the card shows no buttons. */
+.ui-root .ui-panel.chiphold .ui-buttons { visibility: collapse; }
+.ui-root .ui-panel.chiphold .ui-hint { visibility: collapse; }
+.ui-root .ui-panel.chiphold .ui-cmds { visibility: collapse; }
+.ui-root .ui-panel.chiphold .ui-close { visibility: collapse; }
+/* The chip when it is done (Ready): green, full, no pulse; holding E runs the fill again. */
+.ui-hold.c-live .ui-holdbg { animation-name: none; border: 1px solid #3fc168; }
+.ui-hold.c-live .ui-holdfill { background-color: #3fc16840; }
+.ui-hold.c-live.hold .ui-holdfill { background-color: #3fc16873; }
+
 /* ---- Menu panel (#ui_left, v4 Hold E) ----------------------------------------------------------
    A list on the left, vertically centred, a quarter of the screen wide. hud.so marks the chosen row
    `sel` (W S move it, wrapping) and puts `hold` on it while E is down: the accent slides across it

@@ -658,6 +658,13 @@ void LeftDefaults(int slot, Screen& s) {
 
 void DrawScreen(int slot, ScreenSlot& ss) {
   const int h = IfOpen(kUiLayout);
+  if (ss.cur.where == "chip") {
+    // No panel: the hold chip above the logo carries it (HoldAction), so every panel is off.
+    for (const char* panel : kPanels) IfSetClass(h, slot, panel, "on", 0);
+    ss.shown = !ss.dismissed && !ss.cur.empty();
+    UpdateCapture(slot);
+    return;
+  }
   const std::string p = PanelOf(ss.cur);
   const bool wasShown = ss.shown;
   if (!wasShown) {
@@ -669,6 +676,8 @@ void DrawScreen(int slot, ScreenSlot& ss) {
     if (w.isText) IfSetText(h, slot, w.panel.c_str(), w.name.c_str(), w.value.c_str());
     else IfSetClass(h, slot, w.panel.c_str(), w.name.c_str(), w.on ? 1 : 0);
   }
+  // hold=1: the chip above the logo carries the first button, so the card hides its buttons.
+  IfSetClass(h, slot, p.c_str(), "chiphold", ss.cur.hold && p != "ui_left" ? 1 : 0);
   // Utilities (cls= / cls.<part>=): off the ones this screen no longer has, on the new ones.
   std::set<std::pair<std::string, std::string>> want;
   for (auto& u : Utilities(ss.cur, p)) want.insert(std::move(u));
@@ -1758,6 +1767,7 @@ struct HoldSlot {
   bool holdClass = false;
   uint64_t prev = 0;     // last tick's buttons: W S move the menu row on the press, not while held
   bool frozen = false;   // we stopped the pawn moving while the menu panel is up (FreezeFor)
+  bool live = false;     // `c-live` on the chip
 };
 std::map<int, HoldSlot> g_hold;
 // The key the hold chip and buttons show. {g:csgo_key:k} in at_ui gives the value back as it is
@@ -1823,6 +1833,7 @@ struct HoldTarget {
   std::string label;   // the chip's text ("" when the button shows it)
   std::string action;  // "#cmd <chat>", a button id for ScreenClick, or "" for `.menu`
   std::string button;  // the button that shows the hold ("" = the chip)
+  bool live = false;   // the chip in green (a where=chip screen with color=live: Ready)
 };
 
 bool HoldAction(int slot, HoldTarget* t) {
@@ -1835,6 +1846,20 @@ bool HoldAction(int slot, HoldTarget* t) {
   }
   auto it = g_screens.find(slot);
   const bool card = it != g_screens.end() && it->second.shown && !it->second.dismissed && !DemoActive(slot);
+  // The chip above the logo (v4): a where=chip screen (Ready up: no card at all) or a card that asks
+  // for it with hold=1 (pause, votes: the card says what happened, its buttons are hidden). The chip
+  // names the first button (and a chip screen's count); holding E presses it.
+  const bool chipScreen = it != g_screens.end() && (it->second.cur.where == "chip" || it->second.cur.hold) &&
+                          it->second.cur.where != "left";
+  if (card && chipScreen && !it->second.clicked && !it->second.cur.buttons.empty()) {
+    const Button& b = it->second.cur.buttons[0];
+    if (b.state != "off" && !b.cmd.empty() && !b.label.empty()) {
+      t->label = b.label + (it->second.cur.counter.empty() ? "" : "  " + it->second.cur.counter);
+      t->action = "#cmd " + b.cmd;
+      t->live = it->second.cur.color == "live";
+      return true;
+    }
+  }
   // The menu panel: holding E picks the chosen row (W S choose it); the row itself fills.
   if (card && PanelOf(it->second.cur) == "ui_left" && !it->second.selId.empty() && !it->second.clicked) {
     t->button = it->second.selId;
@@ -1846,16 +1871,6 @@ bool HoldAction(int slot, HoldTarget* t) {
     t->label = g_text.Tr(lang, "hud.hold_close");
     t->action = PanelOf(it->second.cur) + "_close";
     return true;
-  }
-  // Only a card that asks for it (`hold=1`: Ready, Scoreboard): match.so draws its admin menu as a
-  // plain card too, and holding pressed its first button, Pause (2026-11-20).
-  if (card && it->second.cur.hold && !it->second.clicked && !it->second.cur.buttons.empty()) {
-    const Button& b = it->second.cur.buttons[0];
-    if (b.state != "off" && !b.cmd.empty() && !b.label.empty()) {
-      t->button = PanelOf(it->second.cur) + "_b0";
-      t->action = t->button;
-      return true;
-    }
   }
   // No "hold for .menu": a chip on screen all the time, live rounds included, was too much
   // (Sivert, 2026-11-20). `.menu` is still typed.
@@ -1873,6 +1888,11 @@ void HoldShow(int slot, HoldSlot& hs, const HoldTarget& t, bool has, bool hold) 
     }
     IfSetClass(h, slot, "ui_hold", "on", chip.empty() ? 0 : 1);
     hs.label = chip;
+  }
+  const bool live = has && t.live;
+  if (live != hs.live) {
+    IfSetClass(h, slot, "ui_hold", "c-live", live ? 1 : 0);
+    hs.live = live;
   }
   const std::string button = has ? t.button : "";
   if (button != hs.button) {

@@ -494,6 +494,13 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
          "|" + tName + "|" + std::to_string(std::min(ready[1], 5)) + "|" + std::to_string(std::clamp(total[1], 0, 5)) + "\n";
   }
   const std::string count = std::to_string(b.ready) + " / " + std::to_string(b.total);
+  // v4 (Hold E): no ready card any more. The chip above the AT logo says the button and the count
+  // (hud.so where=chip), green once ready; holding E presses it. Spectators and players without a
+  // button (waiting for the team) still get the small card below.
+  if (!btn.empty()) {
+    return L("id", ok ? "ready" : "warm") + L("where", "chip") + L("color", ok ? "live" : "acc") + L("kind", kind) +
+           L("title", title) + btn + L("counter", count) + L("hold", "1");
+  }
   // Ready: the card shrinks to a one-line pill (dots, count, a small Unready), welcome or not. It
   // waited for the welcome to end, which starts over at every respawn, so in warmup it stayed big
   // (2026-11-07).
@@ -554,7 +561,7 @@ static std::string LiveSpec(const LiveHudInfo& l, int viewerSide, const std::str
     const bool done = mine == WebhookTeam::Team1 ? l.team1Confirmed : l.team2Confirmed;
     if (done)
       return s + "btn=" + T(lang, "spec.waiting_for", {{"team", mine == WebhookTeam::Team1 ? t2 : t1}}) + "|ghost|off|\n" + L("bw", "xl");
-    return s + "btn=" + T(lang, "spec.btn_unpause") + "|warn|pulse|.up\n" + L("bw", "l") + L("mouse", "on");
+    return s + "btn=" + T(lang, "spec.btn_unpause") + "|warn|pulse|.up\n" + L("bw", "l") + L("mouse", "on") + L("hold", "1");
   };
   if (l.paused && l.pendingFreeze) {
     // Asked for mid-round: the round goes on until freeze time. Only the pausing team is told, on

@@ -209,7 +209,7 @@ std::string VoteSpec(int slot, uint64_t steamid64, int csTeam, const std::string
                       Line("title", T("vote.gg_title")) + Line("timer", std::to_string(v.ggSecondsLeft)) +
                       Line("counter", HudSpecText(T("vote.gg_counter", {{"votes", std::to_string(v.ggCount)}, {"need", std::to_string(v.ggNeed)}}))) + Line("bw", "s");
       if (v.ggVoted) s += Btn(T("vote.yes"), "danger", "picked", "") + Btn(T("vote.no"), "ghost", "off", "");
-      else s += Btn(T("vote.yes"), "danger", "", ".gg") + Btn(T("vote.no"), "ghost", "", "#dismiss gg") + Line("mouse", "on");
+      else s += Btn(T("vote.yes"), "danger", "", ".gg") + Btn(T("vote.no"), "ghost", "", "#dismiss gg") + Line("mouse", "on") + Line("hold", "1");
       return s;
     }
   } else if (dis != g_dismissed.end() && dis->second == "gg") {
@@ -225,7 +225,7 @@ std::string VoteSpec(int slot, uint64_t steamid64, int csTeam, const std::string
       return Line("id", "stop") + Line("kind", T("vote.stop_kind")) +
              Line("title", HudSpecText(T("vote.wants_replay", {{"team", TeamName(v.stopTeam, lang)}}))) +
              Line("timer", std::to_string(v.stopSecondsLeft)) + Line("bw", "m") + Btn(T("vote.accept"), "green", "", ".stop") +
-             Btn(T("vote.decline"), "ghost", "", "#dismiss stop") + Line("mouse", "on");
+             Btn(T("vote.decline"), "ghost", "", "#dismiss stop") + Line("mouse", "on") + Line("hold", "1");
     }
   } else {
     const auto d = g_dismissed.find(slot);
