@@ -138,14 +138,8 @@ void TestButtonIds() {
   // The menu list (where=left): its rows and its close row.
   CHECK(hud::ParseButtonId("ui_left_b4", &p, &i) && p == "ui_left" && i == 4);
   CHECK(hud::ParseButtonId("ui_left_close", &p, &i) && p == "ui_left" && i == -1);
-  CHECK(hud::ParseScreen("id=m
-title=Menu
-where=left
-").where == "left");
-  CHECK(hud::EnterOf(hud::ParseScreen("id=m
-title=Menu
-where=left
-"), "ui_left") == "fx-slide-left");
+  CHECK(hud::ParseScreen("id=m\ntitle=Menu\nwhere=left\n").where == "left");
+  CHECK(hud::EnterOf(hud::ParseScreen("id=m\ntitle=Menu\nwhere=left\n"), "ui_left") == "fx-slide-left");
   CHECK(!hud::ParseButtonId("ui_mid_b24", &p, &i));
   CHECK(!hud::ParseButtonId("ui_mid_b", &p, &i));
   CHECK(!hud::ParseButtonId("at_btn_ct", &p, &i));
