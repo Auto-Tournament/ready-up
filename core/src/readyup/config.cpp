@@ -112,16 +112,9 @@ std::string ExpandChatColorTokens(std::string s) {
 
 ReadyUpCfg DefaultCfg() {
   ReadyUpCfg c;
-  // "[Ready Up]" in rainbow letters, so its lines stand out from the players'.
-  static constexpr char kRainbow[] = {ChatColors::Red,   ChatColors::Orange, ChatColors::Yellow,
-                                      ChatColors::Green, ChatColors::LightBlue, ChatColors::Purple};
-  const std::string text = "[Ready Up]";
-  size_t n = 0;
-  for (char ch : text) {
-    if (ch != ' ') c.chat_prefix.push_back(kRainbow[n++ % sizeof(kRainbow)]);
-    c.chat_prefix.push_back(ch);
-  }
-  c.chat_prefix.push_back(ChatColors::Default);
+  // "[Ready Up]" in light red, the chat colour closest to the Auto Tournament orange, like the
+  // important lines' star (Sivert, 2026-11-24; was rainbow letters).
+  c.chat_prefix = std::string(1, ChatColors::LightRed) + "[Ready Up]" + std::string(1, ChatColors::Default);
   return c;
 }
 

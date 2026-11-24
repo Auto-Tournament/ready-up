@@ -30,7 +30,7 @@ dev_bots_scrim=0
 
 # Prefixes (supports ChatColors tokens like <DarkRed>, <Default>, <LightBlue>, <Orange>, ...).
 # Ready Up always adds a single space after the prefix in output.
-# chat_prefix=<DarkRed>[Ready Up]<Default>   (unset: "[Ready Up]" in rainbow letters)
+# chat_prefix=<LightRed>[Ready Up]<Default>   (the default when unset)
 admin_prefix=<DarkRed>[Admin]<Default>
 
 # Language of Ready Up's messages for players who haven't picked one with `.lang <code>` and
