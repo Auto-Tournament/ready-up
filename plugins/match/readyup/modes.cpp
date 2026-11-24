@@ -1720,6 +1720,12 @@ void OnMatchRoundStarted() {
   st.mode = ReadyUpMode::MatchLive;
   st.warmupRulesApplied = false;
   st.startTriggered = false;
+  // CS2 (1.42) puts mp_maxrounds, mp_friendlyfire, mp_c4timer and mp_roundtime_defuse back to the
+  // server's values on Match_Start, after the go-live restart: the live rules and the match's
+  // cvars again, now that it has (CS2 dynamic check 2026-11-24: mp_maxrounds 4 -> 30 a second
+  // after going live, so the 4-round live test never reached Game Over).
+  (void)ApplyPhase(LivePhase());
+  if (const auto ctx = WebhookGetMatchContext()) ApplyMatchCvarsLocked(*ctx);
   readyup::persisted_match_state::PersistLiveFlag(true);
   match_recovery::NoteProgress();
   WebhookSetHeartbeatStatus("live");
