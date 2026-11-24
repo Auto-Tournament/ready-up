@@ -836,7 +836,7 @@ for c in "${!INSTALLED[@]}"; do BEFORE[$c]="${INSTALLED[$c]}"; done
 
 # Core first (the patcher and the plugin host come with it).
 ordered=()
-for c in core essentials match fleet practice skins hello midas whitelist deathmatch mapvote community movement addons tv hud; do
+for c in core essentials match fleet practice skins hello midas whitelist deathmatch retakes mapvote community movement addons tv hud; do
   for t in "${TO_INSTALL[@]}"; do [[ "$t" == "$c" ]] && ordered+=("$c"); done
 done
 for c in "${ordered[@]}"; do
