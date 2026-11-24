@@ -527,5 +527,6 @@
   "end.col7_title": "道具傷害",
   "end.col7_body": "高爆手榴彈和火焰造成的傷害",
   "end.col8_title": "首殺",
-  "end.col8_body": "一回合的第一個擊殺"
+  "end.col8_body": "一回合的第一個擊殺",
+  "knife.captain_only": "只有你的隊長可以選邊。"
 }

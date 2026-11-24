@@ -536,5 +536,6 @@
   "end.col7_title": "Granatskada",
   "end.col7_body": "Skada från HE-granater och eld",
   "end.col8_title": "Entry-kills",
-  "end.col8_body": "Rundans första kill"
+  "end.col8_body": "Rundans första kill",
+  "knife.captain_only": "bara din kapten väljer sida."
 }

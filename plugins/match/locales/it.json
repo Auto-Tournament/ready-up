@@ -536,5 +536,6 @@
   "end.col7_title": "Danni da utility",
   "end.col7_body": "Danni da granate HE e fuoco",
   "end.col8_title": "Entry kill",
-  "end.col8_body": "La prima kill di un round"
+  "end.col8_body": "La prima kill di un round",
+  "knife.captain_only": "solo il tuo capitano sceglie il lato."
 }

@@ -750,6 +750,11 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
         text::ChatAll("knife.winner_only");
         return;
       }
+      // A captain set for that team: only they pick.
+      if (const uint64_t cap = KnifeWinnerCaptain(); cap && cap != steamid64) {
+        replyKey("knife.captain_only");
+        return;
+      }
     }
     if (!KnifeApplySideChoice(choice, steamid64, steamid64 == 0 ? std::string("Console") : playerName, admin)) {
       replyKey("reply.side_invalid");

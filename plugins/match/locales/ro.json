@@ -550,5 +550,6 @@
   "end.col7_title": "Damage din utilitare",
   "end.col7_body": "Damage din grenade HE și foc",
   "end.col8_title": "Entry kills",
-  "end.col8_body": "Primul kill dintr-o rundă"
+  "end.col8_body": "Primul kill dintr-o rundă",
+  "knife.captain_only": "doar căpitanul tău alege partea."
 }

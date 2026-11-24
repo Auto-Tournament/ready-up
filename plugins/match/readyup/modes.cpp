@@ -2405,7 +2405,17 @@ KnifeHudInfo KnifeHudSnapshot() {
   out.phase = st.knifePhase;
   out.winnerCs = st.knifeWinnerCs;
   out.reasonShort = st.knifeReasonShort;
-  if (ctxOpt && st.knifePhase == KnifePhase::Picking) out.winnerName = KnifeWinnerNameLocked(st, *ctxOpt);
+  if (ctxOpt && st.knifePhase == KnifePhase::Picking) {
+    out.winnerName = KnifeWinnerNameLocked(st, *ctxOpt);
+    // Only the captain picks when the match names one (Sivert, 2026-11-24).
+    out.captain = st.knifeWinner == WebhookTeam::Team1   ? ctxOpt->team1_captain_steamid64
+                  : st.knifeWinner == WebhookTeam::Team2 ? ctxOpt->team2_captain_steamid64
+                                                         : 0;
+    if (out.captain) {
+      const auto n = ctxOpt->roster_names.find(out.captain);
+      out.captainName = n != ctxOpt->roster_names.end() && !n->second.empty() ? n->second : out.winnerName;
+    }
+  }
   if (st.knifePhase == KnifePhase::Picking && st.knifePickDeadline.time_since_epoch().count() != 0) {
     const auto left =
         std::chrono::duration_cast<std::chrono::milliseconds>(st.knifePickDeadline - std::chrono::steady_clock::now())
@@ -2414,6 +2424,8 @@ KnifeHudInfo KnifeHudSnapshot() {
   }
   return out;
 }
+
+uint64_t KnifeWinnerCaptain() { return KnifeHudSnapshot().captain; }
 
 const char* KnifeWinnerTeamString() {
   auto& st = St();

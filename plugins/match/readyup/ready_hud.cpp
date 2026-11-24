@@ -530,12 +530,17 @@ static bool ViewerTeamShort(const Board& b, uint64_t viewer) {
 }
 
 // Knife: "knives only" before the fight, then the side pick (winners) or the wait (everyone else).
-static std::string KnifeSpec(const KnifeHudInfo& k, int viewerSide, const std::string& lang) {
+static std::string KnifeSpec(const KnifeHudInfo& k, int viewerSide, uint64_t viewer, const std::string& lang) {
   if (k.phase == KnifePhase::Starting) {
     // Orange, not green: green read as "someone already won" (Sivert, 2026-11-24). Green = done / live.
     return L("id", "knife") + L("kind", T(lang, "spec.knife_round")) + L("title", T(lang, "spec.winners_pick"));
   }
   const std::string secs = std::to_string(std::max(0, k.secondsLeft));
+  if (viewerSide == k.winnerCs && k.captain && viewer != k.captain) {
+    // The captain picks (a captain is set): the rest of the team only sees who is picking.
+    return L("id", "captain") + L("color", "live") + L("kind", T(lang, "spec.you_won_knife")) +
+           L("title", T(lang, "spec.team_picking", {{"team", HudSpecText(k.captainName)}})) + L("timer", secs);
+  }
   if (viewerSide == k.winnerCs) {
     // The menu panel on the left (v4, Hold E): W S choose, holding E picks. The side the team is on
     // now comes first, so holding E at once stays.
@@ -703,7 +708,7 @@ void ReadyHudTick() {
         if (left >= 0 && ViewerTeamShort(hudBoard, h.steamid64)) s += L("timer", std::to_string(left));
         return s;
       }
-      if (what == What::Knife) return KnifeSpec(knife, h.team, lang);
+      if (what == What::Knife) return KnifeSpec(knife, h.team, h.steamid64, lang);
       if (mode == ReadyUpMode::MatchLive) return LiveSpec(live, h.team, lang);
       return {};
     });

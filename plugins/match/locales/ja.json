@@ -527,5 +527,6 @@
   "end.col7_title": "ユーティリティダメージ",
   "end.col7_body": "HE グレネードと炎によるダメージ",
   "end.col8_title": "エントリーキル",
-  "end.col8_body": "ラウンド最初のキル"
+  "end.col8_body": "ラウンド最初のキル",
+  "knife.captain_only": "サイドを選べるのはキャプテンだけです。"
 }

@@ -536,5 +536,6 @@
   "end.col7_title": "Dégâts utilitaires",
   "end.col7_body": "Dégâts des grenades HE et du feu",
   "end.col8_title": "Entry kills",
-  "end.col8_body": "Le premier kill d’une manche"
+  "end.col8_body": "Le premier kill d’une manche",
+  "knife.captain_only": "seul ton capitaine choisit le camp."
 }

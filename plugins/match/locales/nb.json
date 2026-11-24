@@ -536,5 +536,6 @@
   "end.col7_title": "Granatskade",
   "end.col7_body": "Skade fra HE-granater og ild",
   "end.col8_title": "Åpningsdrap",
-  "end.col8_body": "Det første drapet i en runde"
+  "end.col8_body": "Det første drapet i en runde",
+  "knife.captain_only": "bare kapteinen din velger side."
 }

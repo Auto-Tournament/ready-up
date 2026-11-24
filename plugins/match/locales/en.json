@@ -536,5 +536,6 @@
   "end.col7_title": "Utility damage",
   "end.col7_body": "Damage from HE grenades and fire",
   "end.col8_title": "Entry kills",
-  "end.col8_body": "The first kill of a round"
+  "end.col8_body": "The first kill of a round",
+  "knife.captain_only": "only your captain picks the side."
 }

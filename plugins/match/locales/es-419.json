@@ -536,5 +536,6 @@
   "end.col7_title": "Daño de utilidad",
   "end.col7_body": "Daño de granadas HE y fuego",
   "end.col8_title": "Entry kills",
-  "end.col8_body": "La primera baja de una ronda"
+  "end.col8_body": "La primera baja de una ronda",
+  "knife.captain_only": "solo tu capitán elige el lado."
 }
