@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "game_version": "1.41.9.2",
-    "steam_buildid": 26144732,
+    "game_version": "1.42.0.1",
+    "steam_buildid": 26879581,
     "binary": "game/csgo/bin/linuxsteamrt64/libserver.so",
     "notes": [
       "Repo-owned engine surface for Ready Up. This file (or the copy embedded in the shim at build time) is the only source of signatures; the CounterStrikeSharp CDN gamedata is no longer used.",
@@ -136,9 +136,9 @@
   },
   "vtable_indices": {
     "ISource2Server::GameFrame": {
-      "linux": 19,
+      "linux": 20,
       "class": "CSource2Server",
-      "note": "11 IAppSystem slots + 8. Patched (tick hook). The target opens a VPROF scope named \"GameFrame\" at +0x27.",
+      "note": "11 IAppSystem slots + 9 (CS2 1.42.0.1 added one before it). Patched (tick hook). The target opens a VPROF scope named \"GameFrame\" at +0x27.",
       "anchors": [
         { "type": "string_ref", "string": "GameFrame", "window": 64 }
       ]
