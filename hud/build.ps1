@@ -102,6 +102,16 @@ foreach ($file in Get-ChildItem (Join-Path $here "images\icons") -Filter "*.svg"
         Write-Output "FAILED  $out"
         $failed++
     }
+    # The team emblems also exist as panorama\images\icons\ct_logo / t_logo (no _1c); as CT the
+    # circle still showed CS2's emblem with only the _1c file replaced (2026-11-24). Same picture.
+    if ($file.BaseName -match '^(ct|t)_logo_1c$') {
+        $side = $Matches[1]
+        $plain = Join-Path (Join-Path $content "panorama\images\icons") ($side + "_logo.svg")
+        Copy-Item $file.FullName $plain -Force
+        & $compiler -i $plain | Out-Host
+        $out2 = Join-Path $game ("panorama\images\icons\" + $side + "_logo.vsvg_c")
+        if (Test-Path $out2) { Write-Output ("OK      {0} ({1} bytes)" -f $out2, (Get-Item $out2).Length) } else { Write-Output "FAILED  $out2"; $failed++ }
+    }
 }
 
 # Tool caches must not end up in the Workshop upload.
