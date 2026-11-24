@@ -1405,7 +1405,7 @@ const std::vector<std::pair<std::string, std::string>>& DemoScreens() {
       {"pickurgent", "id=pick\ncolor=live\nkind=You won the knife\ntitle=Which side do you want?\ntimer=4\nbtn=CT|ct||#demo pickedct\nbtn=T|t||#demo pickedt\nmouse=on"},
       {"pickedct", "id=pick\ncolor=live\nkind=You won the knife\ntitle=Simpert picked CT\nsub=Match starts in 5s\nbtn=CT|ct|picked|\nbtn=T|t|off|"},
       {"lost", "id=lost\nkind=You lost the knife\ntitle=Team A is picking a side\ntimer=20"},
-      {"golive", "id=golive\ncolor=live\nkind=Live\ntitle=Good luck, have fun\nsub=Team A (CT) vs Team B (T)\ncmd=Tech pause|.p\ncmd=Timeout|.tac\ncmd=Call an admin|.admin"},
+      {"golive", "id=golive\ncolor=live\nkind=Live\ntitle=Match is live\nsub=Team A (CT) vs Team B (T)\ncmd=Type|.menu|in chat to open the match menu and view commands"},
       {"pause", "id=pause\ncolor=warn\nkind=Tech pause\ntitle=Team B paused\nsub=Auto unpause in 252s\nconfirm=Team A|0|Team B|0\nbtn=Unpause|warn|pulse|#demo waiting\nbw=l\nmouse=on"},
       {"waiting", "id=pause\ncolor=warn\nkind=Tech pause\ntitle=Team B paused\nsub=Auto unpause in 245s\nconfirm=Team A|1|Team B|0\nbtn=Waiting for Team B|ghost|off|\nbw=xl"},
       {"timeout", "id=tac\nkind=Timeout\ntitle=Team A timeout"},

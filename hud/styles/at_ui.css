@@ -123,6 +123,9 @@
 .ui-cmd { flow-children: right; margin: 0px 8px; }
 .ui-cmd.gone { visibility: collapse; }
 .ui-cmdlabel { vertical-align: center; margin-right: 6px; font-size: 15px; color: #c4bcb9; }
+/* cmd=label|.cmd|after: "Type [.menu] to pause, call an admin or forfeit" */
+.ui-cmdafter { margin-right: 0px; margin-left: 6px; }
+.ui-cmdlabel.gone { visibility: collapse; }
 .ui-kbd { padding: 2px 7px; border-radius: 5px; background-color: #211815; border: 1px solid #736966; }
 .ui-kbdtext { font-family: "Noto Mono"; font-size: 15px; font-weight: bold; color: #f4edeb; }
 
@@ -1014,4 +1017,5 @@
 .ui-ver.check.v-4 { visibility: collapse; }
 .ui-ver.check.v-5 { visibility: collapse; }
 .ui-ver.check.v-6 { visibility: collapse; }
+.ui-ver.check.v-7 { visibility: collapse; }
 /* end addon version */

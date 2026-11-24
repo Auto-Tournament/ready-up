@@ -219,18 +219,21 @@
 <Panel class="ui-kbd" hittest="false">
 <Label id="ui_card_k0_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
 </Panel>
+<Label id="ui_card_k0_a" class="ui-cmdlabel ui-cmdafter" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="ui_card_k1" class="ui-cmd" hittest="false">
 <Label id="ui_card_k1_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
 <Panel class="ui-kbd" hittest="false">
 <Label id="ui_card_k1_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
 </Panel>
+<Label id="ui_card_k1_a" class="ui-cmdlabel ui-cmdafter" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="ui_card_k2" class="ui-cmd" hittest="false">
 <Label id="ui_card_k2_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
 <Panel class="ui-kbd" hittest="false">
 <Label id="ui_card_k2_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
 </Panel>
+<Label id="ui_card_k2_a" class="ui-cmdlabel ui-cmdafter" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
 <Button id="ui_card_close" class="ui-close">
@@ -455,18 +458,21 @@
 <Panel class="ui-kbd" hittest="false">
 <Label id="ui_mid_k0_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
 </Panel>
+<Label id="ui_mid_k0_a" class="ui-cmdlabel ui-cmdafter" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="ui_mid_k1" class="ui-cmd" hittest="false">
 <Label id="ui_mid_k1_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
 <Panel class="ui-kbd" hittest="false">
 <Label id="ui_mid_k1_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
 </Panel>
+<Label id="ui_mid_k1_a" class="ui-cmdlabel ui-cmdafter" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="ui_mid_k2" class="ui-cmd" hittest="false">
 <Label id="ui_mid_k2_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
 <Panel class="ui-kbd" hittest="false">
 <Label id="ui_mid_k2_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
 </Panel>
+<Label id="ui_mid_k2_a" class="ui-cmdlabel ui-cmdafter" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
 <Button id="ui_mid_close" class="ui-close">
@@ -733,18 +739,21 @@
 <Panel class="ui-kbd" hittest="false">
 <Label id="ui_left_k0_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
 </Panel>
+<Label id="ui_left_k0_a" class="ui-cmdlabel ui-cmdafter" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="ui_left_k1" class="ui-cmd" hittest="false">
 <Label id="ui_left_k1_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
 <Panel class="ui-kbd" hittest="false">
 <Label id="ui_left_k1_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
 </Panel>
+<Label id="ui_left_k1_a" class="ui-cmdlabel ui-cmdafter" text="{s:text}" hittest="false" />
 </Panel>
 <Panel id="ui_left_k2" class="ui-cmd" hittest="false">
 <Label id="ui_left_k2_l" class="ui-cmdlabel" text="{s:text}" hittest="false" />
 <Panel class="ui-kbd" hittest="false">
 <Label id="ui_left_k2_c" class="ui-kbdtext" text="{s:text}" hittest="false" />
 </Panel>
+<Label id="ui_left_k2_a" class="ui-cmdlabel ui-cmdafter" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
 <Button id="ui_left_close" class="ui-close">

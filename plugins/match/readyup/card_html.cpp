@@ -244,7 +244,7 @@ std::string RawTeam(const ResultCardInfo& info, const std::string& which, const 
 
 std::string GoLiveCardSpec(const GoLiveCardInfo& info, const std::string& lang) {
   std::string s = SpecLine("id", "golive") + SpecLine("color", "live") + SpecLine("kind", T(lang, "card.kind_live")) +
-                  SpecLine("title", T(lang, "card.glhf_title"));
+                  SpecLine("title", T(lang, "card.live_title"));  // "Match is live" (Sivert, 2026-11-24)
   if (!info.team1.empty() || !info.team2.empty()) {
     // The names in their side's colour say who is CT and T (2026-11-03: "Simpert (CT) vs Bots (T)").
     const int side2 = info.team1Side == 3 ? 2 : info.team1Side == 2 ? 3 : 0;
@@ -252,8 +252,8 @@ std::string GoLiveCardSpec(const GoLiveCardInfo& info, const std::string& lang) 
     s += std::string("vs=") + SpecText(info.team1.empty() ? T(lang, "card.team1") : info.team1) + "|" + side(info.team1Side) + "|" +
          SpecText(info.team2.empty() ? T(lang, "card.team2") : info.team2) + "|" + side(side2) + "\n";
   }
-  if (info.pauses) s += "cmd=" + SpecText(T(lang, "card.tech_pause")) + "|.p\ncmd=" + SpecText(T(lang, "card.timeout")) + "|.tac\n";
-  if (info.adminCall) s += "cmd=" + SpecText(T(lang, "card.call_admin")) + "|.admin\n";
+  // One line: "Type [.menu] in chat to open the match menu" (Sivert, 2026-11-24: not three commands).
+  s += "cmd=" + SpecText(T(lang, "card.menu_type")) + "|.menu|" + SpecText(T(lang, "card.menu_after")) + "\n";
   return s;
 }
 

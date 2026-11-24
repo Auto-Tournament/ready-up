@@ -61,7 +61,8 @@ def block(p):
     vs = panel(f"{p}_vs", "ui-vs", children=label(f"{p}_vsA", "ui-vsname") + label(cls="ui-vsmid", text="vs")
                + label(f"{p}_vsB", "ui-vsname"))
     cmds = panel(f"{p}_cmds", "ui-cmds", children="".join(
-        panel(f"{p}_k{n}", "ui-cmd", label(f"{p}_k{n}_l", "ui-cmdlabel") + panel(cls="ui-kbd", children=label(f"{p}_k{n}_c", "ui-kbdtext")))
+        panel(f"{p}_k{n}", "ui-cmd", label(f"{p}_k{n}_l", "ui-cmdlabel") + panel(cls="ui-kbd", children=label(f"{p}_k{n}_c", "ui-kbdtext"))
+              + label(f"{p}_k{n}_a", "ui-cmdlabel ui-cmdafter"))
         for n in range(3)))
     rows = panel(f"{p}_lines", "ui-lines", children="".join(
         panel(f"{p}_n{n}", "ui-row", label(f"{p}_n{n}_k", "ui-rowk") + label(f"{p}_n{n}_v", "ui-rowv"))

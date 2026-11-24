@@ -90,7 +90,10 @@ Screen ParseScreen(const std::string& spec) {
       }
     } else if (k == "cmd") {
       const auto p = SplitBar(v);
-      if (s.cmds.size() < 3) s.cmds.emplace_back(At(p, 0), At(p, 1));
+      if (s.cmds.size() < 3) {
+        s.cmds.emplace_back(At(p, 0), At(p, 1));
+        s.cmdAfter.push_back(At(p, 2));  // cmd=label|.cmd|after
+      }
     } else if (k == "btn") {
       const auto p = SplitBar(v);
       if (s.buttons.size() < static_cast<size_t>(kMaxButtons)) s.buttons.push_back(Button{At(p, 0), At(p, 1), At(p, 2), At(p, 3), At(p, 4)});
@@ -213,6 +216,10 @@ std::vector<Write> RenderScreen(const Screen& s, const std::string& p) {
     const std::string k = p + "_k" + std::to_string(i);
     text(k + "_l", i < cmds.size() ? cmds[i].first : std::string());
     text(k + "_c", i < cmds.size() ? cmds[i].second : std::string());
+    const std::string after = i < s.cmdAfter.size() ? s.cmdAfter[i] : std::string();
+    text(k + "_a", after);  // addon version 7 on
+    cls(k + "_l", "gone", i < cmds.size() && cmds[i].first.empty());
+    cls(k + "_a", "gone", after.empty());
     cls(k, "gone", i >= cmds.size());
   }
 

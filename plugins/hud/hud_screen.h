@@ -72,6 +72,7 @@ struct Screen {
   std::string vsName[2], vsSide[2];  // vsSide: "ct", "t" or empty
   bool confirmReady[2] = {false, false};
   std::vector<std::pair<std::string, std::string>> cmds;  // label, command
+  std::vector<std::string> cmdAfter;  // text after cmds[i]'s box ("Type [.menu] to pause ...")
   std::vector<std::pair<std::string, std::string>> lines;  // label, value
   bool mini = false;
   std::string fx;    // enter; empty: picked from the screen (RenderScreen)

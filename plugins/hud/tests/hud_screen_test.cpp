@@ -79,6 +79,13 @@ void TestChips() {
   CHECK(Text(w, "ui_card_k0_c") == ".gg");
   CHECK(On(w, "ui_card_k1", "gone"));  // "No" has no command
   CHECK(!On(w, "ui_card", "has-hint"));
+  {
+    // cmd=label|.cmd|after: "Type [.menu] in chat ..."; no after = its label gone.
+    const auto m = hud::RenderScreen(hud::ParseScreen("title=Match is live\ncmd=Type|.menu|in chat\ncmd=Ready|.r\n"), "ui_mid");
+    CHECK(Text(m, "ui_mid_k0_l") == "Type" && Text(m, "ui_mid_k0_c") == ".menu" && Text(m, "ui_mid_k0_a") == "in chat");
+    CHECK(!On(m, "ui_mid_k0_a", "gone"));
+    CHECK(Text(m, "ui_mid_k1_a").empty() && On(m, "ui_mid_k1_a", "gone"));
+  }
 }
 
 void TestLinesAndMini() {
