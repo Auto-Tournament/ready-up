@@ -1667,8 +1667,7 @@ void MenuRefresh(int slot) {
     const MenuEntry top = g_menus[slot].back();
     g_drawingMenu = true;
     // Every menu is the list on the left (v4, Hold E): W S choose, holding E picks, a close row last.
-    const std::string spec = top.spec + "
-where=left";
+    const std::string spec = top.spec + "\nwhere=left";
     IfScreen(slot, spec.c_str(), top.onClick, top.user);
     g_drawingMenu = false;
     return;
