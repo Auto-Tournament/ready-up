@@ -106,6 +106,9 @@ def main():
     # "PLAYED ON" left of the circle above CS2's health line, "AUTO TOURNAMENT" right of it below.
     body += panel("ui_wm", "ui-wm", panel(cls="ui-wmhalf ui-wml", children=label(cls="ui-wmt", text="PLAYED ON"))
                   + panel(cls="ui-wmhalf ui-wmr", children=label(cls="ui-wmt", text="AUTO TOURNAMENT")))
+    # Draft C, on trial next to G: one line right of the buy cart (money is right-aligned to the cart,
+    # which stays put), before the armour icon.
+    body += panel("ui_wmc", "ui-wmc", label(cls="ui-wmt", text="PLAYED ON AUTO TOURNAMENT"))
     # Hold Use: a chip top right that names the key the player bound to +use ({g:csgo_key:k}, k set
     # to "+use" by hud.so) and what holding it does. hud.so puts `hold` on it while the key is down,
     # which runs the fill; at the end it presses the open card's button or opens .menu.

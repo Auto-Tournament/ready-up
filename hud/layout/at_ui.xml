@@ -780,6 +780,9 @@
 <Label class="ui-wmt" text="AUTO TOURNAMENT" hittest="false" />
 </Panel>
 </Panel>
+<Panel id="ui_wmc" class="ui-wmc" hittest="false">
+<Label class="ui-wmt" text="PLAYED ON AUTO TOURNAMENT" hittest="false" />
+</Panel>
 <Panel id="ui_hold" class="ui-hold" hittest="false">
 <Panel class="ui-holdbg" hittest="false" />
 <Panel class="ui-holdfill" hittest="false" />
