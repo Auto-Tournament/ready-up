@@ -55,6 +55,7 @@ void Debug(const char* fmt, ...) {
 void PrintLine(const char* msg) { Print("%s", msg); }
 
 bool DebugEnabled() { return false; }
+bool DevEnabled() { return false; }
 void SendToChat(const char* msg) { g_chat.push_back(std::string("[all] ") + msg); }
 void SendRawToChat(const char* msg) { g_chat.push_back(std::string("[raw] ") + msg); }
 void SendImportantToChat(const char* msg) { g_chat.push_back(std::string("[important] ") + msg); }

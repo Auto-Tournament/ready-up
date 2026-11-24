@@ -112,16 +112,9 @@ std::string ExpandChatColorTokens(std::string s) {
 
 ReadyUpCfg DefaultCfg() {
   ReadyUpCfg c;
-  // "[Ready Up]" in rainbow letters, so its lines stand out from the players'.
-  static constexpr char kRainbow[] = {ChatColors::Red,   ChatColors::Orange, ChatColors::Yellow,
-                                      ChatColors::Green, ChatColors::LightBlue, ChatColors::Purple};
-  const std::string text = "[Ready Up]";
-  size_t n = 0;
-  for (char ch : text) {
-    if (ch != ' ') c.chat_prefix.push_back(kRainbow[n++ % sizeof(kRainbow)]);
-    c.chat_prefix.push_back(ch);
-  }
-  c.chat_prefix.push_back(ChatColors::Default);
+  // "[Ready Up]" in light red, the chat colour closest to the Auto Tournament orange, like the
+  // important lines' star (Sivert, 2026-11-24; was rainbow letters).
+  c.chat_prefix = std::string(1, ChatColors::LightRed) + "[Ready Up]" + std::string(1, ChatColors::Default);
   return c;
 }
 
@@ -163,6 +156,7 @@ bool LoadCfgFromDisk(ReadyUpCfg* out, std::string* err, bool allowMissing) {
 
     // (Match keys in the same file are read by plugins/match.)
     if (key == "debug") out->debug = ParseBool(val, out->debug);
+    else if (key == "dev") out->dev = ParseBool(val, out->dev);
     else if (key == "banner") out->banner = ParseBool(val, out->banner);
     else if (key == "chat_debug") out->chat_debug = ParseBool(val, out->chat_debug);
     else if (key == "chat_prefix") out->chat_prefix = ExpandChatColorTokens(val);
@@ -217,6 +211,12 @@ bool ReloadCfg(std::string* err) {
 bool DebugEnabled() {
   const char* v = std::getenv("READYUP_DEBUG");
   if (!v || !*v) return Cfg().debug;
+  return !(v[0] == '0' || v[0] == 'n' || v[0] == 'N' || v[0] == 'f' || v[0] == 'F');
+}
+
+bool DevEnabled() {
+  const char* v = std::getenv("READYUP_DEV");
+  if (!v || !*v) return Cfg().dev;
   return !(v[0] == '0' || v[0] == 'n' || v[0] == 'N' || v[0] == 'f' || v[0] == 'F');
 }
 

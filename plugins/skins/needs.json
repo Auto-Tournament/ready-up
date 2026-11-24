@@ -79,6 +79,7 @@
     "CEconItemView.m_iItemID",
     "CEconItemView.m_szCustomName",
     "CModelState.m_MeshGroupMask",
+    "CModelState.m_ModelName",
     "CPlayer_WeaponServices.m_hActiveWeapon",
     "CSkeletonInstance.m_modelState"
   ],

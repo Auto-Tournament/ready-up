@@ -29,7 +29,6 @@ void PrintRuHelp() {
       "  - ru version\n"
       "  - ru reload               (reload readyup.cfg; plugins re-read their own settings)\n"
       "  - ru selftest             (engine surface, hooks, schema, events, plugins, features; PASS/FAIL)\n"
-      "  - ru sigtest\n"
       "  - ru status_http          (local status endpoint address + counters)\n"
       "  - ru plugin list\n"
       "  - ru plugin load|unload|reload <name>   (csgo/readyup/plugins/<name>.so; until a restart)\n"

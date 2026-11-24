@@ -1749,6 +1749,12 @@ void OnMatchRoundStarted() {
   st.mode = ReadyUpMode::MatchLive;
   st.warmupRulesApplied = false;
   st.startTriggered = false;
+  // CS2 (1.42) puts mp_maxrounds, mp_friendlyfire, mp_c4timer and mp_roundtime_defuse back to the
+  // server's values on Match_Start, after the go-live restart: the live rules and the match's
+  // cvars again, now that it has (CS2 dynamic check 2026-11-24: mp_maxrounds 4 -> 30 a second
+  // after going live, so the 4-round live test never reached Game Over).
+  (void)ApplyPhase(LivePhase());
+  if (const auto ctx = WebhookGetMatchContext()) ApplyMatchCvarsLocked(*ctx);
   readyup::persisted_match_state::PersistLiveFlag(true);
   match_recovery::NoteProgress();
   WebhookSetHeartbeatStatus("live");
@@ -2154,7 +2160,7 @@ static void FinishMapLocked(State& st, const WebhookMatchContext& ctx, int map_n
     in.team1Damage = dmg.first;
     in.team2Damage = dmg.second;
     const std::string winnerName = std::strcmp(winner, "team1") == 0 ? ctx.team1_name : ctx.team2_name;
-    text::ImportantAll("match.damage_decides",
+    text::EventAll("match.damage_decides",
                        {{"score1", std::to_string(in.team1Score)}, {"score2", std::to_string(in.team2Score)},
                         {"winner", winnerName}, {"team1", ctx.team1_name}, {"damage1", std::to_string(dmg.first)},
                         {"damage2", std::to_string(dmg.second)}, {"team2", ctx.team2_name}});

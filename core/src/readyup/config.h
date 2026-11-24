@@ -9,6 +9,10 @@ namespace readyup {
 // scrim_knife, knife_pick_seconds) are read by plugins/match itself (its config.h).
 struct ReadyUpCfg {
   bool debug = false;
+  // Developer and test commands (ru sigtest / chatcolors, the HUD's .dev, ru hudkit demos, ru as,
+  // ru_dev_*, skins_debug_as). Off: they are not registered and help does not list them, so a
+  // real server only shows what admins use (Sivert, 2026-11-24).
+  bool dev = false;
   bool banner = true;
   bool chat_debug = false;
   // Chat prefix (token-based; expanded to CS2 chat control bytes at load). Ready Up adds a
@@ -34,6 +38,8 @@ struct ReadyUpCfg {
 ReadyUpCfg Cfg();
 
 bool DebugEnabled();
+// readyup.cfg dev, or READYUP_DEV in the environment (CI's live test server).
+bool DevEnabled();
 bool BannerEnabled();
 bool ChatDebugEnabled();
 

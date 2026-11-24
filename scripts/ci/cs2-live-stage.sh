@@ -27,6 +27,8 @@ t="$OUT/livetest-target"
 mkdir -p "$t"
 cat > "$t/run.sh" <<EOF
 #!/usr/bin/env bash
+# The live test drives ru_dev_bots_scrim, a developer command: only there with dev on.
+export READYUP_DEV=1
 exec "$CS2_CI_DIR/game/cs2.sh" -dedicated -console -usercon -allow_round_backup_files -port "$CS2_CI_PORT" +sv_lan 1 +sv_hibernate_when_empty 0 +log on +game_type 0 +game_mode 1 +map de_dust2
 EOF
 chmod +x "$t/run.sh"

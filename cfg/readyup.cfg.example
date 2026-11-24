@@ -7,6 +7,10 @@
 # Booleans: 0/1 (or n/y, f/t).
 debug=0
 chat_debug=0
+# Developer / test commands (ru sigtest, ru chatcolors, the HUD's .dev and demos, ru as, ru_dev_*).
+# Off on real servers: then they don't exist. Read when the server starts; READYUP_DEV=1 in the
+# environment also turns it on.
+# dev=0
 banner=1
 # Per-player "Ready Up is live" center screen on first T/CT join each map.
 welcome=1
@@ -30,7 +34,7 @@ dev_bots_scrim=0
 
 # Prefixes (supports ChatColors tokens like <DarkRed>, <Default>, <LightBlue>, <Orange>, ...).
 # Ready Up always adds a single space after the prefix in output.
-chat_prefix=<DarkRed>[Ready Up]<Default>
+# chat_prefix=<LightRed>[Ready Up]<Default>   (the default when unset)
 admin_prefix=<DarkRed>[Admin]<Default>
 
 # Language of Ready Up's messages for players who haven't picked one with `.lang <code>` and

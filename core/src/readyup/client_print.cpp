@@ -7,6 +7,7 @@
 #include "readyup/logging.h"
 
 #include <atomic>
+#include <string>
 
 namespace readyup {
 namespace {
@@ -38,6 +39,14 @@ Fn Resolve(std::atomic<Fn>& slot, const char* name) {
   return fn;
 }
 
+// CS2 ignores a colour code that is the message's first byte (CounterStrikeSharp plugins start
+// every coloured line with a space for it): the orange star and "[Ready Up]" came out white
+// (2026-11-24). A leading space keeps the first colour.
+std::string KeepFirstColour(const char* msg) {
+  const unsigned char c = static_cast<unsigned char>(msg[0]);
+  return (c >= 0x01 && c <= 0x10) ? std::string(" ") + msg : std::string(msg);
+}
+
 }  // namespace
 
 bool ClientPrintChat(int slot, const char* msg) {
@@ -50,7 +59,8 @@ bool ClientPrintChat(int slot, const char* msg) {
     if (DebugEnabled()) Debug("clientprint: no known controller for slot %d\n", slot);
     return false;
   }
-  fn(controller, kHudPrintTalk, msg, nullptr, nullptr, nullptr, nullptr);
+  const std::string text = KeepFirstColour(msg);
+  fn(controller, kHudPrintTalk, text.c_str(), nullptr, nullptr, nullptr, nullptr);
   return true;
 }
 
@@ -62,7 +72,8 @@ bool ClientPrintAllChat(const char* msg) {
   if (!msg || !*msg) return false;
   UtilClientPrintAllFn fn = Resolve(g_fnAll, "UTIL_ClientPrintAll");
   if (!fn) return false;
-  fn(kHudPrintTalk, msg, nullptr, nullptr, nullptr, nullptr, nullptr);
+  const std::string text = KeepFirstColour(msg);
+  fn(kHudPrintTalk, text.c_str(), nullptr, nullptr, nullptr, nullptr, nullptr);
   return true;
 }
 

@@ -2235,6 +2235,11 @@ void OnRu(void*, const ru_command_ctx* ctx) {
     return;
   }
   const std::string sub = ctx->argc > 2 ? ctx->argv[2] : "status";
+  // Without dev (readyup.cfg dev=1) only what admins use; the demos, probes and raw writes are
+  // developer tools that confused people who found them (2026-11-24).
+  const bool dev = RU_API_HAS(g_api, dev_mode) && g_api->dev_mode && g_api->dev_mode(g_api->self);
+  if (!dev && sub != "status" && sub != "info" && sub != "scale" && sub != "holdkey")
+    return Reply(ctx, "ru hudkit: status | info | scale <70..100> | holdkey");
   if (sub == "status") {
     Resolve();
     Reply(ctx, g_eng.status + "; " + std::to_string(g_layouts.size()) + " layout(s); click hook " + g_clickHookStatus);
@@ -2443,7 +2448,9 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     ru_logf(api, RU_LOG_WARN, "player_activate not available: a joining player's HUD is pushed again 2 and 5 s after connect only");
   api->subscribe(api->self, RU_EVENT_ANY, &OnEvent, nullptr);
   api->register_ru_subcommand(api->self, "hudkit", &OnRu, nullptr);
-  api->register_chat_command(api->self, ".dev", &OnDevChat, nullptr);
+  // .dev (the HUD demo pages) only on a dev server (readyup.cfg dev=1): players would find it.
+  if (RU_API_HAS(api, dev_mode) && api->dev_mode && api->dev_mode(api->self))
+    api->register_chat_command(api->self, ".dev", &OnDevChat, nullptr);
   api->register_chat_command(api->self, ".menu", &OnMenuChat, nullptr);
   api->register_chat_command(api->self, ".hud", &OnHudChat, nullptr);
   if (RU_API_HAS(api, filter_client_command)) {

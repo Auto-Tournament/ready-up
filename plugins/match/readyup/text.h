@@ -33,6 +33,10 @@ void ImportantAll(const std::string& key, Args args = {}, int centerSeconds = 12
 using TextFn = std::function<std::string(const std::string& lang)>;
 void ChatAllFn(TextFn text);
 void ImportantAllFn(TextFn text, int centerSeconds = 12);
+// A match event: a [Ready Up] line in chat (the star is for tips: Sivert, 2026-11-24) and the same
+// text in the center for `centerSeconds` (0: chat only).
+void EventAll(const std::string& key, Args args = {}, int centerSeconds = 12);
+void EventAllFn(TextFn text, int centerSeconds = 12);
 
 // ClientPrintChat with the Ready Up prefix: one player.
 void ChatSlot(int slot, const std::string& key, Args args = {});

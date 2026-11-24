@@ -144,6 +144,7 @@ bool EconOffsetsReady() { return ResolveOffsets(); }
 void ResetOffsets() { Off() = Offsets{}; }
 int ItemDefIndexOffset() { return Off().item_defIndex; }
 int ItemInitializedOffset() { return Off().item_initialized; }
+int ItemAccountIdOffset() { return Off().item_accountId; }
 
 // Writes paint/seed/wear/StatTrak/nametag onto an econ item view + the owning entity's fallback
 // fields. Used for weapons (owner = the weapon entity) and gloves (owner = nullptr).

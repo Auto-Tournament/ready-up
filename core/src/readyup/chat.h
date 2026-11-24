@@ -18,7 +18,7 @@ void SendToChat(const char* msg);
 void SendRawToChat(const char* payload);
 
 // A line that must not be missed (RU_CHAT_IMPORTANT): an empty line, then each sentence on its
-// own line behind an orange star, so it takes room in the chat.
+// own line behind a light red star, so it takes room in the chat.
 void SendImportantToChat(const char* msg);
 
 // The same line (with the chat prefix) to one player only; false if the slot or the engine
