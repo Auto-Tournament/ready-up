@@ -424,7 +424,7 @@ long long g_reapplyAt[65] = {};
 // Repaint what the player holds (no re-give): their first loadout arrived after they spawned.
 std::atomic<bool> g_repaintNow[65] = {};
 // The last round restart (round_prestart / round_start: mp_restartgame, a match going live, a
-// new round). A re-give within kRestartQuietTicks of one is put off: weapons re-given while the
+// new round), team change or disconnect. A re-give within kRestartQuietTicks of one is put off: weapons re-given while the
 // restart deletes and recreates them crashed a server (WriteEnterPVS: GetEntServerClass failed,
 // 2026-10-14, a loadout that arrived as the match went live).
 long long g_roundChangeTick = -1000000;
