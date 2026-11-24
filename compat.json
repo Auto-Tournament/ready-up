@@ -5,19 +5,19 @@
   "patch": "1.42.0.1"
  },
  "readyup": {
-  "version": "0.1.0-beta.70-dev.bf1171b",
-  "commit": "bf1171b91aedba2f978da5f6c3d088ec4652bf6b"
+  "version": "0.1.0-beta.70-dev.26e34cc",
+  "commit": "26e34cc32ea385a8e3f1814515452ef58e31f000"
  },
  "run": {
-  "id": "45485608941",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/45485608941",
+  "id": "45488235278",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/45488235278",
   "trigger": "code_change",
   "stage": "live",
-  "state": "fail",
-  "started_at": "2026-11-24T20:58:27Z",
-  "finished_at": "2026-11-24T21:21:36Z"
+  "state": "pass",
+  "started_at": "2026-11-24T21:21:50Z",
+  "finished_at": "2026-11-24T21:51:35Z"
  },
- "overall": "fail",
+ "overall": "pass",
  "components": [
   {
    "id": "core",
@@ -288,7 +288,7 @@
   {
    "id": "match",
    "name": "Match",
-   "status": "fail",
+   "status": "pass",
    "checks": [
     {
      "kind": "signature",
@@ -348,12 +348,10 @@
     },
     {
      "kind": "livetest",
-     "status": "fail",
-     "passed": 1,
-     "total": 2,
-     "failures": [
-      "match: bot live test failed (exit 1); see the run"
-     ]
+     "status": "pass",
+     "passed": 3,
+     "total": 3,
+     "failures": []
     }
    ]
   },
@@ -890,5 +888,5 @@
    ]
   }
  ],
- "checked_at": "2026-11-24T21:21:36Z"
+ "checked_at": "2026-11-24T21:51:35Z"
 }
