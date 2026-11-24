@@ -28,6 +28,11 @@ struct HumanIdentity;
 // True when the clickable HUD draws the match screens: readyup.cfg hud_screens (default on), and
 // hud.so is loaded with `screen` and can draw on this CS2 build. Off: the center-HTML panels.
 bool HudScreensOn();
+// The player turned the custom HUD off (.hud off, or the platform's player setting; hud.so keeps
+// it, ru_hud_v1 1.4 player_off). They get the centre panel and the chat lines instead.
+bool HudOffFor(uint64_t steamid64);
+// What the HUD says, in chat for the players who turned it off (when the HUD is on for the rest).
+void ChatHudOff(const std::string& key, const i18n::Args& args = {});
 
 // A live round is running (not freeze time, not paused): nothing may take the cursor.
 bool HudMidRound();

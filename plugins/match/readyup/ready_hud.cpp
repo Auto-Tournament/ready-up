@@ -692,7 +692,8 @@ void ReadyHudTick() {
   }
 
   // The clickable HUD draws these screens (and menus and votes on top) when it can; the center
-  // HTML then has nothing to carry.
+  // HTML then only carries them for players who turned the HUD off.
+  bool hudOffOnly = false;
   if (enabled && HudScreensOn()) {
     const Board hudBoard = what == What::Ready ? BuildBoard(mode, ctx, ListHumans()) : Board{};
     HudScreensRun([&](const HumanIdentity& h) -> std::string {
@@ -715,7 +716,11 @@ void ReadyHudTick() {
       return {};
     });
     g_showing.store(true, std::memory_order_relaxed);
-    what = What::None;
+    // Players who turned the HUD off (.hud off) still get the centre panel below; the rest don't.
+    hudOffOnly = true;
+    bool anyOff = false;
+    for (const auto& h : ListHumans()) anyOff = anyOff || HudOffFor(h.steamid64);
+    if (!anyOff) what = What::None;
   }
   if (what == What::None) {
     g_sent.clear();
@@ -741,6 +746,7 @@ void ReadyHudTick() {
     present.insert(slot);
 
     // The welcome screen owns the panel while it is up (~5s after joining).
+    if (hudOffOnly && !HudOffFor(h.steamid64)) continue;  // the custom HUD draws theirs
     if (WelcomeActiveFor(slot, h.steamid64)) continue;
     if (AdminCallCardActiveFor(slot)) continue;  // an `.admin` call card (admin_call.h)
     const std::string lang = i18n::LanguageOf(host::Api(), slot);

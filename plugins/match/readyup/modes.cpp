@@ -620,6 +620,11 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
     const int winnerKnifeTeam = winnerIsTeam1 ? 3 : 2;
     for (const auto& h : ListHumans()) {
       const int slot = h.slot >= 0 ? h.slot : h.userid;
+      if (HudOffFor(h.steamid64)) {
+        text::ChatSlot(slot, std::string(timedOut ? "knife.picked_timeout" : "knife.picked") + (stayed ? "_stay" : "_swap"),
+                       {{"team", winnerName}, {"side", side}});
+        continue;
+      }
       if (h.team != 2 && h.team != 3) {
         // Spectators: the team line. A scrim's teams are called CT and T: "CT stays CT" made no sense.
         HudScreensNotice(slot,
@@ -1749,15 +1754,18 @@ void OnMatchRoundStarted() {
   WebhookSetHeartbeatStatus("live");
   // With the HUD the LIVE card says it (and .menu has the rules): no chat lines (Sivert,
   // 2026-11-24: "why does it spam the chat"). Without it, chat as before.
+  // Players who turned the HUD off get the chat lines either way (ChatHudOff).
   const bool hudSays = HudScreensOn();
   if (!hudSays) text::ChatAll("match.live");
-  if (const auto ctx = hudSays ? std::nullopt : WebhookGetMatchContext()) {
+  else ChatHudOff("match.live");
+  if (const auto ctx = WebhookGetMatchContext()) {
     const int mapNo = std::max(1, MatchStateGet().map_number);
     const std::string mapName = mapNo - 1 < static_cast<int>(ctx->maplist.size()) ? ctx->maplist[mapNo - 1] : "";
     for (const auto& line : GoLiveRulesLines(mapNo, std::max(1, ctx->num_maps), mapName, ctx->maxRounds,
                                               ctx->overtime_enabled, ctx->overtimeSegments, ctx->maxOvertimes,
                                               ctx->damageTiebreakEnabled)) {
-      text::ChatAll(line.key, line.args);
+      if (!hudSays) text::ChatAll(line.key, line.args);
+      else ChatHudOff(line.key, line.args);
     }
   }
   GoLiveCardArm("go-live round start", /*restartPending=*/false);  // "LIVE · GO GO GO" + commands

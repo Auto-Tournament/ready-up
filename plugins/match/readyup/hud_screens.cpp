@@ -308,6 +308,21 @@ bool HudScreensOn() {
   return h && h->available();
 }
 
+bool HudOffFor(uint64_t steamid64) {
+  const ru_hud_v1* h = Hud();
+  if (!h || !steamid64 || h->struct_size < offsetof(ru_hud_v1, player_off) + sizeof(h->player_off) || !h->player_off)
+    return false;
+  return h->player_off(steamid64) != 0;
+}
+
+void ChatHudOff(const std::string& key, const i18n::Args& args) {
+  if (!HudScreensOn()) return;  // then everyone gets the chat line already
+  for (const auto& p : ListHumans()) {
+    const int slot = p.slot >= 0 ? p.slot : p.userid;
+    if (slot >= 0 && HudOffFor(p.steamid64)) text::ChatSlot(slot, key, args);
+  }
+}
+
 bool HudMidRound() {
   // Not while the end-of-map scoreboard is up: the map is over, and its buttons need the cursor.
   return GetMode() == ReadyUpMode::MatchLive && !MatchFeaturesInFreeze() && !PauseStateGet().paused && !EndScreenActive();

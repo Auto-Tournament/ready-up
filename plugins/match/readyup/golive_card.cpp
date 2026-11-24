@@ -199,7 +199,7 @@ void GoLiveCardTick() {
     const char* skip = AdminCallCardActiveFor(slot)              ? ".admin call card"
                        : WelcomeActiveFor(slot, h.steamid64)     ? "welcome card"
                                                                  : nullptr;
-    if (!skip && screens) {
+    if (!skip && screens && !HudOffFor(h.steamid64)) {
       HudScreensNotice(slot, spec, 1.0);
       ++ok;
       continue;
