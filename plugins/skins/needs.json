@@ -86,7 +86,9 @@
     "item_equip",
     "item_pickup",
     "player_death",
+    "player_disconnect",
     "player_spawn",
+    "player_team",
     "round_prestart",
     "round_start"
   ]

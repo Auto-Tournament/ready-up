@@ -382,6 +382,11 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     api->subscribe_game_event(api->self, "player_death", OnDeathEvent, nullptr);
     api->subscribe_game_event(api->self, "round_prestart", OnRoundChangeEvent, nullptr);
     api->subscribe_game_event(api->self, "round_start", OnRoundChangeEvent, nullptr);
+    // A player taking a team, or one leaving (a bot kicked to make room), deletes and recreates
+    // entities too: a re-give in that tick crashed server-2 when a player joined CT
+    // (WriteEnterPVS: GetEntServerClass failed for ent 300, 2026-11-24, twice). Same quiet window.
+    api->subscribe_game_event(api->self, "player_team", OnRoundChangeEvent, nullptr);
+    api->subscribe_game_event(api->self, "player_disconnect", OnRoundChangeEvent, nullptr);
     api->register_console_command(api->self, "skins_status", OnStatus, nullptr);
     api->register_console_command(api->self, "skins_refresh", OnRefresh, nullptr);
     api->register_chat_command(api->self, ".skins", OnSkinsChat, nullptr);
