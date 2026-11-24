@@ -693,7 +693,10 @@ void DrawScreen(int slot, ScreenSlot& ss) {
     // `on` a moment later, so the client has the enter pose before it animates out of it.
     const unsigned gen = ss.gen;
     const std::string panel = p;
-    g_later.emplace_back(g_now + 0.06, [slot, gen, panel] {
+    // The menu list gets longer: it is laid out for the first time when it opens, and with 0.06 s
+    // the client took the enter pose and `on` in one go, so it appeared without sliding (2026-11-24).
+    const double delay = p == "ui_left" ? 0.15 : 0.06;
+    g_later.emplace_back(g_now + delay, [slot, gen, panel] {
       auto it = g_screens.find(slot);
       if (it != g_screens.end() && it->second.gen == gen && it->second.shown)
         IfSetClass(IfOpen(kUiLayout), slot, panel.c_str(), "on", 1);
