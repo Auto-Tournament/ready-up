@@ -110,6 +110,10 @@ def main():
     # "PLAYED ON" left of the circle above CS2's health line, "AUTO TOURNAMENT" right of it below.
     body += panel("ui_wm", "ui-wm", panel(cls="ui-wmhalf ui-wml", children=label(cls="ui-wmt", text="PLAYED ON"))
                   + panel(cls="ui-wmhalf ui-wmr", children=label(cls="ui-wmt", text="AUTO TOURNAMENT")))
+    # The ram in CS2's team badge between health and ammo (Sivert, 2026-11-24, draft D): a solid disc
+    # inside the ring (the ring keeps the player's colour) with the full-colour ram on it, over
+    # Valve's CT/T emblem. CS2 caches that emblem at startup, so replacing its file never showed.
+    body += panel("ui_badge", "ui-badge", panel(cls="ui-badgeram"))
     # Hold Use: a chip top right that names the key the player bound to +use ({g:csgo_key:k}, k set
     # to "+use" by hud.so) and what holding it does. hud.so puts `hold` on it while the key is down,
     # which runs the fill; at the end it presses the open card's button or opens .menu.
