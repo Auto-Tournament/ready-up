@@ -5,17 +5,17 @@
   "patch": "1.42.0.1"
  },
  "readyup": {
-  "version": "0.1.0-beta.70-dev.f45a0a6",
-  "commit": "f45a0a6ec364ef1db0dabc5e4a6ebf41c9deee2d"
+  "version": "0.1.0-beta.70-dev.bf1a716",
+  "commit": "bf1a71620ed3389b73745c374001131ab81aeee1"
  },
  "run": {
-  "id": "45468793378",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/45468793378",
+  "id": "45472280642",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/45472280642",
   "trigger": "code_change",
-  "stage": "selftest",
+  "stage": "live",
   "state": "fail",
-  "started_at": "2026-11-24T19:18:26Z",
-  "finished_at": "2026-11-24T19:25:30Z"
+  "started_at": "2026-11-24T19:38:10Z",
+  "finished_at": "2026-11-24T20:02:24Z"
  },
  "overall": "fail",
  "components": [
@@ -288,7 +288,7 @@
   {
    "id": "match",
    "name": "Match",
-   "status": "pass",
+   "status": "fail",
    "checks": [
     {
      "kind": "signature",
@@ -348,10 +348,12 @@
     },
     {
      "kind": "livetest",
-     "status": "pending",
-     "passed": 0,
-     "total": 0,
-     "failures": []
+     "status": "fail",
+     "passed": 1,
+     "total": 2,
+     "failures": [
+      "match: bot live test failed (exit 1); see the run"
+     ]
     }
    ]
   },
@@ -568,7 +570,7 @@
   {
    "id": "retakes",
    "name": "Retakes",
-   "status": "fail",
+   "status": "pass",
    "checks": [
     {
      "kind": "signature",
@@ -607,26 +609,24 @@
     },
     {
      "kind": "schema",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 10,
      "total": 10,
      "failures": []
     },
     {
      "kind": "event",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 9,
      "total": 9,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "failures": []
     }
    ]
   },
@@ -885,10 +885,12 @@
      "status": "pending",
      "passed": 0,
      "total": 0,
-     "failures": []
+     "failures": [
+      "fleet: failed (exit 1); advisory (not required yet), see the run"
+     ]
     }
    ]
   }
  ],
- "checked_at": "2026-11-24T19:25:30Z"
+ "checked_at": "2026-11-24T20:02:24Z"
 }
