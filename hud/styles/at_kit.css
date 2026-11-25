@@ -148,6 +148,20 @@
 .b-dmg .at-head { width: 400px; }
 .b-dmg .at-textbox { width: fill-parent-flow( 1.0 ); margin-right: 0px; }
 .b-dmg .at-textbox .at-text { horizontal-align: right; }
+/* The stat strip (addon version 8, Sivert picked G1 on 2026-11-25): DEALT / TOOK / FLASHED over the
+   table, in place of the header's "Dealt X · Took Y" line. Hidden unless the server sets `dstrip`, so
+   an older server keeps that line. Keys line up with the rows' text (9px in). */
+.at-dstrip { visibility: collapse; flow-children: right; width: 100%; margin-bottom: 8px; }
+.b-dmg.dstrip .at-dstrip { visibility: visible; }
+.b-dmg.dstrip .at-textbox { visibility: collapse; }
+.at-dstat { flow-children: down; width: fill-parent-flow( 1.0 ); padding: 4px 9px 2px 9px; }
+.at-dsk { font-family: "Noto Mono"; font-size: 10px; font-weight: bold; letter-spacing: 1.2px; text-transform: uppercase; color: #938a87; }
+.at-dsrow { flow-children: right; height: fit-children; }
+.at-dsv { font-size: 18px; font-weight: bold; color: #f4edeb; }
+.at-dss { font-family: "Noto Mono"; font-size: 11px; color: #938a87; vertical-align: bottom; margin-left: 5px; margin-bottom: 3px; }
+#at_ds1 .at-dsv { color: #f2645f; }
+#at_ds2 .at-dsv { color: #f4e7b0; }
+.at-dstat.zero .at-dsv { color: #938a87; }
 .at-drow { flow-children: right; width: 100%; height: 28px; margin-bottom: 5px; padding: 0px 9px; border-radius: 7px; background-color: #211815; }
 .at-drow.gone { visibility: collapse; }
 .at-drow.at-dhead { height: 16px; background-color: #00000000; }
