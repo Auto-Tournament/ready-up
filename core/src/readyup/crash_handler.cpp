@@ -8,6 +8,7 @@
 #include <execinfo.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <ucontext.h>
 #include <unistd.h>
 
 #include <cstdio>
@@ -76,7 +77,129 @@ void WriteDec(int fd, long v) {
   WriteStr(fd, p);
 }
 
-void Report(int fd, int sig, siginfo_t* info, void** addrs, int n) {
+// The process's mappings, read at crash time (open/read are async-signal-safe), to name each
+// code address as module+offset: glibc's backtrace() stops at the signal frame when the faulting
+// code has no unwind info, and the four hud.so crashes of 2026-11-24 logged only two frames.
+char g_maps[512 * 1024];
+struct Mapping {
+  uintptr_t lo, hi, off;
+  const char* name;  // the file's basename inside g_maps (not NUL-terminated)
+  int nameLen;
+  bool exec;
+};
+Mapping g_map[4096];
+int g_nMap = 0;
+
+uintptr_t ParseHex(const char*& p, const char* end) {
+  uintptr_t v = 0;
+  for (; p < end; ++p) {
+    const char c = *p;
+    int d;
+    if (c >= '0' && c <= '9') d = c - '0';
+    else if (c >= 'a' && c <= 'f') d = c - 'a' + 10;
+    else break;
+    v = (v << 4) | static_cast<uintptr_t>(d);
+  }
+  return v;
+}
+
+void SkipField(const char*& p, const char* end) {
+  while (p < end && *p == ' ') ++p;
+  while (p < end && *p != ' ') ++p;
+  while (p < end && *p == ' ') ++p;
+}
+
+void LoadMaps() {
+  g_nMap = 0;
+  const int fd = open("/proc/self/maps", O_RDONLY | O_CLOEXEC);
+  if (fd < 0) return;
+  size_t n = 0;
+  while (n < sizeof(g_maps) - 1) {
+    const ssize_t r = read(fd, g_maps + n, sizeof(g_maps) - 1 - n);
+    if (r <= 0) break;
+    n += static_cast<size_t>(r);
+  }
+  close(fd);
+  g_maps[n] = '\0';
+  // "lo-hi perms offset dev inode   path"
+  const char* line = g_maps;
+  const char* const all = g_maps + n;
+  while (line < all && g_nMap < static_cast<int>(sizeof(g_map) / sizeof(g_map[0]))) {
+    const char* end = line;
+    while (end < all && *end != '\n') ++end;
+    const char* p = line;
+    Mapping m{};
+    m.lo = ParseHex(p, end);
+    if (p < end && *p == '-') ++p;
+    m.hi = ParseHex(p, end);
+    while (p < end && *p == ' ') ++p;
+    m.exec = end - p > 3 && p[2] == 'x';
+    SkipField(p, end);  // perms
+    m.off = ParseHex(p, end);
+    SkipField(p, end);  // the offset's rest (none) and dev
+    SkipField(p, end);  // inode
+    if (p < end) {
+      const char* base = p;
+      for (const char* q = p; q < end; ++q)
+        if (*q == '/') base = q + 1;
+      m.name = base;
+      m.nameLen = static_cast<int>(end - base);
+    }
+    if (m.hi > m.lo) g_map[g_nMap++] = m;
+    line = end < all ? end + 1 : end;
+  }
+}
+
+const Mapping* MapOf(uintptr_t a) {
+  for (int i = 0; i < g_nMap; ++i)
+    if (a >= g_map[i].lo && a < g_map[i].hi) return &g_map[i];
+  return nullptr;
+}
+
+// "0x7f..  (hud.so+0x1234)" for an address in a named mapping; just the address otherwise.
+void WriteWhere(int fd, uintptr_t a) {
+  WriteHex(fd, a);
+  const Mapping* m = MapOf(a);
+  if (!m || !m->name || m->nameLen <= 0) return;
+  WriteStr(fd, " (");
+  WriteAll(fd, m->name, static_cast<size_t>(m->nameLen));
+  WriteStr(fd, "+");
+  WriteHex(fd, a - m->lo + m->off);
+  WriteStr(fd, ")");
+}
+
+// rip, and every stack word that points into code of a named module (most are return addresses;
+// a few are stale): enough for addr2line on the release's .so files.
+void ReportContext(int fd, const ucontext_t* uc) {
+  if (!uc) return;
+#if defined(__x86_64__)
+  const uintptr_t rip = static_cast<uintptr_t>(uc->uc_mcontext.gregs[REG_RIP]);
+  const uintptr_t rsp = static_cast<uintptr_t>(uc->uc_mcontext.gregs[REG_RSP]);
+  WriteStr(fd, "[ReadyUp] rip=");
+  WriteWhere(fd, rip);
+  WriteStr(fd, " rsp=");
+  WriteHex(fd, rsp);
+  WriteStr(fd, "\n");
+  const Mapping* stack = MapOf(rsp);
+  if (!stack) return;
+  WriteStr(fd, "[ReadyUp] code addresses on the stack:\n");
+  const uintptr_t top = rsp + 64 * 1024 < stack->hi ? rsp + 64 * 1024 : stack->hi;
+  int shown = 0;
+  for (uintptr_t a = rsp & ~static_cast<uintptr_t>(7); a + 8 <= top && shown < 48; a += 8) {
+    const uintptr_t v = *reinterpret_cast<const uintptr_t*>(a);
+    const Mapping* m = MapOf(v);
+    if (!m || !m->exec || !m->name || m->nameLen <= 0) continue;
+    WriteStr(fd, "[ReadyUp]   ");
+    WriteWhere(fd, v);
+    WriteStr(fd, "\n");
+    ++shown;
+  }
+#else
+  (void)fd;
+#endif
+}
+
+void Report(int fd, int sig, siginfo_t* info, void** addrs, int n, const ucontext_t* uc) {
   if (fd < 0) return;
   WriteStr(fd, "\n[ReadyUp] === crash handler (Ready Up " READYUP_BUILD_VERSION ") ===\n[ReadyUp] signal=");
   WriteStr(fd, SigName(sig));
@@ -96,6 +219,7 @@ void Report(int fd, int sig, siginfo_t* info, void** addrs, int n) {
     WriteStr(fd, plugin);
     WriteStr(fd, "\"\n");
   }
+  ReportContext(fd, uc);
   if (n > 0) {
     backtrace_symbols_fd(addrs, n, fd);
   } else {
@@ -104,7 +228,7 @@ void Report(int fd, int sig, siginfo_t* info, void** addrs, int n) {
   WriteStr(fd, "[ReadyUp] === end crash handler; re-raising with the default action ===\n");
 }
 
-void CrashHandler(int sig, siginfo_t* info, void* /*uctx*/) {
+void CrashHandler(int sig, siginfo_t* info, void* uctx) {
   // Never let a crash inside the handler (or a second thread crashing concurrently) recurse.
   if (g_inHandler) {
     signal(sig, SIG_DFL);
@@ -121,11 +245,13 @@ void CrashHandler(int sig, siginfo_t* info, void* /*uctx*/) {
   void* addrs[96];
   const int n = backtrace(addrs, static_cast<int>(sizeof(addrs) / sizeof(addrs[0])));
 
-  Report(STDERR_FILENO, sig, info, addrs, n);
+  LoadMaps();
+  const auto* uc = static_cast<const ucontext_t*>(uctx);
+  Report(STDERR_FILENO, sig, info, addrs, n, uc);
   if (g_crashLogPath[0]) {
     const int fd = open(g_crashLogPath, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
     if (fd >= 0) {
-      Report(fd, sig, info, addrs, n);
+      Report(fd, sig, info, addrs, n, uc);
       close(fd);
     }
   }
