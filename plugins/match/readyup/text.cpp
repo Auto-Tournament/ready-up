@@ -2,6 +2,7 @@
 
 #include "readyup/engine.h"
 #include "readyup/host.h"
+#include "readyup/hud_screens.h"
 #include "readyup/i18n_api.h"
 #include "readyup/logging.h"
 
@@ -50,7 +51,9 @@ void AllWithCenter(TextFn text, int centerSeconds, int flags) {
     const ru_api* a = host::Api();
     if (!a) return;
     i18n::ChatAll(a, flags, text);
-    if (centerSeconds <= 0) return;
+    // The gold centre panel only without the clickable HUD; with it the chat line is enough
+    // (the old centre HTML sat over the crosshair; Sivert, 2026-11-25).
+    if (centerSeconds <= 0 || HudScreensOn()) return;
     std::vector<int> slots;
     a->for_each_player(
         a->self,
