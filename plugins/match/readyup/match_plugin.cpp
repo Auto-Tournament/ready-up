@@ -309,6 +309,7 @@ void OnTick(void*, const ru_tick_info* t) {
       if (FeatureEnabled(Feature::MatchFlow)) s.Run("golive_card", [] { GoLiveCardTick(); });
       s.Run("result_card", [] { ResultCardTick(); });  // map / series result (result_card.h)
       s.Run("hud_outdated", [] { HudOutdatedHoldTick(); });  // "HUD out of date" in warmup only
+      s.Run("menu_tip", [] { WarmupMenuTipTick(); });        // ".menu" tip in warmup chat
       s.Run("admin_call", [] { AdminCallTick(); });  // `.admin` cards for in-game admins (admin_call.h)
       if (FeatureEnabled(Feature::WelcomeHtml)) s.Run("welcome", [] { WelcomeTick(); });
       if (FeatureEnabled(Feature::ReadyHud)) s.Run("ready_hud", [] { ReadyHudTick(); });  // skips welcome cards

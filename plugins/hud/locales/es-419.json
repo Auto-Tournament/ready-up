@@ -1,6 +1,10 @@
 {
   "menu.none": "Ahora mismo no hay menú en este servidor.",
+  "menu.chat_help": "Comandos: .r listo · .p pausa técnica · .tac tiempo muerto · .gg rendirse · .admin llamar admin · .hud HUD",
+  "hud.now_off": "HUD desactivado: Ready Up te escribe en el chat. .hud lo vuelve a activar.",
+  "hud.now_on": "HUD activado.",
   "hud.outdated": "HUD desactualizado. En la plataforma, haz clic en ? y elige HUD.",
   "hud.hold_menu": "Menú",
-  "hud.hold_close": "Cerrar"
+  "hud.hold_close": "Cerrar",
+  "hud.menu_hint": "W ↑  S ↓  Mantén E: elegir"
 }

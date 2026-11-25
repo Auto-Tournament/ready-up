@@ -1,6 +1,10 @@
 {
   "menu.none": "此服务器目前没有菜单。",
+  "menu.chat_help": "指令：.r 准备 · .p 技术暂停 · .tac 暂停 · .gg 认输 · .admin 呼叫管理员 · .hud HUD",
+  "hud.now_off": "HUD 已关闭：Ready Up 会在聊天中通知你。输入 .hud 重新开启。",
+  "hud.now_on": "HUD 已开启。",
   "hud.outdated": "HUD 已过期。请在平台上点击 ? 并选择 HUD。",
   "hud.hold_menu": "菜单",
-  "hud.hold_close": "关闭"
+  "hud.hold_close": "关闭",
+  "hud.menu_hint": "W ↑  S ↓  长按 E：选择"
 }

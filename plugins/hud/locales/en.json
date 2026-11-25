@@ -1,6 +1,10 @@
 {
   "menu.none": "No menu on this server right now.",
+  "menu.chat_help": "Commands: .r ready · .p tech pause · .tac timeout · .gg give up · .admin call an admin · .hud HUD on",
+  "hud.now_off": "HUD off: Ready Up uses chat for you. .hud turns it back on.",
+  "hud.now_on": "HUD on.",
   "hud.outdated": "HUD out of date. On the platform, click ? and choose HUD.",
   "hud.hold_menu": "Menu",
-  "hud.hold_close": "Close"
+  "hud.hold_close": "Close",
+  "hud.menu_hint": "W ↑  S ↓  Hold E: pick"
 }

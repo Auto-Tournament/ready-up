@@ -1,6 +1,10 @@
 {
   "menu.none": "Er is nu geen menu op deze server.",
+  "menu.chat_help": "Commando's: .r klaar · .p technische pauze · .tac time-out · .gg opgeven · .admin admin roepen · .hud HUD",
+  "hud.now_off": "HUD uit: Ready Up gebruikt de chat voor jou. .hud zet hem weer aan.",
+  "hud.now_on": "HUD aan.",
   "hud.outdated": "HUD verouderd. Klik op het platform op ? en kies HUD.",
   "hud.hold_menu": "Menu",
-  "hud.hold_close": "Sluiten"
+  "hud.hold_close": "Sluiten",
+  "hud.menu_hint": "W ↑  S ↓  E ingedrukt: kiezen"
 }

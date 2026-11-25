@@ -604,16 +604,45 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
   Print("knife: side picked by %s: %s (%s) -> %s; live rules + mp_restartgame 1\n", by.c_str(), c.c_str(),
         winnerName.c_str(), stayed ? "stay" : "mp_swapteams");
 
-  // Let players know.
-  text::ChatAll(std::string(pickerName == "timeout" ? "knife.picked_timeout" : "knife.picked") + (stayed ? "_stay" : "_swap"),
-                {{"team", winnerName}, {"side", *winnerWantsCt ? "CT" : "T"}});
+  // Let players know: the Sides card with the HUD, chat without it.
+  if (!HudScreensOn())
+    text::ChatAll(std::string(pickerName == "timeout" ? "knife.picked_timeout" : "knife.picked") + (stayed ? "_stay" : "_swap"),
+                  {{"team", winnerName}, {"side", *winnerWantsCt ? "CT" : "T"}});
   if (HudScreensOn()) {
     const bool timedOut = pickerName == "timeout";
     const std::string side = *winnerWantsCt ? "CT" : "T";
-    HudScreensNoticeAll(NoticeSpec(std::string("id=sides\ncolor=") + (timedOut ? "muted" : (*winnerWantsCt ? "ct" : "t")) + "\n",
-                                   timedOut ? "walkover.time_up" : "notice.sides_chosen", stayed ? "notice.team_stays" : "notice.team_starts",
-                                   {}, {{"team", winnerName}, {"side", side}}),
-                        8.0);
+    const std::string otherSide = *winnerWantsCt ? "T" : "CT";
+    const std::string head = std::string("id=sides\ncolor=") + (timedOut ? "muted" : (*winnerWantsCt ? "ct" : "t")) + "\n";
+    const char* kind = timedOut ? "walkover.time_up" : "notice.sides_chosen";
+    // Each player reads it from their own team: "You chose CT" / "Opponents chose CT" (Sivert,
+    // 2026-11-24: "Knife winners start CT" read as nonsense). The swap is still queued, so the
+    // players are on their knife sides here: team1 had CT in the knife round.
+    const int winnerKnifeTeam = winnerIsTeam1 ? 3 : 2;
+    for (const auto& h : ListHumans()) {
+      const int slot = h.slot >= 0 ? h.slot : h.userid;
+      if (HudOffFor(h.steamid64)) {
+        text::ChatSlot(slot, std::string(timedOut ? "knife.picked_timeout" : "knife.picked") + (stayed ? "_stay" : "_swap"),
+                       {{"team", winnerName}, {"side", side}});
+        continue;
+      }
+      if (h.team != 2 && h.team != 3) {
+        // Spectators: the team line. A scrim's teams are called CT and T: "CT stays CT" made no sense.
+        HudScreensNotice(slot,
+                         NoticeSpec(head, kind,
+                                    (winnerName == "CT" || winnerName == "T")
+                                        ? (stayed ? "notice.winners_stay" : "notice.winners_start")
+                                        : (stayed ? "notice.team_stays" : "notice.team_starts"),
+                                    {}, {{"team", winnerName}, {"side", side}}),
+                         8.0);
+        continue;
+      }
+      const bool won = h.team == winnerKnifeTeam;
+      if (timedOut)
+        HudScreensNotice(slot, NoticeSpec(head, kind, "notice.you_start", {}, {{"side", won ? side : otherSide}}), 8.0);
+      else
+        HudScreensNotice(slot, NoticeSpec(head, kind, won ? "notice.you_chose" : "notice.opponents_chose", {}, {{"side", side}}),
+                         8.0);
+    }
   }
   return true;
 }
@@ -673,8 +702,7 @@ static void MaybeShowWarmupUiLocked(State& st) {
   // Periodic chat reminder listing who is not ready yet (cap for spam). Only
   // when the ready HUD is not on screen: the HUD is the ready-up UI.
   const auto chatInterval = std::chrono::seconds(12);
-  if (!ReadyHudShowing() &&
-      (st.lastNotReadyChat.time_since_epoch().count() == 0 || (now - st.lastNotReadyChat) >= chatInterval)) {
+  if (st.lastNotReadyChat.time_since_epoch().count() == 0 || (now - st.lastNotReadyChat) >= chatInterval) {
     std::string list;
     int count = 0;
     const int maxNames = 6;
@@ -699,7 +727,8 @@ static void MaybeShowWarmupUiLocked(State& st) {
     }
 
     if (!list.empty() && rosterTotal > 0 && rosterReady < rosterTotal) {
-      text::ChatAll("match.waiting_for",
+      // The ready HUD shows this; players who turned it off get it in chat.
+      ChatUnlessHud(ReadyHudShowing(), "match.waiting_for",
                     {{"ready", std::to_string(rosterReady)}, {"total", std::to_string(rosterTotal)}, {"names", list}});
       st.lastNotReadyChat = now;
     }
@@ -1729,14 +1758,20 @@ void OnMatchRoundStarted() {
   readyup::persisted_match_state::PersistLiveFlag(true);
   match_recovery::NoteProgress();
   WebhookSetHeartbeatStatus("live");
-  text::ChatAll("match.live");
+  // With the HUD the LIVE card says it (and .menu has the rules): no chat lines (Sivert,
+  // 2026-11-24: "why does it spam the chat"). Without it, chat as before.
+  // Players who turned the HUD off get the chat lines either way (ChatHudOff).
+  const bool hudSays = HudScreensOn();
+  if (!hudSays) text::ChatAll("match.live");
+  else ChatHudOff("match.live");
   if (const auto ctx = WebhookGetMatchContext()) {
     const int mapNo = std::max(1, MatchStateGet().map_number);
     const std::string mapName = mapNo - 1 < static_cast<int>(ctx->maplist.size()) ? ctx->maplist[mapNo - 1] : "";
     for (const auto& line : GoLiveRulesLines(mapNo, std::max(1, ctx->num_maps), mapName, ctx->maxRounds,
                                               ctx->overtime_enabled, ctx->overtimeSegments, ctx->maxOvertimes,
                                               ctx->damageTiebreakEnabled)) {
-      text::ChatAll(line.key, line.args);
+      if (!hudSays) text::ChatAll(line.key, line.args);
+      else ChatHudOff(line.key, line.args);
     }
   }
   GoLiveCardArm("go-live round start", /*restartPending=*/false);  // "LIVE · GO GO GO" + commands
@@ -2411,7 +2446,17 @@ KnifeHudInfo KnifeHudSnapshot() {
   out.phase = st.knifePhase;
   out.winnerCs = st.knifeWinnerCs;
   out.reasonShort = st.knifeReasonShort;
-  if (ctxOpt && st.knifePhase == KnifePhase::Picking) out.winnerName = KnifeWinnerNameLocked(st, *ctxOpt);
+  if (ctxOpt && st.knifePhase == KnifePhase::Picking) {
+    out.winnerName = KnifeWinnerNameLocked(st, *ctxOpt);
+    // Only the captain picks when the match names one (Sivert, 2026-11-24).
+    out.captain = st.knifeWinner == WebhookTeam::Team1   ? ctxOpt->team1_captain_steamid64
+                  : st.knifeWinner == WebhookTeam::Team2 ? ctxOpt->team2_captain_steamid64
+                                                         : 0;
+    if (out.captain) {
+      const auto n = ctxOpt->roster_names.find(out.captain);
+      out.captainName = n != ctxOpt->roster_names.end() && !n->second.empty() ? n->second : out.winnerName;
+    }
+  }
   if (st.knifePhase == KnifePhase::Picking && st.knifePickDeadline.time_since_epoch().count() != 0) {
     const auto left =
         std::chrono::duration_cast<std::chrono::milliseconds>(st.knifePickDeadline - std::chrono::steady_clock::now())
@@ -2420,6 +2465,8 @@ KnifeHudInfo KnifeHudSnapshot() {
   }
   return out;
 }
+
+uint64_t KnifeWinnerCaptain() { return KnifeHudSnapshot().captain; }
 
 const char* KnifeWinnerTeamString() {
   auto& st = St();

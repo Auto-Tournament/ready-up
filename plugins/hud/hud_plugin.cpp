@@ -34,6 +34,7 @@
 #include <dlfcn.h>
 #include <link.h>
 #include <algorithm>
+#include <bitset>
 #include <climits>
 
 #include <cstdarg>
@@ -41,6 +42,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <functional>
 #include <map>
 #include <mutex>
@@ -384,7 +386,62 @@ int IfOpen(const char* path) {
   return static_cast<int>(g_layouts.size());
 }
 
+// ---- players who play without the custom HUD (`.hud off`, or the platform's player setting) ----
+// Their slots get nothing from screen / menu / set_text / set_class: the callers send chat and the
+// centre panel instead (ru_hud_v1 player_off, v1.4). Kept in <data_dir>/hud_off.txt, one SteamID64
+// a line (Sivert, 2026-11-24: chat as the fallback, a choice per player).
+std::set<uint64_t> g_hudOff;
+std::bitset<64> g_slotOff;  // the slots of g_hudOff's players: every tick and on a change
+
+std::string HudOffPath() {
+  if (!RU_API_HAS(g_api, data_dir) || !g_api->data_dir) return {};
+  const char* d = g_api->data_dir(g_api->self);
+  return d && *d ? std::string(d) + "/hud_off.txt" : std::string();
+}
+
+void HudOffLoad() {
+  g_hudOff.clear();
+  const std::string p = HudOffPath();
+  if (p.empty()) return;
+  std::ifstream f(p);
+  unsigned long long id = 0;
+  while (f >> id)
+    if (id) g_hudOff.insert(static_cast<uint64_t>(id));
+}
+
+void HudOffSave() {
+  const std::string p = HudOffPath();
+  if (p.empty()) return;
+  std::ofstream f(p, std::ios::trunc);
+  for (uint64_t id : g_hudOff) f << static_cast<unsigned long long>(id) << "\n";
+}
+
+int SlotOfSteamId(uint64_t id) {
+  for (int slot = 0; slot <= 63; ++slot) {
+    ru_player p{};
+    p.struct_size = sizeof(p);
+    if (g_api->get_player(g_api->self, slot, &p) && p.connected && !p.is_bot && p.steamid64 == id) return slot;
+  }
+  return -1;
+}
+
+void SlotOffRefresh() {
+  std::bitset<64> next;
+  if (!g_hudOff.empty()) {
+    for (int slot = 0; slot <= 63; ++slot) {
+      ru_player p{};
+      p.struct_size = sizeof(p);
+      if (g_api->get_player(g_api->self, slot, &p) && p.connected && !p.is_bot && p.steamid64 && g_hudOff.count(p.steamid64))
+        next.set(static_cast<size_t>(slot));
+    }
+  }
+  g_slotOff = next;
+}
+
+bool SlotOff(int slot) { return slot >= 0 && slot <= 63 && g_slotOff.test(static_cast<size_t>(slot)); }
+
 int IfSetText(int hud, int slot, const char* panel, const char* var, const char* value) {
+  if (SlotOff(slot)) return 1;  // HUD off for this player
   Layout* l = LayoutOf(hud);
   if (!l || !panel || !var || slot < RU_HUD_ALL || slot > 63) return 0;
   const Key k{panel, var};
@@ -405,6 +462,9 @@ int IfSetText(int hud, int slot, const char* panel, const char* var, const char*
 }
 
 int IfSetClass(int hud, int slot, const char* panel, const char* cls, int on) {
+  // HUD off for this player: nothing new is shown, but what was up can still be taken away (the
+  // Hold E chip stayed on screen when the off write was blocked too, 2026-11-24).
+  if (SlotOff(slot) && on) return 1;
   Layout* l = LayoutOf(hud);
   if (!l || !panel || !cls || slot < RU_HUD_ALL || slot > 63) return 0;
   const Key k{panel, cls};
@@ -579,6 +639,8 @@ struct ScreenSlot {
   bool dismissed = false;    // closed with a plain close button: hidden until the id changes
   std::set<std::pair<std::string, std::string>> utils;  // utility classes applied (element, class)
   bool captured = false;
+  int sel = 0;               // ui_left: the chosen row (0..buttons-1, then the close row), W S move it
+  std::string selId;         // the row that has `sel` now
   unsigned gen = 0;          // bumps on every new id, so a stale delayed enter does nothing
   ru_hud_click_fn onClick = nullptr;
   void* user = nullptr;
@@ -586,7 +648,8 @@ struct ScreenSlot {
 std::map<int, ScreenSlot> g_screens;
 std::set<int> g_buyOpen;  // slots whose buy menu is open (open_buymenu .. close_buymenu)
 
-std::string PanelOf(const Screen& s) { return s.where == "card" ? "ui_card" : "ui_mid"; }
+std::string PanelOf(const Screen& s) { return s.where == "card" ? "ui_card" : s.where == "left" ? "ui_left" : "ui_mid"; }
+const char* const kPanels[] = {"ui_card", "ui_mid", "ui_left"};
 
 void UpdateCapture(int slot, bool force = false) {
   auto it = g_screens.find(slot);
@@ -611,8 +674,57 @@ void CaptureSweep() {
   for (auto& kv : g_screens) UpdateCapture(kv.first, true);
 }
 
+// ---- the menu panel (ui_left): W S choose a row, holding E picks it (HoldAction) ----------------
+// Rows are the buttons that are a choice (a label and a command, not off), then the close row.
+std::vector<std::string> NavRows(const ScreenSlot& ss) {
+  std::vector<std::string> rows;
+  for (size_t i = 0; i < ss.cur.buttons.size() && i < static_cast<size_t>(kMaxButtons); ++i) {
+    const Button& b = ss.cur.buttons[i];
+    if (!b.label.empty() && !b.cmd.empty() && b.state != "off") rows.push_back("ui_left_b" + std::to_string(i));
+  }
+  if (ss.cur.hasClose) rows.push_back("ui_left_close");
+  return rows;
+}
+
+// `sel` on the chosen row only (clamped: the rows can change under it).
+void NavDraw(int slot, ScreenSlot& ss) {
+  const std::vector<std::string> rows = NavRows(ss);
+  std::string want;
+  if (!rows.empty()) {
+    const int n = static_cast<int>(rows.size());
+    ss.sel = ((ss.sel % n) + n) % n;
+    want = rows[static_cast<size_t>(ss.sel)];
+  }
+  if (want == ss.selId) return;
+  const int h = IfOpen(kUiLayout);
+  if (!ss.selId.empty()) IfSetClass(h, slot, ss.selId.c_str(), "sel", 0);
+  if (!want.empty()) IfSetClass(h, slot, want.c_str(), "sel", 1);
+  ss.selId = want;
+}
+
+// A left panel always ends with a close row and says how to use it.
+void LeftDefaults(int slot, Screen& s) {
+  const std::string lang = readyup::i18n::LanguageOf(g_api, slot);
+  if (!s.hasClose && !s.noCloseRow) {
+    s.hasClose = true;
+    s.closeLabel = g_text.Tr(lang, "hud.hold_close");
+    s.closeCmd.clear();
+  }
+  s.hint = g_text.Tr(lang, "hud.menu_hint");
+  // A captured cursor takes the keyboard too, and W S must reach the server: the cursor only
+  // with the buy menu open (B), as on the cards.
+  if (s.mouse == Mouse::On) s.mouse = Mouse::B;
+}
+
 void DrawScreen(int slot, ScreenSlot& ss) {
   const int h = IfOpen(kUiLayout);
+  if (ss.cur.where == "chip") {
+    // No panel: the hold chip above the logo carries it (HoldAction), so every panel is off.
+    for (const char* panel : kPanels) IfSetClass(h, slot, panel, "on", 0);
+    ss.shown = !ss.dismissed && !ss.cur.empty();
+    UpdateCapture(slot);
+    return;
+  }
   const std::string p = PanelOf(ss.cur);
   const bool wasShown = ss.shown;
   if (!wasShown) {
@@ -624,6 +736,8 @@ void DrawScreen(int slot, ScreenSlot& ss) {
     if (w.isText) IfSetText(h, slot, w.panel.c_str(), w.name.c_str(), w.value.c_str());
     else IfSetClass(h, slot, w.panel.c_str(), w.name.c_str(), w.on ? 1 : 0);
   }
+  // hold=1: the chip above the logo carries the first button, so the card hides its buttons.
+  IfSetClass(h, slot, p.c_str(), "chiphold", ss.cur.hold && p != "ui_left" ? 1 : 0);
   // Utilities (cls= / cls.<part>=): off the ones this screen no longer has, on the new ones.
   std::set<std::pair<std::string, std::string>> want;
   for (auto& u : Utilities(ss.cur, p)) want.insert(std::move(u));
@@ -632,13 +746,17 @@ void DrawScreen(int slot, ScreenSlot& ss) {
   for (const auto& u : want) IfSetClass(h, slot, u.first.c_str(), u.second.c_str(), 1);
   ss.utils.swap(want);
   const bool show = !ss.dismissed && !ss.cur.empty();
-  IfSetClass(h, slot, p == "ui_card" ? "ui_mid" : "ui_card", "on", 0);
+  for (const char* other : kPanels)
+    if (p != other) IfSetClass(h, slot, other, "on", 0);
   ss.shown = show;
   if (show && !wasShown) {
     // `on` a moment later, so the client has the enter pose before it animates out of it.
     const unsigned gen = ss.gen;
     const std::string panel = p;
-    g_later.emplace_back(g_now + 0.06, [slot, gen, panel] {
+    // The menu list gets longer: it is laid out for the first time when it opens, and with 0.06 s
+    // the client took the enter pose and `on` in one go, so it appeared without sliding (2026-11-24).
+    const double delay = p == "ui_left" ? 0.15 : 0.06;
+    g_later.emplace_back(g_now + delay, [slot, gen, panel] {
       auto it = g_screens.find(slot);
       if (it != g_screens.end() && it->second.gen == gen && it->second.shown)
         IfSetClass(IfOpen(kUiLayout), slot, panel.c_str(), "on", 1);
@@ -647,6 +765,7 @@ void DrawScreen(int slot, ScreenSlot& ss) {
     IfSetClass(h, slot, p.c_str(), "on", show ? 1 : 0);
   }
   UpdateCapture(slot);
+  if (p == "ui_left") NavDraw(slot, ss);
 }
 
 std::string ButtonsKey(const Screen& s) {
@@ -662,7 +781,7 @@ bool DemoDefer(int slot, const std::string& spec, ru_hud_click_fn onClick, void*
 
 int IfScreen(int slot, const char* specIn, ru_hud_click_fn onClick, void* user) {
   if (slot < 0 || slot > 63) return 0;
-  const std::string spec = specIn ? specIn : "";
+  const std::string spec = SlotOff(slot) ? std::string() : std::string(specIn ? specIn : "");  // HUD off: hidden
   if (DemoDefer(slot, spec, onClick, user)) return 1;
   ScreenSlot& ss = g_screens[slot];
   ss.onClick = onClick;
@@ -670,6 +789,7 @@ int IfScreen(int slot, const char* specIn, ru_hud_click_fn onClick, void* user) 
   if (spec == ss.spec) return 1;
   ss.spec = spec;
   Screen next = ParseScreen(spec);
+  if (next.where == "left") LeftDefaults(slot, next);
   const int h = IfOpen(kUiLayout);
   const bool sameId = !next.empty() && !ss.cur.empty() && next.id == ss.cur.id && next.where == ss.cur.where;
   if (sameId) {
@@ -705,6 +825,9 @@ int IfScreen(int slot, const char* specIn, ru_hud_click_fn onClick, void* user) 
   ss.shown = false;
   ss.clicked = false;
   ss.dismissed = false;
+  if (!ss.selId.empty()) IfSetClass(h, slot, ss.selId.c_str(), "sel", 0);
+  ss.sel = 0;
+  ss.selId.clear();
   ss.cur = std::move(next);
   UpdateCapture(slot);
   if (ss.cur.empty()) return 1;
@@ -770,8 +893,33 @@ void ScreenForget(int slot) {
   }
 }
 
+// Turns the custom HUD off (or back on) for one player and saves the choice. Off: whatever is shown
+// goes away now; on: the callers' next screen / card draws again.
+bool SetPlayerOff(uint64_t id, bool off) {
+  if (!id || (g_hudOff.count(id) != 0) == off) return false;
+  const int slot = SlotOfSteamId(id);
+  if (off && slot >= 0) {
+    IfScreen(slot, "", nullptr, nullptr);
+    MenuForget(slot);
+  }
+  if (off)
+    g_hudOff.insert(id);
+  else
+    g_hudOff.erase(id);
+  HudOffSave();
+  SlotOffRefresh();
+  if (!off && slot >= 0) ScreenForget(slot);
+  return true;
+}
+
+int IfPlayerOff(uint64_t id) { return id && g_hudOff.count(id) ? 1 : 0; }
+int IfSetPlayerOff(uint64_t id, int off) {
+  SetPlayerOff(id, off != 0);
+  return id ? 1 : 0;
+}
+
 const ru_hud_v1 g_iface = {sizeof(ru_hud_v1), &IfAvailable, &IfOpen, &IfSetText, &IfSetClass, &IfClearSlot, &IfScreen, &IfMenu, &IfRegisterMenu,
-                            &IfSetCapture};
+                            &IfSetCapture, &IfPlayerOff, &IfSetPlayerOff};
 
 // `ru hudkit click [slot]`: the CT / T proof of concept for one player, or every human.
 const char* kClickLayout = "panorama/layout/custom_game/at_click.xml";
@@ -983,7 +1131,7 @@ void ApplyScale() {
   const int h = IfOpen(kUiLayout);
   for (int pct = 70; pct <= 100; pct += 5) {
     const std::string c = "scale-" + std::to_string(pct);
-    for (const char* wrap : {"ui_cardwrap", "ui_midwrap"}) IfSetClass(h, RU_HUD_ALL, wrap, c.c_str(), pct == g_scale ? 1 : 0);
+    for (const char* wrap : {"ui_cardwrap", "ui_midwrap", "ui_leftwrap"}) IfSetClass(h, RU_HUD_ALL, wrap, c.c_str(), pct == g_scale ? 1 : 0);
   }
 }
 int ParseScale(const std::string& s) {
@@ -1021,8 +1169,120 @@ void AddonVersionTick() {
   }
 }
 
+// Dev servers (readyup.cfg dev=1): the build line on every player's HUD, the addon's own stamp
+// (hud/build.ps1) next to this hud.so's version and commit, to see who has an old HUD.
+void WriteTeamLogos();  // below: the team logo on the team entities
+
+void DevBuildTick() {
+  static double next = 0;
+  if (g_now < next) return;
+  next = g_now + 2.0;
+  if (!(RU_API_HAS(g_api, dev_mode) && g_api->dev_mode && g_api->dev_mode(g_api->self))) return;
+  const int h = IfOpen(kUiLayout);
+  if (h <= 0) return;
+  for (int slot = 0; slot <= 63; ++slot) {
+    ru_player p{};
+    p.struct_size = sizeof(p);
+    if (!g_api->get_player(g_api->self, slot, &p) || !p.connected || p.is_bot) continue;
+    IfSetClass(h, slot, "ui_dev", "on", 1);
+    IfSetText(h, slot, "ui_dev_srv", "text", "server hud " HUD_VERSION " " HUD_GIT_SHA);
+  }
+}
+
+// The ram in CS2's team badge (#ui_badge) and the watermark beside it (#ui_wm), by what CS2 draws
+// at the bottom (Sivert, 2026-11-24):
+// - alive on T or CT: the badge, the watermark either side of it (`on` on both);
+// - watching a player (in-eye or chase): CS2's spectator bar, with the watched player's avatar in
+//   that circle, so no badge and the watermark on one line above the bar (`spec` on ui_wm);
+// - else (team select, the death cam, free roam, the buy menu open): neither.
+// Sent on a change, and again every 3 s in case the layout entity was recreated.
+namespace badge {
+struct Off {
+  int alive = -2, obsPawn = -1, obsSvc = -1, obsMode = -1, obsTarget = -1;
+};
+Off& Offsets() {
+  static Off o;
+  if (o.alive == -2) {
+    o.alive = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_bPawnIsAlive");
+    o.obsPawn = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_hObserverPawn");
+    o.obsSvc = g_api->schema_offset(g_api->self, "CBasePlayerPawn", "m_pObserverServices");
+    o.obsMode = g_api->schema_offset(g_api->self, "CPlayer_ObserverServices", "m_iObserverMode");
+    o.obsTarget = g_api->schema_offset(g_api->self, "CPlayer_ObserverServices", "m_hObserverTarget");
+    ru_logf(g_api, RU_LOG_INFO, "badge: offsets alive=%d obsPawn=%d obsSvc=%d obsMode=%d obsTarget=%d", o.alive,
+            o.obsPawn, o.obsSvc, o.obsMode, o.obsTarget);
+  }
+  return o;
+}
+
+uint32_t ReadU32(const void* base, int off) {
+  uint32_t v = 0;
+  std::memcpy(&v, static_cast<const uint8_t*>(base) + off, sizeof(v));
+  return v;
+}
+
+// Watching a player in-eye (2) or in chase (3): the modes CS2 shows its spectator bar in.
+bool Watching(void* ctrl) {
+  const Off& o = Offsets();
+  if (o.obsPawn < 0 || o.obsSvc < 0 || o.obsMode < 0 || o.obsTarget < 0) return false;
+  void* pawn = g_api->entity_from_handle(g_api->self, ReadU32(ctrl, o.obsPawn));
+  if (!pawn) return false;
+  void* svc = nullptr;
+  std::memcpy(&svc, static_cast<uint8_t*>(pawn) + o.obsSvc, sizeof(svc));
+  if (!svc) return false;
+  const uint8_t mode = *(static_cast<uint8_t*>(svc) + o.obsMode);
+  if (mode != 2 && mode != 3) return false;
+  return g_api->entity_from_handle(g_api->self, ReadU32(svc, o.obsTarget)) != nullptr;
+}
+}  // namespace badge
+
+void BadgeTick() {
+  static double next = 0, nextAll = 0;
+  static int8_t last[64];
+  static bool init = false;
+  if (!init) {
+    std::memset(last, -1, sizeof(last));
+    init = true;
+  }
+  if (g_now < next) return;
+  next = g_now + 0.2;
+  const bool all = g_now >= nextAll;
+  if (all) nextAll = g_now + 3.0;
+  const badge::Off& o = badge::Offsets();
+  const int h = IfOpen(kUiLayout);
+  if (h <= 0) return;
+  for (int slot = 0; slot <= 63; ++slot) {
+    ru_player p{};
+    p.struct_size = sizeof(p);
+    if (!g_api->get_player(g_api->self, slot, &p) || !p.connected || p.is_bot) {
+      last[slot] = -1;
+      continue;
+    }
+    int8_t state = 0;  // 0 neither, 1 alive, 2 watching a player
+    if (void* ctrl = g_api->entity_by_index(g_api->self, slot + 1)) {
+      const bool alive = o.alive >= 0 && (p.team == RU_TEAM_T || p.team == RU_TEAM_CT) &&
+                         *(static_cast<uint8_t*>(ctrl) + o.alive) != 0;
+      if (alive) state = 1;
+      else if (badge::Watching(ctrl)) state = 2;
+    }
+    if (g_buyOpen.count(slot)) state = 0;  // the buy menu covers the bottom bar (fades out, then back in)
+    if (state == last[slot] && !all) continue;
+    last[slot] = state;
+    IfSetClass(h, slot, "ui_badge", "on", state == 1 ? 1 : 0);
+    IfSetClass(h, slot, "ui_wm", "on", state == 1 ? 1 : 0);
+    IfSetClass(h, slot, "ui_wm", "spec", state == 2 ? 1 : 0);
+  }
+}
+
 void OnTick(void*, const ru_tick_info* t) {
   g_now = t->now;
+  SlotOffRefresh();
+  DevBuildTick();
+  BadgeTick();
+  static double nextLogo = 0;
+  if (g_now >= nextLogo) {
+    nextLogo = g_now + 2.0;
+    WriteTeamLogos();
+  }
   if (!g_origSvcUm && g_eng.ok) InstallClickHook();
   if (g_layouts.empty() || std::none_of(g_layouts.begin(), g_layouts.end(), [](const Layout& l) { return l.path == kUiLayout; }))
     IfOpen(kUiLayout);
@@ -1117,9 +1377,46 @@ void OnBeginMatch(void*, const char*, const ru_game_event*) {
   g_restartAfterBeginMatch = false;
 }
 
+// The AT ram as both teams' logo: CS2 draws the team logo in the circle between health and ammo.
+// The addon ships it at panorama/images/tournaments/teams/atram (hud/build.ps1; CS2 cuts a logo name at 7 characters, "autotournament" looked for "autotou"), a path CS2
+// has never loaded, so it shows every time; replacing icons/ui/ct_logo_1c only worked right after a
+// download, because CS2 keeps the emblem it loaded at startup (2026-11-24, found by setting
+// mp_teamlogo_1 navi). A match config's own mp_teamlogo_* goes out after this and wins.
+void SetTeamLogos() {
+  if (!g_api || !g_api->server_command) return;
+  g_api->server_command(g_api->self, "mp_teamlogo_1 atram");
+  g_api->server_command(g_api->self, "mp_teamlogo_2 atram");
+}
+
+// The cvars only reach the teams at a round start, and warmup has none: the logo showed in the
+// scoreboard only after an mp_restartgame (2026-11-24). So the team entities get it directly too
+// (CCSTeam::m_szTeamLogoImage, what clients read), unless a logo of its own is set there.
+void WriteTeamLogos() {
+  static int off = -2, teamOff = -2;
+  if (off == -2) {
+    off = RU_API_HAS(g_api, schema_offset) && g_api->schema_offset ? g_api->schema_offset(g_api->self, "CCSTeam", "m_szTeamLogoImage") : -1;
+    teamOff = off >= 0 ? g_api->schema_offset(g_api->self, "CBaseEntity", "m_iTeamNum") : -1;
+  }
+  if (off < 0 || teamOff < 0 || !g_api->entity_by_index || !g_api->entity_classname) return;
+  for (int i = 1; i < 256; ++i) {
+    void* e = g_api->entity_by_index(g_api->self, i);
+    if (!e) continue;
+    const char* cls = g_api->entity_classname(g_api->self, e);
+    if (!cls || std::strcmp(cls, "cs_team_manager") != 0) continue;
+    uint8_t team = 0;
+    std::memcpy(&team, static_cast<unsigned char*>(e) + teamOff, sizeof(team));
+    if (team != 2 && team != 3) continue;
+    char* logo = static_cast<char*>(e) + off;
+    if (logo[0] != 0) continue;  // atram already, or a match's own logo
+    std::memcpy(logo, "atram", 6);
+    if (g_api->entity_mark_changed) g_api->entity_mark_changed(g_api->self, e);
+  }
+}
+
 void OnEvent(void*, const ru_event* ev) {
   if (ev->type == RU_EVENT_MAP_START) {
     g_mapStartedAt = g_now;
+    SetTeamLogos();
     for (auto& l : g_layouts) l.handle = kNoHandle;  // the map took the entity with it
     for (auto& [slot, ss] : g_screens) ss.captured = false;
     g_buyOpen.clear();
@@ -1342,7 +1639,7 @@ const std::vector<std::pair<std::string, std::string>>& DemoScreens() {
       {"pickurgent", "id=pick\ncolor=live\nkind=You won the knife\ntitle=Which side do you want?\ntimer=4\nbtn=CT|ct||#demo pickedct\nbtn=T|t||#demo pickedt\nmouse=on"},
       {"pickedct", "id=pick\ncolor=live\nkind=You won the knife\ntitle=Simpert picked CT\nsub=Match starts in 5s\nbtn=CT|ct|picked|\nbtn=T|t|off|"},
       {"lost", "id=lost\nkind=You lost the knife\ntitle=Team A is picking a side\ntimer=20"},
-      {"golive", "id=golive\ncolor=live\nkind=Live\ntitle=Good luck, have fun\nsub=Team A (CT) vs Team B (T)\ncmd=Tech pause|.p\ncmd=Timeout|.tac\ncmd=Call an admin|.admin"},
+      {"golive", "id=golive\ncolor=live\nkind=Live\ntitle=Match is live\nsub=Team A (CT) vs Team B (T)\ncmd=Type|.menu|in chat to open the match menu and view commands"},
       {"pause", "id=pause\ncolor=warn\nkind=Tech pause\ntitle=Team B paused\nsub=Auto unpause in 252s\nconfirm=Team A|0|Team B|0\nbtn=Unpause|warn|pulse|#demo waiting\nbw=l\nmouse=on"},
       {"waiting", "id=pause\ncolor=warn\nkind=Tech pause\ntitle=Team B paused\nsub=Auto unpause in 245s\nconfirm=Team A|1|Team B|0\nbtn=Waiting for Team B|ghost|off|\nbw=xl"},
       {"timeout", "id=tac\nkind=Timeout\ntitle=Team A timeout"},
@@ -1615,7 +1912,12 @@ void MenuRefresh(int slot) {
   if (HasMenu(slot)) {
     const MenuEntry top = g_menus[slot].back();
     g_drawingMenu = true;
-    IfScreen(slot, top.spec.c_str(), top.onClick, top.user);
+    // A menu with buttons is the list on the left (v4, Hold E): W S choose, holding E picks, a close
+    // row last. One with no buttons (retakes' "Retake site B!" banner) keeps its own place: as a list
+    // it was a bare Close row (2026-11-24).
+    const bool list = top.spec.find("btn=") != std::string::npos;
+    const std::string spec = list ? top.spec + "\nwhere=left" : top.spec;
+    IfScreen(slot, spec.c_str(), top.onClick, top.user);
     g_drawingMenu = false;
     return;
   }
@@ -1632,6 +1934,7 @@ void MenuRefresh(int slot) {
 
 int IfMenu(int slot, const char* ownerIn, const char* specIn, ru_hud_click_fn onClick, void* user) {
   if (!ownerIn || !*ownerIn) return 0;
+  if (SlotOff(slot) && specIn && *specIn) return 0;  // HUD off for this player: the caller uses chat
   const std::string owner = ownerIn, spec = specIn ? specIn : "";
   std::vector<int> slots;
   if (slot == RU_HUD_ALL) {
@@ -1703,6 +2006,9 @@ struct HoldSlot {
   std::string label;     // what #ui_hold says now ("" = hidden)
   std::string button;    // the card button that has `holdable` ("" = none)
   bool holdClass = false;
+  uint64_t prev = 0;     // last tick's buttons: W S move the menu row on the press, not while held
+  bool frozen = false;   // we stopped the pawn moving while the menu panel is up (FreezeFor)
+  bool live = false;     // `c-live` on the chip
 };
 std::map<int, HoldSlot> g_hold;
 // The key the hold chip and buttons show. {g:csgo_key:k} in at_ui gives the value back as it is
@@ -1768,6 +2074,7 @@ struct HoldTarget {
   std::string label;   // the chip's text ("" when the button shows it)
   std::string action;  // "#cmd <chat>", a button id for ScreenClick, or "" for `.menu`
   std::string button;  // the button that shows the hold ("" = the chip)
+  bool live = false;   // the chip in green (a where=chip screen with color=live: Ready)
 };
 
 bool HoldAction(int slot, HoldTarget* t) {
@@ -1780,21 +2087,31 @@ bool HoldAction(int slot, HoldTarget* t) {
   }
   auto it = g_screens.find(slot);
   const bool card = it != g_screens.end() && it->second.shown && !it->second.dismissed && !DemoActive(slot);
+  // The chip above the logo (v4): a where=chip screen (Ready up: no card at all) or a card that asks
+  // for it with hold=1 (pause, votes: the card says what happened, its buttons are hidden). The chip
+  // names the first button (and a chip screen's count); holding E presses it.
+  const bool chipScreen = it != g_screens.end() && (it->second.cur.where == "chip" || it->second.cur.hold) &&
+                          it->second.cur.where != "left";
+  if (card && chipScreen && !it->second.clicked && !it->second.cur.buttons.empty()) {
+    const Button& b = it->second.cur.buttons[0];
+    if (b.state != "off" && !b.cmd.empty() && !b.label.empty()) {
+      t->label = b.label + (it->second.cur.counter.empty() ? "" : "  " + it->second.cur.counter);
+      t->action = "#cmd " + b.cmd;
+      t->live = it->second.cur.color == "live";
+      return true;
+    }
+  }
+  // The menu panel: holding E picks the chosen row (W S choose it); the row itself fills.
+  if (card && PanelOf(it->second.cur) == "ui_left" && !it->second.selId.empty() && !it->second.clicked) {
+    t->button = it->second.selId;
+    t->action = it->second.selId;
+    return true;
+  }
   if (HasMenu(slot)) {
     if (!card) return false;
     t->label = g_text.Tr(lang, "hud.hold_close");
     t->action = PanelOf(it->second.cur) + "_close";
     return true;
-  }
-  // Only a card that asks for it (`hold=1`: Ready, Scoreboard): match.so draws its admin menu as a
-  // plain card too, and holding pressed its first button, Pause (2026-11-20).
-  if (card && it->second.cur.hold && !it->second.clicked && !it->second.cur.buttons.empty()) {
-    const Button& b = it->second.cur.buttons[0];
-    if (b.state != "off" && !b.cmd.empty() && !b.label.empty()) {
-      t->button = PanelOf(it->second.cur) + "_b0";
-      t->action = t->button;
-      return true;
-    }
   }
   // No "hold for .menu": a chip on screen all the time, live rounds included, was too much
   // (Sivert, 2026-11-20). `.menu` is still typed.
@@ -1813,17 +2130,27 @@ void HoldShow(int slot, HoldSlot& hs, const HoldTarget& t, bool has, bool hold) 
     IfSetClass(h, slot, "ui_hold", "on", chip.empty() ? 0 : 1);
     hs.label = chip;
   }
+  const bool live = has && t.live;
+  if (live != hs.live) {
+    IfSetClass(h, slot, "ui_hold", "c-live", live ? 1 : 0);
+    hs.live = live;
+  }
   const std::string button = has ? t.button : "";
   if (button != hs.button) {
+    std::string panel;
+    int index = 0;
     if (!hs.button.empty()) {
       IfSetClass(h, slot, hs.button.c_str(), "hold", 0);
-      IfSetClass(h, slot, hs.button.c_str(), "holdable", 0);
-      IfSetClass(h, slot, hs.button.substr(0, hs.button.size() - 3).c_str(), "holdable", 0);  // the panel
+      if (ParseButtonId(hs.button, &panel, &index) && panel != "ui_left") {
+        IfSetClass(h, slot, hs.button.c_str(), "holdable", 0);
+        IfSetClass(h, slot, panel.c_str(), "holdable", 0);
+      }
     }
-    if (!button.empty()) {
+    // Menu rows (ui_left) show the hold as their fill only: no key, no `holdable`.
+    if (!button.empty() && ParseButtonId(button, &panel, &index) && panel != "ui_left") {
       IfSetText(h, slot, (button + "_k").c_str(), "k", g_holdKey.c_str());
       IfSetClass(h, slot, button.c_str(), "holdable", 1);
-      IfSetClass(h, slot, button.substr(0, button.size() - 3).c_str(), "holdable", 1);
+      IfSetClass(h, slot, panel.c_str(), "holdable", 1);
     }
     hs.button = button;
     hs.holdClass = false;
@@ -1833,6 +2160,87 @@ void HoldShow(int slot, HoldSlot& hs, const HoldTarget& t, bool has, bool hold) 
     IfSetClass(h, slot, hs.button.empty() ? "ui_hold" : hs.button.c_str(), "hold", hold ? 1 : 0);
     hs.holdClass = hold;
   }
+}
+
+// ---- the menu panel holds the player still --------------------------------------------------
+// While ui_left is up W S choose rows, so in warmup (where players can walk) the pawn is held in
+// place, the way CS2 plugins freeze players (MOVETYPE_OBSOLETE in m_MoveType and m_nActualMoveType,
+// MOVETYPE_WALK to let go). Freeze time already holds players, and a live round is never frozen:
+// a menu left open into a round only moves its row.
+constexpr uint64_t kInForward = 1ull << 3;  // W (IN_FORWARD)
+constexpr uint64_t kInBack = 1ull << 4;     // S (IN_BACK)
+constexpr uint8_t kMoveObsolete = 1, kMoveWalk = 2;
+
+void* PawnOf(int slot) {
+  static int ctrlPawn = -2;
+  if (ctrlPawn == -2) ctrlPawn = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_hPlayerPawn");
+  if (ctrlPawn < 0) return nullptr;
+  void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
+  if (!ctrl) return nullptr;
+  uint32_t h = 0;
+  std::memcpy(&h, static_cast<uint8_t*>(ctrl) + ctrlPawn, sizeof(h));
+  return g_api->entity_from_handle(g_api->self, h);
+}
+
+// CCSGameRules::m_bWarmupPeriod through the cs_gamerules proxy (looked up once, checked each time).
+bool InWarmup() {
+  static int proxyIndex = -1, rulesPtr = -2, warmup = -2;
+  if (rulesPtr == -2) {
+    rulesPtr = g_api->schema_offset(g_api->self, "CCSGameRulesProxy", "m_pGameRules");
+    warmup = g_api->schema_offset(g_api->self, "CCSGameRules", "m_bWarmupPeriod");
+  }
+  if (rulesPtr < 0 || warmup < 0) return false;
+  auto isProxy = [](int i) {
+    void* e = g_api->entity_by_index(g_api->self, i);
+    const char* cls = e ? g_api->entity_classname(g_api->self, e) : nullptr;
+    return cls && std::strcmp(cls, "cs_gamerules") == 0;
+  };
+  if (proxyIndex < 0 || !isProxy(proxyIndex)) {
+    proxyIndex = -1;
+    for (int i = 65; i < 2048 && proxyIndex < 0; ++i)
+      if (isProxy(i)) proxyIndex = i;
+    if (proxyIndex < 0) return false;
+  }
+  void* proxy = g_api->entity_by_index(g_api->self, proxyIndex);
+  void* rules = nullptr;
+  std::memcpy(&rules, static_cast<uint8_t*>(proxy) + rulesPtr, sizeof(rules));
+  return rules && *(static_cast<uint8_t*>(rules) + warmup) != 0;
+}
+
+bool FreezeFor(int slot, bool on) {
+  static int moveType = -2, actual = -2;
+  if (moveType == -2) {
+    moveType = g_api->schema_offset(g_api->self, "CBaseEntity", "m_MoveType");
+    actual = g_api->schema_offset(g_api->self, "CBaseEntity", "m_nActualMoveType");
+  }
+  void* pawn = PawnOf(slot);
+  if (moveType < 0 || actual < 0 || !pawn) return false;
+  const uint8_t v = on ? kMoveObsolete : kMoveWalk;
+  *(static_cast<uint8_t*>(pawn) + moveType) = v;
+  *(static_cast<uint8_t*>(pawn) + actual) = v;
+  g_api->entity_mark_changed(g_api->self, pawn);
+  return true;
+}
+
+// W S move the chosen row (on the press, wrapping); the pawn is held still in warmup.
+void NavTick(int slot, HoldSlot& hs, bool gotButtons, uint64_t held) {
+  auto it = g_screens.find(slot);
+  const bool left = it != g_screens.end() && it->second.shown && !it->second.dismissed &&
+                    PanelOf(it->second.cur) == "ui_left" && !DemoActive(slot);
+  if (left && gotButtons) {
+    const uint64_t pressed = held & ~hs.prev;
+    int step = 0;
+    if (pressed & kInForward) --step;
+    if (pressed & kInBack) ++step;
+    if (step) {
+      it->second.sel += step;
+      NavDraw(slot, it->second);
+      hs.down = false;  // a hold on the old row does not carry over
+    }
+  }
+  hs.prev = gotButtons ? held : 0;
+  const bool freeze = left && InWarmup();
+  if (freeze != hs.frozen && FreezeFor(slot, freeze)) hs.frozen = freeze;
 }
 
 void HoldTick() {
@@ -1845,11 +2253,13 @@ void HoldTick() {
       continue;
     }
     HoldSlot& hs = g_hold[slot];
-    HoldTarget t;
-    const bool has = HoldAction(slot, &t);
     uint64_t held = 0;
     bool defusing = false;
-    const bool use = HeldButtons(slot, &held, &defusing) && (held & kInUse) && !defusing;
+    const bool got = HeldButtons(slot, &held, &defusing);
+    NavTick(slot, hs, got, held);
+    HoldTarget t;
+    const bool has = HoldAction(slot, &t);
+    const bool use = got && (held & kInUse) && !defusing;
     if (!use) {
       hs.down = false;
       hs.fired = false;
@@ -1883,6 +2293,11 @@ void HoldTick() {
 
 void OnMenuChat(void*, const ru_command_ctx* ctx) {
   if (ctx->slot < 0) return;
+  if (SlotOff(ctx->slot)) {
+    // HUD off for this player: the commands in chat instead of a menu.
+    g_api->chat_to_slot(g_api->self, ctx->slot, g_text.Tr(readyup::i18n::LanguageOf(g_api, ctx->slot), "menu.chat_help").c_str());
+    return;
+  }
   for (const auto& p : g_providers) {
     if (p.active(p.user, ctx->slot)) {
       p.open(p.user, ctx->slot, ctx->steamid64);
@@ -1890,6 +2305,17 @@ void OnMenuChat(void*, const ru_command_ctx* ctx) {
     }
   }
   g_api->chat_to_slot(g_api->self, ctx->slot, g_text.Tr(readyup::i18n::LanguageOf(g_api, ctx->slot), "menu.none").c_str());
+}
+
+// `.hud` (toggle), `.hud off`, `.hud on`: the custom HUD for this player. Off: Ready Up uses the
+// chat and the centre panel for them (saved; the platform's player setting sets the same).
+void OnHudChat(void*, const ru_command_ctx* ctx) {
+  if (ctx->slot < 0 || !ctx->steamid64) return;
+  const std::string a = ctx->argc > 1 && ctx->argv[1] ? ctx->argv[1] : "";
+  const bool off = a == "off" || a == "0" ? true : a == "on" || a == "1" ? false : !g_hudOff.count(ctx->steamid64);
+  SetPlayerOff(ctx->steamid64, off);
+  g_api->chat_to_slot(g_api->self, ctx->slot,
+                      g_text.Tr(readyup::i18n::LanguageOf(g_api, ctx->slot), off ? "hud.now_off" : "hud.now_on").c_str());
 }
 
 void OnDemoClick(void*, int slot, const char* command) {
@@ -2137,11 +2563,14 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_pauseUntil = -1;
   g_repushAfterPause = false;
   g_scale = 75;
+  HudOffLoad();
+  g_slotOff.reset();
   if (RU_API_HAS(api, config_get)) {
     char buf[16] = {};
     if (api->config_get(api->self, "scale", buf, sizeof(buf)) > 0 && ParseScale(buf) > 0) g_scale = ParseScale(buf);
   }
   ApplyScale();
+  SetTeamLogos();
   api->on_tick(api->self, &OnTick, nullptr);
   if (!api->subscribe_game_event(api->self, "round_prestart", &OnRoundPrestart, nullptr))
     ru_logf(api, RU_LOG_WARN, "round_prestart not available: a round restart may crash the server while a HUD is shown");
@@ -2159,6 +2588,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   if (RU_API_HAS(api, dev_mode) && api->dev_mode && api->dev_mode(api->self))
     api->register_chat_command(api->self, ".dev", &OnDevChat, nullptr);
   api->register_chat_command(api->self, ".menu", &OnMenuChat, nullptr);
+  api->register_chat_command(api->self, ".hud", &OnHudChat, nullptr);
   if (RU_API_HAS(api, filter_client_command)) {
     api->filter_client_command(api->self, "open_buymenu", &OnBuyMenu, nullptr);
     api->filter_client_command(api->self, "close_buymenu", &OnBuyMenu, nullptr);

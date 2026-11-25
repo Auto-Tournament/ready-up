@@ -14,7 +14,9 @@ std::vector<uint64_t> ParseIds(const std::string& text, int* bad);
 // server mounts it, whatever workshop_addons lists.
 constexpr uint64_t kHudAddon = 3827905393ull;
 // `ids` with the HUD addon first (unless listed already).
-std::vector<uint64_t> WithHudAddon(std::vector<uint64_t> ids);
+// `hud` replaces it on one server (`hud_addon=<id>` in [addons]: a test build of the HUD), never
+// mounted next to it, so the test copy is the one players load.
+std::vector<uint64_t> WithHudAddon(std::vector<uint64_t> ids, uint64_t hud = kHudAddon);
 
 // ISteamUGC::GetItemState bits (EItemState).
 enum ItemState : uint32_t {

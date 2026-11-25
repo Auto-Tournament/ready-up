@@ -4,7 +4,10 @@
 //
 //   id=pick                      the screen's identity: a new id plays the leave / enter animation,
 //                                the same id updates in place (countdowns, ready dots)
-//   where=mid                    card (right, above the weapons) | mid (centre of the lower half)
+//   where=mid                    card (right, above the weapons) | mid (centre of the lower half) |
+//                                left (menus: a list, rows chosen with W S, held with E; a close row) |
+//                                chip (no card: the hold chip above the AT logo says the first
+//                                button and the counter, holding E presses it; color=live: green)
 //   color=live                   acc (default) | live | warn | ban | muted | ct | t
 //   kind=You won the knife       small coloured label above the title
 //   title=Which side do you want?
@@ -69,6 +72,7 @@ struct Screen {
   std::string vsName[2], vsSide[2];  // vsSide: "ct", "t" or empty
   bool confirmReady[2] = {false, false};
   std::vector<std::pair<std::string, std::string>> cmds;  // label, command
+  std::vector<std::string> cmdAfter;  // text after cmds[i]'s box ("Type [.menu] to pause ...")
   std::vector<std::pair<std::string, std::string>> lines;  // label, value
   bool mini = false;
   std::string fx;    // enter; empty: picked from the screen (RenderScreen)
@@ -83,6 +87,7 @@ struct Screen {
   Mouse mouse = Mouse::Off;
   bool chips = false;
   bool hold = false;  // `hold=1`: holding Use presses the first button (hud.so HoldAction)
+  bool noCloseRow = false;  // `closerow=0`: a where=left list without its close row (a choice that must be made)
 
   bool empty() const { return title.empty() && kind.empty(); }
 };

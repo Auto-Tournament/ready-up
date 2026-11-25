@@ -1,6 +1,10 @@
 {
   "menu.none": "Tällä palvelimella ei ole nyt valikkoa.",
+  "menu.chat_help": "Komennot: .r valmis · .p tekninen tauko · .tac aikalisä · .gg luovuta · .admin kutsu admin · .hud HUD",
+  "hud.now_off": "HUD pois: Ready Up kirjoittaa sinulle chattiin. .hud laittaa sen takaisin.",
+  "hud.now_on": "HUD päällä.",
   "hud.outdated": "HUD on vanhentunut. Napsauta alustalla ? ja valitse HUD.",
   "hud.hold_menu": "Valikko",
-  "hud.hold_close": "Sulje"
+  "hud.hold_close": "Sulje",
+  "hud.menu_hint": "W ↑  S ↓  Pidä E: valitse"
 }

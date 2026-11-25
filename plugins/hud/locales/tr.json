@@ -1,6 +1,10 @@
 {
   "menu.none": "Şu anda bu sunucuda menü yok.",
+  "menu.chat_help": "Komutlar: .r hazır · .p teknik mola · .tac mola · .gg pes et · .admin admin çağır · .hud HUD",
+  "hud.now_off": "HUD kapalı: Ready Up sana sohbetten yazar. .hud tekrar açar.",
+  "hud.now_on": "HUD açık.",
   "hud.outdated": "HUD güncel değil. Platformda ? simgesine tıkla ve HUD'u seç.",
   "hud.hold_menu": "Menü",
-  "hud.hold_close": "Kapat"
+  "hud.hold_close": "Kapat",
+  "hud.menu_hint": "W ↑  S ↓  E basılı tut: seç"
 }

@@ -1,6 +1,10 @@
 {
   "menu.none": "Hiện máy chủ này không có menu.",
+  "menu.chat_help": "Lệnh: .r sẵn sàng · .p tạm dừng kỹ thuật · .tac hội ý · .gg đầu hàng · .admin gọi admin · .hud HUD",
+  "hud.now_off": "Tắt HUD: Ready Up sẽ báo bạn qua chat. .hud để bật lại.",
+  "hud.now_on": "Bật HUD.",
   "hud.outdated": "HUD đã cũ. Trên nền tảng, nhấn ? rồi chọn HUD.",
   "hud.hold_menu": "Menu",
-  "hud.hold_close": "Đóng"
+  "hud.hold_close": "Đóng",
+  "hud.menu_hint": "W ↑  S ↓  Giữ E: chọn"
 }

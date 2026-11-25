@@ -39,6 +39,7 @@ struct Outgoing {
   std::vector<std::string> lines;
   bool card = false;  // the table card on the Auto Tournament HUD instead of chat lines
   int total = 0;
+  int took = 0;  // all the damage the player took this round
   struct Row {
     std::string name, given, taken, hp;  // given..hp in `lang` (LocalizeRows)
     int dmg = 0, took = 0, health = 0, hitsGiven = 0, hitsTaken = 0;
@@ -69,6 +70,8 @@ void LocalizeRows(Outgoing& o) {
 void FillCard(Outgoing& o, const DamageParticipant& self, const std::vector<DamageParticipant>& players,
               const DamageLedger& ledger) {
   for (const auto& p : players) {
+    // Damage on teammates counts in "Dealt X damage" too (Sivert, 2026-11-24); rows stay enemies only.
+    if (p.key != self.key && p.team == self.team && (p.team == 2 || p.team == 3)) o.total += ledger.Dealt(self.key, p.key).dmg;
     if (p.key == self.key || (p.team != 2 && p.team != 3) || p.team == self.team) continue;
     const auto to = ledger.Dealt(self.key, p.key);
     const auto from = ledger.Dealt(p.key, self.key);
@@ -87,7 +90,20 @@ void FillCard(Outgoing& o, const DamageParticipant& self, const std::vector<Dama
   std::stable_sort(o.rows.begin(), o.rows.end(), [](const Outgoing::Row& x, const Outgoing::Row& y) {
     return x.dmg != y.dmg ? x.dmg > y.dmg : x.took > y.took;
   });
-  if (static_cast<int>(o.rows.size()) > kCardRows) o.rows.resize(kCardRows);
+  // Your own damage to yourself (own grenades, fire, falling) as a row under your name, last
+  // (Sivert, 2026-11-24); the header says what you took in all.
+  o.took = ledger.Taken(self.key);
+  const auto own = ledger.Self(self.key);
+  const int keep = kCardRows - (own.hits > 0 ? 1 : 0);
+  if (static_cast<int>(o.rows.size()) > keep) o.rows.resize(keep);
+  if (own.hits > 0) {
+    Outgoing::Row r;
+    r.name = self.name;
+    r.dmg = own.dmg;
+    r.hitsGiven = own.hits;
+    r.health = ledger.Health(self.key);
+    o.rows.push_back(std::move(r));
+  }
   LocalizeRows(o);
   o.card = true;  // a round without a fight still gets its card ("0 damage"), not chat lines
 }
@@ -120,7 +136,7 @@ bool ShowCard(const Outgoing& o, int round, double until = 0) {
   auto txt = [&](const std::string& id, const std::string& v) { h->set_text(k, s, id.c_str(), "text", v.c_str()); };
   auto cls = [&](const std::string& id, const char* c, bool on) { h->set_class(k, s, id.c_str(), c, on ? 1 : 0); };
   txt("at_kind_a", text::ForLang(o.lang, "dmg.card_round", {{"round", std::to_string(round)}}));
-  txt("at_text_a", text::ForLang(o.lang, "dmg.card_total", {{"total", std::to_string(o.total)}}));
+  txt("at_text_a", text::ForLang(o.lang, "dmg.card_totals", {{"total", std::to_string(o.total)}, {"took", std::to_string(o.took)}}));
   // Column headers in the player's language (at_kit.xml from the next addon publish on; the
   // published addon has them as fixed English text and ignores these).
   txt("at_dh_name", text::ForLang(o.lang, "dmg.col_player"));  // addon version 2 on
@@ -281,7 +297,9 @@ void OnGameEvent(void*, const char* name, const ru_game_event* ev) {
     const int victim = a->ev_get_player_slot(a->self, ev, "userid");
     const int attacker = a->ev_get_player_slot(a->self, ev, "attacker");
     const int dmg = a->ev_get_int(a->self, ev, "dmg_health", 0);
-    g_ledger.OnHurt(attacker, victim, dmg, a->ev_get_int(a->self, ev, "health", 0));
+    const char* weapon = a->ev_get_string ? a->ev_get_string(a->self, ev, "weapon", "") : "";
+    const bool burn = weapon && std::strcmp(weapon, "inferno") == 0;
+    g_ledger.OnHurt(attacker, victim, dmg, a->ev_get_int(a->self, ev, "health", 0), burn);
     if (attacker >= 0 && victim >= 0 && attacker != victim && dmg > 0) {
       const int ta = TeamOf(attacker), tv = TeamOf(victim);
       if ((ta == 2 || ta == 3) && (tv == 2 || tv == 3) && ta != tv) g_enemyDamage = true;

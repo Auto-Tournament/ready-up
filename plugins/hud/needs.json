@@ -48,8 +48,13 @@
     "HUDPanelDialogVariableString_t.m_bIsSet"
   ],
   "schema_optional": [
+    "CBaseEntity.m_MoveType",
+    "CBaseEntity.m_nActualMoveType",
     "CCSCustomHudLayout.m_bObservable",
-    "CCSCustomHudLayoutState.m_bInputCaptureEnabled"
+    "CCSCustomHudLayoutState.m_bInputCaptureEnabled",
+    "CCSGameRules.m_bWarmupPeriod",
+    "CCSGameRulesProxy.m_pGameRules",
+    "CCSPlayerController.m_hPlayerPawn"
   ],
   "events": [
     "begin_new_match",

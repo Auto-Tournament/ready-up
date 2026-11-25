@@ -200,7 +200,8 @@ void GoLiveCardTick() {
                        : WelcomeActiveFor(slot, h.steamid64)     ? "welcome card"
                                                                  : nullptr;
     if (!skip && screens) {
-      HudScreensNotice(slot, spec, 1.0);
+      // HUD off (.hud off): no card; modes.cpp sends them the go-live lines in chat.
+      if (!HudOffFor(h.steamid64)) HudScreensNotice(slot, spec, 1.0);
       ++ok;
       continue;
     }
@@ -236,7 +237,8 @@ void GoLiveCardTick() {
   }
   // The same commands in chat too, once at go-live: they stay there to look up after the card is
   // gone (and they are the only copy when center HTML is unavailable).
-  if (humans > 0) {
+  // Not with the HUD's LIVE card: it lists them, and the chat burst was too much (2026-11-24).
+  if (humans > 0 && !screens) {
     if (!GoLiveCommandsLine(info, /*html=*/false).empty()) {
       host::RunOnGameThread([info] {
         if (const ru_api* a = host::Api())

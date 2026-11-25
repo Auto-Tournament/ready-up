@@ -1,6 +1,10 @@
 {
   "menu.none": "Det er ingen meny på denne serveren akkurat nå.",
+  "menu.chat_help": "Kommandoer: .r klar · .p teknisk pause · .tac timeout · .gg gi opp · .admin tilkall admin · .hud HUD",
+  "hud.now_off": "HUD av: Ready Up skriver til deg i chatten. .hud slår det på igjen.",
+  "hud.now_on": "HUD på.",
   "hud.outdated": "HUD-en er utdatert. Klikk på ? på plattformen og velg HUD.",
   "hud.hold_menu": "Meny",
-  "hud.hold_close": "Lukk"
+  "hud.hold_close": "Lukk",
+  "hud.menu_hint": "W ↑  S ↓  Hold E: velg"
 }

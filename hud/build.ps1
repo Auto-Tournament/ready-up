@@ -58,6 +58,14 @@ foreach ($job in $jobs) {
     foreach ($file in Get-ChildItem (Join-Path $here $job.Src) -Filter "*.$($job.Ext)") {
         $target = Join-Path $dstDir $file.Name
         Copy-Item $file.FullName $target -Force
+        # The dev build line (ui_dev): this build's commit and time, so a dev server shows which HUD
+        # each player has.
+        if ($job.Ext -eq "xml") {
+            $sha = (& git -C $here rev-parse --short HEAD 2>$null)
+            if (-not $sha) { $sha = "nogit" }
+            $stamp = "$sha " + (Get-Date -Format "yyyy-MM-dd HH:mm")
+            (Get-Content $target -Raw) -replace "__AT_HUD_BUILD__", $stamp | Set-Content $target -NoNewline -Encoding utf8
+        }
         # The compiler works out the addon from the content\csgo_addons\<addon> path.
         & $compiler -i $target | Out-Host
         $out = Join-Path $game (Join-Path $job.Dst ($file.BaseName + "." + $job.Out))
@@ -101,6 +109,31 @@ foreach ($file in Get-ChildItem (Join-Path $here "images\icons") -Filter "*.svg"
     } else {
         Write-Output "FAILED  $out"
         $failed++
+    }
+    # The team emblems also exist as panorama\images\icons\ct_logo / t_logo (no _1c); as CT the
+    # circle still showed CS2's emblem with only the _1c file replaced (2026-11-24). Same picture.
+    if ($file.BaseName -match '^(ct|t)_logo_1c$') {
+        $side = $Matches[1]
+        $plain = Join-Path (Join-Path $content "panorama\images\icons") ($side + "_logo.svg")
+        Copy-Item $file.FullName $plain -Force
+        & $compiler -i $plain | Out-Host
+        $out2 = Join-Path $game ("panorama\images\icons\" + $side + "_logo.vsvg_c")
+        if (Test-Path $out2) { Write-Output ("OK      {0} ({1} bytes)" -f $out2, (Get-Item $out2).Length) } else { Write-Output "FAILED  $out2"; $failed++ }
+    }
+    # The same ram as a team logo (mp_teamlogo_1/2 atram, set by hud.so; CS2 cuts a logo name at 7 characters): CS2 draws the team
+    # logo in that circle and loads it by name when needed, so unlike the icons above (cached at
+    # startup) it shows every time.
+    if ($file.BaseName -eq "ct_logo_1c") {
+        # The full-colour AT logo (images/team/atram.svg) when there is one; else the ram above.
+        $teamSrc = Join-Path $here "images\team\atram.svg"
+        if (Test-Path $teamSrc) { $file = Get-Item $teamSrc }
+        $teamDir = Join-Path $content "panorama\images\tournaments\teams"
+        New-Item -ItemType Directory -Force -Path $teamDir | Out-Null
+        $team = Join-Path $teamDir "atram.svg"
+        Copy-Item $file.FullName $team -Force
+        & $compiler -i $team | Out-Host
+        $out3 = Join-Path $game "panorama\images\tournaments\teams\atram.vsvg_c"
+        if (Test-Path $out3) { Write-Output ("OK      {0} ({1} bytes)" -f $out3, (Get-Item $out3).Length) } else { Write-Output "FAILED  $out3"; $failed++ }
     }
 }
 

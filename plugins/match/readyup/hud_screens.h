@@ -28,6 +28,14 @@ struct HumanIdentity;
 // True when the clickable HUD draws the match screens: readyup.cfg hud_screens (default on), and
 // hud.so is loaded with `screen` and can draw on this CS2 build. Off: the center-HTML panels.
 bool HudScreensOn();
+// The player turned the custom HUD off (.hud off, or the platform's player setting; hud.so keeps
+// it, ru_hud_v1 1.4 player_off). They get the centre panel and the chat lines instead.
+bool HudOffFor(uint64_t steamid64);
+// What the HUD says, in chat for the players who turned it off (when the HUD is on for the rest).
+void ChatHudOff(const std::string& key, const i18n::Args& args = {});
+// A chat line for everyone when the HUD doesn't show it (hudShows false), else only for the players
+// who turned the HUD off (.hud off): chat is their whole ready-up UI.
+void ChatUnlessHud(bool hudShows, const std::string& key, const i18n::Args& args = {});
 
 // A live round is running (not freeze time, not paused): nothing may take the cursor.
 bool HudMidRound();
@@ -36,6 +44,8 @@ bool HudMidRound();
 // the knife round to the next map's warmup (and in modes another plugin runs) it sets class `hold`
 // on #ui_ver, and hud.so leaves the pill off. Once a tick, game thread.
 void HudOutdatedHoldTick();
+// Warmup: every 60 s a chat tip that .menu has pause, admin and forfeit (tip.menu).
+void WarmupMenuTipTick();
 
 // One tick: shows every connected human their screen (menu, vote, else baseFor(h); "" = none)
 // and hides it for players who left. Game thread.

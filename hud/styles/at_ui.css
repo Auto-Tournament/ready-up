@@ -15,13 +15,14 @@
    sits, the card bottom right, the centre panel bottom centre. No class: 100 %. */
 .ui-cardwrap { width: 100%; height: 100%; transform-origin: 100% 100%; }
 .ui-midwrap { width: 100%; height: 100%; transform-origin: 50% 100%; }
-.ui-cardwrap.scale-70, .ui-midwrap.scale-70 { transform: scale3d( 0.7, 0.7, 1 ); }
-.ui-cardwrap.scale-75, .ui-midwrap.scale-75 { transform: scale3d( 0.75, 0.75, 1 ); }
-.ui-cardwrap.scale-80, .ui-midwrap.scale-80 { transform: scale3d( 0.8, 0.8, 1 ); }
-.ui-cardwrap.scale-85, .ui-midwrap.scale-85 { transform: scale3d( 0.85, 0.85, 1 ); }
-.ui-cardwrap.scale-90, .ui-midwrap.scale-90 { transform: scale3d( 0.9, 0.9, 1 ); }
-.ui-cardwrap.scale-95, .ui-midwrap.scale-95 { transform: scale3d( 0.95, 0.95, 1 ); }
-.ui-cardwrap.scale-100, .ui-midwrap.scale-100 { transform: scale3d( 1, 1, 1 ); }
+.ui-leftwrap { width: 100%; height: 100%; transform-origin: 0% 50%; }
+.ui-cardwrap.scale-70, .ui-midwrap.scale-70, .ui-leftwrap.scale-70 { transform: scale3d( 0.7, 0.7, 1 ); }
+.ui-cardwrap.scale-75, .ui-midwrap.scale-75, .ui-leftwrap.scale-75 { transform: scale3d( 0.75, 0.75, 1 ); }
+.ui-cardwrap.scale-80, .ui-midwrap.scale-80, .ui-leftwrap.scale-80 { transform: scale3d( 0.8, 0.8, 1 ); }
+.ui-cardwrap.scale-85, .ui-midwrap.scale-85, .ui-leftwrap.scale-85 { transform: scale3d( 0.85, 0.85, 1 ); }
+.ui-cardwrap.scale-90, .ui-midwrap.scale-90, .ui-leftwrap.scale-90 { transform: scale3d( 0.9, 0.9, 1 ); }
+.ui-cardwrap.scale-95, .ui-midwrap.scale-95, .ui-leftwrap.scale-95 { transform: scale3d( 0.95, 0.95, 1 ); }
+.ui-cardwrap.scale-100, .ui-midwrap.scale-100, .ui-leftwrap.scale-100 { transform: scale3d( 1, 1, 1 ); }
 
 .ui-panel
 {
@@ -122,6 +123,9 @@
 .ui-cmd { flow-children: right; margin: 0px 8px; }
 .ui-cmd.gone { visibility: collapse; }
 .ui-cmdlabel { vertical-align: center; margin-right: 6px; font-size: 15px; color: #c4bcb9; }
+/* cmd=label|.cmd|after: "Type [.menu] to pause, call an admin or forfeit" */
+.ui-cmdafter { margin-right: 0px; margin-left: 6px; }
+.ui-cmdlabel.gone { visibility: collapse; }
 .ui-kbd { padding: 2px 7px; border-radius: 5px; background-color: #211815; border: 1px solid #736966; }
 .ui-kbdtext { font-family: "Noto Mono"; font-size: 15px; font-weight: bold; color: #f4edeb; }
 
@@ -861,20 +865,60 @@
 	visibility: collapse;
 }
 .ui-ver.check { visibility: visible; }
+/* Dev servers: the build line, top right under CS2's ping (hud.so sets `on` with readyup.cfg dev=1). */
+.ui-dev { visibility: collapse; horizontal-align: right; vertical-align: top; margin: 34px 12px 0px 0px; flow-children: down; }
+.ui-dev.on { visibility: visible; }
+.ui-devt { horizontal-align: right; font-family: "Noto Mono"; font-size: 12px; color: #f4edebcc; text-shadow: 0px 1px 2px 1.0 #000000cc; }
+/* Watermark either side of the AT logo (draft G, 2026-11-24): the circle is ~104 px wide at 1080p and
+   centred, so each half ends / starts 52 px from the middle. "PLAYED ON" above CS2's health line,
+   "AUTO TOURNAMENT" below it. */
+.ui-wm { width: 100%; height: 100%; opacity: 0; transition-property: opacity; transition-duration: 0.2s; }
+/* #ui_wm and #ui_badge: `on` (hud.so) only while the player is alive on T or CT. `spec` on ui_wm
+   while watching a player: one line, "PLAYED ON AUTO TOURNAMENT", just above CS2's spectator bar
+   (its top is ~88px above the bottom at 1080p, 2026-11-24). */
+.ui-wm.on, .ui-wm.spec { opacity: 1; }
+.ui-wm.spec .ui-wml .ui-wmt { margin-right: 6px; margin-bottom: 96px; }
+.ui-wm.spec .ui-wmr .ui-wmt { margin-left: 6px; margin-bottom: 96px; }
+.ui-wmhalf { width: 50%; height: 100%; }
+.ui-wml { horizontal-align: left; }
+.ui-wmr { horizontal-align: right; }
+.ui-wmt { vertical-align: bottom; font-family: "Noto Mono"; font-size: 12px; font-weight: bold; letter-spacing: 2.4px; color: #f4edebd9; text-shadow: 0px 1px 2px 1.0 #000000aa; white-space: nowrap; }
+.ui-wml .ui-wmt { horizontal-align: right; margin-right: 52px; margin-bottom: 61px; }
+.ui-wmr .ui-wmt { horizontal-align: left; margin-left: 52px; margin-bottom: 31px; }
+/* The badge (#ui_badge): CS2's ring is ~61px across, its centre 51px above the bottom, ~3px thick
+   (1080p screenshot, 2026-11-24). The disc fills inside it, opaque, in the mid grey of Valve's own on a bright wall (Sivert picked it from the draft, 2026-11-25), and covers the
+   CT/T emblem; the ram is the team logo file (images/team/atram.svg, built by hud/build.ps1). */
+.ui-badge { width: 56px; height: 56px; horizontal-align: center; vertical-align: bottom; margin-bottom: 23px; border-radius: 50%; background-color: #6c6b6c; opacity: 0; transition-property: opacity; transition-duration: 0.2s; }
+.ui-badge.on { opacity: 1; }
+.ui-badgeram { width: 46px; height: 46px; horizontal-align: center; vertical-align: center; background-image: url( "s2r://panorama/images/tournaments/teams/atram.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
 .ui-vertext { font-size: 15px; font-weight: bold; color: #e6b33c; }
-/* Hold Use (#ui_hold): top right, under CS2's ping. `on` when holding the key does something,
+/* Hold Use (#ui_hold): right under the crosshair, where every player looks (Sivert, 2026-11-24:
+   was above the AT logo, before that top right). margin-top 240px with vertical-align center puts
+   it ~120px below the centre. Its border pulses orange until E is held, to catch the eye. `on` when holding the key does something,
    `hold` while it is down: the fill runs left to right over the hold time and the keycap's
    brackets close in. hud.so takes `hold` off on release, which resets both. The hold time is
    0.6 s in hud.so; keep kHoldSeconds and the 0.6s below the same. */
 .ui-hold
 {
-	horizontal-align: right; vertical-align: top; margin: 40px 14px 0px 0px;
+	horizontal-align: center; vertical-align: center; margin-top: 240px;
 	width: fit-children; height: 38px; flow-children: none; overflow: clip; border-radius: 19px;
 	opacity: 0; transform: translateY( -6px );
-	transition-property: opacity, transform; transition-duration: 0.2s; transition-timing-function: ease-out;
+	transition-property: opacity, transform; transition-duration: 0.2s, 1s; transition-timing-function: ease-out, ease-in-out;  /* the move: 1 s ease-in-out both ways */
 }
 .ui-hold.on { opacity: 1; transform: translateY( 0px ); }
-.ui-holdbg { width: 100%; height: 100%; background-color: #140e0cd9; border: 1px solid #322926; border-radius: 19px; }
+/* Ready (green, c-live): the chip slides down to just above the AT logo instead of fading out, so
+   you see it move as it turns green (Sivert, 2026-11-24). From the crosshair spot (centre 660 at
+   1080p) to centre ~935, clear of CS2's card icon above the logo circle. */
+.ui-hold.on.c-live { transform: translateY( 275px ); }  /* moves with .ui-hold's 1 s ease-in-out, down and back up */
+.ui-holdbg { width: 100%; height: 100%; background-color: #140e0cd9; border: 1px solid #322926; border-radius: 19px; transition-property: background-color, border; transition-duration: 0.35s; }
+.ui-hold.on .ui-holdbg { animation-name: ui-hold-pulse; animation-duration: 1.4s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+.ui-hold.hold .ui-holdbg { animation-name: none; border: 1px solid #ff6a3d; }
+@keyframes 'ui-hold-pulse'
+{
+	0% { border: 1px solid #322926; }
+	50% { border: 1px solid #ff6a3d; }
+	100% { border: 1px solid #322926; }
+}
 .ui-holdfill
 {
 	width: 100%; height: 100%; border-radius: 19px; background-color: #ff6a3d73;
@@ -916,10 +960,93 @@
 .ui-btn.hold .ui-kcr { animation-name: ui-hold-kcr; animation-duration: 0.6s; animation-timing-function: linear; animation-fill-mode: forwards; }
 .ui-panel.holdable .ui-hint { visibility: collapse; }
 
+/* ---- v4 look for every card (Hold E redesign, 2026-11-24; canvas page Hold E, "Every card") ----
+   One style everywhere: our dark surface, a thin orange border, 12 px corners, a small coloured
+   label, one bold line, a 3 px line in the label's colour. No brand row, wash or pixels. */
+.ui-root .ui-panel { background-color: #140e0ce6; border: 1px solid #ff6a3d40; border-radius: 12px; }
+.ui-root .ui-back { background-color: #140e0ce6; }
+.ui-root .ui-brand { visibility: collapse; }
+.ui-root .ui-wash { visibility: collapse; }
+.ui-root .ui-pixels { visibility: collapse; }
+.ui-root .ui-line { height: 3px; }
+.ui-root .ui-title { font-size: 26px; }
+.ui-root .ui-flow { padding: 14px 24px 16px 24px; }
+/* hold=1: the chip above the logo carries the first button, so the card shows no buttons. */
+.ui-root .ui-panel.chiphold .ui-buttons { visibility: collapse; }
+.ui-root .ui-panel.chiphold .ui-hint { visibility: collapse; }
+.ui-root .ui-panel.chiphold .ui-cmds { visibility: collapse; }
+.ui-root .ui-panel.chiphold .ui-close { visibility: collapse; }
+/* The chip when it is done (Ready): green, full, no pulse; holding E runs the fill again. */
+.ui-hold.c-live .ui-holdbg { animation-name: none; border: 1px solid #3fc168; background-color: #0f2417e0; }
+.ui-hold.c-live .ui-holdfill { background-color: #3fc16840; }
+.ui-hold.c-live.hold .ui-holdfill { background-color: #3fc16873; }
+
+/* ---- Menu panel (#ui_left, v4 Hold E) ----------------------------------------------------------
+   A list on the left, vertically centred, a quarter of the screen wide. hud.so marks the chosen row
+   `sel` (W S move it, wrapping) and puts `hold` on it while E is down: the accent slides across it
+   in 0.6 s (= kHoldSeconds), then it is picked. The close row is always last. Mouse clicks work too. */
+.ui-left
+{
+	horizontal-align: left; vertical-align: center; margin-left: 38px;
+	width: 440px; border: 1px solid #ff6a3d40; border-radius: 12px; background-color: #140e0ce6;
+	transform: translate3d( -40px, 0px, 0px ) rotateX( 0deg ) scale3d( 1, 1, 1 );
+}
+#ui_left .ui-back { background-color: #140e0ce6; }
+#ui_left .ui-wash { visibility: collapse; }
+#ui_left .ui-pixels { visibility: collapse; }
+#ui_left .ui-line { visibility: collapse; }
+#ui_left .ui-flow { horizontal-align: left; width: 100%; min-width: 100%; padding: 14px 0px 12px 0px; }
+#ui_left .ui-brand { visibility: collapse; }
+#ui_left .ui-kind { horizontal-align: left; margin: 0px 16px 4px 16px; }
+#ui_left .ui-title { horizontal-align: left; text-align: left; margin: 0px 16px 10px 16px; font-size: 24px; color: #ff6a3d; }
+#ui_left .ui-sub { horizontal-align: left; text-align: left; margin: 0px 16px 8px 16px; }
+#ui_left .ui-hint { horizontal-align: left; margin: 10px 16px 0px 16px; font-size: 15px; color: #c4bcb9; white-space: nowrap; }  /* W ↑ · S ↓ · Hold E: pick, one row */
+#ui_left .ui-timer { margin: 16px 16px 0px 0px; }
+#ui_left .ui-buttons { horizontal-align: left; width: 100%; margin-top: 0px; flow-children: down; }
+#ui_left .ui-btn
+{
+	horizontal-align: left; width: 100%; height: 38px; margin: 0px; padding: 0px;
+	border-radius: 0px; background-color: #00000000; border: 0px solid #00000000; transform: none;
+	transition-property: background-color; transition-duration: 0.12s;
+}
+#ui_left .ui-btn:hover { transform: none; background-color: #ff6a3d1f; border: 0px solid #00000000; }
+#ui_left .ui-btnglow { visibility: collapse; }
+#ui_left .ui-btnfill { border-radius: 0px; background-color: #ff6a3d; }
+#ui_left .ui-rowmark
+{
+	horizontal-align: left; vertical-align: center; margin-left: 12px;
+	width: 3px; height: 18px; border-radius: 2px; background-color: #00000000;
+}
+#ui_left .ui-btnlabel { horizontal-align: left; text-align: left; width: fit-children; margin-left: 24px; padding-left: 0px; font-size: 19px; font-weight: normal; color: #f4edeb; }
+#ui_left .ui-btnsub { visibility: visible; margin-right: 16px; font-weight: normal; color: #938a87; }
+#ui_left .ui-btn.sel { background-color: #ff6a3d2e; }
+#ui_left .ui-btn.sel .ui-rowmark { background-color: #ff6a3d; }
+#ui_left .ui-btn.sel .ui-btnlabel { font-weight: bold; color: #ffffff; }
+#ui_left .ui-btn.off .ui-btnlabel { color: #736966; }
+#ui_left .ui-btn.picked .ui-btnlabel { color: #ff6a3d; }
+#ui_left .t-green .ui-btnlabel { color: #3fc168; }
+#ui_left .t-ct .ui-btnlabel { color: #8fa0ff; }
+#ui_left .t-t .ui-btnlabel { color: #ff7a82; }
+#ui_left .t-warn .ui-btnlabel { color: #e6b33c; }
+#ui_left .t-danger .ui-btnlabel { color: #f2645f; }
+#ui_left .ui-close
+{
+	visibility: visible; horizontal-align: left; width: 100%; height: 38px; margin: 6px 0px 0px 0px; padding: 0px;
+	border-radius: 0px; background-color: #00000000; border: 0px solid #00000000; transform: none;
+}
+#ui_left .ui-close:hover { transform: none; background-color: #ff6a3d1f; }
+#ui_left .ui-closelabel { horizontal-align: left; margin-left: 24px; font-size: 19px; font-weight: normal; color: #c4bcb9; }
+#ui_left .ui-close.sel { background-color: #ff6a3d2e; }
+#ui_left .ui-close.sel .ui-rowmark { background-color: #ff6a3d; }
+#ui_left .ui-close.sel .ui-closelabel { font-weight: bold; color: #ffffff; }
+#ui_left .ui-close.hold .ui-btnfill { animation-name: ui-hold-fill; animation-duration: 0.6s; animation-timing-function: linear; animation-fill-mode: forwards; }
+
 /* addon version (generated by hud/tools/gen_ui.py from plugins/hud/hud_addon.h) */
 .ui-ver.check.v-1 { visibility: collapse; }
 .ui-ver.check.v-2 { visibility: collapse; }
 .ui-ver.check.v-3 { visibility: collapse; }
 .ui-ver.check.v-4 { visibility: collapse; }
 .ui-ver.check.v-5 { visibility: collapse; }
+.ui-ver.check.v-6 { visibility: collapse; }
+.ui-ver.check.v-7 { visibility: collapse; }
 /* end addon version */

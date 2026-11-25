@@ -494,6 +494,15 @@ static std::string ReadySpec(const Board& b, uint64_t viewer, const std::string&
          "|" + tName + "|" + std::to_string(std::min(ready[1], 5)) + "|" + std::to_string(std::clamp(total[1], 0, 5)) + "\n";
   }
   const std::string count = std::to_string(b.ready) + " / " + std::to_string(b.total);
+  // v4 (Hold E): no ready card any more. The chip above the AT logo says the button and the count
+  // (hud.so where=chip), green once ready; holding E presses it. Spectators and players without a
+  // button (waiting for the team) still get the small card below.
+  if (!btn.empty()) {
+    // One id for both states: the chip updates in place (slides down, turns green) instead of
+    // fading out and in when you ready up (Sivert, 2026-11-24).
+    return L("id", "readychip") + L("where", "chip") + L("color", ok ? "live" : "acc") + L("kind", kind) +
+           L("title", title) + btn + L("counter", count) + L("hold", "1");
+  }
   // Ready: the card shrinks to a one-line pill (dots, count, a small Unready), welcome or not. It
   // waited for the welcome to end, which starts over at every respawn, so in warmup it stayed big
   // (2026-11-07).
@@ -523,14 +532,24 @@ static bool ViewerTeamShort(const Board& b, uint64_t viewer) {
 }
 
 // Knife: "knives only" before the fight, then the side pick (winners) or the wait (everyone else).
-static std::string KnifeSpec(const KnifeHudInfo& k, int viewerSide, const std::string& lang) {
+static std::string KnifeSpec(const KnifeHudInfo& k, int viewerSide, uint64_t viewer, const std::string& lang) {
   if (k.phase == KnifePhase::Starting) {
-    return L("id", "knife") + L("color", "live") + L("kind", T(lang, "spec.knife_round")) + L("title", T(lang, "spec.winners_pick"));
+    // Orange, not green: green read as "someone already won" (Sivert, 2026-11-24). Green = done / live.
+    return L("id", "knife") + L("kind", T(lang, "spec.knife_round")) + L("title", T(lang, "spec.winners_pick"));
   }
   const std::string secs = std::to_string(std::max(0, k.secondsLeft));
+  if (viewerSide == k.winnerCs && k.captain && viewer != k.captain) {
+    // The captain picks (a captain is set): the rest of the team only sees who is picking.
+    return L("id", "captain") + L("color", "live") + L("kind", T(lang, "spec.you_won_knife")) +
+           L("title", T(lang, "spec.team_picking", {{"team", HudSpecText(k.captainName)}})) + L("timer", secs);
+  }
   if (viewerSide == k.winnerCs) {
-    return L("id", "pick") + L("color", "live") + L("kind", T(lang, "spec.you_won_knife")) + L("title", T(lang, "spec.which_side")) +
-           L("timer", secs) + "btn=CT|ct||.ct\nbtn=T|t||.t\n" + L("mouse", "on");
+    // The menu panel on the left (v4, Hold E): W S choose, holding E picks. The side the team is on
+    // now comes first, so holding E at once stays.
+    const std::string rows = viewerSide == 2 ? "btn=T|t||.t\nbtn=CT|ct||.ct\n" : "btn=CT|ct||.ct\nbtn=T|t||.t\n";
+    return L("id", "pick") + L("where", "left") + L("color", "live") + L("kind", T(lang, "spec.you_won_knife")) +
+           L("title", T(lang, "spec.which_side")) + L("timer", secs) + rows + L("mouse", "on") +
+           L("closerow", "0");  // a choice that must be made: no Close (Sivert, 2026-11-24)
   }
   const bool playing = viewerSide == 2 || viewerSide == 3;
   return L("id", "lost") + L("kind", T(lang, playing ? "spec.you_lost_knife" : "spec.knife_round")) +
@@ -551,7 +570,7 @@ static std::string LiveSpec(const LiveHudInfo& l, int viewerSide, const std::str
     const bool done = mine == WebhookTeam::Team1 ? l.team1Confirmed : l.team2Confirmed;
     if (done)
       return s + "btn=" + T(lang, "spec.waiting_for", {{"team", mine == WebhookTeam::Team1 ? t2 : t1}}) + "|ghost|off|\n" + L("bw", "xl");
-    return s + "btn=" + T(lang, "spec.btn_unpause") + "|warn|pulse|.up\n" + L("bw", "l") + L("mouse", "on");
+    return s + "btn=" + T(lang, "spec.btn_unpause") + "|warn|pulse|.up\n" + L("bw", "l") + L("mouse", "on") + L("hold", "1");
   };
   if (l.paused && l.pendingFreeze) {
     // Asked for mid-round: the round goes on until freeze time. Only the pausing team is told, on
@@ -673,7 +692,7 @@ void ReadyHudTick() {
   }
 
   // The clickable HUD draws these screens (and menus and votes on top) when it can; the center
-  // HTML then has nothing to carry.
+  // HTML then only carries them for players who turned the HUD off.
   if (enabled && HudScreensOn()) {
     const Board hudBoard = what == What::Ready ? BuildBoard(mode, ctx, ListHumans()) : Board{};
     HudScreensRun([&](const HumanIdentity& h) -> std::string {
@@ -691,11 +710,13 @@ void ReadyHudTick() {
         if (left >= 0 && ViewerTeamShort(hudBoard, h.steamid64)) s += L("timer", std::to_string(left));
         return s;
       }
-      if (what == What::Knife) return KnifeSpec(knife, h.team, lang);
+      if (what == What::Knife) return KnifeSpec(knife, h.team, h.steamid64, lang);
       if (mode == ReadyUpMode::MatchLive) return LiveSpec(live, h.team, lang);
       return {};
     });
     g_showing.store(true, std::memory_order_relaxed);
+    // No centre panel next to the HUD: players who turned it off (.hud off) get chat lines instead
+    // (ChatUnlessHud; Sivert, 2026-11-24: the old HTML panel should be gone).
     what = What::None;
   }
   if (what == What::None) {

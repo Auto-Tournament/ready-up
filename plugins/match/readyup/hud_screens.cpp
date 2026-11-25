@@ -209,7 +209,7 @@ std::string VoteSpec(int slot, uint64_t steamid64, int csTeam, const std::string
                       Line("title", T("vote.gg_title")) + Line("timer", std::to_string(v.ggSecondsLeft)) +
                       Line("counter", HudSpecText(T("vote.gg_counter", {{"votes", std::to_string(v.ggCount)}, {"need", std::to_string(v.ggNeed)}}))) + Line("bw", "s");
       if (v.ggVoted) s += Btn(T("vote.yes"), "danger", "picked", "") + Btn(T("vote.no"), "ghost", "off", "");
-      else s += Btn(T("vote.yes"), "danger", "", ".gg") + Btn(T("vote.no"), "ghost", "", "#dismiss gg") + Line("mouse", "on");
+      else s += Btn(T("vote.yes"), "danger", "", ".gg") + Btn(T("vote.no"), "ghost", "", "#dismiss gg") + Line("mouse", "on") + Line("hold", "1");
       return s;
     }
   } else if (dis != g_dismissed.end() && dis->second == "gg") {
@@ -225,7 +225,7 @@ std::string VoteSpec(int slot, uint64_t steamid64, int csTeam, const std::string
       return Line("id", "stop") + Line("kind", T("vote.stop_kind")) +
              Line("title", HudSpecText(T("vote.wants_replay", {{"team", TeamName(v.stopTeam, lang)}}))) +
              Line("timer", std::to_string(v.stopSecondsLeft)) + Line("bw", "m") + Btn(T("vote.accept"), "green", "", ".stop") +
-             Btn(T("vote.decline"), "ghost", "", "#dismiss stop") + Line("mouse", "on");
+             Btn(T("vote.decline"), "ghost", "", "#dismiss stop") + Line("mouse", "on") + Line("hold", "1");
     }
   } else {
     const auto d = g_dismissed.find(slot);
@@ -308,6 +308,21 @@ bool HudScreensOn() {
   return h && h->available();
 }
 
+bool HudOffFor(uint64_t steamid64) {
+  const ru_hud_v1* h = Hud();
+  if (!h || !steamid64 || h->struct_size < offsetof(ru_hud_v1, player_off) + sizeof(h->player_off) || !h->player_off)
+    return false;
+  return h->player_off(steamid64) != 0;
+}
+
+void ChatHudOff(const std::string& key, const i18n::Args& args) {
+  if (!HudScreensOn()) return;  // then everyone gets the chat line already
+  for (const auto& p : ListHumans()) {
+    const int slot = p.slot >= 0 ? p.slot : p.userid;
+    if (slot >= 0 && HudOffFor(p.steamid64)) text::ChatSlot(slot, key, args);
+  }
+}
+
 bool HudMidRound() {
   // Not while the end-of-map scoreboard is up: the map is over, and its buttons need the cursor.
   return GetMode() == ReadyUpMode::MatchLive && !MatchFeaturesInFreeze() && !PauseStateGet().paused && !EndScreenActive();
@@ -328,12 +343,18 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
     present.insert(slot);
     std::string spec;
     auto m = g_menus.find(slot);
-    if (m != g_menus.end() && (now > m->second.until || mid || m->second.steamid64 != h.steamid64)) {
+    // A menu stays open through a round start (Sivert, 2026-11-24: a pause or an admin is needed
+    // mid-round too); W S and hold E need no cursor.
+    if (m != g_menus.end() && (now > m->second.until || m->second.steamid64 != h.steamid64)) {
       g_menus.erase(m);
       m = g_menus.end();
     }
     const std::string lang = i18n::LanguageOf(host::Api(), slot);
-    if (m != g_menus.end()) spec = MenuSpec(m->second, h.team, lang);
+    if (m != g_menus.end()) {
+      spec = MenuSpec(m->second, h.team, lang);
+      // Menus are the list on the left (hud.so ui_left, v4 Hold E): W S choose, holding E picks.
+      if (!spec.empty()) spec += Line("where", "left");
+    }
     if (spec.empty()) spec = VoteSpec(slot, h.steamid64, h.team, lang);
     if (spec.empty()) {
       std::lock_guard<std::mutex> lk(g_noticeMu);
@@ -348,7 +369,7 @@ void HudScreensRun(const std::function<std::string(const HumanIdentity&)>& baseF
       }
     }
     if (spec.empty()) spec = baseFor(h);
-    if (!spec.empty() && mid) spec += "chips=1\n";
+    if (!spec.empty() && mid && m == g_menus.end()) spec += "chips=1\n";  // a menu keeps its rows
     hud->screen(slot, spec.c_str(), &OnClick, nullptr);
   }
   for (int slot : g_shown) {
@@ -393,12 +414,36 @@ void HudScreensUninstall() {
 }
 
 bool HudScreensOpenMenu(int slot, uint64_t steamid64, const std::string& which) {
-  if (slot < 0 || slot > 63 || !HudScreensOn() || HudMidRound()) return false;
+  if (slot < 0 || slot > 63 || !HudScreensOn()) return false;  // mid-round too
   const ReadyUpMode mode = GetMode();
   if (mode == ReadyUpMode::Practice || mode == ReadyUpMode::External) return false;
   if (which == "admin" && !IsReadyUpAdmin(steamid64)) return false;
   g_menus[slot] = Menu{which, steamid64, host::NowSeconds() + kMenuSeconds};
   return true;
+}
+
+void ChatUnlessHud(bool hudShows, const std::string& key, const i18n::Args& args) {
+  if (hudShows) ChatHudOff(key, args);
+  else text::ChatAll(key, args);
+}
+
+void WarmupMenuTipTick() {
+  static double next = 0;
+  const double now = host::NowSeconds();
+  if (!Warmup()) {
+    next = now + 20;  // the first tip 20 s into the next warmup
+    return;
+  }
+  if (now < next) return;
+  next = now + 60;
+  // Star lines (chat only), one per sentence: "Hold E to ready up." (with the HUD's chip; Sivert,
+  // 2026-11-24) and the .menu tip.
+  const bool holdTip = HudScreensOn() && GetMode() == ReadyUpMode::MatchWarmup;
+  text::ImportantAllFn(
+      [holdTip](const std::string& lang) {
+        return (holdTip ? text::ForLang(lang, "tip.ready_hold") + " " : std::string()) + text::ForLang(lang, "tip.menu");
+      },
+      0);
 }
 
 void HudOutdatedHoldTick() {

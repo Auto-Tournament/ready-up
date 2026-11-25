@@ -322,9 +322,9 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
        first == ".nr")) {
     const bool nowReady = first == ".r" || first == ".ready";
     const bool was = SetReady(steamid64, nowReady);
-    if (was != nowReady && !HudReplacesChat()) {
-      text::ChatAll(nowReady ? "ready.spectator_ready" : "ready.spectator_not_ready", {{"name", playerName}});
-    }
+    if (was != nowReady)
+      ChatUnlessHud(HudReplacesChat(), nowReady ? "ready.spectator_ready" : "ready.spectator_not_ready",
+                    {{"name", playerName}});
     return;
   }
 
@@ -452,9 +452,9 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     Print("ready: %s (%llu) READY %s\n", playerName.c_str(), static_cast<unsigned long long>(steamid64),
           progress().c_str());
     if (wasReady) {
-      if (!HudReplacesChat()) text::ChatAll("ready.already_ready", readyArgs());
+      ChatUnlessHud(HudReplacesChat(), "ready.already_ready", readyArgs());
     } else {
-      if (!HudReplacesChat()) text::ChatAll("ready.now_ready", readyArgs());
+      ChatUnlessHud(HudReplacesChat(), "ready.now_ready", readyArgs());
       emitReady(true);
     }
     ScrimNoteReadyChanged();  // scrim countdown / go-live runs in ScrimTick
@@ -465,9 +465,9 @@ void MatchChatCommand(uint64_t steamid64, const std::string& playerName, const s
     Print("ready: %s (%llu) NOT READY %s\n", playerName.c_str(), static_cast<unsigned long long>(steamid64),
           progress().c_str());
     if (!wasReady) {
-      if (!HudReplacesChat()) text::ChatAll("ready.already_not_ready", readyArgs());
+      ChatUnlessHud(HudReplacesChat(), "ready.already_not_ready", readyArgs());
     } else {
-      if (!HudReplacesChat()) text::ChatAll("ready.now_not_ready", readyArgs());
+      ChatUnlessHud(HudReplacesChat(), "ready.now_not_ready", readyArgs());
       emitReady(false);
     }
     ScrimNoteReadyChanged();
@@ -748,6 +748,11 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
       auto it = ctx->roster_team.find(steamid64);
       if (it == ctx->roster_team.end() || it->second != want) {
         text::ChatAll("knife.winner_only");
+        return;
+      }
+      // A captain set for that team: only they pick.
+      if (const uint64_t cap = KnifeWinnerCaptain(); cap && cap != steamid64) {
+        replyKey("knife.captain_only");
         return;
       }
     }

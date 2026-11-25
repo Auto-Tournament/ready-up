@@ -79,6 +79,13 @@ void TestChips() {
   CHECK(Text(w, "ui_card_k0_c") == ".gg");
   CHECK(On(w, "ui_card_k1", "gone"));  // "No" has no command
   CHECK(!On(w, "ui_card", "has-hint"));
+  {
+    // cmd=label|.cmd|after: "Type [.menu] in chat ..."; no after = its label gone.
+    const auto m = hud::RenderScreen(hud::ParseScreen("title=Match is live\ncmd=Type|.menu|in chat\ncmd=Ready|.r\n"), "ui_mid");
+    CHECK(Text(m, "ui_mid_k0_l") == "Type" && Text(m, "ui_mid_k0_c") == ".menu" && Text(m, "ui_mid_k0_a") == "in chat");
+    CHECK(!On(m, "ui_mid_k0_a", "gone"));
+    CHECK(Text(m, "ui_mid_k1_a").empty() && On(m, "ui_mid_k1_a", "gone"));
+  }
 }
 
 void TestLinesAndMini() {
@@ -135,6 +142,12 @@ void TestButtonIds() {
   CHECK(hud::ParseButtonId("ui_mid_b3", &p, &i) && p == "ui_mid" && i == 3);
   CHECK(hud::ParseButtonId("ui_card_close", &p, &i) && p == "ui_card" && i == -1);
   CHECK(hud::ParseButtonId("ui_mid_b23", &p, &i) && i == 23);
+  // The menu list (where=left): its rows and its close row.
+  CHECK(hud::ParseButtonId("ui_left_b4", &p, &i) && p == "ui_left" && i == 4);
+  CHECK(hud::ParseButtonId("ui_left_close", &p, &i) && p == "ui_left" && i == -1);
+  CHECK(hud::ParseScreen(std::string("id=pick") + char(10) + "closerow=0" + char(10)).noCloseRow);
+  CHECK(hud::ParseScreen("id=m\ntitle=Menu\nwhere=left\n").where == "left");
+  CHECK(hud::EnterOf(hud::ParseScreen("id=m\ntitle=Menu\nwhere=left\n"), "ui_left") == "fx-slide-left");
   CHECK(!hud::ParseButtonId("ui_mid_b24", &p, &i));
   CHECK(!hud::ParseButtonId("ui_mid_b", &p, &i));
   CHECK(!hud::ParseButtonId("at_btn_ct", &p, &i));

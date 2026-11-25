@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Writes hud/layout/at_ui.xml: the Auto Tournament clickable HUD (buttons, v2).
 
-One block set, drawn twice: `ui_card` (right, above the weapons) and `ui_mid` (centre of the lower
-half). The server fills fixed slots, so new screens need no addon update:
+One block set, drawn three times: `ui_card` (right, above the weapons), `ui_mid` (centre of the
+lower half) and `ui_left` (menus: a list on the left, rows chosen with W S and held with E). The server fills fixed slots, so new screens need no addon update:
 
   text      <p>_kind <p>_title <p>_sub <p>_timer <p>_counter <p>_hint     ({s:text}, has-* classes)
   teams     <p>_tA <p>_tB, dots <p>_dA0..4 <p>_dB0..4 (class on)          (has-teams)
@@ -13,7 +13,7 @@ half). The server fills fixed slots, so new screens need no addon update:
             row classes on the panel: cols-1..4, bw-s / bw-m / bw-l / bw-xl (has-buttons)
   close     <p>_close with _l                                              (has-close)
 
-<p> is ui_card or ui_mid. Panel classes: on, c-live / c-warn / c-ban / c-muted (accent default),
+<p> is ui_card, ui_mid or ui_left (rows: class sel on the chosen one, hold while E is down). Panel classes: on, c-live / c-warn / c-ban / c-muted (accent default),
 mini (the card as a one-line pill), fx-<enter>, leaving + out-<exit>, urgent (5 s or less on the
 timer), and any utility from the spec's cls= (at_ui.css, "Tailwind for CS2"). Parts with ids take
 cls.<part>= utilities: _brand _kind _title _sub _hint _timer _counter _teams _confirm _lines _cmds
@@ -61,7 +61,8 @@ def block(p):
     vs = panel(f"{p}_vs", "ui-vs", children=label(f"{p}_vsA", "ui-vsname") + label(cls="ui-vsmid", text="vs")
                + label(f"{p}_vsB", "ui-vsname"))
     cmds = panel(f"{p}_cmds", "ui-cmds", children="".join(
-        panel(f"{p}_k{n}", "ui-cmd", label(f"{p}_k{n}_l", "ui-cmdlabel") + panel(cls="ui-kbd", children=label(f"{p}_k{n}_c", "ui-kbdtext")))
+        panel(f"{p}_k{n}", "ui-cmd", label(f"{p}_k{n}_l", "ui-cmdlabel") + panel(cls="ui-kbd", children=label(f"{p}_k{n}_c", "ui-kbdtext"))
+              + label(f"{p}_k{n}_a", "ui-cmdlabel ui-cmdafter"))
         for n in range(3)))
     rows = panel(f"{p}_lines", "ui-lines", children="".join(
         panel(f"{p}_n{n}", "ui-row", label(f"{p}_n{n}_k", "ui-rowk") + label(f"{p}_n{n}_v", "ui-rowv"))
@@ -69,6 +70,10 @@ def block(p):
     # The first button can be held with Use (hud.so puts `holdable` on it, then `hold` while the key
     # is down): a fill behind the label and the player's own key ({g:csgo_key:k}) at its left.
     def hold_parts(n):
+        if p == "ui_left":
+            # The menu panel: every row can be chosen (W S) and held (E): a mark bar at its left
+            # and the slide fill behind the label.
+            return panel(cls="ui-rowmark") + panel(cls="ui-btnfill")
         if n:
             return ""
         return panel(cls="ui-btnfill") + panel(cls="ui-btnkey", children=(
@@ -76,7 +81,8 @@ def block(p):
     buttons = panel(f"{p}_buttons", "ui-buttons", children="".join(
         button(f"{p}_b{n}", "ui-btn", panel(cls="ui-btnglow") + hold_parts(n) + label(f"{p}_b{n}_l", "ui-btnlabel") + label(f"{p}_b{n}_s", "ui-btnsub"))
         for n in range(24)))
-    close = button(f"{p}_close", "ui-close", label(f"{p}_close_l", "ui-closelabel"))
+    close_parts = panel(cls="ui-rowmark") + panel(cls="ui-btnfill") if p == "ui_left" else ""
+    close = button(f"{p}_close", "ui-close", close_parts + label(f"{p}_close_l", "ui-closelabel"))
     # Behind the content: a wash of the accent from the left and a few breathing pixels (cs2-ui-kit).
     # ui-back doubles the panel background: CS2 draws one layer of it see-through (2026-10-27).
     back = panel(cls="ui-back") + panel(cls="ui-wash") + panel(cls="ui-pixels", children="".join(
@@ -91,8 +97,23 @@ def block(p):
 def main():
     # The wraps carry the HUD scale (scale-70 .. scale-100, set by hud.so: `ru hudkit scale`).
     body = panel("ui_cardwrap", "ui-cardwrap", block("ui_card")) + panel("ui_midwrap", "ui-midwrap", block("ui_mid"))
+    # Menus: a list on the left, vertically centred (v4, Hold E). W S move the `sel` row (hud.so),
+    # holding E slides the fill across it, the close row is always last.
+    body += panel("ui_leftwrap", "ui-leftwrap", block("ui_left"))
     # "Your HUD addon is out of date": shown unless hud.so's v-<n> class is one this addon knows.
     body += panel("ui_ver", "ui-ver", label("ui_ver_t", "ui-vertext"))
+    # Dev servers (readyup.cfg dev=1): which HUD this client has and which hud.so the server runs.
+    # __AT_HUD_BUILD__ is replaced by hud/build.ps1 with the commit and build time.
+    body += panel("ui_dev", "ui-dev", label(cls="ui-devt", text="HUD __AT_HUD_BUILD__")
+                  + label("ui_dev_srv", "ui-devt"))
+    # The watermark either side of the AT logo between health and ammo (Sivert, 2026-11-24, draft G):
+    # "PLAYED ON" left of the circle above CS2's health line, "AUTO TOURNAMENT" right of it below.
+    body += panel("ui_wm", "ui-wm", panel(cls="ui-wmhalf ui-wml", children=label(cls="ui-wmt", text="PLAYED ON"))
+                  + panel(cls="ui-wmhalf ui-wmr", children=label(cls="ui-wmt", text="AUTO TOURNAMENT")))
+    # The ram in CS2's team badge between health and ammo (Sivert, 2026-11-24, draft D): a solid disc
+    # inside the ring (the ring keeps the player's colour) with the full-colour ram on it, over
+    # Valve's CT/T emblem. CS2 caches that emblem at startup, so replacing its file never showed.
+    body += panel("ui_badge", "ui-badge", panel(cls="ui-badgeram"))
     # Hold Use: a chip top right that names the key the player bound to +use ({g:csgo_key:k}, k set
     # to "+use" by hud.so) and what holding it does. hud.so puts `hold` on it while the key is down,
     # which runs the fill; at the end it presses the open card's button or opens .menu.

@@ -139,8 +139,12 @@ struct KnifeHudInfo {
   std::string winnerName;    // team name (scrim: "CT"/"T")
   std::string reasonShort;   // "elimination" | "more alive" | "more HP" | "coin flip"
   int secondsLeft = 0;       // pick window
+  uint64_t captain = 0;      // the winning team's captain (match config); 0 = anyone on the team picks
+  std::string captainName;   // their roster name, or the team name when there is none
 };
 KnifeHudInfo KnifeHudSnapshot();
+// The knife-winning team's captain while a side pick is pending (0: none set, or no pick).
+uint64_t KnifeWinnerCaptain();
 
 // Non-default `ru_warmup_message_html` text (empty when default/unset).
 std::string WarmupHtmlCustom();

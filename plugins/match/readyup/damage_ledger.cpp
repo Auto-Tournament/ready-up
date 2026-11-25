@@ -9,6 +9,9 @@ namespace readyup {
 void DamageLedger::Reset() {
   health_.clear();
   dealt_.clear();
+  self_.clear();
+  taken_.clear();
+  burning_.clear();
 }
 
 int DamageLedger::Health(int key) const {
@@ -16,7 +19,7 @@ int DamageLedger::Health(int key) const {
   return it == health_.end() ? 100 : it->second;
 }
 
-void DamageLedger::OnHurt(int attacker, int victim, int dmgHealth, int healthAfter) {
+void DamageLedger::OnHurt(int attacker, int victim, int dmgHealth, int healthAfter, bool burn) {
   if (victim < 0 || dmgHealth <= 0) return;
   const int before = std::max(0, Health(victim));
   const int after = std::clamp(healthAfter, 0, before);
@@ -24,14 +27,37 @@ void DamageLedger::OnHurt(int attacker, int victim, int dmgHealth, int healthAft
   // four-hit kill of a 100 hp bot (cs, 2026-11-06), and it is the full damage on an overkill.
   const int actual = before - after;
   health_[victim] = after;
+  if (actual > 0) taken_[victim] += actual;
+  // A fire is one hit, however many ticks it burns for.
+  bool newHit = true;
+  if (burn) {
+    bool& seen = burning_[{attacker, victim}];
+    newHit = !seen;
+    seen = true;
+  }
+  if ((attacker < 0 || attacker == victim) && actual > 0) {
+    Pair& s = self_[victim];
+    s.dmg += actual;
+    if (newHit) s.hits += 1;
+  }
   if (attacker < 0 || attacker == victim || actual <= 0) return;
   Pair& p = dealt_[{attacker, victim}];
   p.dmg += actual;
-  p.hits += 1;
+  if (newHit) p.hits += 1;
 }
 
 void DamageLedger::OnDeath(int victim) {
   if (victim >= 0) health_[victim] = 0;
+}
+
+DamageLedger::Pair DamageLedger::Self(int key) const {
+  auto it = self_.find(key);
+  return it == self_.end() ? Pair{} : it->second;
+}
+
+int DamageLedger::Taken(int key) const {
+  auto it = taken_.find(key);
+  return it == taken_.end() ? 0 : it->second;
 }
 
 DamageLedger::Pair DamageLedger::Dealt(int attacker, int victim) const {

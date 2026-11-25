@@ -1,6 +1,10 @@
 {
   "menu.none": "Сейчас на этом сервере нет меню.",
+  "menu.chat_help": "Команды: .r готов · .p техпауза · .tac таймаут · .gg сдаться · .admin позвать админа · .hud HUD",
+  "hud.now_off": "HUD выключен: Ready Up пишет вам в чат. .hud включает его снова.",
+  "hud.now_on": "HUD включён.",
   "hud.outdated": "HUD устарел. На платформе нажмите ? и выберите HUD.",
   "hud.hold_menu": "Меню",
-  "hud.hold_close": "Закрыть"
+  "hud.hold_close": "Закрыть",
+  "hud.menu_hint": "W ↑  S ↓  Удерживай E: подтвердить"
 }
