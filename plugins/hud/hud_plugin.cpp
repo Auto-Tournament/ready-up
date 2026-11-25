@@ -2163,10 +2163,10 @@ void HoldShow(int slot, HoldSlot& hs, const HoldTarget& t, bool has, bool hold) 
 }
 
 // ---- the menu panel holds the player still --------------------------------------------------
-// While ui_left is up W S choose rows, so in warmup (where players can walk) the pawn is held in
-// place, the way CS2 plugins freeze players (MOVETYPE_OBSOLETE in m_MoveType and m_nActualMoveType,
-// MOVETYPE_WALK to let go). Freeze time already holds players, and a live round is never frozen:
-// a menu left open into a round only moves its row.
+// While ui_left is up W S choose rows, so the pawn is held in place, warmup and live rounds alike
+// (Sivert, 2026-11-25: walking while you pick was worse than standing still), the way CS2 plugins
+// freeze players (MOVETYPE_OBSOLETE in m_MoveType and m_nActualMoveType, MOVETYPE_WALK to let go).
+// Only menus the player opened are lists (.menu, .guns, the map vote), and closing it lets go.
 constexpr uint64_t kInForward = 1ull << 3;  // W (IN_FORWARD)
 constexpr uint64_t kInBack = 1ull << 4;     // S (IN_BACK)
 constexpr uint8_t kMoveObsolete = 1, kMoveWalk = 2;
@@ -2182,31 +2182,16 @@ void* PawnOf(int slot) {
   return g_api->entity_from_handle(g_api->self, h);
 }
 
-// CCSGameRules::m_bWarmupPeriod through the cs_gamerules proxy (looked up once, checked each time).
-bool InWarmup() {
-  static int proxyIndex = -1, rulesPtr = -2, warmup = -2;
-  if (rulesPtr == -2) {
-    rulesPtr = g_api->schema_offset(g_api->self, "CCSGameRulesProxy", "m_pGameRules");
-    warmup = g_api->schema_offset(g_api->self, "CCSGameRules", "m_bWarmupPeriod");
-  }
-  if (rulesPtr < 0 || warmup < 0) return false;
-  auto isProxy = [](int i) {
-    void* e = g_api->entity_by_index(g_api->self, i);
-    const char* cls = e ? g_api->entity_classname(g_api->self, e) : nullptr;
-    return cls && std::strcmp(cls, "cs_gamerules") == 0;
-  };
-  if (proxyIndex < 0 || !isProxy(proxyIndex)) {
-    proxyIndex = -1;
-    for (int i = 65; i < 2048 && proxyIndex < 0; ++i)
-      if (isProxy(i)) proxyIndex = i;
-    if (proxyIndex < 0) return false;
-  }
-  void* proxy = g_api->entity_by_index(g_api->self, proxyIndex);
-  void* rules = nullptr;
-  std::memcpy(&rules, static_cast<uint8_t*>(proxy) + rulesPtr, sizeof(rules));
-  return rules && *(static_cast<uint8_t*>(rules) + warmup) != 0;
+// Whether the slot's pawn is alive (CBaseEntity::m_lifeState 0). A dead pawn is never frozen or
+// let go: its move type is the game's, and a respawn sets it again.
+bool PawnAlive(void* pawn) {
+  static int life = -2;
+  if (life == -2) life = g_api->schema_offset(g_api->self, "CBaseEntity", "m_lifeState");
+  return pawn && life >= 0 && *(static_cast<uint8_t*>(pawn) + life) == 0;
 }
 
+// Holds (on) or lets go of the pawn. Writes only when the move type differs, so it can run every
+// tick: a respawn with the menu still open walks again until this puts it back.
 bool FreezeFor(int slot, bool on) {
   static int moveType = -2, actual = -2;
   if (moveType == -2) {
@@ -2214,15 +2199,20 @@ bool FreezeFor(int slot, bool on) {
     actual = g_api->schema_offset(g_api->self, "CBaseEntity", "m_nActualMoveType");
   }
   void* pawn = PawnOf(slot);
-  if (moveType < 0 || actual < 0 || !pawn) return false;
+  if (moveType < 0 || actual < 0 || !PawnAlive(pawn)) return false;
   const uint8_t v = on ? kMoveObsolete : kMoveWalk;
-  *(static_cast<uint8_t*>(pawn) + moveType) = v;
-  *(static_cast<uint8_t*>(pawn) + actual) = v;
+  uint8_t* mt = static_cast<uint8_t*>(pawn) + moveType;
+  uint8_t* am = static_cast<uint8_t*>(pawn) + actual;
+  if (*mt == v && *am == v) return true;
+  // Letting go only undoes our own hold: a ladder, noclip or the game's own freeze stays.
+  if (!on && *mt != kMoveObsolete) return true;
+  *mt = v;
+  *am = v;
   g_api->entity_mark_changed(g_api->self, pawn);
   return true;
 }
 
-// W S move the chosen row (on the press, wrapping); the pawn is held still in warmup.
+// W S move the chosen row (on the press, wrapping); the pawn is held still while the list is up.
 void NavTick(int slot, HoldSlot& hs, bool gotButtons, uint64_t held) {
   auto it = g_screens.find(slot);
   const bool left = it != g_screens.end() && it->second.shown && !it->second.dismissed &&
@@ -2239,8 +2229,12 @@ void NavTick(int slot, HoldSlot& hs, bool gotButtons, uint64_t held) {
     }
   }
   hs.prev = gotButtons ? held : 0;
-  const bool freeze = left && InWarmup();
-  if (freeze != hs.frozen && FreezeFor(slot, freeze)) hs.frozen = freeze;
+  if (left) {
+    if (FreezeFor(slot, true)) hs.frozen = true;
+  } else if (hs.frozen) {
+    FreezeFor(slot, false);
+    hs.frozen = false;  // let go, or dead: a respawn walks anyway
+  }
 }
 
 void HoldTick() {
