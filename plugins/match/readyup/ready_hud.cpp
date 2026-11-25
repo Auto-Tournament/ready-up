@@ -254,136 +254,6 @@ static std::string MinSec(int secs) {
   return std::to_string(secs / 60) + ":" + (secs % 60 < 10 ? "0" : "") + std::to_string(secs % 60);
 }
 
-// One side's line. Entries are grouped by color (ready, not ready, not
-// connected) so each run costs one <font> tag: keeps 5v5 well under ~1 KB.
-static std::string SideLine(const Board& b, int side, uint64_t viewer, const std::string& lang) {
-  if (b.teamView) {
-    const TeamLine& t = b.teams[side == 3 ? 1 : 0];
-    std::string s = Font(side == 3 ? kCt : kT, side == 3 ? "<b>CT</b>" : "<b>T</b>");
-    if (!t.name.empty()) s += " " + Esc(t.name, 16);
-    if (t.st.ready) return s + " " + Font(kOk, "<b>&#10004; " + T(lang, "hud.side_ready") + "</b>");
-    return s + " " + Font(kNo, "&#10006; " + T(lang, "hud.side_not_ready")) +
-           Font(kDim, " &#183; " + T(lang, "hud.side_here", {{"here", N(t.st.here)}, {"total", N(t.st.total)}}));
-  }
-  std::string s = Font(side == 3 ? kCt : kT, side == 3 ? "<b>CT</b>" : "<b>T</b>");
-  std::vector<const Entry*> list;
-  for (const auto& e : b.entries) {
-    if (e.side == side) list.push_back(&e);
-  }
-  auto rank = [](const Entry* e) { return !e->connected ? 2 : (e->ready ? 0 : 1); };
-  std::stable_sort(list.begin(), list.end(), [&](const Entry* x, const Entry* y) { return rank(x) < rank(y); });
-
-  int shown = 0, hidden = 0;
-  const char* runColor = nullptr;
-  std::string run;
-  auto flush = [&]() {
-    if (runColor && !run.empty()) s += "&#160; " + Font(runColor, run);
-    run.clear();
-  };
-  for (const Entry* e : list) {
-    // Keep the viewer visible even past the cap.
-    if (shown >= kMaxNamesPerSide && e->sid != viewer) {
-      hidden++;
-      continue;
-    }
-    const char* col = !e->connected ? kDim : (e->ready ? kOk : kNo);
-    if (col != runColor) {
-      flush();
-      runColor = col;
-    } else {
-      run += "&#160; ";
-    }
-    run += e->ready ? "&#10004;" : "&#10006;";
-    const std::string nm = Esc(e->name, kMaxNameBytes);
-    run += (e->sid == viewer) ? "<b>" + nm + "</b>" : nm;
-    shown++;
-  }
-  flush();
-  if (hidden > 0) s += " " + Font(kGrey, "+" + std::to_string(hidden));
-  const int bots = (side == 3) ? b.botsCt : b.botsT;
-  if (bots > 0) s += " " + Font(kOk, "&#10004;" + T(lang, "hud.bots", {{"count", N(bots)}}));
-  if (shown == 0 && hidden == 0 && bots == 0) s += " " + Font(kDim, "-");
-  return s;
-}
-
-static std::string ReadyHtml(const Board& b, uint64_t viewer, const std::string& footer, const std::string& lang) {
-  const Entry* me = nullptr;
-  for (const auto& e : b.entries) {
-    if (e.sid == viewer) me = &e;
-  }
-  std::string h;
-  h.reserve(1024);
-  // The viewer's own state first and big: players missed the small line under the
-  // names and sat in warmup not knowing they were the one holding it up.
-  if (b.teamView && me) {
-    const TeamHudState& st = b.teams[me->side == 3 ? 1 : 0].st;
-    if (st.ready) {
-      h += "<font class='fontSize-l' color='" + std::string(kOk) + "'><b>" + T(lang, "hud.team_ready") + "</b></font><br>";
-    } else if (st.allHere) {
-      h += "<font class='fontSize-xl' color='" + std::string(kNo) + "'><b>" + T(lang, "hud.team_not_ready") + "</b></font><br>";
-      h += Font(kGold, T(lang, "hud.type_r_team")) + "<br>";
-    } else {
-      h += "<font class='fontSize-xl' color='" + std::string(kNo) + "'><b>" +
-           T(lang, "hud.team_waiting", {{"here", N(st.here)}, {"total", N(st.total)}}) + "</b></font><br>";
-      h += Font(kGold, T(lang, "hud.one_r_team", {{"count", N(st.total)}})) + "<br>";
-    }
-  } else if (me && !me->ready) {
-    h += "<font class='fontSize-xl' color='" + std::string(kNo) + "'><b>" + T(lang, "hud.you_not_ready") + "</b></font><br>";
-    h += Font(kGold, T(lang, "hud.type_r")) + "<br>";
-  } else if (me) {
-    h += "<font class='fontSize-l' color='" + std::string(kOk) + "'><b>" + T(lang, "hud.you_ready") + "</b></font><br>";
-  }
-  const std::string title = T(lang, b.titleKey.c_str());
-  const std::string brand = HudBrandHtml(/*imgHeight=*/20, "");
-  if (!brand.empty()) h += brand + " " + Font(kGrey, "&#183; " + title);
-  else h += Font(kGrey, title);
-  if (!b.countdownKey.empty())
-    h += " " + Font(kGold, "&#183; <b>" + T(lang, b.countdownKey.c_str(), {{"seconds", N(b.countdownSecs)}}) + "</b>");
-  h += "<br>";
-  h += Font(b.total > 0 && b.ready == b.total ? kOk : kGold,
-            "<b>" + T(lang, "hud.ready_count", {{"ready", N(b.ready)}, {"total", N(b.total)}}) + "</b>");
-  h += "<br>" + SideLine(b, 3, viewer, lang) + "<br>" + SideLine(b, 2, viewer, lang) + "<br>";
-
-  if (!me) {
-    h += Font(kGrey, T(lang, b.scrim ? "hud.join_team" : "hud.spectating"));
-  } else if (me->ready) {
-    h += Font(kGrey, T(lang, "hud.ur_cancel"));
-  }
-  if (!b.noteKey.empty()) h += "<br>" + Font(kGrey, T(lang, b.noteKey.c_str()));
-  if (!footer.empty()) h += "<br>" + footer;
-  return h;
-}
-
-// modes.cpp's knifeReasonShort -> locales key.
-static const char* KnifeReasonKey(const std::string& r) {
-  return r == "elimination" ? "hud.reason_elimination"
-         : r == "more alive" ? "hud.reason_more_alive"
-         : r == "more HP"    ? "hud.reason_more_hp"
-                             : "hud.reason_coin_flip";
-}
-
-static std::string KnifeHtml(const KnifeHudInfo& k, int viewerSide, const std::string& lang) {
-  std::string h;
-  h.reserve(384);
-  h += Font(kGold, "<b>" + T(lang, "hud.knife_title") + "</b>") + "<br>";
-  if (k.phase == KnifePhase::Starting) {
-    h += T(lang, "hud.knife_starting");
-    return h;
-  }
-  const char* col = (k.winnerCs == 3) ? kCt : kT;
-  h += T(lang, "hud.knife_won", {{"team", Font(col, "<b>" + Esc(k.winnerName, 24) + "</b>")}});
-  if (!k.reasonShort.empty()) h += " " + Font(kGrey, "(" + T(lang, KnifeReasonKey(k.reasonShort)) + ")");
-  h += "<br>";
-  const std::string secs = N(k.secondsLeft);
-  if (viewerSide == k.winnerCs) {
-    h += Font(kOk, T(lang, "hud.knife_type_pick")) + "<br>";
-    h += Font(kGrey, T(lang, "hud.knife_no_pick", {{"seconds", secs}}));
-  } else {
-    h += Font(kGrey, T(lang, "hud.knife_waiting", {{"team", Esc(k.winnerName, 24)}, {"seconds", secs}}));
-  }
-  return h;
-}
-
 // Live map: pause state + countdowns, and the team-left forfeit countdown. No images (resent
 // every frame, docs/HUD.md). Empty when there is nothing to show.
 static std::string LiveHtml(const LiveHudInfo& l, const std::string& lang) {
@@ -620,7 +490,8 @@ std::atomic<bool> g_sendOk{true};
 
 }  // namespace
 
-bool HudReplacesChat() { return HudEnabled() && g_sendOk.load(std::memory_order_relaxed); }
+// The HUD shows ready-up when hud.so draws its screens; else chat does (ChatUnlessHud).
+bool HudReplacesChat() { return HudEnabled() && HudScreensOn(); }
 
 std::string HudBrandHtml(int imgHeight, const char* fontClass) {
   if (!FeatureEnabled(Feature::HudBrand)) return {};
@@ -717,67 +588,12 @@ void ReadyHudTick() {
     g_showing.store(true, std::memory_order_relaxed);
     // No centre panel next to the HUD: players who turned it off (.hud off) get chat lines instead
     // (ChatUnlessHud; Sivert, 2026-11-24: the old HTML panel should be gone).
-    what = What::None;
+  } else {
+    // Without the clickable HUD (no hud.so, or hud_screens=0) there is no panel: the chat lines
+    // carry ready-up (ChatUnlessHud). The old centre HTML panel is gone (Sivert, 2026-11-25).
+    g_showing.store(false, std::memory_order_relaxed);
   }
-  if (what == What::None) {
-    g_sent.clear();
-    return;
-  }
-
-  const auto humans = ListHumans();
-  Board board;
-  std::string footer;
-  if (what == What::Ready) {
-    board = BuildBoard(mode, ctx, humans);
-    footer = WarmupHtmlCustom();
-    if (footer.size() > 256) footer.clear();  // keep the panel small
-  }
-
-  std::unordered_set<int> present;
-  static std::atomic<bool> s_warned{false};
-  static std::atomic<bool> s_loggedSize{false};
-  for (const auto& h : humans) {
-    // Engine slot from events when known; else the log `<N>` (the player slot in CS2).
-    const int slot = h.slot >= 0 ? h.slot : h.userid;
-    if (h.steamid64 == 0 || slot < 0 || slot > 63) continue;
-    present.insert(slot);
-
-    // The welcome screen owns the panel while it is up (~5s after joining).
-    if (WelcomeActiveFor(slot, h.steamid64)) continue;
-    if (AdminCallCardActiveFor(slot)) continue;  // an `.admin` call card (admin_call.h)
-    const std::string lang = i18n::LanguageOf(host::Api(), slot);
-    const std::string html = (what == What::Ready)  ? ReadyHtml(board, h.steamid64, footer, lang)
-                             : (what == What::Live) ? LiveHtml(live, lang)
-                                                    : KnifeHtml(knife, h.team, lang);
-    if (html.empty()) continue;
-
-    // Same HTML: resend every hud_resend_ms (default 0 = every tick; CS2's center panel ignores
-    // the event's duration and only stays steady when re-sent every frame, docs/HUD.md).
-    // Changed HTML: send right away.
-    auto& s = g_sent[slot];
-    if (s.html == html && (now - s.at) < std::chrono::milliseconds(Cfg().hud_resend_ms)) continue;
-    const int sent = SendCenterHtml(slot, html, Cfg().hud_duration_s, RU_HTML_PRIO_HUD);
-    if (sent < 0) continue;  // another plugin's higher panel (download bar) is up: retry next tick
-    const bool ok = sent == 1;
-    g_sendOk.store(ok, std::memory_order_relaxed);
-    if (ok) {
-      s.html = html;
-      s.at = now;
-      g_showing.store(true, std::memory_order_relaxed);
-      if (!s_loggedSize.exchange(true)) Debug("ready-hud: first panel sent (%zu bytes html)\n", html.size());
-      static std::atomic<bool> s_warnedBig{false};
-      if (html.size() > 1000 && !s_warnedBig.exchange(true)) {
-        Print("ready-hud: panel is %zu bytes (large; the client may cut it off)\n", html.size());
-      }
-    } else {
-      g_showing.store(false, std::memory_order_relaxed);
-      if (!s_warned.exchange(true)) PrintLine("ready-hud: per-client center HTML unavailable; ready HUD not shown.");
-    }
-  }
-  for (auto it = g_sent.begin(); it != g_sent.end();) {
-    if (present.count(it->first) == 0) it = g_sent.erase(it);
-    else ++it;
-  }
+  g_sent.clear();
 }
 
 }  // namespace readyup
