@@ -216,6 +216,10 @@ void HideCards(bool all) {
 std::vector<Outgoing> g_out;
 bool g_outReady = false;  // the next round started: send g_out
 int g_outRound = 0;
+// The round ended (live, reports on): build its report at the next round start, so damage after the
+// round end (players still fighting, saving, a late nade) counts too (Sivert, 2026-11-25).
+bool g_buildPending = false;
+int g_pendingRound = 0;
 // Who was on a team when the round started: someone who joined mid-round gets no report
 // for it (it would be all zeros: a scrim player taking a bot's place saw one on joining).
 std::unordered_set<int> g_roundStartSlots;
@@ -262,7 +266,6 @@ void BuildReports() {
     if (!here.count(p.key)) all.push_back(p);
   }
   g_out.clear();
-  g_outRound = MatchStateGet().round_number;
   for (size_t i = 0; i < c.players.size(); ++i) {
     Outgoing o;
     o.slot = c.players[i].key;
@@ -279,8 +282,16 @@ void OnGameEvent(void*, const char* name, const ru_game_event* ev) {
   const ru_api* a = host::Api();
   if (!a || !name || !ev) return;
   if (std::strcmp(name, "round_start") == 0) {
-    // Last round's report goes out now, in freeze time: at round end players may still be running
-    // for an exit or saving (2026-10-27). A new map or a stopped match drops it.
+    // Last round's report is built and goes out now, in freeze time: at round end players may still
+    // be running for an exit or saving (2026-10-27), and their damage until now counts. A new map
+    // or a stopped match drops it.
+    if (g_buildPending) {
+      g_buildPending = false;
+      if (GetMode() == ReadyUpMode::MatchLive) {
+        BuildReports();
+        g_outRound = g_pendingRound;
+      }
+    }
     if (!g_out.empty()) {
       if (GetMode() == ReadyUpMode::MatchLive) g_outReady = true;
       else g_out.clear();
@@ -320,7 +331,8 @@ void OnGameEvent(void*, const char* name, const ru_game_event* ev) {
     }
     if (!Cfg().damage_report || GetMode() != ReadyUpMode::MatchLive) return;
     if (!PlayerExtrasAllowed(CurrentEffectiveRules())) return;  // valve ruleset: no report
-    BuildReports();
+    g_buildPending = true;
+    g_pendingRound = MatchStateGet().round_number;
   }
 }
 
