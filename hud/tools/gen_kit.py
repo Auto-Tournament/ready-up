@@ -51,7 +51,12 @@ def card():
     dmg_rows = "".join(panel(f"at_d{n}", "at-drow", (
         label(f"at_d{n}_name", "at-dname") + label(f"at_d{n}_given", "at-dnum at-given")
         + label(f"at_d{n}_taken", "at-dnum at-taken") + label(f"at_d{n}_hp", "at-dhp"))) for n in range(5))
-    dmg = panel(cls="at-body at-dmg", children=dmg_head + dmg_rows)
+    # The stat strip over the table (addon version 8): DEALT / TOOK / FLASHED, each a small key, the
+    # number and a side note ("· 2.7s"). Shown when the server puts `dstrip` on #at_card.
+    dmg_strip = panel(cls="at-dstrip", children="".join(panel(f"at_ds{n}", "at-dstat", (
+        label(f"at_ds{n}_k", "at-dsk")
+        + panel(cls="at-dsrow", children=label(f"at_ds{n}_v", "at-dsv") + label(f"at_ds{n}_s", "at-dss")))) for n in range(3)))
+    dmg = panel(cls="at-body at-dmg", children=dmg_strip + dmg_head + dmg_rows)
     bar = panel(cls="at-body at-bar", children=(
         panel(cls="at-segs", children="".join(panel(f"at_s{n}", "at-seg") for n in range(10))) + label("at_pct", "at-pct")))
     chat = label(cls="at-chat", text="Press Y to chat")

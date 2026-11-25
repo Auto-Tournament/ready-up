@@ -18,6 +18,7 @@
 #include "readyup/i18n_api.h"
 
 #include <chrono>
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <unordered_map>
@@ -40,6 +41,8 @@ struct Outgoing {
   bool card = false;  // the table card on the Auto Tournament HUD instead of chat lines
   int total = 0;
   int took = 0;  // all the damage the player took this round
+  int flashed = 0;     // enemies the player blinded this round (each flash on each enemy counts)
+  double blind = 0;    // their blind seconds, summed
   struct Row {
     std::string name, given, taken, hp;  // given..hp in `lang` (LocalizeRows)
     int dmg = 0, took = 0, health = 0, hitsGiven = 0, hitsTaken = 0;
@@ -143,6 +146,23 @@ bool ShowCard(const Outgoing& o, int round, double until = 0) {
   txt("at_dh_given", text::ForLang(o.lang, "dmg.col_given"));
   txt("at_dh_taken", text::ForLang(o.lang, "dmg.col_taken"));
   txt("at_dh_hp", text::ForLang(o.lang, "dmg.col_hp"));
+  // The stat strip (addon version 8 on): DEALT / TOOK / FLASHED over the table. `dstrip` swaps it in
+  // for the header's totals line; an older addon ignores it and keeps that line.
+  txt("at_ds0_k", text::ForLang(o.lang, "dmg.stat_dealt"));
+  txt("at_ds0_v", std::to_string(o.total));
+  txt("at_ds0_s", "");
+  txt("at_ds1_k", text::ForLang(o.lang, "dmg.stat_took"));
+  txt("at_ds1_v", std::to_string(o.took));
+  txt("at_ds1_s", "");
+  txt("at_ds2_k", text::ForLang(o.lang, "dmg.stat_flashed"));
+  txt("at_ds2_v", std::to_string(o.flashed));
+  char secs[16];
+  std::snprintf(secs, sizeof(secs), "%.1f", o.blind);
+  txt("at_ds2_s", o.flashed > 0 ? "· " + text::ForLang(o.lang, "dmg.stat_seconds", {{"seconds", secs}}) : std::string());
+  cls("at_ds0", "zero", o.total == 0);
+  cls("at_ds1", "zero", o.took == 0);
+  cls("at_ds2", "zero", o.flashed == 0);
+  cls("at_card", "dstrip", true);
   for (const char* id : {"at_kind_a", "at_text_a"}) {
     cls(id, "cur", true);
     cls(id, "old", false);
@@ -220,6 +240,13 @@ int g_outRound = 0;
 // round end (players still fighting, saving, a late nade) counts too (Sivert, 2026-11-25).
 bool g_buildPending = false;
 int g_pendingRound = 0;
+// Enemies each player flashed this round (player_blind), for the card's FLASHED stat (Sivert,
+// 2026-11-25: pros check it between rounds). Keyed like the ledger; reset at round_start.
+struct Flashes {
+  int count = 0;
+  double seconds = 0;
+};
+std::unordered_map<int, Flashes> g_flashes;
 // Who was on a team when the round started: someone who joined mid-round gets no report
 // for it (it would be all zeros: a scrim player taking a bot's place saw one on joining).
 std::unordered_set<int> g_roundStartSlots;
@@ -273,7 +300,14 @@ void BuildReports() {
     o.name = c.players[i].name;
     o.lang = i18n::LanguageOf(host::Api(), o.slot);
     o.lines = FormatDamageReport(c.players[i], all, g_ledger, o.lang);
-    if (o.human && HudScreensOn()) FillCard(o, c.players[i], all, g_ledger);
+    if (o.human && HudScreensOn()) {
+      FillCard(o, c.players[i], all, g_ledger);
+      const auto f = g_flashes.find(o.slot);
+      if (f != g_flashes.end()) {
+        o.flashed = f->second.count;
+        o.blind = f->second.seconds;
+      }
+    }
     if (!o.lines.empty()) g_out.push_back(std::move(o));
   }
 }
@@ -297,6 +331,7 @@ void OnGameEvent(void*, const char* name, const ru_game_event* ev) {
       else g_out.clear();
     }
     g_ledger.Reset();
+    g_flashes.clear();
     g_enemyDamage = false;
     Collect c;
     a->for_each_player(a->self, &CollectPlayer, &c);
@@ -314,6 +349,18 @@ void OnGameEvent(void*, const char* name, const ru_game_event* ev) {
     if (attacker >= 0 && victim >= 0 && attacker != victim && dmg > 0) {
       const int ta = TeamOf(attacker), tv = TeamOf(victim);
       if ((ta == 2 || ta == 3) && (tv == 2 || tv == 3) && ta != tv) g_enemyDamage = true;
+    }
+  } else if (std::strcmp(name, "player_blind") == 0) {
+    const int victim = a->ev_get_player_slot(a->self, ev, "userid");
+    const int attacker = a->ev_get_player_slot(a->self, ev, "attacker");
+    const double secs = a->ev_get_float(a->self, ev, "blind_duration", 0.0);
+    if (attacker >= 0 && victim >= 0 && attacker != victim && secs > 0) {
+      const int ta = TeamOf(attacker), tv = TeamOf(victim);
+      if ((ta == 2 || ta == 3) && (tv == 2 || tv == 3) && ta != tv) {
+        Flashes& f = g_flashes[attacker];
+        ++f.count;
+        f.seconds += secs;
+      }
     }
   } else if (std::strcmp(name, "player_death") == 0) {
     g_ledger.OnDeath(a->ev_get_player_slot(a->self, ev, "userid"));
@@ -339,7 +386,7 @@ void OnGameEvent(void*, const char* name, const ru_game_event* ev) {
 }  // namespace
 
 void DamageReportInstall(const ru_api* api) {
-  for (const char* e : {"round_start", "round_end", "player_hurt", "player_death"}) {
+  for (const char* e : {"round_start", "round_end", "player_hurt", "player_death", "player_blind"}) {
     if (!api->subscribe_game_event(api->self, e, &OnGameEvent, nullptr)) {
       Print("damage-report: could not subscribe to %s\n", e);
     }

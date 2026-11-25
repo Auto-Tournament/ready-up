@@ -118,7 +118,8 @@ The game adds `HUD_BUYMENU_VISIBLE` while the buy menu is open; card and centre 
 **Card** (`at_card`): header `at_kind_a/b`, `at_text_a/b` (two layers that roll: write the new text
 into the `old` one, then swap `cur` / `old`). Bodies by class: `b-rules` (`at_r0..2_k/_v`),
 `b-line` (a sentence, below), `b-dmg` (`at_d0..4_name/_given/_taken/_hp`, rows `hit` `big` `took`
-`dead`), `b-bar` (`at_s0..9` class `fill`, `at_pct`). `chat` shows "Press Y to chat"; `nudge` pulses.
+`dead`; with `dstrip` on the card, the stat strip `at_ds0..2_k/_v/_s` (cell class `zero`)
+replaces the header text), `b-bar` (`at_s0..9` class `fill`, `at_pct`). `chat` shows "Press Y to chat"; `nudge` pulses.
 
 **Sentences** (`at_p0..4` on the card, `at_mp0..4` in the centre; text in `<id>_t`): up to five
 parts. Part classes: `hide`, `bold` (+ `c-live` / `c-ban`), `cmd` (+ `main` / `warn` / `side-ct` /

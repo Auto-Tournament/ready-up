@@ -64,6 +64,29 @@
 </Panel>
 </Panel>
 <Panel class="at-body at-dmg" hittest="false">
+<Panel class="at-dstrip" hittest="false">
+<Panel id="at_ds0" class="at-dstat" hittest="false">
+<Label id="at_ds0_k" class="at-dsk" text="{s:text}" hittest="false" />
+<Panel class="at-dsrow" hittest="false">
+<Label id="at_ds0_v" class="at-dsv" text="{s:text}" hittest="false" />
+<Label id="at_ds0_s" class="at-dss" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Panel id="at_ds1" class="at-dstat" hittest="false">
+<Label id="at_ds1_k" class="at-dsk" text="{s:text}" hittest="false" />
+<Panel class="at-dsrow" hittest="false">
+<Label id="at_ds1_v" class="at-dsv" text="{s:text}" hittest="false" />
+<Label id="at_ds1_s" class="at-dss" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Panel id="at_ds2" class="at-dstat" hittest="false">
+<Label id="at_ds2_k" class="at-dsk" text="{s:text}" hittest="false" />
+<Panel class="at-dsrow" hittest="false">
+<Label id="at_ds2_v" class="at-dsv" text="{s:text}" hittest="false" />
+<Label id="at_ds2_s" class="at-dss" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
 <Panel class="at-drow at-dhead" hittest="false">
 <Label id="at_dh_name" class="at-dname" text="{s:text}" hittest="false" />
 <Label id="at_dh_given" class="at-dnum" text="{s:text}" hittest="false" />
