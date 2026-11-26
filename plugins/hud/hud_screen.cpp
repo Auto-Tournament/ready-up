@@ -38,7 +38,18 @@ bool UtilityName(const std::string& c) {
   return true;
 }
 const char* const kTones[] = {"t-green", "t-ct", "t-t", "t-warn", "t-danger"};
-const char* const kWidths[] = {"bw-xs", "bw-s", "bw-m", "bw-l", "bw-xl"};
+const char* const kMarks[] = {"ct", "t", "r-consumer", "r-industrial", "r-milspec", "r-restricted", "r-classified", "r-covert", "r-gold"};
+bool HasMark(const std::string& marks, const std::string& m) {
+  size_t a = 0;
+  while (a <= marks.size()) {
+    size_t b = marks.find(' ', a);
+    if (b == std::string::npos) b = marks.size();
+    if (marks.compare(a, b - a, m) == 0 && b - a == m.size()) return true;
+    a = b + 1;
+  }
+  return false;
+}
+const char* const kWidths[] = {"bw-xs", "bw-s", "bw-m", "bw-l", "bw-xl", "bw-tile"};
 
 }  // namespace
 
@@ -96,11 +107,18 @@ Screen ParseScreen(const std::string& spec) {
       }
     } else if (k == "btn") {
       const auto p = SplitBar(v);
-      if (s.buttons.size() < static_cast<size_t>(kMaxButtons)) s.buttons.push_back(Button{At(p, 0), At(p, 1), At(p, 2), At(p, 3), At(p, 4)});
+      const std::string img = UtilityName(At(p, 5)) ? At(p, 5) : std::string();
+      if (s.buttons.size() < static_cast<size_t>(kMaxButtons))
+        s.buttons.push_back(Button{At(p, 0), At(p, 1), At(p, 2), At(p, 3), At(p, 4), img, At(p, 6)});
+    } else if (k == "tab") {
+      const auto p = SplitBar(v);
+      if (s.tabs.size() < static_cast<size_t>(kMaxTabs)) s.tabs.push_back(Tab{At(p, 0), At(p, 1), At(p, 2), At(p, 3) == "1"});
+    } else if (k == "img") {
+      s.img = UtilityName(v) ? v : std::string();
     } else if (k == "cols") {
       s.cols = std::clamp(std::atoi(v.c_str()), 1, 6);
     } else if (k == "bw") {
-      if (v == "xs" || v == "s" || v == "m" || v == "l" || v == "xl") s.bw = v;
+      if (v == "xs" || v == "s" || v == "m" || v == "l" || v == "xl" || v == "tile") s.bw = v;
     } else if (k == "close") {
       const auto p = SplitBar(v);
       s.hasClose = !At(p, 0).empty();
@@ -240,7 +258,21 @@ std::vector<Write> RenderScreen(const Screen& s, const std::string& p) {
     cls(b, "picked", btn && btn->state == "picked");
     cls(b, "pulse", btn && btn->state == "pulse");
     cls(b, "off", btn && btn->state == "off");
+    cls(b, "has-img", btn && !btn->img.empty());
+    for (const char* m : kMarks) cls(b, std::string("mk-") + m, btn && HasMark(btn->marks, m));
   }
+
+  // Tabs left of the buttons (`tab=`), and the large picture (`img=`).
+  cls(p, "has-tabs", !s.chips && !s.tabs.empty());
+  for (size_t i = 0; i < static_cast<size_t>(kMaxTabs); ++i) {
+    const std::string g = p + "_g" + std::to_string(i);
+    const Tab* tab = i < s.tabs.size() ? &s.tabs[i] : nullptr;
+    text(g + "_l", tab ? tab->label : std::string());
+    text(g + "_c", tab ? tab->count : std::string());
+    cls(g, "show", tab != nullptr);
+    cls(g, "on", tab && tab->on);
+  }
+  cls(p, "has-hero", !s.img.empty());
 
   cls(p, "has-close", !s.chips && s.hasClose);
   text(p + "_close_l", s.closeLabel);
@@ -255,6 +287,11 @@ bool ParseButtonId(const std::string& id, std::string* panel, int* index) {
     if (rest == "close") {
       *panel = p;
       *index = -1;
+      return true;
+    }
+    if (rest.size() == 2 && rest[0] == 'g' && rest[1] >= '0' && rest[1] <= '9' && rest[1] - '0' < kMaxTabs) {
+      *panel = p;
+      *index = kTabIndex + (rest[1] - '0');
       return true;
     }
     if (rest.size() >= 2 && rest.size() <= 3 && rest[0] == 'b' &&
@@ -309,6 +346,12 @@ std::vector<std::pair<std::string, std::string>> Utilities(const Screen& s, cons
     for (const char* known : kParts)
       if (part == known) out.emplace_back(p + "_" + part, c);
   }
+  // Pictures: each tile's on its image panel, the large one on <panel>_hero.
+  if (!s.chips) {
+    for (size_t i = 0; i < s.buttons.size() && i < static_cast<size_t>(kMaxButtons); ++i)
+      if (!s.buttons[i].img.empty()) out.emplace_back(p + "_b" + std::to_string(i) + "_img", s.buttons[i].img);
+  }
+  if (!s.img.empty()) out.emplace_back(p + "_hero", s.img);
   return out;
 }
 

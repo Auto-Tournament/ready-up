@@ -502,6 +502,8 @@ void FleetTick(double now) {
     for (const char* type : {"skins.loadout", "skins.invalidate"}) {
       if (const uint64_t id = f->register_handler(type, &OnFleetMessage, nullptr)) g_handlerIds.push_back(id);
     }
+    // The in-game inventory's answers (inventory.cpp).
+    if (const uint64_t id = f->register_handler("skins.inventory", &InventoryFleetMessage, nullptr)) g_handlerIds.push_back(id);
     f->add_capability("skins.v1");
   }
   if (now - g_lastFlush >= 10.0) {

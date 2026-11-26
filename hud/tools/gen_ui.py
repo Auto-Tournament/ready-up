@@ -78,9 +78,20 @@ def block(p):
             return ""
         return panel(cls="ui-btnfill") + panel(cls="ui-btnkey", children=(
             panel(cls="ui-kcbr ui-kcl") + panel(cls="ui-kcbr ui-kcr") + label(f"{p}_b0_k", "ui-kct", "{g:csgo_key:k}")))
+    # A button with a picture (`btn=…|img|marks`, has-img) is a tile: the picture on top (its class
+    # from at_skins.css, set by hud.so), label and sub under it, side chips and a rarity line (mk-*).
+    marks = panel(cls="ui-btnbar") + panel(cls="ui-btnmarks", children=(
+        panel(cls="ui-mk ui-mk-ct", children=label(cls="ui-mkt", text="CT"))
+        + panel(cls="ui-mk ui-mk-t", children=label(cls="ui-mkt", text="T"))))
     buttons = panel(f"{p}_buttons", "ui-buttons", children="".join(
-        button(f"{p}_b{n}", "ui-btn", panel(cls="ui-btnglow") + hold_parts(n) + label(f"{p}_b{n}_l", "ui-btnlabel") + label(f"{p}_b{n}_s", "ui-btnsub"))
+        button(f"{p}_b{n}", "ui-btn", panel(cls="ui-btnglow") + hold_parts(n) + panel(f"{p}_b{n}_img", "ui-btnimg")
+               + label(f"{p}_b{n}_l", "ui-btnlabel") + label(f"{p}_b{n}_s", "ui-btnsub") + marks)
         for n in range(24)))
+    # Tabs left of the buttons (`tab=`, has-tabs): a column of up to 10, label and count.
+    tabs = panel(f"{p}_tabs", "ui-tabs", children="".join(
+        button(f"{p}_g{n}", "ui-tab", label(f"{p}_g{n}_l", "ui-tablabel") + label(f"{p}_g{n}_c", "ui-tabcount"))
+        for n in range(10)))
+    body = panel(f"{p}_body", "ui-body", children=tabs + buttons)
     close_parts = panel(cls="ui-rowmark") + panel(cls="ui-btnfill") if p == "ui_left" else ""
     close = button(f"{p}_close", "ui-close", close_parts + label(f"{p}_close_l", "ui-closelabel"))
     # Behind the content: a wash of the accent from the left and a few breathing pixels (cs2-ui-kit).
@@ -88,8 +99,8 @@ def block(p):
     back = panel(cls="ui-back") + panel(cls="ui-wash") + panel(cls="ui-pixels", children="".join(
         panel(cls=f"ui-px p{n} px-{'abcd'[n % 4]}") for n in range(8)))
     flow = panel(f"{p}_flow", "ui-flow", children=(
-        brand + label(f"{p}_kind", "ui-kind") + label(f"{p}_title", "ui-title") + label(f"{p}_sub", "ui-sub") + vs
-        + teams + confirm + rows + buttons + cmds + close + label(f"{p}_hint", "ui-hint")))
+        brand + panel(f"{p}_hero", "ui-hero") + label(f"{p}_kind", "ui-kind") + label(f"{p}_title", "ui-title")
+        + label(f"{p}_sub", "ui-sub") + vs + teams + confirm + rows + body + cmds + close + label(f"{p}_hint", "ui-hint")))
     extras = label(f"{p}_timer", "ui-timer") + label(f"{p}_counter", "ui-counter") + panel(cls="ui-line") + panel(cls="ui-flash")
     return panel(p, f"ui-panel ui-{p[3:]}", back + flow + extras, hit=True)
 
@@ -130,6 +141,7 @@ def main():
 <root>
 	<styles>
 		<include src="s2r://panorama/styles/custom_game/at_ui.vcss_c" />
+		<include src="s2r://panorama/styles/custom_game/at_skins.vcss_c" />
 	</styles>
 	<Panel class="ui-root" hittest="false">{body}</Panel>
 </root>

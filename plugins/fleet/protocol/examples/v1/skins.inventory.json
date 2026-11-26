@@ -1,0 +1,41 @@
+{
+  "v": 1,
+  "type": "skins.inventory",
+  "id": "01J8ZQ4T8W6N3X0F2R5K7M9P15",
+  "ts": 1790340020300,
+  "payload": {
+    "steamid64": "76561198000000001",
+    "enabled": true,
+    "items": [
+      {
+        "id": 412,
+        "weapon": "weapon_awp",
+        "weapon_name": "AWP",
+        "name": "Asiimov",
+        "rarity": "covert",
+        "slot": "awp",
+        "float": 0.27,
+        "pattern": 412,
+        "stattrak": 1204,
+        "side": null,
+        "equipped": [0],
+        "image": "weapon_awp_cu_awp_asimov_medium_png",
+        "source": "t50 MVP"
+      },
+      {
+        "id": 77,
+        "weapon": "weapon_ak47",
+        "weapon_name": "AK-47",
+        "name": "Redline",
+        "rarity": "classified",
+        "slot": "ak47",
+        "float": 0.18,
+        "pattern": 77,
+        "stattrak": null,
+        "side": 2,
+        "equipped": [],
+        "image": "weapon_ak47_cu_ak47_cobra_medium_png"
+      }
+    ]
+  }
+}

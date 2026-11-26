@@ -33,11 +33,18 @@
 //   cls=edge glass-3 at-top      utilities on the panel (hud/styles/at_ui.css, "Tailwind for CS2")
 //   cls.title=text-2xl tc-live   utilities on one part: brand kind title sub hint timer counter
 //                                teams confirm lines cmds buttons close flow b0..b7
-//   btn=CT|ct||.ct               a button, up to 24 (kMaxButtons): label | tone | state | command [| count]
+//   btn=CT|ct||.ct               a button, up to 24 (kMaxButtons): label | tone | state | command [| sub
+//                                [| img [| marks]]]
 //                                tone: green ct t warn danger ghost; state: picked | off | pulse | (none)
 //                                (pulse: the one button waiting for this player breathes)
+//                                img: a picture class (at_skins.css `sk-…`): the button becomes a tile,
+//                                the picture on top, label and sub under it
+//                                marks: space-separated: ct t (side chips), r-consumer r-industrial
+//                                r-milspec r-restricted r-classified r-covert r-gold (a rarity line)
+//   tab=Rifles|8|.skins tab rifles|1  a tab left of the buttons, up to 10: label | count | command | 1 = on
+//   img=sk-1a2b3c4d              a large picture above the kind (a picture class, as btn img)
 //   cols=2                       buttons per row (default: the number of buttons, at most 4)
-//   bw=m                         button width: s m l xl (default m)
+//   bw=m                         button width: s m l xl (default m); tile: rows of picture tiles
 //   close=Close|                 a close / back button: label | command (empty = just hide)
 //   mouse=on                     off (default) | b (cursor while the buy menu is open) | on
 //   chips=1                      mid-round: buttons are drawn as typed commands, never a cursor
@@ -53,12 +60,19 @@ namespace hud {
 
 // Button slots per panel in at_ui.xml (hud/tools/gen_ui.py).
 constexpr int kMaxButtons = 24;
+// Tabs per panel (`tab=`), ids <panel>_g0..g9; clicks come back as index kTabIndex + n.
+constexpr int kMaxTabs = 10;
+constexpr int kTabIndex = 100;
 
 
 enum class Mouse { Off, B, On };
 
 struct Button {
-  std::string label, tone, state, cmd, sub;
+  std::string label, tone, state, cmd, sub, img, marks;
+};
+struct Tab {
+  std::string label, count, cmd;
+  bool on = false;
 };
 
 struct Screen {
@@ -80,6 +94,8 @@ struct Screen {
   std::vector<std::pair<std::string, std::string>> utils;  // (part, "" = the panel; utility class)
   bool wash = true, pixels = true, blur = true;
   std::vector<Button> buttons;
+  std::vector<Tab> tabs;
+  std::string img;  // `img=`: the large picture's class
   int cols = 0;
   std::string bw = "m";
   bool hasClose = false;
@@ -106,7 +122,7 @@ struct Write {
 std::vector<Write> RenderScreen(const Screen& s, const std::string& p);
 
 // The panel a button id belongs to and the button's index: "ui_mid_b3" -> ("ui_mid", 3); the close
-// button -> index -1. False when the id is not one of ours.
+// button -> index -1; a tab "ui_mid_g2" -> kTabIndex + 2. False when the id is not one of ours.
 bool ParseButtonId(const std::string& id, std::string* panel, int* index);
 
 // The spec's utilities as (element id, class) for panel `p`: cls= on the panel, cls.<part>= on

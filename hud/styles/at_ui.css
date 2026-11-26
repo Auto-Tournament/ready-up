@@ -178,6 +178,55 @@
 .ui-btn.off .ui-btnlabel { color: #938a87; }
 .ui-btn.off:hover { transform: scale3d( 1, 1, 1 ); border: 2px solid #322926; }
 
+/* ==== Tiles, tabs and the large picture (addon 9: the in-game inventory, `.skins`) ================
+   A button with a picture (`btn=label|tone|state|cmd|sub|img|marks`, has-img) is a tile: the picture
+   (an at_skins.css class) on top, a rarity line under it, the label and sub, and CT / T chips. Tabs
+   (`tab=`) stand in a column left of the buttons; `img=` puts a large picture above the kind. */
+.ui-body { flow-children: right; horizontal-align: center; }
+.ui-tabs { visibility: collapse; flow-children: down; width: 170px; margin: 20px 14px 0px 0px; }
+.has-tabs .ui-tabs { visibility: visible; }
+.ui-tab { visibility: collapse; width: 100%; height: 36px; margin-bottom: 2px; border-radius: 4px; background-color: #00000000; border-left: 3px solid #00000000; transition-property: background-color; transition-duration: 0.12s; }
+.ui-tab.show { visibility: visible; }
+.ui-tab:hover { background-color: #211815; }
+.ui-tab.on { background-color: #211815; border-left: 3px solid #ff6a3d; }
+.ui-tablabel { horizontal-align: left; vertical-align: center; margin-left: 12px; font-size: 15px; color: #c4bcb9; }
+.ui-tab.on .ui-tablabel { color: #f4edeb; font-weight: bold; }
+.ui-tabcount { horizontal-align: right; vertical-align: center; margin-right: 10px; font-family: "Noto Mono"; font-size: 12px; color: #938a87; }
+
+.ui-btn.has-img { width: 180px; height: 158px; border-radius: 6px; border: 1px solid #322926; background-color: #211815; }
+.ui-btn.has-img:hover { transform: scale3d( 1.03, 1.03, 1 ); border: 1px solid #c4bcb9; }
+.ui-btn.has-img.picked { transform: scale3d( 1, 1, 1 ); border: 2px solid #ff6a3d; }
+.ui-btnimg { visibility: collapse; width: 164px; height: 90px; horizontal-align: center; margin-top: 6px; background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.has-img .ui-btnimg { visibility: visible; }
+.ui-btnbar { visibility: collapse; width: 100%; height: 3px; margin-top: 100px; background-color: #322926; }
+.has-img .ui-btnbar { visibility: visible; }
+.mk-r-consumer .ui-btnbar { background-color: #b0c3d9; }
+.mk-r-industrial .ui-btnbar { background-color: #5e98d9; }
+.mk-r-milspec .ui-btnbar { background-color: #4b69ff; }
+.mk-r-restricted .ui-btnbar { background-color: #8847ff; }
+.mk-r-classified .ui-btnbar { background-color: #d32ce6; }
+.mk-r-covert .ui-btnbar { background-color: #eb4b4b; }
+.mk-r-gold .ui-btnbar { background-color: #e4ae39; }
+.ui-btn.has-img .ui-btnlabel { width: 160px; horizontal-align: left; vertical-align: bottom; text-align: left; margin: 0px 0px 28px 10px; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.ui-btn.has-img .ui-btnsub { visibility: visible; horizontal-align: left; vertical-align: bottom; margin: 0px 0px 10px 10px; font-size: 11px; color: #c4bcb9; }
+.ui-btnmarks { visibility: collapse; flow-children: right; horizontal-align: right; vertical-align: bottom; margin: 0px 8px 9px 0px; }
+.has-img .ui-btnmarks { visibility: visible; }
+.ui-mk { visibility: collapse; height: 16px; padding: 0px 5px; margin-left: 4px; border-radius: 3px; }
+.mk-ct .ui-mk-ct { visibility: visible; background-color: #2b44d6; }
+.mk-t .ui-mk-t { visibility: visible; background-color: #e6b33c; }
+.ui-mkt { vertical-align: center; font-family: "Noto Mono"; font-size: 10px; font-weight: bold; color: #ffffff; }
+.ui-mk-t .ui-mkt { color: #140e0c; }
+/* bw=tile: rows of tiles, N x (180 + 12). */
+.bw-tile.cols-1 .ui-buttons { width: 192px; }
+.bw-tile.cols-2 .ui-buttons { width: 384px; }
+.bw-tile.cols-3 .ui-buttons { width: 576px; }
+.bw-tile.cols-4 .ui-buttons { width: 768px; }
+.bw-tile.cols-5 .ui-buttons { width: 960px; }
+.bw-tile.cols-6 .ui-buttons { width: 1152px; }
+
+.ui-hero { visibility: collapse; width: 360px; height: 200px; horizontal-align: center; margin-bottom: 8px; background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.has-hero .ui-hero { visibility: visible; }
+
 /* Button widths (bw-*) and the row width for each column count (cols-N): N x (width + 12). */
 /* xs: dense pages (the .dev menu): small, many to a row. */
 .bw-xs .ui-btn { width: 150px; height: 34px; margin: 4px; border-radius: 17px; }
@@ -1058,4 +1107,5 @@
 .ui-ver.check.v-6 { visibility: collapse; }
 .ui-ver.check.v-7 { visibility: collapse; }
 .ui-ver.check.v-8 { visibility: collapse; }
+.ui-ver.check.v-9 { visibility: collapse; }
 /* end addon version */

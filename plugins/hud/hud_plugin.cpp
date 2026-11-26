@@ -864,6 +864,10 @@ bool ScreenClick(int slot, const std::string& button) {
       IfSetClass(IfOpen(kUiLayout), slot, panel.c_str(), "on", 0);
       ss.shown = false;
     }
+  } else if (index >= kTabIndex) {
+    const size_t t = static_cast<size_t>(index - kTabIndex);
+    if (t >= ss.cur.tabs.size() || ss.cur.tabs[t].cmd.empty()) return true;
+    cmd = ss.cur.tabs[t].cmd;
   } else {
     if (static_cast<size_t>(index) >= ss.cur.buttons.size()) return true;
     const Button& b = ss.cur.buttons[static_cast<size_t>(index)];

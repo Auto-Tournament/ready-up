@@ -551,6 +551,12 @@ target_compile_options(readyup_plugin_state_test PRIVATE -Wall -Wextra)
 enable_testing()
 add_test(NAME center_panel_owner COMMAND readyup_center_panel_owner_test)
 add_test(NAME skins_reload COMMAND skins_reload_test)
+# The in-game inventory's screens (plugins/skins/inventory_view.h): pure, no engine.
+add_executable(skins_inventory_view_test plugins/skins/tests/inventory_view_test.cpp plugins/skins/inventory_view.cpp
+  libs/readyup/json_store.cpp libs/readyup/status_snapshot.cpp)
+target_include_directories(skins_inventory_view_test PRIVATE ${CMAKE_SOURCE_DIR}/libs ${CMAKE_SOURCE_DIR}/core/include)
+target_compile_options(skins_inventory_view_test PRIVATE -Wall -Wextra)
+add_test(NAME skins_inventory_view COMMAND skins_inventory_view_test)
 # Knife swaps: only a knife the plugin swapped in reverts to stock (plugins/skins/knife_swap.h).
 add_executable(skins_knife_swap_test plugins/skins/tests/knife_swap_test.cpp)
 target_include_directories(skins_knife_swap_test PRIVATE ${CMAKE_SOURCE_DIR}/plugins/skins)

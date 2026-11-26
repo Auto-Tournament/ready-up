@@ -11,5 +11,5 @@
 #pragma once
 
 namespace hud {
-constexpr int kAddonVersion = 8;
+constexpr int kAddonVersion = 9;  // 9: tiles with pictures, tabs, the large picture (the in-game inventory)
 }  // namespace hud
