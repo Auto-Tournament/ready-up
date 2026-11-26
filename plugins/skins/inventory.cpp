@@ -85,14 +85,17 @@ void Draw(int slot) {
   auto inv = g_inventory.find(v.steamid64);
   if (v.waiting || inv == g_inventory.end()) {
     spec = inv::LoadingSpec(tr);
-  } else if (v.picked) {
-    const inv::Item* item = nullptr;
-    for (const auto& i : inv->second.items)
-      if (i.id == v.picked) item = &i;
-    if (item) spec = inv::DetailSpec(*item, v.pending, tr);
-    else v.picked = 0;
+  } else {
+    // The grid, and the picked item as its drawer over it (the grid stays, dimmed).
+    spec = inv::GridSpec(inv->second, v.tab, v.page, tr);
+    if (v.picked) {
+      const inv::Item* item = nullptr;
+      for (const auto& i : inv->second.items)
+        if (i.id == v.picked) item = &i;
+      if (item) spec += inv::DetailSpec(*item, v.pending, tr);
+      else v.picked = 0;
+    }
   }
-  if (spec.empty()) spec = inv::GridSpec(inv->second, v.tab, v.page, tr);
   h->menu(slot, kMenuOwner, spec.c_str(), &OnClick, nullptr);
 }
 
@@ -184,6 +187,8 @@ void OpenInventory(int slot, uint64_t steamid64) {
   if (!Fleet()) return Chat(slot, "inv.no_platform");
   if (!Hud()) return Chat(slot, "inv.no_hud");
   if (HudOff(steamid64)) return Chat(slot, "inv.hud_off");
+  // `.skins` again closes it (Sivert, 2026-11-26).
+  if (g_views.count(slot)) return Close(slot);
   View& v = g_views[slot];
   v = View{};
   v.steamid64 = steamid64;

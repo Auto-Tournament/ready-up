@@ -114,6 +114,27 @@ Screen ParseScreen(const std::string& spec) {
     } else if (k == "tab") {
       const auto p = SplitBar(v);
       if (s.tabs.size() < static_cast<size_t>(kMaxTabs)) s.tabs.push_back(Tab{At(p, 0), At(p, 1), At(p, 2), At(p, 3) == "1"});
+    } else if (k.rfind("drawer.", 0) == 0) {
+      const std::string dk = k.substr(7);
+      Drawer& d = s.drawer;
+      if (dk == "img") d.img = UtilityName(v) ? v : std::string();
+      else if (dk == "kind") d.kind = v;
+      else if (dk == "title") d.title = v;
+      else if (dk == "sub") d.sub = v;
+      else if (dk == "label") d.label = v;
+      else if (dk == "hint") d.hint = v;
+      else if (dk == "line") {
+        const auto p = SplitBar(v);
+        if (d.lines.size() < 3) d.lines.emplace_back(At(p, 0), At(p, 1));
+      } else if (dk == "btn") {
+        const auto p = SplitBar(v);
+        if (d.buttons.size() < static_cast<size_t>(kMaxDrawerButtons))
+          d.buttons.push_back(Button{At(p, 0), At(p, 1), At(p, 2), At(p, 3), At(p, 4), "", "", ""});
+      } else if (dk == "close") {
+        const auto p = SplitBar(v);
+        d.closeLabel = At(p, 0);
+        d.closeCmd = At(p, 1);
+      }
     } else if (k == "img") {
       s.img = UtilityName(v) ? v : std::string();
     } else if (k == "cols") {
@@ -278,6 +299,33 @@ std::vector<Write> RenderScreen(const Screen& s, const std::string& p) {
   }
   cls(p, "has-hero", !s.img.empty());
 
+  // The drawer over the panel's right side (drawer.*).
+  const Drawer& d = s.drawer;
+  cls(p, "has-drawer", d.on());
+  text(p + "_dkind", d.kind);
+  text(p + "_dtitle", d.title);
+  text(p + "_dsub", d.sub);
+  text(p + "_dlabel", d.label);
+  text(p + "_dhint", d.hint);
+  text(p + "_dclose_l", d.closeLabel);
+  cls(p + "_dclose", "show", d.on() && !d.closeLabel.empty());
+  for (size_t i = 0; i < 3; ++i) {
+    const std::string r = p + "_dn" + std::to_string(i);
+    text(r + "_k", i < d.lines.size() ? d.lines[i].first : std::string());
+    text(r + "_v", i < d.lines.size() ? d.lines[i].second : std::string());
+    cls(r, "gone", i >= d.lines.size());
+  }
+  for (size_t i = 0; i < static_cast<size_t>(kMaxDrawerButtons); ++i) {
+    const std::string b = p + "_d" + std::to_string(i);
+    const Button* btn = i < d.buttons.size() ? &d.buttons[i] : nullptr;
+    text(b + "_l", btn ? btn->label : std::string());
+    cls(b, "show", btn != nullptr);
+    const std::string tone = btn ? "t-" + btn->tone : std::string();
+    for (const char* t : kTones) cls(b, t, btn && btn->state != "off" && tone == t);
+    cls(b, "picked", btn && btn->state == "picked");
+    cls(b, "off", btn && btn->state == "off");
+  }
+
   cls(p, "has-close", !s.chips && s.hasClose);
   text(p + "_close_l", s.closeLabel);
   return w;
@@ -291,6 +339,16 @@ bool ParseButtonId(const std::string& id, std::string* panel, int* index) {
     if (rest == "close") {
       *panel = p;
       *index = -1;
+      return true;
+    }
+    if (rest == "dclose") {
+      *panel = p;
+      *index = kDrawerClose;
+      return true;
+    }
+    if (rest.size() == 2 && rest[0] == 'd' && rest[1] >= '0' && rest[1] <= '9' && rest[1] - '0' < kMaxDrawerButtons) {
+      *panel = p;
+      *index = kDrawerIndex + (rest[1] - '0');
       return true;
     }
     if (rest.size() == 2 && rest[0] == 'g' && rest[1] >= '0' && rest[1] <= '9' && rest[1] - '0' < kMaxTabs) {
@@ -357,6 +415,7 @@ std::vector<std::pair<std::string, std::string>> Utilities(const Screen& s, cons
       if (!s.buttons[i].img.empty()) out.emplace_back(p + "_b" + std::to_string(i) + "_img", s.buttons[i].img);
   }
   if (!s.img.empty()) out.emplace_back(p + "_hero", s.img);
+  if (!s.drawer.img.empty()) out.emplace_back(p + "_dimg", s.drawer.img);
   return out;
 }
 

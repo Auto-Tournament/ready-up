@@ -53,6 +53,15 @@ std::string RarityMark(const std::string& r) {
   return "";
 }
 
+// Consumer (0) .. contraband (6); -1 unknown.
+int RarityRank(const std::string& r) {
+  static const char* const kOrder[] = {"r-consumer", "r-industrial", "r-milspec", "r-restricted", "r-classified", "r-covert", "r-gold"};
+  const std::string m = RarityMark(r);
+  for (int i = 0; i < 7; ++i)
+    if (m == kOrder[i]) return i;
+  return -1;
+}
+
 std::string Marks(const Item& it) {
   std::string m;
   if (it.on[0] || it.on[3]) m += "ct ";
@@ -182,6 +191,13 @@ std::string GridSpec(const Inventory& inv, const std::string& tab, int page, con
   } else {
     s += "sub=" + Clean(tr("inv.hint", {})) + "\n";
   }
+  // Rarest first (Sivert, 2026-11-26), then by weapon and name; the platform's order (newest) breaks ties.
+  std::stable_sort(shown.begin(), shown.end(), [](const Item* a, const Item* b) {
+    const int ra = RarityRank(a->rarity), rb = RarityRank(b->rarity);
+    if (ra != rb) return ra > rb;
+    if (a->weaponName != b->weaponName) return a->weaponName < b->weaponName;
+    return a->name < b->name;
+  });
   // One grid that scrolls (Sivert, 2026-11-26: no pages): the tab's items, up to kMaxShown.
   (void)page;
   for (size_t i = 0; i < shown.size() && i < static_cast<size_t>(kMaxShown); ++i) {
@@ -201,33 +217,36 @@ std::string GridSpec(const Inventory& inv, const std::string& tab, int page, con
 }
 
 std::string DetailSpec(const Item& it, bool pending, const Text& tr) {
-  // The item beside the dimmed grid (at_ui ui_invd): picture, kind, title, sub, lines, EQUIP ON
-  // (counter) over the side buttons, a note (hint), Back (close).
-  std::string s = "id=skins-item-" + std::to_string(it.id) + "\nwhere=invd\nmouse=on\n";
-  if (!it.image.empty()) s += "img=" + PictureClass(it.image) + "\n";
-  s += "kind=" + Clean(it.weaponName) + "\n";
-  s += "title=" + Line(it.name.empty() ? it.weaponName : it.weaponName + " | " + it.name) + "\n";
+  // The picked item as the grid's drawer (drawer.*, added to GridSpec): the grid stays behind it,
+  // dimmed. Picture, kind, title, sub, lines, EQUIP ON (label) over the side buttons, Unequip and
+  // Back (close) side by side, a note (hint).
+  std::string s;
+  if (!it.image.empty()) s += "drawer.img=" + PictureClass(it.image) + "\n";
+  s += "drawer.kind=" + Clean(it.weaponName) + "\n";
+  s += "drawer.title=" + Line(it.name.empty() ? it.weaponName : it.weaponName + " | " + it.name) + "\n";
   std::string sub;
   if (it.wear >= 0) sub = WearName(it.wear) + " " + Fmt("%.3f", it.wear);
   if (it.pattern >= 0) sub += (sub.empty() ? "" : " \xC2\xB7 ") + tr("inv.pattern", {{"n", std::to_string(it.pattern)}});
   if (it.stattrak >= 0) sub += (sub.empty() ? "" : " \xC2\xB7 ") + tr("inv.stattrak", {{"n", std::to_string(it.stattrak)}});
-  if (!sub.empty()) s += "sub=" + Clean(sub) + "\n";
-  if (!it.source.empty()) s += "line=" + Clean(tr("inv.from", {})) + "|" + Clean(it.source) + "\n";
+  if (!sub.empty()) s += "drawer.sub=" + Clean(sub) + "\n";
+  if (!it.source.empty()) s += "drawer.line=" + Clean(tr("inv.from", {})) + "|" + Clean(it.source) + "\n";
   const std::string id = std::to_string(it.id);
   const bool any = it.on[0] || it.on[2] || it.on[3];
-  s += "counter=" + Clean(tr("inv.equip_on", {})) + "\n";
+  s += "drawer.label=" + Clean(tr("inv.equip_on", {})) + "\n";
   if (it.side == 0) {
     // Both sides buy it: CT, T or both. A side is picked when it has this item (both counts for each).
-    s += "btn=CT|ct|" + std::string(it.on[0] || it.on[3] ? "picked" : "") + "|#equip " + id + " 3\n";
-    s += "btn=T|t|" + std::string(it.on[0] || it.on[2] ? "picked" : "") + "|#equip " + id + " 2\n";
-    s += "btn=" + Clean(tr("inv.both", {})) + "|ghost|" + (it.on[0] ? "picked" : "") + "|#equip " + id + " 0\n";
+    s += "drawer.btn=CT|ct|" + std::string(it.on[0] || it.on[3] ? "picked" : "") + "|#equip " + id + " 3\n";
+    s += "drawer.btn=T|t|" + std::string(it.on[0] || it.on[2] ? "picked" : "") + "|#equip " + id + " 2\n";
+    s += "drawer.btn=" + Clean(tr("inv.both", {})) + "|ghost|" + (it.on[0] ? "picked" : "") + "|#equip " + id + " 0\n";
   } else {
-    s += "btn=" + Clean(tr(any ? "inv.equipped" : "inv.equip", {})) + "|green|" + (any ? "off" : "") + "|#equip " + id + " 0\n";
-    s += "line=" + Clean(tr("inv.one_side", {{"side", it.side == 3 ? "CT" : "T"}, {"weapon", it.weaponName}})) + "|\n";
+    s += "drawer.btn=" + Clean(tr(any ? "inv.equipped" : "inv.equip", {})) + "|green|" + (any ? "off" : "") + "|#equip " + id + " 0\n";
+    s += "drawer.line=" + Clean(tr("inv.one_side", {{"side", it.side == 3 ? "CT" : "T"}, {"weapon", it.weaponName}})) + "|\n";
   }
-  if (any) s += "btn=" + Clean(tr("inv.unequip", {})) + "|ghost||#unequip " + id + " " + (it.on[0] ? "0" : it.on[3] ? "3" : "2") + "\n";
-  s += "hint=" + Clean(tr(pending ? "inv.saving" : "inv.saved_hint", {})) + "\n";
-  s += "close=" + Clean(tr("inv.back", {})) + "|#back\n";
+  // Unequip: the wide one beside Back (tone danger = the drawer's half-row button).
+  if (any)
+    s += "drawer.btn=" + Clean(tr("inv.unequip", {})) + "|danger||#unequip " + id + " " + (it.on[0] ? "0" : it.on[3] ? "3" : "2") + "\n";
+  s += "drawer.hint=" + Clean(tr(pending ? "inv.saving" : "inv.saved_hint", {})) + "\n";
+  s += "drawer.close=" + Clean(tr("inv.back", {})) + "|#back\n";
   return s;
 }
 

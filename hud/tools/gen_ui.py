@@ -134,7 +134,18 @@ def block_inv():
     main = panel(cls="ui-invmain", children=top + grid + foot)
     # The x is drawn (two bars): the HUD font has no ×.
     close = button(f"{p}_close", "ui-close", panel(cls="ui-xbar a") + panel(cls="ui-xbar b") + label(f"{p}_close_l", "ui-closelabel"))
-    return panel(p, "ui-panel ui-inv", panel(cls="ui-back") + panel(cls="ui-invrow", children=side + main) + close, hit=True)
+    # The drawer (drawer.*): the picked item over the grid's right side, the grid dimmed behind it.
+    drows = "".join(panel(f"{p}_dn{n}", "ui-row", label(f"{p}_dn{n}_k", "ui-rowk") + label(f"{p}_dn{n}_v", "ui-rowv"))
+                    for n in range(3))
+    dbuttons = panel(cls="ui-dbuttons", children="".join(
+        button(f"{p}_d{n}", "ui-btn ui-dbtn", label(f"{p}_d{n}_l", "ui-btnlabel")) for n in range(6))
+        + button(f"{p}_dclose", "ui-btn ui-dclose", label(f"{p}_dclose_l", "ui-btnlabel")))
+    drawer = panel(cls="ui-drawer", hit=True, children=(
+        panel(f"{p}_dimg", "ui-dimg") + label(f"{p}_dkind", "ui-dkind") + label(f"{p}_dtitle", "ui-dtitle")
+        + label(f"{p}_dsub", "ui-dsub") + panel(cls="ui-dlines", children=drows) + label(f"{p}_dlabel", "ui-dlabel")
+        + dbuttons + label(f"{p}_dhint", "ui-dhint")))
+    dim = panel(cls="ui-ddim")
+    return panel(p, "ui-panel ui-inv", panel(cls="ui-back") + panel(cls="ui-invrow", children=side + main) + close + dim + drawer, hit=True)
 
 
 def block_invd():

@@ -58,6 +58,9 @@ int main() {
   CHECK(Has(grid, "close=\xC3\x97|#close\n"));
   CHECK(Has(grid, "counter=[inv.count]\n") && Has(grid, "hint=[inv.close_hint]\n"));  // the footer
 
+  // Rarest first: the covert AWP and knife before the classified AK, then by weapon (AWP < M9).
+  CHECK(grid.find("#pick 412|") < grid.find("#pick 5|") && grid.find("#pick 5|") < grid.find("#pick 77|"));
+
   // Tab filter and paging.
   CHECK(Has(GridSpec(inv, "knives", 0, tr), "title=[inv.tab.knives]\n"));
   CHECK(!Has(GridSpec(inv, "knives", 0, tr), "#pick 412"));
@@ -77,20 +80,21 @@ int main() {
 
   // Detail: both sides buy the AWP: CT, T, Both (equipped for both: all picked), Unequip.
   const std::string awp = DetailSpec(inv.items[0], false, tr);
-  CHECK(Has(awp, "img=" + PictureClass("weapon_awp_cu_awp_asimov_medium_png") + "\n"));
-  CHECK(Has(awp, "title=AWP | Asiimov\n"));  // the title is one field: its `|` stays
-  CHECK(Has(awp, "btn=CT|ct|picked|#equip 412 3\n"));
-  CHECK(Has(awp, "btn=T|t|picked|#equip 412 2\n"));
-  CHECK(Has(awp, "btn=[inv.both]|ghost|picked|#equip 412 0\n"));
-  CHECK(Has(awp, "#unequip 412 0\n"));
-  CHECK(Has(awp, "where=invd\n") && Has(awp, "counter=[inv.equip_on]\n"));
-  CHECK(Has(awp, "line=[inv.from]|t50 MVP\n"));
+  CHECK(Has(awp, "drawer.img=" + PictureClass("weapon_awp_cu_awp_asimov_medium_png") + "\n"));
+  CHECK(Has(awp, "drawer.title=AWP | Asiimov\n"));  // the title is one field: its `|` stays
+  CHECK(Has(awp, "drawer.btn=CT|ct|picked|#equip 412 3\n"));
+  CHECK(Has(awp, "drawer.btn=T|t|picked|#equip 412 2\n"));
+  CHECK(Has(awp, "drawer.btn=[inv.both]|ghost|picked|#equip 412 0\n"));
+  CHECK(Has(awp, "drawer.btn=[inv.unequip]|danger||#unequip 412 0\n"));
+  CHECK(!Has(awp, "where=") && !Has(awp, "id=") && Has(awp, "drawer.label=[inv.equip_on]\n"));
+  CHECK(Has(awp, "drawer.close=[inv.back]|#back\n"));
+  CHECK(Has(awp, "drawer.line=[inv.from]|t50 MVP\n"));
   // Only T buys the AK-47: one Equip, no side buttons, not equipped: no Unequip.
   const std::string ak = DetailSpec(inv.items[1], true, tr);
-  CHECK(Has(ak, "btn=[inv.equip]|green||#equip 77 0\n"));
-  CHECK(!Has(ak, "btn=CT|"));
+  CHECK(Has(ak, "drawer.btn=[inv.equip]|green||#equip 77 0\n"));
+  CHECK(!Has(ak, "drawer.btn=CT|"));
   CHECK(!Has(ak, "#unequip"));
-  CHECK(Has(ak, "hint=[inv.saving]\n"));
+  CHECK(Has(ak, "drawer.hint=[inv.saving]\n"));
 
   // Skins off.
   Inventory off;

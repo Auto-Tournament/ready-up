@@ -3971,6 +3971,52 @@
 <Panel class="ui-xbar b" hittest="false" />
 <Label id="ui_inv_close_l" class="ui-closelabel" text="{s:text}" hittest="false" />
 </Button>
+<Panel class="ui-ddim" hittest="false" />
+<Panel class="ui-drawer" hittest="true">
+<Panel id="ui_inv_dimg" class="ui-dimg" hittest="false" />
+<Label id="ui_inv_dkind" class="ui-dkind" text="{s:text}" hittest="false" />
+<Label id="ui_inv_dtitle" class="ui-dtitle" text="{s:text}" hittest="false" />
+<Label id="ui_inv_dsub" class="ui-dsub" text="{s:text}" hittest="false" />
+<Panel class="ui-dlines" hittest="false">
+<Panel id="ui_inv_dn0" class="ui-row" hittest="false">
+<Label id="ui_inv_dn0_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_inv_dn0_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_inv_dn1" class="ui-row" hittest="false">
+<Label id="ui_inv_dn1_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_inv_dn1_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_inv_dn2" class="ui-row" hittest="false">
+<Label id="ui_inv_dn2_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_inv_dn2_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Label id="ui_inv_dlabel" class="ui-dlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-dbuttons" hittest="false">
+<Button id="ui_inv_d0" class="ui-btn ui-dbtn">
+<Label id="ui_inv_d0_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_d1" class="ui-btn ui-dbtn">
+<Label id="ui_inv_d1_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_d2" class="ui-btn ui-dbtn">
+<Label id="ui_inv_d2_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_d3" class="ui-btn ui-dbtn">
+<Label id="ui_inv_d3_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_d4" class="ui-btn ui-dbtn">
+<Label id="ui_inv_d4_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_d5" class="ui-btn ui-dbtn">
+<Label id="ui_inv_d5_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_dclose" class="ui-btn ui-dclose">
+<Label id="ui_inv_dclose_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+</Panel>
+<Label id="ui_inv_dhint" class="ui-dhint" text="{s:text}" hittest="false" />
+</Panel>
 </Panel>
 <Panel id="ui_invd" class="ui-panel ui-invd" hittest="true">
 <Panel class="ui-back" hittest="false" />

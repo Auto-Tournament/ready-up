@@ -867,6 +867,14 @@ bool ScreenClick(int slot, const std::string& button) {
       IfSetClass(IfOpen(kUiLayout), slot, panel.c_str(), "on", 0);
       ss.shown = false;
     }
+  } else if (index == kDrawerClose) {
+    cmd = ss.cur.drawer.closeCmd;
+  } else if (index >= kDrawerIndex) {
+    const size_t n = static_cast<size_t>(index - kDrawerIndex);
+    if (n >= ss.cur.drawer.buttons.size()) return true;
+    const Button& b = ss.cur.drawer.buttons[n];
+    if (b.state == "off" || b.cmd.empty()) return true;
+    cmd = b.cmd;
   } else if (index >= kTabIndex) {
     const size_t t = static_cast<size_t>(index - kTabIndex);
     if (t >= ss.cur.tabs.size() || ss.cur.tabs[t].cmd.empty()) return true;
@@ -878,7 +886,9 @@ bool ScreenClick(int slot, const std::string& button) {
     cmd = b.cmd;
     IfSetClass(IfOpen(kUiLayout), slot, button.c_str(), "picked", 1);  // feedback until the caller redraws
   }
-  ss.clicked = true;
+  // A click gives the cursor back until the buttons change, except in the inventory, which stays
+  // open and clickable (tabs, tiles, its drawer) until it is closed.
+  if (panel != "ui_inv" && panel != "ui_invd") ss.clicked = true;
   UpdateCapture(slot);
   if (cmd.empty()) return true;
   // `#open <owner>`: another plugin's menu (the movement menu's Maps button opens the map vote's).

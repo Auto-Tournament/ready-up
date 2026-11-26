@@ -46,6 +46,10 @@
 //                                a footer; ui_invd: the item beside the dimmed grid). Same keys.
 //   tab=Rifles|8|.skins tab rifles|1  a tab left of the buttons, up to 10: label | count | command | 1 = on
 //   img=sk-1a2b3c4d              a large picture above the kind (a picture class, as btn img)
+//   drawer.title=AWP | Asiimov   a drawer over the panel's right side (ui_inv): the panel stays, dimmed,
+//                                behind it. drawer.img= drawer.kind= drawer.sub= drawer.label= drawer.hint=
+//                                drawer.line=k|v (up to 3), drawer.btn= (up to 6, as btn), drawer.close=label|cmd.
+//                                Clicks: <panel>_d0.. -> index kDrawerIndex + n, <panel>_dclose -> kDrawerClose
 //   cols=2                       buttons per row (default: the number of buttons, at most 4)
 //   bw=m                         button width: s m l xl (default m); tile: rows of picture tiles
 //   close=Close|                 a close / back button: label | command (empty = just hide)
@@ -70,12 +74,22 @@ inline int MaxButtonsOf(const std::string& p) { return p == "ui_inv" ? kMaxTiles
 // Tabs per panel (`tab=`), ids <panel>_g0..g9; clicks come back as index kTabIndex + n.
 constexpr int kMaxTabs = 10;
 constexpr int kTabIndex = 100;
+// The drawer (drawer.*): its buttons <panel>_d0..d5 click as kDrawerIndex + n, its close as kDrawerClose.
+constexpr int kMaxDrawerButtons = 6;
+constexpr int kDrawerIndex = 200;
+constexpr int kDrawerClose = 199;
 
 
 enum class Mouse { Off, B, On };
 
 struct Button {
   std::string label, tone, state, cmd, sub, img, marks, note;
+};
+struct Drawer {
+  std::string img, kind, title, sub, label, hint, closeLabel, closeCmd;
+  std::vector<std::pair<std::string, std::string>> lines;
+  std::vector<Button> buttons;
+  bool on() const { return !title.empty(); }
 };
 struct Tab {
   std::string label, count, cmd;
@@ -103,6 +117,7 @@ struct Screen {
   std::vector<Button> buttons;
   std::vector<Tab> tabs;
   std::string img;  // `img=`: the large picture's class
+  Drawer drawer;    // `drawer.*`
   int cols = 0;
   std::string bw = "m";
   bool hasClose = false;
