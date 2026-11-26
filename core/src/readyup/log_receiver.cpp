@@ -7,6 +7,7 @@
 #include "readyup/config.h"
 #include "readyup/game_events.h"
 #include "readyup/logging.h"
+#include "readyup/map_load_lines.h"
 #include "readyup/path.h"
 #include "readyup/slot_registry.h"
 #include "readyup/steamid.h"
@@ -118,17 +119,25 @@ static void LifecycleImpl(const std::string& line) {
       line.find("\" say \"") != std::string::npos || line.find("\" say_team \"") != std::string::npos;
   if (isChat) return;
 
-  if (line.find("Loading map \"") != std::string::npos || line.find("Started map \"") != std::string::npos) {
-    std::string map;
-    if (ExtractBetween(line, "map \"", "\"", map) && !map.empty()) {
-      plugins::LifecycleEvent e;
-      e.type = RU_EVENT_MAP_START;
-      e.source = RU_SOURCE_LOG;
-      e.map = map;
-      plugins::PostEvent(std::move(e));  // deduped (Loading + Started map)
-      g_roundNumber = 0;
-      g_ctScore = g_tScore = 0;
-    }
+  // One map start per level load, a reload of the same map included (map_load_lines.h). Same-map
+  // reloads used to send no MAP_START, so CS2 ran server.cfg and the gamemode cfg over the
+  // plugins' cvars unnoticed (retakes, 2026-11-09).
+  static MapLoadLines mapLines;
+  const MapLoadLines::Start start = mapLines.Observe(line, plugins::CurrentMap());
+  if (start.start) {
+    plugins::LifecycleEvent e;
+    e.type = RU_EVENT_MAP_START;
+    e.source = RU_SOURCE_LOG;
+    e.map = start.map;
+    e.new_load = start.new_load;
+    plugins::PostEvent(std::move(e));
+    Print("map start: %s\n", start.map.c_str());  // one line per level load
+    g_roundNumber = 0;
+    g_ctScore = g_tScore = 0;
+    return;
+  }
+  if (line.find("Level loading started for '") != std::string::npos ||
+      line.find("Loading map \"") != std::string::npos || line.find("Started map \"") != std::string::npos) {
     return;
   }
 

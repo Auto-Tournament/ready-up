@@ -7,6 +7,7 @@
 
 #include "readyup/match_iface.h"
 #include "readyup/status_snapshot.h"
+#include "readyup/webhook.h"
 
 #include <string>
 #include <vector>
@@ -22,6 +23,11 @@ int EngineMatchPaused();
 
 // readyup.match.v1 get_status (game thread).
 int MatchStatusGet(ru_match_status* out);
+
+// The players the loaded match waits for and how many of them are ready, as the go-live check
+// counts them: a full team per side (no substitutes), or with bot fill the connected humans
+// only. The status endpoint and the console `state:` line both show it. Game thread.
+void MatchReadyCount(const WebhookMatchContext& ctx, int* ready, int* total);
 
 // The MatchState of the loaded match / scrim as the status endpoint builds it from the match
 // flow (null when none is loaded). fleet_bridge overlays it on the platform's config. Game thread.

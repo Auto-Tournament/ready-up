@@ -20,6 +20,10 @@ struct LifecycleEvent {
   uint64_t steamid64 = 0;
   std::string name;
   std::string map;  // MAP_START: the new map; otherwise filled in by PostEvent
+  // MAP_START: a level load of its own (CS2's "Level loading started" line), sent even when the
+  // map is the same one (a reload). False for a "Loading map" / "Started map" line, which is
+  // dropped when the map has not changed (it repeats the load already sent).
+  bool new_load = false;
   int team = 0;
   int old_team = 0;
   int winner = 0;
