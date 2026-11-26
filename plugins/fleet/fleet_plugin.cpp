@@ -642,13 +642,13 @@ void OnPlayerHud(const std::string& type, const std::string& payload) {
 // ---- the player's teammate colour --------------------------------------------------------------
 // `color` on a player of match.assign (and add_player): the colour they picked on the platform (or
 // their captain set), match.defs.json $defs/color. Written over CS2's own pick to
-// CCSPlayerController::m_iCompTeammateColor (0 yellow, 1 purple, 2 green, 3 blue, 4 orange; CS2's
-// cl_color order) every tick, like the rating: CS2 assigns colours on team joins and rounds. No
+// CCSPlayerController::m_iCompTeammateColor (0 blue, 1 green, 2 yellow, 3 orange, 4 purple: checked in
+// game on 2026-11-26; not CS:GO's cl_color order) every tick, like the rating: CS2 assigns colours on team joins and rounds. No
 // field: CS2 picks. If CS2 renames the field, colours are off and nothing else is.
 std::map<uint64_t, int32_t> g_colors;  // steamid64 -> colour index; game thread only
 
 int32_t ColorIndex(const std::string& name) {
-  static const char* names[] = {"yellow", "purple", "green", "blue", "orange"};
+  static const char* names[] = {"blue", "green", "yellow", "orange", "purple"};  // m_iCompTeammateColor order
   for (int32_t i = 0; i < 5; ++i)
     if (name == names[i]) return i;
   return -1;
