@@ -537,6 +537,7 @@
   "end.col8_body": "Kill pertama dalam ronde",
   "knife.captain_only": "hanya kaptenmu yang memilih sisi.",
   "tip.menu": "perlu jeda, admin, atau menyerah? Ketik .menu",
+  "tip.commands": "Perintah: .r siap · .p jeda teknis · .tac timeout · .gg menyerah · .admin panggil admin · .hud HUD",
   "tip.ready_hold": "Tahan E untuk siap.",
   "notice.winners_stay": "Pemenang pisau tetap {side}",
   "notice.winners_start": "Pemenang pisau mulai {side}",

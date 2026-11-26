@@ -546,6 +546,7 @@
   "end.col8_body": "Rundans första kill",
   "knife.captain_only": "bara din kapten väljer sida.",
   "tip.menu": "behöver du paus, en admin eller vill ge upp? Skriv .menu",
+  "tip.commands": "Kommandon: .r redo · .p teknisk paus · .tac timeout · .gg ge upp · .admin kalla på admin · .hud HUD",
   "tip.ready_hold": "Håll E för att bli redo.",
   "notice.winners_stay": "Knivvinnarna stannar {side}",
   "notice.winners_start": "Knivvinnarna börjar {side}",

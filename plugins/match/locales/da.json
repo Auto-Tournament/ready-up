@@ -546,6 +546,7 @@
   "end.col8_body": "Rundens første kill",
   "knife.captain_only": "kun din kaptajn vælger side.",
   "tip.menu": "brug for pause, en admin eller vil give op? Skriv .menu",
+  "tip.commands": "Kommandoer: .r klar · .p teknisk pause · .tac timeout · .gg giv op · .admin tilkald admin · .hud HUD",
   "tip.ready_hold": "Hold E for at melde klar.",
   "notice.winners_stay": "Knivvinderne bliver {side}",
   "notice.winners_start": "Knivvinderne starter {side}",

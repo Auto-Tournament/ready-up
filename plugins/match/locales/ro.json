@@ -560,6 +560,7 @@
   "end.col8_body": "Primul kill dintr-o rundă",
   "knife.captain_only": "doar căpitanul tău alege partea.",
   "tip.menu": "ai nevoie de pauză, de un admin sau vrei să renunți? Scrie .menu",
+  "tip.commands": "Comenzi: .r gata · .p pauză tehnică · .tac timeout · .gg abandon · .admin cheamă un admin · .hud HUD",
   "tip.ready_hold": "Ține apăsat E ca să fii gata.",
   "notice.winners_stay": "Câștigătorii rundei de cuțit rămân {side}",
   "notice.winners_start": "Câștigătorii rundei de cuțit încep {side}",

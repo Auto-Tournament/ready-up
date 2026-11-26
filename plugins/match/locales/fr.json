@@ -546,6 +546,7 @@
   "end.col8_body": "Le premier kill d’une manche",
   "knife.captain_only": "seul ton capitaine choisit le camp.",
   "tip.menu": "besoin d’une pause, d’un admin ou d’abandonner ? Tape .menu",
+  "tip.commands": "Commandes : .r prêt · .p pause technique · .tac temps mort · .gg abandonner · .admin appeler un admin · .hud HUD",
   "tip.ready_hold": "Maintenez E pour être prêt.",
   "notice.winners_stay": "Les gagnants au couteau restent {side}",
   "notice.winners_start": "Les gagnants au couteau commencent {side}",

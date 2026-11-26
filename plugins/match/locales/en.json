@@ -546,6 +546,7 @@
   "end.col8_body": "The first kill of a round",
   "knife.captain_only": "only your captain picks the side.",
   "tip.menu": "Need a pause, an admin or to forfeit? Type .menu in chat.",
+  "tip.commands": "Commands: .r ready · .p tech pause · .tac timeout · .gg give up · .admin call an admin · .hud HUD on",
   "tip.ready_hold": "Hold E to ready up.",
   "notice.winners_stay": "Knife winners stay {side}",
   "notice.winners_start": "Knife winners start {side}",

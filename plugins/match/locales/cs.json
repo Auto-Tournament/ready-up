@@ -560,6 +560,7 @@
   "end.col8_body": "První zabití v kole",
   "knife.captain_only": "stranu vybírá jen tvůj kapitán.",
   "tip.menu": "potřebuješ pauzu, admina nebo se vzdát? Napiš .menu",
+  "tip.commands": "Příkazy: .r připraven · .p tech. pauza · .tac timeout · .gg vzdát · .admin admin · .hud HUD",
   "tip.ready_hold": "Podržte E a budete připraveni.",
   "notice.winners_stay": "Vítězové nožů zůstávají {side}",
   "notice.winners_start": "Vítězové nožů začínají {side}",

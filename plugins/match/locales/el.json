@@ -546,6 +546,7 @@
   "end.col8_body": "Το πρώτο kill ενός γύρου",
   "knife.captain_only": "μόνο ο αρχηγός σου διαλέγει πλευρά.",
   "tip.menu": "χρειάζεσαι παύση, admin ή να παραδοθείς; Γράψε .menu",
+  "tip.commands": "Εντολές: .r έτοιμος · .p τεχνική παύση · .tac timeout · .gg παραίτηση · .admin admin · .hud HUD",
   "tip.ready_hold": "Κρατήστε το E για να δηλώσετε έτοιμοι.",
   "notice.winners_stay": "Οι νικητές με μαχαίρι μένουν {side}",
   "notice.winners_start": "Οι νικητές με μαχαίρι ξεκινούν {side}",

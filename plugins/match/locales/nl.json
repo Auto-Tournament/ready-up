@@ -546,6 +546,7 @@
   "end.col8_body": "De eerste kill van een ronde",
   "knife.captain_only": "alleen je captain kiest de kant.",
   "tip.menu": "pauze, een admin of opgeven? Typ .menu",
+  "tip.commands": "Commando's: .r klaar · .p technische pauze · .tac time-out · .gg opgeven · .admin admin roepen · .hud HUD",
   "tip.ready_hold": "Houd E ingedrukt om klaar te zijn.",
   "notice.winners_stay": "Mes-winnaars blijven {side}",
   "notice.winners_start": "Mes-winnaars starten {side}",
