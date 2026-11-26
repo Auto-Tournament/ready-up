@@ -30,9 +30,11 @@ struct View {
   uint64_t steamid64 = 0;
   std::string tab = "all";
   int page = 0;
-  int64_t picked = 0;     // the item shown on its own; 0 = the grid
+  int64_t picked = 0;     // the item in the panel; 0 = the first one (inv::FirstItem)
   bool waiting = true;    // no answer from the platform yet
   bool pending = false;   // an equip sent, its answer not back
+  int64_t queueSkin = 0;  // the skin of the steps still to send (a side click's second step)
+  std::vector<inv::EquipStep> queue;
   double sentAt = 0;
 };
 
@@ -86,15 +88,16 @@ void Draw(int slot) {
   if (v.waiting || inv == g_inventory.end()) {
     spec = inv::LoadingSpec(tr);
   } else {
-    // The grid, and the picked item as its drawer over it (the grid stays, dimmed).
-    spec = inv::GridSpec(inv->second, v.tab, v.page, tr);
-    if (v.picked) {
-      const inv::Item* item = nullptr;
+    // The grid and, always beside it, the item panel: the picked item, else the first one
+    // (Sivert, 2026-11-26). A tab change keeps the item.
+    const inv::Item* item = nullptr;
+    for (int pass = 0; pass < 2 && !item; ++pass) {
+      if (pass) v.picked = inv::FirstItem(inv->second);
       for (const auto& i : inv->second.items)
         if (i.id == v.picked) item = &i;
-      if (item) spec += inv::DetailSpec(*item, v.pending, tr);
-      else v.picked = 0;
     }
+    spec = inv::GridSpec(inv->second, v.tab, v.page, tr, item ? item->id : 0);
+    spec += item ? inv::DetailSpec(*item, v.pending, tr) : inv::EmptyDetailSpec(inv->second, tr);
   }
   h->menu(slot, kMenuOwner, spec.c_str(), &OnClick, nullptr);
 }
@@ -116,6 +119,18 @@ void Request(View& v) {
   v.sentAt = g_now;
 }
 
+bool SendStep(View& v, int64_t skin, const inv::EquipStep& st) {
+  Json p = Json::Object();
+  p["steamid64"] = std::to_string(v.steamid64);
+  p["skin_id"] = static_cast<long long>(skin);
+  p["team"] = static_cast<long long>(st.team);
+  if (st.unequip) p["unequip"] = true;
+  if (!Send("skins.equip", p)) return false;
+  v.pending = true;
+  v.sentAt = g_now;
+  return true;
+}
+
 void OnClick(void*, int slot, const char* command) {
   auto it = g_views.find(slot);
   if (it == g_views.end() || !command) return;
@@ -132,22 +147,27 @@ void OnClick(void*, int slot, const char* command) {
     return c.substr(a, b == std::string::npos ? std::string::npos : b - a);
   };
   if (c == "#close") return Close(slot);
-  if (c == "#back") {
-    v.picked = 0;
-  } else if (c.rfind("#tab ", 0) == 0) {
+  if (c.rfind("#tab ", 0) == 0) {
     v.tab = arg(0);
     v.page = 0;
   } else if (c.rfind("#page ", 0) == 0) {
     v.page = std::max(0, std::atoi(arg(0).c_str()));
   } else if (c.rfind("#pick ", 0) == 0) {
     v.picked = std::atoll(arg(0).c_str());
-  } else if (c.rfind("#equip ", 0) == 0 || c.rfind("#unequip ", 0) == 0) {
-    Json p = Json::Object();
-    p["steamid64"] = std::to_string(v.steamid64);
-    p["skin_id"] = static_cast<long long>(std::atoll(arg(0).c_str()));
-    p["team"] = static_cast<long long>(std::atoi(arg(1).c_str()));
-    if (c.rfind("#unequip ", 0) == 0) p["unequip"] = true;
-    if (Send("skins.equip", p)) v.pending = true;
+  } else if (c.rfind("#side ", 0) == 0) {
+    // A side's toggle: on, or off again (Sivert, 2026-11-26). Ignored while a change is on its way.
+    if (v.pending) return;
+    auto inv = g_inventory.find(v.steamid64);
+    if (inv == g_inventory.end()) return;
+    const int64_t skin = std::atoll(arg(0).c_str());
+    const inv::Item* item = nullptr;
+    for (const auto& i : inv->second.items)
+      if (i.id == skin) item = &i;
+    if (!item) return;
+    const std::vector<inv::EquipStep> steps = inv::SideClick(*item, std::atoi(arg(1).c_str()));
+    if (steps.empty() || !SendStep(v, skin, steps.front())) return;
+    v.queue.assign(steps.begin() + 1, steps.end());
+    v.queueSkin = skin;
   } else {
     return;
   }
@@ -175,6 +195,11 @@ void InventoryFleetMessage(void*, const ru_fleet_msg* m) {
       if (v.steamid64 != sid) continue;
       v.waiting = false;
       v.pending = false;
+      if (!v.queue.empty()) {  // the next step of a side click
+        const inv::EquipStep st = v.queue.front();
+        v.queue.erase(v.queue.begin());
+        SendStep(v, v.queueSkin, st);
+      }
       Draw(slot);
     }
   } catch (...) {
@@ -214,6 +239,7 @@ void InventoryTick(double now) {
     View& v = g_views[slot];
     if ((v.waiting || v.pending) && now - v.sentAt > 6.0) {  // no answer: ask again
       v.pending = false;
+      v.queue.clear();
       Request(v);
     }
   }

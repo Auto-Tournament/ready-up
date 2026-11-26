@@ -1147,23 +1147,25 @@
 .ui-inv .ui-tabcount { margin-right: 25px; font-family: "Noto Mono"; font-size: 15px; color: #938a87; }
 
 /* The main column (draft: padding 20 22, gap 14): title + hint, the grid, the footer. */
-.ui-invmain { flow-children: down; width: 1148px; height: 100%; padding: 28px 31px 22px 31px; }
+/* 1400 - 252 (tabs) - 480 (the item panel) = 668; padding 28 leaves a 612px grid (Sivert, 2026-11-26:
+   the item panel is always there). */
+.ui-invmain { flow-children: down; width: 668px; height: 100%; padding: 28px 28px 22px 28px; }
 .ui-invtop { width: 100%; height: 36px; }
 .ui-inv .ui-title { visibility: visible; horizontal-align: left; vertical-align: bottom; margin: 0px; font-size: 25px; font-weight: bold; color: #f4edeb; text-align: left; }
-.ui-inv .ui-sub { visibility: visible; width: fit-children; horizontal-align: right; vertical-align: bottom; margin: 0px 52px 0px 0px; font-size: 17px; color: #938a87; text-align: right; }
+.ui-inv .ui-sub { visibility: visible; width: fit-children; horizontal-align: right; vertical-align: bottom; margin: 0px; font-size: 17px; color: #938a87; text-align: right; }
 /* One grid that scrolls with the wheel (no pages); it takes the mouse so the wheel reaches it. */
-.ui-inv .ui-buttons { visibility: visible; flow-children: right-wrap; width: 1086px; height: fill-parent-flow( 1 ); margin-top: 20px; horizontal-align: left; overflow: squish scroll; }
-/* 4 x (250 + 2 border + 14) = 1064 of 1086: four a row, the scrollbar beside them. */
-.ui-inv .ui-btn { margin: 0px 14px 14px 0px; }
+.ui-inv .ui-buttons { visibility: visible; flow-children: right-wrap; width: 612px; height: fill-parent-flow( 1 ); margin-top: 20px; horizontal-align: left; overflow: squish scroll; }
+/* 3 x (186 + 2 border + 12) = 600 of 612: three a row, the scrollbar beside them. */
+.ui-inv .ui-btn { margin: 0px 12px 12px 0px; }
 .ui-inv .ui-btn.has-img
 {
-	width: 250px; height: 210px; border-radius: 6px; border: 1px solid #322926; background-color: #211815; transform: none;
+	width: 186px; height: 170px; border-radius: 6px; border: 1px solid #322926; background-color: #211815; transform: none;
 }
 .ui-inv .ui-btn.has-img:hover { transform: none; border: 1px solid #c4bcb9; }
 .ui-inv .ui-btn.has-img.picked { transform: none; border: 1px solid #ff6a3d; }
 /* An equipped item: its border in the accent (draft: #ff6a3d66). */
 .ui-inv .ui-btn.has-img.mk-eq { border: 1px solid #ff6a3d66; }
-.ui-inv .ui-btnimg { visibility: visible; width: 248px; height: 129px; margin: 0px; background-color: #211815; background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-inv .ui-btnimg { visibility: visible; width: 184px; height: 96px; margin: 0px; background-color: #211815; background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
 /* The rarity's glow behind the picture (draft: radial, the rarity at 20%). */
 .ui-inv .mk-r-consumer .ui-btnimg { background-color: gradient( radial, 50% 55%, 0% 0%, 45% 45%, from( #b0c3d926 ), to( #21181500 ) ); }
 .ui-inv .mk-r-industrial .ui-btnimg { background-color: gradient( radial, 50% 55%, 0% 0%, 45% 45%, from( #5e98d926 ), to( #21181500 ) ); }
@@ -1172,30 +1174,31 @@
 .ui-inv .mk-r-classified .ui-btnimg { background-color: gradient( radial, 50% 55%, 0% 0%, 45% 45%, from( #d32ce626 ), to( #21181500 ) ); }
 .ui-inv .mk-r-covert .ui-btnimg { background-color: gradient( radial, 50% 55%, 0% 0%, 45% 45%, from( #eb4b4b26 ), to( #21181500 ) ); }
 .ui-inv .mk-r-gold .ui-btnimg { background-color: gradient( radial, 50% 55%, 0% 0%, 45% 45%, from( #e4ae3926 ), to( #21181500 ) ); }
-.ui-inv .ui-btnbar { visibility: visible; width: 100%; height: 4px; margin-top: 129px; }
-.ui-tiletext { visibility: collapse; flow-children: down; width: 100%; margin-top: 133px; padding: 10px 14px 0px 14px; }
+.ui-inv .ui-btnbar { visibility: visible; width: 100%; height: 3px; margin-top: 96px; }
+.ui-tiletext { visibility: collapse; flow-children: down; width: 100%; margin-top: 99px; padding: 8px 11px 0px 11px; }
 .ui-inv .has-img .ui-tiletext { visibility: visible; }
-.ui-inv .ui-btn.has-img .ui-btnsub { visibility: visible; horizontal-align: left; vertical-align: top; margin: 0px; font-family: "Noto Sans"; font-size: 15px; font-weight: normal; color: #938a87; }
-.ui-inv .ui-btn.has-img .ui-btnlabel { width: 100%; horizontal-align: left; vertical-align: top; margin: 3px 0px 0px 0px; text-align: left; font-size: 18px; font-weight: bold; color: #f4edeb; text-overflow: ellipsis; white-space: nowrap; }
+.ui-inv .ui-btn.has-img .ui-btnsub { visibility: visible; horizontal-align: left; vertical-align: top; margin: 0px; font-family: "Noto Sans"; font-size: 13px; font-weight: normal; color: #938a87; }
+.ui-inv .ui-btn.has-img .ui-btnlabel { width: 100%; horizontal-align: left; vertical-align: top; margin: 2px 0px 0px 0px; text-align: left; font-size: 16px; font-weight: bold; color: #f4edeb; text-overflow: ellipsis; white-space: nowrap; }
 .ui-tilerow { flow-children: right; width: 100%; margin-top: 4px; }
-.ui-tilenote { horizontal-align: left; vertical-align: center; font-family: "Noto Mono"; font-size: 14px; color: #c4bcb9; }
+.ui-tilenote { horizontal-align: left; vertical-align: center; font-family: "Noto Mono"; font-size: 12px; color: #c4bcb9; }
 .ui-inv .ui-btnmarks { visibility: visible; horizontal-align: right; vertical-align: center; margin: 0px; }
-.ui-inv .ui-mk { height: 20px; padding: 0px 7px; margin-left: 6px; border-radius: 4px; }
-.ui-inv .ui-mkt { font-size: 14px; }
+.ui-inv .ui-mk { height: 18px; padding: 0px 6px; margin-left: 5px; border-radius: 4px; }
+.ui-inv .ui-mkt { font-size: 12px; }
 
 /* The footer (draft): the count left, how to close right. */
 .ui-invfoot { width: 100%; height: 28px; margin-top: 8px; }
 .ui-inv .ui-counter { visibility: visible; horizontal-align: left; vertical-align: center; margin: 0px; font-family: "Noto Sans"; font-size: 17px; font-weight: normal; color: #938a87; }
 .ui-inv .ui-hint { visibility: visible; horizontal-align: right; vertical-align: center; margin: 0px; font-size: 17px; color: #938a87; }
-/* The close: a 45px square with a drawn x (the font has no ×), top right. */
+/* The close: a 40px square at the right of the item panel's top bar, its x drawn (two bars). */
 .ui-inv .ui-close
 {
-	visibility: visible; horizontal-align: right; vertical-align: top; width: 45px; height: 45px; margin: 14px 14px 0px 0px;
-	border-radius: 6px; border: 0px solid #00000000; background-color: #211815;
+	visibility: visible; horizontal-align: right; vertical-align: center; width: 40px; height: 40px; margin: 0px;
+	border-radius: 6px; border: 0px solid #00000000; background-color: #140e0c;
 }
 .ui-inv .ui-close:hover { background-color: #322926; }
-.ui-inv .ui-closelabel { visibility: visible; horizontal-align: center; vertical-align: center; margin: 0px 0px 3px 0px; font-family: "Noto Sans"; font-size: 30px; color: #f4edeb; }
+.ui-inv .ui-closelabel { visibility: collapse; }
 .ui-xbar { visibility: collapse; }
+.ui-inv .ui-xbar { visibility: visible; horizontal-align: center; vertical-align: center; width: 18px; height: 2px; background-color: #f4edeb; }
 .ui-xbar.a { transform: rotateZ( 45deg ); }
 .ui-xbar.b { transform: rotateZ( -45deg ); }
 
@@ -1233,40 +1236,41 @@
 .ui-invd .ui-closelabel { horizontal-align: center; vertical-align: center; margin: 0px; font-size: 18px; color: #f4edeb; }
 .ui-invd .ui-hint { visibility: visible; horizontal-align: left; margin: 4px 0px 0px 0px; font-size: 17px; color: #c4bcb9; }
 
-/* The drawer (drawer.*): the picked item, 560px on the right over the grid (draft: the grid stays,
-   dimmed to 35%, the item beside it). */
-.ui-ddim { visibility: collapse; width: 100%; height: 100%; border-radius: 8px; background-color: #140e0ca6; }
-.ui-inv.has-drawer .ui-ddim { visibility: visible; }
+/* The item panel (drawer.*): always on the right, 480 wide (Sivert, 2026-11-26: no Back, no dim, the
+   first item picked on open). A top bar (the weapon, the close), the picture, name, facts, EQUIP ON
+   over a toggle per side (lit = on that side; a click takes it off), a note. */
 .ui-drawer
 {
-	visibility: collapse; flow-children: down; horizontal-align: right; width: 560px; height: 100%; padding: 31px 34px;
+	visibility: visible; flow-children: down; width: 480px; height: 100%; padding: 0px 28px 28px 28px;
 	border-radius: 0px 8px 8px 0px; background-color: #211815; border-left: 1px solid #322926;
 }
-.ui-inv.has-drawer .ui-drawer { visibility: visible; }
-.ui-inv.has-drawer .ui-close { visibility: collapse; }
-.ui-dimg { width: 100%; height: 238px; margin-bottom: 22px; border-radius: 6px; border: 1px solid #322926; background-color: #1a1210; background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
-.ui-dkind { horizontal-align: left; font-size: 17px; font-weight: bold; color: #ff6a3d; }
-.ui-dtitle { horizontal-align: left; margin-top: 6px; font-size: 31px; font-weight: bold; color: #f4edeb; }
-.ui-dsub { horizontal-align: left; margin-top: 6px; font-family: "Noto Mono"; font-size: 17px; color: #c4bcb9; }
+.ui-dtop { width: 100%; height: 72px; }
+.ui-dkind { horizontal-align: left; vertical-align: center; font-size: 17px; font-weight: bold; color: #ff6a3d; }
+.ui-dimg { width: 100%; height: 210px; margin-bottom: 20px; border-radius: 6px; border: 1px solid #322926; background-color: #1a1210; background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+.ui-dtitle { horizontal-align: left; font-size: 28px; font-weight: bold; color: #f4edeb; }
+.ui-dsub { horizontal-align: left; margin-top: 6px; font-family: "Noto Mono"; font-size: 16px; color: #c4bcb9; }
 .ui-dlines { flow-children: down; width: 100%; margin-top: 6px; }
 #ui_inv .ui-dlines .ui-row { flow-children: right; width: fit-children; horizontal-align: left; margin: 0px; }
 #ui_inv .ui-dlines .ui-row.gone { visibility: collapse; }
-#ui_inv .ui-dlines .ui-rowk { width: fit-children; margin: 0px 8px 0px 0px; font-size: 17px; color: #938a87; }
-#ui_inv .ui-dlines .ui-rowv { width: fit-children; margin: 0px; text-align: left; font-size: 17px; font-weight: normal; color: #938a87; }
-.ui-dlabel { horizontal-align: left; margin: 22px 0px 11px 0px; font-size: 17px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; text-transform: uppercase; }
-.ui-dbuttons { flow-children: right-wrap; width: 100%; }
-#ui_inv .ui-dbtn, #ui_inv .ui-dclose { visibility: collapse; width: 151px; height: 62px; margin: 0px 11px 11px 0px; border-radius: 6px; transform: none; background-color: #140e0c; border: 1px solid #322926; }
-#ui_inv .ui-dbtn.show, #ui_inv .ui-dclose.show { visibility: visible; }
-#ui_inv .ui-dbtn:hover, #ui_inv .ui-dclose:hover { transform: none; border: 1px solid #c4bcb9; }
-#ui_inv .ui-dbtn .ui-btnlabel, #ui_inv .ui-dclose .ui-btnlabel { visibility: visible; width: 100%; margin: 0px; font-size: 20px; text-align: center; }
-#ui_inv .ui-dbtn.t-ct { background-color: #2b44d6; border: 2px solid #2b44d6; }
-#ui_inv .ui-dbtn.t-t { background-color: #e6b33c; border: 2px solid #e6b33c; }
-#ui_inv .ui-dbtn.t-t .ui-btnlabel { color: #140e0c; }
-#ui_inv .ui-dbtn.t-green { width: 476px; background-color: #ff6a3d; border: 2px solid #ff6a3d; }
-#ui_inv .ui-dbtn.t-green .ui-btnlabel { color: #140e0c; }
-#ui_inv .ui-dbtn.picked { border: 2px solid #f4edeb; }
-#ui_inv .ui-dbtn.off { opacity: 0.5; }
-/* Unequip (tone danger here) and Back side by side under the side buttons. */
-#ui_inv .ui-dbtn.t-danger, #ui_inv .ui-dclose { width: 232px; height: 56px; background-color: #140e0c; border: 1px solid #322926; }
-#ui_inv .ui-dbtn.t-danger .ui-btnlabel { color: #f4edeb; }
-.ui-dhint { horizontal-align: left; margin-top: 4px; font-size: 17px; color: #c4bcb9; }
+#ui_inv .ui-dlines .ui-rowk { width: fit-children; margin: 0px 8px 0px 0px; font-size: 16px; color: #938a87; }
+#ui_inv .ui-dlines .ui-rowv { width: fit-children; margin: 0px; text-align: left; font-size: 16px; font-weight: normal; color: #938a87; }
+.ui-dlabel { horizontal-align: left; margin: 20px 0px 10px 0px; font-size: 16px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; text-transform: uppercase; }
+.ui-dbuttons { flow-children: right; width: 100%; }
+/* A side's toggle: dark with the side's colour while off, filled while on. 2 x 206 + 12 = 424. */
+#ui_inv .ui-dbtn { visibility: collapse; width: 206px; height: 56px; margin: 0px 12px 0px 0px; border-radius: 6px; transform: none; background-color: #140e0c; border: 2px solid #322926; }
+#ui_inv #ui_inv_d1 { margin-right: 0px; }
+#ui_inv .ui-dbtn.show { visibility: visible; }
+#ui_inv .ui-dbtn:hover { transform: none; }
+#ui_inv .ui-dbtn .ui-btnlabel { visibility: visible; width: 100%; margin: 0px; font-size: 20px; text-align: center; color: #c4bcb9; }
+#ui_inv .ui-dbtn.t-ct { border: 2px solid #2b44d6; }
+#ui_inv .ui-dbtn.t-ct .ui-btnlabel { color: #9aa8ff; }
+#ui_inv .ui-dbtn.t-ct:hover { background-color: #1a2150; }
+#ui_inv .ui-dbtn.t-ct.picked { background-color: #2b44d6; }
+#ui_inv .ui-dbtn.t-ct.picked .ui-btnlabel { color: #ffffff; }
+#ui_inv .ui-dbtn.t-t { border: 2px solid #e6b33c; }
+#ui_inv .ui-dbtn.t-t .ui-btnlabel { color: #e6b33c; }
+#ui_inv .ui-dbtn.t-t:hover { background-color: #3a2d12; }
+#ui_inv .ui-dbtn.t-t.picked { background-color: #e6b33c; }
+#ui_inv .ui-dbtn.t-t.picked .ui-btnlabel { color: #140e0c; }
+#ui_inv .ui-dclose { visibility: collapse; }
+.ui-dhint { horizontal-align: left; margin-top: 12px; font-size: 16px; color: #c4bcb9; }

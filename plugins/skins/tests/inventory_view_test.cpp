@@ -78,28 +78,55 @@ int main() {
   const std::string all = GridSpec(many, "all", 0, tr);
   CHECK(Has(all, "#pick 1|") && Has(all, "#pick 30|") && !Has(all, "#page"));
 
-  // Detail: both sides buy the AWP: CT, T, Both (equipped for both: all picked), Unequip.
+  // The picked tile is marked; the panel's default is the first item of all (rarest first).
+  CHECK(Has(GridSpec(inv, "all", 0, tr, 77), "btn=Redline|ghost|picked|#pick 77|"));
+  CHECK(FirstItem(inv) == 412);
+  CHECK(FirstItem(Inventory{}) == 0);
+
+  // The item panel: both sides buy the AWP, on both: CT and T lit, toggles (no Both, Unequip, Back).
   const std::string awp = DetailSpec(inv.items[0], false, tr);
   CHECK(Has(awp, "drawer.img=" + PictureClass("weapon_awp_cu_awp_asimov_medium_png") + "\n"));
-  CHECK(Has(awp, "drawer.title=AWP | Asiimov\n"));  // the title is one field: its `|` stays
-  CHECK(Has(awp, "drawer.btn=CT|ct|picked|#equip 412 3\n"));
-  CHECK(Has(awp, "drawer.btn=T|t|picked|#equip 412 2\n"));
-  CHECK(Has(awp, "drawer.btn=[inv.both]|ghost|picked|#equip 412 0\n"));
-  CHECK(Has(awp, "drawer.btn=[inv.unequip]|danger||#unequip 412 0\n"));
+  CHECK(Has(awp, "drawer.kind=AWP\n") && Has(awp, "drawer.title=Asiimov\n"));
+  CHECK(Has(awp, "drawer.btn=CT|ct|picked|#side 412 3\n"));
+  CHECK(Has(awp, "drawer.btn=T|t|picked|#side 412 2\n"));
+  CHECK(!Has(awp, "inv.both") && !Has(awp, "unequip") && !Has(awp, "drawer.close"));
   CHECK(!Has(awp, "where=") && !Has(awp, "id=") && Has(awp, "drawer.label=[inv.equip_on]\n"));
-  CHECK(Has(awp, "drawer.close=[inv.back]|#back\n"));
   CHECK(Has(awp, "drawer.line=[inv.from]|t50 MVP\n"));
-  // Only T buys the AK-47: one Equip, no side buttons, not equipped: no Unequip.
+  CHECK(Has(awp, "drawer.hint=[inv.toggle_hint] [inv.saved_hint]\n"));
+  // Only T buys the AK-47: its one toggle (off), and why.
   const std::string ak = DetailSpec(inv.items[1], true, tr);
-  CHECK(Has(ak, "drawer.btn=[inv.equip]|green||#equip 77 0\n"));
+  CHECK(Has(ak, "drawer.btn=T|t||#side 77 2\n"));
   CHECK(!Has(ak, "drawer.btn=CT|"));
-  CHECK(!Has(ak, "#unequip"));
+  CHECK(Has(ak, "drawer.line=[inv.one_side]|\n"));
   CHECK(Has(ak, "drawer.hint=[inv.saving]\n"));
 
-  // Skins off.
+  // What a toggle sends. On both, CT off: off both, then back on T.
+  auto steps = SideClick(inv.items[0], 3);
+  CHECK(steps.size() == 2 && steps[0].team == 0 && steps[0].unequip && steps[1].team == 2 && !steps[1].unequip);
+  Item k = inv.items[2];  // the knife: on CT only
+  steps = SideClick(k, 3);  // CT again: off CT
+  CHECK(steps.size() == 1 && steps[0].team == 3 && steps[0].unequip);
+  steps = SideClick(k, 2);  // T as well: both
+  CHECK(steps.size() == 1 && steps[0].team == 0 && !steps[0].unequip);
+  k.on[3] = false;
+  steps = SideClick(k, 2);  // on neither: T
+  CHECK(steps.size() == 1 && steps[0].team == 2 && !steps[0].unequip);
+  steps = SideClick(inv.items[1], 2);  // the AK-47, one side, off: on (kept as both)
+  CHECK(steps.size() == 1 && steps[0].team == 0 && !steps[0].unequip);
+  Item ak2 = inv.items[1];
+  ak2.on[0] = true;
+  steps = SideClick(ak2, 2);  // on: off
+  CHECK(steps.size() == 1 && steps[0].team == 0 && steps[0].unequip);
+  CHECK(SideClick(k, 0).empty());
+
+  // No items, or skins off: the panel says so; the grid has no sub.
+  Inventory none;
+  none.enabled = true;
+  CHECK(Has(EmptyDetailSpec(none, tr), "drawer.title=[inv.empty_title]\ndrawer.sub=[inv.empty]\n"));
+  CHECK(!Has(GridSpec(none, "all", 0, tr), "sub="));
   Inventory off;
   CHECK(ParseInventory(R"({"steamid64":"1","enabled":false,"error":"Skins are off","items":[]})", &off));
-  CHECK(!off.enabled && Has(GridSpec(off, "all", 0, tr), "sub=Skins are off\n"));
+  CHECK(!off.enabled && Has(EmptyDetailSpec(off, tr), "drawer.title=[inv.off_title]\ndrawer.sub=Skins are off\n"));
 
   if (g_failures) {
     std::fprintf(stderr, "inventory_view: %d failure(s)\n", g_failures);

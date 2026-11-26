@@ -3965,16 +3965,16 @@
 <Label id="ui_inv_hint" class="ui-hint" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
-</Panel>
+<Panel class="ui-drawer" hittest="true">
+<Panel class="ui-dtop" hittest="false">
+<Label id="ui_inv_dkind" class="ui-dkind" text="{s:text}" hittest="false" />
 <Button id="ui_inv_close" class="ui-close">
 <Panel class="ui-xbar a" hittest="false" />
 <Panel class="ui-xbar b" hittest="false" />
 <Label id="ui_inv_close_l" class="ui-closelabel" text="{s:text}" hittest="false" />
 </Button>
-<Panel class="ui-ddim" hittest="false" />
-<Panel class="ui-drawer" hittest="true">
+</Panel>
 <Panel id="ui_inv_dimg" class="ui-dimg" hittest="false" />
-<Label id="ui_inv_dkind" class="ui-dkind" text="{s:text}" hittest="false" />
 <Label id="ui_inv_dtitle" class="ui-dtitle" text="{s:text}" hittest="false" />
 <Label id="ui_inv_dsub" class="ui-dsub" text="{s:text}" hittest="false" />
 <Panel class="ui-dlines" hittest="false">
@@ -4016,6 +4016,7 @@
 </Button>
 </Panel>
 <Label id="ui_inv_dhint" class="ui-dhint" text="{s:text}" hittest="false" />
+</Panel>
 </Panel>
 </Panel>
 <Panel id="ui_invd" class="ui-panel ui-invd" hittest="true">

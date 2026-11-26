@@ -119,9 +119,9 @@ def inventory_tile(p, n):
 
 
 def block_inv():
-    """The inventory (`.skins`, where=inv), as drafted on the canvas "In-game inventory": a column
-    of tabs under INVENTORY (kind), the title and hint (sub) over a 4-column grid of tiles, a footer
-    (counter left, hint right) and a close (×) top right."""
+    """The inventory (`.skins`, where=inv): a column of tabs under INVENTORY (kind), the title over a
+    3-column grid of tiles with a footer (counter left, hint right), and the item panel on the right
+    with the close (×) in its top bar."""
     p = "ui_inv"
     tabs = panel(f"{p}_tabs", "ui-tabs", children="".join(
         button(f"{p}_g{n}", "ui-tab", label(f"{p}_g{n}_l", "ui-tablabel") + label(f"{p}_g{n}_c", "ui-tabcount"))
@@ -132,20 +132,20 @@ def block_inv():
     grid = panel(f"{p}_buttons", "ui-buttons", children="".join(inventory_tile(p, n) for n in range(120)), hit=True)
     foot = panel(cls="ui-invfoot", children=label(f"{p}_counter", "ui-counter") + label(f"{p}_hint", "ui-hint"))
     main = panel(cls="ui-invmain", children=top + grid + foot)
-    # The x is drawn (two bars): the HUD font has no ×.
+    # The item panel (drawer.*), always beside the grid (Sivert, 2026-11-26): a top bar with the
+    # weapon (kind) and the close, the picture, name, facts, EQUIP ON over the side toggles, a note.
     close = button(f"{p}_close", "ui-close", panel(cls="ui-xbar a") + panel(cls="ui-xbar b") + label(f"{p}_close_l", "ui-closelabel"))
-    # The drawer (drawer.*): the picked item over the grid's right side, the grid dimmed behind it.
     drows = "".join(panel(f"{p}_dn{n}", "ui-row", label(f"{p}_dn{n}_k", "ui-rowk") + label(f"{p}_dn{n}_v", "ui-rowv"))
                     for n in range(3))
     dbuttons = panel(cls="ui-dbuttons", children="".join(
         button(f"{p}_d{n}", "ui-btn ui-dbtn", label(f"{p}_d{n}_l", "ui-btnlabel")) for n in range(6))
         + button(f"{p}_dclose", "ui-btn ui-dclose", label(f"{p}_dclose_l", "ui-btnlabel")))
+    dtop = panel(cls="ui-dtop", children=label(f"{p}_dkind", "ui-dkind") + close)
     drawer = panel(cls="ui-drawer", hit=True, children=(
-        panel(f"{p}_dimg", "ui-dimg") + label(f"{p}_dkind", "ui-dkind") + label(f"{p}_dtitle", "ui-dtitle")
+        dtop + panel(f"{p}_dimg", "ui-dimg") + label(f"{p}_dtitle", "ui-dtitle")
         + label(f"{p}_dsub", "ui-dsub") + panel(cls="ui-dlines", children=drows) + label(f"{p}_dlabel", "ui-dlabel")
         + dbuttons + label(f"{p}_dhint", "ui-dhint")))
-    dim = panel(cls="ui-ddim")
-    return panel(p, "ui-panel ui-inv", panel(cls="ui-back") + panel(cls="ui-invrow", children=side + main) + close + dim + drawer, hit=True)
+    return panel(p, "ui-panel ui-inv", panel(cls="ui-back") + panel(cls="ui-invrow", children=side + main + drawer), hit=True)
 
 
 def block_invd():

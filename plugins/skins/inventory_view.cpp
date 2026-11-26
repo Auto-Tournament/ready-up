@@ -164,33 +164,10 @@ std::string WearShort(double f) {
   return "BS";
 }
 
-std::string GridSpec(const Inventory& inv, const std::string& tab, int page, const Text& tr) {
-  // The inventory's own panel (at_ui ui_inv), as drafted on the canvas: kind = INVENTORY over the
-  // tabs, title + sub over the grid, counter in the footer, close = × top right.
-  std::string s = "id=skins-grid\nwhere=inv\nmouse=on\n";
-  s += "kind=" + Clean(tr("inv.kind", {})) + "\n";
+std::vector<const Item*> Shown(const Inventory& inv, const std::string& tab) {
   std::vector<const Item*> shown;
-  int counts[16] = {0};
-  const auto& tabs = Tabs();
-  for (const Item& it : inv.items) {
-    const std::string t = TabOf(it);
-    for (size_t i = 0; i < tabs.size(); ++i)
-      if (tabs[i] == "all" || tabs[i] == t) ++counts[i];
-    if (tab == "all" || t == tab) shown.push_back(&it);
-  }
-  for (size_t i = 0; i < tabs.size(); ++i) {
-    if (counts[i] == 0 && tabs[i] != "all" && tabs[i] != tab) continue;  // only tabs with items
-    s += "tab=" + Clean(tr("inv.tab." + tabs[i], {})) + "|" + std::to_string(counts[i]) + "|#tab " + tabs[i] + "|" +
-         (tabs[i] == tab ? "1" : "0") + "\n";
-  }
-  s += "title=" + Clean(tr("inv.tab." + tab, {})) + "\n";
-  if (!inv.enabled) {
-    s += "sub=" + Clean(inv.error.empty() ? tr("inv.off", {}) : inv.error) + "\n";
-  } else if (shown.empty()) {
-    s += "sub=" + Clean(tr(inv.items.empty() ? "inv.empty" : "inv.empty_tab", {})) + "\n";
-  } else {
-    s += "sub=" + Clean(tr("inv.hint", {})) + "\n";
-  }
+  for (const Item& it : inv.items)
+    if (tab == "all" || TabOf(it) == tab) shown.push_back(&it);
   // Rarest first (Sivert, 2026-11-26), then by weapon and name; the platform's order (newest) breaks ties.
   std::stable_sort(shown.begin(), shown.end(), [](const Item* a, const Item* b) {
     const int ra = RarityRank(a->rarity), rb = RarityRank(b->rarity);
@@ -198,6 +175,35 @@ std::string GridSpec(const Inventory& inv, const std::string& tab, int page, con
     if (a->weaponName != b->weaponName) return a->weaponName < b->weaponName;
     return a->name < b->name;
   });
+  return shown;
+}
+
+int64_t FirstItem(const Inventory& inv) {
+  const auto all = Shown(inv, "all");
+  return all.empty() ? 0 : all.front()->id;
+}
+
+std::string GridSpec(const Inventory& inv, const std::string& tab, int page, const Text& tr, int64_t picked) {
+  // The inventory's own panel (at_ui ui_inv): kind = INVENTORY over the tabs, the title over the
+  // grid, counter and how to close in the footer; the item panel (drawer.*) beside it.
+  std::string s = "id=skins-grid\nwhere=inv\nmouse=on\n";
+  s += "kind=" + Clean(tr("inv.kind", {})) + "\n";
+  const std::vector<const Item*> shown = Shown(inv, tab);
+  int counts[16] = {0};
+  const auto& tabs = Tabs();
+  for (const Item& it : inv.items) {
+    const std::string t = TabOf(it);
+    for (size_t i = 0; i < tabs.size(); ++i)
+      if (tabs[i] == "all" || tabs[i] == t) ++counts[i];
+  }
+  for (size_t i = 0; i < tabs.size(); ++i) {
+    if (counts[i] == 0 && tabs[i] != "all" && tabs[i] != tab) continue;  // only tabs with items
+    s += "tab=" + Clean(tr("inv.tab." + tabs[i], {})) + "|" + std::to_string(counts[i]) + "|#tab " + tabs[i] + "|" +
+         (tabs[i] == tab ? "1" : "0") + "\n";
+  }
+  s += "title=" + Clean(tr("inv.tab." + tab, {})) + "\n";
+  // An empty tab says so; no items at all (or skins off) is the item panel's to say (EmptyDetailSpec).
+  if (inv.enabled && shown.empty() && !inv.items.empty()) s += "sub=" + Clean(tr("inv.empty_tab", {})) + "\n";
   // One grid that scrolls (Sivert, 2026-11-26: no pages): the tab's items, up to kMaxShown.
   (void)page;
   for (size_t i = 0; i < shown.size() && i < static_cast<size_t>(kMaxShown); ++i) {
@@ -206,7 +212,8 @@ std::string GridSpec(const Inventory& inv, const std::string& tab, int page, con
     const std::string wear = it.wear >= 0 ? WearShort(it.wear) + " " + Fmt("%.2f", it.wear) : std::string();
     // No picture class still makes a tile (has-img): an empty picture box, as for an item the game has none of.
     const std::string img = it.image.empty() ? "sk-none" : PictureClass(it.image);
-    s += "btn=" + Clean(it.name.empty() ? it.weaponName : it.name) + "|ghost||#pick " + std::to_string(it.id) + "|" +
+    s += "btn=" + Clean(it.name.empty() ? it.weaponName : it.name) + "|ghost|" + (it.id == picked ? "picked" : "") +
+         "|#pick " + std::to_string(it.id) + "|" +
          Clean(it.weaponName) + "|" + img + "|" + Marks(it) + "|" + Clean(wear) + "\n";
   }
   // The footer, as drafted: how many items this tab has, and how to close.
@@ -217,13 +224,14 @@ std::string GridSpec(const Inventory& inv, const std::string& tab, int page, con
 }
 
 std::string DetailSpec(const Item& it, bool pending, const Text& tr) {
-  // The picked item as the grid's drawer (drawer.*, added to GridSpec): the grid stays behind it,
-  // dimmed. Picture, kind, title, sub, lines, EQUIP ON (label) over the side buttons, Unequip and
-  // Back (close) side by side, a note (hint).
+  // The item panel right of the grid (drawer.*), always there (Sivert, 2026-11-26): the weapon (kind)
+  // with the close beside it, the picture, the name (title), wear / pattern / StatTrak (sub), where it
+  // came from (line), EQUIP ON (label) over a toggle per side: lit = this item is on that side, a
+  // click takes it off again. A note under them (hint).
   std::string s;
   if (!it.image.empty()) s += "drawer.img=" + PictureClass(it.image) + "\n";
   s += "drawer.kind=" + Clean(it.weaponName) + "\n";
-  s += "drawer.title=" + Line(it.name.empty() ? it.weaponName : it.weaponName + " | " + it.name) + "\n";
+  s += "drawer.title=" + Line(it.name.empty() ? it.weaponName : it.name) + "\n";
   std::string sub;
   if (it.wear >= 0) sub = WearName(it.wear) + " " + Fmt("%.3f", it.wear);
   if (it.pattern >= 0) sub += (sub.empty() ? "" : " \xC2\xB7 ") + tr("inv.pattern", {{"n", std::to_string(it.pattern)}});
@@ -231,23 +239,43 @@ std::string DetailSpec(const Item& it, bool pending, const Text& tr) {
   if (!sub.empty()) s += "drawer.sub=" + Clean(sub) + "\n";
   if (!it.source.empty()) s += "drawer.line=" + Clean(tr("inv.from", {})) + "|" + Clean(it.source) + "\n";
   const std::string id = std::to_string(it.id);
-  const bool any = it.on[0] || it.on[2] || it.on[3];
   s += "drawer.label=" + Clean(tr("inv.equip_on", {})) + "\n";
   if (it.side == 0) {
-    // Both sides buy it: CT, T or both. A side is picked when it has this item (both counts for each).
-    s += "drawer.btn=CT|ct|" + std::string(it.on[0] || it.on[3] ? "picked" : "") + "|#equip " + id + " 3\n";
-    s += "drawer.btn=T|t|" + std::string(it.on[0] || it.on[2] ? "picked" : "") + "|#equip " + id + " 2\n";
-    s += "drawer.btn=" + Clean(tr("inv.both", {})) + "|ghost|" + (it.on[0] ? "picked" : "") + "|#equip " + id + " 0\n";
+    // Both sides buy it: CT and T, each lit while this item is on it ("both" lights both).
+    s += "drawer.btn=CT|ct|" + std::string(it.on[0] || it.on[3] ? "picked" : "") + "|#side " + id + " 3\n";
+    s += "drawer.btn=T|t|" + std::string(it.on[0] || it.on[2] ? "picked" : "") + "|#side " + id + " 2\n";
   } else {
-    s += "drawer.btn=" + Clean(tr(any ? "inv.equipped" : "inv.equip", {})) + "|green|" + (any ? "off" : "") + "|#equip " + id + " 0\n";
-    s += "drawer.line=" + Clean(tr("inv.one_side", {{"side", it.side == 3 ? "CT" : "T"}, {"weapon", it.weaponName}})) + "|\n";
+    // One side buys it: that side's toggle alone, and why there is only one.
+    const bool any = it.on[0] || it.on[2] || it.on[3];
+    const char* side = it.side == 3 ? "CT" : "T";
+    s += std::string("drawer.btn=") + side + "|" + (it.side == 3 ? "ct" : "t") + "|" + (any ? "picked" : "") +
+         "|#side " + id + " " + std::to_string(it.side) + "\n";
+    s += "drawer.line=" + Clean(tr("inv.one_side", {{"side", side}, {"weapon", it.weaponName}})) + "|\n";
   }
-  // Unequip: the wide one beside Back (tone danger = the drawer's half-row button).
-  if (any)
-    s += "drawer.btn=" + Clean(tr("inv.unequip", {})) + "|danger||#unequip " + id + " " + (it.on[0] ? "0" : it.on[3] ? "3" : "2") + "\n";
-  s += "drawer.hint=" + Clean(tr(pending ? "inv.saving" : "inv.saved_hint", {})) + "\n";
-  s += "drawer.close=" + Clean(tr("inv.back", {})) + "|#back\n";
+  s += "drawer.hint=" + Clean(pending ? tr("inv.saving", {}) : tr("inv.toggle_hint", {}) + " " + tr("inv.saved_hint", {})) + "\n";
   return s;
+}
+
+std::string EmptyDetailSpec(const Inventory& inv, const Text& tr) {
+  // Nothing to show: the panel keeps its place (an empty picture box) and says why.
+  if (!inv.enabled)
+    return "drawer.title=" + Clean(tr("inv.off_title", {})) + "\ndrawer.sub=" +
+           Clean(inv.error.empty() ? tr("inv.off", {}) : inv.error) + "\n";
+  return "drawer.title=" + Clean(tr("inv.empty_title", {})) + "\ndrawer.sub=" + Clean(tr("inv.empty", {})) + "\n";
+}
+
+std::vector<EquipStep> SideClick(const Item& it, int team) {
+  if (team != 2 && team != 3) return {};
+  if (it.side != 0) {
+    // One side buys it: the platform keeps it as "both"; on, or off from wherever it is.
+    if (it.on[0] || it.on[2] || it.on[3]) return {{it.on[0] ? 0 : it.on[3] ? 3 : 2, true}};
+    return {{0, false}};
+  }
+  const int other = team == 3 ? 2 : 3;
+  if (it.on[0]) return {{0, true}, {other, false}};  // on both: off both, back on the other side
+  if (it.on[team]) return {{team, true}};
+  if (it.on[other]) return {{0, false}};  // on the other side already: both
+  return {{team, false}};
 }
 
 std::string LoadingSpec(const Text& tr) {
