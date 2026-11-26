@@ -264,6 +264,7 @@ int TeamOf(int slot) {
 struct Collect {
   std::vector<DamageParticipant> players;
   std::vector<bool> human;
+  std::vector<uint64_t> steamid;
 };
 
 int CollectPlayer(void* user, const ru_player* p) {
@@ -277,6 +278,7 @@ int CollectPlayer(void* user, const ru_player* p) {
   if (team != 2 && team != 3) return 1;
   c->players.push_back(DamageParticipant{key, p->name, team});
   c->human.push_back(!p->is_bot && p->steamid64 != 0);
+  c->steamid.push_back(p->is_bot ? 0 : p->steamid64);
   return 1;
 }
 
@@ -300,7 +302,9 @@ void BuildReports() {
     o.name = c.players[i].name;
     o.lang = i18n::LanguageOf(host::Api(), o.slot);
     o.lines = FormatDamageReport(c.players[i], all, g_ledger, o.lang);
-    if (o.human && HudScreensOn()) {
+    // Not for players who turned the HUD off (`.hud`, or Chat only on the platform): hud.so draws
+    // nothing for them, so they read the report in chat. Until v0.2.29 they got none at all.
+    if (o.human && HudScreensOn() && !HudOffFor(c.steamid[i])) {
       FillCard(o, c.players[i], all, g_ledger);
       const auto f = g_flashes.find(o.slot);
       if (f != g_flashes.end()) {
