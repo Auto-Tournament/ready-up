@@ -37,5 +37,7 @@
   "inv.no_platform": "Ready Up skins: inventaret krever en server koblet til plattformen.",
   "inv.no_hud": "Ready Up skins: inventaret krever HUD-tillegget.",
   "inv.hud_off": "Ready Up skins: inventaret krever HUD-en. Skriv .hud for å slå den på.",
-  "inv.equip_on": "Bruk på"
+  "inv.equip_on": "Bruk på",
+  "inv.count": "Gjenstander: {n}",
+  "inv.close_hint": "Lukk: .skins eller ×"
 }

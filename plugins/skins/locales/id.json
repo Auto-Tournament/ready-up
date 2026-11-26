@@ -37,5 +37,7 @@
   "inv.no_platform": "Ready Up skins: inventaris butuh server yang terhubung ke platform.",
   "inv.no_hud": "Ready Up skins: inventaris butuh addon HUD.",
   "inv.hud_off": "Ready Up skins: inventaris butuh HUD. Ketik .hud untuk menyalakannya.",
-  "inv.equip_on": "Pakai di"
+  "inv.equip_on": "Pakai di",
+  "inv.count": "Item: {n}",
+  "inv.close_hint": "Tutup: .skins atau ×"
 }

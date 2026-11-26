@@ -37,5 +37,7 @@
   "inv.no_platform": "Ready Up skins: envanter, platforma bağlı bir sunucu ister.",
   "inv.no_hud": "Ready Up skins: envanter, HUD eklentisini ister.",
   "inv.hud_off": "Ready Up skins: envanter HUD ister. Açmak için .hud yaz.",
-  "inv.equip_on": "Şurada kuşan"
+  "inv.equip_on": "Şurada kuşan",
+  "inv.count": "Eşyalar: {n}",
+  "inv.close_hint": "Kapat: .skins veya ×"
 }

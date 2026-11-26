@@ -51,11 +51,12 @@ int main() {
   CHECK(Has(grid, "tab=[inv.tab.rifles]|2|#tab rifles|0\n"));
   CHECK(!Has(grid, "inv.tab.pistols"));
   // label | tone | state | cmd | weapon (sub) | picture | marks | wear (note)
-  CHECK(Has(grid, "btn=Asiimov|ghost||#pick 412|AWP|" + PictureClass("weapon_awp_cu_awp_asimov_medium_png") + "|ct t r-covert|FT 0.27\n"));
+  CHECK(Has(grid, "btn=Asiimov|ghost||#pick 412|AWP|" + PictureClass("weapon_awp_cu_awp_asimov_medium_png") + "|ct t eq r-covert|FT 0.27\n"));
   CHECK(Has(grid, "btn=Redline|ghost||#pick 77|AK-47|"));
-  CHECK(Has(grid, "|sk-none|ct r-covert|FN 0.01\n"));  // the knife: on CT only, no picture
+  CHECK(Has(grid, "btn=Redline|ghost||#pick 77|AK-47|" + PictureClass("weapon_ak47_cu_ak47_cobra_medium_png") + "|r-classified|"));  // not equipped: no eq
+  CHECK(Has(grid, "|sk-none|ct eq r-covert|FN 0.01\n"));  // the knife: on CT only, no picture
   CHECK(Has(grid, "close=\xC3\x97|#close\n"));
-  CHECK(!Has(grid, "counter="));  // one page
+  CHECK(Has(grid, "counter=[inv.count]\n") && Has(grid, "hint=[inv.close_hint]\n"));  // the footer
 
   // Tab filter and paging.
   CHECK(Has(GridSpec(inv, "knives", 0, tr), "title=[inv.tab.knives]\n"));

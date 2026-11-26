@@ -37,5 +37,7 @@
   "inv.no_platform": "Ready Up skins: คลังของต้องใช้เซิร์ฟเวอร์ที่เชื่อมกับแพลตฟอร์ม",
   "inv.no_hud": "Ready Up skins: คลังของต้องใช้แอดออน HUD",
   "inv.hud_off": "Ready Up skins: คลังของต้องใช้ HUD พิมพ์ .hud เพื่อเปิด",
-  "inv.equip_on": "สวมใส่ฝั่ง"
+  "inv.equip_on": "สวมใส่ฝั่ง",
+  "inv.count": "ไอเทม: {n}",
+  "inv.close_hint": "ปิด: .skins หรือ ×"
 }

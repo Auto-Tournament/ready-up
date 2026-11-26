@@ -37,5 +37,7 @@
   "inv.no_platform": "Ready Up skins: varasto vaatii alustaan yhdistetyn palvelimen.",
   "inv.no_hud": "Ready Up skins: varasto vaatii HUD-lisäosan.",
   "inv.hud_off": "Ready Up skins: varasto vaatii HUD:n. Kirjoita .hud ottaaksesi sen käyttöön.",
-  "inv.equip_on": "Varusta puolelle"
+  "inv.equip_on": "Varusta puolelle",
+  "inv.count": "Esineitä: {n}",
+  "inv.close_hint": "Sulje: .skins tai ×"
 }

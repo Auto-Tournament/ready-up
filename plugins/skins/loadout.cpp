@@ -395,7 +395,12 @@ void OnFleetMessage(void*, const ru_fleet_msg* m) {
       e.loadout = std::move(l);
       e.loaded_at = Clock::now();
       SKINS_DEBUG("fleet: skins.loadout %llu rev %lld", static_cast<unsigned long long>(sid), static_cast<long long>(rev));
-      if (changed) QueueWarmupRegive(sid);  // warmup: the held weapons get the new skins now
+      // A changed loadout no longer re-gives the weapons a player holds (warmup did: removed, then
+      // created again two ticks later). With the in-game inventory that ran on every equip, and the
+      // client lost the knife and crashed when the player died (CopyExistingEntity: missing client
+      // entity 304, 2026-11-26; the same as 2026-10-14 on join). The new loadout comes with the
+      // next spawn, as the inventory says.
+      (void)changed;
       // The first one may come after the player spawned (asked for on connect): paint what they
       // hold, or the first life on a server without a match was all stock (#339).
       if (firstLoadout) QueueFirstLoadoutRepaint(sid);

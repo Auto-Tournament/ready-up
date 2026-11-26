@@ -37,5 +37,7 @@
   "inv.no_platform": "Ready Up skins: インベントリにはプラットフォームに接続されたサーバーが必要です。",
   "inv.no_hud": "Ready Up skins: インベントリには HUD アドオンが必要です。",
   "inv.hud_off": "Ready Up skins: インベントリには HUD が必要です。.hud でオンにしてください。",
-  "inv.equip_on": "装備する側"
+  "inv.equip_on": "装備する側",
+  "inv.count": "アイテム: {n}",
+  "inv.close_hint": "閉じる: .skins または ×"
 }

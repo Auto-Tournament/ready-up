@@ -37,5 +37,7 @@
   "inv.no_platform": "Ready Up skins: de inventaris heeft een server nodig die aan het platform gekoppeld is.",
   "inv.no_hud": "Ready Up skins: de inventaris heeft de HUD-addon nodig.",
   "inv.hud_off": "Ready Up skins: de inventaris heeft de HUD nodig. Typ .hud om hem aan te zetten.",
-  "inv.equip_on": "Uitrusten op"
+  "inv.equip_on": "Uitrusten op",
+  "inv.count": "Items: {n}",
+  "inv.close_hint": "Sluiten: .skins of ×"
 }

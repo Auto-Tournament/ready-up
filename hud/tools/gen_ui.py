@@ -129,10 +129,11 @@ def block_inv():
     side = panel(cls="ui-invside", children=label(f"{p}_kind", "ui-kind") + tabs)
     top = panel(cls="ui-invtop", children=label(f"{p}_title", "ui-title") + label(f"{p}_sub", "ui-sub"))
     # One scrolling grid (Sivert, 2026-11-26: no pages): up to 120 tiles (hud_screen.h kMaxTiles).
-    grid = panel(f"{p}_buttons", "ui-buttons", children="".join(inventory_tile(p, n) for n in range(120)))
+    grid = panel(f"{p}_buttons", "ui-buttons", children="".join(inventory_tile(p, n) for n in range(120)), hit=True)
     foot = panel(cls="ui-invfoot", children=label(f"{p}_counter", "ui-counter") + label(f"{p}_hint", "ui-hint"))
     main = panel(cls="ui-invmain", children=top + grid + foot)
-    close = button(f"{p}_close", "ui-close", label(f"{p}_close_l", "ui-closelabel"))
+    # The x is drawn (two bars): the HUD font has no ×.
+    close = button(f"{p}_close", "ui-close", panel(cls="ui-xbar a") + panel(cls="ui-xbar b") + label(f"{p}_close_l", "ui-closelabel"))
     return panel(p, "ui-panel ui-inv", panel(cls="ui-back") + panel(cls="ui-invrow", children=side + main) + close, hit=True)
 
 
@@ -146,13 +147,14 @@ def block_invd():
     rows = panel(f"{p}_lines", "ui-lines", children="".join(
         panel(f"{p}_n{n}", "ui-row", label(f"{p}_n{n}_k", "ui-rowk") + label(f"{p}_n{n}_v", "ui-rowv"))
         for n in range(3)))
+    # CT / T / Both, then Unequip, then Back (the close) in the same row as Unequip, as drafted.
     buttons = panel(f"{p}_buttons", "ui-buttons", children="".join(
-        button(f"{p}_b{n}", "ui-btn", label(f"{p}_b{n}_l", "ui-btnlabel")) for n in range(6)))
+        button(f"{p}_b{n}", "ui-btn", label(f"{p}_b{n}_l", "ui-btnlabel")) for n in range(4))
+        + button(f"{p}_close", "ui-close", label(f"{p}_close_l", "ui-closelabel")))
     side = panel(cls="ui-invdside", children=(
         panel(f"{p}_hero", "ui-hero") + label(f"{p}_kind", "ui-kind") + label(f"{p}_title", "ui-title")
         + label(f"{p}_sub", "ui-sub") + rows + label(f"{p}_counter", "ui-counter") + buttons
-        + label(f"{p}_hint", "ui-hint")
-        + button(f"{p}_close", "ui-close", label(f"{p}_close_l", "ui-closelabel"))))
+        + label(f"{p}_hint", "ui-hint")))
     return panel(p, "ui-panel ui-invd", panel(cls="ui-back") + panel(cls="ui-invrow", children=ghost + side), hit=True)
 
 

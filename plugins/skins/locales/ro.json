@@ -37,5 +37,7 @@
   "inv.no_platform": "Ready Up skins: inventarul are nevoie de un server legat de platformă.",
   "inv.no_hud": "Ready Up skins: inventarul are nevoie de addonul HUD.",
   "inv.hud_off": "Ready Up skins: inventarul are nevoie de HUD. Scrie .hud ca să-l pornești.",
-  "inv.equip_on": "Echipează pe"
+  "inv.equip_on": "Echipează pe",
+  "inv.count": "Obiecte: {n}",
+  "inv.close_hint": "Închide: .skins sau ×"
 }

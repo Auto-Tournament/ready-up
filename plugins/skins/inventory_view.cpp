@@ -57,6 +57,7 @@ std::string Marks(const Item& it) {
   std::string m;
   if (it.on[0] || it.on[3]) m += "ct ";
   if (it.on[0] || it.on[2]) m += "t ";
+  if (it.on[0] || it.on[2] || it.on[3]) m += "eq ";  // equipped: the tile's border in the accent
   m += RarityMark(it.rarity);
   return m;
 }
@@ -192,7 +193,10 @@ std::string GridSpec(const Inventory& inv, const std::string& tab, int page, con
     s += "btn=" + Clean(it.name.empty() ? it.weaponName : it.name) + "|ghost||#pick " + std::to_string(it.id) + "|" +
          Clean(it.weaponName) + "|" + img + "|" + Marks(it) + "|" + Clean(wear) + "\n";
   }
-  s += "close=\xC3\x97|#close\n";  // ×
+  // The footer, as drafted: how many items this tab has, and how to close.
+  s += "counter=" + Clean(tr("inv.count", {{"n", std::to_string(shown.size())}})) + "\n";
+  s += "hint=" + Clean(tr("inv.close_hint", {})) + "\n";
+  s += "close=\xC3\x97|#close\n";  // × (drawn by the addon; the label is only the button's name)
   return s;
 }
 

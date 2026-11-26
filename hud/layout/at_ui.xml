@@ -1678,7 +1678,7 @@
 <Label id="ui_inv_title" class="ui-title" text="{s:text}" hittest="false" />
 <Label id="ui_inv_sub" class="ui-sub" text="{s:text}" hittest="false" />
 </Panel>
-<Panel id="ui_inv_buttons" class="ui-buttons" hittest="false">
+<Panel id="ui_inv_buttons" class="ui-buttons" hittest="true">
 <Button id="ui_inv_b0" class="ui-btn ui-tile">
 <Panel id="ui_inv_b0_img" class="ui-btnimg" hittest="false" />
 <Panel class="ui-btnbar" hittest="false" />
@@ -3967,6 +3967,8 @@
 </Panel>
 </Panel>
 <Button id="ui_inv_close" class="ui-close">
+<Panel class="ui-xbar a" hittest="false" />
+<Panel class="ui-xbar b" hittest="false" />
 <Label id="ui_inv_close_l" class="ui-closelabel" text="{s:text}" hittest="false" />
 </Button>
 </Panel>
@@ -4016,17 +4018,11 @@
 <Button id="ui_invd_b3" class="ui-btn">
 <Label id="ui_invd_b3_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 </Button>
-<Button id="ui_invd_b4" class="ui-btn">
-<Label id="ui_invd_b4_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
-</Button>
-<Button id="ui_invd_b5" class="ui-btn">
-<Label id="ui_invd_b5_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
-</Button>
-</Panel>
-<Label id="ui_invd_hint" class="ui-hint" text="{s:text}" hittest="false" />
 <Button id="ui_invd_close" class="ui-close">
 <Label id="ui_invd_close_l" class="ui-closelabel" text="{s:text}" hittest="false" />
 </Button>
+</Panel>
+<Label id="ui_invd_hint" class="ui-hint" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
 </Panel>

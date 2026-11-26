@@ -37,5 +37,7 @@
   "inv.no_platform": "Ready Up skins: inventariet kräver en server kopplad till plattformen.",
   "inv.no_hud": "Ready Up skins: inventariet kräver HUD-tillägget.",
   "inv.hud_off": "Ready Up skins: inventariet kräver HUD:en. Skriv .hud för att slå på den.",
-  "inv.equip_on": "Utrusta på"
+  "inv.equip_on": "Utrusta på",
+  "inv.count": "Föremål: {n}",
+  "inv.close_hint": "Stäng: .skins eller ×"
 }

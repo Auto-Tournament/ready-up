@@ -1114,101 +1114,112 @@
 /* end addon version */
 
 /* ==== The inventory (`.skins`): ui_inv (the grid) and ui_invd (an item) ===========================
-   1:1 to the canvas draft "In-game inventory" (Sivert, 2026-11-26), every size x1.4 for a 1080-high
-   screen: a 1120 x 812 panel in the centre, a 252px column of tabs under INVENTORY, a 4-column grid,
-   a footer; the item view keeps the grid dimmed on the left and the item on the right. No scale, no
-   entrance: it is there, or not. */
+   1:1 to the canvas draft "In-game inventory" (Sivert, 2026-11-26). The draft is a whole 1280 x 720
+   game screen; everything here is that x1.4 (a 1080-high screen): the 1000 x 580 panel is 1400 x 812
+   (it fits a 4:3 screen, 1440 wide), the 180px tab column 252, a 190 x 150 tile 258 x 210. No scale,
+   no entrance: it is there, or not. */
 .ui-root .ui-panel.ui-inv, .ui-root .ui-panel.ui-invd
 {
-	visibility: collapse; horizontal-align: center; vertical-align: center; width: 1120px; height: 812px;
+	visibility: collapse; horizontal-align: center; vertical-align: center; width: 1400px; height: 812px;
 	border: 1px solid #322926; border-radius: 8px; background-color: #140e0ce6;
 }
 .ui-root .ui-panel.ui-inv.on, .ui-root .ui-panel.ui-invd.on { visibility: visible; }
 .ui-inv .ui-back, .ui-invd .ui-back { width: 100%; height: 100%; border-radius: 8px; background-color: #140e0ce6; }
 .ui-invrow { flow-children: right; width: 100%; height: 100%; }
 
-/* The tab column: INVENTORY over the tabs. */
+/* The tab column: INVENTORY over the tabs (draft: 180 wide, padding 20 0, a 1px line right). */
 .ui-invside { flow-children: down; width: 252px; height: 100%; padding: 28px 0px; border-right: 1px solid #322926; }
 .ui-inv .ui-kind { visibility: visible; margin: 0px 0px 20px 25px; font-family: "Noto Mono"; font-size: 18px; font-weight: bold; letter-spacing: 2.5px; color: #ff6a3d; text-transform: uppercase; }
 .ui-inv .ui-tabs { visibility: visible; width: 100%; margin: 0px; }
-.ui-inv .ui-tab { height: 50px; margin: 0px; border-radius: 0px; border-left: 4px solid #00000000; }
+.ui-inv .ui-tab { height: 50px; margin: 0px 0px 3px 0px; border-radius: 0px; border-left: 4px solid #00000000; }
 .ui-inv .ui-tab.on { background-color: #211815; border-left: 4px solid #ff6a3d; }
 .ui-inv .ui-tablabel { margin-left: 21px; font-size: 20px; color: #c4bcb9; }
+.ui-inv .ui-tab.on .ui-tablabel { color: #f4edeb; font-weight: normal; }
 .ui-inv .ui-tabcount { margin-right: 25px; font-family: "Noto Mono"; font-size: 15px; color: #938a87; }
 
-/* The main column: title and hint, the grid, the footer. */
-.ui-invmain { flow-children: down; width: 868px; height: 100%; padding: 28px 29px 22px 29px; }
+/* The main column (draft: padding 20 22, gap 14): title + hint, the grid, the footer. */
+.ui-invmain { flow-children: down; width: 1148px; height: 100%; padding: 28px 31px 22px 31px; }
 .ui-invtop { width: 100%; height: 36px; }
 .ui-inv .ui-title { visibility: visible; horizontal-align: left; vertical-align: bottom; margin: 0px; font-size: 25px; font-weight: bold; color: #f4edeb; text-align: left; }
-.ui-inv .ui-sub { visibility: visible; width: fit-children; horizontal-align: right; vertical-align: bottom; margin: 0px; font-size: 17px; color: #938a87; text-align: right; }
-/* One grid that scrolls with the wheel (no pages). */
-.ui-inv .ui-buttons { visibility: visible; flow-children: right-wrap; width: 810px; height: fill-parent-flow( 1 ); margin-top: 20px; horizontal-align: left; overflow: squish scroll; }
+.ui-inv .ui-sub { visibility: visible; width: fit-children; horizontal-align: right; vertical-align: bottom; margin: 0px 52px 0px 0px; font-size: 17px; color: #938a87; text-align: right; }
+/* One grid that scrolls with the wheel (no pages); it takes the mouse so the wheel reaches it. */
+.ui-inv .ui-buttons { visibility: visible; flow-children: right-wrap; width: 100%; height: fill-parent-flow( 1 ); margin-top: 20px; horizontal-align: left; overflow: squish scroll; }
+/* 4 x (250 + 2 border + 14) = 1064 of 1086: four a row, the scrollbar beside them. */
 .ui-inv .ui-btn { margin: 0px 14px 14px 0px; }
 .ui-inv .ui-btn.has-img
 {
-	width: 186px; height: 210px; border-radius: 6px; border: 1px solid #322926; background-color: #211815; transform: none;
+	width: 250px; height: 210px; border-radius: 6px; border: 1px solid #322926; background-color: #211815; transform: none;
 }
 .ui-inv .ui-btn.has-img:hover { transform: none; border: 1px solid #c4bcb9; }
 .ui-inv .ui-btn.has-img.picked { transform: none; border: 1px solid #ff6a3d; }
-/* 4 x (186 + 14) = 800: four a row in 810, the scrollbar beside them. */
-.ui-inv .ui-btnimg { visibility: visible; width: 184px; height: 128px; margin: 0px; background-color: #1a1210; background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
-.ui-inv .ui-btnbar { visibility: visible; width: 100%; height: 4px; margin-top: 128px; }
-.ui-tiletext { visibility: collapse; flow-children: down; width: 100%; margin-top: 132px; padding: 9px 14px 0px 14px; }
+/* An equipped item: its border in the accent (draft: #ff6a3d66). */
+.ui-inv .ui-btn.has-img.mk-eq { border: 1px solid #ff6a3d66; }
+.ui-inv .ui-btnimg { visibility: visible; width: 248px; height: 129px; margin: 0px; background-color: #211815; background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
+/* The rarity's glow behind the picture (draft: radial, the rarity at 20%). */
+.ui-inv .mk-r-consumer .ui-btnimg { background-color: gradient( radial, 50% 60%, 0% 0%, 70% 70%, from( #b0c3d933 ), to( #211815 ) ); }
+.ui-inv .mk-r-industrial .ui-btnimg { background-color: gradient( radial, 50% 60%, 0% 0%, 70% 70%, from( #5e98d933 ), to( #211815 ) ); }
+.ui-inv .mk-r-milspec .ui-btnimg { background-color: gradient( radial, 50% 60%, 0% 0%, 70% 70%, from( #4b69ff33 ), to( #211815 ) ); }
+.ui-inv .mk-r-restricted .ui-btnimg { background-color: gradient( radial, 50% 60%, 0% 0%, 70% 70%, from( #8847ff33 ), to( #211815 ) ); }
+.ui-inv .mk-r-classified .ui-btnimg { background-color: gradient( radial, 50% 60%, 0% 0%, 70% 70%, from( #d32ce633 ), to( #211815 ) ); }
+.ui-inv .mk-r-covert .ui-btnimg { background-color: gradient( radial, 50% 60%, 0% 0%, 70% 70%, from( #eb4b4b33 ), to( #211815 ) ); }
+.ui-inv .mk-r-gold .ui-btnimg { background-color: gradient( radial, 50% 60%, 0% 0%, 70% 70%, from( #e4ae3933 ), to( #211815 ) ); }
+.ui-inv .ui-btnbar { visibility: visible; width: 100%; height: 4px; margin-top: 129px; }
+.ui-tiletext { visibility: collapse; flow-children: down; width: 100%; margin-top: 133px; padding: 10px 14px 0px 14px; }
 .ui-inv .has-img .ui-tiletext { visibility: visible; }
 .ui-inv .ui-btn.has-img .ui-btnsub { visibility: visible; horizontal-align: left; vertical-align: top; margin: 0px; font-family: "Noto Sans"; font-size: 15px; font-weight: normal; color: #938a87; }
-.ui-inv .ui-btn.has-img .ui-btnlabel { width: 100%; horizontal-align: left; vertical-align: top; margin: 2px 0px 0px 0px; text-align: left; font-size: 18px; font-weight: bold; color: #f4edeb; text-overflow: ellipsis; white-space: nowrap; }
+.ui-inv .ui-btn.has-img .ui-btnlabel { width: 100%; horizontal-align: left; vertical-align: top; margin: 3px 0px 0px 0px; text-align: left; font-size: 18px; font-weight: bold; color: #f4edeb; text-overflow: ellipsis; white-space: nowrap; }
 .ui-tilerow { flow-children: right; width: 100%; margin-top: 4px; }
 .ui-tilenote { horizontal-align: left; vertical-align: center; font-family: "Noto Mono"; font-size: 14px; color: #c4bcb9; }
 .ui-inv .ui-btnmarks { visibility: visible; horizontal-align: right; vertical-align: center; margin: 0px; }
 .ui-inv .ui-mk { height: 20px; padding: 0px 7px; margin-left: 6px; border-radius: 4px; }
 .ui-inv .ui-mkt { font-size: 14px; }
-/* Paging (no picture): a small pill after the tiles. */
-.ui-inv .ui-btn.show { height: 40px; border-radius: 20px; }
-.ui-inv .ui-btn.has-img.show { height: 210px; border-radius: 6px; }
-.ui-inv .ui-btn .ui-btnlabel { font-size: 16px; margin: 0px 22px; width: fit-children; }
-.ui-inv .ui-btn.off { opacity: 0.4; }
 
-.ui-invfoot { flow-children: right; width: 100%; height: 28px; }
+/* The footer (draft): the count left, how to close right. */
+.ui-invfoot { width: 100%; height: 28px; margin-top: 8px; }
 .ui-inv .ui-counter { visibility: visible; horizontal-align: left; vertical-align: center; margin: 0px; font-family: "Noto Sans"; font-size: 17px; font-weight: normal; color: #938a87; }
 .ui-inv .ui-hint { visibility: visible; horizontal-align: right; vertical-align: center; margin: 0px; font-size: 17px; color: #938a87; }
+/* The close: a 45px square with a drawn x (the font has no ×), top right. */
 .ui-inv .ui-close
 {
 	visibility: visible; horizontal-align: right; vertical-align: top; width: 45px; height: 45px; margin: 14px 14px 0px 0px;
 	border-radius: 6px; border: 0px solid #00000000; background-color: #211815;
 }
 .ui-inv .ui-close:hover { background-color: #322926; }
-.ui-inv .ui-closelabel { horizontal-align: center; vertical-align: center; margin: 0px; font-size: 22px; color: #f4edeb; }
+.ui-inv .ui-closelabel { visibility: collapse; }
+.ui-xbar { width: 20px; height: 2px; horizontal-align: center; vertical-align: center; background-color: #f4edeb; }
+.ui-xbar.a { transform: rotateZ( 45deg ); }
+.ui-xbar.b { transform: rotateZ( -45deg ); }
 
-/* The item: the grid dimmed on the left, the item on the right (560px). */
-.ui-invghost { width: 560px; height: 100%; padding: 70px 31px 0px 31px; opacity: 0.35; }
+/* The item (draft: the grid dimmed at 35% on the left, the item in a 400px column on the right). */
+.ui-invghost { width: 840px; height: 100%; padding: 70px 31px 0px 31px; opacity: 0.35; }
 .ui-ghostgrid { flow-children: right-wrap; width: 100%; }
-.ui-ghosttile { width: 152px; height: 210px; margin: 0px 14px 14px 0px; border-radius: 6px; border: 1px solid #322926; background-color: #211815; }
+.ui-ghosttile { width: 245px; height: 210px; margin: 0px 14px 14px 0px; border-radius: 6px; border: 1px solid #322926; background-color: #211815; }
 .ui-invdside { flow-children: down; width: 560px; height: 100%; padding: 31px 34px; background-color: #211815; border-left: 1px solid #322926; }
 .ui-invd .ui-hero { visibility: visible; width: 100%; height: 238px; margin: 0px 0px 22px 0px; border-radius: 6px; border: 1px solid #322926; background-color: #1a1210; background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
-.ui-invd .ui-kind { visibility: visible; horizontal-align: left; margin: 0px; font-size: 17px; font-weight: bold; color: #ff6a3d; }
+.ui-invd .ui-kind { visibility: visible; horizontal-align: left; margin: 0px; font-size: 17px; font-weight: bold; letter-spacing: 0px; text-transform: none; color: #ff6a3d; }
+.ui-invd .mk-r-covert .ui-kind { color: #eb4b4b; }
 .ui-invd .ui-title { visibility: visible; horizontal-align: left; margin: 6px 0px 0px 0px; text-align: left; font-size: 31px; font-weight: bold; color: #f4edeb; }
 .ui-invd .ui-sub { visibility: visible; horizontal-align: left; margin: 6px 0px 0px 0px; font-family: "Noto Mono"; font-size: 17px; color: #c4bcb9; }
 .ui-invd .ui-lines { visibility: visible; width: 100%; margin: 6px 0px 0px 0px; }
-.ui-invd .ui-row { flow-children: right; width: fit-children; horizontal-align: left; margin: 0px; }
-.ui-invd .ui-row.gone { visibility: collapse; }
-.ui-invd .ui-rowk { font-size: 17px; color: #938a87; margin-right: 8px; }
-.ui-invd .ui-rowv { width: fit-children; horizontal-align: left; margin: 0px; font-size: 17px; font-weight: normal; color: #938a87; }
+#ui_invd .ui-row { flow-children: right; width: fit-children; horizontal-align: left; margin: 0px; }
+#ui_invd .ui-row.gone { visibility: collapse; }
+#ui_invd .ui-rowk { width: fit-children; horizontal-align: left; margin: 0px 8px 0px 0px; font-size: 17px; color: #938a87; }
+#ui_invd .ui-rowv { width: fit-children; horizontal-align: left; margin: 0px; text-align: left; font-size: 17px; font-weight: normal; color: #938a87; }
 .ui-invd .ui-counter { visibility: visible; horizontal-align: left; margin: 22px 0px 11px 0px; font-family: "Noto Sans"; font-size: 17px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; text-transform: uppercase; }
+/* CT / T / Both a row of thirds; then Unequip and Back side by side (Back is the close, in this row). */
 .ui-invd .ui-buttons { visibility: visible; flow-children: right-wrap; width: 100%; margin: 0px; horizontal-align: left; }
-.ui-invd .ui-btn { width: 156px; height: 62px; margin: 0px 11px 11px 0px; border-radius: 6px; transform: none; }
-/* The draft's T is CS2's yellow with dark text (the shared t-t tone is red). */
+.ui-invd .ui-btn { width: 151px; height: 62px; margin: 0px 11px 11px 0px; border-radius: 6px; transform: none; }
+.ui-invd .ui-btn:hover { transform: none; }
+.ui-invd .ui-btn.picked { transform: none; border: 2px solid #f4edeb; }
+.ui-invd .ui-btnlabel { font-size: 20px; }
 .ui-invd .ui-btn.t-t { background-color: #e6b33c; border: 2px solid #e6b33c; }
 .ui-invd .ui-btn.t-t:hover { background-color: #efc764; border: 2px solid #efc764; }
 .ui-invd .t-t .ui-btnlabel { color: #140e0c; }
-.ui-invd .ui-btn:hover { transform: none; }
-#ui_invd_b2, #ui_invd_b5 { margin-right: 0px; }
-.ui-invd .ui-btn.picked { transform: none; border: 2px solid #f4edeb; }
-.ui-invd .ui-btnlabel { font-size: 20px; }
-.ui-invd .ui-hint { visibility: visible; horizontal-align: left; vertical-align: bottom; margin: 0px 0px 60px 0px; font-size: 15px; color: #938a87; }
-.ui-invd .ui-close
-{
-	visibility: visible; horizontal-align: right; vertical-align: bottom; width: 157px; height: 50px; margin: 0px;
-	border-radius: 6px; border: 1px solid #322926; background-color: #00000000;
-}
+.ui-invd .ui-btn.t-t.picked { border: 2px solid #f4edeb; }
+/* A one-side weapon: one Equip across the row. */
+.ui-invd .ui-btn.t-green { width: 476px; background-color: #ff6a3d; border: 2px solid #ff6a3d; }
+.ui-invd .t-green .ui-btnlabel { color: #140e0c; }
+#ui_invd_b3, #ui_invd_close { width: 232px; height: 56px; }
+.ui-invd .ui-close { visibility: visible; margin: 0px; border-radius: 6px; border: 1px solid #322926; background-color: #00000000; }
 .ui-invd .ui-closelabel { horizontal-align: center; vertical-align: center; margin: 0px; font-size: 18px; color: #f4edeb; }
-
+.ui-invd .ui-hint { visibility: visible; horizontal-align: left; margin: 4px 0px 0px 0px; font-size: 17px; color: #c4bcb9; }

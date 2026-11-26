@@ -38,7 +38,7 @@ bool UtilityName(const std::string& c) {
   return true;
 }
 const char* const kTones[] = {"t-green", "t-ct", "t-t", "t-warn", "t-danger"};
-const char* const kMarks[] = {"ct", "t", "r-consumer", "r-industrial", "r-milspec", "r-restricted", "r-classified", "r-covert", "r-gold"};
+const char* const kMarks[] = {"ct", "t", "eq", "r-consumer", "r-industrial", "r-milspec", "r-restricted", "r-classified", "r-covert", "r-gold"};
 bool HasMark(const std::string& marks, const std::string& m) {
   size_t a = 0;
   while (a <= marks.size()) {

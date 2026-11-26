@@ -37,5 +37,7 @@
   "inv.no_platform": "Ready Up skins: инвентарю нужен сервер, подключённый к платформе.",
   "inv.no_hud": "Ready Up skins: инвентарю нужен аддон HUD.",
   "inv.hud_off": "Ready Up skins: инвентарю нужен HUD. Напиши .hud, чтобы включить его.",
-  "inv.equip_on": "Надеть за"
+  "inv.equip_on": "Надеть за",
+  "inv.count": "Предметы: {n}",
+  "inv.close_hint": "Закрыть: .skins или ×"
 }

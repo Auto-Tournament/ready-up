@@ -37,5 +37,7 @@
   "inv.no_platform": "Ready Up skins: el inventario necesita un servidor conectado a la plataforma.",
   "inv.no_hud": "Ready Up skins: el inventario necesita el addon del HUD.",
   "inv.hud_off": "Ready Up skins: el inventario necesita el HUD. Escribe .hud para activarlo.",
-  "inv.equip_on": "Equipar en"
+  "inv.equip_on": "Equipar en",
+  "inv.count": "Objetos: {n}",
+  "inv.close_hint": "Cerrar: .skins o ×"
 }
