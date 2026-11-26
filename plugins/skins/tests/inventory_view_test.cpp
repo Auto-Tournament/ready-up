@@ -70,11 +70,9 @@ int main() {
     it.name = "Fade";
     many.items.push_back(it);
   }
-  const std::string p2 = GridSpec(many, "all", 1, tr);
-  // Eight a page (two rows of four): page 2 is items 9..16.
-  CHECK(Has(p2, "#pick 9|") && Has(p2, "#pick 16|") && !Has(p2, "#pick 8|") && !Has(p2, "#pick 17|"));
-  CHECK(Has(p2, "#page 0\n") && Has(p2, "#page 2\n"));
-  CHECK(Has(GridSpec(many, "all", 9, tr), "#pick 25|"));  // past the end: the last page (25..30)
+  // No pages: one grid that scrolls, every item of the tab.
+  const std::string all = GridSpec(many, "all", 0, tr);
+  CHECK(Has(all, "#pick 1|") && Has(all, "#pick 30|") && !Has(all, "#page"));
 
   // Detail: both sides buy the AWP: CT, T, Both (equipped for both: all picked), Unequip.
   const std::string awp = DetailSpec(inv.items[0], false, tr);

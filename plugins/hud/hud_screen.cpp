@@ -109,7 +109,7 @@ Screen ParseScreen(const std::string& spec) {
     } else if (k == "btn") {
       const auto p = SplitBar(v);
       const std::string img = UtilityName(At(p, 5)) ? At(p, 5) : std::string();
-      if (s.buttons.size() < static_cast<size_t>(kMaxButtons))
+      if (s.buttons.size() < static_cast<size_t>(kMaxTiles))
         s.buttons.push_back(Button{At(p, 0), At(p, 1), At(p, 2), At(p, 3), At(p, 4), img, At(p, 6), At(p, 7)});
     } else if (k == "tab") {
       const auto p = SplitBar(v);
@@ -156,6 +156,8 @@ Screen ParseScreen(const std::string& spec) {
       s.chips = v == "1";
     }
   }
+  // Only the inventory's grid has more than kMaxButtons slots (`where` may come after the buttons).
+  if (s.where != "inv" && s.buttons.size() > static_cast<size_t>(kMaxButtons)) s.buttons.resize(kMaxButtons);
   return s;
 }
 
@@ -247,7 +249,7 @@ std::vector<Write> RenderScreen(const Screen& s, const std::string& p) {
   const int cols = s.cols > 0 ? s.cols : static_cast<int>(std::clamp<size_t>(nb, 1, 4));
   for (int c = 1; c <= 6; ++c) cls(p, "cols-" + std::to_string(c), c == cols);
   for (const char* bw : kWidths) cls(p, bw, std::string("bw-") + s.bw == bw);
-  for (size_t i = 0; i < static_cast<size_t>(kMaxButtons); ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(MaxButtonsOf(p)); ++i) {
     const std::string b = p + "_b" + std::to_string(i);
     const Button* btn = i < nb ? &s.buttons[i] : nullptr;
     text(b + "_l", btn ? btn->label : std::string());
@@ -299,7 +301,7 @@ bool ParseButtonId(const std::string& id, std::string* panel, int* index) {
     if (rest.size() >= 2 && rest.size() <= 3 && rest[0] == 'b' &&
         rest.find_first_not_of("0123456789", 1) == std::string::npos) {
       const int i = std::atoi(rest.c_str() + 1);
-      if (i >= kMaxButtons) return false;
+      if (i >= MaxButtonsOf(p)) return false;
       *panel = p;
       *index = i;
       return true;
@@ -351,7 +353,7 @@ std::vector<std::pair<std::string, std::string>> Utilities(const Screen& s, cons
   }
   // Pictures: each tile's on its image panel, the large one on <panel>_hero.
   if (!s.chips) {
-    for (size_t i = 0; i < s.buttons.size() && i < static_cast<size_t>(kMaxButtons); ++i)
+    for (size_t i = 0; i < s.buttons.size() && i < static_cast<size_t>(MaxButtonsOf(p)); ++i)
       if (!s.buttons[i].img.empty()) out.emplace_back(p + "_b" + std::to_string(i) + "_img", s.buttons[i].img);
   }
   if (!s.img.empty()) out.emplace_back(p + "_hero", s.img);

@@ -181,10 +181,9 @@ std::string GridSpec(const Inventory& inv, const std::string& tab, int page, con
   } else {
     s += "sub=" + Clean(tr("inv.hint", {})) + "\n";
   }
-  const int pages = std::max(1, static_cast<int>((shown.size() + kTilesPerPage - 1) / kTilesPerPage));
-  page = std::clamp(page, 0, pages - 1);
-  const size_t from = static_cast<size_t>(page) * kTilesPerPage;
-  for (size_t i = from; i < shown.size() && i < from + kTilesPerPage; ++i) {
+  // One grid that scrolls (Sivert, 2026-11-26: no pages): the tab's items, up to kMaxShown.
+  (void)page;
+  for (size_t i = 0; i < shown.size() && i < static_cast<size_t>(kMaxShown); ++i) {
     // A tile: weapon (sub) over the name (label), the wear (note) beside the CT / T chips (marks).
     const Item& it = *shown[i];
     const std::string wear = it.wear >= 0 ? WearShort(it.wear) + " " + Fmt("%.2f", it.wear) : std::string();
@@ -192,11 +191,6 @@ std::string GridSpec(const Inventory& inv, const std::string& tab, int page, con
     const std::string img = it.image.empty() ? "sk-none" : PictureClass(it.image);
     s += "btn=" + Clean(it.name.empty() ? it.weaponName : it.name) + "|ghost||#pick " + std::to_string(it.id) + "|" +
          Clean(it.weaponName) + "|" + img + "|" + Marks(it) + "|" + Clean(wear) + "\n";
-  }
-  if (pages > 1) {
-    s += "counter=" + Clean(tr("inv.page", {{"page", std::to_string(page + 1)}, {"pages", std::to_string(pages)}})) + "\n";
-    s += "btn=" + Clean(tr("inv.prev", {})) + "|ghost|" + (page == 0 ? "off" : "") + "|#page " + std::to_string(page - 1) + "\n";
-    s += "btn=" + Clean(tr("inv.next", {})) + "|ghost|" + (page + 1 >= pages ? "off" : "") + "|#page " + std::to_string(page + 1) + "\n";
   }
   s += "close=\xC3\x97|#close\n";  // ×
   return s;

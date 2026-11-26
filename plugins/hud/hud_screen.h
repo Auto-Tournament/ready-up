@@ -33,7 +33,7 @@
 //   cls=edge glass-3 at-top      utilities on the panel (hud/styles/at_ui.css, "Tailwind for CS2")
 //   cls.title=text-2xl tc-live   utilities on one part: brand kind title sub hint timer counter
 //                                teams confirm lines cmds buttons close flow b0..b7
-//   btn=CT|ct||.ct               a button, up to 24 (kMaxButtons): label | tone | state | command [| sub
+//   btn=CT|ct||.ct               a button, up to 24 (kMaxButtons; 120 in where=inv): label | tone | state | command [| sub
 //                                [| img [| marks]]]
 //                                tone: green ct t warn danger ghost; state: picked | off | pulse | (none)
 //                                (pulse: the one button waiting for this player breathes)
@@ -63,6 +63,10 @@ namespace hud {
 
 // Button slots per panel in at_ui.xml (hud/tools/gen_ui.py).
 constexpr int kMaxButtons = 24;
+// The inventory's grid (where=inv) scrolls: up to this many tiles (ui_inv_b0..b119).
+constexpr int kMaxTiles = 120;
+// The button slots panel `p` has.
+inline int MaxButtonsOf(const std::string& p) { return p == "ui_inv" ? kMaxTiles : kMaxButtons; }
 // Tabs per panel (`tab=`), ids <panel>_g0..g9; clicks come back as index kTabIndex + n.
 constexpr int kMaxTabs = 10;
 constexpr int kTabIndex = 100;

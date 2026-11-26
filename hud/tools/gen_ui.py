@@ -128,7 +128,8 @@ def block_inv():
         for n in range(10)))
     side = panel(cls="ui-invside", children=label(f"{p}_kind", "ui-kind") + tabs)
     top = panel(cls="ui-invtop", children=label(f"{p}_title", "ui-title") + label(f"{p}_sub", "ui-sub"))
-    grid = panel(f"{p}_buttons", "ui-buttons", children="".join(inventory_tile(p, n) for n in range(16)))
+    # One scrolling grid (Sivert, 2026-11-26: no pages): up to 120 tiles (hud_screen.h kMaxTiles).
+    grid = panel(f"{p}_buttons", "ui-buttons", children="".join(inventory_tile(p, n) for n in range(120)))
     foot = panel(cls="ui-invfoot", children=label(f"{p}_counter", "ui-counter") + label(f"{p}_hint", "ui-hint"))
     main = panel(cls="ui-invmain", children=top + grid + foot)
     close = button(f"{p}_close", "ui-close", label(f"{p}_close_l", "ui-closelabel"))

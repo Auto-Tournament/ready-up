@@ -44,11 +44,12 @@ std::string WearShort(double f);
 // Text by key in the player's language (the plugin's catalog), with {placeholders}.
 using Text = std::function<std::string(const std::string& key, const std::vector<std::pair<std::string, std::string>>& args)>;
 
-constexpr int kTilesPerPage = 8;  // two rows of four, as drafted
+// One scrolling grid a tab, up to this many tiles (the HUD has 120: hud_screen.h kMaxTiles).
+constexpr int kMaxShown = 120;
 constexpr int kCols = 4;
 
-// The grid screen (hud_screen.h spec): tabs, a page of tiles, paging, close. Clicks come back as
-// "#tab <id>", "#page <n>", "#pick <id>", "#close".
+// The grid screen (hud_screen.h spec): tabs, one scrolling grid of tiles, close. Clicks come back
+// as "#tab <id>", "#pick <id>", "#close". `page` is unused (no pages).
 std::string GridSpec(const Inventory& inv, const std::string& tab, int page, const Text& tr);
 // One item: the large picture, its facts, CT / T / Both (or Equip for a one-side weapon) and
 // Unequip. Clicks: "#equip <id> <team>", "#unequip <id> <team>", "#back".
