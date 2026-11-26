@@ -88,6 +88,11 @@
 .HUD_BUYMENU_VISIBLE .at-card.on { opacity: 0; }
 /* The damage card stays while buying: players check it then (Sivert, 2026-11-26). */
 .HUD_BUYMENU_VISIBLE .at-card.on.b-dmg { opacity: 1; }
+/* CS2's big screens (see at_ui.css): Tab hides every card; the win panel, team intro and end of
+   match hide them too, but the damage card stays (it is read at round end). */
+.HUD_SCOREBOARD_VISIBLE .at-card, .HUD_WINPANEL_VISIBLE .at-card, .HUD_TEAMINTRO_VISIBLE .at-card, .HUD_ENDOFMATCH_VISIBLE .at-card { visibility: collapse; }
+.HUD_WINPANEL_VISIBLE .at-card.b-dmg, .HUD_TEAMINTRO_VISIBLE .at-card.b-dmg, .HUD_ENDOFMATCH_VISIBLE .at-card.b-dmg { visibility: visible; }
+.HUD_SCOREBOARD_VISIBLE .at-mid { visibility: collapse; }
 /* A second layer of the card's background: one layer renders see-through in CS2 (as on #at_ecard). */
 .at-cardflow { flow-children: down; width: fit-children; height: fit-children; background-color: #140e0ce6; }
 /* v4: no brand row on the side card (the card is right, above the weapons; the menu list is left). */
