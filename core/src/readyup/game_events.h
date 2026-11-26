@@ -23,6 +23,8 @@ bool GameEventsListenerInstalled();
 // avoiding creating extra interface instances and lets us retry resolution once
 // the owning interface is available.
 void GameEventsObserveInterface(const char* name, void* iface);
+// An interface GameEventsObserveInterface kept, by name ("GameEventSystemServerV001"), or nullptr.
+void* ObservedEngineInterface(const char* name);
 
 // Best-effort: returns current CS team number for a slot (2=T, 3=CT), or nullopt if unknown.
 std::optional<int> GetCsTeamNumForSlot(int slot);

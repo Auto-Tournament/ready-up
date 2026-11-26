@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "plugin": "playersettings",
+  "api": [
+    "engine_interface",
+    "get_player",
+    "hook_vtable",
+    "is_admin",
+    "log",
+    "on_tick",
+    "register_ru_subcommand",
+    "surface_rtti_vtable",
+    "surface_vtable_function"
+  ],
+  "surface": [
+    "CCLCMsg_RespondCvarValue::ByteSizeLong",
+    "CNetMessagePB<GetCvarValue>::GetSerializerPB",
+    "CNetMessagePB<RespondCvarValue>::AsMessageLite",
+    "CSVCMsg_GetCvarValue::ByteSizeLong",
+    "CServerSideClient::ProcessRespondCvarValue",
+    "IGameEventSystem::PostEventAbstract"
+  ],
+  "schema": [],
+  "events": []
+}

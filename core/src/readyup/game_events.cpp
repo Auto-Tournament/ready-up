@@ -668,6 +668,12 @@ void GameEventsObserveInterface(const char* name, void* iface) {
   }
 }
 
+void* ObservedEngineInterface(const char* name) {
+  if (!name) return nullptr;
+  if (std::strcmp(name, "GameEventSystemServerV001") == 0) return g_gameEventSystem.load(std::memory_order_acquire);
+  return nullptr;
+}
+
 static std::mutex g_logTeamMu;
 static std::unordered_map<int, int> g_logTeamBySlot;
 

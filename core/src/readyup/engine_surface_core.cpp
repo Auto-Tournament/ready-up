@@ -181,7 +181,33 @@ std::optional<uintptr_t> StoreOfArgGlobal(const Image& img, uintptr_t fn, size_t
   return std::nullopt;
 }
 
+// True if `pat` (ParsePattern) matches at addr.
+static bool PatternAt(const Image& img, uintptr_t addr, const std::vector<int>& pat) {
+  if (pat.empty()) return false;
+  const uint8_t* b = img.Bytes(addr, pat.size());
+  if (!b) return false;
+  for (size_t i = 0; i < pat.size(); ++i) {
+    if (pat[i] >= 0 && b[i] != static_cast<uint8_t>(pat[i])) return false;
+  }
+  return true;
+}
+
 bool CheckAnchor(const Image& img, uintptr_t fn, const Anchor& a, std::string* detail) {
+  if (a.type == "code_bytes" || a.type == "code_contains") {
+    const auto pat = ParsePattern(a.bytes);
+    bool ok = false;
+    if (a.type == "code_bytes") {
+      ok = PatternAt(img, fn, pat);
+    } else {
+      for (uintptr_t p = fn; !ok && p + pat.size() <= fn + a.window; ++p) ok = PatternAt(img, p, pat);
+    }
+    if (detail) *detail = std::string(ok ? "ok " : "FAIL ") + a.type + " \"" + a.bytes + "\"" + (pat.empty() ? " (bad pattern)" : "");
+    return ok;
+  }
+  if (a.type == "slot_code" || a.type == "slot_string") {
+    if (detail) *detail = "FAIL " + a.type + " is for vtable entries only";
+    return false;
+  }
   if (a.type == "string_ref") {
     const bool ok = LeaOfStringInRange(img, fn, fn + a.window, a.str);
     if (detail) *detail = std::string(ok ? "ok" : "FAIL") + " string_ref \"" + Printable(a.str) + "\"";
@@ -393,7 +419,21 @@ VtableCheck CheckVtableSlot(const Image& img, const VtableSpec& spec, uintptr_t 
   }
   for (const auto& a : spec.anchors) {
     std::string d;
-    if (!CheckAnchor(img, c.target, a, &d)) ok = false;
+    if (a.type == "slot_code" || a.type == "slot_string") {
+      // Another slot of this vtable: its target must carry the bytes / the string.
+      uintptr_t other = 0;
+      if (a.slot < 0 || !ReadPtr(img, vtable + static_cast<uintptr_t>(a.slot) * 8, &other) || !IsCode(img, other)) {
+        d = "FAIL " + a.type + " slot " + std::to_string(a.slot) + " is not code";
+        ok = false;
+      } else {
+        Anchor inner = a;
+        inner.type = a.type == "slot_code" ? "code_bytes" : "string_ref";
+        if (!CheckAnchor(img, other, inner, &d)) ok = false;
+        d = "slot " + std::to_string(a.slot) + ": " + d;
+      }
+    } else if (!CheckAnchor(img, c.target, a, &d)) {
+      ok = false;
+    }
     c.detail += "; " + d;
   }
   c.ok = ok;
@@ -518,6 +558,8 @@ static Anchor ParseAnchor(const minijson::Value& av) {
   if (const auto* vt = av.get("via_thunk"); vt && vt->type == minijson::Value::Type::Bool) a.via_thunk = vt->b;
   if (auto cw = minijson::AsInt(av.get("callee_window"))) a.callee_window = static_cast<size_t>(*cw);
   if (auto d = minijson::AsInt(av.get("disp"))) a.disp = *d;
+  if (auto b = minijson::AsString(av.get("bytes"))) a.bytes = *b;
+  if (auto s = minijson::AsInt(av.get("slot"))) a.slot = static_cast<int>(*s);
   return a;
 }
 

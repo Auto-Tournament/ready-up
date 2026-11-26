@@ -43,7 +43,7 @@ extern "C" {
 #endif
 
 #define READYUP_PLUGIN_API_VERSION_MAJOR 1
-#define READYUP_PLUGIN_API_VERSION_MINOR 21
+#define READYUP_PLUGIN_API_VERSION_MINOR 22
 #define READYUP_PLUGIN_API_VERSION \
   ((uint32_t)((READYUP_PLUGIN_API_VERSION_MAJOR << 16) | READYUP_PLUGIN_API_VERSION_MINOR))
 
@@ -791,7 +791,20 @@ typedef struct ru_api {
    * dumps) only then, so a real server's help and chat show what admins use. Read at load. */
   int (*dev_mode)(ru_plugin* self);
 
-  /* v1.21+: fields are appended here. Check RU_API_HAS() before use. */
+  /* ==== v1.22 ===========================================================
+   * Appended in 1.22. Check RU_API_HAS() before use.
+   */
+  /* An engine interface the core saw the server ask for, by its interface name (today:
+   * "GameEventSystemServerV001"), returned only when the object's vptr is the primary vtable of
+   * engine-surface "rtti" entry `rtti_key` (a plugin fragment's or the core's). NULL = not seen
+   * yet, a name the core does not keep, or another class. Game thread. */
+  void* (*engine_interface)(ru_plugin* self, const char* name, const char* rtti_key);
+  /* The target of vtable slot `key`, verified as hook_vtable verifies it (RTTI, slot anchors,
+   * `object`'s vptr), for plugins that call a slot instead of patching it. NULL = unverified
+   * (reason in the log). Game thread. */
+  void* (*surface_vtable_function)(ru_plugin* self, const char* key, const void* object);
+
+  /* v1.22+: fields are appended here. Check RU_API_HAS() before use. */
 } ru_api;
 
 /* ---- what a plugin exports --------------------------------------------- */

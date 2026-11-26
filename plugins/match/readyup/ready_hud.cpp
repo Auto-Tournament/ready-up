@@ -192,9 +192,6 @@ static std::string T(const std::string& lang, const char* key, const text::Args&
   return text::ForLang(lang, key, args);
 }
 static std::string N(int v) { return std::to_string(v); }
-static std::string MinSec(int secs) {
-  return std::to_string(secs / 60) + ":" + (secs % 60 < 10 ? "0" : "") + std::to_string(secs % 60);
-}
 
 // ---- the clickable HUD (hud_screens.h): one spec per player --------------------------------
 
