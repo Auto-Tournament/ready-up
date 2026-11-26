@@ -430,7 +430,8 @@ void ReadyHudTick() {
     }
     const bool holding = knife.phase == KnifePhase::Running && s_knifeSince != Clock::time_point{} &&
                          (Clock::now() - s_knifeSince) < std::chrono::seconds(Cfg().hud_knife_hold_s);
-    if (knife.phase == KnifePhase::Starting || knife.phase == KnifePhase::Picking || holding) {
+    // The pick card waits for the round after the knife round (KnifeHudInfo::pickOpen).
+    if (knife.phase == KnifePhase::Starting || (knife.phase == KnifePhase::Picking && knife.pickOpen) || holding) {
       what = What::Knife;
       if (holding) knife.phase = KnifePhase::Starting;  // same "knives only" text while held
     }

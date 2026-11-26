@@ -141,6 +141,7 @@ struct KnifeHudInfo {
   int secondsLeft = 0;       // pick window
   uint64_t captain = 0;      // the winning team's captain (match config); 0 = anyone on the team picks
   std::string captainName;   // their roster name, or the team name when there is none
+  bool pickOpen = false;     // the pick has opened (from the round after the knife round; not during its end)
 };
 KnifeHudInfo KnifeHudSnapshot();
 // The knife-winning team's captain while a side pick is pending (0: none set, or no pick).

@@ -169,6 +169,13 @@ struct State {
   WebhookTeam knifeWinner = WebhookTeam::Unknown;
   bool knifeAwaitingPick = false;
   std::chrono::steady_clock::time_point knifePickDeadline{};
+  // The knife round ended and the winner is known, but the pick only opens with the next round:
+  // picking during the round's end let the side swap clash with CS2's own round restart (Sivert,
+  // 2026-11-26). knifePickSeconds / knifePickBotsOnly: the window, set at the end.
+  bool knifePickWaiting = false;
+  int knifePickSeconds = 0;
+  bool knifePickBotsOnly = false;
+  std::chrono::steady_clock::time_point knifeEndedAt{};
   KnifePhase knifePhase = KnifePhase::None;
   std::chrono::steady_clock::time_point knifeTriggeredAt{};
   int knifeWinnerCs = 0;
@@ -224,6 +231,10 @@ static void ResetKnifeStateForMapLocked(State& st, int mapNumber) {
   st.knifeStartedSent = false;
   st.knifeEndedSent = false;
   st.knifeWinner = WebhookTeam::Unknown;
+  st.knifePickWaiting = false;
+  st.knifePickSeconds = 0;
+  st.knifePickBotsOnly = false;
+  st.knifeEndedAt = {};
   st.knifeAwaitingPick = false;
   st.knifePickDeadline = {};
   st.knifePhase = KnifePhase::None;
@@ -398,8 +409,29 @@ static bool ApplyKnifeSideChoiceLocked(State& st,
                                       uint64_t pickerSteamid64,
                                       const std::string& pickerName);
 
+// Opens the side pick the knife round's end set up: the window starts now. Locked.
+static void OpenKnifePickLocked(State& st, const WebhookMatchContext& ctx, const char* why) {
+  st.knifePickWaiting = false;
+  st.knifeAwaitingPick = true;
+  st.knifeReminderSent = false;
+  st.knifePickDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(st.knifePickSeconds);
+  const std::string name = KnifeWinnerNameLocked(st, ctx);
+  Print("knife: side pick open (%s): %s picks, %ds%s\n", why, name.c_str(), st.knifePickSeconds,
+        st.knifePickBotsOnly ? " (no humans on the winning side)" : "");
+  if (st.knifePickBotsOnly) {
+    text::ChatAll("knife.bots_only");
+  } else if (!HudReplacesChat()) {
+    text::ChatAll("knife.pick_prompt", {{"team", name}, {"seconds", std::to_string(st.knifePickSeconds)}});
+  }
+}
+
 static void MaybeAutoPickKnifeSideLocked(State& st) {
   if (st.mode != ReadyUpMode::MatchKnife) return;
+  // No round start after the knife round's end (it should come within the round restart delay):
+  // open the pick anyway rather than hold the match.
+  if (st.knifePickWaiting && std::chrono::steady_clock::now() - st.knifeEndedAt > std::chrono::seconds(15)) {
+    if (auto ctx = WebhookGetMatchContext()) OpenKnifePickLocked(st, *ctx, "no round start in 15 s");
+  }
   if (!st.knifeAwaitingPick) return;
   if (st.knifeWinner == WebhookTeam::Unknown) return;
   if (st.knifePickDeadline.time_since_epoch().count() == 0) return;
@@ -2295,6 +2327,10 @@ void KnifeOnRoundStart(int map_number, const char* source) {
   auto& st = St();
   std::lock_guard<std::mutex> lk(st.mu);
   if (st.mode != ReadyUpMode::MatchKnife) return;
+  if (st.knifePhase == KnifePhase::Picking && st.knifePickWaiting) {
+    OpenKnifePickLocked(st, *ctxOpt, source ? source : "round start");
+    return;
+  }
   if (st.knifePhase != KnifePhase::Starting) return;  // running (dup source) or the pick round
 
   // mp_restartgame 1 takes a second; a Round_Start before that is stale.
@@ -2375,7 +2411,9 @@ void KnifeOnRoundEnd(int map_number, int csWinnerTeamNum, bool elimination, cons
   st.knifeWinner = (winnerCs == 3) ? WebhookTeam::Team1 : WebhookTeam::Team2;
   st.knifeEndedSent = true;
   st.knifePhase = KnifePhase::Picking;
-  st.knifeAwaitingPick = true;
+  st.knifeAwaitingPick = false;  // opens with the next round (OpenKnifePickLocked)
+  st.knifePickWaiting = true;
+  st.knifeEndedAt = std::chrono::steady_clock::now();
   st.knifeReminderSent = false;
   KnifeTrackerReset(/*active=*/false);
   WebhookEmitKnifeRoundEnded(map_number, st.knifeWinner == WebhookTeam::Team2 ? "team2" : "team1");
@@ -2397,21 +2435,19 @@ void KnifeOnRoundEnd(int map_number, int csWinnerTeamNum, bool elimination, cons
   }
   const bool botsOnly = (humansOnWinner == 0);
   if (botsOnly) sec = 3;  // nobody to ask (bots won): keep sides
-  st.knifePickDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(sec);
+  st.knifePickSeconds = sec;
+  st.knifePickBotsOnly = botsOnly;
+  st.knifePickDeadline = {};  // set when the pick opens
 
   const std::string name = KnifeWinnerNameLocked(st, ctx);
-  Print("knife: winner=%s (%s) via %s notice=%s: %s; pick window %ds%s\n", CsSideName(winnerCs),
+  Print("knife: winner=%s (%s) via %s notice=%s: %s; pick window %ds from the next round%s\n", CsSideName(winnerCs),
         st.knifeWinner == WebhookTeam::Team2 ? "team2" : "team1", source ? source : "?", notice.c_str(), why.c_str(),
         sec, botsOnly ? " (no humans on the winning side)" : "");
   if (!HudReplacesChat()) {
     whyArgs.emplace_back("team", name);
     text::ChatAll(whyKey, whyArgs);
   }
-  if (botsOnly) {
-    text::ChatAll("knife.bots_only");
-  } else {
-    if (!HudReplacesChat()) text::ChatAll("knife.pick_prompt", {{"team", name}, {"seconds", std::to_string(sec)}});
-  }
+  // The pick prompt (or "bots won, sides stay") comes when the pick opens, with the next round.
 }
 
 bool KnifeApplySideChoice(const std::string& choice,
@@ -2446,6 +2482,7 @@ KnifeHudInfo KnifeHudSnapshot() {
   out.phase = st.knifePhase;
   out.winnerCs = st.knifeWinnerCs;
   out.reasonShort = st.knifeReasonShort;
+  out.pickOpen = st.knifeAwaitingPick;
   if (ctxOpt && st.knifePhase == KnifePhase::Picking) {
     out.winnerName = KnifeWinnerNameLocked(st, *ctxOpt);
     // Only the captain picks when the match names one (Sivert, 2026-11-24).
