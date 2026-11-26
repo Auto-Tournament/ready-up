@@ -130,8 +130,13 @@ changes.
  "checked_at":"ISO8601Z"}
 ```
 
-- `overall`: `fail` if any component fails; `pass` only if every component and check passes;
-  otherwise `warn` (static pass, live pending). `run.state` equals `overall` for a result.
+- `overall`: decided by the required components, `core`, `match` and `fleet`
+  (`REQUIRED` in `scripts/ci/compat-report.py`). `fail` if one of them fails; `pass` only if all
+  three and every check of theirs pass; otherwise `warn` (static pass, live pending). Every other
+  plugin is optional: when a CS2 update breaks one (skins, HUD, practice, player settings, ...),
+  it turns itself off and shows red on its own row, and the build stays compatible. An optional
+  core function that neither match nor fleet needs makes `core` warn, not fail; the plugins that
+  use it fail. `run.state` equals `overall` for a result.
 - `trigger`: `build_change` (new buildid; for the dynamic stages: after a new static verdict),
   `surface_change` (gamedata or a plugin's `needs.json` changed on master), `code_change` (the
   dynamic stages after a push to master), `manual` (dispatch),

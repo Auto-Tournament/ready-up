@@ -54,6 +54,10 @@ SCHEMA = 1
 # Components with an engine-surface file. The base file is the core; every
 # engine-surface.<id>.json fragment is its plugin's own component.
 CORE_ID = "core"
+# What "Ready Up works on this CS2 build" means: the core, match and fleet. Every other plugin is
+# optional: when a CS2 update breaks one (skins, HUD, practice, ...), it turns itself off, shows red
+# on its own row, and the overall verdict stays compatible.
+REQUIRED = ("core", "match", "fleet")
 # Plugins whose static verdict comes from their plugins/<id>/needs.json (the engine-surface entries
 # its ru_api calls need), in display order. practice also owns a fragment
 # (engine-surface.practice.json), whose entries count for it too.
@@ -204,10 +208,13 @@ def component_status(checks):
 
 
 def overall_status(components):
-    statuses = [c["status"] for c in components]
+    """From the REQUIRED components only (all of them if none is listed): an optional plugin
+    that fails never makes the build "not compatible"."""
+    required = [c for c in components if c["id"] in REQUIRED] or components
+    statuses = [c["status"] for c in required]
     if "fail" in statuses:
         return "fail"
-    if all(c["status"] == "pass" and all(k["status"] == "pass" for k in c["checks"]) for c in components):
+    if all(c["status"] == "pass" and all(k["status"] == "pass" for k in c["checks"]) for c in required):
         return "pass"
     # Static checks passed, dynamic (selftest/livetest) stages still pending.
     return "warn"
@@ -221,7 +228,7 @@ def build_components(sig_text, hook_text, sig_rc, hook_rc, files, needs=None):
     rows = parse_sigcheck(sig_text) + parse_hookcheck(hook_text)
     static_ids = [cid for cid, _ in files] or [CORE_ID]
     plugin_ids = [c for c in RUNTIME_ONLY if c not in static_ids]
-    per = {cid: {k: {"passed": 0, "total": 0, "failures": []} for k in STATIC_KINDS}
+    per = {cid: {k: {"passed": 0, "total": 0, "failures": [], "optional": []} for k in STATIC_KINDS}
            for cid in static_ids + plugin_ids}
     wanted = {cid: set(n.get("surface") or []) for cid, n in needs.items() if cid in per}
 
@@ -230,11 +237,17 @@ def build_components(sig_text, hook_text, sig_rc, hook_rc, files, needs=None):
         if cid not in per:
             cid = CORE_ID
         targets = [cid] + [p for p, names in wanted.items() if name in names and p != cid]
+        # An optional core function that neither match nor fleet needs: if it breaks, only the
+        # plugins that use it are off, so the core warns instead of failing.
+        optional_for_core = (kind == "signature" and detail.startswith("optional") and
+                             not any(name in wanted.get(r, set()) for r in REQUIRED if r != CORE_ID))
         for t in targets:
             bucket = per[t][kind]
             bucket["total"] += 1
             if ok:
                 bucket["passed"] += 1
+            elif t == CORE_ID and optional_for_core:
+                bucket["optional"].append(short("%s: %s (optional: only the plugins that use it are off)" % (name, detail)))
             else:
                 bucket["failures"].append(short("%s: %s" % (name, detail)))
 
@@ -255,8 +268,9 @@ def build_components(sig_text, hook_text, sig_rc, hook_rc, files, needs=None):
             b = per[cid][kind]
             if b["total"] == 0:
                 continue
-            checks.append({"kind": kind, "status": "fail" if b["failures"] else "pass",
-                           "passed": b["passed"], "total": b["total"], "failures": b["failures"]})
+            status = "fail" if b["failures"] else ("warn" if b["optional"] else "pass")
+            checks.append({"kind": kind, "status": status,
+                           "passed": b["passed"], "total": b["total"], "failures": b["failures"] + b["optional"]})
         checks.extend(dynamic_pending_checks(cid, needs.get(cid)))
         components.append({"id": cid, "name": component_name(cid), "status": component_status(checks),
                            "checks": checks})

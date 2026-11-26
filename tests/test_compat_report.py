@@ -140,9 +140,11 @@ class CompatReportTest(unittest.TestCase):
         self.assertEqual((sig["status"], sig["passed"], sig["total"]), ("fail", 1, 2))
         self.assertEqual(len(sig["failures"]), 1)
         self.assertTrue(sig["failures"][0].startswith("CBaseModelEntity_SetModel: optional matches=0"))
-        self.assertEqual(doc["overall"], "fail")
-        self.assertEqual(doc["run"]["state"], "fail")
-        self.assertEqual((badge["message"], badge["color"]), ("incompatible", "red"))
+        # Skins is optional: it turns itself off, and Ready Up stays compatible (static ok, the
+        # live stages still to run).
+        self.assertEqual(doc["overall"], "warn")
+        self.assertEqual(doc["run"]["state"], "warn")
+        self.assertEqual((badge["message"], badge["color"]), ("static ok", "yellow"))
 
     def test_core_rtti_and_hook_failure(self):
         sig = (FIX / "sigcheck-pass.txt").read_text().replace(
@@ -196,6 +198,13 @@ class CompatReportTest(unittest.TestCase):
         self.assertEqual(cr.overall_status([live_pending]), "warn")
         self.assertEqual(cr.overall_status([passed, pending]), "warn")
         self.assertEqual(cr.overall_status([passed, pending, failed]), "fail")
+        # An optional plugin that fails leaves the verdict to core, match and fleet.
+        match_ok = dict(passed, id="match", name="Match")
+        fleet_ok = dict(passed, id="fleet", name="Fleet")
+        skins_bad = dict(passed, id="skins", name="Skins", status="fail")
+        self.assertEqual(cr.overall_status([passed, match_ok, fleet_ok, skins_bad]), "pass")
+        self.assertEqual(cr.overall_status([passed, pending, skins_bad]), "warn")
+        self.assertEqual(cr.overall_status([passed, dict(match_ok, status="fail"), skins_bad]), "fail")
         self.assertEqual(cr.component_status(live_pending["checks"]), "pass")
         self.assertEqual(cr.component_status([cr.pending_check()]), "pending")
         self.assertEqual(cr.badge({"overall": "pass", "cs2": {"patch": "1.41.8.5", "buildid": "1"}}),
@@ -219,6 +228,26 @@ class CompatReportTest(unittest.TestCase):
                 self.assertRegex(doc["run"]["finished_at"], ISO)
             else:
                 self.assertIsNone(doc["run"]["finished_at"])
+
+    def test_optional_core_entry_warns(self):
+        """An optional core function only an optional plugin needs: core warns, the plugin fails."""
+        files = cr.surface_files(str(ROOT / "gamedata"))
+        owner, _ = cr.ownership(files)
+        core_fns = sorted(n for (k, n), cid in owner.items() if k == "signature" and cid == "core")
+        name = core_fns[0]
+        sig = "FAIL %-45s optional matches=0 rva=0x0  pattern not found" % name
+        needs = {"practice": {"surface": [name]}, "match": {"surface": []}, "fleet": {"surface": []}}
+        comps = {c["id"]: c for c in cr.build_components(sig, "", 1, 0, files, needs)}
+        core_sig = [k for k in comps["core"]["checks"] if k["kind"] == "signature"][0]
+        self.assertEqual(core_sig["status"], "warn")
+        self.assertIn("optional", core_sig["failures"][0])
+        self.assertEqual(comps["practice"]["status"], "fail")
+        self.assertNotEqual(cr.overall_status(list(comps.values())), "fail")
+        # The same entry needed by match: core fails.
+        needs["match"] = {"surface": [name]}
+        comps = {c["id"]: c for c in cr.build_components(sig, "", 1, 0, files, needs)}
+        self.assertEqual(comps["core"]["status"], "fail")
+        self.assertEqual(cr.overall_status(list(comps.values())), "fail")
 
     def test_real_gamedata_all_ok(self):
         """Every entry of the repo's own gamedata is attributed to core or its fragment."""
