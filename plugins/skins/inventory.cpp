@@ -46,9 +46,14 @@ const ru_fleet_v1* Fleet() {
   return f->connection_state() == RU_FLEET_LINK_STANDALONE ? nullptr : f;
 }
 
+// The inventory is a HUD menu (hud_iface.h `menu`), not the base screen: the match plugin keeps its
+// own screen on every player (the Ready chip in warmup) and redraws it, which replaced the inventory
+// at once. A menu is drawn over that screen, which comes back when the menu closes.
+constexpr const char* kMenuOwner = "skins";
+
 const ru_hud_v1* Hud() {
   auto* h = static_cast<const ru_hud_v1*>(g_api->get_interface(g_api->self, RU_HUD_IFACE_NAME, 1));
-  return h && h->struct_size >= offsetof(ru_hud_v1, screen) + sizeof(h->screen) && h->screen ? h : nullptr;
+  return h && h->struct_size >= offsetof(ru_hud_v1, menu) + sizeof(h->menu) && h->menu ? h : nullptr;
 }
 
 bool HudOff(uint64_t sid) {
@@ -88,12 +93,12 @@ void Draw(int slot) {
     else v.picked = 0;
   }
   if (spec.empty()) spec = inv::GridSpec(inv->second, v.tab, v.page, tr);
-  h->screen(slot, spec.c_str(), &OnClick, nullptr);
+  h->menu(slot, kMenuOwner, spec.c_str(), &OnClick, nullptr);
 }
 
 void Close(int slot) {
   if (!g_views.erase(slot)) return;
-  if (const ru_hud_v1* h = Hud()) h->screen(slot, "", nullptr, nullptr);
+  if (const ru_hud_v1* h = Hud()) h->menu(slot, kMenuOwner, "", nullptr, nullptr);
 }
 
 bool Send(const char* type, const Json& payload) {
@@ -210,6 +215,8 @@ void InventoryTick(double now) {
 }
 
 void InventoryForgetAll() {
+  if (!g_views.empty())
+    if (const ru_hud_v1* h = Hud()) h->menu(RU_HUD_ALL, kMenuOwner, "", nullptr, nullptr);
   g_views.clear();
   g_inventory.clear();
 }
