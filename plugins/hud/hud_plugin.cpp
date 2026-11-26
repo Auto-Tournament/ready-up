@@ -1922,7 +1922,10 @@ void MenuRefresh(int slot) {
     // A menu with buttons is the list on the left (v4, Hold E): W S choose, holding E picks, a close
     // row last. One with no buttons (retakes' "Retake site B!" banner) keeps its own place: as a list
     // it was a bare Close row (2026-11-24).
-    const bool list = top.spec.find("btn=") != std::string::npos;
+    // A menu that names its own place (`where=mid`: the skins inventory, a clickable modal with the
+    // cursor) stays there; the W S list is for menus that don't (2026-11-26).
+    const bool placed = top.spec.rfind("where=", 0) == 0 || top.spec.find("\nwhere=") != std::string::npos;
+    const bool list = !placed && top.spec.find("btn=") != std::string::npos;
     const std::string spec = list ? top.spec + "\nwhere=left" : top.spec;
     IfScreen(slot, spec.c_str(), top.onClick, top.user);
     g_drawingMenu = false;
