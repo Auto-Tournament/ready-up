@@ -890,8 +890,8 @@
    bottom (measured on a 1080p screenshot, 2026-11-25). The 58px disc fills it up to the stroke (56px
    at 23px left a dark hairline). At margin-bottom 24px the ring showed ~3px below the disc and ~2px
    above it (1080p screenshot, 2026-11-26): 23.5px drops it half a pixel to the ring's centre. Opaque,
-   dark (Sivert, 2026-11-25), it covers the CT/T emblem; the ram is the team logo file (images/team/atram.svg, built by hud/build.ps1). */
-.ui-badge { width: 58px; height: 58px; horizontal-align: center; vertical-align: bottom; margin-bottom: 23.5px; border-radius: 50%; background-color: #1d1d1f; opacity: 0; transition-property: opacity; transition-duration: 0.2s; }
+   dark (Sivert, 2026-11-25), it covers the CT/T emblem. 57px from 2026-11-26: at 58px the top stood 1px above the ring (screenshot), the bottom was right, so the margin stays; the ram is the team logo file (images/team/atram.svg, built by hud/build.ps1). */
+.ui-badge { width: 57px; height: 57px; horizontal-align: center; vertical-align: bottom; margin-bottom: 23.5px; border-radius: 50%; background-color: #1d1d1f; opacity: 0; transition-property: opacity; transition-duration: 0.2s; }
 .ui-badge.on { opacity: 1; }
 /* The buy menu covers CS2's bottom bar: both go with it. HUD_BUYMENU_VISIBLE is CS2's own class on
    its HUD, so this follows the menu on the player's machine at once, with no round trip to the
