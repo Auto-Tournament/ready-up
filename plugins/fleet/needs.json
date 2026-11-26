@@ -32,6 +32,7 @@
   ],
   "schema": [],
   "schema_optional": [
+    "CCSPlayerController.m_iCompTeammateColor",
     "CCSPlayerController.m_iCompetitiveRankType",
     "CCSPlayerController.m_iCompetitiveRanking",
     "CCSPlayerController.m_iCompetitiveWins"

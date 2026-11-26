@@ -639,6 +639,80 @@ void OnPlayerHud(const std::string& type, const std::string& payload) {
   }
 }
 
+// ---- the player's teammate colour --------------------------------------------------------------
+// `color` on a player of match.assign (and add_player): the colour they picked on the platform (or
+// their captain set), match.defs.json $defs/color. Written over CS2's own pick to
+// CCSPlayerController::m_iCompTeammateColor (0 blue, 1 green, 2 yellow, 3 orange, 4 purple: checked in
+// game on 2026-11-26; not CS:GO's cl_color order) every tick, like the rating: CS2 assigns colours on team joins and rounds. No
+// field: CS2 picks. If CS2 renames the field, colours are off and nothing else is.
+std::map<uint64_t, int32_t> g_colors;  // steamid64 -> colour index; game thread only
+
+int32_t ColorIndex(const std::string& name) {
+  static const char* names[] = {"blue", "green", "yellow", "orange", "purple"};  // m_iCompTeammateColor order
+  for (int32_t i = 0; i < 5; ++i)
+    if (name == names[i]) return i;
+  return -1;
+}
+
+void SetColor(const fleet::json::Value& player) {
+  const fleet::json::Value* sid = player.Get("steamid64");
+  const fleet::json::Value* color = player.Get("color");
+  if (!sid || !color) return;
+  const uint64_t id = std::strtoull(sid->AsStr().c_str(), nullptr, 10);
+  const int32_t index = ColorIndex(color->AsStr());
+  if (id && index >= 0) g_colors[id] = index;
+}
+
+void OnPlayerColors(const std::string& type, const std::string& payload) {
+  if (type == "match.unassign") {
+    g_colors.clear();
+    return;
+  }
+  fleet::json::Value v;
+  if (!fleet::json::Parse(payload, &v) || !v.IsObj()) return;
+  if (type == "match.assign") {
+    g_colors.clear();
+    const fleet::json::Value* cfg = v.Get("config");
+    for (const char* team : {"team1", "team2"}) {
+      const fleet::json::Value* tm = cfg ? cfg->Get(team) : nullptr;
+      const fleet::json::Value* players = tm ? tm->Get("players") : nullptr;
+      if (players && players->IsArr()) {
+        for (const auto& pl : players->a) SetColor(pl);
+      }
+    }
+    return;
+  }
+  const fleet::json::Value* ops = v.Get("ops");
+  if (!ops || !ops->IsArr()) return;
+  for (const auto& op : ops->a) {
+    const fleet::json::Value* kind = op.IsObj() ? op.Get("op") : nullptr;
+    if (kind && kind->AsStr() == "add_player") SetColor(op);
+  }
+}
+
+void ColorTick() {
+  if (g_colors.empty()) return;
+  static int off = -2;
+  if (off == -2) {
+    off = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_iCompTeammateColor");
+    if (off < 0) Log(RU_LOG_WARN, "fleet: no CCSPlayerController::m_iCompTeammateColor; player colours off");
+  }
+  if (off < 0) return;
+  for (int slot = 0; slot <= 63; ++slot) {
+    ru_player p{};
+    p.struct_size = sizeof(p);
+    if (!g_api->get_player(g_api->self, slot, &p) || !p.connected || p.is_bot || !p.steamid64) continue;
+    const auto it = g_colors.find(p.steamid64);
+    if (it == g_colors.end()) continue;
+    void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
+    if (!ctrl) continue;
+    auto* b = static_cast<uint8_t*>(ctrl);
+    if (*reinterpret_cast<int32_t*>(b + off) == it->second) continue;
+    std::memcpy(b + off, &it->second, sizeof(it->second));
+    g_api->entity_mark_changed(g_api->self, ctrl);
+  }
+}
+
 void OnPlayerRatings(const std::string& type, const std::string& payload) {
   if (type == "match.unassign") {
     g_ratings.clear();
@@ -1066,6 +1140,8 @@ void DrainTask(void*) {
     if (in.env.type == "match.assign" || in.env.type == "match.update") OnPlayerHud(in.env.type, in.payloadJson);
     if (in.env.type == "match.assign" || in.env.type == "match.update" || in.env.type == "match.unassign")
       OnPlayerRatings(in.env.type, in.payloadJson);
+    if (in.env.type == "match.assign" || in.env.type == "match.update" || in.env.type == "match.unassign")
+      OnPlayerColors(in.env.type, in.payloadJson);
     if (in.env.type == "demo.ack") {
       if (auto d = Demos()) {
         d->OnAck(in.payloadJson);
@@ -1477,8 +1553,31 @@ void OnConsole(void*, const ru_command_ctx* ctx) {
       } else {
         Log(RU_LOG_INFO, "fleet: standalone, nothing to reconnect");
       }
+    } else if (sub == "color" && args.size() == 3) {
+      // A test without the platform: the colour the platform would send for this player.
+      int slot = -1;
+      const std::string& who = args[1];
+      if (!who.empty() && who.find_first_not_of("0123456789") == std::string::npos) slot = std::atoi(who.c_str());
+      ru_player p{};
+      p.struct_size = sizeof(p);
+      for (int s = 0; slot < 0 && s <= 63; ++s) {
+        if (g_api->get_player(g_api->self, s, &p) && p.connected && !p.is_bot && std::strstr(p.name, who.c_str())) slot = s;
+      }
+      p = ru_player{};
+      p.struct_size = sizeof(p);
+      if (slot < 0 || !g_api->get_player(g_api->self, slot, &p) || !p.steamid64) {
+        Log(RU_LOG_INFO, "fleet: no player %s", who.c_str());
+      } else if (args[2] == "off") {
+        g_colors.erase(p.steamid64);
+        Log(RU_LOG_INFO, "fleet: colour of %s back to CS2's pick (from the next team join or round)", p.name);
+      } else if (ColorIndex(args[2]) < 0) {
+        Log(RU_LOG_INFO, "fleet: colours: yellow purple green blue orange off");
+      } else {
+        g_colors[p.steamid64] = ColorIndex(args[2]);
+        Log(RU_LOG_INFO, "fleet: %s is %s (index %d)", p.name, args[2].c_str(), ColorIndex(args[2]));
+      }
     } else {
-      Log(RU_LOG_INFO, "usage: ru fleet status | enroll [url] <code|key> [--insecure] | reconnect");
+      Log(RU_LOG_INFO, "usage: ru fleet status | enroll [url] <code|key> [--insecure] | reconnect | color <slot|name> <colour|off>");
     }
   } catch (const std::exception& e) {
     Log(RU_LOG_ERROR, "fleet: command failed: %s", e.what());
@@ -1624,6 +1723,7 @@ void OnTick(void*, const ru_tick_info* t) {
     g_lastTickNow = t->now;
     SayTick(t->now);
     RatingTick();
+    ColorTick();
     if (t->now - g_lastHousekeeping < 1.0) return;
     g_lastHousekeeping = t->now;
     auto c = Client();

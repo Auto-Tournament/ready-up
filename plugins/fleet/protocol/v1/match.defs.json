@@ -505,6 +505,9 @@
         },
         "hud": {
           "$ref": "#/$defs/hud"
+        },
+        "color": {
+          "$ref": "#/$defs/color"
         }
       }
     },
@@ -1605,6 +1608,16 @@
       "type": "integer",
       "minimum": 1,
       "description": "live_rev after this message. Every state.patch and event.* bumps it by exactly 1: apply when rev == stored_rev + 1, ignore rev <= stored_rev, on a gap send state.request"
+    },
+    "color": {
+      "description": "The player's teammate colour (radar, scoreboard, above their head): chosen on the platform by the player, or set by their team's captain. Ready Up writes it over CS2's own pick; no field: CS2 picks.",
+      "enum": [
+        "yellow",
+        "purple",
+        "green",
+        "blue",
+        "orange"
+      ]
     }
   }
 }
