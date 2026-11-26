@@ -2,15 +2,18 @@
 // from their game. Step 1 of the player-settings feature (2026-11-26): the cvar query itself and a
 // test command; the platform side comes later.
 //
-// How: the server sends svc_GetCvarValue to one client (IGameEventSystem::PostEventAbstract) and
-// the client's answer, clc_RespondCvarValue, arrives in CServerSideClient::ProcessRespondCvarValue
-// (a `return true` stub in CS2, which never asks itself), which this plugin hooks. Every engine
+// How: the server sends svc_GetCvarValue with the client's own CServerSideClient::SendNetMessage
+// (as the SDK's CNetMessage::Send; PostEventAbstract is for game events and never sent it), and
+// the answer, clc_RespondCvarValue, arrives in CServerSideClient::ProcessRespondCvarValue (a
+// `return true` stub in CS2, which never asks itself), which this plugin hooks. The client comes
+// from NetworkServerService_001 -> GetNetworkServer -> the server's client vector. Every engine
 // piece is an entry in gamedata/engine-surface.playersettings.json, checked at load: when a CS2
 // update moves one, this plugin turns itself off and match, fleet and the rest keep working.
 //
 //   ru cvar <slot|name> <cvar> [cvar ...]   ask a player (console / admins); answers print here
 //   ru cvar selftest                        build a query and check it against the engine's own
 //                                           ByteSizeLong (no player needed)
+//   ru cvar status                          what is verified, the client vector, answers seen
 #include "cvar_msg.h"
 #include "readyup/plugin_api.h"
 
@@ -20,6 +23,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <sys/uio.h>
+#include <unistd.h>
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -33,7 +39,8 @@ using namespace playersettings;
 const ru_api* g_api = nullptr;
 
 constexpr const char* kHookKey = "CServerSideClient::ProcessRespondCvarValue";
-constexpr const char* kPostKey = "IGameEventSystem::PostEventAbstract";
+constexpr const char* kSendKey = "CServerSideClient::SendNetMessage";
+constexpr const char* kGetServerKey = "INetworkServerService::GetNetworkServer";
 constexpr const char* kSerializerKey = "CNetMessagePB<GetCvarValue>::GetSerializerPB";
 constexpr const char* kReplyProtoKey = "CNetMessagePB<RespondCvarValue>::AsMessageLite";
 constexpr const char* kQuerySizeKey = "CSVCMsg_GetCvarValue::ByteSizeLong";
@@ -42,8 +49,8 @@ constexpr int kBufReliable = 1;  // NetChannelBufType_t BUF_RELIABLE
 constexpr double kTimeoutSeconds = 5.0;
 
 using ProcessRespondFn = bool (*)(void* client, const void* msg);
-using PostEventFn = void (*)(void* system, int splitSlot, bool localOnly, int clientCount, const uint64_t* clients,
-                             void* event, const void* data, unsigned long size, int bufType);
+using SendNetMessageFn = bool (*)(void* client, const void* msg, int bufType);
+using GetNetworkServerFn = void* (*)(void* service);
 using GetSerializerFn = void* (*)(const void* msg);
 using ByteSizeFn = size_t (*)(const void* proto);
 
@@ -52,14 +59,17 @@ struct Engine {
   std::string why = "not checked yet";
   const void* netVtable = nullptr;    // CNetMessagePB<58, CSVCMsg_GetCvarValue>
   const void* clientVtable = nullptr;  // CServerSideClient
-  void* eventSystem = nullptr;
-  PostEventFn post = nullptr;
+  const void* serverVtable = nullptr;  // CNetworkGameServer
   GetSerializerFn serializer = nullptr;
   ProcessRespondFn original = nullptr;
-  bool waitingForEvents = false;  // everything else verified and hooked; the event system comes later
 };
 Engine g_engine;
-int g_eventTries = 0;  // the game event system is looked for every tick for a while after load
+
+// Where the server keeps its client vector (CNetworkGameServerBase::m_Clients), found by scanning
+// (the SDK's offset would drift with CS2 updates): -1 = not found yet.
+long g_clientsAt = -1;
+int g_clientsLayout = 0;  // 1: {int size; T* elements}, 2: {T* elements; int alloc; int grow; int size}
+std::atomic<int> g_hookCalls{0}, g_hookNoCookie{0};
 
 // Fake objects whose first word is a verified vtable: what hook_vtable / surface_vtable_function
 // want as "the object" when we have none of our own.
@@ -87,9 +97,17 @@ void Log(const char* fmt, const std::string& a = "", const std::string& b = "", 
   ru_logf(g_api, RU_LOG_INFO, fmt, a.c_str(), b.c_str(), c.c_str());
 }
 
+// Reads n bytes of this process's memory without faulting on a bad address.
+bool SafeRead(uintptr_t addr, void* out, size_t n) {
+  iovec local{out, n}, remote{reinterpret_cast<void*>(addr), n};
+  return process_vm_readv(getpid(), &local, 1, &remote, 1, 0) == static_cast<ssize_t>(n);
+}
+
 bool OnProcessRespondCvarValue(void* client, const void* msg) {
+  g_hookCalls.fetch_add(1, std::memory_order_relaxed);
   if (msg) {
     Reply r = ReadReply(ProtoOf(msg));
+    if (!r.hasCookie) g_hookNoCookie.fetch_add(1, std::memory_order_relaxed);
     if (r.hasCookie) {
       std::lock_guard<std::mutex> lk(g_replyMu);
       if (g_replies.size() < 256) g_replies.push_back(std::move(r));
@@ -136,6 +154,10 @@ void Prepare() {
     return fail(std::string(kReplyProtoKey) + " did not verify");
   e.serializer = reinterpret_cast<GetSerializerFn>(g_api->surface_vtable_function(g_api->self, kSerializerKey, &g_netObject));
   if (!e.serializer) return fail(std::string(kSerializerKey) + " did not verify");
+  e.serverVtable = g_api->surface_rtti_vtable(g_api->self, "CNetworkGameServer");
+  if (!e.serverVtable) return fail("CNetworkGameServer was not found");
+  if (!g_api->surface_vtable_function(g_api->self, kSendKey, &g_clientObject))
+    return fail(std::string(kSendKey) + " did not verify");
 
   void* original = nullptr;
   if (!g_api->hook_vtable(g_api->self, kHookKey, &g_clientObject, reinterpret_cast<void*>(&OnProcessRespondCvarValue),
@@ -144,34 +166,95 @@ void Prepare() {
     return fail(std::string(kHookKey) + " could not be hooked");
   }
   e.original = reinterpret_cast<ProcessRespondFn>(original);
-  // The server asks for the game event system after plugins load: Tick finds it.
-  e.waitingForEvents = true;
-  e.why = "waiting for the game event system";
+  e.ready = true;
+  e.why = "ready";
   g_engine = e;
+  ru_logf(g_api, RU_LOG_INFO, "playersettings: cvar queries ready");
 }
 
-// The game event system, once the server has asked for it. Game thread (Tick).
-void FindEventSystem() {
-  void* es = g_api->engine_interface(g_api->self, "GameEventSystemServerV001", "CGameEventSystem");
-  if (!es) {
-    if (++g_eventTries == 600) {  // about 10 s at 64 ticks
-      g_engine.waitingForEvents = false;
-      g_engine.why = "the game event system never showed up";
-      ru_logf(g_api, RU_LOG_WARN, "playersettings: off: %s (match, fleet and the rest are not affected)", g_engine.why.c_str());
+// The running network server (CNetworkGameServer), RTTI-checked, or nullptr. Game thread.
+void* NetworkServer(std::string* why) {
+  void* service = g_api->engine_interface(g_api->self, "NetworkServerService_001", "CNetworkServerService");
+  if (!service) {
+    *why = "no NetworkServerService";
+    return nullptr;
+  }
+  auto get = reinterpret_cast<GetNetworkServerFn>(g_api->surface_vtable_function(g_api->self, kGetServerKey, service));
+  if (!get) {
+    *why = std::string(kGetServerKey) + " did not verify";
+    return nullptr;
+  }
+  void* server = get(service);
+  uintptr_t vptr = 0;
+  if (!server || !SafeRead(reinterpret_cast<uintptr_t>(server), &vptr, sizeof(vptr)) ||
+      vptr != reinterpret_cast<uintptr_t>(g_engine.serverVtable)) {
+    *why = "no running CNetworkGameServer";
+    return nullptr;
+  }
+  return server;
+}
+
+// A client vector candidate at `at` in the server object: {count, elements}, where every non-null
+// element is a CServerSideClient (verified vtable) and at least one is there.
+bool ReadClients(const uint8_t* block, size_t at, int layout, std::vector<uintptr_t>* out) {
+  int32_t size = 0;
+  uintptr_t elems = 0;
+  if (layout == 1) {
+    std::memcpy(&size, block + at, 4);
+    std::memcpy(&elems, block + at + 8, 8);
+  } else {
+    std::memcpy(&elems, block + at, 8);
+    std::memcpy(&size, block + at + 16, 4);
+  }
+  if (size < 1 || size > 64 || !elems || (elems & 7)) return false;
+  std::vector<uintptr_t> v(static_cast<size_t>(size));
+  if (!SafeRead(elems, v.data(), v.size() * 8)) return false;
+  int clients = 0;
+  for (uintptr_t e : v) {
+    if (!e) continue;
+    uintptr_t vptr = 0;
+    if (!SafeRead(e, &vptr, 8) || vptr != reinterpret_cast<uintptr_t>(g_engine.clientVtable)) return false;
+    ++clients;
+  }
+  if (clients == 0) return false;
+  *out = std::move(v);
+  return true;
+}
+
+// The CServerSideClient in `slot`, or nullptr. Game thread.
+void* ClientInSlot(int slot, std::string* why) {
+  void* server = NetworkServer(why);
+  if (!server) return nullptr;
+  constexpr size_t kScan = 0x20000;  // the vector sits in the first part of a ~3 MB object
+  std::vector<uint8_t> block(kScan + 32);
+  if (!SafeRead(reinterpret_cast<uintptr_t>(server), block.data(), block.size())) {
+    *why = "the network server is not readable";
+    return nullptr;
+  }
+  std::vector<uintptr_t> clients;
+  if (g_clientsAt < 0 || !ReadClients(block.data(), static_cast<size_t>(g_clientsAt), g_clientsLayout, &clients)) {
+    g_clientsAt = -1;
+    for (size_t at = 0; at + 24 <= kScan && g_clientsAt < 0; at += 8) {
+      for (int layout : {1, 2}) {
+        if (ReadClients(block.data(), at, layout, &clients)) {
+          g_clientsAt = static_cast<long>(at);
+          g_clientsLayout = layout;
+          ru_logf(g_api, RU_LOG_INFO, "playersettings: client vector at server+0x%lx (layout %d, %zu slots)",
+                  static_cast<unsigned long>(at), layout, clients.size());
+          break;
+        }
+      }
     }
-    return;
+    if (g_clientsAt < 0) {
+      *why = "the server's client list was not found";
+      return nullptr;
+    }
   }
-  g_engine.waitingForEvents = false;
-  g_engine.post = reinterpret_cast<PostEventFn>(g_api->surface_vtable_function(g_api->self, kPostKey, es));
-  if (!g_engine.post) {
-    g_engine.why = std::string(kPostKey) + " did not verify";
-    ru_logf(g_api, RU_LOG_WARN, "playersettings: off: %s (match, fleet and the rest are not affected)", g_engine.why.c_str());
-    return;
+  if (slot < 0 || static_cast<size_t>(slot) >= clients.size() || !clients[static_cast<size_t>(slot)]) {
+    *why = "no client in that slot";
+    return nullptr;
   }
-  g_engine.eventSystem = es;
-  g_engine.ready = true;
-  g_engine.why = "ready";
-  ru_logf(g_api, RU_LOG_INFO, "playersettings: cvar queries ready");
+  return reinterpret_cast<void*>(clients[static_cast<size_t>(slot)]);
 }
 
 // Sends one query. Game thread.
@@ -191,13 +274,17 @@ bool Query(int slot, const std::string& cvar, std::string* why) {
     *why = "bad cvar name";
     return false;
   }
-  void* event = g_engine.serializer(m->bytes);
-  if (!event) {
-    *why = "no serializer for svc_GetCvarValue";
+  void* client = ClientInSlot(slot, why);
+  if (!client) return false;
+  auto send = reinterpret_cast<SendNetMessageFn>(g_api->surface_vtable_function(g_api->self, kSendKey, client));
+  if (!send) {
+    *why = std::string(kSendKey) + " did not verify on this client";
     return false;
   }
-  const uint64_t mask = uint64_t{1} << slot;
-  g_engine.post(g_engine.eventSystem, 0, false, 1, &mask, event, m->bytes, 0, kBufReliable);
+  if (!send(client, m->bytes, kBufReliable)) {
+    *why = "SendNetMessage refused it";
+    return false;
+  }
   g_pending[cookie] = Pending{slot, cvar, Clock::now()};
   g_sent.push_back(std::move(m));
   while (g_sent.size() > 64) g_sent.pop_front();
@@ -228,8 +315,18 @@ void SelfTest() {
           bad ? "FAIL" : "PASS", bad ? "wrong" : "matches the engine", g_engine.serializer(probe.bytes));
 }
 
+void Status() {
+  std::string why = "ok";
+  void* server = g_engine.ready ? NetworkServer(&why) : nullptr;
+  ru_logf(g_api, RU_LOG_INFO,
+          "playersettings: %s; network server %p (%s); client vector %s0x%lx; answers seen %d (%d without a cookie); "
+          "%zu waiting",
+          g_engine.why.c_str(), server, why.c_str(), g_clientsAt < 0 ? "not found " : "at +",
+          static_cast<unsigned long>(g_clientsAt < 0 ? 0 : g_clientsAt), g_hookCalls.load(), g_hookNoCookie.load(),
+          g_pending.size());
+}
+
 void Tick(void*, const ru_tick_info*) {
-  if (g_engine.waitingForEvents) FindEventSystem();
   std::deque<Reply> got;
   {
     std::lock_guard<std::mutex> lk(g_replyMu);
@@ -277,8 +374,10 @@ void OnRuCvar(void*, const ru_command_ctx* c) {
   if (!c->is_console && g_api->is_admin(g_api->self, c->steamid64) != 1) return;
   // argv: "ru" "cvar" ...
   if (c->argc >= 3 && std::strcmp(c->argv[2], "selftest") == 0) return SelfTest();
+  if (c->argc >= 3 && std::strcmp(c->argv[2], "status") == 0) return Status();
   if (c->argc < 4) {
-    ru_logf(g_api, RU_LOG_INFO, "usage: ru cvar <slot|name> <cvar> [cvar ...] | ru cvar selftest (%s)", g_engine.why.c_str());
+    ru_logf(g_api, RU_LOG_INFO, "usage: ru cvar <slot|name> <cvar> [cvar ...] | ru cvar selftest | ru cvar status (%s)",
+            g_engine.why.c_str());
     return;
   }
   const int slot = FindSlot(c->argv[2]);
@@ -321,7 +420,7 @@ READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
   g_pending.clear();
   g_sent.clear();
   g_engine = Engine{};
-  g_eventTries = 0;
+  g_clientsAt = -1;
   g_api = nullptr;
 }
 

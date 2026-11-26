@@ -13,7 +13,8 @@
     "CNetMessagePB<RespondCvarValue>::AsMessageLite",
     "CSVCMsg_GetCvarValue::ByteSizeLong",
     "CServerSideClient::ProcessRespondCvarValue",
-    "IGameEventSystem::PostEventAbstract",
+    "CServerSideClient::SendNetMessage",
+    "INetworkServerService::GetNetworkServer",
     "ISource2GameClients::ClientCommand",
     "ISource2Server::GameFrame"
   ],

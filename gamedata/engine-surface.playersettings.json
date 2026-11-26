@@ -3,12 +3,14 @@
     "game_version": "1.42.0.1",
     "steam_buildid": 26879581,
     "binary": "game/bin/linuxsteamrt64/libengine2.so",
-    "notes": "Owned by readyup-playersettings (plugins/playersettings): client cvar queries. Everything lives in libengine2.so and is checked at runtime through RTTI. The plugin builds a CNetMessagePB<58, CSVCMsg_GetCvarValue> itself (its vtable from the RTTI entry), posts it with IGameEventSystem::PostEventAbstract and hooks CServerSideClient::ProcessRespondCvarValue for the answer. The ByteSizeLong entries are never called through a real object: their anchors pin the protobuf field offsets the plugin writes and reads (cvar_msg.h). Slot numbers are the SDK's + 1 (CUtlSlot's own virtual comes first). If any entry fails, only this plugin turns off."
+    "notes": "Owned by readyup-playersettings (plugins/playersettings): client cvar queries. Everything lives in libengine2.so and is checked at runtime through RTTI (and offline by CI with --lib engine2). The plugin builds a CNetMessagePB<58, CSVCMsg_GetCvarValue> itself (its vtable from the RTTI entry) and sends it with the client's own CServerSideClient::SendNetMessage, as the SDK's CNetMessage::Send does: the client comes from NetworkServerService_001 -> GetNetworkServer -> its client vector, found by scanning the server object for a vector of verified CServerSideClient pointers. The answer arrives in a hook on CServerSideClient::ProcessRespondCvarValue. The ByteSizeLong and CNetMessagePB entries are never called through a real object: their anchors pin the protobuf layout the plugin writes and reads (cvar_msg.h). CServerSideClient slot numbers are the SDK's + 1 (CUtlSlot's own virtual comes first). If any entry fails, only this plugin turns off."
   },
   "functions": {},
   "rtti": {
-    "CServerSideClient": { "typeinfo_name": "17CServerSideClient", "module": "engine2" },
-    "CGameEventSystem": { "typeinfo_name": "16CGameEventSystem", "module": "engine2" },
+    "CServerSideClient": {
+      "typeinfo_name": "17CServerSideClient",
+      "module": "engine2"
+    },
     "NetMsg_GetCvarValue": {
       "typeinfo_name": "13CNetMessagePBILi58E20CSVCMsg_GetCvarValueL13SignonGroup_t0EL19NetChannelBufType_t1ELb0EE",
       "module": "engine2"
@@ -17,32 +19,49 @@
       "typeinfo_name": "13CNetMessagePBILi25E24CCLCMsg_RespondCvarValueL13SignonGroup_t0EL19NetChannelBufType_t1ELb0EE",
       "module": "engine2"
     },
-    "CSVCMsg_GetCvarValue": { "typeinfo_name": "20CSVCMsg_GetCvarValue", "module": "engine2" },
-    "CCLCMsg_RespondCvarValue": { "typeinfo_name": "24CCLCMsg_RespondCvarValue", "module": "engine2" }
+    "CSVCMsg_GetCvarValue": {
+      "typeinfo_name": "20CSVCMsg_GetCvarValue",
+      "module": "engine2"
+    },
+    "CCLCMsg_RespondCvarValue": {
+      "typeinfo_name": "24CCLCMsg_RespondCvarValue",
+      "module": "engine2"
+    },
+    "CNetworkServerService": {
+      "typeinfo_name": "21CNetworkServerService",
+      "module": "engine2"
+    },
+    "CNetworkGameServer": {
+      "typeinfo_name": "18CNetworkGameServer",
+      "module": "engine2"
+    }
   },
   "vtable_indices": {
-    "CServerSideClient::ProcessRespondCvarValue": {
-      "linux": 40,
-      "class": "CServerSideClient",
+    "CCLCMsg_RespondCvarValue::ByteSizeLong": {
+      "linux": 8,
+      "class": "CCLCMsg_RespondCvarValue",
       "module": "engine2",
-      "note": "bool ProcessRespondCvarValue(const CCLCMsg_RespondCvarValue_t&): a `return true` stub in CS2, hooked for the answers. Its neighbours tie the index down: slot 35 is ProcessCmdKeyValues, slot 41 ProcessPacketStart (not a stub).",
+      "note": "Pins the answer's layout: has-bits at +0x10; bit 1 name (+0x18), bit 2 value (+0x20), bit 4 cookie (+0x28), bit 8 status_code (+0x2c). Which string is which comes from the parser (tag 0x1a -> +0x18, 0x22 -> +0x20, 0x08 -> +0x28, 0x10 -> +0x2c).",
       "anchors": [
-        { "type": "code_bytes", "bytes": "B8 01 00 00 00 C3" },
-        { "type": "slot_string", "slot": 35, "string": "Server::CmdKeyValues", "window": 400 },
-        { "type": "slot_code", "slot": 39, "bytes": "48 8D 05 ? ? ? ? 55 48 89 E5" }
-      ]
-    },
-    "IGameEventSystem::PostEventAbstract": {
-      "linux": 15,
-      "class": "CGameEventSystem",
-      "module": "engine2",
-      "note": "PostEventAbstract(CSplitScreenSlot, bool bLocalOnly, int nClientCount, const uint64* clients, INetworkMessageInternal*, const CNetMessage*, unsigned long, NetChannelBufType_t): 11 IAppSystem slots + 4. Slot 19 is GetEventSource (mov eax, [rdi+0x50]), slots 7, 9 and 10 IAppSystem's constant getters.",
-      "anchors": [
-        { "type": "code_bytes", "bytes": "55 48 89 E5 41 57" },
-        { "type": "slot_code", "slot": 19, "bytes": "8B 47 50 C3" },
-        { "type": "slot_code", "slot": 7, "bytes": "B8 04 00 00 00 C3" },
-        { "type": "slot_code", "slot": 9, "bytes": "B8 01 00 00 00 C3" },
-        { "type": "slot_code", "slot": 10, "bytes": "B8 02 00 00 00 C3" }
+        {
+          "type": "code_bytes",
+          "bytes": "8B 47 10 31 F6 A8 0F 0F 84 ? ? ? ? A8 01 74 ? 48 8B 57 18"
+        },
+        {
+          "type": "code_contains",
+          "bytes": "A8 02 74 ? 48 8B 57 20",
+          "window": 128
+        },
+        {
+          "type": "code_contains",
+          "bytes": "A8 04 74 ? 48 63 57 28",
+          "window": 192
+        },
+        {
+          "type": "code_contains",
+          "bytes": "A8 08 74 ? 48 63 47 2C",
+          "window": 192
+        }
       ]
     },
     "CNetMessagePB<GetCvarValue>::GetSerializerPB": {
@@ -51,10 +70,25 @@
       "module": "engine2",
       "note": "INetworkSerializerPB* GetSerializerPB(): the message type PostEventAbstract wants. Slot 6 GetMessageId returns 58 (svc_GetCvarValue); slots 2 and 3 return this+0x30 (the protobuf part).",
       "anchors": [
-        { "type": "code_bytes", "bytes": "48 8D 05 ? ? ? ? 55 48 89 E5" },
-        { "type": "slot_code", "slot": 6, "bytes": "B8 3A 00 00 00 C3" },
-        { "type": "slot_code", "slot": 2, "bytes": "48 8D 47 30 C3" },
-        { "type": "slot_code", "slot": 3, "bytes": "48 8D 47 30 C3" }
+        {
+          "type": "code_bytes",
+          "bytes": "48 8D 05 ? ? ? ? 55 48 89 E5"
+        },
+        {
+          "type": "slot_code",
+          "slot": 6,
+          "bytes": "B8 3A 00 00 00 C3"
+        },
+        {
+          "type": "slot_code",
+          "slot": 2,
+          "bytes": "48 8D 47 30 C3"
+        },
+        {
+          "type": "slot_code",
+          "slot": 3,
+          "bytes": "48 8D 47 30 C3"
+        }
       ]
     },
     "CNetMessagePB<RespondCvarValue>::AsMessageLite": {
@@ -63,8 +97,15 @@
       "module": "engine2",
       "note": "The answer's protobuf part is at +0x30 (cvar_msg.h kProtoAt). Slot 6 GetMessageId returns 25 (clc_RespondCvarValue).",
       "anchors": [
-        { "type": "code_bytes", "bytes": "48 8D 47 30 C3" },
-        { "type": "slot_code", "slot": 6, "bytes": "B8 19 00 00 00 C3" }
+        {
+          "type": "code_bytes",
+          "bytes": "48 8D 47 30 C3"
+        },
+        {
+          "type": "slot_code",
+          "slot": 6,
+          "bytes": "B8 19 00 00 00 C3"
+        }
       ]
     },
     "CSVCMsg_GetCvarValue::ByteSizeLong": {
@@ -73,20 +114,84 @@
       "module": "engine2",
       "note": "Pins the query's layout: has-bits at +0x10, bit 1 the cvar_name string at +0x18, bit 2 the int32 cookie at +0x20.",
       "anchors": [
-        { "type": "code_bytes", "bytes": "8B 47 10 31 F6 A8 03 74 ? A8 01 74 ? 48 8B 57 18" },
-        { "type": "code_contains", "bytes": "A8 02 74 ? 48 63 47 20", "window": 96 }
+        {
+          "type": "code_bytes",
+          "bytes": "8B 47 10 31 F6 A8 03 74 ? A8 01 74 ? 48 8B 57 18"
+        },
+        {
+          "type": "code_contains",
+          "bytes": "A8 02 74 ? 48 63 47 20",
+          "window": 96
+        }
       ]
     },
-    "CCLCMsg_RespondCvarValue::ByteSizeLong": {
-      "linux": 8,
-      "class": "CCLCMsg_RespondCvarValue",
+    "CServerSideClient::ProcessRespondCvarValue": {
+      "linux": 40,
+      "class": "CServerSideClient",
       "module": "engine2",
-      "note": "Pins the answer's layout: has-bits at +0x10; bit 1 name (+0x18), bit 2 value (+0x20), bit 4 cookie (+0x28), bit 8 status_code (+0x2c). Which string is which comes from the parser (tag 0x1a -> +0x18, 0x22 -> +0x20, 0x08 -> +0x28, 0x10 -> +0x2c).",
+      "note": "bool ProcessRespondCvarValue(const CCLCMsg_RespondCvarValue_t&): a `return true` stub in CS2, hooked for the answers. Its neighbours tie the index down: slot 35 is ProcessCmdKeyValues, slot 41 ProcessPacketStart (not a stub).",
       "anchors": [
-        { "type": "code_bytes", "bytes": "8B 47 10 31 F6 A8 0F 0F 84 ? ? ? ? A8 01 74 ? 48 8B 57 18" },
-        { "type": "code_contains", "bytes": "A8 02 74 ? 48 8B 57 20", "window": 128 },
-        { "type": "code_contains", "bytes": "A8 04 74 ? 48 63 57 28", "window": 192 },
-        { "type": "code_contains", "bytes": "A8 08 74 ? 48 63 47 2C", "window": 192 }
+        {
+          "type": "code_bytes",
+          "bytes": "B8 01 00 00 00 C3"
+        },
+        {
+          "type": "slot_string",
+          "slot": 35,
+          "string": "Server::CmdKeyValues",
+          "window": 400
+        },
+        {
+          "type": "slot_code",
+          "slot": 39,
+          "bytes": "48 8D 05 ? ? ? ? 55 48 89 E5"
+        }
+      ]
+    },
+    "CServerSideClient::SendNetMessage": {
+      "linux": 16,
+      "class": "CServerSideClient",
+      "module": "engine2",
+      "note": "bool SendNetMessage(const CNetMessage*, NetChannelBufType_t): what the SDK's CNetMessage::Send calls per client. A helper it calls logs \"NetMessage %s\"; slot 35 is ProcessCmdKeyValues.",
+      "anchors": [
+        {
+          "type": "code_bytes",
+          "bytes": "55 48 89 E5 41 57 41 56 41 55 41 89 D5"
+        },
+        {
+          "type": "callee_string",
+          "string": "NetMessage %s",
+          "window": 400,
+          "callee_window": 300
+        },
+        {
+          "type": "slot_string",
+          "slot": 35,
+          "string": "Server::CmdKeyValues",
+          "window": 400
+        }
+      ]
+    },
+    "INetworkServerService::GetNetworkServer": {
+      "linux": 24,
+      "class": "CNetworkServerService",
+      "module": "engine2",
+      "note": "CNetworkGameServer* GetNetworkServer(): 11 IAppSystem + 11 IEngineService slots + its two destructors. Slot 12 is IEngineService::GetName (mov rax, [rdi+0x28]), slot 20 GetServiceIndex (movzx eax, word [rdi+0x32]).",
+      "anchors": [
+        {
+          "type": "code_bytes",
+          "bytes": "48 8B 87 ? ? ? ? C3"
+        },
+        {
+          "type": "slot_code",
+          "slot": 12,
+          "bytes": "48 8B 47 28 C3"
+        },
+        {
+          "type": "slot_code",
+          "slot": 20,
+          "bytes": "0F B7 47 32 C3"
+        }
       ]
     }
   }
