@@ -170,30 +170,6 @@ void SendToChat(const char* msg) {
   });
 }
 
-void SendImportantToChat(const char* msg, int centerSeconds) {
-  if (!msg || !*msg) return;
-  host::RunOnGameThread([m = std::string(msg), centerSeconds] {
-    const ru_api* a = host::Api();
-    if (!a) return;
-    a->chat_all(a->self, m.c_str(), RU_CHAT_IMPORTANT);
-    if (centerSeconds <= 0) return;
-    // Plain text in the center panel: the chat's "Ready Up: " lead-in is not needed there.
-    std::string text = m.rfind("Ready Up: ", 0) == 0 ? m.substr(10) : m;
-    std::string esc;
-    for (char ch : text) {
-      if (ch == '&') esc += "&amp;";
-      else if (ch == '<') esc += "&lt;";
-      else if (ch == '>') esc += "&gt;";
-      else esc.push_back(ch);
-    }
-    const std::string html = "<font color='#FFD700'>" + esc + "</font>";
-    if (RU_API_HAS(a, center_html_all_prio) && a->center_html_all_prio)
-      a->center_html_all_prio(a->self, html.c_str(), centerSeconds, RU_HTML_PRIO_ALERT);
-    else
-      a->center_html_all(a->self, html.c_str(), centerSeconds);
-  });
-}
-
 void SendRawToChat(const char* payload) {
   if (!payload || !*payload) return;
   host::RunOnGameThread([m = std::string(payload)] {
@@ -224,20 +200,6 @@ bool ClientPrintAvailable() {
 }
 
 // ---- engine.h: center HTML, commands, features -------------------------------------------------
-
-int SendCenterHtml(int slot, const std::string& html, int durationSeconds, int priority) {
-  const ru_api* a = host::Api();
-  if (!a || !host::OnGameThread() || slot < 0 || html.empty()) return 0;
-  const int seconds = durationSeconds > 0 ? durationSeconds : 1;
-  if (RU_API_HAS(a, center_html_to_slot_prio) && a->center_html_to_slot_prio) {
-    return a->center_html_to_slot_prio(a->self, slot, html.c_str(), seconds, priority);
-  }
-  return a->center_html_to_slot(a->self, slot, html.c_str(), seconds) == 1 ? 1 : 0;
-}
-
-bool PrintCenterHtmlToClientOnly(int slot, const std::string& html, int durationSeconds, int priority) {
-  return SendCenterHtml(slot, html, durationSeconds, priority) == 1;
-}
 
 bool EnqueueServerCommand(const char* text) {
   if (!text || !*text) return false;

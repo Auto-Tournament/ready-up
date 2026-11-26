@@ -14,9 +14,9 @@
 namespace readyup {
 
 // Show the card to everyone for `seconds` (replaces a card already up): build(lang) gives its
-// {html, spec} in a player's language (built once per language); the spec on the clickable HUD
-// when it is on, else the html in the center panel. Thread-safe.
-using ResultCardBuild = std::function<std::pair<std::string, std::string>(const std::string& lang)>;
+// clickable-HUD spec in a player's language (built once per language). Without the HUD nothing
+// shows (the result is in chat). Thread-safe.
+using ResultCardBuild = std::function<std::string(const std::string& lang)>;
 void ResultCardShow(ResultCardBuild build, int seconds, const char* what);
 
 // Stop the card (a new map went live, the match was reset). Thread-safe.

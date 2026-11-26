@@ -5,39 +5,19 @@
 
 namespace readyup {
 
-// Per-player center-HTML HUD (PrintCenterHtmlToClientOnly, GameFrame thread).
-// It IS the ready-up UI: shown continuously from joining until the match goes
-// live, so the periodic "type .r" chat reminders are skipped while it works
-// (ReadyHudShowing()).
-//
-// - scrim_warmup / match_warmup: brand header, "X/Y ready", every roster player
-//   with ✔/✖ per side (CT blue, T orange), the viewer's own entry highlighted,
-//   a `.r` / `.ur` hint and a "need players on both sides" note. Scrim countdown
-//   shown in the title line.
-// - match_knife: "knife round starting" before the fight, hidden during it,
-//   then the side-pick panel (winners: .stay/.switch, others: waiting) with the
-//   seconds left.
-// - Hidden once going live (go-live restart pending / match_live) and in
-//   idle/practice.
-//
-// Never drawn over the welcome screen (WelcomeActiveForSteam, ~5s after a
-// player's first team join). Re-sent immediately when the HTML changes,
-// otherwise once a second with a 2s duration: the panel stays up without its
-// fade-in restarting. Disabled by readyup.cfg `ready_hud=0`.
+// The ready-up screens on the clickable HUD (hud_screens.h), GameFrame thread: the ready card in
+// scrim / match warmup (who is ready, per side, the viewer highlighted), the knife round and its
+// side pick, and pauses or a missing team on a live map. Without the HUD (no hud.so, hud_screens=0)
+// or for players who turned it off, ready-up runs in chat (ChatUnlessHud); the old centre-HTML
+// panel is gone. Disabled by readyup.cfg `ready_hud=0`.
 void ReadyHudTick();
 
-// True while the HUD is enabled and per-client center HTML is being delivered
-// (the last send succeeded). Thread-safe.
+// True while ready_hud is on and the clickable HUD draws its screens. Thread-safe.
 bool ReadyHudShowing();
 
-// True when the center panel is on and reaching players, so flow updates
-// (ready, countdown, knife) go to the panel instead of chat.
+// True when the clickable HUD shows ready-up, so flow updates (ready, countdown, knife) go to it
+// instead of chat (players who turned it off still get chat: ChatHudOff).
 bool HudReplacesChat();
-
-// Brand header shared by the welcome card and the HUD: optional
-// `<img src='hud_logo_url' height=imgHeight>` + `hud_brand` (readyup.cfg).
-// fontClass: e.g. "fontSize-l" (empty = none).
-std::string HudBrandHtml(int imgHeight, const char* fontClass);
 
 
 }  // namespace readyup

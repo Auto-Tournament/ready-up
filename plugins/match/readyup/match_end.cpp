@@ -268,8 +268,19 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
     end.next = shortMap(in.nextMap);
     end.seconds = std::max(1, plan.restartDelay - 1);
     if (!EndScreenShow(end)) {
-      ResultCardShow([card](const std::string& lang) { return std::make_pair(MapResultCardHtml(card, lang), MapResultCardSpec(card, lang)); },
+      ResultCardShow([card](const std::string& lang) { return MapResultCardSpec(card, lang); },
                      std::max(1, plan.restartDelay - 1), "map result");
+    }
+    // In chat for everyone too: without the HUD it is the only place the result shows (the centre
+    // HTML card is gone, 2026-11-26).
+    {
+      const std::string score = std::to_string(std::max(card.team1Score, card.team2Score)) + "-" +
+                                std::to_string(std::min(card.team1Score, card.team2Score));
+      const std::string winnerName = card.winner == "team1" ? base.team1Name : card.winner == "team2" ? base.team2Name : "";
+      text::EventAllFn([winnerName, score](const std::string& lang) {
+        return winnerName.empty() ? text::ForLang(lang, "card.map_drawn_title") + " " + score
+                                  : text::ForLang(lang, "card.team_wins_map", {{"team", winnerName}}) + " " + score;
+      });
     }
     ScheduleNextMap(std::max(1, plan.restartDelay - 1), in.nextMap, gen);
     return plan;
@@ -312,7 +323,7 @@ MapEndPlan MatchEndOnMapComplete(const MapEndInput& in) {
     end.where = {"end.where_bo", {{"n", std::to_string(numMaps)}}};
   }
   if (!EndScreenShow(end)) {
-    ResultCardShow([card](const std::string& lang) { return std::make_pair(SeriesResultCardHtml(card, lang), SeriesResultCardSpec(card, lang)); },
+    ResultCardShow([card](const std::string& lang) { return SeriesResultCardSpec(card, lang); },
                    resetIn, "series result");
   }
 

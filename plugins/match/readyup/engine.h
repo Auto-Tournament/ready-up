@@ -20,24 +20,12 @@ namespace readyup {
 void SendToChat(const char* msg);
 // Chat to everyone, no prefix (payload may carry CS2 color bytes). Any thread.
 void SendRawToChat(const char* payload);
-// A line nobody may miss (overtime rules, a map decided on damage): gold, three times in chat
-// (RU_CHAT_IMPORTANT), and in the center of the screen for `centerSeconds`. Any thread.
-void SendImportantToChat(const char* msg, int centerSeconds = 12);
 // Debug chat (readyup.cfg chat_debug=1 and debug=1 only). Any thread.
 void AnnounceToChat(const char* msg);
 // Chat to one player slot. Any thread (queued: then always true).
 bool ClientPrintChat(int slot, const char* msg);
 // True if broadcast chat goes out without the "Console:" prefix (UTIL_ClientPrintAll resolved).
 bool ClientPrintAvailable();
-
-// ---- center HTML (ru_api center_html_to_slot) --------------------------------------------------
-
-// Per-client center HTML panel. Game thread only. `priority`: RU_HTML_PRIO_* (plugin_api.h, 1.6):
-// the core refuses a lower panel while another plugin's higher one is up (50 = the HUD level).
-bool PrintCenterHtmlToClientOnly(int slot, const std::string& html, int durationSeconds, int priority = 50);
-// The same with the core's answer: 1 sent, -1 refused (another plugin's higher panel is up; try
-// again later), 0 failed.
-int SendCenterHtml(int slot, const std::string& html, int durationSeconds, int priority = 50);
 
 // ---- server commands (ru_api server_command) ---------------------------------------------------
 

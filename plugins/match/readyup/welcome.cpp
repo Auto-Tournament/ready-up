@@ -2,7 +2,6 @@
 
 #include "readyup/hud_screens.h"
 #include "readyup/admin_call.h"
-#include "readyup/card_html.h"
 #include "readyup/engine.h"
 #include "readyup/config.h"
 #include "readyup/logging.h"
@@ -58,12 +57,6 @@ struct SlotState {
   Clock::time_point startAt{};
   Clock::time_point nextSend{};
   int sent = 0;
-  // The HTML sent every tick, built once (rebuilt when the name, team or mode changes).
-  std::string html;
-  std::string htmlName;
-  int htmlTeam = 0;
-  ReadyUpMode htmlMode = ReadyUpMode::Idle;
-  std::string htmlLang;
 };
 
 std::mutex g_mu;
@@ -98,58 +91,6 @@ static void ResetLocked(const std::string& map) {
   g_slots.clear();
   g_shownSteam.clear();
   g_map = map;
-}
-
-static const char* ModeKey(ReadyUpMode m) {
-  switch (m) {
-    case ReadyUpMode::Idle: return "welcome.mode_idle";
-    case ReadyUpMode::Practice: return "welcome.mode_practice";
-    case ReadyUpMode::MatchWarmup: return "welcome.mode_match_warmup";
-    case ReadyUpMode::MatchKnife: return "welcome.mode_knife";
-    case ReadyUpMode::MatchLive: return "welcome.mode_live";
-    case ReadyUpMode::Postgame: return "welcome.mode_postgame";
-    case ReadyUpMode::ScrimWarmup: return "welcome.mode_scrim_warmup";
-    case ReadyUpMode::External: return "welcome.mode_plugin";
-  }
-  return "welcome.mode_unknown";
-}
-
-static std::string BuildHtml(const std::string& name, int team, ReadyUpMode mode, const std::string& lang) {
-  const bool ct = (team == 3);
-  const char* teamColor = ct ? "#5EA8FF" : "#FF9D3B";
-  const std::string teamName = text::ForLang(lang, ct ? "welcome.ct" : "welcome.t");
-  const std::string hint = text::ForLang(
-      lang, (mode == ReadyUpMode::MatchWarmup || mode == ReadyUpMode::ScrimWarmup) ? "welcome.hint_ready" : "welcome.hint_help");
-
-  std::string h;
-  h.reserve(640);
-  const std::string brand = HudBrandHtml(/*imgHeight=*/32, "fontSize-l");
-  if (!brand.empty()) h += brand + "<br>";
-  h += "<font class='fontSize-s' color='#5B6068'>build ";
-  h += CardHtmlEscape(BuildVersion(), 40);
-  h += "</font><br>";
-  h += "<font class='fontSize-m' color='#FFFFFF'>";
-  h += text::ForLang(lang, "welcome.hello",
-                     {{"name", CardHtmlEscape(name.empty() ? text::ForLang(lang, "welcome.player") : name, 32)}});
-  h += "</font><br>";
-  h += "<font class='fontSize-m' color='";
-  h += teamColor;
-  h += "'>";
-  h += CardHtmlEscape(teamName, 48);
-  h += "</font><font class='fontSize-m' color='#8A8F98'> &#183; ";
-  if (mode == ReadyUpMode::External && !ExternalModeName().empty()) {
-    // The owning plugin's mode ("deathmatch" -> "Deathmatch"); [a-z0-9_], nothing to escape.
-    std::string label = ExternalModeName();
-    label[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(label[0])));
-    h += label;
-  } else {
-    h += CardHtmlEscape(text::ForLang(lang, ModeKey(mode)), 48);
-  }
-  h += "</font><br>";
-  h += "<font class='fontSize-sm' color='#A3E635'>";
-  h += hint;
-  h += "</font>";
-  return h;
 }
 
 // Parses a trailing `<a><b>[<c>]` group list from a log header like
@@ -327,15 +268,13 @@ void WelcomeTick() {
   if (IsDisabled()) return;
 
   // Snapshot mode before taking our lock (GetMode takes the modes mutex).
-  const ReadyUpMode mode = GetMode();
   const auto now = Clock::now();
   const auto showFor = ShowFor();
 
-  struct Send {
-    int slot;
-    std::string html;
-  };
-  std::vector<Send> sends;
+  // The card itself is the clickable HUD's warmup card ("Welcome, <name>"); this keeps its timing
+  // (WelcomeActiveFor holds the other cards back while it is up). No HUD: nothing on screen, the
+  // ready reminder in chat says what to do (the old centre HTML card is gone, 2026-11-26).
+  std::vector<int> sends;
 
   {
     std::lock_guard<std::mutex> lk(g_mu);
@@ -359,37 +298,16 @@ void WelcomeTick() {
       }
       if (now < s.nextSend) continue;
       if (AdminCallCardActiveFor(kv.first)) continue;  // an `.admin` call card is up (admin_call.h)
-      std::string name = s.name;
-      if (name.empty()) {
-        if (auto ident = GetSlotIdentity(kv.first)) name = ident->name;
-      }
-      const std::string lang = i18n::LanguageOf(host::Api(), kv.first);
-      if (s.html.empty() || s.htmlName != name || s.htmlTeam != s.team || s.htmlMode != mode || s.htmlLang != lang) {
-        s.html = BuildHtml(name, s.team, mode, lang);
-        s.htmlLang = lang;
-        s.htmlName = name;
-        s.htmlTeam = s.team;
-        s.htmlMode = mode;
-      }
-      sends.push_back(Send{kv.first, s.html});
+      sends.push_back(kv.first);
       s.nextSend = now + std::chrono::milliseconds(Cfg().hud_resend_ms);
     }
   }
 
-  static std::atomic<bool> s_warnedUnavailable{false};
-  const bool screens = HudScreensOn();  // the clickable HUD's warmup card says "Welcome, <name>"
-  for (const auto& snd : sends) {
-    const bool ok = screens || PrintCenterHtmlToClientOnly(snd.slot, snd.html, Cfg().hud_duration_s, RU_HTML_PRIO_NOTICE);
-    std::lock_guard<std::mutex> lk(g_mu);
-    auto it = g_slots.find(snd.slot);
+  std::lock_guard<std::mutex> lk(g_mu);
+  for (int slot : sends) {
+    auto it = g_slots.find(slot);
     if (it == g_slots.end()) continue;
-    if (ok) {
-      if (it->second.sent++ == 0 && DebugEnabled()) {
-        Debug("welcome: showing slot=%d team=%d (%zu bytes html)\n", snd.slot, it->second.team, snd.html.size());
-      }
-    } else if (!s_warnedUnavailable.exchange(true)) {
-      PrintLine("welcome: per-client center HTML unavailable (event manager or LegacyGameEventListener missing); welcome screen not shown.");
-    }
+    if (it->second.sent++ == 0 && DebugEnabled()) Debug("welcome: showing slot=%d team=%d\n", slot, it->second.team);
   }
 }
 

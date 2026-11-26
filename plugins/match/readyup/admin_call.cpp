@@ -195,15 +195,11 @@ void AdminCallTick() {
       ++it;
     }
   }
-  const bool screens = HudScreensOn();
+  // Without the clickable HUD the admins have the private chat line only.
+  if (!HudScreensOn()) return;
   for (const auto& [slot, c] : sends) {
-    if (screens) {
-      HudScreensNotice(slot, [c](const std::string& lang) { return AdminCallCardSpec(c.name, c.label, c.message, lang); },
-                       kSendDurationSeconds);
-    } else {
-      const std::string lang = i18n::LanguageOf(host::Api(), slot);
-      (void)SendCenterHtml(slot, AdminCallCardHtml(c.name, c.label, c.message, lang), kSendDurationSeconds, RU_HTML_PRIO_ALERT);
-    }
+    HudScreensNotice(slot, [c](const std::string& lang) { return AdminCallCardSpec(c.name, c.label, c.message, lang); },
+                     kSendDurationSeconds);
   }
 }
 

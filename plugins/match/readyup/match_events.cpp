@@ -49,7 +49,7 @@ void AnnounceOvertimeRules(int overtimeNumber, int seg) {
   const bool damage = ctx->damageTiebreakEnabled, sudden = ctx->suddenDeathOnDamageTie;
   const text::Args args{{"n", std::to_string(overtimeNumber)}, {"rounds", std::to_string(2 * seg)},
                         {"first", std::to_string(seg + 1)}, {"max", std::to_string(maxOt)}, {"left", std::to_string(left)}};
-  // Until the overtime's first round starts: in chat and in the middle of the screen.
+  // In chat; the HUD shows its own overtime notice below.
   text::EventAllFn(
       [=](const std::string& lang) {
         std::string msg = text::ForLang(lang, "ot.head", args);
@@ -58,8 +58,7 @@ void AnnounceOvertimeRules(int overtimeNumber, int seg) {
           msg += " " + text::ForLang(lang, !damage ? "ot.tied_draw" : sudden ? "ot.tied_damage_sudden" : "ot.tied_damage", args);
         }
         return msg;
-      },
-      15);
+      });
   if (HudScreensOn()) {
     const bool last = maxOt > 0 && overtimeNumber >= maxOt;
     HudScreensNoticeAll(NoticeSpec("id=ot-" + std::to_string(overtimeNumber) + "\n", "notice.overtime", "notice.first_to",

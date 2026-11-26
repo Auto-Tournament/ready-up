@@ -1,10 +1,9 @@
 #pragma once
 
-// One-off center cards of the match plugin, engine-free (ctest `match_live_cards`):
-// - the go-live card (golive_card.h): "LIVE · GO GO GO", the teams and their sides, the
-//   commands that work now,
-// - the admin-call card (admin_call.h) shown to in-game admins.
-// What renders in the panel: docs/HUD.md. Both stay well under 1 KB.
+// One-off cards of the match plugin as clickable-HUD screens (spec lines), engine-free (ctest
+// `match_live_cards`): the go-live card (golive_card.h), the map / series result (result_card.h)
+// and the admin-call card (admin_call.h). The old centre-HTML versions are gone (2026-11-26): with
+// no HUD these are chat lines.
 
 #include <cstddef>
 #include <string>
@@ -13,20 +12,15 @@
 
 namespace readyup {
 
-// HTML-escapes `in` for the center panel: < > & " ' become entities, control bytes (chat colors)
-// are dropped. Longer than maxBytes: cut there (never inside a UTF-8 sequence) and "..." added.
-std::string CardHtmlEscape(const std::string& in, size_t maxBytes);
-
 struct GoLiveCardInfo {
   std::string team1, team2;  // team names; both empty (scrim): no matchup line
   int team1Side = 0;         // 3 = CT, 2 = T, 0 = unknown (no side shown)
   bool pauses = false;       // .p / .pause / .tech, .up / .unpause, .tac work (a match is loaded)
   bool adminCall = true;     // .admin
 };
-// The go-live commands, short forms only: "Pause: .p · Unpause: .up · Timeout: .tac · Call an admin: .admin"
-// (html: bold commands and middle dots; plain: for chat). Empty when there is nothing to show.
-std::string GoLiveCommandsLine(const GoLiveCardInfo& info, bool html, const std::string& lang = "en");
-std::string GoLiveCardHtml(const GoLiveCardInfo& info, const std::string& lang = "en");
+// The go-live commands for chat, short forms only: "Pause: .p | Unpause: .up | Timeout: .tac |
+// Call an admin: .admin". Empty when there is nothing to show.
+std::string GoLiveCommandsLine(const GoLiveCardInfo& info, const std::string& lang = "en");
 
 // The result cards (result_card.h), shown to everyone at the end of a map and of the series.
 struct ResultCardInfo {
@@ -40,16 +34,7 @@ struct ResultCardInfo {
   bool decidedByDamage = false;  // the (last) map was tied after its overtimes and won on damage
   int team1Damage = 0, team2Damage = 0;
 };
-// "MAP 2 · MIRAGE" / "<winner> wins the map" / "7 - 5" / "Next: Inferno".
-std::string MapResultCardHtml(const ResultCardInfo& info, const std::string& lang = "en");
-// "<winner> WINS THE SERIES" / "2 - 1" (or "by forfeit"), or "SERIES DRAWN".
-std::string SeriesResultCardHtml(const ResultCardInfo& info, const std::string& lang = "en");
-
-// "<name> (<teamLabel>) needs an admin" + the message (if any), for admins.
-std::string AdminCallCardHtml(const std::string& name, const std::string& teamLabel, const std::string& message,
-                              const std::string& lang = "en");
-
-// The same cards as clickable-HUD screens (spec lines, hud_screens.h / plugins/hud/hud_screen.h).
+// The cards as clickable-HUD screens (spec lines, hud_screens.h / plugins/hud/hud_screen.h).
 std::string GoLiveCardSpec(const GoLiveCardInfo& info, const std::string& lang = "en");
 std::string MapResultCardSpec(const ResultCardInfo& info, const std::string& lang = "en");
 std::string SeriesResultCardSpec(const ResultCardInfo& info, const std::string& lang = "en");
