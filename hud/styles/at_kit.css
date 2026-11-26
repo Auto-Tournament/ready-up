@@ -86,6 +86,8 @@
 	transition-timing-function: cubic-bezier( 0.2, 0.8, 0.2, 1 );
 }
 .HUD_BUYMENU_VISIBLE .at-card.on { opacity: 0; }
+/* The damage card stays while buying: players check it then (Sivert, 2026-11-26). */
+.HUD_BUYMENU_VISIBLE .at-card.on.b-dmg { opacity: 1; }
 /* A second layer of the card's background: one layer renders see-through in CS2 (as on #at_ecard). */
 .at-cardflow { flow-children: down; width: fit-children; height: fit-children; background-color: #140e0ce6; }
 /* v4: no brand row on the side card (the card is right, above the weapons; the menu list is left). */
