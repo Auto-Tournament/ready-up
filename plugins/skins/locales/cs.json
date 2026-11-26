@@ -36,6 +36,5 @@
   "inv.loading": "Načítám inventář…",
   "inv.no_platform": "Ready Up skins: inventář potřebuje server propojený s platformou.",
   "inv.no_hud": "Ready Up skins: inventář potřebuje doplněk HUD.",
-  "inv.hud_off": "Ready Up skins: inventář potřebuje HUD. Napiš .hud a zapni ho.",
-  "inv.not_now": "Ready Up skins: otevři .skins v rozcvičce, ve freeze time nebo když jsi mrtvý."
+  "inv.hud_off": "Ready Up skins: inventář potřebuje HUD. Napiš .hud a zapni ho."
 }

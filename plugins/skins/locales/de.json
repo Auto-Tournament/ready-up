@@ -36,6 +36,5 @@
   "inv.loading": "Inventar wird geladen…",
   "inv.no_platform": "Ready Up skins: das Inventar braucht einen mit der Plattform verbundenen Server.",
   "inv.no_hud": "Ready Up skins: das Inventar braucht das HUD-Addon.",
-  "inv.hud_off": "Ready Up skins: das Inventar braucht das HUD. Schreib .hud, um es einzuschalten.",
-  "inv.not_now": "Ready Up skins: öffne .skins im Warmup, in der Freeze Time oder wenn du tot bist."
+  "inv.hud_off": "Ready Up skins: das Inventar braucht das HUD. Schreib .hud, um es einzuschalten."
 }

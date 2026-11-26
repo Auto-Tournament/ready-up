@@ -36,6 +36,5 @@
   "inv.loading": "Se încarcă inventarul…",
   "inv.no_platform": "Ready Up skins: inventarul are nevoie de un server legat de platformă.",
   "inv.no_hud": "Ready Up skins: inventarul are nevoie de addonul HUD.",
-  "inv.hud_off": "Ready Up skins: inventarul are nevoie de HUD. Scrie .hud ca să-l pornești.",
-  "inv.not_now": "Ready Up skins: deschide .skins în încălzire, în freeze time sau când ești mort."
+  "inv.hud_off": "Ready Up skins: inventarul are nevoie de HUD. Scrie .hud ca să-l pornești."
 }

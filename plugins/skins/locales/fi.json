@@ -36,6 +36,5 @@
   "inv.loading": "Ladataan varastoa…",
   "inv.no_platform": "Ready Up skins: varasto vaatii alustaan yhdistetyn palvelimen.",
   "inv.no_hud": "Ready Up skins: varasto vaatii HUD-lisäosan.",
-  "inv.hud_off": "Ready Up skins: varasto vaatii HUD:n. Kirjoita .hud ottaaksesi sen käyttöön.",
-  "inv.not_now": "Ready Up skins: avaa .skins lämmittelyssä, freeze timessa tai kun olet kuollut."
+  "inv.hud_off": "Ready Up skins: varasto vaatii HUD:n. Kirjoita .hud ottaaksesi sen käyttöön."
 }

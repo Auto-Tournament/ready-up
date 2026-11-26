@@ -36,6 +36,5 @@
   "inv.loading": "Wczytywanie ekwipunku…",
   "inv.no_platform": "Ready Up skins: ekwipunek wymaga serwera połączonego z platformą.",
   "inv.no_hud": "Ready Up skins: ekwipunek wymaga dodatku HUD.",
-  "inv.hud_off": "Ready Up skins: ekwipunek wymaga HUD. Wpisz .hud, aby go włączyć.",
-  "inv.not_now": "Ready Up skins: otwórz .skins na rozgrzewce, w freeze time lub gdy jesteś martwy."
+  "inv.hud_off": "Ready Up skins: ekwipunek wymaga HUD. Wpisz .hud, aby go włączyć."
 }

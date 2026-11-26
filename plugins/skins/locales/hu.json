@@ -36,6 +36,5 @@
   "inv.loading": "Leltár betöltése…",
   "inv.no_platform": "Ready Up skins: a leltárhoz platformhoz kötött szerver kell.",
   "inv.no_hud": "Ready Up skins: a leltárhoz kell a HUD kiegészítő.",
-  "inv.hud_off": "Ready Up skins: a leltárhoz kell a HUD. Írd be: .hud a bekapcsoláshoz.",
-  "inv.not_now": "Ready Up skins: nyisd meg a .skins-t bemelegítéskor, freeze time-ban vagy ha halott vagy."
+  "inv.hud_off": "Ready Up skins: a leltárhoz kell a HUD. Írd be: .hud a bekapcsoláshoz."
 }

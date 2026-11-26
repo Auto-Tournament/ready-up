@@ -36,6 +36,5 @@
   "inv.loading": "Завантаження інвентарю…",
   "inv.no_platform": "Ready Up skins: інвентарю потрібен сервер, підключений до платформи.",
   "inv.no_hud": "Ready Up skins: інвентарю потрібен аддон HUD.",
-  "inv.hud_off": "Ready Up skins: інвентарю потрібен HUD. Напиши .hud, щоб увімкнути його.",
-  "inv.not_now": "Ready Up skins: відкривай .skins у розминці, у freeze time або коли ти мертвий."
+  "inv.hud_off": "Ready Up skins: інвентарю потрібен HUD. Напиши .hud, щоб увімкнути його."
 }

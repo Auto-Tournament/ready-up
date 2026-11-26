@@ -182,7 +182,10 @@
    A button with a picture (`btn=label|tone|state|cmd|sub|img|marks`, has-img) is a tile: the picture
    (an at_skins.css class) on top, a rarity line under it, the label and sub, and CT / T chips. Tabs
    (`tab=`) stand in a column left of the buttons; `img=` puts a large picture above the kind. */
-.ui-body { flow-children: right; horizontal-align: center; }
+.ui-body { flow-children: right; horizontal-align: center; width: fit-children; height: fit-children; }
+/* The menu list (and a mini card's buttons) size their buttons to the panel, not to this row. */
+#ui_left .ui-body { horizontal-align: left; width: 100%; }
+.mini .ui-body { vertical-align: center; }
 .ui-tabs { visibility: collapse; flow-children: down; width: 170px; margin: 20px 14px 0px 0px; }
 .has-tabs .ui-tabs { visibility: visible; }
 .ui-tab { visibility: collapse; width: 100%; height: 36px; margin-bottom: 2px; border-radius: 4px; background-color: #00000000; border-left: 3px solid #00000000; transition-property: background-color; transition-duration: 0.12s; }

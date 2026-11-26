@@ -30,7 +30,6 @@ std::string SkinsText(const std::string& lang, const std::string& key,
 // The in-game inventory (inventory.cpp): `.skins` opens it; the platform's skins.inventory answers.
 void OpenInventory(int slot, uint64_t steamid64);
 void InventoryFleetMessage(void* user, const ::ru_fleet_msg* m);
-void InventoryRoundEvent(const char* name);
 void InventoryTick(double now);
 void InventoryForgetAll();
 // Ruleset "valve" (docs/ESPORTS-MODE.md, Valve rulebook: inventories "should not be modified or

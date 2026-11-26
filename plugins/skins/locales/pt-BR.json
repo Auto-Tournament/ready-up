@@ -36,6 +36,5 @@
   "inv.loading": "Carregando seu inventário…",
   "inv.no_platform": "Ready Up skins: o inventário precisa de um servidor ligado à plataforma.",
   "inv.no_hud": "Ready Up skins: o inventário precisa do addon do HUD.",
-  "inv.hud_off": "Ready Up skins: o inventário precisa do HUD. Digite .hud para ligá-lo.",
-  "inv.not_now": "Ready Up skins: abra .skins no aquecimento, no freeze time ou quando estiver morto."
+  "inv.hud_off": "Ready Up skins: o inventário precisa do HUD. Digite .hud para ligá-lo."
 }

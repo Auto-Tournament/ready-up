@@ -36,6 +36,5 @@
   "inv.loading": "Envanterin yükleniyor…",
   "inv.no_platform": "Ready Up skins: envanter, platforma bağlı bir sunucu ister.",
   "inv.no_hud": "Ready Up skins: envanter, HUD eklentisini ister.",
-  "inv.hud_off": "Ready Up skins: envanter HUD ister. Açmak için .hud yaz.",
-  "inv.not_now": "Ready Up skins: .skins'i ısınmada, freeze time'da ya da ölüyken aç."
+  "inv.hud_off": "Ready Up skins: envanter HUD ister. Açmak için .hud yaz."
 }

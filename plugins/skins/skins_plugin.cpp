@@ -291,12 +291,7 @@ void OnSkinsChat(void*, const ru_command_ctx* ctx) {
 }
 
 // A round restart (mp_restartgame, a match going live, a new round): re-gives wait a moment.
-void OnRoundChangeEvent(void*, const char* name, const ru_game_event*) {
-  InventoryRoundEvent(name);  // freeze time: the inventory may stay open
-  NoteRoundChange();
-}
-
-void OnFreezeEndEvent(void*, const char* name, const ru_game_event*) { InventoryRoundEvent(name); }
+void OnRoundChangeEvent(void*, const char*, const ru_game_event*) { NoteRoundChange(); }
 
 void OnDeathEvent(void*, const char*, const ru_game_event* ev) {
   if (Inert()) return;  // no StatTrak counting either
@@ -402,7 +397,6 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     api->subscribe_game_event(api->self, "player_death", OnDeathEvent, nullptr);
     api->subscribe_game_event(api->self, "round_prestart", OnRoundChangeEvent, nullptr);
     api->subscribe_game_event(api->self, "round_start", OnRoundChangeEvent, nullptr);
-    api->subscribe_game_event(api->self, "round_freeze_end", OnFreezeEndEvent, nullptr);
     // A player taking a team, or one leaving (a bot kicked to make room), deletes and recreates
     // entities too: a re-give in that tick crashed server-2 when a player joined CT
     // (WriteEnterPVS: GetEntServerClass failed for ent 300, 2026-11-24, twice). Same quiet window.

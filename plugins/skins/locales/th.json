@@ -36,6 +36,5 @@
   "inv.loading": "กำลังโหลดคลังของ…",
   "inv.no_platform": "Ready Up skins: คลังของต้องใช้เซิร์ฟเวอร์ที่เชื่อมกับแพลตฟอร์ม",
   "inv.no_hud": "Ready Up skins: คลังของต้องใช้แอดออน HUD",
-  "inv.hud_off": "Ready Up skins: คลังของต้องใช้ HUD พิมพ์ .hud เพื่อเปิด",
-  "inv.not_now": "Ready Up skins: เปิด .skins ตอนวอร์มอัพ ช่วง freeze time หรือตอนที่ตายแล้ว"
+  "inv.hud_off": "Ready Up skins: คลังของต้องใช้ HUD พิมพ์ .hud เพื่อเปิด"
 }

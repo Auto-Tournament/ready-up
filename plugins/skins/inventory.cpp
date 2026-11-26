@@ -1,11 +1,11 @@
 // The in-game inventory (`.skins`): the player's items from the platform as HUD screens
 // (inventory_view.h), equipped with a click. Game thread only.
 //
-//   .skins               opens it (warmup, freeze time, or while dead / spectating)
+//   .skins               opens it, any time (Sivert, 2026-11-26: also mid-round)
 //   skins.inventory_request / skins.inventory / skins.equip   over the fleet link (protocol v1)
 //
 // The platform holds a change made during a live round until the round ends (fleet/push/skins.ts),
-// so nothing changes in a player's hands mid-round, whichever way it was equipped.
+// so a skin picked mid-round is in the player's hands from the next round, never at once.
 #include "skins.h"
 
 #include "inventory_view.h"
@@ -38,7 +38,6 @@ struct View {
 
 std::map<int, View> g_views;                    // slot -> open inventory
 std::map<uint64_t, inv::Inventory> g_inventory;  // steamid64 -> the platform's last answer
-bool g_freeze = false;                           // round_prestart .. round_freeze_end
 double g_now = 0;
 
 const ru_fleet_v1* Fleet() {
@@ -68,22 +67,6 @@ inv::Text TextFor(int slot) {
 void Chat(int slot, const std::string& key) {
   g_api->chat_to_slot(g_api->self, slot, SkinsText(readyup::i18n::LanguageOf(g_api, slot), key, {}).c_str());
 }
-
-// Alive on T or CT (the controller's m_bPawnIsAlive).
-bool AliveOnTeam(int slot) {
-  ru_player p{};
-  p.struct_size = sizeof(p);
-  if (!g_api->get_player(g_api->self, slot, &p) || !p.connected) return false;
-  if (p.team != RU_TEAM_T && p.team != RU_TEAM_CT) return false;
-  static int alive = -2;
-  if (alive == -2) alive = SchemaOffset("CCSPlayerController", "m_bPawnIsAlive");
-  void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
-  if (!ctrl || alive < 0) return true;  // can't tell: treat as alive
-  return *(static_cast<uint8_t*>(ctrl) + alive) != 0;
-}
-
-// When the inventory may be open: never with a cursor while the player plays a round.
-bool MayOpen(int slot) { return WarmupLike() || g_freeze || !AliveOnTeam(slot); }
 
 void OnClick(void* user, int slot, const char* command);
 
@@ -151,7 +134,6 @@ void OnClick(void*, int slot, const char* command) {
   } else if (c.rfind("#pick ", 0) == 0) {
     v.picked = std::atoll(arg(0).c_str());
   } else if (c.rfind("#equip ", 0) == 0 || c.rfind("#unequip ", 0) == 0) {
-    if (!MayOpen(slot)) return Close(slot);
     Json p = Json::Object();
     p["steamid64"] = std::to_string(v.steamid64);
     p["skin_id"] = static_cast<long long>(std::atoll(arg(0).c_str()));
@@ -178,6 +160,8 @@ void InventoryFleetMessage(void*, const ru_fleet_msg* m) {
     const Json* s = p.Find("steamid64");
     const uint64_t sid = s && s->type() == Json::Type::String ? std::strtoull(s->AsString().c_str(), nullptr, 10) : 0;
     if (!sid) return;
+    Log(RU_LOG_INFO, "inventory: %zu item(s) for %llu%s%s", got.items.size(), static_cast<unsigned long long>(sid),
+        got.enabled ? "" : " (off: ", got.enabled ? "" : (got.error + ")").c_str());
     g_inventory[sid] = std::move(got);
     for (auto& [slot, v] : g_views) {
       if (v.steamid64 != sid) continue;
@@ -191,22 +175,18 @@ void InventoryFleetMessage(void*, const ru_fleet_msg* m) {
 
 void OpenInventory(int slot, uint64_t steamid64) {
   if (slot < 0 || !steamid64) return;
+  SKINS_DEBUG("inventory: .skins from slot %d", slot);
   if (!Fleet()) return Chat(slot, "inv.no_platform");
   if (!Hud()) return Chat(slot, "inv.no_hud");
   if (HudOff(steamid64)) return Chat(slot, "inv.hud_off");
-  if (!MayOpen(slot)) return Chat(slot, "inv.not_now");
   View& v = g_views[slot];
   v = View{};
   v.steamid64 = steamid64;
   v.waiting = !g_inventory.count(steamid64);  // the last answer draws at once, the new one replaces it
   Request(v);
   Draw(slot);
-}
-
-void InventoryRoundEvent(const char* name) {
-  if (!name) return;
-  if (std::strcmp(name, "round_prestart") == 0) g_freeze = true;
-  else if (std::strcmp(name, "round_freeze_end") == 0) g_freeze = false;
+  Log(RU_LOG_INFO, "inventory: opened for slot %d (%llu)%s", slot, static_cast<unsigned long long>(steamid64),
+      v.waiting ? ", asking the platform" : "");
 }
 
 void InventoryTick(double now) {
@@ -221,10 +201,6 @@ void InventoryTick(double now) {
       continue;
     }
     ++it;
-    if (!MayOpen(slot)) {
-      Close(slot);  // the round started with them alive: no cursor mid-round
-      continue;
-    }
     View& v = g_views[slot];
     if ((v.waiting || v.pending) && now - v.sentAt > 6.0) {  // no answer: ask again
       v.pending = false;

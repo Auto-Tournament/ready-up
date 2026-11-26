@@ -36,6 +36,5 @@
   "inv.loading": "Henter dit inventar…",
   "inv.no_platform": "Ready Up skins: inventaret kræver en server forbundet til platformen.",
   "inv.no_hud": "Ready Up skins: inventaret kræver HUD-tilføjelsen.",
-  "inv.hud_off": "Ready Up skins: inventaret kræver HUD'en. Skriv .hud for at slå den til.",
-  "inv.not_now": "Ready Up skins: åbn .skins i opvarmning, i freeze time eller når du er død."
+  "inv.hud_off": "Ready Up skins: inventaret kræver HUD'en. Skriv .hud for at slå den til."
 }
