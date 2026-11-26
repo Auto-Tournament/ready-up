@@ -886,10 +886,11 @@
 .ui-wml .ui-wmt { horizontal-align: right; margin-right: 52px; margin-bottom: 61px; }
 .ui-wmr .ui-wmt { horizontal-align: left; margin-left: 52px; margin-bottom: 31px; }
 /* The badge (#ui_badge): CS2's ring is ~61px across, ~3px thick, its centre ~52.75px above the
-   bottom (measured on a 1080p screenshot, 2026-11-25). The 58px disc at margin-bottom 24px fills it
-   up to the stroke (56px at 23px left a dark hairline), opaque, in the ram's horn colour (Sivert,
+   bottom (measured on a 1080p screenshot, 2026-11-25). The 58px disc fills it up to the stroke (56px
+   at 23px left a dark hairline). At margin-bottom 24px the ring showed ~3px below the disc and ~2px
+   above it (1080p screenshot, 2026-11-26): 23.5px drops it half a pixel to the ring's centre, opaque, in the ram's horn colour (Sivert,
    2026-11-25), and covers the CT/T emblem; the ram is the team logo file (images/team/atram.svg, built by hud/build.ps1). */
-.ui-badge { width: 58px; height: 58px; horizontal-align: center; vertical-align: bottom; margin-bottom: 24px; border-radius: 50%; background-color: #1d1d1f; opacity: 0; transition-property: opacity; transition-duration: 0.2s; }
+.ui-badge { width: 58px; height: 58px; horizontal-align: center; vertical-align: bottom; margin-bottom: 23.5px; border-radius: 50%; background-color: #1d1d1f; opacity: 0; transition-property: opacity; transition-duration: 0.2s; }
 .ui-badge.on { opacity: 1; }
 .ui-badgeram { width: 48px; height: 48px; horizontal-align: center; vertical-align: center; background-image: url( "s2r://panorama/images/tournaments/teams/atram.vsvg" ); background-size: contain; background-position: 50% 50%; background-repeat: no-repeat; }
 .ui-vertext { font-size: 15px; font-weight: bold; color: #e6b33c; }
