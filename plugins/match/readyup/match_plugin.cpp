@@ -553,7 +553,7 @@ static int OnJoinTeam(void*, int slot, uint64_t steamid64, const char*, int argc
 
 READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_api_version) {
   if (RU_API_VERSION_MAJOR(core_api_version) != READYUP_PLUGIN_API_VERSION_MAJOR ||
-      !RU_API_HAS(api, current_map)) {
+      !RU_API_HAS(api, chat_to_slot_ex)) {
     return 1;
   }
   int rc = 0;

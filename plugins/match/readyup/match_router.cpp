@@ -79,7 +79,7 @@ const ru_practice_v1* Practice() {
 
 // An answer for one player (their slot), else to chat.
 void ReplyTo(int slot, const std::string& msg) {
-  if (slot < 0 || !ClientPrintChat(slot, (" \x04[ReadyUp]\x01 " + msg).c_str())) SendToChat(("Ready Up: " + msg).c_str());
+  if (slot < 0 || !SendToSlotChat(slot, msg.c_str())) SendToChat(msg.c_str());
 }
 // The same with text from locales/.
 void ReplyKey(int slot, const std::string& key, text::Args args = {}) {
@@ -573,7 +573,7 @@ void MatchRuCommand(uint64_t steamid64, const std::string& playerName, const std
   auto replyPrivate = [&](std::string msg) {
     if (msg.rfind("Ready Up: ", 0) == 0) msg.erase(0, 10);
     if (steamid64 == 0) PrintLine(msg.c_str());
-    else if (slot < 0 || !ClientPrintChat(slot, (" \x04[ReadyUp]\x01 " + msg).c_str())) SendToChat(msg.c_str());
+    else if (slot < 0 || !SendToSlotChat(slot, msg.c_str())) SendToChat(msg.c_str());
   };
   // The same with text from locales/ (the console reads English).
   auto replyKey = [&](const std::string& key, text::Args a = {}) {

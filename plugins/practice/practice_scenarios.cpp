@@ -79,7 +79,7 @@ struct Out {
   int slot = -1;
   void operator()(const std::string& m) const {
     if (console || slot < 0) Log("scenario: %s", m.c_str());
-    else g_api->chat_to_slot(g_api->self, slot, (" \x04[ReadyUp]\x01 " + m).c_str());
+    else g_api->chat_to_slot_ex(g_api->self, slot, m.c_str(), 0);
   }
   std::string Lang() const { return console || slot < 0 ? "en" : readyup::i18n::LanguageOf(g_api, slot); }
   std::string T(const char* key, const readyup::i18n::Args& args = {}) const { return g_host.tr(Lang(), key, args); }

@@ -22,8 +22,11 @@ void SendToChat(const char* msg);
 void SendRawToChat(const char* payload);
 // Debug chat (readyup.cfg chat_debug=1 and debug=1 only). Any thread.
 void AnnounceToChat(const char* msg);
-// Chat to one player slot. Any thread (queued: then always true).
+// Chat to one player slot, no prefix. Any thread (queued: then always true).
 bool ClientPrintChat(int slot, const char* msg);
+// The same behind the server's chat prefix ([Ready Up], like every other Ready Up line), commands
+// in green. Any thread (queued: then always true).
+bool SendToSlotChat(int slot, const char* msg);
 // True if broadcast chat goes out without the "Console:" prefix (UTIL_ClientPrintAll resolved).
 bool ClientPrintAvailable();
 

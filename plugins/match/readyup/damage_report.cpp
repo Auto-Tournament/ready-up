@@ -404,7 +404,7 @@ void DamageReportTick() {
     if (o.human) {
       ++humans;
       if (!(o.card && ShowCard(o, g_outRound))) {  // the card instead of chat lines, through freeze time
-        (void)ClientPrintChat(o.slot, (" \x04[ReadyUp]\x01 " + text::ForLang(o.lang, "dmg.header")).c_str());
+        (void)SendToSlotChat(o.slot, text::ForLang(o.lang, "dmg.header").c_str());
         for (const auto& l : o.lines) (void)ClientPrintChat(o.slot, (" " + l).c_str());
       }
     }
