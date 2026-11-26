@@ -588,6 +588,8 @@ add_subdirectory(plugins/whitelist)
 
 # readyup-addons (plugins/addons): Steam Workshop addons, plus its unit test.
 add_subdirectory(plugins/addons)
+# readyup-playersettings (plugins/playersettings): players' CS2 settings through cvar queries.
+add_subdirectory(plugins/playersettings)
 
 # readyup-mapvote (plugins/mapvote): .rtv / .nominate / end-of-map vote, plus its unit test.
 add_subdirectory(plugins/mapvote)

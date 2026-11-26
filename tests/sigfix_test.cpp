@@ -100,6 +100,27 @@ int main() {
   Check(es::StoreOfArgGlobal(img, kSetter, 64) == kGlobal, "stores_arg_global: the global it stores into");
   Check(!es::CheckAnchor(img, kFn, store, nullptr), "stores_arg_global: no store, no match");
 
+  // code_bytes / code_contains: a `mov eax, 1; ret` stub, and a field read in a window.
+  constexpr uintptr_t kStub = 0x1B00, kReader = 0x1B10;
+  Put(kStub, {0xB8, 0x01, 0x00, 0x00, 0x00, 0xC3});
+  Put(kReader, {0x8B, 0x47, 0x10, 0x31, 0xF6, 0x48, 0x63, 0x47, 0x20, 0xC3});
+  es::Anchor stub{"code_bytes", "", 0};
+  stub.bytes = "B8 01 00 00 00 C3";
+  Check(es::CheckAnchor(img, kStub, stub, nullptr), "code_bytes: the stub matches");
+  Check(!es::CheckAnchor(img, kReader, stub, nullptr), "code_bytes: other code does not");
+  es::Anchor reads{"code_contains", "", 16};
+  reads.bytes = "48 63 47 20";
+  Check(es::CheckAnchor(img, kReader, reads, nullptr), "code_contains: finds movsxd rax, [rdi+0x20]");
+  reads.window = 4;
+  Check(!es::CheckAnchor(img, kReader, reads, nullptr), "code_contains: not past the window");
+  es::Anchor wild{"code_bytes", "", 0};
+  wild.bytes = "B8 ? 00 00 00 C3";
+  Check(es::CheckAnchor(img, kStub, wild, nullptr), "code_bytes: wildcards");
+  es::Anchor slotOnly{"slot_code", "", 0};
+  slotOnly.slot = 1;
+  slotOnly.bytes = "C3";
+  Check(!es::CheckAnchor(img, kStub, slotOnly, nullptr), "slot_code: refused outside a vtable entry");
+
   std::printf("%s\n", g_failed ? "FAILED" : "OK");
   return g_failed ? 1 : 0;
 }

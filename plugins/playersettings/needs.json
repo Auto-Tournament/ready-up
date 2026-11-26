@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "plugin": "playersettings",
+  "api": [
+    "hook_vtable",
+    "on_tick",
+    "register_ru_subcommand"
+  ],
+  "surface": [
+    "CCLCMsg_RespondCvarValue::ByteSizeLong",
+    "CCommand",
+    "CNetMessagePB<GetCvarValue>::GetSerializerPB",
+    "CNetMessagePB<RespondCvarValue>::AsMessageLite",
+    "CSVCMsg_GetCvarValue::ByteSizeLong",
+    "CServerSideClient::ProcessRespondCvarValue",
+    "CServerSideClient::SendNetMessage",
+    "INetworkServerService::GetNetworkServer",
+    "ISource2GameClients::ClientCommand",
+    "ISource2Server::GameFrame"
+  ],
+  "schema": [],
+  "events": []
+}

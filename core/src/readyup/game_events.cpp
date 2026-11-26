@@ -20,6 +20,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <dlfcn.h>
 #include <fstream>
 #include <initializer_list>
 #include <mutex>
@@ -666,6 +667,25 @@ void GameEventsObserveInterface(const char* name, void* iface) {
     }
     return;
   }
+}
+
+void* ObservedEngineInterface(const char* name) {
+  if (!name) return nullptr;
+  const bool events = std::strcmp(name, "GameEventSystemServerV001") == 0;
+  if (!events && std::strcmp(name, "NetworkServerService_001") != 0) return nullptr;  // the ones plugins may have
+  if (events) {
+    if (void* seen = g_gameEventSystem.load(std::memory_order_acquire)) return seen;
+  }
+  // Both are libengine2's: the server gets them from the engine's factory, never through our
+  // CreateInterface export. Ask libengine2 itself (callers check the RTTI).
+  void* engine = dlopen("libengine2.so", RTLD_NOW | RTLD_NOLOAD);
+  if (!engine) return nullptr;
+  using CreateInterfaceFn = void* (*)(const char* name, int* returnCode);
+  auto create = reinterpret_cast<CreateInterfaceFn>(dlsym(engine, "CreateInterface"));
+  void* iface = create ? create(name, nullptr) : nullptr;
+  dlclose(engine);  // RTLD_NOLOAD took a reference
+  if (iface && events) g_gameEventSystem.store(iface, std::memory_order_release);
+  return iface;
 }
 
 static std::mutex g_logTeamMu;
