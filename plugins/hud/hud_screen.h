@@ -41,6 +41,9 @@
 //                                the picture on top, label and sub under it
 //                                marks: space-separated: ct t (side chips), r-consumer r-industrial
 //                                r-milspec r-restricted r-classified r-covert r-gold (a rarity line)
+//                                note (8th): a tile's third line (the wear), beside its chips
+//   where=inv / where=invd       the inventory's own panels (at_ui ui_inv: tabs, a grid of tiles,
+//                                a footer; ui_invd: the item beside the dimmed grid). Same keys.
 //   tab=Rifles|8|.skins tab rifles|1  a tab left of the buttons, up to 10: label | count | command | 1 = on
 //   img=sk-1a2b3c4d              a large picture above the kind (a picture class, as btn img)
 //   cols=2                       buttons per row (default: the number of buttons, at most 4)
@@ -68,7 +71,7 @@ constexpr int kTabIndex = 100;
 enum class Mouse { Off, B, On };
 
 struct Button {
-  std::string label, tone, state, cmd, sub, img, marks;
+  std::string label, tone, state, cmd, sub, img, marks, note;
 };
 struct Tab {
   std::string label, count, cmd;

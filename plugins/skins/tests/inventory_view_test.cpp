@@ -46,14 +46,15 @@ int main() {
   // Grid: tabs only where there are items, a tile per item with picture and marks, close.
   const std::string grid = GridSpec(inv, "all", 0, tr);
   CHECK(Has(grid, "id=skins-grid\n"));
-  CHECK(Has(grid, "bw=tile\n"));
+  CHECK(Has(grid, "where=inv\n"));
   CHECK(Has(grid, "tab=[inv.tab.all]|3|#tab all|1\n"));
   CHECK(Has(grid, "tab=[inv.tab.rifles]|2|#tab rifles|0\n"));
   CHECK(!Has(grid, "inv.tab.pistols"));
-  CHECK(Has(grid, "btn=Asiimov|ghost||#pick 412|AWP \xC2\xB7 FT 0.27|" + PictureClass("weapon_awp_cu_awp_asimov_medium_png") + "|ct t r-covert\n"));
-  CHECK(Has(grid, "btn=Redline|ghost||#pick 77|AK-47 \xC2\xB7 FT 0.18|"));
-  CHECK(Has(grid, "|ct r-covert\n"));  // the knife: on CT only, no picture
-  CHECK(Has(grid, "close=[inv.close]|#close\n"));
+  // label | tone | state | cmd | weapon (sub) | picture | marks | wear (note)
+  CHECK(Has(grid, "btn=Asiimov|ghost||#pick 412|AWP|" + PictureClass("weapon_awp_cu_awp_asimov_medium_png") + "|ct t r-covert|FT 0.27\n"));
+  CHECK(Has(grid, "btn=Redline|ghost||#pick 77|AK-47|"));
+  CHECK(Has(grid, "|sk-none|ct r-covert|FN 0.01\n"));  // the knife: on CT only, no picture
+  CHECK(Has(grid, "close=\xC3\x97|#close\n"));
   CHECK(!Has(grid, "counter="));  // one page
 
   // Tab filter and paging.
@@ -82,6 +83,7 @@ int main() {
   CHECK(Has(awp, "btn=T|t|picked|#equip 412 2\n"));
   CHECK(Has(awp, "btn=[inv.both]|ghost|picked|#equip 412 0\n"));
   CHECK(Has(awp, "#unequip 412 0\n"));
+  CHECK(Has(awp, "where=invd\n") && Has(awp, "counter=[inv.equip_on]\n"));
   CHECK(Has(awp, "line=[inv.from]|t50 MVP\n"));
   // Only T buys the AK-47: one Equip, no side buttons, not equipped: no Unequip.
   const std::string ak = DetailSpec(inv.items[1], true, tr);

@@ -36,5 +36,6 @@
   "inv.loading": "正在載入庫存…",
   "inv.no_platform": "Ready Up skins: 庫存需要已連接平台的伺服器。",
   "inv.no_hud": "Ready Up skins: 庫存需要 HUD 外掛。",
-  "inv.hud_off": "Ready Up skins: 庫存需要 HUD。輸入 .hud 開啟。"
+  "inv.hud_off": "Ready Up skins: 庫存需要 HUD。輸入 .hud 開啟。",
+  "inv.equip_on": "裝備到"
 }

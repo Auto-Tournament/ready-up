@@ -36,5 +36,6 @@
   "inv.loading": "Φόρτωση αποθέματος…",
   "inv.no_platform": "Ready Up skins: το απόθεμα χρειάζεται server συνδεδεμένο με την πλατφόρμα.",
   "inv.no_hud": "Ready Up skins: το απόθεμα χρειάζεται το πρόσθετο HUD.",
-  "inv.hud_off": "Ready Up skins: το απόθεμα χρειάζεται το HUD. Γράψε .hud για να το ενεργοποιήσεις."
+  "inv.hud_off": "Ready Up skins: το απόθεμα χρειάζεται το HUD. Γράψε .hud για να το ενεργοποιήσεις.",
+  "inv.equip_on": "Εξόπλισε σε"
 }

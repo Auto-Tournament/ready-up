@@ -155,7 +155,9 @@ std::string WearShort(double f) {
 }
 
 std::string GridSpec(const Inventory& inv, const std::string& tab, int page, const Text& tr) {
-  std::string s = "id=skins-grid\nwhere=mid\nmouse=on\nwash=0\nbw=tile\ncols=" + std::to_string(kCols) + "\n";
+  // The inventory's own panel (at_ui ui_inv), as drafted on the canvas: kind = INVENTORY over the
+  // tabs, title + sub over the grid, counter in the footer, close = × top right.
+  std::string s = "id=skins-grid\nwhere=inv\nmouse=on\n";
   s += "kind=" + Clean(tr("inv.kind", {})) + "\n";
   std::vector<const Item*> shown;
   int counts[16] = {0};
@@ -183,24 +185,27 @@ std::string GridSpec(const Inventory& inv, const std::string& tab, int page, con
   page = std::clamp(page, 0, pages - 1);
   const size_t from = static_cast<size_t>(page) * kTilesPerPage;
   for (size_t i = from; i < shown.size() && i < from + kTilesPerPage; ++i) {
+    // A tile: weapon (sub) over the name (label), the wear (note) beside the CT / T chips (marks).
     const Item& it = *shown[i];
-    std::string sub = it.weaponName;
-    if (it.wear >= 0) sub += " \xC2\xB7 " + WearShort(it.wear) + " " + Fmt("%.2f", it.wear);
-    const std::string img = it.image.empty() ? std::string() : PictureClass(it.image);
+    const std::string wear = it.wear >= 0 ? WearShort(it.wear) + " " + Fmt("%.2f", it.wear) : std::string();
+    // No picture class still makes a tile (has-img): an empty picture box, as for an item the game has none of.
+    const std::string img = it.image.empty() ? "sk-none" : PictureClass(it.image);
     s += "btn=" + Clean(it.name.empty() ? it.weaponName : it.name) + "|ghost||#pick " + std::to_string(it.id) + "|" +
-         Clean(sub) + "|" + img + "|" + Marks(it) + "\n";
+         Clean(it.weaponName) + "|" + img + "|" + Marks(it) + "|" + Clean(wear) + "\n";
   }
   if (pages > 1) {
     s += "counter=" + Clean(tr("inv.page", {{"page", std::to_string(page + 1)}, {"pages", std::to_string(pages)}})) + "\n";
     s += "btn=" + Clean(tr("inv.prev", {})) + "|ghost|" + (page == 0 ? "off" : "") + "|#page " + std::to_string(page - 1) + "\n";
     s += "btn=" + Clean(tr("inv.next", {})) + "|ghost|" + (page + 1 >= pages ? "off" : "") + "|#page " + std::to_string(page + 1) + "\n";
   }
-  s += "close=" + Clean(tr("inv.close", {})) + "|#close\n";
+  s += "close=\xC3\x97|#close\n";  // ×
   return s;
 }
 
 std::string DetailSpec(const Item& it, bool pending, const Text& tr) {
-  std::string s = "id=skins-item-" + std::to_string(it.id) + "\nwhere=mid\nmouse=on\nwash=0\nbw=m\n";
+  // The item beside the dimmed grid (at_ui ui_invd): picture, kind, title, sub, lines, EQUIP ON
+  // (counter) over the side buttons, a note (hint), Back (close).
+  std::string s = "id=skins-item-" + std::to_string(it.id) + "\nwhere=invd\nmouse=on\n";
   if (!it.image.empty()) s += "img=" + PictureClass(it.image) + "\n";
   s += "kind=" + Clean(it.weaponName) + "\n";
   s += "title=" + Line(it.name.empty() ? it.weaponName : it.weaponName + " | " + it.name) + "\n";
@@ -212,12 +217,12 @@ std::string DetailSpec(const Item& it, bool pending, const Text& tr) {
   if (!it.source.empty()) s += "line=" + Clean(tr("inv.from", {})) + "|" + Clean(it.source) + "\n";
   const std::string id = std::to_string(it.id);
   const bool any = it.on[0] || it.on[2] || it.on[3];
+  s += "counter=" + Clean(tr("inv.equip_on", {})) + "\n";
   if (it.side == 0) {
     // Both sides buy it: CT, T or both. A side is picked when it has this item (both counts for each).
     s += "btn=CT|ct|" + std::string(it.on[0] || it.on[3] ? "picked" : "") + "|#equip " + id + " 3\n";
     s += "btn=T|t|" + std::string(it.on[0] || it.on[2] ? "picked" : "") + "|#equip " + id + " 2\n";
     s += "btn=" + Clean(tr("inv.both", {})) + "|ghost|" + (it.on[0] ? "picked" : "") + "|#equip " + id + " 0\n";
-    s += "cols=3\n";
   } else {
     s += "btn=" + Clean(tr(any ? "inv.equipped" : "inv.equip", {})) + "|green|" + (any ? "off" : "") + "|#equip " + id + " 0\n";
     s += "line=" + Clean(tr("inv.one_side", {{"side", it.side == 3 ? "CT" : "T"}, {"weapon", it.weaponName}})) + "|\n";
@@ -229,8 +234,8 @@ std::string DetailSpec(const Item& it, bool pending, const Text& tr) {
 }
 
 std::string LoadingSpec(const Text& tr) {
-  return "id=skins-loading\nwhere=mid\nmouse=on\nwash=0\nkind=" + Clean(tr("inv.kind", {})) + "\ntitle=" +
-         Clean(tr("inv.loading", {})) + "\nclose=" + Clean(tr("inv.close", {})) + "|#close\n";
+  return "id=skins-loading\nwhere=inv\nmouse=on\nkind=" + Clean(tr("inv.kind", {})) + "\ntitle=" +
+         Clean(tr("inv.loading", {})) + "\nclose=\xC3\x97|#close\n";
 }
 
 }  // namespace inv

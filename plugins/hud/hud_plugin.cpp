@@ -651,8 +651,11 @@ struct ScreenSlot {
 std::map<int, ScreenSlot> g_screens;
 std::set<int> g_buyOpen;  // slots whose buy menu is open (open_buymenu .. close_buymenu)
 
-std::string PanelOf(const Screen& s) { return s.where == "card" ? "ui_card" : s.where == "left" ? "ui_left" : "ui_mid"; }
-const char* const kPanels[] = {"ui_card", "ui_mid", "ui_left"};
+std::string PanelOf(const Screen& s) {
+  if (s.where == "card" || s.where == "left" || s.where == "inv" || s.where == "invd") return "ui_" + s.where;
+  return "ui_mid";
+}
+const char* const kPanels[] = {"ui_card", "ui_mid", "ui_left", "ui_inv", "ui_invd"};
 
 void UpdateCapture(int slot, bool force = false) {
   auto it = g_screens.find(slot);
@@ -2119,6 +2122,9 @@ bool HoldAction(int slot, HoldTarget* t) {
   }
   if (HasMenu(slot)) {
     if (!card) return false;
+    // The inventory is clicked, with its own close (×): no hold chip over it.
+    const std::string pan = PanelOf(it->second.cur);
+    if (pan == "ui_inv" || pan == "ui_invd") return false;
     t->label = g_text.Tr(lang, "hud.hold_close");
     t->action = PanelOf(it->second.cur) + "_close";
     return true;

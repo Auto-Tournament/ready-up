@@ -36,5 +36,6 @@
   "inv.loading": "正在加载库存…",
   "inv.no_platform": "Ready Up skins: 库存需要已连接平台的服务器。",
   "inv.no_hud": "Ready Up skins: 库存需要 HUD 插件。",
-  "inv.hud_off": "Ready Up skins: 库存需要 HUD。输入 .hud 打开。"
+  "inv.hud_off": "Ready Up skins: 库存需要 HUD。输入 .hud 打开。",
+  "inv.equip_on": "装备到"
 }

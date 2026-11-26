@@ -67,7 +67,8 @@ Screen ParseScreen(const std::string& spec) {
     const std::string k = line.substr(0, eq), v = line.substr(eq + 1);
     if (k == "id") s.id = v;
     else if (k == "closerow") s.noCloseRow = v == "0";
-    else if (k == "where") s.where = v == "card" ? "card" : v == "left" ? "left" : v == "chip" ? "chip" : "mid";
+    else if (k == "where")
+      s.where = v == "card" || v == "left" || v == "chip" || v == "inv" || v == "invd" ? v : "mid";
     else if (k == "color") s.color = v;
     else if (k == "kind") s.kind = v;
     else if (k == "title") s.title = v;
@@ -109,7 +110,7 @@ Screen ParseScreen(const std::string& spec) {
       const auto p = SplitBar(v);
       const std::string img = UtilityName(At(p, 5)) ? At(p, 5) : std::string();
       if (s.buttons.size() < static_cast<size_t>(kMaxButtons))
-        s.buttons.push_back(Button{At(p, 0), At(p, 1), At(p, 2), At(p, 3), At(p, 4), img, At(p, 6)});
+        s.buttons.push_back(Button{At(p, 0), At(p, 1), At(p, 2), At(p, 3), At(p, 4), img, At(p, 6), At(p, 7)});
     } else if (k == "tab") {
       const auto p = SplitBar(v);
       if (s.tabs.size() < static_cast<size_t>(kMaxTabs)) s.tabs.push_back(Tab{At(p, 0), At(p, 1), At(p, 2), At(p, 3) == "1"});
@@ -251,6 +252,7 @@ std::vector<Write> RenderScreen(const Screen& s, const std::string& p) {
     const Button* btn = i < nb ? &s.buttons[i] : nullptr;
     text(b + "_l", btn ? btn->label : std::string());
     text(b + "_s", btn ? btn->sub : std::string());
+    text(b + "_n", btn ? btn->note : std::string());
     cls(b, "show", btn != nullptr);
     cls(b, "has-sub", btn && !btn->sub.empty());
     const std::string tone = btn ? "t-" + btn->tone : std::string();
@@ -280,7 +282,7 @@ std::vector<Write> RenderScreen(const Screen& s, const std::string& p) {
 }
 
 bool ParseButtonId(const std::string& id, std::string* panel, int* index) {
-  for (const char* p : {"ui_card", "ui_mid", "ui_left"}) {
+  for (const char* p : {"ui_card", "ui_mid", "ui_left", "ui_invd", "ui_inv"}) {
     const std::string pre = std::string(p) + "_";
     if (id.compare(0, pre.size(), pre) != 0) continue;
     const std::string rest = id.substr(pre.size());
@@ -313,6 +315,7 @@ std::string EnterOf(const Screen& s, const std::string& p) {
   const bool decision = s.mouse == Mouse::On && !s.buttons.empty() && !s.hasClose;
   if (s.mini) return "fx-pop";
   if (p == "ui_left") return "fx-slide-left";  // the menu list comes in from the left
+  if (p == "ui_inv" || p == "ui_invd") return "fx-none";  // the inventory: at once, no scale
   if (p == "ui_card") return s.color == "ban" ? "fx-alert" : "fx-slide";
   return decision ? "fx-flip" : s.color == "ban" ? "fx-alert" : "fx-open";
 }

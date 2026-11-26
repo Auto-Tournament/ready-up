@@ -36,5 +36,6 @@
   "inv.loading": "인벤토리를 불러오는 중…",
   "inv.no_platform": "Ready Up skins: 인벤토리는 플랫폼에 연결된 서버가 필요합니다.",
   "inv.no_hud": "Ready Up skins: 인벤토리는 HUD 애드온이 필요합니다.",
-  "inv.hud_off": "Ready Up skins: 인벤토리는 HUD가 필요합니다. .hud를 입력해 켜세요."
+  "inv.hud_off": "Ready Up skins: 인벤토리는 HUD가 필요합니다. .hud를 입력해 켜세요.",
+  "inv.equip_on": "장착 진영"
 }

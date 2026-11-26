@@ -105,12 +105,65 @@ def block(p):
     return panel(p, f"ui-panel ui-{p[3:]}", back + flow + extras, hit=True)
 
 
+def inventory_tile(p, n):
+    """A tile of the inventory grid: picture, rarity line, weapon (sub), name (label), wear (note) and
+    the CT / T chips (marks). Paging buttons use the same slots without a picture: a small pill."""
+    chips = panel(cls="ui-btnmarks", children=(
+        panel(cls="ui-mk ui-mk-ct", children=label(cls="ui-mkt", text="CT"))
+        + panel(cls="ui-mk ui-mk-t", children=label(cls="ui-mkt", text="T"))))
+    return button(f"{p}_b{n}", "ui-btn ui-tile", (
+        panel(f"{p}_b{n}_img", "ui-btnimg") + panel(cls="ui-btnbar")
+        + panel(cls="ui-tiletext", children=(
+            label(f"{p}_b{n}_s", "ui-btnsub") + label(f"{p}_b{n}_l", "ui-btnlabel")
+            + panel(cls="ui-tilerow", children=label(f"{p}_b{n}_n", "ui-tilenote") + chips)))))
+
+
+def block_inv():
+    """The inventory (`.skins`, where=inv), as drafted on the canvas "In-game inventory": a column
+    of tabs under INVENTORY (kind), the title and hint (sub) over a 4-column grid of tiles, a footer
+    (counter left, hint right) and a close (×) top right."""
+    p = "ui_inv"
+    tabs = panel(f"{p}_tabs", "ui-tabs", children="".join(
+        button(f"{p}_g{n}", "ui-tab", label(f"{p}_g{n}_l", "ui-tablabel") + label(f"{p}_g{n}_c", "ui-tabcount"))
+        for n in range(10)))
+    side = panel(cls="ui-invside", children=label(f"{p}_kind", "ui-kind") + tabs)
+    top = panel(cls="ui-invtop", children=label(f"{p}_title", "ui-title") + label(f"{p}_sub", "ui-sub"))
+    grid = panel(f"{p}_buttons", "ui-buttons", children="".join(inventory_tile(p, n) for n in range(16)))
+    foot = panel(cls="ui-invfoot", children=label(f"{p}_counter", "ui-counter") + label(f"{p}_hint", "ui-hint"))
+    main = panel(cls="ui-invmain", children=top + grid + foot)
+    close = button(f"{p}_close", "ui-close", label(f"{p}_close_l", "ui-closelabel"))
+    return panel(p, "ui-panel ui-inv", panel(cls="ui-back") + panel(cls="ui-invrow", children=side + main) + close, hit=True)
+
+
+def block_invd():
+    """One item (where=invd), as drafted: the grid dimmed on the left, on the right the large
+    picture, kind / title / sub, lines (where it came from), EQUIP ON (counter), the side buttons,
+    a note (hint) and Back (close)."""
+    p = "ui_invd"
+    ghost = panel(cls="ui-invghost", children=panel(cls="ui-ghostgrid", children="".join(
+        panel(cls="ui-ghosttile") for _ in range(6))))
+    rows = panel(f"{p}_lines", "ui-lines", children="".join(
+        panel(f"{p}_n{n}", "ui-row", label(f"{p}_n{n}_k", "ui-rowk") + label(f"{p}_n{n}_v", "ui-rowv"))
+        for n in range(3)))
+    buttons = panel(f"{p}_buttons", "ui-buttons", children="".join(
+        button(f"{p}_b{n}", "ui-btn", label(f"{p}_b{n}_l", "ui-btnlabel")) for n in range(6)))
+    side = panel(cls="ui-invdside", children=(
+        panel(f"{p}_hero", "ui-hero") + label(f"{p}_kind", "ui-kind") + label(f"{p}_title", "ui-title")
+        + label(f"{p}_sub", "ui-sub") + rows + label(f"{p}_counter", "ui-counter") + buttons
+        + label(f"{p}_hint", "ui-hint")
+        + button(f"{p}_close", "ui-close", label(f"{p}_close_l", "ui-closelabel"))))
+    return panel(p, "ui-panel ui-invd", panel(cls="ui-back") + panel(cls="ui-invrow", children=ghost + side), hit=True)
+
+
 def main():
     # The wraps carry the HUD scale (scale-70 .. scale-100, set by hud.so: `ru hudkit scale`).
     body = panel("ui_cardwrap", "ui-cardwrap", block("ui_card")) + panel("ui_midwrap", "ui-midwrap", block("ui_mid"))
     # Menus: a list on the left, vertically centred (v4, Hold E). W S move the `sel` row (hud.so),
     # holding E slides the fill across it, the close row is always last.
     body += panel("ui_leftwrap", "ui-leftwrap", block("ui_left"))
+    # The inventory (`.skins`): its own two panels, centred, not scaled (Sivert, 2026-11-26: 1:1 to
+    # the canvas draft).
+    body += block_inv() + block_invd()
     # "Your HUD addon is out of date": shown unless hud.so's v-<n> class is one this addon knows.
     body += panel("ui_ver", "ui-ver", label("ui_ver_t", "ui-vertext"))
     # Dev servers (readyup.cfg dev=1): which HUD this client has and which hud.so the server runs.
