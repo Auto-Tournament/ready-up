@@ -11,7 +11,6 @@ void DamageLedger::Reset() {
   dealt_.clear();
   self_.clear();
   taken_.clear();
-  burning_.clear();
 }
 
 int DamageLedger::Health(int key) const {
@@ -19,7 +18,7 @@ int DamageLedger::Health(int key) const {
   return it == health_.end() ? 100 : it->second;
 }
 
-void DamageLedger::OnHurt(int attacker, int victim, int dmgHealth, int healthAfter, bool burn) {
+void DamageLedger::OnHurt(int attacker, int victim, int dmgHealth, int healthAfter) {
   if (victim < 0 || dmgHealth <= 0) return;
   const int before = std::max(0, Health(victim));
   const int after = std::clamp(healthAfter, 0, before);
@@ -28,22 +27,15 @@ void DamageLedger::OnHurt(int attacker, int victim, int dmgHealth, int healthAft
   const int actual = before - after;
   health_[victim] = after;
   if (actual > 0) taken_[victim] += actual;
-  // A fire is one hit, however many ticks it burns for.
-  bool newHit = true;
-  if (burn) {
-    bool& seen = burning_[{attacker, victim}];
-    newHit = !seen;
-    seen = true;
-  }
   if ((attacker < 0 || attacker == victim) && actual > 0) {
     Pair& s = self_[victim];
     s.dmg += actual;
-    if (newHit) s.hits += 1;
+    s.hits += 1;
   }
   if (attacker < 0 || attacker == victim || actual <= 0) return;
   Pair& p = dealt_[{attacker, victim}];
   p.dmg += actual;
-  if (newHit) p.hits += 1;
+  p.hits += 1;
 }
 
 void DamageLedger::OnDeath(int victim) {

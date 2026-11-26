@@ -25,10 +25,10 @@ class DamageLedger {
   void Reset();
   // player_hurt. attacker < 0 (world, fall damage, the bomb) or == victim only moves the
   // victim's health. healthAfter: the event's `health`.
-  // burn: a fire tick (weapon "inferno": molotov / incendiary). A fire counts as one hit per
-  // attacker and victim, like CS2's own damage report, not one per tick (2026-11-24: "in 6"
-  // where CS2 said 3 for a grenade and a molotov).
-  void OnHurt(int attacker, int victim, int dmgHealth, int healthAfter, bool burn = false);
+  // Every event that takes health is a hit, fire ticks included: standing in a molotov for six
+  // ticks is six hits. CS2's own damage report counts fewer for fire, which Sivert found is CS2
+  // under-counting (2026-11-26; one hit per fire from 2026-11-24 to 2026-11-26).
+  void OnHurt(int attacker, int victim, int dmgHealth, int healthAfter);
   // player_death: the victim has 0 hp for the report.
   void OnDeath(int victim);
 
@@ -48,7 +48,6 @@ class DamageLedger {
   std::map<std::pair<int, int>, Pair> dealt_;  // (attacker, victim)
   std::map<int, Pair> self_;   // victim -> own / world damage
   std::map<int, int> taken_;   // victim -> all health lost
-  std::map<std::pair<int, int>, bool> burning_;  // (attacker, victim) already hit by fire this round
 };
 
 struct DamageParticipant {
