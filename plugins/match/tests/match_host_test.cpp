@@ -133,6 +133,10 @@ static void FillPlayer(ru_player* out, const FakePlayer& p) {
 
 namespace readyup::plugins::detail {
 void FillEngineApi(ru_api* a) {
+  // One-player lines behind the prefix land in the chat log like the rest.
+  a->chat_to_slot_ex = [](ru_plugin*, int slot, const char* msg, uint32_t) {
+    return readyup::SendToSlotChat(slot, msg) ? 1 : 0;
+  };
   // Essentials sends the download bar per player (their language).
   a->center_html_to_slot = [](ru_plugin*, int, const char* html, int) {
     g_centerLog += std::string(html ? html : "") + "\n";

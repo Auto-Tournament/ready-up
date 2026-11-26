@@ -52,10 +52,10 @@ void EventAllFn(TextFn text) { AllLines(std::move(text), 0); }
 
 void ChatSlot(int slot, const std::string& key, Args args) {
   host::RunOnGameThread([slot, key, args = std::move(args)] {
-    // The server's prefix (light red [Ready Up] by default), like every other Ready Up line; this
-    // one had its own green "[ReadyUp]".
+    // The server's prefix (light red [Ready Up] by default), like every other Ready Up line.
+    // chat_to_slot adds none: from v0.2.24 to v0.2.29 these lines had no tag at all.
     const ru_api* a = host::Api();
-    if (a) a->chat_to_slot(a->self, slot, For(slot, key, args).c_str());
+    if (a) a->chat_to_slot_ex(a->self, slot, For(slot, key, args).c_str(), 0);
   });
 }
 

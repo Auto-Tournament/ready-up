@@ -194,7 +194,7 @@ bool SenderIsAdmin(const ru_command_ctx* c) { return c->is_console || g_api->is_
 
 void Reply(const ru_command_ctx* c, const std::string& msg) {
   if (c->is_console) ru_logf(g_api, RU_LOG_INFO, "%s", msg.c_str());
-  else if (c->slot >= 0) g_api->chat_to_slot(g_api->self, c->slot, (" \x04[ReadyUp]\x01 " + msg).c_str());
+  else if (c->slot >= 0) g_api->chat_to_slot_ex(g_api->self, c->slot, msg.c_str(), 0);
 }
 
 std::vector<Player> ConnectedPlayers() {
@@ -530,7 +530,7 @@ ru_handle g_helpCmd = 0;
 
 void OnHelpChat(void*, const ru_command_ctx* c) {
   if (c->slot < 0) return;
-  auto say = [&](const std::string& line) { g_api->chat_to_slot(g_api->self, c->slot, (" \x04[ReadyUp]\x01 " + line).c_str()); };
+  auto say = [&](const std::string& line) { g_api->chat_to_slot_ex(g_api->self, c->slot, line.c_str(), 0); };
   const std::string lang = readyup::i18n::LanguageOf(g_api, c->slot);
   say(g_text.Tr(lang, "help.commands"));
   for (const char* name : RU_HELP_PLUGINS) {
@@ -647,7 +647,9 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
 }
 
 READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_api_version) {
-  if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, register_ru_subcommand)) return 1;
+  if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, register_ru_subcommand) ||
+      !RU_API_HAS(api, chat_to_slot_ex))  // one-player replies behind the [Ready Up] prefix
+    return 1;
   g_api = api;
   g_text = {};
   if (const std::string err = g_text.Load(kReadyUpLocales, kReadyUpLocaleCount); !err.empty())

@@ -466,7 +466,7 @@ void ChatAllKey(const char* key, const readyup::i18n::Args& args = {}) {
 
 void Reply(int slot, uint64_t steamid64, const std::string& msg) {
   Log("practice: slot %d: %s", slot, msg.c_str());
-  if (steamid64 != 0 && slot >= 0) g_api->chat_to_slot(g_api->self, slot, (" \x04[ReadyUp]\x01 " + msg).c_str());
+  if (steamid64 != 0 && slot >= 0) g_api->chat_to_slot_ex(g_api->self, slot, msg.c_str(), 0);
 }
 void ReplyKey(int slot, uint64_t steamid64, const char* key, const readyup::i18n::Args& args = {}) {
   Reply(slot, steamid64, T(slot, key, args));
@@ -479,7 +479,7 @@ void ChatAllText(const std::function<std::string(const practice::Tr&)>& text) {
   readyup::i18n::ChatAll(g_api, 0, [&](const std::string& lang) { return text(TrFor(lang)); });
 }
 void NotAuthorized(int slot) {
-  if (slot >= 0) g_api->chat_to_slot(g_api->self, slot, (" \x04[ReadyUp]\x01 " + T(slot, "prac.not_authorized")).c_str());
+  if (slot >= 0) g_api->chat_to_slot_ex(g_api->self, slot, T(slot, "prac.not_authorized").c_str(), 0);
 }
 
 void ClearState(bool restorePawns) {
@@ -1779,7 +1779,7 @@ void OnPracChat(void*, const ru_command_ctx* c) {
 void OnDryChat(void*, const ru_command_ctx* c) {
   const int slot = SenderSlot(c);
   auto reply = [&](const char* key) {
-    if (slot >= 0) g_api->chat_to_slot(g_api->self, slot, (" \x04[ReadyUp]\x01 " + T(slot, key)).c_str());
+    if (slot >= 0) g_api->chat_to_slot_ex(g_api->self, slot, T(slot, key).c_str(), 0);
   };
   if (g_api->is_admin(g_api->self, c->steamid64) != 1) return reply("prac.not_authorized");
   if (!IsActive()) return reply("dryrun.only_practice");
@@ -1797,8 +1797,8 @@ void OnGlobalNadesChat(void*, const ru_command_ctx* c) {
   g_globalNades = !g_globalNades;
   Log("practice: .globalnades %s", g_globalNades ? "on" : "off");
   if (slot >= 0) {
-    g_api->chat_to_slot(g_api->self, slot,
-                        (" \x04[ReadyUp]\x01 " + T(slot, g_globalNades ? "lineup.global_on" : "lineup.global_off")).c_str());
+    const std::string m = T(slot, g_globalNades ? "lineup.global_on" : "lineup.global_off");
+    g_api->chat_to_slot_ex(g_api->self, slot, m.c_str(), 0);
   }
 }
 
@@ -1825,7 +1825,7 @@ void OnRu(void*, const ru_command_ctx* c) {
   const std::string sub = c->argc >= 3 && c->argv[2] ? Lower(c->argv[2]) : "";
   auto reply = [&](const std::string& m) {
     if (c->is_console) Log("%s", m.c_str());
-    else if (c->slot >= 0) g_api->chat_to_slot(g_api->self, c->slot, (" \x04[ReadyUp]\x01 " + m).c_str());
+    else if (c->slot >= 0) g_api->chat_to_slot_ex(g_api->self, c->slot, m.c_str(), 0);
   };
   if (sub.empty() || sub == "help") {
     for (const char* l : {".ru practice on|off: practice mode (admin; also .prac)", ".ru practice status",
@@ -2359,7 +2359,9 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
 }
 
 READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_api_version) {
-  if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, register_ru_subcommand)) return 1;
+  if (RU_API_VERSION_MAJOR(core_api_version) != 1 || !RU_API_HAS(api, register_ru_subcommand) ||
+      !RU_API_HAS(api, chat_to_slot_ex))  // one-player replies behind the [Ready Up] prefix
+    return 1;
   g_api = api;
   g_text = {};
   if (const std::string err = g_text.Load(kReadyUpLocales, kReadyUpLocaleCount); !err.empty())

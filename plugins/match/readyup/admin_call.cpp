@@ -36,7 +36,6 @@ constexpr auto kCardSendFor = std::chrono::seconds(4);
 constexpr auto kCardHold = std::chrono::seconds(6);
 constexpr auto kResendEvery = std::chrono::milliseconds(1000);
 constexpr int kSendDurationSeconds = 2;
-constexpr const char* kPrivatePrefix = " \x04[ReadyUp]\x01 ";
 
 struct AdminCard {
   std::string name, label, message;  // built at each send in the admin's language then
@@ -162,7 +161,7 @@ void AdminCallCommand(uint64_t steamid64, const std::string& playerName, const s
     const std::string line = "\x07" + text::ForLang(lang, "admincall.head") + "\x01 " +
                              text::ForLang(lang, e.message.empty() ? "admincall.needs" : "admincall.needs_msg",
                                            {{"who", who}, {"message", e.message}});
-    (void)ClientPrintChat(s, (kPrivatePrefix + line).c_str());
+    (void)SendToSlotChat(s, line.c_str());
     AdminCard card{e.player.name, label, e.message, now, now};
     std::lock_guard<std::mutex> lk(g_mu);
     g_cards[s] = std::move(card);

@@ -193,6 +193,17 @@ bool ClientPrintChat(int slot, const char* msg) {
   return true;
 }
 
+bool SendToSlotChat(int slot, const char* msg) {
+  if (!msg || !*msg || slot < 0) return false;
+  const ru_api* a = host::Api();
+  if (!a) return false;
+  if (host::OnGameThread()) return a->chat_to_slot_ex(a->self, slot, msg, 0) == 1;
+  host::RunOnGameThread([slot, m = std::string(msg)] {
+    if (const ru_api* x = host::Api()) x->chat_to_slot_ex(x->self, slot, m.c_str(), 0);
+  });
+  return true;
+}
+
 bool ClientPrintAvailable() {
   const ru_api* a = host::Api();
   if (a && host::OnGameThread()) return a->feature_state(a->self, "fn:UTIL_ClientPrintAll") == 1;
