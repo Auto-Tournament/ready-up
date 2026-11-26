@@ -442,8 +442,7 @@ void WarmupMenuTipTick() {
   text::ImportantAllFn(
       [holdTip](const std::string& lang) {
         return (holdTip ? text::ForLang(lang, "tip.ready_hold") + " " : std::string()) + text::ForLang(lang, "tip.menu");
-      },
-      0);
+      });
 }
 
 void HudOutdatedHoldTick() {

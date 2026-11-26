@@ -46,15 +46,6 @@ using Clock = std::chrono::steady_clock;
 constexpr int kMaxNamesPerSide = 6;
 constexpr size_t kMaxNameBytes = 12;
 
-// Palette (matches the welcome screen).
-constexpr const char* kCt = "#5EA8FF";
-constexpr const char* kT = "#FF9D3B";
-constexpr const char* kGold = "#FFD23F";
-constexpr const char* kGrey = "#8A8F98";
-constexpr const char* kDim = "#5B6068";
-constexpr const char* kOk = "#7CD35A";
-constexpr const char* kNo = "#F87171";
-
 struct Entry {
   uint64_t sid = 0;
   std::string name;
@@ -84,57 +75,8 @@ struct Board {
   std::string noteKey;  // hud.note_* (empty when none)
 };
 
-struct Sent {
-  std::string html;
-  Clock::time_point at{};
-};
-
-std::unordered_map<int, Sent> g_sent;  // GameFrame thread only
 Clock::time_point g_lastRun{};
 std::atomic<bool> g_showing{false};
-
-static std::string Esc(const std::string& in, size_t maxBytes) {
-  std::string s = in;
-  if (s.size() > maxBytes) {
-    size_t cut = maxBytes;
-    while (cut > 0 && (static_cast<unsigned char>(s[cut]) & 0xC0) == 0x80) --cut;
-    s.resize(cut);
-    s += "..";
-  }
-  std::string out;
-  out.reserve(s.size() + 8);
-  for (char c : s) {
-    switch (c) {
-      case '<': out += "&lt;"; break;
-      case '>': out += "&gt;"; break;
-      case '&': out += "&amp;"; break;
-      case '"': out += "&quot;"; break;
-      case '\'': out += "&#39;"; break;
-      default:
-        if (static_cast<unsigned char>(c) >= 0x20) out += c;
-        break;
-    }
-  }
-  return out;
-}
-
-static std::string Font(const char* color, const std::string& inner) {
-  return std::string("<font color='") + color + "'>" + inner + "</font>";
-}
-
-// A URL that can sit inside a single-quoted HTML attribute (http/https only).
-static std::string AttrSafeUrl(const std::string& url) {
-  if (url.empty() || url.size() > 300) return {};
-  if (url.rfind("https://", 0) != 0 && url.rfind("http://", 0) != 0) return {};
-  for (unsigned char c : url) {
-    if (c <= 0x20 || c == '\'' || c == '"' || c == '<' || c == '>' || c == '\\' || c >= 0x7F) return {};
-  }
-  return url;
-}
-
-static std::string Img(const std::string& url, int height) {
-  return "<img src='" + url + "' width='" + std::to_string(height) + "' height='" + std::to_string(height) + "'>";
-}
 
 static std::string NameOf(uint64_t sid, const std::unordered_map<uint64_t, std::string>& names) {
   auto it = names.find(sid);
@@ -254,54 +196,7 @@ static std::string MinSec(int secs) {
   return std::to_string(secs / 60) + ":" + (secs % 60 < 10 ? "0" : "") + std::to_string(secs % 60);
 }
 
-// Live map: pause state + countdowns, and the team-left forfeit countdown. No images (resent
-// every frame, docs/HUD.md). Empty when there is nothing to show.
-static std::string LiveHtml(const LiveHudInfo& l, const std::string& lang) {
-  std::string h;
-  auto mark = [&](bool ok, const std::string& n) { return Font(ok ? kOk : kDim, (ok ? "&#10004; " : "&#10006; ") + Esc(n, 16)); };
-  if (l.paused) {
-    if (l.type == "tactical") {
-      h += Font(kGold, "<b>" + T(lang, "hud.tactical_timeout") + "</b>");
-      if (!l.byTeam.empty()) h += "<br>" + Esc(l.byTeam, 24);
-    } else if (l.type == "technical") {
-      h += Font(kNo, "<b>" + T(lang, "hud.technical_pause") + "</b>");
-      if (!l.byTeam.empty()) h += " " + Font(kGrey, T(lang, "hud.by_team", {{"team", Esc(l.byTeam, 24)}}));
-      if (l.pendingFreeze) {
-        h += "<br>" + Font(kGrey, T(lang, "hud.pausing_at_freeze"));
-      } else if (l.secondsLeft >= 0) {
-        h += "<br>" + T(lang, "hud.auto_unpause_in", {{"time", MinSec(l.secondsLeft)}});
-      }
-      h += "<br>" + Font(kGrey, T(lang, l.bothRequired ? "hud.unpause_both" : "hud.unpause_pausing")) + "<br>" +
-           mark(l.team1Confirmed, l.team1) + " &#183; " + mark(l.team2Confirmed, l.team2);
-    } else if (l.type == "halftime" || l.type == "auto_5v5" || l.type == "restore" ||
-               l.type == "engine") {
-      // Pauses that belong to nobody (an engine pause, or a round restore): both teams resume
-      // them (match_features.h).
-      if (l.type == "halftime") {
-        h += Font(kGold, "<b>" + T(lang, "hud.halftime_pause") + "</b>");
-      } else if (l.type == "restore") {
-        h += Font(kGold, "<b>" + T(lang, "hud.round_restored") + "</b>");
-      } else if (l.type == "engine") {
-        h += Font(kNo, "<b>" + T(lang, "hud.game_paused") + "</b>");
-      } else {
-        h += Font(kNo, "<b>" + T(lang, "hud.not_5v5_paused") + "</b>");
-        if (!l.byTeam.empty()) h += "<br>" + Font(kGrey, T(lang, "hud.team_short", {{"team", Esc(l.byTeam, 24)}}));
-      }
-      h += "<br>" + Font(kGrey, T(lang, "hud.unpause_both")) + "<br>" + mark(l.team1Confirmed, l.team1) +
-           " &#183; " + mark(l.team2Confirmed, l.team2);
-    } else {
-      h += Font(kNo, "<b>" + T(lang, "hud.paused_by_admin") + "</b>") + "<br>" + Font(kGrey, T(lang, "hud.admin_unpauses"));
-    }
-  }
-  if (l.forfeit) {
-    if (!h.empty()) h += "<br>";
-    h += Font(kNo, "<b>" + T(lang, "hud.team_left", {{"team", Esc(l.forfeitTeam, 24)}}) + "</b>") + "<br>" +
-         T(lang, "hud.forfeit_in", {{"time", MinSec(l.forfeitSecondsLeft)}});
-  }
-  return h;
-}
-
-// ---- the clickable HUD (hud_screens.h): one spec per player, same data as the HTML above ------
+// ---- the clickable HUD (hud_screens.h): one spec per player --------------------------------
 
 static std::string L(const char* k, const std::string& v) { return std::string(k) + "=" + v + "\n"; }
 
@@ -493,21 +388,6 @@ std::atomic<bool> g_sendOk{true};
 // The HUD shows ready-up when hud.so draws its screens; else chat does (ChatUnlessHud).
 bool HudReplacesChat() { return HudEnabled() && HudScreensOn(); }
 
-std::string HudBrandHtml(int imgHeight, const char* fontClass) {
-  if (!FeatureEnabled(Feature::HudBrand)) return {};
-  const auto c = Cfg();
-  std::string h;
-  const std::string url = AttrSafeUrl(c.hud_logo_url);
-  if (!url.empty()) h += Img(url, std::max(8, std::min(128, imgHeight)));
-  if (!c.hud_brand.empty()) {
-    if (!h.empty()) h += " ";
-    h += "<font ";
-    if (fontClass && *fontClass) h += std::string("class='") + fontClass + "' ";
-    h += std::string("color='") + kGold + "'><b>" + Esc(c.hud_brand, 40) + "</b></font>";
-  }
-  return h;
-}
-
 bool ReadyHudShowing() {
   return g_showing.load(std::memory_order_relaxed) && HudEnabled();
 }
@@ -519,9 +399,8 @@ void ReadyHudTick() {
   g_lastRun = now;
 
   const bool enabled = HudEnabled();
-  if (!enabled) g_showing.store(false, std::memory_order_relaxed);
   if (!enabled) {
-    g_sent.clear();
+    g_showing.store(false, std::memory_order_relaxed);
     return;
   }
 
@@ -531,7 +410,6 @@ void ReadyHudTick() {
   enum class What { None, Ready, Knife, Live };
   What what = What::None;
   KnifeHudInfo knife;
-  bool liveShown = false;
   LiveHudInfo live;
   if (!enabled) {
     what = What::None;
@@ -558,8 +436,7 @@ void ReadyHudTick() {
     }
   } else if (mode == ReadyUpMode::MatchLive) {
     live = MatchFeaturesHud();
-    liveShown = !LiveHtml(live, "en").empty();  // the same for every language
-    if (liveShown) what = What::Live;
+    if (live.paused || live.forfeit) what = What::Live;  // a pause or a missing team
   }
 
   // The clickable HUD draws these screens (and menus and votes on top) when it can; the center
@@ -593,7 +470,6 @@ void ReadyHudTick() {
     // carry ready-up (ChatUnlessHud). The old centre HTML panel is gone (Sivert, 2026-11-25).
     g_showing.store(false, std::memory_order_relaxed);
   }
-  g_sent.clear();
 }
 
 }  // namespace readyup

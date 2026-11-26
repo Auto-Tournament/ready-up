@@ -1,7 +1,7 @@
 // Offline tests for the go-live card and `.admin` (readyup/card_html.h, readyup/admin_call_logic.h):
-// the card HTML (escaping, size, which commands show), the go-live card's every-tick resend and
-// its end (golive_card_logic.h), the admin card, the per-player cooldown,
-// the message cleanup, the call id / timestamp and the `admin_called` payload.
+// the cards' HUD specs (names, sides, no '|' or newlines leaking into a value), the go-live chat
+// commands line, the go-live card's every-tick resend and its end (golive_card_logic.h), the
+// per-player cooldown, the message cleanup, the call id / timestamp and the `admin_called` payload.
 // ctest `match_live_cards`.
 #include "readyup/admin_call_logic.h"
 #include "readyup/card_html.h"
@@ -27,53 +27,30 @@ static int g_checks = 0;
 
 static bool Has(const std::string& s, const std::string& sub) { return s.find(sub) != std::string::npos; }
 
-static void TestEscape() {
-  CHECK(CardHtmlEscape("a<b>&\"'c", 100) == "a&lt;b&gt;&amp;&quot;&#39;c");
-  CHECK(CardHtmlEscape("\x07red\x01 name", 100) == "red name");  // chat color bytes dropped
-  CHECK(CardHtmlEscape("abcdef", 3) == "abc...");
-  // "é" is two bytes: a cut inside it backs off to the character start.
-  CHECK(CardHtmlEscape("ab\xC3\xA9z", 3) == "ab...");
-}
 
 static void TestGoLiveCard() {
   GoLiveCardInfo m;
   m.team1 = "Team <A>";
-  m.team2 = "B & Co";
+  m.team2 = "B | Co\nX";
   m.team1Side = 2;  // team1 on T
   m.pauses = true;
-  const std::string h = GoLiveCardHtml(m);
-  CHECK(Has(h, "<b>LIVE</b>") && Has(h, "GO GO GO"));
-  CHECK(Has(h, "Team &lt;A&gt; (T)") && Has(h, "B &amp; Co (CT)"));
-  CHECK(!Has(h, "<A>"));
-  CHECK(Has(h, "#FF9D3B'>Team &lt;A&gt; (T)"));  // T orange
-  CHECK(Has(h, "#5EA8FF'>B &amp; Co (CT)"));     // CT blue
-  for (const char* cmd : {".p<", ".up<", ".tac<", ".admin<"}) CHECK(Has(h, cmd));
-  // Short forms only.
-  for (const char* cmd : {".pause<", ".tech<", ".unpause<"}) CHECK(!Has(h, cmd));
-  CHECK(GoLiveCommandsLine(m, false) == "Pause: .p | Unpause: .up | Timeout: .tac | Call an admin: .admin");
-  CHECK(h.size() < 1024);
+  const std::string s = GoLiveCardSpec(m);
+  CHECK(Has(s, "id=golive\n") && Has(s, "color=live\n"));
+  // Names as they are, the separator and newline gone; team1 on T, team2 on CT.
+  CHECK(Has(s, "vs=Team <A>|t|B  Co X|ct\n"));
+  CHECK(Has(s, "cmd=|.menu|in chat for commands\n"));
+  CHECK(GoLiveCommandsLine(m) == "Pause: .p | Unpause: .up | Timeout: .tac | Call an admin: .admin");
 
-  // Long names are cut: the card stays small.
-  GoLiveCardInfo big = m;
-  big.team1 = std::string(200, 'x');
-  big.team2 = std::string(200, '&');
-  CHECK(GoLiveCardHtml(big).size() < 1024);
-
-  // Scrim / no names: no matchup line; no match: only .admin.
-  GoLiveCardInfo s;
-  s.pauses = true;
-  const std::string hs = GoLiveCardHtml(s);
-  CHECK(!Has(hs, " vs ") && Has(hs, ".p<") && Has(hs, ".admin<"));
+  // Scrim / no names: no matchup line; no match: only .admin in chat.
   GoLiveCardInfo none;
-  const std::string hn = GoLiveCardHtml(none);
-  CHECK(!Has(hn, ".p<") && !Has(hn, ".tac<") && Has(hn, ".admin<"));
+  CHECK(!Has(GoLiveCardSpec(none), "vs="));
+  CHECK(GoLiveCommandsLine(none) == "Call an admin: .admin");
 
-  // Unknown side: names without (CT)/(T).
+  // Unknown side: no side on either name.
   GoLiveCardInfo u;
   u.team1 = "A";
   u.team2 = "B";
-  const std::string hu = GoLiveCardHtml(u);
-  CHECK(Has(hu, ">A</font>") && Has(hu, ">B</font>") && !Has(hu, "(CT)"));
+  CHECK(Has(GoLiveCardSpec(u), "vs=A||B|\n"));
 }
 
 // The go-live card re-sends every tick (hud_resend_ms=0) for all of golive_card_seconds: CS2's
@@ -141,12 +118,11 @@ static void TestGoLiveCardTiming() {
 }
 
 static void TestAdminCard() {
-  const std::string h = AdminCallCardHtml("<b>evil</b>", "Team A, CT", "bot is <stuck> & lagging");
-  CHECK(Has(h, "ADMIN CALLED"));
-  CHECK(Has(h, "&lt;b&gt;evil&lt;/b&gt; (Team A, CT) needs an admin"));
-  CHECK(Has(h, "bot is &lt;stuck&gt; &amp; lagging"));
-  CHECK(!Has(AdminCallCardHtml("n", "", ""), "()"));
-  CHECK(AdminCallCardHtml(std::string(300, 'n'), std::string(300, 't'), std::string(300, '<')).size() < 1024);
+  const std::string s = AdminCallCardSpec("evil|name", "Team A, CT", "bot is stuck\nand lagging");
+  CHECK(Has(s, "id=admincall\n") && Has(s, "where=card\n") && Has(s, "color=ban\n"));
+  CHECK(Has(s, "title=evilname (Team A, CT) needs an admin\n"));
+  CHECK(Has(s, "sub=bot is stuck and lagging\n"));
+  CHECK(!Has(AdminCallCardSpec("n", "", ""), "()") && !Has(AdminCallCardSpec("n", "", ""), "sub="));
 }
 
 static void TestCooldown() {
@@ -233,22 +209,20 @@ static void TestPayload() {
 static void TestResultCards() {
   ResultCardInfo m;
   m.team1 = "Alpha";
-  m.team2 = "Bravo <x>";
+  m.team2 = "Bravo";
   m.winner = "team2";
   m.team1Score = 5;
   m.team2Score = 7;
   m.mapNumber = 2;
   m.mapName = "de_mirage";
   m.nextMap = "de_inferno";
-  const std::string map = MapResultCardHtml(m);
-  CHECK(Has(map, "MAP 2 &#183; Mirage"));
-  CHECK(Has(map, "<b>Bravo &lt;x&gt;</b>") && Has(map, " wins the map"));
-  CHECK(Has(map, "<b>5 - 7</b>") && Has(map, "Next: Inferno"));
-  CHECK(map.size() < 1024);
+  const std::string map = MapResultCardSpec(m);
+  CHECK(Has(map, "id=mapresult\n") && Has(map, "Mirage\n"));
+  CHECK(Has(map, "title=Bravo wins the map\n") && Has(map, "sub=5 - 7\n") && Has(map, "hint=Next: Inferno\n"));
 
   m.winner = "";
   m.nextMap = "";
-  CHECK(Has(MapResultCardHtml(m), "MAP DRAWN") && !Has(MapResultCardHtml(m), "Next:"));
+  CHECK(Has(MapResultCardSpec(m), "title=Map drawn\n") && !Has(MapResultCardSpec(m), "hint="));
 
   ResultCardInfo s;
   s.team1 = "Alpha";
@@ -256,19 +230,17 @@ static void TestResultCards() {
   s.winner = "team1";
   s.team1Score = 2;
   s.team2Score = 1;
-  const std::string series = SeriesResultCardHtml(s);
-  CHECK(Has(series, "<b>Alpha</b>") && Has(series, "WINS THE SERIES") && Has(series, "<b>2 - 1</b>"));
+  CHECK(Has(SeriesResultCardSpec(s), "title=Alpha wins the series\n") && Has(SeriesResultCardSpec(s), "sub=2 - 1\n"));
   s.forfeit = true;
-  CHECK(Has(SeriesResultCardHtml(s), "by forfeit"));
+  CHECK(Has(SeriesResultCardSpec(s), "sub=by forfeit\n"));
   s.winner = "";
-  CHECK(Has(SeriesResultCardHtml(s), "SERIES DRAWN"));
+  CHECK(Has(SeriesResultCardSpec(s), "title=Series drawn\n"));
   ResultCardInfo blank;
   blank.winner = "team1";
-  CHECK(Has(SeriesResultCardHtml(blank), "<b>Team 1</b>"));
+  CHECK(Has(SeriesResultCardSpec(blank), "title=Team 1 wins the series\n"));
 }
 
 int main() {
-  TestEscape();
   TestResultCards();
   TestGoLiveCard();
   TestGoLiveCardTiming();

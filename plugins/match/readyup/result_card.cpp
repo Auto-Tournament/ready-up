@@ -20,7 +20,7 @@ namespace {
 
 struct Card {
   ResultCardBuild build;
-  std::unordered_map<std::string, std::pair<std::string, std::string>> byLang;  // html, spec
+  std::unordered_map<std::string, std::string> byLang;  // spec
   int64_t untilMs = 0;
   int64_t lastSendMs = 0;
 };
@@ -65,24 +65,21 @@ void ResultCardTick() {
     g_card.lastSendMs = now;
     build = g_card.build;
   }
-  const bool screensOn = HudScreensOn();
+  // The card is the clickable HUD's; without it the result is in chat (match_end.cpp).
+  if (!HudScreensOn()) return;
   for (const auto& h : ListHumans()) {
     const int slot = h.slot >= 0 ? h.slot : h.userid;
     if (h.steamid64 == 0 || slot < 0 || slot > 63) continue;
     if (AdminCallCardActiveFor(slot)) continue;
     const std::string lang = i18n::LanguageOf(host::Api(), slot);
-    std::pair<std::string, std::string> card;
+    std::string spec;
     {
       std::lock_guard<std::mutex> lk(g_mu);
       auto it = g_card.byLang.find(lang);
       if (it == g_card.byLang.end()) it = g_card.byLang.emplace(lang, build(lang)).first;
-      card = it->second;
+      spec = it->second;
     }
-    const std::string& html = card.first;
-    const std::string& spec = card.second;
-    const bool screens = screensOn && !spec.empty();
-    if (screens) HudScreensNotice(slot, spec, 1.0);
-    else (void)SendCenterHtml(slot, html, Cfg().hud_duration_s, RU_HTML_PRIO_NOTICE);
+    if (!spec.empty()) HudScreensNotice(slot, spec, 1.0);
   }
 }
 

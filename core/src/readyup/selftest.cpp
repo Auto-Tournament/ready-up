@@ -329,7 +329,7 @@ void AddPluginsAndHud(Report& r) {
     for (const auto& d : plugins::NeedsDisabledPlugins()) r.Check("WARN", d.name + ": disabled", d.reason);
   }
 
-  // (The database, ready HUD and hud brand lines come from plugins/match:
+  // (The database and ready HUD lines come from plugins/match:
   // "readyup.selftest.match", in the [plugins] section above.)
 }
 

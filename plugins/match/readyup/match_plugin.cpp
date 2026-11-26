@@ -476,8 +476,6 @@ const ru_match_v1 g_matchIface = {sizeof(ru_match_v1), &GetStatus,      &Invento
 std::atomic<int> g_hudShowing{0}, g_hudFeature{0};
 // -allow_round_backup_files on this process's command line: -1 not read (or no /proc), 0 missing, 1 present.
 std::atomic<int> g_backupFlag{-1};
-std::mutex g_brandMu;
-std::string g_brandLine;
 
 void RunSelftest(ru_selftest_add_fn add, void* ctx) {
   // Any thread, must not block: report what the game thread / workers cached.
@@ -498,8 +496,6 @@ void RunSelftest(ru_selftest_add_fn add, void* ctx) {
          restore::BackupFlagHint())
             .c_str());
   }
-  std::lock_guard<std::mutex> lk(g_brandMu);
-  add(ctx, "INFO", "hud brand", g_brandLine.c_str());
 }
 const ru_selftest_iface_v1 g_selftestIface = {sizeof(ru_selftest_iface_v1), &RunSelftest};
 
@@ -519,16 +515,6 @@ void SelftestRefresh(double now) {
       std::fclose(f);
       if (!raw.empty()) g_backupFlag.store(restore::CmdlineHasArg(raw, restore::kRoundBackupFlag) ? 1 : 0);
     }
-  }
-  const auto c = Cfg();
-  const std::string header = HudBrandHtml(24, "fontSize-l");
-  char buf[512];
-  std::snprintf(buf, sizeof(buf), "hud_brand=\"%s\" hud_logo_url=%s -> header %zu bytes%s", c.hud_brand.c_str(),
-                c.hud_logo_url.empty() ? "(none)" : c.hud_logo_url.c_str(), header.size(),
-                !c.hud_logo_url.empty() && header.find("<img") == std::string::npos ? " (logo url rejected)" : "");
-  {
-    std::lock_guard<std::mutex> lk(g_brandMu);
-    g_brandLine = buf;
   }
 }
 

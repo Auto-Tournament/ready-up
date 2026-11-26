@@ -183,35 +183,24 @@ void GoLiveCardTick() {
   int humans = 0;
   int ok = 0;
   std::unordered_map<int, std::string> skipped;
-  std::unordered_map<std::string, std::pair<std::string, std::string>> byLang;  // lang -> html, spec
-  size_t htmlBytes = 0;
+  std::unordered_map<std::string, std::string> byLang;  // lang -> spec
   for (const auto& h : ListHumans()) {
     const int slot = h.slot >= 0 ? h.slot : h.userid;
     if (h.steamid64 == 0 || slot < 0 || slot > 63) continue;
     ++humans;
     const std::string lang = i18n::LanguageOf(host::Api(), slot);
     auto card = byLang.find(lang);
-    if (card == byLang.end()) card = byLang.emplace(lang, std::make_pair(GoLiveCardHtml(info, lang), GoLiveCardSpec(info, lang))).first;
-    const std::string& html = card->second.first;
-    const std::string& spec = card->second.second;
-    htmlBytes = html.size();
+    if (card == byLang.end()) card = byLang.emplace(lang, GoLiveCardSpec(info, lang)).first;
+    const std::string& spec = card->second;
     // Another card of ours owns this player's panel right now.
     const char* skip = AdminCallCardActiveFor(slot)              ? ".admin call card"
                        : WelcomeActiveFor(slot, h.steamid64)     ? "welcome card"
                                                                  : nullptr;
-    if (!skip && screens) {
-      // HUD off (.hud off): no card; modes.cpp sends them the go-live lines in chat.
-      if (!HudOffFor(h.steamid64)) HudScreensNotice(slot, spec, 1.0);
+    if (!skip) {
+      // No HUD, or HUD off (.hud off): no card; modes.cpp sends them the go-live lines in chat.
+      if (screens && !HudOffFor(h.steamid64)) HudScreensNotice(slot, spec, 1.0);
       ++ok;
       continue;
-    }
-    if (!skip) {
-      const int sent = SendCenterHtml(slot, html, Cfg().hud_duration_s, RU_HTML_PRIO_NOTICE);
-      if (sent == 1) {
-        ++ok;
-        continue;
-      }
-      skip = sent < 0 ? "a higher-priority panel is up" : "center HTML unavailable";
     }
     skipped[slot] = skip;
   }
@@ -233,16 +222,16 @@ void GoLiveCardTick() {
 
   if (!first) return;
   if (DebugEnabled()) {
-    Debug("golive-card: showing (%s) to %d/%d players (%zu bytes html)\n", reason.c_str(), ok, humans, htmlBytes);
+    Debug("golive-card: showing (%s) to %d/%d players\n", reason.c_str(), ok, humans);
   }
   // The same commands in chat too, once at go-live: they stay there to look up after the card is
   // gone (and they are the only copy when center HTML is unavailable).
   // Not with the HUD's LIVE card: it lists them, and the chat burst was too much (2026-11-24).
   if (humans > 0 && !screens) {
-    if (!GoLiveCommandsLine(info, /*html=*/false).empty()) {
+    if (!GoLiveCommandsLine(info).empty()) {
       host::RunOnGameThread([info] {
         if (const ru_api* a = host::Api())
-          i18n::ChatAll(a, 0, [&](const std::string& lang) { return GoLiveCommandsLine(info, /*html=*/false, lang); });
+          i18n::ChatAll(a, 0, [&](const std::string& lang) { return GoLiveCommandsLine(info, lang); });
       });
     }
   }
