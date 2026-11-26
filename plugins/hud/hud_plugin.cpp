@@ -463,8 +463,11 @@ int IfSetText(int hud, int slot, const char* panel, const char* var, const char*
 
 int IfSetClass(int hud, int slot, const char* panel, const char* cls, int on) {
   // HUD off for this player: nothing new is shown, but what was up can still be taken away (the
-  // Hold E chip stayed on screen when the off write was blocked too, 2026-11-24).
-  if (SlotOff(slot) && on) return 1;
+  // Hold E chip stayed on screen when the off write was blocked too, 2026-11-24). The ram badge and
+  // the "PLAYED ON AUTO TOURNAMENT" watermark are not HUD but the server's mark, so they stay: their
+  // `on` was blocked, so the buy menu hid them for good for a chat-only player (2026-11-26).
+  const bool brand = panel && (std::strcmp(panel, "ui_wm") == 0 || std::strcmp(panel, "ui_badge") == 0);
+  if (SlotOff(slot) && on && !brand) return 1;
   Layout* l = LayoutOf(hud);
   if (!l || !panel || !cls || slot < RU_HUD_ALL || slot > 63) return 0;
   const Key k{panel, cls};
@@ -1194,7 +1197,7 @@ void DevBuildTick() {
 // - alive on T or CT: the badge, the watermark either side of it (`on` on both);
 // - watching a player (in-eye or chase): CS2's spectator bar, with the watched player's avatar in
 //   that circle, so no badge and the watermark on one line above the bar (`spec` on ui_wm);
-// - else (team select, the death cam, free roam, the buy menu open): neither.
+// - else (team select, the death cam, free roam): neither. The buy menu hides them in the CSS.
 // Sent on a change, and again every 3 s in case the layout entity was recreated.
 namespace badge {
 struct Off {
@@ -1264,7 +1267,7 @@ void BadgeTick() {
       if (alive) state = 1;
       else if (badge::Watching(ctrl)) state = 2;
     }
-    if (g_buyOpen.count(slot)) state = 0;  // the buy menu covers the bottom bar (fades out, then back in)
+    // The buy menu hides both on the client (at_ui.css, HUD_BUYMENU_VISIBLE): at once, no round trip.
     if (state == last[slot] && !all) continue;
     last[slot] = state;
     IfSetClass(h, slot, "ui_badge", "on", state == 1 ? 1 : 0);
