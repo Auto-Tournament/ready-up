@@ -347,9 +347,7 @@ void OnGameEvent(void*, const char* name, const ru_game_event* ev) {
     const int victim = a->ev_get_player_slot(a->self, ev, "userid");
     const int attacker = a->ev_get_player_slot(a->self, ev, "attacker");
     const int dmg = a->ev_get_int(a->self, ev, "dmg_health", 0);
-    const char* weapon = a->ev_get_string ? a->ev_get_string(a->self, ev, "weapon", "") : "";
-    const bool burn = weapon && std::strcmp(weapon, "inferno") == 0;
-    g_ledger.OnHurt(attacker, victim, dmg, a->ev_get_int(a->self, ev, "health", 0), burn);
+    g_ledger.OnHurt(attacker, victim, dmg, a->ev_get_int(a->self, ev, "health", 0));
     if (attacker >= 0 && victim >= 0 && attacker != victim && dmg > 0) {
       const int ta = TeamOf(attacker), tv = TeamOf(victim);
       if ((ta == 2 || ta == 3) && (tv == 2 || tv == 3) && ta != tv) g_enemyDamage = true;
