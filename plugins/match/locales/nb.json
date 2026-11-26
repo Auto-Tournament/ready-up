@@ -546,6 +546,7 @@
   "end.col8_body": "Det første drapet i en runde",
   "knife.captain_only": "bare kapteinen din velger side.",
   "tip.menu": "trenger du pause, en admin eller vil gi opp? Skriv .menu",
+  "tip.commands": "Kommandoer: .r klar · .p teknisk pause · .tac timeout · .gg gi opp · .admin tilkall admin · .hud HUD",
   "tip.ready_hold": "Hold E for å melde klar.",
   "notice.winners_stay": "Knivvinnerne blir {side}",
   "notice.winners_start": "Knivvinnerne starter {side}",

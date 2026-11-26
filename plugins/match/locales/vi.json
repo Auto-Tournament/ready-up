@@ -537,6 +537,7 @@
   "end.col8_body": "Pha hạ gục đầu tiên của hiệp",
   "knife.captain_only": "chỉ đội trưởng của bạn chọn phe.",
   "tip.menu": "cần tạm dừng, gọi admin hay đầu hàng? Gõ .menu",
+  "tip.commands": "Lệnh: .r sẵn sàng · .p tạm dừng kỹ thuật · .tac hội ý · .gg đầu hàng · .admin gọi admin · .hud HUD",
   "tip.ready_hold": "Giữ E để sẵn sàng.",
   "notice.winners_stay": "Đội thắng dao giữ {side}",
   "notice.winners_start": "Đội thắng dao bắt đầu {side}",

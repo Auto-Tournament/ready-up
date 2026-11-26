@@ -537,6 +537,7 @@
   "end.col8_body": "การฆ่าครั้งแรกของรอบ",
   "knife.captain_only": "มีแค่กัปตันของคุณที่เลือกฝั่ง",
   "tip.menu": "ต้องการพัก เรียกแอดมิน หรือยอมแพ้? พิมพ์ .menu",
+  "tip.commands": "คำสั่ง: .r พร้อม · .p หยุดเทคนิค · .tac ไทม์เอาต์ · .gg ยอมแพ้ · .admin เรียกแอดมิน · .hud HUD",
   "tip.ready_hold": "กด E ค้างไว้เพื่อพร้อม",
   "notice.winners_stay": "ผู้ชนะรอบมีดอยู่ฝั่ง {side}",
   "notice.winners_start": "ผู้ชนะรอบมีดเริ่มฝั่ง {side}",

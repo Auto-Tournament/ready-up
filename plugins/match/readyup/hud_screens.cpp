@@ -436,13 +436,25 @@ void WarmupMenuTipTick() {
   }
   if (now < next) return;
   next = now + 60;
-  // Star lines (chat only), one per sentence: "Hold E to ready up." (with the HUD's chip; Sivert,
-  // 2026-11-24) and the .menu tip.
-  const bool holdTip = HudScreensOn() && GetMode() == ReadyUpMode::MatchWarmup;
-  text::ImportantAllFn(
-      [holdTip](const std::string& lang) {
-        return (holdTip ? text::ForLang(lang, "tip.ready_hold") + " " : std::string()) + text::ForLang(lang, "tip.menu");
-      });
+  // Star lines (chat only), one per sentence, per player. With the HUD: "Hold E to ready up." (the
+  // HUD's chip; Sivert, 2026-11-24) and the .menu tip. Without it (`.hud off`, the platform's
+  // chat-only setting, or no hud.so): the commands themselves, as before the HUD. Holding E and
+  // .menu are HUD things, and .menu without hud.so is no command at all.
+  const bool hud = HudScreensOn();
+  const bool holdTip = hud && GetMode() == ReadyUpMode::MatchWarmup;
+  host::RunOnGameThread([hud, holdTip] {
+    const ru_api* a = host::Api();
+    if (!a) return;
+    for (const auto& p : ListHumans()) {
+      const int slot = p.slot >= 0 ? p.slot : p.userid;
+      if (slot < 0) continue;
+      const std::string line = !hud || HudOffFor(p.steamid64)
+                                   ? text::For(slot, "tip.commands")
+                                   : (holdTip ? text::For(slot, "tip.ready_hold") + " " : std::string()) +
+                                         text::For(slot, "tip.menu");
+      a->chat_to_slot_ex(a->self, slot, line.c_str(), RU_CHAT_IMPORTANT);
+    }
+  });
 }
 
 void HudOutdatedHoldTick() {

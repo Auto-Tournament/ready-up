@@ -546,6 +546,7 @@
   "end.col8_body": "Rauntun ilk leşi",
   "knife.captain_only": "tarafı yalnızca kaptanın seçer.",
   "tip.menu": "mola, admin ya da pes mi? .menu yaz",
+  "tip.commands": "Komutlar: .r hazır · .p teknik mola · .tac mola · .gg pes et · .admin admin çağır · .hud HUD",
   "tip.ready_hold": "Hazır olmak için E'yi basılı tut.",
   "notice.winners_stay": "Bıçak kazananları {side} kalıyor",
   "notice.winners_start": "Bıçak kazananları {side} başlıyor",

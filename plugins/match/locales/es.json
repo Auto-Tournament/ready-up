@@ -546,6 +546,7 @@
   "end.col8_body": "La primera baja de una ronda",
   "knife.captain_only": "solo tu capitán elige el lado.",
   "tip.menu": "¿necesitas una pausa, un admin o rendirte? Escribe .menu",
+  "tip.commands": "Comandos: .r listo · .p pausa técnica · .tac tiempo muerto · .gg rendirse · .admin llamar admin · .hud HUD",
   "tip.ready_hold": "Mantén E para estar listo.",
   "notice.winners_stay": "Los ganadores del cuchillo se quedan en {side}",
   "notice.winners_start": "Los ganadores del cuchillo empiezan en {side}",

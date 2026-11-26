@@ -537,6 +537,7 @@
   "end.col8_body": "ラウンド最初のキル",
   "knife.captain_only": "サイドを選べるのはキャプテンだけです。",
   "tip.menu": "一時停止、管理者、降参は .menu から",
+  "tip.commands": "コマンド: .r 準備完了 · .p 技術的ポーズ · .tac タイムアウト · .gg 降参 · .admin 管理者を呼ぶ · .hud HUD",
   "tip.ready_hold": "E長押しで準備完了。",
   "notice.winners_stay": "ナイフラウンドの勝者は{side}のまま",
   "notice.winners_start": "ナイフラウンドの勝者は{side}から開始",

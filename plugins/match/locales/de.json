@@ -546,6 +546,7 @@
   "end.col8_body": "Der erste Kill einer Runde",
   "knife.captain_only": "nur dein Kapitän wählt die Seite.",
   "tip.menu": "Pause, Admin oder aufgeben? Schreib .menu",
+  "tip.commands": "Befehle: .r bereit · .p Technikpause · .tac Timeout · .gg aufgeben · .admin Admin rufen · .hud HUD",
   "tip.ready_hold": "Halte E, um bereit zu sein.",
   "notice.winners_stay": "Messer-Gewinner bleiben {side}",
   "notice.winners_start": "Messer-Gewinner starten {side}",

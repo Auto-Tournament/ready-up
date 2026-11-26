@@ -560,6 +560,7 @@
   "end.col8_body": "Pierwsze zabójstwo w rundzie",
   "knife.captain_only": "tylko twój kapitan wybiera stronę.",
   "tip.menu": "potrzebujesz pauzy, admina lub chcesz się poddać? Wpisz .menu",
+  "tip.commands": "Komendy: .r gotowy · .p pauza techniczna · .tac przerwa · .gg poddanie · .admin wezwij admina · .hud HUD",
   "tip.ready_hold": "Przytrzymaj E, aby być gotowym.",
   "notice.winners_stay": "Zwycięzcy noży zostają {side}",
   "notice.winners_start": "Zwycięzcy noży zaczynają {side}",

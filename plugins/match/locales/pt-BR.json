@@ -546,6 +546,7 @@
   "end.col8_body": "O primeiro abate de um round",
   "knife.captain_only": "só o seu capitão escolhe o lado.",
   "tip.menu": "precisa de pausa, de um admin ou desistir? Digite .menu",
+  "tip.commands": "Comandos: .r pronto · .p pausa técnica · .tac tempo · .gg desistir · .admin chamar admin · .hud HUD",
   "tip.ready_hold": "Segure E para ficar pronto.",
   "notice.winners_stay": "Vencedores da faca ficam {side}",
   "notice.winners_start": "Vencedores da faca começam {side}",

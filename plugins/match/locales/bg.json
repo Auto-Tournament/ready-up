@@ -546,6 +546,7 @@
   "end.col8_body": "Първото убийство в рунда",
   "knife.captain_only": "само капитанът ти избира страна.",
   "tip.menu": "пауза, админ или отказване? Напиши .menu",
+  "tip.commands": "Команди: .r готов · .p тех. пауза · .tac таймаут · .gg предаване · .admin админ · .hud HUD",
   "tip.ready_hold": "Задръжте E, за да сте готови.",
   "notice.winners_stay": "Победителите с нож остават {side}",
   "notice.winners_start": "Победителите с нож започват {side}",

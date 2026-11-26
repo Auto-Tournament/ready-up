@@ -546,6 +546,7 @@
   "end.col8_body": "La prima kill di un round",
   "knife.captain_only": "solo il tuo capitano sceglie il lato.",
   "tip.menu": "serve una pausa, un admin o arrenderti? Scrivi .menu",
+  "tip.commands": "Comandi: .r pronto · .p pausa tecnica · .tac timeout · .gg arrendersi · .admin chiama un admin · .hud HUD",
   "tip.ready_hold": "Tieni premuto E per essere pronto.",
   "notice.winners_stay": "I vincitori del coltello restano {side}",
   "notice.winners_start": "I vincitori del coltello iniziano {side}",
