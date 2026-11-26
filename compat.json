@@ -5,17 +5,17 @@
   "patch": "1.42.0.1"
  },
  "readyup": {
-  "version": "0.1.0-beta.70-dev.6287493",
-  "commit": "6287493a726bb9296763c79f2f6f029658136b08"
+  "version": "0.1.0-beta.70-dev.fd2f51a",
+  "commit": "fd2f51a1931dfac4d3db99e7e6bd3baf17673ad2"
  },
  "run": {
-  "id": "45889438898",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/45889438898",
-  "trigger": "build_change",
+  "id": "45899256505",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/45899256505",
+  "trigger": "code_change",
   "stage": "live",
   "state": "warn",
-  "started_at": "2026-11-26T20:13:26Z",
-  "finished_at": "2026-11-26T20:35:40Z"
+  "started_at": "2026-11-26T21:36:09Z",
+  "finished_at": "2026-11-26T21:57:28Z"
  },
  "overall": "warn",
  "components": [
@@ -890,7 +890,23 @@
      ]
     }
    ]
+  },
+  {
+   "id": "playersettings",
+   "name": "Player settings",
+   "status": "fail",
+   "checks": [
+    {
+     "kind": "selftest",
+     "status": "fail",
+     "passed": 0,
+     "total": 1,
+     "failures": [
+      "not loaded (not in the plugin host's list)"
+     ]
+    }
+   ]
   }
  ],
- "checked_at": "2026-11-26T20:35:40Z"
+ "checked_at": "2026-11-26T21:57:28Z"
 }
