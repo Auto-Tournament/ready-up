@@ -52,6 +52,7 @@ bool g_epCleared = false;                         // this window already sent mp
 double g_epNextAt = 0;
 double g_epUnmarkedSince = 0;  // engine paused, no Ready Up pause, since (0: not)
 double g_epEngineFreeSince = 0;  // an "engine" pause recorded, engine not paused, since (0: not)
+double g_playedOnSince = 0;      // a pause recorded, a round's freeze time ended since, engine not paused
 double g_effectiveAt = 0;  // technical: when the pause took effect (0 = waiting for freeze time)
 int g_rsSeqAtPause = 0;
 int g_feSeqAtPause = 0;
@@ -641,12 +642,25 @@ void MatchFeaturesTick() {
     g_auto5v5FullSince = 0;
   }
   int secondsLeft = -1;
+  // A pause holds freeze time, so a round being played means the game was unpaused without Ready
+  // Up (the console, another plugin, a failover resume): the pause is over, and the platform stops
+  // showing it (Vikunja 1828). The engine check keeps a pause that still waits for the next freeze
+  // time (mp_pause_match sent in the tick the freeze ended).
+  const bool playedOn =
+      ps.paused && g_freezeEndSeq.load() != g_feSeqAtPause && !g_inFreeze.load() && EngineMatchPaused() == 0;
+  if (!playedOn) g_playedOnSince = 0;
   if (ps.paused) {
     if (g_effectiveAt == 0 && g_roundStartSeq.load() != g_rsSeqAtPause) g_effectiveAt = now;
     if (ps.type == "tactical" && g_freezeEndSeq.load() != g_feSeqAtPause) {
       Unpause("tactical timeout over");
     } else if (ps.type == "auto_5v5" && g_freezeEndSeq.load() != g_feSeqAtPause) {
       Unpause("freeze time ended: the engine is not paused (auto_5v5)");
+    } else if (playedOn) {
+      if (g_playedOnSince == 0) g_playedOnSince = now;
+      if (now - g_playedOnSince >= 1.0) {
+        g_playedOnSince = 0;
+        Unpause("a round is being played: the game was unpaused outside Ready Up");
+      }
     } else if (ps.type == "auto_5v5" && LiveMap()) {
       // The player is back (or the wait is over): on with the round, nobody has to .unpause.
       if (now >= g_auto5v5CountAt) {
