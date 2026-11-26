@@ -71,9 +71,10 @@ int main() {
     many.items.push_back(it);
   }
   const std::string p2 = GridSpec(many, "all", 1, tr);
-  CHECK(Has(p2, "#pick 13|") && !Has(p2, "#pick 12|") && !Has(p2, "#pick 25|"));
+  // Eight a page (two rows of four): page 2 is items 9..16.
+  CHECK(Has(p2, "#pick 9|") && Has(p2, "#pick 16|") && !Has(p2, "#pick 8|") && !Has(p2, "#pick 17|"));
   CHECK(Has(p2, "#page 0\n") && Has(p2, "#page 2\n"));
-  CHECK(Has(GridSpec(many, "all", 9, tr), "#pick 25|"));  // past the end: the last page
+  CHECK(Has(GridSpec(many, "all", 9, tr), "#pick 25|"));  // past the end: the last page (25..30)
 
   // Detail: both sides buy the AWP: CT, T, Both (equipped for both: all picked), Unequip.
   const std::string awp = DetailSpec(inv.items[0], false, tr);

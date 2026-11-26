@@ -1137,11 +1137,11 @@
 .ui-inv .ui-tabcount { margin-right: 25px; font-family: "Noto Mono"; font-size: 15px; color: #938a87; }
 
 /* The main column: title and hint, the grid, the footer. */
-.ui-invmain { flow-children: down; width: 868px; height: 100%; padding: 28px 31px 22px 31px; }
-.ui-invtop { flow-children: right; width: 100%; height: 36px; }
+.ui-invmain { flow-children: down; width: 868px; height: 100%; padding: 28px 29px 22px 29px; }
+.ui-invtop { width: 100%; height: 36px; }
 .ui-inv .ui-title { visibility: visible; horizontal-align: left; vertical-align: bottom; margin: 0px; font-size: 25px; font-weight: bold; color: #f4edeb; text-align: left; }
-.ui-inv .ui-sub { visibility: visible; horizontal-align: right; vertical-align: bottom; margin: 0px; font-size: 17px; color: #938a87; }
-.ui-inv .ui-buttons { visibility: visible; flow-children: right-wrap; width: 100%; height: fill-parent-flow( 1 ); margin-top: 20px; horizontal-align: left; }
+.ui-inv .ui-sub { visibility: visible; width: fit-children; horizontal-align: right; vertical-align: bottom; margin: 0px; font-size: 17px; color: #938a87; text-align: right; }
+.ui-inv .ui-buttons { visibility: visible; flow-children: right-wrap; width: 810px; height: fill-parent-flow( 1 ); margin-top: 20px; horizontal-align: left; }
 .ui-inv .ui-btn { margin: 0px 14px 14px 0px; }
 .ui-inv .ui-btn.has-img
 {
@@ -1189,13 +1189,17 @@
 .ui-invd .ui-title { visibility: visible; horizontal-align: left; margin: 6px 0px 0px 0px; text-align: left; font-size: 31px; font-weight: bold; color: #f4edeb; }
 .ui-invd .ui-sub { visibility: visible; horizontal-align: left; margin: 6px 0px 0px 0px; font-family: "Noto Mono"; font-size: 17px; color: #c4bcb9; }
 .ui-invd .ui-lines { visibility: visible; width: 100%; margin: 6px 0px 0px 0px; }
-.ui-invd .ui-row { flow-children: right; width: 100%; margin: 0px; }
+.ui-invd .ui-row { flow-children: right; width: fit-children; horizontal-align: left; margin: 0px; }
 .ui-invd .ui-row.gone { visibility: collapse; }
 .ui-invd .ui-rowk { font-size: 17px; color: #938a87; margin-right: 8px; }
-.ui-invd .ui-rowv { font-size: 17px; color: #938a87; }
+.ui-invd .ui-rowv { width: fit-children; horizontal-align: left; margin: 0px; font-size: 17px; font-weight: normal; color: #938a87; }
 .ui-invd .ui-counter { visibility: visible; horizontal-align: left; margin: 22px 0px 11px 0px; font-family: "Noto Sans"; font-size: 17px; font-weight: bold; letter-spacing: 1.4px; color: #938a87; text-transform: uppercase; }
 .ui-invd .ui-buttons { visibility: visible; flow-children: right-wrap; width: 100%; margin: 0px; horizontal-align: left; }
-.ui-invd .ui-btn { width: 157px; height: 62px; margin: 0px 11px 11px 0px; border-radius: 6px; transform: none; }
+.ui-invd .ui-btn { width: 156px; height: 62px; margin: 0px 11px 11px 0px; border-radius: 6px; transform: none; }
+/* The draft's T is CS2's yellow with dark text (the shared t-t tone is red). */
+.ui-invd .ui-btn.t-t { background-color: #e6b33c; border: 2px solid #e6b33c; }
+.ui-invd .ui-btn.t-t:hover { background-color: #efc764; border: 2px solid #efc764; }
+.ui-invd .t-t .ui-btnlabel { color: #140e0c; }
 .ui-invd .ui-btn:hover { transform: none; }
 #ui_invd_b2, #ui_invd_b5 { margin-right: 0px; }
 .ui-invd .ui-btn.picked { transform: none; border: 2px solid #f4edeb; }

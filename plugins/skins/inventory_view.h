@@ -44,7 +44,7 @@ std::string WearShort(double f);
 // Text by key in the player's language (the plugin's catalog), with {placeholders}.
 using Text = std::function<std::string(const std::string& key, const std::vector<std::pair<std::string, std::string>>& args)>;
 
-constexpr int kTilesPerPage = 12;
+constexpr int kTilesPerPage = 8;  // two rows of four, as drafted
 constexpr int kCols = 4;
 
 // The grid screen (hud_screen.h spec): tabs, a page of tiles, paging, close. Clicks come back as
