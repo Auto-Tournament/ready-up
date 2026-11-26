@@ -258,28 +258,7 @@ void Collect(Json* sOut, Json* stOut, bool* safeOut) {
 
   int ready = 0, readyTotal = 0;
   if (ctx) {
-    // Per team, ready players up to a full team over the full team: substitutes never count toward
-    // the players the match waits for (match_rules.h TeamReadyTally).
-    int teamRoster[2] = {0, 0}, teamReady[2] = {0, 0}, teamPresent[2] = {0, 0}, teamPresentReady[2] = {0, 0};
-    for (const auto& kv : ctx->roster_team) {
-      if (!kv.first) continue;
-      const int t = kv.second == WebhookTeam::Team2 ? 1 : 0;
-      ++teamRoster[t];
-      const bool ready = IsReady(kv.first);
-      if (ready) ++teamReady[t];
-      if (humanBy.count(kv.first)) {
-        ++teamPresent[t];
-        if (ready) ++teamPresentReady[t];
-      }
-    }
-    for (int t = 0; t < 2; ++t) {
-      // Bot fill: the connected humans only (match_rules.h BotFillReadyTally).
-      const ReadyTally tally = ctx->bot_fill
-                                   ? BotFillReadyTally(teamPresent[t], teamPresentReady[t])
-                                   : TeamReadyTally(teamRoster[t], teamReady[t], ctx->players_per_team);
-      ready += tally.ready;
-      readyTotal += tally.total;
-    }
+    MatchReadyCount(*ctx, &ready, &readyTotal);
   } else {
     for (const auto& h : humans) {
       if (h.team != 2 && h.team != 3) continue;
@@ -541,6 +520,35 @@ status::Json MatchStatusStateJson() {
   bool safe = true;
   Collect(&s, &st, &safe);
   return st;
+}
+
+void MatchReadyCount(const WebhookMatchContext& ctx, int* readyOut, int* totalOut) {
+  std::unordered_map<uint64_t, bool> here;
+  for (const auto& h : ListHumans()) here[h.steamid64] = true;
+  // Per team, ready players up to a full team over the full team: substitutes never count toward
+  // the players the match waits for (match_rules.h TeamReadyTally).
+  int teamRoster[2] = {0, 0}, teamReady[2] = {0, 0}, teamPresent[2] = {0, 0}, teamPresentReady[2] = {0, 0};
+  for (const auto& kv : ctx.roster_team) {
+    if (!kv.first) continue;
+    const int t = kv.second == WebhookTeam::Team2 ? 1 : 0;
+    ++teamRoster[t];
+    const bool ready = IsReady(kv.first);
+    if (ready) ++teamReady[t];
+    if (here.count(kv.first)) {
+      ++teamPresent[t];
+      if (ready) ++teamPresentReady[t];
+    }
+  }
+  int ready = 0, total = 0;
+  for (int t = 0; t < 2; ++t) {
+    // Bot fill: the connected humans only (match_rules.h BotFillReadyTally).
+    const ReadyTally tally = ctx.bot_fill ? BotFillReadyTally(teamPresent[t], teamPresentReady[t])
+                                          : TeamReadyTally(teamRoster[t], teamReady[t], ctx.players_per_team);
+    ready += tally.ready;
+    total += tally.total;
+  }
+  if (readyOut) *readyOut = ready;
+  if (totalOut) *totalOut = total;
 }
 
 int MatchStatusGet(ru_match_status* out) {

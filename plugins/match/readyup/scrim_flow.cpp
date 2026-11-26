@@ -8,6 +8,7 @@
 #include "readyup/match_events.h"
 #include "readyup/logging.h"
 #include "readyup/match_state.h"
+#include "readyup/match_status.h"
 #include "readyup/modes.h"
 #include "readyup/hud_screens.h"
 #include "readyup/ready_hud.h"
@@ -121,16 +122,6 @@ static bool IsWarmupMode(ReadyUpMode m) {
 }
 
 // Ready counts for the active match context (roster-based).
-static void MatchReadyCounts(const WebhookMatchContext& ctx, int& ready, int& total) {
-  ready = 0;
-  total = 0;
-  for (const auto& kv : ctx.roster_team) {
-    if (kv.first == 0) continue;
-    total++;
-    if (IsReady(kv.first)) ready++;
-  }
-}
-
 static std::string MatchLabel(const std::optional<WebhookMatchContext>& ctx) {
   if (!ctx) return "none";
   const std::string slug = ctx->slug.empty() ? "match" : ctx->slug;
@@ -151,7 +142,9 @@ static std::string BuildStateFieldsLocked(FlowState& f) {
   }
 
   int ready = c.ready, total = c.total;
-  if (ctx) MatchReadyCounts(*ctx, ready, total);
+  // As the go-live check counts: with bot fill only the connected humans, so an all-bot match
+  // reads 0/0, not 0/10 (it goes live by itself; #397).
+  if (ctx) MatchReadyCount(*ctx, &ready, &total);
 
   std::string s;
   s.reserve(256);
@@ -634,7 +627,7 @@ std::vector<std::string> BuildStateReport() {
     else if (b.team == 2) botsT++;
   }
   int ready = c.ready, total = c.total;
-  if (ctx) MatchReadyCounts(*ctx, ready, total);
+  if (ctx) MatchReadyCount(*ctx, &ready, &total);
   out.push_back("ready " + std::to_string(ready) + "/" + std::to_string(total) + " | humans CT=" +
                 std::to_string(c.humansCt) + " T=" + std::to_string(c.humansT) + " | bots CT=" +
                 std::to_string(botsCt) + " T=" + std::to_string(botsT) +

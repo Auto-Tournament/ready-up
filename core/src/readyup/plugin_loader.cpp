@@ -255,9 +255,15 @@ Instance* FindLiveByIdLocked(int id) {
   return nullptr;
 }
 
+// Set when the quit unload starts (UnloadPluginsAtQuit): CS2 has shut down by then, so the engine
+// API (entities, chat, commands, the HUD through them) is a no-op from there on. A plugin that
+// closed a menu or removed its entities at unload crashed the quit (retakes, 2026-11-09).
+std::atomic<bool> g_engineDown{false};
+
 // Validates `self` for a call that must run on the game thread.
 Instance* GameThreadCaller(ru_plugin* self, const char* fn) {
   if (!self || !self->alive.load(std::memory_order_acquire)) return nullptr;
+  if (g_engineDown.load(std::memory_order_acquire)) return nullptr;
   if (!OnGameThread()) {
     Print("plugin[%s]: %s called off the game thread; ignored (use post_to_game_thread)\n", self->name, fn);
     return nullptr;
@@ -1356,6 +1362,7 @@ void UnloadPluginsAtQuit() {
     for (const auto& kv : g_loaded) names.push_back(kv.first);
   }
   if (names.empty()) return;
+  g_engineDown.store(true, std::memory_order_release);
   std::fprintf(stderr, "[ReadyUp] quit: unloading %zu plugin(s)\n", names.size());
   for (auto it = names.rbegin(); it != names.rend(); ++it) (void)UnloadNow(*it, nullptr);
   // Then end the process here. The rest of exit() still crashed with SIGSEGV after every plugin
@@ -1384,7 +1391,10 @@ bool IsCoreRuSubcommand(const std::string& sub) {
 void PostEvent(LifecycleEvent ev) {
   std::lock_guard<std::mutex> lk(g_mu);
   if (ev.type == RU_EVENT_MAP_START) {
-    if (ev.map.empty() || ev.map == g_currentMap) return;  // "Loading map" + "Started map"
+    if (ev.map.empty()) return;
+    // A reload of the same map is a load of its own (CS2 runs server.cfg and the gamemode cfg
+    // over the cvars again): sent. A line repeating the current load is dropped (log_receiver).
+    if (!ev.new_load && ev.map == g_currentMap) return;
     g_currentMap = ev.map;
     ++g_mapGen;
   } else {

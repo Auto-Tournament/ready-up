@@ -44,6 +44,7 @@ add_library(server_shim SHARED
   core/src/readyup/host_say_hook.cpp
   core/src/readyup/plugin_hooks.cpp
   core/src/readyup/log_receiver.cpp
+  core/src/readyup/map_load_lines.cpp
   core/src/readyup/logging.cpp
   libs/readyup/minijson.cpp
   core/src/readyup/path.cpp
@@ -490,6 +491,12 @@ add_executable(readyup_chat_highlight_test tests/chat_highlight_test.cpp core/sr
 target_include_directories(readyup_chat_highlight_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
 target_compile_options(readyup_chat_highlight_test PRIVATE -Wall -Wextra)
 add_test(NAME chat_highlight COMMAND readyup_chat_highlight_test)
+
+# One map start per level load, same-map reloads included (core/src/readyup/map_load_lines.h).
+add_executable(readyup_map_load_lines_test tests/map_load_lines_test.cpp core/src/readyup/map_load_lines.cpp)
+target_include_directories(readyup_map_load_lines_test PRIVATE ${CMAKE_SOURCE_DIR}/core/src)
+target_compile_options(readyup_map_load_lines_test PRIVATE -Wall -Wextra)
+add_test(NAME map_load_lines COMMAND readyup_map_load_lines_test)
 
 # Which command text turns empty-server hibernation back on (core/src/readyup/stay_awake.h).
 add_executable(readyup_stay_awake_test tests/stay_awake_test.cpp core/src/readyup/stay_awake.cpp)
