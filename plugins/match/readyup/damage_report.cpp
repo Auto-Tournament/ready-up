@@ -56,7 +56,9 @@ struct Outgoing {
 // second variant (2026-10-27: the line card was "ugly").
 constexpr int kCardRows = 5;
 constexpr const char* kKitLayout = "panorama/layout/custom_game/at_kit.xml";
-constexpr double kCardSeconds = 12.0;
+// The card stays up for the freeze time and goes when the round goes live (round_freeze_end, Sivert
+// 2026-11-26: "same show time as the freeze time"); this only catches a freeze end that never comes.
+constexpr double kCardSeconds = 120.0;
 
 // The card's words in o.lang, from the numbers: again when the player's language changes.
 void LocalizeRows(Outgoing& o) {
@@ -319,6 +321,10 @@ void BuildReports() {
 void OnGameEvent(void*, const char* name, const ru_game_event* ev) {
   const ru_api* a = host::Api();
   if (!a || !name || !ev) return;
+  if (std::strcmp(name, "round_freeze_end") == 0) {
+    HideCards(true);  // the round is live: the card fades out
+    return;
+  }
   if (std::strcmp(name, "round_start") == 0) {
     // Last round's report is built and goes out now, in freeze time: at round end players may still
     // be running for an exit or saving (2026-10-27), and their damage until now counts. A new map
@@ -388,7 +394,7 @@ void OnGameEvent(void*, const char* name, const ru_game_event* ev) {
 }  // namespace
 
 void DamageReportInstall(const ru_api* api) {
-  for (const char* e : {"round_start", "round_end", "player_hurt", "player_death", "player_blind"}) {
+  for (const char* e : {"round_start", "round_freeze_end", "round_end", "player_hurt", "player_death", "player_blind"}) {
     if (!api->subscribe_game_event(api->self, e, &OnGameEvent, nullptr)) {
       Print("damage-report: could not subscribe to %s\n", e);
     }
