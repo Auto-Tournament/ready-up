@@ -794,10 +794,10 @@ typedef struct ru_api {
   /* ==== v1.22 ===========================================================
    * Appended in 1.22. Check RU_API_HAS() before use.
    */
-  /* An engine interface the core saw the server ask for, by its interface name (today:
-   * "GameEventSystemServerV001"), returned only when the object's vptr is the primary vtable of
-   * engine-surface "rtti" entry `rtti_key` (a plugin fragment's or the core's). NULL = not seen
-   * yet, a name the core does not keep, or another class. Game thread. */
+  /* An engine interface by its interface name (today only "GameEventSystemServerV001", from
+   * libengine2), returned only when the object's vptr is the primary vtable of engine-surface
+   * "rtti" entry `rtti_key` (a plugin fragment's or the core's). NULL = not available yet, a name
+   * the core does not hand out, or another class. Game thread. */
   void* (*engine_interface)(ru_plugin* self, const char* name, const char* rtti_key);
   /* The target of vtable slot `key`, verified as hook_vtable verifies it (RTTI, slot anchors,
    * `object`'s vptr), for plugins that call a slot instead of patching it. NULL = unverified

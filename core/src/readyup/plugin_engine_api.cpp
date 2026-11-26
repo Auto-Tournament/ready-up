@@ -324,10 +324,7 @@ int ApiDevMode(ru_plugin*) { return DevEnabled() ? 1 : 0; }
 void* ApiEngineInterface(ru_plugin* self, const char* name, const char* rttiKey) {
   if (!CheckGameThread(self, "engine_interface") || !name || !rttiKey) return nullptr;
   void* iface = ObservedEngineInterface(name);
-  if (!iface) {
-    Print("plugin[%s]: engine_interface %s: not seen (or not kept by the core)\n", detail::PluginNameOf(self), name);
-    return nullptr;
-  }
+  if (!iface) return nullptr;  // not seen yet: plugins may ask every tick until it is
   const void* vt = ApiSurfaceRttiVtable(self, rttiKey);
   uintptr_t vptr = 0;
   if (!vt || !SafeReadMemory(reinterpret_cast<uintptr_t>(iface), &vptr, sizeof(vptr)) ||

@@ -23,7 +23,8 @@ bool GameEventsListenerInstalled();
 // avoiding creating extra interface instances and lets us retry resolution once
 // the owning interface is available.
 void GameEventsObserveInterface(const char* name, void* iface);
-// An interface GameEventsObserveInterface kept, by name ("GameEventSystemServerV001"), or nullptr.
+// An engine interface by name ("GameEventSystemServerV001" only): the one GameEventsObserveInterface
+// kept, else asked from libengine2's CreateInterface. nullptr if neither has it. No RTTI check here.
 void* ObservedEngineInterface(const char* name);
 
 // Best-effort: returns current CS team number for a slot (2=T, 3=CT), or nullopt if unknown.

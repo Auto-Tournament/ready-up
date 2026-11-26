@@ -56,8 +56,10 @@ struct Engine {
   PostEventFn post = nullptr;
   GetSerializerFn serializer = nullptr;
   ProcessRespondFn original = nullptr;
+  bool waitingForEvents = false;  // everything else verified and hooked; the event system comes later
 };
 Engine g_engine;
+int g_eventTries = 0;  // the game event system is looked for every tick for a while after load
 
 // Fake objects whose first word is a verified vtable: what hook_vtable / surface_vtable_function
 // want as "the object" when we have none of our own.
@@ -135,11 +137,6 @@ void Prepare() {
   e.serializer = reinterpret_cast<GetSerializerFn>(g_api->surface_vtable_function(g_api->self, kSerializerKey, &g_netObject));
   if (!e.serializer) return fail(std::string(kSerializerKey) + " did not verify");
 
-  e.eventSystem = g_api->engine_interface(g_api->self, "GameEventSystemServerV001", "CGameEventSystem");
-  if (!e.eventSystem) return fail("the game event system is not there (yet)");
-  e.post = reinterpret_cast<PostEventFn>(g_api->surface_vtable_function(g_api->self, kPostKey, e.eventSystem));
-  if (!e.post) return fail(std::string(kPostKey) + " did not verify");
-
   void* original = nullptr;
   if (!g_api->hook_vtable(g_api->self, kHookKey, &g_clientObject, reinterpret_cast<void*>(&OnProcessRespondCvarValue),
                           &original) ||
@@ -147,9 +144,33 @@ void Prepare() {
     return fail(std::string(kHookKey) + " could not be hooked");
   }
   e.original = reinterpret_cast<ProcessRespondFn>(original);
-  e.ready = true;
-  e.why = "ready";
+  // The server asks for the game event system after plugins load: Tick finds it.
+  e.waitingForEvents = true;
+  e.why = "waiting for the game event system";
   g_engine = e;
+}
+
+// The game event system, once the server has asked for it. Game thread (Tick).
+void FindEventSystem() {
+  void* es = g_api->engine_interface(g_api->self, "GameEventSystemServerV001", "CGameEventSystem");
+  if (!es) {
+    if (++g_eventTries == 600) {  // about 10 s at 64 ticks
+      g_engine.waitingForEvents = false;
+      g_engine.why = "the game event system never showed up";
+      ru_logf(g_api, RU_LOG_WARN, "playersettings: off: %s (match, fleet and the rest are not affected)", g_engine.why.c_str());
+    }
+    return;
+  }
+  g_engine.waitingForEvents = false;
+  g_engine.post = reinterpret_cast<PostEventFn>(g_api->surface_vtable_function(g_api->self, kPostKey, es));
+  if (!g_engine.post) {
+    g_engine.why = std::string(kPostKey) + " did not verify";
+    ru_logf(g_api, RU_LOG_WARN, "playersettings: off: %s (match, fleet and the rest are not affected)", g_engine.why.c_str());
+    return;
+  }
+  g_engine.eventSystem = es;
+  g_engine.ready = true;
+  g_engine.why = "ready";
   ru_logf(g_api, RU_LOG_INFO, "playersettings: cvar queries ready");
 }
 
@@ -208,6 +229,7 @@ void SelfTest() {
 }
 
 void Tick(void*, const ru_tick_info*) {
+  if (g_engine.waitingForEvents) FindEventSystem();
   std::deque<Reply> got;
   {
     std::lock_guard<std::mutex> lk(g_replyMu);
@@ -299,6 +321,7 @@ READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
   g_pending.clear();
   g_sent.clear();
   g_engine = Engine{};
+  g_eventTries = 0;
   g_api = nullptr;
 }
 
