@@ -133,9 +133,6 @@ void NoteRoundChange();
 void QueueWarmupRegive(uint64_t steamid64);
 // A player's first loadout arrived: repaint what they hold (they may have spawned before it).
 void QueueFirstLoadoutRepaint(uint64_t steamid64);
-// A changed loadout (not the first): what the player holds is repainted at their next spawn, so
-// the knife and guns a round's survivor carries over get it too (they were painted on first sight).
-void QueueNextSpawnRepaint(uint64_t steamid64);
 
 // ---- StatTrak (stattrak.cpp) -------------------------------------------------------------
 void OnPlayerDeath(const ru_game_event* ev);

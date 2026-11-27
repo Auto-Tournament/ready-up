@@ -399,10 +399,8 @@ void OnFleetMessage(void*, const ru_fleet_msg* m) {
       // created again two ticks later). With the in-game inventory that ran on every equip, and the
       // client lost the knife and crashed when the player died (CopyExistingEntity: missing client
       // entity 304, 2026-11-26; the same as 2026-10-14 on join). The new loadout comes with the
-      // next spawn, as the inventory says: new weapons get it when created, and what a survivor
-      // carries into the next round is repainted then (a knife chosen in .skins mid-round stayed
-      // the old one next round, Sivert 2026-11-27).
-      if (changed) QueueNextSpawnRepaint(sid);
+      // next spawn, as the inventory says.
+      (void)changed;
       // The first one may come after the player spawned (asked for on connect): paint what they
       // hold, or the first life on a server without a match was all stock (#339).
       if (firstLoadout) QueueFirstLoadoutRepaint(sid);
