@@ -5,17 +5,17 @@
   "patch": "1.42.0.1"
  },
  "readyup": {
-  "version": "0.1.0-beta.70-dev.3911342",
-  "commit": "39113420f50a49ceafedb1febe42d81b4a5a9031"
+  "version": "0.1.0-beta.70-dev.7a9b19b",
+  "commit": "7a9b19bc5e00a88627adf3a6156c5d2d3318710c"
  },
  "run": {
-  "id": "46031074760",
-  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/46031074760",
+  "id": "46035374464",
+  "url": "https://github.com/Auto-Tournament/ready-up/actions/runs/46035374464",
   "trigger": "code_change",
   "stage": "live",
   "state": "warn",
-  "started_at": "2026-11-27T16:08:49Z",
-  "finished_at": "2026-11-27T16:31:29Z"
+  "started_at": "2026-11-27T16:39:01Z",
+  "finished_at": "2026-11-27T17:01:38Z"
  },
  "overall": "warn",
  "components": [
@@ -62,8 +62,8 @@
     {
      "kind": "selftest",
      "status": "pass",
-     "passed": 121,
-     "total": 121,
+     "passed": 129,
+     "total": 129,
      "failures": []
     }
    ]
@@ -162,7 +162,7 @@
   {
    "id": "playersettings",
    "name": "Player settings",
-   "status": "fail",
+   "status": "pass",
    "checks": [
     {
      "kind": "signature",
@@ -194,19 +194,17 @@
     },
     {
      "kind": "schema",
-     "status": "pending",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
      "failures": []
     },
     {
      "kind": "selftest",
-     "status": "fail",
-     "passed": 0,
+     "status": "pass",
+     "passed": 1,
      "total": 1,
-     "failures": [
-      "not loaded (not in the plugin host's list)"
-     ]
+     "failures": []
     }
    ]
   },
@@ -943,5 +941,5 @@
    ]
   }
  ],
- "checked_at": "2026-11-27T16:31:29Z"
+ "checked_at": "2026-11-27T17:01:38Z"
 }
