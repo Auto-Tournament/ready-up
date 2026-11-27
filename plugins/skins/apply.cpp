@@ -430,6 +430,8 @@ std::atomic<bool> g_repaintHeldOnly[65] = {};
 // The last such repaint per slot (g_tick): in warmup at most one a second, so equips in a row are
 // one repaint, not one each (Sivert, 2026-11-27: allow changes, not spam).
 long long g_lastChangeRepaint[65] = {};
+// A knife of another type to give in place of the held one, from this tick (0 = none).
+long long g_knifeRegiveAt[65] = {};
 constexpr long long kChangeRepaintGapTicks = 64;
 // The last round restart (round_prestart / round_start: mp_restartgame, a match going live, a
 // new round), team change or disconnect. A re-give within kRestartQuietTicks of one is put off: weapons re-given while the
@@ -508,7 +510,8 @@ std::string GiveName(const std::string& dn, int defindex, int team) {
   }
 }
 
-bool RefreshHeldWeapons(int slot) {
+// knifeOnly: only the knife is taken and given again (a changed knife type, below).
+bool RefreshHeldWeapons(int slot, bool knifeOnly = false) {
   if (slot < 0 || slot >= 64 || !CanRefresh()) return false;
   auto& o = Off();
   static const int kActive = SchemaOffset("CPlayer_WeaponServices", "m_hActiveWeapon");
@@ -539,6 +542,7 @@ bool RefreshHeldWeapons(int slot) {
     if (!dnp) continue;
     const std::string dn = dnp;
     if (SkipOnRefresh(dn)) continue;
+    if (knifeOnly && !IsKnifeDesigner(dnp)) continue;
     const uint64_t xuid = (static_cast<uint64_t>(Rd<uint32_t>(weapon, o.econ_xuidHigh)) << 32) |
                           Rd<uint32_t>(weapon, o.econ_xuidLow);
     if (xuid != 0 && xuid != steamid64) continue;
@@ -561,6 +565,30 @@ bool RefreshHeldWeapons(int slot) {
   g_refresh[slot] = std::move(pr);
   if (DebugOn()) Log(RU_LOG_DEBUG, "refresh: slot %d, %zu weapon(s)", slot, g_refresh[slot].gives.size());
   return true;
+}
+
+// The knife this player holds is another type than their loadout's for the side (a knife picked in
+// .skins or on the site while alive). Changing its type in place (ChangeSubclass) on a knife the
+// client already has drew it vanilla: the client rebuilds the model and drops the paint (2026-10-15,
+// again 2026-11-27). Only a new knife shows it, as after a death.
+bool HeldKnifeTypeChanged(int slot, uint64_t steamid64, int team) {
+  auto& o = Off();
+  void* controller = EntityByIndex(slot + 1);
+  void* pawn = controller ? EntityFromHandle(Rd<uint32_t>(controller, o.ctrl_playerPawn)) : nullptr;
+  void* ws = pawn ? Rd<void*>(pawn, o.pawn_weaponServices) : nullptr;
+  if (!ws) return false;
+  const auto want = FindKnifeClassname(steamid64, team);
+  const std::optional<int> wantDef = want ? KnifeClassnameToDefindex(*want) : std::nullopt;
+  if (!wantDef) return false;  // no platform knife: nothing to swap to
+  const int count = Rd<int32_t>(ws, o.ws_myWeapons);
+  const uint32_t* handles = Rd<const uint32_t*>(ws, o.ws_myWeapons + 8);
+  if (!handles || count <= 0 || count > 64) return false;
+  for (int i = 0; i < count; ++i) {
+    void* weapon = EntityFromHandle(handles[i]);
+    if (!weapon || !IsKnifeDesigner(EntityDesignerName(weapon))) continue;
+    return Rd<uint16_t>(EconItemViewOfWeapon(weapon), o.item_defIndex) != *wantDef;
+  }
+  return false;
 }
 
 // The player in this slot holds a knife now (a live entity in their weapon list). A refresh whose
@@ -688,7 +716,21 @@ void ProcessPlayer(int slot, void* controller) {
   if (alive && g_repaintHeldOnly[slot].exchange(false)) {
     repaintHeld = true;
     g_spawnRequested[slot] = true;  // gloves and agent again too
+    // Another knife type: that knife alone is taken and given again (a new one is painted on
+    // sight). Never during a round restart: it waits until the restart has settled.
+    if (HeldKnifeTypeChanged(slot, steamid64, team)) g_knifeRegiveAt[slot] = g_tick;
     if (DebugOn()) Log(RU_LOG_DEBUG, "changed loadout: repainting slot %d", slot);
+  }
+  if (alive && g_knifeRegiveAt[slot] != 0 && g_tick >= g_knifeRegiveAt[slot]) {
+    if (restartQuiet || g_restartPendingNow) {
+      g_knifeRegiveAt[slot] = g_tick + 16;  // after the restart
+    } else {
+      g_knifeRegiveAt[slot] = 0;
+      const bool given = HeldKnifeTypeChanged(slot, steamid64, team) && RefreshHeldWeapons(slot, /*knifeOnly=*/true);
+      if (DebugOn()) Log(RU_LOG_DEBUG, "changed loadout: knife type %s for slot %d", given ? "re-given" : "unchanged", slot);
+    }
+  } else if (!alive) {
+    g_knifeRegiveAt[slot] = 0;  // a new life brings a new knife anyway
   }
 
   if (alive && (!ps.wasAlive || ps.pawnHandle != pawnHandle || g_spawnRequested[slot])) {
