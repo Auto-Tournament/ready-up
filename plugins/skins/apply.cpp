@@ -896,8 +896,15 @@ bool ExternalPaintReady() {
          ResolveOffsets();
 }
 
+bool TakeNextSpawnRepaint(uint64_t steamid64);  // below
+
 void RequestSpawnCosmetics(int slot) {
-  if (slot >= 0 && slot < 65) g_spawnRequested[slot] = true;
+  if (slot < 0 || slot >= 65) return;
+  g_spawnRequested[slot] = true;
+  // The loadout changed since their last spawn (an equip in .skins or on the site, mid-round): a
+  // player who lived through the round keeps the same knife and guns, which were painted when
+  // first seen, so they are repainted now (the knife swapped too). New weapons get it anyway.
+  if (slot < 64 && TakeNextSpawnRepaint(g_players[slot].steamid64)) g_repaintNow[slot] = true;
 }
 
 void NoteRoundChange() { g_roundChangeTick = g_tick; }
@@ -916,6 +923,22 @@ void QueueFirstLoadoutRepaint(uint64_t steamid64) {
   if (steamid64 == 0) return;
   std::lock_guard<std::mutex> lk(g_regiveMu);
   g_firstRepaint.insert(steamid64);
+}
+
+// Players whose loadout changed while they were alive: repainted at their next spawn (game thread
+// reads, the fleet thread writes).
+std::unordered_set<uint64_t> g_nextSpawnRepaint;  // guarded by g_regiveMu
+
+void QueueNextSpawnRepaint(uint64_t steamid64) {
+  if (steamid64 == 0) return;
+  std::lock_guard<std::mutex> lk(g_regiveMu);
+  g_nextSpawnRepaint.insert(steamid64);
+}
+
+bool TakeNextSpawnRepaint(uint64_t steamid64) {
+  if (steamid64 == 0) return false;
+  std::lock_guard<std::mutex> lk(g_regiveMu);
+  return g_nextSpawnRepaint.erase(steamid64) > 0;
 }
 
 void QueueWarmupRegive(uint64_t steamid64) {
