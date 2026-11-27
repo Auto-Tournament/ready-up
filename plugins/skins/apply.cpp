@@ -427,6 +427,10 @@ std::atomic<bool> g_repaintNow[65] = {};
 // A changed loadout: repaint what the player holds (the knife swapped too), never a re-give. A
 // re-give on every equip crashed clients (CopyExistingEntity, 2026-11-26).
 std::atomic<bool> g_repaintHeldOnly[65] = {};
+// The last such repaint per slot (g_tick): in warmup at most one a second, so equips in a row are
+// one repaint, not one each (Sivert, 2026-11-27: allow changes, not spam).
+long long g_lastChangeRepaint[65] = {};
+constexpr long long kChangeRepaintGapTicks = 64;
 // The last round restart (round_prestart / round_start: mp_restartgame, a match going live, a
 // new round), team change or disconnect. A re-give within kRestartQuietTicks of one is put off: weapons re-given while the
 // restart deletes and recreates them crashed a server (WriteEnterPVS: GetEntServerClass failed,
@@ -1021,7 +1025,11 @@ void RunWarmupRegive() {
   }
   if (anyPending && (GameWarmup() == 1 || WarmupLike())) {
     for (int slot = 0; slot < 64; ++slot) {
-      if (TakeNextSpawnRepaint(g_players[slot].steamid64)) g_repaintHeldOnly[slot] = true;
+      if (g_tick - g_lastChangeRepaint[slot] < kChangeRepaintGapTicks) continue;  // the next second
+      if (TakeNextSpawnRepaint(g_players[slot].steamid64)) {
+        g_repaintHeldOnly[slot] = true;
+        g_lastChangeRepaint[slot] = g_tick;
+      }
     }
   }
   if (due.empty()) return;
