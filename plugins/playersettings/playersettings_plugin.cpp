@@ -19,6 +19,7 @@
 #include "config_read.h"
 #include "cvar_msg.h"
 #include "readyup/fleet_iface.h"
+#include "readyup/playersettings_iface.h"
 #include "readyup/plugin_api.h"
 
 #include <algorithm>
@@ -103,6 +104,7 @@ struct ConfigRead {
 std::unordered_map<int, ConfigRead> g_reads;               // slot -> read
 std::unordered_map<int, std::pair<uint64_t, Clock::time_point>> g_seen;  // slot -> (who, since)
 std::set<uint64_t> g_readThisMap;                           // players already read on this map
+std::set<uint64_t> g_configOff;  // turned it off on the platform (match.assign read_config: false)
 std::string g_map;
 int g_configsSent = 0;
 constexpr double kReadAfterSeconds = 20.0;  // after a player is in: past the loading and the team pick
@@ -430,7 +432,7 @@ void ConfigTick() {
       g_seen.erase(slot);
       continue;
     }
-    if (g_readThisMap.count(p.steamid64) || g_reads.count(slot)) continue;
+    if (g_readThisMap.count(p.steamid64) || g_reads.count(slot) || g_configOff.count(p.steamid64)) continue;
     auto seen = g_seen.find(slot);
     if (seen == g_seen.end() || seen->second.first != p.steamid64) {
       g_seen[slot] = {p.steamid64, now};
@@ -527,6 +529,22 @@ void OnRuCvar(void*, const ru_command_ctx* c) {
   }
 }
 
+// readyup.playersettings.v1: the fleet plugin passes each player's `read_config` from match.assign.
+void SetPlayerOff(uint64_t steamid64, int off) {
+  if (!steamid64) return;
+  if (!off) {
+    g_configOff.erase(steamid64);
+    return;
+  }
+  g_configOff.insert(steamid64);
+  for (auto it = g_reads.begin(); it != g_reads.end();) {  // a read under way for them: dropped, not sent
+    if (it->second.steamid64 == steamid64) it = g_reads.erase(it);
+    else ++it;
+  }
+}
+
+const ru_playersettings_v1 g_iface = {sizeof(ru_playersettings_v1), &SetPlayerOff};
+
 }  // namespace
 
 extern "C" {
@@ -548,6 +566,8 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
   g_api = api;
   g_api->register_ru_subcommand(g_api->self, "cvar", &OnRuCvar, nullptr);
   g_api->on_tick(g_api->self, &Tick, nullptr);
+  g_api->provide_interface(g_api->self, RU_PLAYERSETTINGS_IFACE_NAME, RU_PLAYERSETTINGS_IFACE_VERSION,
+                           const_cast<ru_playersettings_v1*>(&g_iface));
   Prepare();
   return 0;
 }
@@ -559,6 +579,7 @@ READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
   g_reads.clear();
   g_seen.clear();
   g_readThisMap.clear();
+  g_configOff.clear();
   g_map.clear();
   g_engine = Engine{};
   g_clientsAt = -1;
