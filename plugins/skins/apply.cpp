@@ -424,6 +424,9 @@ bool g_spawnRequested[65] = {};
 long long g_reapplyAt[65] = {};
 // Repaint what the player holds (no re-give): their first loadout arrived after they spawned.
 std::atomic<bool> g_repaintNow[65] = {};
+// A changed loadout: repaint what the player holds (the knife swapped too), never a re-give. A
+// re-give on every equip crashed clients (CopyExistingEntity, 2026-11-26).
+std::atomic<bool> g_repaintHeldOnly[65] = {};
 // The last round restart (round_prestart / round_start: mp_restartgame, a match going live, a
 // new round), team change or disconnect. A re-give within kRestartQuietTicks of one is put off: weapons re-given while the
 // restart deletes and recreates them crashed a server (WriteEnterPVS: GetEntServerClass failed,
@@ -678,6 +681,12 @@ void ProcessPlayer(int slot, void* controller) {
     if (DebugOn()) Log(RU_LOG_DEBUG, "first loadout after spawn: %s slot %d", refreshed ? "re-giving" : "repainting", slot);
   }
 
+  if (alive && g_repaintHeldOnly[slot].exchange(false)) {
+    repaintHeld = true;
+    g_spawnRequested[slot] = true;  // gloves and agent again too
+    if (DebugOn()) Log(RU_LOG_DEBUG, "changed loadout: repainting slot %d", slot);
+  }
+
   if (alive && (!ps.wasAlive || ps.pawnHandle != pawnHandle || g_spawnRequested[slot])) {
     // Fresh spawn (or a respawn on the same pawn): apply now and on the follow-up passes.
     ps.cosmeticsPass = 0;
@@ -904,7 +913,7 @@ void RequestSpawnCosmetics(int slot) {
   // The loadout changed since their last spawn (an equip in .skins or on the site, mid-round): a
   // player who lived through the round keeps the same knife and guns, which were painted when
   // first seen, so they are repainted now (the knife swapped too). New weapons get it anyway.
-  if (slot < 64 && TakeNextSpawnRepaint(g_players[slot].steamid64)) g_repaintNow[slot] = true;
+  if (slot < 64 && TakeNextSpawnRepaint(g_players[slot].steamid64)) g_repaintHeldOnly[slot] = true;
 }
 
 void NoteRoundChange() { g_roundChangeTick = g_tick; }
@@ -1002,6 +1011,18 @@ void RunWarmupRegive() {
   }
   for (int slot = 0; slot < 64 && !first.empty(); ++slot) {
     if (g_players[slot].steamid64 != 0 && first.count(g_players[slot].steamid64)) g_repaintNow[slot] = true;
+  }
+  // A changed loadout in warmup: no spawn may come for a while (warmup players stay alive), so the
+  // repaint runs now (Sivert, 2026-11-27: a knife chosen in .skins in warmup did nothing).
+  bool anyPending = false;
+  {
+    std::lock_guard<std::mutex> lk(g_regiveMu);
+    anyPending = !g_nextSpawnRepaint.empty();
+  }
+  if (anyPending && (GameWarmup() == 1 || WarmupLike())) {
+    for (int slot = 0; slot < 64; ++slot) {
+      if (TakeNextSpawnRepaint(g_players[slot].steamid64)) g_repaintHeldOnly[slot] = true;
+    }
   }
   if (due.empty()) return;
   // CS2's own warmup, or Ready Up's (a match warmup runs with CS2's warmup ended): swap now.
