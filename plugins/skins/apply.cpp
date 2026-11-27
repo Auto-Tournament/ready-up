@@ -406,6 +406,9 @@ struct WeaponState {
   // A knife swapped to another knife is painted again here: the client rebuilds the model from
   // the new VData after the first paint and drew it vanilla (a T-side karambit, 2026-10-15).
   long long repaintAt = 0;
+  // Repaints still to come after repaintAt (a swapped knife gets two: a quarter second and a second
+  // later; a knife given in hand mid-draw was rebuilt after the first and showed vanilla, 2026-11-27).
+  int repaintsLeft = 0;
 };
 
 // Cosmetics (agent model, gloves, default_gloves bodygroup) are applied on these ticks after the
@@ -576,20 +579,25 @@ bool RefreshHeldWeapons(int slot, bool changedOnly = false) {
 bool LookChanged(void* weapon, uint64_t steamid64, int team) {
   auto& o = Off();
   const uint32_t handle = g_api->entity_handle_of(g_api->self, weapon);
+  // A per-player paint (Midas) is that plugin's: it refreshes its own weapons.
+  if (g_paintOverride.count(steamid64)) return false;
   // Not painted yet (just given, or first seen this tick): it gets the newest loadout on sight.
   if (const auto w = g_weapons.find(handle); w == g_weapons.end() || !w->second.done) return false;
   void* item = EconItemViewOfWeapon(weapon);
   int defindex = Rd<uint16_t>(item, o.item_defIndex);
+  const auto st = handle != 0xFFFFFFFFu ? g_weaponStamps.find(handle) : g_weaponStamps.end();
   if (IsKnifeDesigner(EntityDesignerName(weapon))) {
     const auto want = FindKnifeClassname(steamid64, team);
     const std::optional<int> wantDef = want ? KnifeClassnameToDefindex(*want) : std::nullopt;
-    if (!wantDef) return false;  // no platform knife: the game's knife stays
+    // Unequipped: a knife we swapped in goes back to the side's own knife at once (a new one). A
+    // knife the game gave (stock, or the player's own Steam knife) is never touched.
+    if (!wantDef) return g_knifeSwaps.Swapped(handle, steamid64);
     if (*wantDef != defindex) return true;
     defindex = *wantDef;
   }
   const auto skin = FindWeaponSkin(steamid64, team, defindex);
-  if (!skin || skin->paint_id <= 0) return false;  // nothing to paint (an unequip waits for a new life)
-  const auto st = handle != 0xFFFFFFFFu ? g_weaponStamps.find(handle) : g_weaponStamps.end();
+  // Unequipped: a weapon we painted goes back to how the game gives it (a new one, unpainted).
+  if (!skin || skin->paint_id <= 0) return st != g_weaponStamps.end();
   if (st == g_weaponStamps.end()) return true;
   return !StampMatches(st->second, st->second.itemId, defindex, skin->paint_id, skin->seed, skin->wear);
 }
@@ -802,7 +810,7 @@ void ProcessPlayer(int slot, void* controller) {
     if (st.firstSeen == 0) st.firstSeen = repaintThis ? g_tick - 1 : g_tick;
     st.lastSeen = g_tick;
     if (st.done && st.repaintAt != 0 && g_tick >= st.repaintAt) {
-      st.repaintAt = 0;
+      st.repaintAt = st.repaintsLeft-- > 0 ? g_tick + 48 : 0;
       if (void* again = EntityFromHandle(h)) {
         bool legacy = false;
         (void)ProcessWeapon(again, steamid64, team, /*late=*/true, &legacy, /*force=*/true);
@@ -837,7 +845,10 @@ void ProcessPlayer(int slot, void* controller) {
     if (ProcessWeapon(weapon, steamid64, team, late, &st.legacyPending) == WeaponResult::kDone ||
         g_tick - st.firstSeen > kRetryTicks) {
       st.done = true;
-      if (g_lastSwappedKnife) st.repaintAt = g_tick + 16;  // about a quarter second
+      if (g_lastSwappedKnife) {
+        st.repaintAt = g_tick + 16;  // about a quarter second
+        st.repaintsLeft = 1;         // and once more a second later
+      }
     }
   }
 }
