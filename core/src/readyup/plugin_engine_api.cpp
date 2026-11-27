@@ -23,6 +23,7 @@
 #include "readyup/schema.h"
 #include "readyup/sdk/igameevents.h"
 #include "readyup/engine_surface.h"
+#include "readyup/game_events.h"
 #include "readyup/entity.h"
 #include "readyup/slot_registry.h"
 #include "readyup/status_feed.h"
@@ -318,6 +319,38 @@ int ApiSetPlayerLanguage(ru_plugin* self, uint64_t steamid64, const char* code) 
 
 int ApiDevMode(ru_plugin*) { return DevEnabled() ? 1 : 0; }
 
+// ---- v1.22 ---------------------------------------------------------------------------
+
+void* ApiEngineInterface(ru_plugin* self, const char* name, const char* rttiKey) {
+  if (!CheckGameThread(self, "engine_interface") || !name || !rttiKey) return nullptr;
+  void* iface = ObservedEngineInterface(name);
+  if (!iface) return nullptr;  // not seen yet: plugins may ask every tick until it is
+  const void* vt = ApiSurfaceRttiVtable(self, rttiKey);
+  uintptr_t vptr = 0;
+  if (!vt || !SafeReadMemory(reinterpret_cast<uintptr_t>(iface), &vptr, sizeof(vptr)) ||
+      vptr != reinterpret_cast<uintptr_t>(vt)) {
+    Print("plugin[%s]: engine_interface %s: not a %s, refused\n", detail::PluginNameOf(self), name, rttiKey);
+    return nullptr;
+  }
+  return iface;
+}
+
+void* ApiSurfaceVtableFunction(ru_plugin* self, const char* key, const void* obj) {
+  if (!CheckGameThread(self, "surface_vtable_function") || !key || !obj) return nullptr;
+  int index = -1;
+  std::string why;
+  if (!VerifyEngineVtableSlot(key, obj, &index, &why) || index < 0) {
+    Print("plugin[%s]: surface_vtable_function %s refused: %s\n", detail::PluginNameOf(self), key, why.c_str());
+    return nullptr;
+  }
+  uintptr_t vptr = 0, fn = 0;
+  if (!SafeReadMemory(reinterpret_cast<uintptr_t>(obj), &vptr, sizeof(vptr)) ||
+      !SafeReadMemory(vptr + static_cast<uintptr_t>(index) * sizeof(void*), &fn, sizeof(fn))) {
+    return nullptr;
+  }
+  return reinterpret_cast<void*>(fn);
+}
+
 int ApiChatToSlotEx(ru_plugin* self, int slot, const char* msg, uint32_t flags) {
   if (!CheckGameThread(self, "chat_to_slot_ex") || !msg || !*msg || slot < 0) return 0;
   if (flags & RU_CHAT_IMPORTANT) return SendImportantToSlotChat(slot, msg) ? 1 : 0;
@@ -572,6 +605,8 @@ void detail::FillEngineApi(ru_api* a) {
   a->set_player_language = &ApiSetPlayerLanguage;
   a->chat_to_slot_ex = &ApiChatToSlotEx;
   a->dev_mode = &ApiDevMode;                                      // v1.21
+  a->engine_interface = &ApiEngineInterface;                      // v1.22
+  a->surface_vtable_function = &ApiSurfaceVtableFunction;
 }
 
 }  // namespace readyup::plugins

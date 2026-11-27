@@ -23,6 +23,10 @@ bool GameEventsListenerInstalled();
 // avoiding creating extra interface instances and lets us retry resolution once
 // the owning interface is available.
 void GameEventsObserveInterface(const char* name, void* iface);
+// An engine interface plugins may have, by name ("GameEventSystemServerV001",
+// "NetworkServerService_001"): the one GameEventsObserveInterface kept, else asked from libengine2's
+// CreateInterface. nullptr otherwise. No RTTI check here (engine_interface does it).
+void* ObservedEngineInterface(const char* name);
 
 // Best-effort: returns current CS team number for a slot (2=T, 3=CT), or nullopt if unknown.
 std::optional<int> GetCsTeamNumForSlot(int slot);

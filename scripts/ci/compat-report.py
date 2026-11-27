@@ -66,11 +66,11 @@ RUNTIME_ONLY = ["match", "practice", "essentials", "midas", "whitelist", "deathm
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Plugins whose manifest is checked (needs-check) and used for verdicts. hello is the example.
 NEEDS_PLUGINS = ["match", "practice", "essentials", "midas", "whitelist", "deathmatch", "retakes", "movement", "mapvote",
-                 "community", "tv", "fleet", "skins", "addons"]
+                 "community", "tv", "fleet", "skins", "addons", "playersettings"]
 NAMES = {"core": "Core", "skins": "Skins", "match": "Match", "practice": "Practice",
          "essentials": "Essentials", "midas": "Midas", "whitelist": "Whitelist", "deathmatch": "Deathmatch", "retakes": "Retakes",
          "movement": "Movement", "mapvote": "Map vote", "community": "Community", "tv": "TV",
-         "fleet": "Fleet", "addons": "Addons"}
+         "fleet": "Fleet", "addons": "Addons", "playersettings": "Player settings"}
 # The component whose `livetest` check a live test (compat-report.py dynamic --livetest NAME=RC)
 # reports to; every other name goes to LIVETEST_DEFAULT. A component listed here gets a pending
 # `livetest` check from the static stage on, like match.

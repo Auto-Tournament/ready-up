@@ -56,7 +56,7 @@ trap 'rm -rf "$WORK"' EXIT
 EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 SUFFIX="$VERSION-linuxsteamrt64.zip"
 
-for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so plugins/practice.so plugins/essentials.so plugins/deathmatch.so plugins/retakes.so plugins/mapvote.so plugins/community.so plugins/movement.so plugins/addons.so plugins/tv.so plugins/hud.so; do
+for f in libserver.so plugins/match.so plugins/fleet.so plugins/skins.so plugins/hello.so plugins/midas.so plugins/whitelist.so plugins/practice.so plugins/essentials.so plugins/deathmatch.so plugins/retakes.so plugins/mapvote.so plugins/community.so plugins/movement.so plugins/addons.so plugins/tv.so plugins/hud.so plugins/playersettings.so; do
   [[ -f "$BUILD/$f" ]] || { echo "package-release: missing $BUILD/$f" >&2; exit 1; }
 done
 
@@ -145,6 +145,14 @@ stage_component addons "Steam Workshop addons for the server: the Auto Tournamen
   "$BUILD/plugins/addons.so:plugins/addons.so:755" \
   "$ROOT_DIR/plugins/addons/needs.json:plugins/addons.needs.json" \
   "$ROOT_DIR/gamedata/engine-surface.addons.json:bin/linuxsteamrt64/engine-surface.addons.json"
+
+# Players' CS2 settings (crosshair, sensitivity, viewmodel, HUD) read from their game through cvar
+# queries. Its gamedata fragment (libengine2 entries) ships next to the core's engine-surface.json;
+# when a CS2 update breaks it, only this plugin turns off. Its own zip only for now (step 1).
+stage_component playersettings "Players' CS2 settings (crosshair, sensitivity, viewmodel, HUD) read from their game" \
+  "$BUILD/plugins/playersettings.so:plugins/playersettings.so:755" \
+  "$ROOT_DIR/plugins/playersettings/needs.json:plugins/playersettings.needs.json" \
+  "$ROOT_DIR/gamedata/engine-surface.playersettings.json:bin/linuxsteamrt64/engine-surface.playersettings.json"
 
 # Custom in-game HUDs (custom_hud_layout) for the Auto Tournament HUD workshop addon (repo hud/).
 # Every player needs the addon: the addons plugin mounts it on every server and is always on
@@ -250,6 +258,7 @@ make_zip "ready-up-community-$SUFFIX" community
 make_zip "ready-up-movement-$SUFFIX" movement
 make_zip "ready-up-tv-$SUFFIX" tv
 make_zip "ready-up-hud-$SUFFIX" hud
+make_zip "ready-up-playersettings-$SUFFIX" playersettings
 make_zip "ready-up-practice-$SUFFIX" practice
 make_zip "ready-up-essentials-plugin-$SUFFIX" essentials
 make_zip "ready-up-fleet-$SUFFIX" fleet

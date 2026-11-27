@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "type": "player.config",
+  "id": "01J8ZQ4T8W6N3X0F2R5K7M9P30",
+  "ts": 1790340019000,
+  "payload": {
+    "steamid64": "76561198000000001",
+    "crosshair_code": "CSGO-a2Rkq-PJ7rN-wbQYm-9AVqS-5PbYB",
+    "cvars": { "sensitivity": "1.25", "viewmodel_fov": "68", "cl_crosshairsize": "2" }
+  }
+}

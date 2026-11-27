@@ -58,12 +58,21 @@ struct Anchor {
   //                  layout (e.g. CCommand argc/argv) to the engine code that reads it.
   // "stores_arg_global": the function stores its second argument (rsi) into a RIP-relative global
   //                  (`mov [rip+disp32], rsi`) within its first `window` bytes. For setters.
+  // "code_bytes":    the function starts with `bytes` (a pattern, "?" = any byte). For stubs with
+  //                  nothing to anchor on, e.g. `mov eax, 1; ret`, or accessors like `mov eax, 0x3a; ret`.
+  // "code_contains": `bytes` appears within the function's first `window` bytes. Pins a field
+  //                  offset to the engine code that reads it (`48 63 47 20`: movsxd rax, [rdi+0x20]).
+  // "slot_code":     vtable entries only: slot `slot` of the same vtable starts with `bytes`.
+  // "slot_string":   vtable entries only: slot `slot` of the same vtable references `str` within
+  //                  `window` bytes. With code_bytes, these tie a stub slot to its neighbours.
   std::string type;
   std::string str;
   size_t window = 0;
   bool via_thunk = false;
   size_t callee_window = 256;
   int64_t disp = 0;
+  std::string bytes{};
+  int slot{-1};
 };
 
 struct FunctionSpec {

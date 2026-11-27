@@ -37,6 +37,7 @@
 // `fleet ...`), `.fleet status|reconnect` / `.ru fleet ...` (admins, chat).
 #include "readyup/fleet_iface.h"
 #include "readyup/hud_iface.h"
+#include "readyup/playersettings_iface.h"
 #include "readyup/license_checkin.h"
 #include "readyup/mapvote_iface.h"
 #include "readyup/match_iface.h"
@@ -617,6 +618,22 @@ void SetHudChoice(const fleet::json::Value& player) {
   h->set_player_off(id, hud->b ? 0 : 1);
 }
 
+// `read_config: false` on a player of match.assign (or add_player): they turned their CS2 config off on
+// the platform, so playersettings does not read it (readyup.playersettings.v1); true reads it again.
+void SetConfigChoice(const fleet::json::Value& player) {
+  const fleet::json::Value* sid = player.Get("steamid64");
+  const fleet::json::Value* read = player.Get("read_config");
+  if (!sid || !read || read->t != fleet::json::Value::T::Bool) return;
+  const uint64_t id = std::strtoull(sid->AsStr().c_str(), nullptr, 10);
+  if (!id) return;
+  const auto* ps =
+      static_cast<const ru_playersettings_v1*>(g_api->get_interface(g_api->self, RU_PLAYERSETTINGS_IFACE_NAME, 1));
+  if (!ps || ps->struct_size < offsetof(ru_playersettings_v1, set_player_off) + sizeof(ps->set_player_off) ||
+      !ps->set_player_off)
+    return;
+  ps->set_player_off(id, read->b ? 0 : 1);
+}
+
 void OnPlayerHud(const std::string& type, const std::string& payload) {
   fleet::json::Value v;
   if (!fleet::json::Parse(payload, &v) || !v.IsObj()) return;
@@ -626,7 +643,10 @@ void OnPlayerHud(const std::string& type, const std::string& payload) {
       const fleet::json::Value* t = cfg ? cfg->Get(team) : nullptr;
       const fleet::json::Value* players = t ? t->Get("players") : nullptr;
       if (players && players->IsArr()) {
-        for (const auto& p : players->a) SetHudChoice(p);
+        for (const auto& p : players->a) {
+          SetHudChoice(p);
+          SetConfigChoice(p);
+        }
       }
     }
     return;
@@ -635,7 +655,10 @@ void OnPlayerHud(const std::string& type, const std::string& payload) {
   if (!ops || !ops->IsArr()) return;
   for (const auto& op : ops->a) {
     const fleet::json::Value* kind = op.IsObj() ? op.Get("op") : nullptr;
-    if (kind && kind->AsStr() == "add_player") SetHudChoice(op);
+    if (kind && kind->AsStr() == "add_player") {
+      SetHudChoice(op);
+      SetConfigChoice(op);
+    }
   }
 }
 
