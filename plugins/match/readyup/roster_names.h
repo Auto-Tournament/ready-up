@@ -24,6 +24,8 @@
 namespace readyup {
 
 void RosterNamesInstall(const ru_api* api);
+// The check, from the match tick (a timed section there, so a slow one is named). Game thread.
+void RosterNamesTick(double now);
 // Plugin unload: our names back to the players' own names.
 void RosterNamesUninstall();
 // Simulation: the bot named `botName` plays a roster player; it takes that player's `name`, so the

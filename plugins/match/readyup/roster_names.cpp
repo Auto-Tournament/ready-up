@@ -130,11 +130,6 @@ void Guarded(F&& f) {
   }
 }
 
-void OnTick(void*, const ru_tick_info* t) {
-  if (t->now < g_nextCheck) return;
-  g_nextCheck = t->now + kCheckSeconds;
-  Guarded(&Check);
-}
 
 // The client sent a new name, a player came in / changed team, a new map: check on the next tick.
 void OnChangeName(void*, const char*, const ru_game_event*) { g_nextCheck = 0; }
@@ -156,11 +151,16 @@ void RosterNamesInstall(const ru_api* api) {
     PrintLine("roster-names: core has no entity_mark_changed; roster names are off.");
     return;
   }
-  api->on_tick(api->self, &OnTick, nullptr);
   api->subscribe(api->self, RU_EVENT_ANY, &OnEvent, nullptr);
   if (!api->subscribe_game_event(api->self, "player_changename", &OnChangeName, nullptr)) {
     PrintLine("roster-names: player_changename not subscribed; a changed Steam name is put back within a second.");
   }
+}
+
+void RosterNamesTick(double now) {
+  if (!g_api || now < g_nextCheck) return;
+  g_nextCheck = now + kCheckSeconds;
+  Guarded(&Check);
 }
 
 void RosterNamesNameBot(const std::string& botName, const std::string& name) {
