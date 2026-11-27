@@ -6,6 +6,7 @@
 <root>
 	<styles>
 		<include src="s2r://panorama/styles/custom_game/at_ui.vcss_c" />
+		<include src="s2r://panorama/styles/custom_game/at_skins.vcss_c" />
 	</styles>
 	<Panel class="ui-root" hittest="false">
 <Panel id="ui_cardwrap" class="ui-cardwrap" hittest="false">
@@ -27,6 +28,7 @@
 <Panel class="ui-logo" hittest="false" />
 <Label class="ui-brandname" text="AUTO TOURNAMENT" hittest="false" />
 </Panel>
+<Panel id="ui_card_hero" class="ui-hero" hittest="false" />
 <Label id="ui_card_kind" class="ui-kind" text="{s:text}" hittest="false" />
 <Label id="ui_card_title" class="ui-title" text="{s:text}" hittest="false" />
 <Label id="ui_card_sub" class="ui-sub" text="{s:text}" hittest="false" />
@@ -85,6 +87,49 @@
 <Label id="ui_card_n4_v" class="ui-rowv" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
+<Panel id="ui_card_body" class="ui-body" hittest="false">
+<Panel id="ui_card_tabs" class="ui-tabs" hittest="false">
+<Button id="ui_card_g0" class="ui-tab">
+<Label id="ui_card_g0_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_card_g0_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_card_g1" class="ui-tab">
+<Label id="ui_card_g1_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_card_g1_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_card_g2" class="ui-tab">
+<Label id="ui_card_g2_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_card_g2_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_card_g3" class="ui-tab">
+<Label id="ui_card_g3_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_card_g3_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_card_g4" class="ui-tab">
+<Label id="ui_card_g4_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_card_g4_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_card_g5" class="ui-tab">
+<Label id="ui_card_g5_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_card_g5_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_card_g6" class="ui-tab">
+<Label id="ui_card_g6_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_card_g6_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_card_g7" class="ui-tab">
+<Label id="ui_card_g7_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_card_g7_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_card_g8" class="ui-tab">
+<Label id="ui_card_g8_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_card_g8_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_card_g9" class="ui-tab">
+<Label id="ui_card_g9_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_card_g9_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+</Panel>
 <Panel id="ui_card_buttons" class="ui-buttons" hittest="false">
 <Button id="ui_card_b0" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
@@ -94,124 +139,365 @@
 <Panel class="ui-kcbr ui-kcr" hittest="false" />
 <Label id="ui_card_b0_k" class="ui-kct" text="{g:csgo_key:k}" hittest="false" />
 </Panel>
+<Panel id="ui_card_b0_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b0_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b0_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b1" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b1_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b1_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b1_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b2" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b2_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b2_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b2_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b3" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b3_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b3_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b3_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b4" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b4_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b4_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b4_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b5" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b5_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b5_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b5_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b6" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b6_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b6_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b6_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b7" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b7_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b7_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b7_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b8" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b8_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b8_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b8_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b9" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b9_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b9_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b9_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b10" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b10_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b10_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b10_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b11" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b11_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b11_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b11_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b12" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b12_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b12_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b12_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b13" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b13_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b13_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b13_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b14" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b14_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b14_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b14_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b15" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b15_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b15_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b15_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b16" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b16_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b16_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b16_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b17" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b17_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b17_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b17_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b18" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b18_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b18_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b18_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b19" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b19_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b19_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b19_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b20" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b20_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b20_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b20_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b21" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b21_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b21_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b21_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b22" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b22_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b22_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b22_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_card_b23" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_card_b23_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_card_b23_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_card_b23_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
+</Panel>
 </Panel>
 <Panel id="ui_card_cmds" class="ui-cmds" hittest="false">
 <Panel id="ui_card_k0" class="ui-cmd" hittest="false">
@@ -266,6 +552,7 @@
 <Panel class="ui-logo" hittest="false" />
 <Label class="ui-brandname" text="AUTO TOURNAMENT" hittest="false" />
 </Panel>
+<Panel id="ui_mid_hero" class="ui-hero" hittest="false" />
 <Label id="ui_mid_kind" class="ui-kind" text="{s:text}" hittest="false" />
 <Label id="ui_mid_title" class="ui-title" text="{s:text}" hittest="false" />
 <Label id="ui_mid_sub" class="ui-sub" text="{s:text}" hittest="false" />
@@ -324,6 +611,49 @@
 <Label id="ui_mid_n4_v" class="ui-rowv" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
+<Panel id="ui_mid_body" class="ui-body" hittest="false">
+<Panel id="ui_mid_tabs" class="ui-tabs" hittest="false">
+<Button id="ui_mid_g0" class="ui-tab">
+<Label id="ui_mid_g0_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_mid_g0_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_mid_g1" class="ui-tab">
+<Label id="ui_mid_g1_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_mid_g1_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_mid_g2" class="ui-tab">
+<Label id="ui_mid_g2_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_mid_g2_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_mid_g3" class="ui-tab">
+<Label id="ui_mid_g3_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_mid_g3_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_mid_g4" class="ui-tab">
+<Label id="ui_mid_g4_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_mid_g4_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_mid_g5" class="ui-tab">
+<Label id="ui_mid_g5_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_mid_g5_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_mid_g6" class="ui-tab">
+<Label id="ui_mid_g6_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_mid_g6_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_mid_g7" class="ui-tab">
+<Label id="ui_mid_g7_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_mid_g7_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_mid_g8" class="ui-tab">
+<Label id="ui_mid_g8_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_mid_g8_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_mid_g9" class="ui-tab">
+<Label id="ui_mid_g9_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_mid_g9_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+</Panel>
 <Panel id="ui_mid_buttons" class="ui-buttons" hittest="false">
 <Button id="ui_mid_b0" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
@@ -333,124 +663,365 @@
 <Panel class="ui-kcbr ui-kcr" hittest="false" />
 <Label id="ui_mid_b0_k" class="ui-kct" text="{g:csgo_key:k}" hittest="false" />
 </Panel>
+<Panel id="ui_mid_b0_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b0_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b0_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b1" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b1_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b1_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b1_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b2" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b2_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b2_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b2_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b3" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b3_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b3_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b3_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b4" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b4_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b4_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b4_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b5" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b5_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b5_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b5_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b6" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b6_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b6_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b6_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b7" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b7_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b7_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b7_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b8" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b8_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b8_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b8_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b9" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b9_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b9_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b9_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b10" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b10_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b10_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b10_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b11" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b11_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b11_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b11_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b12" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b12_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b12_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b12_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b13" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b13_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b13_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b13_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b14" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b14_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b14_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b14_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b15" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b15_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b15_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b15_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b16" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b16_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b16_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b16_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b17" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b17_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b17_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b17_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b18" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b18_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b18_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b18_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b19" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b19_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b19_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b19_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b20" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b20_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b20_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b20_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b21" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b21_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b21_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b21_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b22" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b22_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b22_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b22_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_mid_b23" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
+<Panel id="ui_mid_b23_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_mid_b23_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_mid_b23_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
+</Panel>
 </Panel>
 <Panel id="ui_mid_cmds" class="ui-cmds" hittest="false">
 <Panel id="ui_mid_k0" class="ui-cmd" hittest="false">
@@ -505,6 +1076,7 @@
 <Panel class="ui-logo" hittest="false" />
 <Label class="ui-brandname" text="AUTO TOURNAMENT" hittest="false" />
 </Panel>
+<Panel id="ui_left_hero" class="ui-hero" hittest="false" />
 <Label id="ui_left_kind" class="ui-kind" text="{s:text}" hittest="false" />
 <Label id="ui_left_title" class="ui-title" text="{s:text}" hittest="false" />
 <Label id="ui_left_sub" class="ui-sub" text="{s:text}" hittest="false" />
@@ -563,175 +1135,459 @@
 <Label id="ui_left_n4_v" class="ui-rowv" text="{s:text}" hittest="false" />
 </Panel>
 </Panel>
+<Panel id="ui_left_body" class="ui-body" hittest="false">
+<Panel id="ui_left_tabs" class="ui-tabs" hittest="false">
+<Button id="ui_left_g0" class="ui-tab">
+<Label id="ui_left_g0_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_left_g0_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_left_g1" class="ui-tab">
+<Label id="ui_left_g1_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_left_g1_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_left_g2" class="ui-tab">
+<Label id="ui_left_g2_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_left_g2_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_left_g3" class="ui-tab">
+<Label id="ui_left_g3_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_left_g3_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_left_g4" class="ui-tab">
+<Label id="ui_left_g4_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_left_g4_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_left_g5" class="ui-tab">
+<Label id="ui_left_g5_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_left_g5_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_left_g6" class="ui-tab">
+<Label id="ui_left_g6_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_left_g6_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_left_g7" class="ui-tab">
+<Label id="ui_left_g7_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_left_g7_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_left_g8" class="ui-tab">
+<Label id="ui_left_g8_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_left_g8_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_left_g9" class="ui-tab">
+<Label id="ui_left_g9_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_left_g9_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+</Panel>
 <Panel id="ui_left_buttons" class="ui-buttons" hittest="false">
 <Button id="ui_left_b0" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b0_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b0_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b0_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b1" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b1_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b1_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b1_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b2" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b2_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b2_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b2_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b3" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b3_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b3_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b3_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b4" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b4_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b4_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b4_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b5" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b5_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b5_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b5_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b6" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b6_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b6_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b6_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b7" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b7_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b7_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b7_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b8" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b8_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b8_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b8_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b9" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b9_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b9_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b9_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b10" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b10_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b10_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b10_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b11" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b11_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b11_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b11_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b12" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b12_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b12_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b12_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b13" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b13_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b13_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b13_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b14" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b14_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b14_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b14_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b15" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b15_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b15_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b15_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b16" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b16_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b16_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b16_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b17" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b17_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b17_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b17_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b18" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b18_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b18_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b18_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b19" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b19_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b19_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b19_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b20" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b20_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b20_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b20_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b21" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b21_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b21_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b21_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b22" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b22_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b22_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b22_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
 <Button id="ui_left_b23" class="ui-btn">
 <Panel class="ui-btnglow" hittest="false" />
 <Panel class="ui-rowmark" hittest="false" />
 <Panel class="ui-btnfill" hittest="false" />
+<Panel id="ui_left_b23_img" class="ui-btnimg" hittest="false" />
 <Label id="ui_left_b23_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
 <Label id="ui_left_b23_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
 </Button>
+</Panel>
 </Panel>
 <Panel id="ui_left_cmds" class="ui-cmds" hittest="false">
 <Panel id="ui_left_k0" class="ui-cmd" hittest="false">
@@ -767,6 +1623,2454 @@
 <Label id="ui_left_counter" class="ui-counter" text="{s:text}" hittest="false" />
 <Panel class="ui-line" hittest="false" />
 <Panel class="ui-flash" hittest="false" />
+</Panel>
+</Panel>
+<Panel id="ui_inv" class="ui-panel ui-inv" hittest="true">
+<Panel class="ui-back" hittest="false" />
+<Panel class="ui-invrow" hittest="false">
+<Panel class="ui-invside" hittest="false">
+<Label id="ui_inv_kind" class="ui-kind" text="{s:text}" hittest="false" />
+<Panel id="ui_inv_tabs" class="ui-tabs" hittest="false">
+<Button id="ui_inv_g0" class="ui-tab">
+<Label id="ui_inv_g0_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_inv_g0_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_g1" class="ui-tab">
+<Label id="ui_inv_g1_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_inv_g1_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_g2" class="ui-tab">
+<Label id="ui_inv_g2_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_inv_g2_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_g3" class="ui-tab">
+<Label id="ui_inv_g3_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_inv_g3_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_g4" class="ui-tab">
+<Label id="ui_inv_g4_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_inv_g4_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_g5" class="ui-tab">
+<Label id="ui_inv_g5_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_inv_g5_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_g6" class="ui-tab">
+<Label id="ui_inv_g6_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_inv_g6_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_g7" class="ui-tab">
+<Label id="ui_inv_g7_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_inv_g7_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_g8" class="ui-tab">
+<Label id="ui_inv_g8_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_inv_g8_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_g9" class="ui-tab">
+<Label id="ui_inv_g9_l" class="ui-tablabel" text="{s:text}" hittest="false" />
+<Label id="ui_inv_g9_c" class="ui-tabcount" text="{s:text}" hittest="false" />
+</Button>
+</Panel>
+</Panel>
+<Panel class="ui-invmain" hittest="false">
+<Panel class="ui-invtop" hittest="false">
+<Label id="ui_inv_title" class="ui-title" text="{s:text}" hittest="false" />
+<Label id="ui_inv_sub" class="ui-sub" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_inv_buttons" class="ui-buttons" hittest="true">
+<Button id="ui_inv_b0" class="ui-btn ui-tile">
+<Panel id="ui_inv_b0_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b0_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b0_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b0_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b1" class="ui-btn ui-tile">
+<Panel id="ui_inv_b1_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b1_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b1_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b1_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b2" class="ui-btn ui-tile">
+<Panel id="ui_inv_b2_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b2_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b2_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b2_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b3" class="ui-btn ui-tile">
+<Panel id="ui_inv_b3_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b3_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b3_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b3_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b4" class="ui-btn ui-tile">
+<Panel id="ui_inv_b4_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b4_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b4_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b4_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b5" class="ui-btn ui-tile">
+<Panel id="ui_inv_b5_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b5_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b5_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b5_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b6" class="ui-btn ui-tile">
+<Panel id="ui_inv_b6_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b6_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b6_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b6_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b7" class="ui-btn ui-tile">
+<Panel id="ui_inv_b7_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b7_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b7_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b7_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b8" class="ui-btn ui-tile">
+<Panel id="ui_inv_b8_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b8_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b8_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b8_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b9" class="ui-btn ui-tile">
+<Panel id="ui_inv_b9_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b9_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b9_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b9_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b10" class="ui-btn ui-tile">
+<Panel id="ui_inv_b10_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b10_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b10_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b10_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b11" class="ui-btn ui-tile">
+<Panel id="ui_inv_b11_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b11_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b11_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b11_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b12" class="ui-btn ui-tile">
+<Panel id="ui_inv_b12_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b12_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b12_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b12_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b13" class="ui-btn ui-tile">
+<Panel id="ui_inv_b13_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b13_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b13_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b13_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b14" class="ui-btn ui-tile">
+<Panel id="ui_inv_b14_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b14_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b14_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b14_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b15" class="ui-btn ui-tile">
+<Panel id="ui_inv_b15_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b15_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b15_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b15_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b16" class="ui-btn ui-tile">
+<Panel id="ui_inv_b16_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b16_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b16_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b16_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b17" class="ui-btn ui-tile">
+<Panel id="ui_inv_b17_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b17_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b17_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b17_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b18" class="ui-btn ui-tile">
+<Panel id="ui_inv_b18_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b18_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b18_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b18_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b19" class="ui-btn ui-tile">
+<Panel id="ui_inv_b19_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b19_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b19_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b19_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b20" class="ui-btn ui-tile">
+<Panel id="ui_inv_b20_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b20_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b20_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b20_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b21" class="ui-btn ui-tile">
+<Panel id="ui_inv_b21_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b21_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b21_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b21_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b22" class="ui-btn ui-tile">
+<Panel id="ui_inv_b22_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b22_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b22_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b22_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b23" class="ui-btn ui-tile">
+<Panel id="ui_inv_b23_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b23_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b23_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b23_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b24" class="ui-btn ui-tile">
+<Panel id="ui_inv_b24_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b24_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b24_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b24_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b25" class="ui-btn ui-tile">
+<Panel id="ui_inv_b25_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b25_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b25_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b25_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b26" class="ui-btn ui-tile">
+<Panel id="ui_inv_b26_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b26_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b26_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b26_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b27" class="ui-btn ui-tile">
+<Panel id="ui_inv_b27_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b27_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b27_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b27_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b28" class="ui-btn ui-tile">
+<Panel id="ui_inv_b28_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b28_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b28_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b28_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b29" class="ui-btn ui-tile">
+<Panel id="ui_inv_b29_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b29_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b29_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b29_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b30" class="ui-btn ui-tile">
+<Panel id="ui_inv_b30_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b30_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b30_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b30_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b31" class="ui-btn ui-tile">
+<Panel id="ui_inv_b31_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b31_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b31_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b31_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b32" class="ui-btn ui-tile">
+<Panel id="ui_inv_b32_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b32_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b32_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b32_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b33" class="ui-btn ui-tile">
+<Panel id="ui_inv_b33_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b33_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b33_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b33_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b34" class="ui-btn ui-tile">
+<Panel id="ui_inv_b34_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b34_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b34_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b34_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b35" class="ui-btn ui-tile">
+<Panel id="ui_inv_b35_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b35_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b35_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b35_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b36" class="ui-btn ui-tile">
+<Panel id="ui_inv_b36_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b36_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b36_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b36_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b37" class="ui-btn ui-tile">
+<Panel id="ui_inv_b37_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b37_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b37_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b37_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b38" class="ui-btn ui-tile">
+<Panel id="ui_inv_b38_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b38_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b38_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b38_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b39" class="ui-btn ui-tile">
+<Panel id="ui_inv_b39_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b39_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b39_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b39_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b40" class="ui-btn ui-tile">
+<Panel id="ui_inv_b40_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b40_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b40_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b40_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b41" class="ui-btn ui-tile">
+<Panel id="ui_inv_b41_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b41_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b41_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b41_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b42" class="ui-btn ui-tile">
+<Panel id="ui_inv_b42_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b42_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b42_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b42_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b43" class="ui-btn ui-tile">
+<Panel id="ui_inv_b43_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b43_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b43_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b43_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b44" class="ui-btn ui-tile">
+<Panel id="ui_inv_b44_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b44_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b44_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b44_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b45" class="ui-btn ui-tile">
+<Panel id="ui_inv_b45_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b45_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b45_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b45_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b46" class="ui-btn ui-tile">
+<Panel id="ui_inv_b46_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b46_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b46_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b46_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b47" class="ui-btn ui-tile">
+<Panel id="ui_inv_b47_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b47_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b47_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b47_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b48" class="ui-btn ui-tile">
+<Panel id="ui_inv_b48_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b48_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b48_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b48_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b49" class="ui-btn ui-tile">
+<Panel id="ui_inv_b49_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b49_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b49_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b49_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b50" class="ui-btn ui-tile">
+<Panel id="ui_inv_b50_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b50_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b50_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b50_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b51" class="ui-btn ui-tile">
+<Panel id="ui_inv_b51_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b51_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b51_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b51_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b52" class="ui-btn ui-tile">
+<Panel id="ui_inv_b52_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b52_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b52_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b52_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b53" class="ui-btn ui-tile">
+<Panel id="ui_inv_b53_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b53_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b53_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b53_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b54" class="ui-btn ui-tile">
+<Panel id="ui_inv_b54_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b54_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b54_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b54_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b55" class="ui-btn ui-tile">
+<Panel id="ui_inv_b55_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b55_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b55_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b55_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b56" class="ui-btn ui-tile">
+<Panel id="ui_inv_b56_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b56_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b56_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b56_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b57" class="ui-btn ui-tile">
+<Panel id="ui_inv_b57_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b57_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b57_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b57_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b58" class="ui-btn ui-tile">
+<Panel id="ui_inv_b58_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b58_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b58_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b58_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b59" class="ui-btn ui-tile">
+<Panel id="ui_inv_b59_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b59_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b59_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b59_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b60" class="ui-btn ui-tile">
+<Panel id="ui_inv_b60_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b60_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b60_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b60_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b61" class="ui-btn ui-tile">
+<Panel id="ui_inv_b61_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b61_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b61_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b61_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b62" class="ui-btn ui-tile">
+<Panel id="ui_inv_b62_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b62_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b62_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b62_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b63" class="ui-btn ui-tile">
+<Panel id="ui_inv_b63_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b63_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b63_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b63_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b64" class="ui-btn ui-tile">
+<Panel id="ui_inv_b64_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b64_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b64_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b64_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b65" class="ui-btn ui-tile">
+<Panel id="ui_inv_b65_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b65_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b65_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b65_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b66" class="ui-btn ui-tile">
+<Panel id="ui_inv_b66_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b66_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b66_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b66_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b67" class="ui-btn ui-tile">
+<Panel id="ui_inv_b67_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b67_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b67_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b67_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b68" class="ui-btn ui-tile">
+<Panel id="ui_inv_b68_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b68_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b68_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b68_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b69" class="ui-btn ui-tile">
+<Panel id="ui_inv_b69_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b69_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b69_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b69_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b70" class="ui-btn ui-tile">
+<Panel id="ui_inv_b70_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b70_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b70_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b70_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b71" class="ui-btn ui-tile">
+<Panel id="ui_inv_b71_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b71_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b71_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b71_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b72" class="ui-btn ui-tile">
+<Panel id="ui_inv_b72_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b72_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b72_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b72_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b73" class="ui-btn ui-tile">
+<Panel id="ui_inv_b73_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b73_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b73_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b73_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b74" class="ui-btn ui-tile">
+<Panel id="ui_inv_b74_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b74_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b74_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b74_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b75" class="ui-btn ui-tile">
+<Panel id="ui_inv_b75_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b75_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b75_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b75_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b76" class="ui-btn ui-tile">
+<Panel id="ui_inv_b76_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b76_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b76_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b76_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b77" class="ui-btn ui-tile">
+<Panel id="ui_inv_b77_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b77_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b77_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b77_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b78" class="ui-btn ui-tile">
+<Panel id="ui_inv_b78_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b78_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b78_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b78_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b79" class="ui-btn ui-tile">
+<Panel id="ui_inv_b79_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b79_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b79_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b79_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b80" class="ui-btn ui-tile">
+<Panel id="ui_inv_b80_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b80_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b80_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b80_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b81" class="ui-btn ui-tile">
+<Panel id="ui_inv_b81_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b81_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b81_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b81_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b82" class="ui-btn ui-tile">
+<Panel id="ui_inv_b82_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b82_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b82_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b82_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b83" class="ui-btn ui-tile">
+<Panel id="ui_inv_b83_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b83_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b83_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b83_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b84" class="ui-btn ui-tile">
+<Panel id="ui_inv_b84_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b84_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b84_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b84_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b85" class="ui-btn ui-tile">
+<Panel id="ui_inv_b85_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b85_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b85_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b85_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b86" class="ui-btn ui-tile">
+<Panel id="ui_inv_b86_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b86_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b86_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b86_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b87" class="ui-btn ui-tile">
+<Panel id="ui_inv_b87_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b87_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b87_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b87_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b88" class="ui-btn ui-tile">
+<Panel id="ui_inv_b88_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b88_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b88_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b88_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b89" class="ui-btn ui-tile">
+<Panel id="ui_inv_b89_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b89_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b89_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b89_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b90" class="ui-btn ui-tile">
+<Panel id="ui_inv_b90_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b90_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b90_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b90_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b91" class="ui-btn ui-tile">
+<Panel id="ui_inv_b91_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b91_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b91_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b91_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b92" class="ui-btn ui-tile">
+<Panel id="ui_inv_b92_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b92_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b92_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b92_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b93" class="ui-btn ui-tile">
+<Panel id="ui_inv_b93_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b93_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b93_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b93_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b94" class="ui-btn ui-tile">
+<Panel id="ui_inv_b94_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b94_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b94_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b94_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b95" class="ui-btn ui-tile">
+<Panel id="ui_inv_b95_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b95_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b95_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b95_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b96" class="ui-btn ui-tile">
+<Panel id="ui_inv_b96_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b96_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b96_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b96_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b97" class="ui-btn ui-tile">
+<Panel id="ui_inv_b97_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b97_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b97_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b97_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b98" class="ui-btn ui-tile">
+<Panel id="ui_inv_b98_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b98_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b98_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b98_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b99" class="ui-btn ui-tile">
+<Panel id="ui_inv_b99_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b99_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b99_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b99_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b100" class="ui-btn ui-tile">
+<Panel id="ui_inv_b100_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b100_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b100_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b100_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b101" class="ui-btn ui-tile">
+<Panel id="ui_inv_b101_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b101_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b101_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b101_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b102" class="ui-btn ui-tile">
+<Panel id="ui_inv_b102_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b102_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b102_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b102_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b103" class="ui-btn ui-tile">
+<Panel id="ui_inv_b103_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b103_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b103_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b103_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b104" class="ui-btn ui-tile">
+<Panel id="ui_inv_b104_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b104_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b104_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b104_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b105" class="ui-btn ui-tile">
+<Panel id="ui_inv_b105_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b105_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b105_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b105_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b106" class="ui-btn ui-tile">
+<Panel id="ui_inv_b106_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b106_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b106_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b106_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b107" class="ui-btn ui-tile">
+<Panel id="ui_inv_b107_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b107_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b107_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b107_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b108" class="ui-btn ui-tile">
+<Panel id="ui_inv_b108_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b108_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b108_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b108_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b109" class="ui-btn ui-tile">
+<Panel id="ui_inv_b109_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b109_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b109_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b109_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b110" class="ui-btn ui-tile">
+<Panel id="ui_inv_b110_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b110_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b110_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b110_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b111" class="ui-btn ui-tile">
+<Panel id="ui_inv_b111_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b111_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b111_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b111_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b112" class="ui-btn ui-tile">
+<Panel id="ui_inv_b112_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b112_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b112_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b112_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b113" class="ui-btn ui-tile">
+<Panel id="ui_inv_b113_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b113_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b113_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b113_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b114" class="ui-btn ui-tile">
+<Panel id="ui_inv_b114_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b114_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b114_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b114_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b115" class="ui-btn ui-tile">
+<Panel id="ui_inv_b115_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b115_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b115_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b115_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b116" class="ui-btn ui-tile">
+<Panel id="ui_inv_b116_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b116_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b116_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b116_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b117" class="ui-btn ui-tile">
+<Panel id="ui_inv_b117_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b117_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b117_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b117_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b118" class="ui-btn ui-tile">
+<Panel id="ui_inv_b118_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b118_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b118_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b118_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+<Button id="ui_inv_b119" class="ui-btn ui-tile">
+<Panel id="ui_inv_b119_img" class="ui-btnimg" hittest="false" />
+<Panel class="ui-btnbar" hittest="false" />
+<Panel class="ui-tiletext" hittest="false">
+<Label id="ui_inv_b119_s" class="ui-btnsub" text="{s:text}" hittest="false" />
+<Label id="ui_inv_b119_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-tilerow" hittest="false">
+<Label id="ui_inv_b119_n" class="ui-tilenote" text="{s:text}" hittest="false" />
+<Panel class="ui-btnmarks" hittest="false">
+<Panel class="ui-mk ui-mk-ct" hittest="false">
+<Label class="ui-mkt" text="CT" hittest="false" />
+</Panel>
+<Panel class="ui-mk ui-mk-t" hittest="false">
+<Label class="ui-mkt" text="T" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+</Panel>
+</Button>
+</Panel>
+<Panel class="ui-invfoot" hittest="false">
+<Label id="ui_inv_counter" class="ui-counter" text="{s:text}" hittest="false" />
+<Label id="ui_inv_hint" class="ui-hint" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Panel class="ui-drawer" hittest="true">
+<Panel class="ui-dtop" hittest="false">
+<Label id="ui_inv_dkind" class="ui-dkind" text="{s:text}" hittest="false" />
+<Button id="ui_inv_close" class="ui-close">
+<Panel class="ui-xbar a" hittest="false" />
+<Panel class="ui-xbar b" hittest="false" />
+<Label id="ui_inv_close_l" class="ui-closelabel" text="{s:text}" hittest="false" />
+</Button>
+</Panel>
+<Panel id="ui_inv_dimg" class="ui-dimg" hittest="false" />
+<Label id="ui_inv_dtitle" class="ui-dtitle" text="{s:text}" hittest="false" />
+<Label id="ui_inv_dsub" class="ui-dsub" text="{s:text}" hittest="false" />
+<Panel class="ui-dlines" hittest="false">
+<Panel id="ui_inv_dn0" class="ui-row" hittest="false">
+<Label id="ui_inv_dn0_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_inv_dn0_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_inv_dn1" class="ui-row" hittest="false">
+<Label id="ui_inv_dn1_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_inv_dn1_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_inv_dn2" class="ui-row" hittest="false">
+<Label id="ui_inv_dn2_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_inv_dn2_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Label id="ui_inv_dlabel" class="ui-dlabel" text="{s:text}" hittest="false" />
+<Panel class="ui-dbuttons" hittest="false">
+<Button id="ui_inv_d0" class="ui-btn ui-dbtn">
+<Label id="ui_inv_d0_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_d1" class="ui-btn ui-dbtn">
+<Label id="ui_inv_d1_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_d2" class="ui-btn ui-dbtn">
+<Label id="ui_inv_d2_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_d3" class="ui-btn ui-dbtn">
+<Label id="ui_inv_d3_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_d4" class="ui-btn ui-dbtn">
+<Label id="ui_inv_d4_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_d5" class="ui-btn ui-dbtn">
+<Label id="ui_inv_d5_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_inv_dclose" class="ui-btn ui-dclose">
+<Label id="ui_inv_dclose_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+</Panel>
+<Label id="ui_inv_dhint" class="ui-dhint" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+</Panel>
+<Panel id="ui_invd" class="ui-panel ui-invd" hittest="true">
+<Panel class="ui-back" hittest="false" />
+<Panel class="ui-invrow" hittest="false">
+<Panel class="ui-invghost" hittest="false">
+<Panel class="ui-ghostgrid" hittest="false">
+<Panel class="ui-ghosttile" hittest="false" />
+<Panel class="ui-ghosttile" hittest="false" />
+<Panel class="ui-ghosttile" hittest="false" />
+<Panel class="ui-ghosttile" hittest="false" />
+<Panel class="ui-ghosttile" hittest="false" />
+<Panel class="ui-ghosttile" hittest="false" />
+</Panel>
+</Panel>
+<Panel class="ui-invdside" hittest="false">
+<Panel id="ui_invd_hero" class="ui-hero" hittest="false" />
+<Label id="ui_invd_kind" class="ui-kind" text="{s:text}" hittest="false" />
+<Label id="ui_invd_title" class="ui-title" text="{s:text}" hittest="false" />
+<Label id="ui_invd_sub" class="ui-sub" text="{s:text}" hittest="false" />
+<Panel id="ui_invd_lines" class="ui-lines" hittest="false">
+<Panel id="ui_invd_n0" class="ui-row" hittest="false">
+<Label id="ui_invd_n0_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_invd_n0_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_invd_n1" class="ui-row" hittest="false">
+<Label id="ui_invd_n1_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_invd_n1_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+<Panel id="ui_invd_n2" class="ui-row" hittest="false">
+<Label id="ui_invd_n2_k" class="ui-rowk" text="{s:text}" hittest="false" />
+<Label id="ui_invd_n2_v" class="ui-rowv" text="{s:text}" hittest="false" />
+</Panel>
+</Panel>
+<Label id="ui_invd_counter" class="ui-counter" text="{s:text}" hittest="false" />
+<Panel id="ui_invd_buttons" class="ui-buttons" hittest="false">
+<Button id="ui_invd_b0" class="ui-btn">
+<Label id="ui_invd_b0_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_invd_b1" class="ui-btn">
+<Label id="ui_invd_b1_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_invd_b2" class="ui-btn">
+<Label id="ui_invd_b2_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_invd_b3" class="ui-btn">
+<Label id="ui_invd_b3_l" class="ui-btnlabel" text="{s:text}" hittest="false" />
+</Button>
+<Button id="ui_invd_close" class="ui-close">
+<Label id="ui_invd_close_l" class="ui-closelabel" text="{s:text}" hittest="false" />
+</Button>
+</Panel>
+<Label id="ui_invd_hint" class="ui-hint" text="{s:text}" hittest="false" />
+</Panel>
 </Panel>
 </Panel>
 <Panel id="ui_ver" class="ui-ver" hittest="false">

@@ -78,9 +78,20 @@ def block(p):
             return ""
         return panel(cls="ui-btnfill") + panel(cls="ui-btnkey", children=(
             panel(cls="ui-kcbr ui-kcl") + panel(cls="ui-kcbr ui-kcr") + label(f"{p}_b0_k", "ui-kct", "{g:csgo_key:k}")))
+    # A button with a picture (`btn=…|img|marks`, has-img) is a tile: the picture on top (its class
+    # from at_skins.css, set by hud.so), label and sub under it, side chips and a rarity line (mk-*).
+    marks = panel(cls="ui-btnbar") + panel(cls="ui-btnmarks", children=(
+        panel(cls="ui-mk ui-mk-ct", children=label(cls="ui-mkt", text="CT"))
+        + panel(cls="ui-mk ui-mk-t", children=label(cls="ui-mkt", text="T"))))
     buttons = panel(f"{p}_buttons", "ui-buttons", children="".join(
-        button(f"{p}_b{n}", "ui-btn", panel(cls="ui-btnglow") + hold_parts(n) + label(f"{p}_b{n}_l", "ui-btnlabel") + label(f"{p}_b{n}_s", "ui-btnsub"))
+        button(f"{p}_b{n}", "ui-btn", panel(cls="ui-btnglow") + hold_parts(n) + panel(f"{p}_b{n}_img", "ui-btnimg")
+               + label(f"{p}_b{n}_l", "ui-btnlabel") + label(f"{p}_b{n}_s", "ui-btnsub") + marks)
         for n in range(24)))
+    # Tabs left of the buttons (`tab=`, has-tabs): a column of up to 10, label and count.
+    tabs = panel(f"{p}_tabs", "ui-tabs", children="".join(
+        button(f"{p}_g{n}", "ui-tab", label(f"{p}_g{n}_l", "ui-tablabel") + label(f"{p}_g{n}_c", "ui-tabcount"))
+        for n in range(10)))
+    body = panel(f"{p}_body", "ui-body", children=tabs + buttons)
     close_parts = panel(cls="ui-rowmark") + panel(cls="ui-btnfill") if p == "ui_left" else ""
     close = button(f"{p}_close", "ui-close", close_parts + label(f"{p}_close_l", "ui-closelabel"))
     # Behind the content: a wash of the accent from the left and a few breathing pixels (cs2-ui-kit).
@@ -88,10 +99,74 @@ def block(p):
     back = panel(cls="ui-back") + panel(cls="ui-wash") + panel(cls="ui-pixels", children="".join(
         panel(cls=f"ui-px p{n} px-{'abcd'[n % 4]}") for n in range(8)))
     flow = panel(f"{p}_flow", "ui-flow", children=(
-        brand + label(f"{p}_kind", "ui-kind") + label(f"{p}_title", "ui-title") + label(f"{p}_sub", "ui-sub") + vs
-        + teams + confirm + rows + buttons + cmds + close + label(f"{p}_hint", "ui-hint")))
+        brand + panel(f"{p}_hero", "ui-hero") + label(f"{p}_kind", "ui-kind") + label(f"{p}_title", "ui-title")
+        + label(f"{p}_sub", "ui-sub") + vs + teams + confirm + rows + body + cmds + close + label(f"{p}_hint", "ui-hint")))
     extras = label(f"{p}_timer", "ui-timer") + label(f"{p}_counter", "ui-counter") + panel(cls="ui-line") + panel(cls="ui-flash")
     return panel(p, f"ui-panel ui-{p[3:]}", back + flow + extras, hit=True)
+
+
+def inventory_tile(p, n):
+    """A tile of the inventory grid: picture, rarity line, weapon (sub), name (label), wear (note) and
+    the CT / T chips (marks). Paging buttons use the same slots without a picture: a small pill."""
+    chips = panel(cls="ui-btnmarks", children=(
+        panel(cls="ui-mk ui-mk-ct", children=label(cls="ui-mkt", text="CT"))
+        + panel(cls="ui-mk ui-mk-t", children=label(cls="ui-mkt", text="T"))))
+    return button(f"{p}_b{n}", "ui-btn ui-tile", (
+        panel(f"{p}_b{n}_img", "ui-btnimg") + panel(cls="ui-btnbar")
+        + panel(cls="ui-tiletext", children=(
+            label(f"{p}_b{n}_s", "ui-btnsub") + label(f"{p}_b{n}_l", "ui-btnlabel")
+            + panel(cls="ui-tilerow", children=label(f"{p}_b{n}_n", "ui-tilenote") + chips)))))
+
+
+def block_inv():
+    """The inventory (`.skins`, where=inv): a column of tabs under INVENTORY (kind), the title over a
+    3-column grid of tiles with a footer (counter left, hint right), and the item panel on the right
+    with the close (×) in its top bar."""
+    p = "ui_inv"
+    tabs = panel(f"{p}_tabs", "ui-tabs", children="".join(
+        button(f"{p}_g{n}", "ui-tab", label(f"{p}_g{n}_l", "ui-tablabel") + label(f"{p}_g{n}_c", "ui-tabcount"))
+        for n in range(10)))
+    side = panel(cls="ui-invside", children=label(f"{p}_kind", "ui-kind") + tabs)
+    top = panel(cls="ui-invtop", children=label(f"{p}_title", "ui-title") + label(f"{p}_sub", "ui-sub"))
+    # One scrolling grid (Sivert, 2026-11-26: no pages): up to 120 tiles (hud_screen.h kMaxTiles).
+    grid = panel(f"{p}_buttons", "ui-buttons", children="".join(inventory_tile(p, n) for n in range(120)), hit=True)
+    foot = panel(cls="ui-invfoot", children=label(f"{p}_counter", "ui-counter") + label(f"{p}_hint", "ui-hint"))
+    main = panel(cls="ui-invmain", children=top + grid + foot)
+    # The item panel (drawer.*), always beside the grid (Sivert, 2026-11-26): a top bar with the
+    # weapon (kind) and the close, the picture, name, facts, EQUIP ON over the side toggles, a note.
+    close = button(f"{p}_close", "ui-close", panel(cls="ui-xbar a") + panel(cls="ui-xbar b") + label(f"{p}_close_l", "ui-closelabel"))
+    drows = "".join(panel(f"{p}_dn{n}", "ui-row", label(f"{p}_dn{n}_k", "ui-rowk") + label(f"{p}_dn{n}_v", "ui-rowv"))
+                    for n in range(3))
+    dbuttons = panel(cls="ui-dbuttons", children="".join(
+        button(f"{p}_d{n}", "ui-btn ui-dbtn", label(f"{p}_d{n}_l", "ui-btnlabel")) for n in range(6))
+        + button(f"{p}_dclose", "ui-btn ui-dclose", label(f"{p}_dclose_l", "ui-btnlabel")))
+    dtop = panel(cls="ui-dtop", children=label(f"{p}_dkind", "ui-dkind") + close)
+    drawer = panel(cls="ui-drawer", hit=True, children=(
+        dtop + panel(f"{p}_dimg", "ui-dimg") + label(f"{p}_dtitle", "ui-dtitle")
+        + label(f"{p}_dsub", "ui-dsub") + panel(cls="ui-dlines", children=drows) + label(f"{p}_dlabel", "ui-dlabel")
+        + dbuttons + label(f"{p}_dhint", "ui-dhint")))
+    return panel(p, "ui-panel ui-inv", panel(cls="ui-back") + panel(cls="ui-invrow", children=side + main + drawer), hit=True)
+
+
+def block_invd():
+    """One item (where=invd), as drafted: the grid dimmed on the left, on the right the large
+    picture, kind / title / sub, lines (where it came from), EQUIP ON (counter), the side buttons,
+    a note (hint) and Back (close)."""
+    p = "ui_invd"
+    ghost = panel(cls="ui-invghost", children=panel(cls="ui-ghostgrid", children="".join(
+        panel(cls="ui-ghosttile") for _ in range(6))))
+    rows = panel(f"{p}_lines", "ui-lines", children="".join(
+        panel(f"{p}_n{n}", "ui-row", label(f"{p}_n{n}_k", "ui-rowk") + label(f"{p}_n{n}_v", "ui-rowv"))
+        for n in range(3)))
+    # CT / T / Both, then Unequip, then Back (the close) in the same row as Unequip, as drafted.
+    buttons = panel(f"{p}_buttons", "ui-buttons", children="".join(
+        button(f"{p}_b{n}", "ui-btn", label(f"{p}_b{n}_l", "ui-btnlabel")) for n in range(4))
+        + button(f"{p}_close", "ui-close", label(f"{p}_close_l", "ui-closelabel")))
+    side = panel(cls="ui-invdside", children=(
+        panel(f"{p}_hero", "ui-hero") + label(f"{p}_kind", "ui-kind") + label(f"{p}_title", "ui-title")
+        + label(f"{p}_sub", "ui-sub") + rows + label(f"{p}_counter", "ui-counter") + buttons
+        + label(f"{p}_hint", "ui-hint")))
+    return panel(p, "ui-panel ui-invd", panel(cls="ui-back") + panel(cls="ui-invrow", children=ghost + side), hit=True)
 
 
 def main():
@@ -100,6 +175,9 @@ def main():
     # Menus: a list on the left, vertically centred (v4, Hold E). W S move the `sel` row (hud.so),
     # holding E slides the fill across it, the close row is always last.
     body += panel("ui_leftwrap", "ui-leftwrap", block("ui_left"))
+    # The inventory (`.skins`): its own two panels, centred, not scaled (Sivert, 2026-11-26: 1:1 to
+    # the canvas draft).
+    body += block_inv() + block_invd()
     # "Your HUD addon is out of date": shown unless hud.so's v-<n> class is one this addon knows.
     body += panel("ui_ver", "ui-ver", label("ui_ver_t", "ui-vertext"))
     # Dev servers (readyup.cfg dev=1): which HUD this client has and which hud.so the server runs.
@@ -130,6 +208,7 @@ def main():
 <root>
 	<styles>
 		<include src="s2r://panorama/styles/custom_game/at_ui.vcss_c" />
+		<include src="s2r://panorama/styles/custom_game/at_skins.vcss_c" />
 	</styles>
 	<Panel class="ui-root" hittest="false">{body}</Panel>
 </root>

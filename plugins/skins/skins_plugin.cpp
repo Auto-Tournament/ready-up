@@ -200,6 +200,7 @@ void OnTick(void*, const ru_tick_info* t) {
   try {
     RefreshInert(t->now);
     FleetTick(t->now);
+    InventoryTick(t->now);
     GameFrameTick();
   } catch (const std::exception& e) {
     Log(RU_LOG_ERROR, "tick threw: %s", e.what());
@@ -249,6 +250,15 @@ void OnSkinsChat(void*, const ru_command_ctx* ctx) {
     }
   };
   const std::string sub = ctx->argc >= 2 && ctx->argv[1] ? ctx->argv[1] : "";
+  if (sub.empty()) {
+    // `.skins`: the inventory on screen (inventory.cpp).
+    if (Inert()) {
+      reply("reload.off");
+      return;
+    }
+    OpenInventory(ctx->slot, ctx->steamid64);
+    return;
+  }
   if (sub != "reload") {
     reply("reload.usage");
     return;
@@ -347,6 +357,11 @@ void OnDebugAs(void*, const ru_command_ctx* ctx) {
 
 bool WarmupLike() { return SkinsReloadAllowed(RuMode()); }
 
+std::string SkinsText(const std::string& lang, const std::string& key,
+                      const std::vector<std::pair<std::string, std::string>>& args) {
+  return g_text.Tr(lang, key, args);
+}
+
 }  // namespace skins
 
 using namespace skins;
@@ -412,6 +427,7 @@ READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
   // Join the loadout worker before the image is unmapped. Paints already applied stay on live
   // entities (ordinary entity state; they reset on respawn / map change).
   try {
+    InventoryForgetAll();
     LoadoutStop();
   } catch (...) {
   }

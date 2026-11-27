@@ -651,8 +651,11 @@ struct ScreenSlot {
 std::map<int, ScreenSlot> g_screens;
 std::set<int> g_buyOpen;  // slots whose buy menu is open (open_buymenu .. close_buymenu)
 
-std::string PanelOf(const Screen& s) { return s.where == "card" ? "ui_card" : s.where == "left" ? "ui_left" : "ui_mid"; }
-const char* const kPanels[] = {"ui_card", "ui_mid", "ui_left"};
+std::string PanelOf(const Screen& s) {
+  if (s.where == "card" || s.where == "left" || s.where == "inv" || s.where == "invd") return "ui_" + s.where;
+  return "ui_mid";
+}
+const char* const kPanels[] = {"ui_card", "ui_mid", "ui_left", "ui_inv", "ui_invd"};
 
 void UpdateCapture(int slot, bool force = false) {
   auto it = g_screens.find(slot);
@@ -864,6 +867,18 @@ bool ScreenClick(int slot, const std::string& button) {
       IfSetClass(IfOpen(kUiLayout), slot, panel.c_str(), "on", 0);
       ss.shown = false;
     }
+  } else if (index == kDrawerClose) {
+    cmd = ss.cur.drawer.closeCmd;
+  } else if (index >= kDrawerIndex) {
+    const size_t n = static_cast<size_t>(index - kDrawerIndex);
+    if (n >= ss.cur.drawer.buttons.size()) return true;
+    const Button& b = ss.cur.drawer.buttons[n];
+    if (b.state == "off" || b.cmd.empty()) return true;
+    cmd = b.cmd;
+  } else if (index >= kTabIndex) {
+    const size_t t = static_cast<size_t>(index - kTabIndex);
+    if (t >= ss.cur.tabs.size() || ss.cur.tabs[t].cmd.empty()) return true;
+    cmd = ss.cur.tabs[t].cmd;
   } else {
     if (static_cast<size_t>(index) >= ss.cur.buttons.size()) return true;
     const Button& b = ss.cur.buttons[static_cast<size_t>(index)];
@@ -871,7 +886,9 @@ bool ScreenClick(int slot, const std::string& button) {
     cmd = b.cmd;
     IfSetClass(IfOpen(kUiLayout), slot, button.c_str(), "picked", 1);  // feedback until the caller redraws
   }
-  ss.clicked = true;
+  // A click gives the cursor back until the buttons change, except in the inventory, which stays
+  // open and clickable (tabs, tiles, its drawer) until it is closed.
+  if (panel != "ui_inv" && panel != "ui_invd") ss.clicked = true;
   UpdateCapture(slot);
   if (cmd.empty()) return true;
   // `#open <owner>`: another plugin's menu (the movement menu's Maps button opens the map vote's).
@@ -1918,7 +1935,10 @@ void MenuRefresh(int slot) {
     // A menu with buttons is the list on the left (v4, Hold E): W S choose, holding E picks, a close
     // row last. One with no buttons (retakes' "Retake site B!" banner) keeps its own place: as a list
     // it was a bare Close row (2026-11-24).
-    const bool list = top.spec.find("btn=") != std::string::npos;
+    // A menu that names its own place (`where=mid`: the skins inventory, a clickable modal with the
+    // cursor) stays there; the W S list is for menus that don't (2026-11-26).
+    const bool placed = top.spec.rfind("where=", 0) == 0 || top.spec.find("\nwhere=") != std::string::npos;
+    const bool list = !placed && top.spec.find("btn=") != std::string::npos;
     const std::string spec = list ? top.spec + "\nwhere=left" : top.spec;
     IfScreen(slot, spec.c_str(), top.onClick, top.user);
     g_drawingMenu = false;
@@ -2112,6 +2132,9 @@ bool HoldAction(int slot, HoldTarget* t) {
   }
   if (HasMenu(slot)) {
     if (!card) return false;
+    // The inventory is clicked, with its own close (×): no hold chip over it.
+    const std::string pan = PanelOf(it->second.cur);
+    if (pan == "ui_inv" || pan == "ui_invd") return false;
     t->label = g_text.Tr(lang, "hud.hold_close");
     t->action = PanelOf(it->second.cur) + "_close";
     return true;
@@ -2215,7 +2238,8 @@ bool FreezeFor(int slot, bool on) {
   return true;
 }
 
-// W S move the chosen row (on the press, wrapping); the pawn is held still while the list is up.
+// W S move the chosen row (on the press, wrapping). The player keeps moving: the list never holds
+// them still (Sivert, 2026-11-27: holding them stopped a jump mid-air; "just let wasd go through").
 void NavTick(int slot, HoldSlot& hs, bool gotButtons, uint64_t held) {
   auto it = g_screens.find(slot);
   const bool left = it != g_screens.end() && it->second.shown && !it->second.dismissed &&
@@ -2232,9 +2256,7 @@ void NavTick(int slot, HoldSlot& hs, bool gotButtons, uint64_t held) {
     }
   }
   hs.prev = gotButtons ? held : 0;
-  if (left) {
-    if (FreezeFor(slot, true)) hs.frozen = true;
-  } else if (hs.frozen) {
+  if (hs.frozen) {  // a hold from before this build: let go
     FreezeFor(slot, false);
     hs.frozen = false;  // let go, or dead: a respawn walks anyway
   }

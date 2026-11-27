@@ -3,12 +3,15 @@
 // readyup-skins internals. The plugin talks to the core only through ru_api
 // (core/include/readyup/plugin_api.h); nothing here includes a core header.
 
+#include "readyup/fleet_iface.h"
 #include "readyup/plugin_api.h"
 
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace skins {
 
@@ -19,6 +22,16 @@ bool DebugOn();  // readyup.cfg debug=1 (any thread)
 // Whether nothing is being played (Ready Up's idle, practice or a match / scrim warmup, or no
 // match plugin): a new loadout may swap the held weapons and gloves at once. Game thread.
 bool WarmupLike();
+
+// Player-facing text from plugins/skins/locales in `lang`, with {placeholders}.
+std::string SkinsText(const std::string& lang, const std::string& key,
+                      const std::vector<std::pair<std::string, std::string>>& args);
+
+// The in-game inventory (inventory.cpp): `.skins` opens it; the platform's skins.inventory answers.
+void OpenInventory(int slot, uint64_t steamid64);
+void InventoryFleetMessage(void* user, const ::ru_fleet_msg* m);
+void InventoryTick(double now);
+void InventoryForgetAll();
 // Ruleset "valve" (docs/ESPORTS-MODE.md, Valve rulebook: inventories "should not be modified or
 // augmented"): the plugin applies and restores nothing. Asked from the match plugin
 // (readyup.match.v1 inventory_locked), else readyup.cfg `ruleset=`; refreshed once a second on the

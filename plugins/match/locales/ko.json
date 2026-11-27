@@ -543,5 +543,6 @@
   "notice.winners_start": "칼전 승리 팀은 {side}로 시작",
   "notice.you_chose": "{side}을(를) 선택했습니다",
   "notice.opponents_chose": "상대가 {side}을(를) 선택했습니다",
-  "notice.you_start": "{side}(으)로 시작합니다"
+  "notice.you_start": "{side}(으)로 시작합니다",
+  "menu.skins": "스킨"
 }

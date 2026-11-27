@@ -552,5 +552,6 @@
   "notice.winners_start": "Победителите с нож започват {side}",
   "notice.you_chose": "Избрахте {side}",
   "notice.opponents_chose": "Противниците избраха {side}",
-  "notice.you_start": "Започвате като {side}"
+  "notice.you_start": "Започвате като {side}",
+  "menu.skins": "Скинове"
 }

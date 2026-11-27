@@ -566,5 +566,6 @@
   "notice.winners_start": "Zwycięzcy noży zaczynają {side}",
   "notice.you_chose": "Wybraliście {side}",
   "notice.opponents_chose": "Przeciwnicy wybrali {side}",
-  "notice.you_start": "Zaczynacie jako {side}"
+  "notice.you_start": "Zaczynacie jako {side}",
+  "menu.skins": "Skiny"
 }

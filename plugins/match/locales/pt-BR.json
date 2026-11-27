@@ -552,5 +552,6 @@
   "notice.winners_start": "Vencedores da faca começam {side}",
   "notice.you_chose": "Vocês escolheram {side}",
   "notice.opponents_chose": "Os adversários escolheram {side}",
-  "notice.you_start": "Vocês começam de {side}"
+  "notice.you_start": "Vocês começam de {side}",
+  "menu.skins": "Skins"
 }

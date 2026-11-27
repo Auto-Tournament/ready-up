@@ -543,5 +543,6 @@
   "notice.winners_start": "ナイフラウンドの勝者は{side}から開始",
   "notice.you_chose": "{side} を選択しました",
   "notice.opponents_chose": "相手が {side} を選択しました",
-  "notice.you_start": "{side} から開始"
+  "notice.you_start": "{side} から開始",
+  "menu.skins": "スキン"
 }

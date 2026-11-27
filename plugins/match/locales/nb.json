@@ -552,5 +552,6 @@
   "notice.winners_start": "Knivvinnerne starter {side}",
   "notice.you_chose": "Dere valgte {side}",
   "notice.opponents_chose": "Motstanderne valgte {side}",
-  "notice.you_start": "Dere starter som {side}"
+  "notice.you_start": "Dere starter som {side}",
+  "menu.skins": "Skins"
 }

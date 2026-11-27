@@ -566,5 +566,6 @@
   "notice.winners_start": "Vítězové nožů začínají {side}",
   "notice.you_chose": "Vybrali jste {side}",
   "notice.opponents_chose": "Soupeři vybrali {side}",
-  "notice.you_start": "Začínáte za {side}"
+  "notice.you_start": "Začínáte za {side}",
+  "menu.skins": "Skiny"
 }

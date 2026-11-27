@@ -552,5 +552,6 @@
   "notice.winners_start": "Mes-winnaars starten {side}",
   "notice.you_chose": "Jullie kozen {side}",
   "notice.opponents_chose": "Tegenstanders kozen {side}",
-  "notice.you_start": "Jullie beginnen als {side}"
+  "notice.you_start": "Jullie beginnen als {side}",
+  "menu.skins": "Skins"
 }
