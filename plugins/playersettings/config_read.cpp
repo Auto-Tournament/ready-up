@@ -23,7 +23,14 @@ const std::vector<std::string>& ConfigCvars() {
 }
 
 bool IsCrosshairCode(const std::string& code) {
-  // CSGO + 5 groups of "-xxxxx".
+  auto alnum = [](char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'); };
+  // Today's CS2 code: "CS" + 44.
+  if (code.size() == 46 && code.compare(0, 2, "CS") == 0) {
+    for (size_t i = 2; i < code.size(); ++i)
+      if (!alnum(code[i])) return false;
+    return true;
+  }
+  // The old container: CSGO + 5 groups of "-xxxxx".
   if (code.size() != 4 + 5 * 6 || code.compare(0, 4, "CSGO") != 0) return false;
   for (size_t g = 0; g < 5; ++g) {
     const size_t at = 4 + g * 6;
