@@ -41,6 +41,10 @@ struct View {
 std::map<int, View> g_views;                    // slot -> open inventory
 std::map<uint64_t, inv::Inventory> g_inventory;  // steamid64 -> the platform's last answer
 double g_now = 0;
+// Prefetch: each player's inventory is asked for once they are in, so `.skins` draws at once
+// instead of after a round trip to the platform (Sivert, 2026-11-27: "takes like a solid second").
+std::map<uint64_t, double> g_prefetchAt;  // steamid64 -> when it was last asked for
+double g_nextPrefetchScan = 0;
 
 const ru_fleet_v1* Fleet() {
   auto* f = static_cast<const ru_fleet_v1*>(g_api->get_interface(g_api->self, RU_FLEET_IFACE_NAME, 1));
@@ -226,6 +230,23 @@ void OpenInventory(int slot, uint64_t steamid64) {
 
 void InventoryTick(double now) {
   g_now = now;
+  // Once a second: a connected player with no inventory here yet is asked for (again after 30 s
+  // without an answer). Only on a platform link, only with the HUD on for them.
+  if (now >= g_nextPrefetchScan && Fleet() && Hud()) {
+    g_nextPrefetchScan = now + 1.0;
+    for (int slot = 0; slot < 64; ++slot) {
+      ru_player p{};
+      p.struct_size = sizeof(p);
+      if (!g_api->get_player(g_api->self, slot, &p) || !p.connected || p.is_bot || !p.steamid64) continue;
+      if (g_inventory.count(p.steamid64) || HudOff(p.steamid64)) continue;
+      auto at = g_prefetchAt.find(p.steamid64);
+      if (at != g_prefetchAt.end() && now - at->second < 30.0) continue;
+      g_prefetchAt[p.steamid64] = now;
+      Json q = Json::Object();
+      q["steamid64"] = std::to_string(p.steamid64);
+      Send("skins.inventory_request", q);
+    }
+  }
   for (auto it = g_views.begin(); it != g_views.end();) {
     const int slot = it->first;
     ru_player p{};
@@ -250,6 +271,7 @@ void InventoryForgetAll() {
     if (const ru_hud_v1* h = Hud()) h->menu(RU_HUD_ALL, kMenuOwner, "", nullptr, nullptr);
   g_views.clear();
   g_inventory.clear();
+  g_prefetchAt.clear();
 }
 
 }  // namespace skins
