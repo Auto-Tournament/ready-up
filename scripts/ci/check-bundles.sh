@@ -177,7 +177,7 @@ done
 ok "no plugin settings templates"
 echo "skins:";      has_skins skins;     check_manifests "$WORK/skins" skins
 echo "full:";       has_skins full; has_match full; has_fleet full; has_notices full; has_addons full
-full_components=(core essentials match fleet practice skins midas whitelist deathmatch retakes mapvote community movement addons tv hud)
+full_components=(core essentials match fleet practice skins midas whitelist deathmatch retakes mapvote community movement addons tv hud playersettings)
 for f in readyup/plugins/deathmatch.so readyup/plugins/retakes.so readyup/plugins/mapvote.so readyup/plugins/community.so readyup/plugins/tv.so readyup/plugins/movement.so readyup/bin/linuxsteamrt64/engine-surface.practice.json; do
   if [[ -f "$WORK/full/$f" ]]; then ok "full has $f"; else bad "full lacks $f"; fi
 done

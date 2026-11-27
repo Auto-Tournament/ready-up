@@ -263,7 +263,7 @@ make_zip "ready-up-practice-$SUFFIX" practice
 make_zip "ready-up-essentials-plugin-$SUFFIX" essentials
 make_zip "ready-up-fleet-$SUFFIX" fleet
 make_zip "ready-up-essentials-$SUFFIX" core essentials match fleet practice mapvote hud addons
-full=(core essentials match fleet practice skins midas whitelist deathmatch retakes mapvote community movement addons tv hud)
+full=(core essentials match fleet practice skins midas whitelist deathmatch retakes mapvote community movement addons tv hud playersettings)
 [[ -d "$WORK/c/tools" ]] && full+=(tools)
 make_zip "ready-up-full-$SUFFIX" "${full[@]}"
 
