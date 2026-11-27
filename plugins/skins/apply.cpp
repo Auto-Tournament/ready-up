@@ -729,9 +729,14 @@ void ProcessPlayer(int slot, void* controller) {
 
   for (int i = 0; i < count; ++i) {
     const uint32_t h = handles[i];
-    if (repaintHeld && !g_weapons[h].external) g_weapons[h] = WeaponState{};
+    // A repaint of what the player holds: the client already has these weapons, so they count as
+    // seen before this tick (`late`), and the new paint is sent in full. As "first seen now" the
+    // server repainted but the client kept the old look (Sivert, 2026-11-27: the knife only changed
+    // after dying, i.e. on a new weapon).
+    const bool repaintThis = repaintHeld && !g_weapons[h].external;
+    if (repaintThis) g_weapons[h] = WeaponState{};
     WeaponState& st = g_weapons[h];
-    if (st.firstSeen == 0) st.firstSeen = g_tick;
+    if (st.firstSeen == 0) st.firstSeen = repaintThis ? g_tick - 1 : g_tick;
     st.lastSeen = g_tick;
     if (st.done && st.repaintAt != 0 && g_tick >= st.repaintAt) {
       st.repaintAt = 0;
