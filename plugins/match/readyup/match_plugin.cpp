@@ -278,6 +278,8 @@ class TickSections {
   double cpuTotal_ = 0;
 };
 
+void SelftestRefresh(double now);  // below
+
 void OnTick(void*, const ru_tick_info* t) {
   Guard("tick", [&] {
     TickSections s;
@@ -315,6 +317,8 @@ void OnTick(void*, const ru_tick_info* t) {
       if (FeatureEnabled(Feature::ReadyHud)) s.Run("ready_hud", [] { ReadyHudTick(); });  // skips welcome cards
       s.Run("prefix", [&] { PrefixTick(t->now); });
     }
+    s.Run("roster_names", [&] { RosterNamesTick(t->now); });  // on a join / name change: at once
+    if ((t->frame & 15u) == 0) s.Run("selftest", [&] { SelftestRefresh(t->now); });  // 4/s at 64 tick
     s.Report(t->now);
     MaybeLogSectionSummary(t->now);
   });
@@ -518,10 +522,6 @@ void SelftestRefresh(double now) {
   }
 }
 
-void OnSlowTick(void*, const ru_tick_info* t) {
-  if ((t->frame & 15u) != 0) return;  // four times a second is plenty for selftest state
-  Guard("selftest refresh", [&] { SelftestRefresh(t->now); });
-}
 
 }  // namespace
 }  // namespace readyup
@@ -602,7 +602,6 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     }
     api->on_frame(api->self, &OnFrame, nullptr);
     api->on_tick(api->self, &OnTick, nullptr);
-    api->on_tick(api->self, &OnSlowTick, nullptr);
     api->subscribe(api->self, RU_EVENT_ANY, &OnEvent, nullptr);
     api->subscribe_log_line(api->self, &OnLogLine, nullptr);
     MatchEventsInstall(api);
