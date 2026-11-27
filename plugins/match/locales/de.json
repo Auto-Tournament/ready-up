@@ -552,5 +552,6 @@
   "notice.winners_start": "Messer-Gewinner starten {side}",
   "notice.you_chose": "Ihr habt {side} gewählt",
   "notice.opponents_chose": "Gegner haben {side} gewählt",
-  "notice.you_start": "Ihr startet als {side}"
+  "notice.you_start": "Ihr startet als {side}",
+  "menu.skins": "Skins"
 }

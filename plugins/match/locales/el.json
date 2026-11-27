@@ -552,5 +552,6 @@
   "notice.winners_start": "Οι νικητές με μαχαίρι ξεκινούν {side}",
   "notice.you_chose": "Επιλέξατε {side}",
   "notice.opponents_chose": "Οι αντίπαλοι επέλεξαν {side}",
-  "notice.you_start": "Ξεκινάτε ως {side}"
+  "notice.you_start": "Ξεκινάτε ως {side}",
+  "menu.skins": "Skins"
 }

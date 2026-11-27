@@ -2238,7 +2238,8 @@ bool FreezeFor(int slot, bool on) {
   return true;
 }
 
-// W S move the chosen row (on the press, wrapping); the pawn is held still while the list is up.
+// W S move the chosen row (on the press, wrapping). The player keeps moving: the list never holds
+// them still (Sivert, 2026-11-27: holding them stopped a jump mid-air; "just let wasd go through").
 void NavTick(int slot, HoldSlot& hs, bool gotButtons, uint64_t held) {
   auto it = g_screens.find(slot);
   const bool left = it != g_screens.end() && it->second.shown && !it->second.dismissed &&
@@ -2255,9 +2256,7 @@ void NavTick(int slot, HoldSlot& hs, bool gotButtons, uint64_t held) {
     }
   }
   hs.prev = gotButtons ? held : 0;
-  if (left) {
-    if (FreezeFor(slot, true)) hs.frozen = true;
-  } else if (hs.frozen) {
+  if (hs.frozen) {  // a hold from before this build: let go
     FreezeFor(slot, false);
     hs.frozen = false;  // let go, or dead: a respawn walks anyway
   }

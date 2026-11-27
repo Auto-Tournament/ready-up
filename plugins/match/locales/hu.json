@@ -552,5 +552,6 @@
   "notice.winners_start": "A késkör nyertesei kezdenek: {side}",
   "notice.you_chose": "Ti a(z) {side} oldalt választottátok",
   "notice.opponents_chose": "Az ellenfél a(z) {side} oldalt választotta",
-  "notice.you_start": "Ti {side} oldalon kezdtek"
+  "notice.you_start": "Ti {side} oldalon kezdtek",
+  "menu.skins": "Skinek"
 }

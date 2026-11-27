@@ -950,6 +950,8 @@
    server (hud.so used to switch `on` off from the open_buymenu / close_buymenu commands: late, and
    never back on for a player with the HUD off, 2026-11-26). */
 .HUD_BUYMENU_VISIBLE .ui-wm.on, .HUD_BUYMENU_VISIBLE .ui-wm.spec, .HUD_BUYMENU_VISIBLE .ui-badge.on { opacity: 0; }
+/* The hold chip ("Hold E: Ready") steps aside for the buy menu too (Sivert, 2026-11-27); Tab hides it below. */
+.HUD_BUYMENU_VISIBLE #ui_hold { visibility: collapse; }
 /* Our panels step aside for CS2's own big screens (Sivert, 2026-11-26), on the player's machine at
    once: CS2 sets these classes on its HUD itself, no round trip. collapse, not opacity: no fade either
    way. Tab (scoreboard): everything but the inventory and the end screen. Win panel, team intro, end of
@@ -1192,7 +1194,7 @@
 /* The close: a 40px square at the right of the item panel's top bar, its x drawn (two bars). */
 .ui-inv .ui-close
 {
-	visibility: visible; horizontal-align: right; vertical-align: center; width: 40px; height: 40px; margin: 0px;
+	visibility: visible; horizontal-align: right; vertical-align: center; width: 40px; height: 40px; margin: 0px; padding: 0px;
 	border-radius: 6px; border: 0px solid #00000000; background-color: #140e0c;
 }
 .ui-inv .ui-close:hover { background-color: #322926; }

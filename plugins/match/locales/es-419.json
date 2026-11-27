@@ -552,5 +552,6 @@
   "notice.winners_start": "Los ganadores del cuchillo empiezan en {side}",
   "notice.you_chose": "Elegiste {side}",
   "notice.opponents_chose": "Los rivales eligieron {side}",
-  "notice.you_start": "Empiezas como {side}"
+  "notice.you_start": "Empiezas como {side}",
+  "menu.skins": "Skins"
 }

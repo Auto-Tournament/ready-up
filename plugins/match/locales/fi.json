@@ -552,5 +552,6 @@
   "notice.winners_start": "Veitsivoittajat aloittavat {side}",
   "notice.you_chose": "Valitsitte {side}",
   "notice.opponents_chose": "Vastustajat valitsivat {side}",
-  "notice.you_start": "Aloitatte puolella {side}"
+  "notice.you_start": "Aloitatte puolella {side}",
+  "menu.skins": "Skinit"
 }

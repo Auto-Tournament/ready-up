@@ -552,5 +552,6 @@
   "notice.winners_start": "Knife winners start {side}",
   "notice.you_chose": "You chose {side}",
   "notice.opponents_chose": "Opponents chose {side}",
-  "notice.you_start": "You start {side}"
+  "notice.you_start": "You start {side}",
+  "menu.skins": "Skins"
 }

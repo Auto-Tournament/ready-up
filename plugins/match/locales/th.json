@@ -543,5 +543,6 @@
   "notice.winners_start": "ผู้ชนะรอบมีดเริ่มฝั่ง {side}",
   "notice.you_chose": "คุณเลือก {side}",
   "notice.opponents_chose": "คู่แข่งเลือก {side}",
-  "notice.you_start": "คุณเริ่มเป็น {side}"
+  "notice.you_start": "คุณเริ่มเป็น {side}",
+  "menu.skins": "สกิน"
 }

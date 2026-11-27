@@ -566,5 +566,6 @@
   "notice.winners_start": "Переможці ножового раунду починають за {side}",
   "notice.you_chose": "Ви обрали {side}",
   "notice.opponents_chose": "Суперники обрали {side}",
-  "notice.you_start": "Ви починаєте за {side}"
+  "notice.you_start": "Ви починаєте за {side}",
+  "menu.skins": "Скіни"
 }

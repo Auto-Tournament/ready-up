@@ -552,5 +552,6 @@
   "notice.winners_start": "Bıçak kazananları {side} başlıyor",
   "notice.you_chose": "{side} tarafını seçtiniz",
   "notice.opponents_chose": "Rakipler {side} tarafını seçti",
-  "notice.you_start": "{side} olarak başlıyorsunuz"
+  "notice.you_start": "{side} olarak başlıyorsunuz",
+  "menu.skins": "Skinler"
 }

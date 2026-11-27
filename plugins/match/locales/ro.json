@@ -566,5 +566,6 @@
   "notice.winners_start": "Câștigătorii rundei de cuțit încep {side}",
   "notice.you_chose": "Ați ales {side}",
   "notice.opponents_chose": "Adversarii au ales {side}",
-  "notice.you_start": "Începeți ca {side}"
+  "notice.you_start": "Începeți ca {side}",
+  "menu.skins": "Skinuri"
 }

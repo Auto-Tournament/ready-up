@@ -93,6 +93,12 @@ bool Warmup() {
   return m == ReadyUpMode::ScrimWarmup || m == ReadyUpMode::MatchWarmup;
 }
 
+// The skins plugin runs here (readyup.skins.v1): the menu offers its inventory (`.skins`).
+bool SkinsHere() {
+  const ru_api* a = host::Api();
+  return a && RU_API_HAS(a, get_interface) && a->get_interface(a->self, "readyup.skins.v1", 1) != nullptr;
+}
+
 std::string MenuSpec(const Menu& m, int csTeam, const std::string& lang) {
   auto T = [&lang](const char* key, const text::Args& args = {}) { return text::ForLang(lang, key, args); };
   const bool admin = IsReadyUpAdmin(m.steamid64);
@@ -109,6 +115,7 @@ std::string MenuSpec(const Menu& m, int csTeam, const std::string& lang) {
       s += Btn(T("menu.votes"), "ghost", "", "#menu votes");
     }
     s += Btn(T("menu.call_admin"), "ghost", "", ".admin");
+    if (SkinsHere()) s += Btn(T("menu.skins"), "ghost", "", ".skins");
     s += Btn(T("menu.match_info"), "ghost", "", "#menu info") + Btn(T("menu.commands"), "ghost", "", "#menu cmds");
     if (admin) s += Btn(T("menu.admin"), "ghost", "", "#menu admin");
     s += Line("cols", "3") + Line("bw", "m");
@@ -145,6 +152,7 @@ std::string MenuSpec(const Menu& m, int csTeam, const std::string& lang) {
     s += Btn(T("menu.replay_a_round"), "ghost", "", "#menu rounds") + Btn(T("menu.change_map"), "ghost", "", "#menu maps");
     s += Btn(T("menu.swap_teams"), "ghost", "", ".ru match swap") + Btn(T("menu.force_ready"), "ghost", "", ".forceready");
     s += Btn(T("menu.restart_map"), "ghost", "", ".restart") + Btn(T("menu.end_match"), "danger", "", "#menu endwho");
+    if (SkinsHere()) s += Btn(T("menu.skins"), "ghost", "", ".skins");
     s += Line("cols", "4") + Line("bw", "m");
   } else if (m.which == "maps" && admin) {
     s = Line("id", "maps") + Line("kind", T("menu.admin") + " \xC2\xB7 " + T("menu.change_map_lc")) + Line("title", T("menu.pick_map"));
