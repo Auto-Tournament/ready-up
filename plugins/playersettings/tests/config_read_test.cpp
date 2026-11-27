@@ -25,6 +25,9 @@ int main() {
   CHECK(std::find(cvars.begin(), cvars.end(), "cl_crosshairgap") == cvars.end());
 
   CHECK(IsCrosshairCode("CSGO-a2Rkq-PJ7rN-wbQYm-9AVqS-5PbYB"));
+  CHECK(IsCrosshairCode("CSvbPubOq37zTGqtsPTP5QTrp5CB4xFXiKRLfzJsm49ZRe"));  // today's CS2 code
+  CHECK(!IsCrosshairCode("CSvbPubOq37zTGqtsPTP5QTrp5CB4xFXiKRLfzJsm49ZR"));
+  CHECK(!IsCrosshairCode("CSvbPubOq37zTGqtsPTP5QTrp5CB4xFXiKRLfzJsm49Z-e"));
   CHECK(!IsCrosshairCode("CSGO-a2Rkq-PJ7rN-wbQYm-9AVqS"));
   CHECK(!IsCrosshairCode("CSGO-a2Rkq-PJ7rN-wbQYm-9AVqS-5PbY\""));
   CHECK(!IsCrosshairCode(""));

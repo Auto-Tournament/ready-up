@@ -380,7 +380,7 @@ std::string CrosshairCode(int slot) {
   uintptr_t chars = 0;
   if (!SafeRead(reinterpret_cast<uintptr_t>(ctrl) + static_cast<uintptr_t>(off), &chars, sizeof chars) || !chars)
     return "";
-  char buf[40] = {};
+  char buf[64] = {};  // CS2 codes are 46 characters, the old ones 34
   if (!SafeRead(chars, buf, sizeof buf - 1)) return "";
   const std::string code(buf);
   return IsCrosshairCode(code) ? code : "";

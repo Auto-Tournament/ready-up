@@ -15,7 +15,8 @@ namespace playersettings {
 // cl_crosshairgap_useweaponvalue: the crosshair code carries those.
 const std::vector<std::string>& ConfigCvars();
 
-// "CSGO-xxxxx-xxxxx-xxxxx-xxxxx-xxxxx" (letters and digits).
+// A crosshair share code: CS2's "CS" + 44 characters, or the old "CSGO-xxxxx-xxxxx-xxxxx-xxxxx-xxxxx"
+// (letters and digits).
 bool IsCrosshairCode(const std::string& code);
 
 // The `player.config` payload: {"steamid64":"…","crosshair_code":"…","cvars":{"name":"value",…}}.
