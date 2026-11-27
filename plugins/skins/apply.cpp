@@ -510,8 +510,10 @@ std::string GiveName(const std::string& dn, int defindex, int team) {
   }
 }
 
-// knifeOnly: only the knife is taken and given again (a changed knife type, below).
-bool RefreshHeldWeapons(int slot, bool knifeOnly = false) {
+bool LookChanged(void* weapon, uint64_t steamid64, int team);  // below
+
+// changedOnly: only the weapons whose look the loadout changed are taken and given again.
+bool RefreshHeldWeapons(int slot, bool changedOnly = false) {
   if (slot < 0 || slot >= 64 || !CanRefresh()) return false;
   auto& o = Off();
   static const int kActive = SchemaOffset("CPlayer_WeaponServices", "m_hActiveWeapon");
@@ -542,7 +544,7 @@ bool RefreshHeldWeapons(int slot, bool knifeOnly = false) {
     if (!dnp) continue;
     const std::string dn = dnp;
     if (SkipOnRefresh(dn)) continue;
-    if (knifeOnly && !IsKnifeDesigner(dnp)) continue;
+    if (changedOnly && !LookChanged(weapon, steamid64, team)) continue;
     const uint64_t xuid = (static_cast<uint64_t>(Rd<uint32_t>(weapon, o.econ_xuidHigh)) << 32) |
                           Rd<uint32_t>(weapon, o.econ_xuidLow);
     if (xuid != 0 && xuid != steamid64) continue;
@@ -567,26 +569,42 @@ bool RefreshHeldWeapons(int slot, bool knifeOnly = false) {
   return true;
 }
 
-// The knife this player holds is another type than their loadout's for the side (a knife picked in
-// .skins or on the site while alive). Changing its type in place (ChangeSubclass) on a knife the
-// client already has drew it vanilla: the client rebuilds the model and drops the paint (2026-10-15,
-// again 2026-11-27). Only a new knife shows it, as after a death.
-bool HeldKnifeTypeChanged(int slot, uint64_t steamid64, int team) {
+// The loadout gives this held weapon another look than the one we last wrote on it: another knife
+// type, or another paint (wear, seed). Writing it on a weapon the client already has does not show:
+// the client keeps the old look, also when the entity is sent in full; a knife changed in type is
+// drawn vanilla (2026-10-15, again 2026-11-27). Only a new weapon shows it, as after a death.
+bool LookChanged(void* weapon, uint64_t steamid64, int team) {
+  auto& o = Off();
+  const uint32_t handle = g_api->entity_handle_of(g_api->self, weapon);
+  void* item = EconItemViewOfWeapon(weapon);
+  int defindex = Rd<uint16_t>(item, o.item_defIndex);
+  if (IsKnifeDesigner(EntityDesignerName(weapon))) {
+    const auto want = FindKnifeClassname(steamid64, team);
+    const std::optional<int> wantDef = want ? KnifeClassnameToDefindex(*want) : std::nullopt;
+    if (!wantDef) return false;  // no platform knife: the game's knife stays
+    if (*wantDef != defindex) return true;
+    defindex = *wantDef;
+  }
+  const auto skin = FindWeaponSkin(steamid64, team, defindex);
+  if (!skin || skin->paint_id <= 0) return false;  // nothing to paint (an unequip waits for a new life)
+  const auto st = handle != 0xFFFFFFFFu ? g_weaponStamps.find(handle) : g_weaponStamps.end();
+  if (st == g_weaponStamps.end()) return true;
+  return !StampMatches(st->second, st->second.itemId, defindex, skin->paint_id, skin->seed, skin->wear);
+}
+
+// Any weapon the player holds has a changed look (LookChanged).
+bool AnyHeldLookChanged(int slot, uint64_t steamid64, int team) {
   auto& o = Off();
   void* controller = EntityByIndex(slot + 1);
   void* pawn = controller ? EntityFromHandle(Rd<uint32_t>(controller, o.ctrl_playerPawn)) : nullptr;
   void* ws = pawn ? Rd<void*>(pawn, o.pawn_weaponServices) : nullptr;
   if (!ws) return false;
-  const auto want = FindKnifeClassname(steamid64, team);
-  const std::optional<int> wantDef = want ? KnifeClassnameToDefindex(*want) : std::nullopt;
-  if (!wantDef) return false;  // no platform knife: nothing to swap to
   const int count = Rd<int32_t>(ws, o.ws_myWeapons);
   const uint32_t* handles = Rd<const uint32_t*>(ws, o.ws_myWeapons + 8);
   if (!handles || count <= 0 || count > 64) return false;
   for (int i = 0; i < count; ++i) {
     void* weapon = EntityFromHandle(handles[i]);
-    if (!weapon || !IsKnifeDesigner(EntityDesignerName(weapon))) continue;
-    return Rd<uint16_t>(EconItemViewOfWeapon(weapon), o.item_defIndex) != *wantDef;
+    if (weapon && LookChanged(weapon, steamid64, team)) return true;
   }
   return false;
 }
@@ -714,11 +732,10 @@ void ProcessPlayer(int slot, void* controller) {
   }
 
   if (alive && g_repaintHeldOnly[slot].exchange(false)) {
-    repaintHeld = true;
     g_spawnRequested[slot] = true;  // gloves and agent again too
-    // Another knife type: that knife alone is taken and given again (a new one is painted on
-    // sight). Never during a round restart: it waits until the restart has settled.
-    if (HeldKnifeTypeChanged(slot, steamid64, team)) g_knifeRegiveAt[slot] = g_tick;
+    // The weapons whose look changed are taken and given again (a new weapon is painted on
+    // sight); the rest are left alone. Never during a round restart: it waits until it settled.
+    if (AnyHeldLookChanged(slot, steamid64, team)) g_knifeRegiveAt[slot] = g_tick;
     if (DebugOn()) Log(RU_LOG_DEBUG, "changed loadout: repainting slot %d", slot);
   }
   if (alive && g_knifeRegiveAt[slot] != 0 && g_tick >= g_knifeRegiveAt[slot]) {
@@ -726,8 +743,8 @@ void ProcessPlayer(int slot, void* controller) {
       g_knifeRegiveAt[slot] = g_tick + 16;  // after the restart
     } else {
       g_knifeRegiveAt[slot] = 0;
-      const bool given = HeldKnifeTypeChanged(slot, steamid64, team) && RefreshHeldWeapons(slot, /*knifeOnly=*/true);
-      if (DebugOn()) Log(RU_LOG_DEBUG, "changed loadout: knife type %s for slot %d", given ? "re-given" : "unchanged", slot);
+      const bool given = AnyHeldLookChanged(slot, steamid64, team) && RefreshHeldWeapons(slot, /*changedOnly=*/true);
+      if (DebugOn()) Log(RU_LOG_DEBUG, "changed loadout: changed weapons %s for slot %d", given ? "re-given" : "none", slot);
     }
   } else if (!alive) {
     g_knifeRegiveAt[slot] = 0;  // a new life brings a new knife anyway
