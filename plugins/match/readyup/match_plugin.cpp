@@ -561,6 +561,7 @@ READYUP_PLUGIN_EXPORT int readyup_plugin_load(const ru_api* api, uint32_t core_a
     g_api = api;
     host::Attach(api);
     workers::Start();
+    text::Preload();  // the locale tables, at load: not in the frame of the first join
     {
       const char* dir = RU_API_HAS(api, data_dir) ? api->data_dir(api->self) : nullptr;
       const std::string dataDir = dir && *dir ? std::string(dir) : GetThisModuleDir() + "/../../plugins/match";

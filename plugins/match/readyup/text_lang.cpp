@@ -25,4 +25,6 @@ std::string ForLang(const std::string& lang, const std::string& key, const Args&
   return Catalog().Tr(lang, key, args);
 }
 
+void Preload() { (void)Catalog(); }
+
 }  // namespace readyup::text
