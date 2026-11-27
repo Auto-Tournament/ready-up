@@ -94,12 +94,13 @@ struct Pending {
   bool config = false;  // part of a config read (answers go to g_reads, not the log)
 };
 
-// A config read under way, per slot: the answers so far, how many are still out.
+// A config read under way, per slot: the answers so far, the next cvar to ask, how many are still out.
 struct ConfigRead {
   uint64_t steamid64 = 0;
   std::map<std::string, std::string> values;
+  size_t next = 0;  // into ConfigCvars(): the ones before it were asked
   int outstanding = 0;
-  Clock::time_point started;
+  Clock::time_point lastSent;
 };
 std::unordered_map<int, ConfigRead> g_reads;               // slot -> read
 std::unordered_map<int, std::pair<uint64_t, Clock::time_point>> g_seen;  // slot -> (who, since)
@@ -108,7 +109,10 @@ std::set<uint64_t> g_configOff;  // turned it off on the platform (match.assign 
 std::string g_map;
 int g_configsSent = 0;
 constexpr double kReadAfterSeconds = 20.0;  // after a player is in: past the loading and the team pick
-constexpr double kReadTimeoutSeconds = 8.0;
+constexpr double kReadTimeoutSeconds = 8.0;  // after the last query of a read went out
+// Queries per server frame, over every read: each costs a few ms in the engine, so the 26 of a read
+// in one frame stalled it ~80 ms (server 2, 2026-11-27). One a frame: a read takes ~0.4 s.
+constexpr int kQueriesPerTick = 1;
 
 const ru_fleet_v1* Fleet();  // the fleet link, or nullptr (standalone)
 std::unordered_map<int32_t, Pending> g_pending;  // game thread
@@ -417,12 +421,24 @@ void ConfigTick() {
     g_seen.clear();
   }
   const auto now = Clock::now();
+  const std::vector<std::string>& cvars = ConfigCvars();
   for (auto it = g_reads.begin(); it != g_reads.end();) {
     const int slot = it->first;
-    const bool done = it->second.outstanding <= 0 ||
-                      std::chrono::duration<double>(now - it->second.started).count() > kReadTimeoutSeconds;
+    const ConfigRead& r = it->second;
+    const bool done = r.next >= cvars.size() &&
+                      (r.outstanding <= 0 ||
+                       std::chrono::duration<double>(now - r.lastSent).count() > kReadTimeoutSeconds);
     ++it;
     if (done) FinishRead(slot);
+  }
+  // The reads under way ask their next cvars, a few a frame (kQueriesPerTick).
+  int budget = kQueriesPerTick;
+  for (auto& [slot, r] : g_reads) {
+    for (; budget > 0 && r.next < cvars.size(); --budget) {
+      std::string why;
+      if (Query(slot, cvars[r.next++], &why, true)) ++r.outstanding;
+      r.lastSent = now;
+    }
   }
   if (!g_engine.ready || !Fleet()) return;
   for (int slot = 0; slot <= 63; ++slot) {
@@ -442,12 +458,7 @@ void ConfigTick() {
     g_readThisMap.insert(p.steamid64);
     ConfigRead r;
     r.steamid64 = p.steamid64;
-    r.started = now;
-    for (const std::string& cvar : ConfigCvars()) {
-      std::string why;
-      if (Query(slot, cvar, &why, true)) ++r.outstanding;
-    }
-    g_reads[slot] = std::move(r);
+    g_reads[slot] = std::move(r);  // its queries go out from the next frame on
   }
 }
 
