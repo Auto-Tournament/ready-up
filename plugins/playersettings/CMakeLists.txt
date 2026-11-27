@@ -1,6 +1,6 @@
-# readyup-playersettings -> build/plugins/playersettings.so: reads players' CS2 settings (cvar
-# queries). Engine entries: gamedata/engine-surface.playersettings.json. Not in release zips yet
-# (step 1: the query and `ru cvar`; packaging comes with the platform side).
+# readyup-playersettings -> build/plugins/playersettings.so: reads players' CS2 config (cvar queries
+# and the crosshair code) for the platform's profile Config tab. Engine entries:
+# gamedata/engine-surface.playersettings.json. In the full bundle and its own zip.
 readyup_add_plugin(playersettings playersettings_plugin.cpp cvar_msg.cpp config_read.cpp)
 target_compile_definitions(readyup_plugin_playersettings PRIVATE PLAYERSETTINGS_VERSION="${READYUP_SEMVER}")
 
