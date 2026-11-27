@@ -1,6 +1,8 @@
-// readyup-playersettings: reads players' CS2 settings (crosshair, sensitivity, viewmodel, HUD)
-// from their game. Step 1 of the player-settings feature (2026-11-26): the cvar query itself and a
-// test command; the platform side comes later.
+// readyup-playersettings: reads players' CS2 config (crosshair, sensitivity, viewmodel, HUD) from
+// their game for the platform's profile Config tab. Once per map, 20 s after a player is in, it asks
+// their game for the cvars in config_read.h and reads their crosshair code from their controller
+// (m_szCrosshairCodes), then sends `player.config` over the fleet link. Only on a linked server: a
+// standalone server reads nothing.
 //
 // How: the server sends svc_GetCvarValue with the client's own CServerSideClient::SendNetMessage
 // (as the SDK's CNetMessage::Send; PostEventAbstract is for game events and never sent it), and
@@ -14,11 +16,14 @@
 //   ru cvar selftest                        build a query and check it against the engine's own
 //                                           ByteSizeLong (no player needed)
 //   ru cvar status                          what is verified, the client vector, answers seen
+#include "config_read.h"
 #include "cvar_msg.h"
+#include "readyup/fleet_iface.h"
 #include "readyup/plugin_api.h"
 
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -26,8 +31,10 @@
 #include <sys/uio.h>
 #include <unistd.h>
 #include <atomic>
+#include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -83,7 +90,25 @@ struct Pending {
   int slot = -1;
   std::string cvar;
   Clock::time_point sent;
+  bool config = false;  // part of a config read (answers go to g_reads, not the log)
 };
+
+// A config read under way, per slot: the answers so far, how many are still out.
+struct ConfigRead {
+  uint64_t steamid64 = 0;
+  std::map<std::string, std::string> values;
+  int outstanding = 0;
+  Clock::time_point started;
+};
+std::unordered_map<int, ConfigRead> g_reads;               // slot -> read
+std::unordered_map<int, std::pair<uint64_t, Clock::time_point>> g_seen;  // slot -> (who, since)
+std::set<uint64_t> g_readThisMap;                           // players already read on this map
+std::string g_map;
+int g_configsSent = 0;
+constexpr double kReadAfterSeconds = 20.0;  // after a player is in: past the loading and the team pick
+constexpr double kReadTimeoutSeconds = 8.0;
+
+const ru_fleet_v1* Fleet();  // the fleet link, or nullptr (standalone)
 std::unordered_map<int32_t, Pending> g_pending;  // game thread
 int32_t g_nextCookie = 0x5253;                  // "RS"; any positive start
 
@@ -226,12 +251,24 @@ void* ClientInSlot(int slot, std::string* why) {
   void* server = NetworkServer(why);
   if (!server) return nullptr;
   constexpr size_t kScan = 0x20000;  // the vector sits in the first part of a ~3 MB object
+  std::vector<uintptr_t> clients;
+  // Found before: read just those bytes (a config read asks 26 cvars at once).
+  if (g_clientsAt >= 0) {
+    uint8_t at[32];
+    if (SafeRead(reinterpret_cast<uintptr_t>(server) + static_cast<uintptr_t>(g_clientsAt), at, sizeof at) &&
+        ReadClients(at, 0, g_clientsLayout, &clients)) {
+      if (slot < 0 || static_cast<size_t>(slot) >= clients.size() || !clients[static_cast<size_t>(slot)]) {
+        *why = "no client in that slot";
+        return nullptr;
+      }
+      return reinterpret_cast<void*>(clients[static_cast<size_t>(slot)]);
+    }
+  }
   std::vector<uint8_t> block(kScan + 32);
   if (!SafeRead(reinterpret_cast<uintptr_t>(server), block.data(), block.size())) {
     *why = "the network server is not readable";
     return nullptr;
   }
-  std::vector<uintptr_t> clients;
   if (g_clientsAt < 0 || !ReadClients(block.data(), static_cast<size_t>(g_clientsAt), g_clientsLayout, &clients)) {
     g_clientsAt = -1;
     for (size_t at = 0; at + 24 <= kScan && g_clientsAt < 0; at += 8) {
@@ -258,7 +295,7 @@ void* ClientInSlot(int slot, std::string* why) {
 }
 
 // Sends one query. Game thread.
-bool Query(int slot, const std::string& cvar, std::string* why) {
+bool Query(int slot, const std::string& cvar, std::string* why, bool config = false) {
   if (!g_engine.ready) {
     *why = g_engine.why;
     return false;
@@ -285,7 +322,7 @@ bool Query(int slot, const std::string& cvar, std::string* why) {
     *why = "SendNetMessage refused it";
     return false;
   }
-  g_pending[cookie] = Pending{slot, cvar, Clock::now()};
+  g_pending[cookie] = Pending{slot, cvar, Clock::now(), config};
   g_sent.push_back(std::move(m));
   while (g_sent.size() > 64) g_sent.pop_front();
   return true;
@@ -320,10 +357,96 @@ void Status() {
   void* server = g_engine.ready ? NetworkServer(&why) : nullptr;
   ru_logf(g_api, RU_LOG_INFO,
           "playersettings: %s; network server %p (%s); client vector %s0x%lx; answers seen %d (%d without a cookie); "
-          "%zu waiting",
+          "%zu waiting; configs sent %d (%zu read this map, %zu reading, fleet %s)",
           g_engine.why.c_str(), server, why.c_str(), g_clientsAt < 0 ? "not found " : "at +",
           static_cast<unsigned long>(g_clientsAt < 0 ? 0 : g_clientsAt), g_hookCalls.load(), g_hookNoCookie.load(),
-          g_pending.size());
+          g_pending.size(), g_configsSent, g_readThisMap.size(), g_reads.size(), Fleet() ? "linked" : "off");
+}
+
+const ru_fleet_v1* Fleet() {
+  auto* f = static_cast<const ru_fleet_v1*>(g_api->get_interface(g_api->self, RU_FLEET_IFACE_NAME, 1));
+  if (!f || f->struct_size < offsetof(ru_fleet_v1, send_event) + sizeof(f->send_event)) return nullptr;
+  return f->connection_state() == RU_FLEET_LINK_STANDALONE ? nullptr : f;
+}
+
+// The player's crosshair share code (CCSPlayerController::m_szCrosshairCodes, a CUtlSymbolLarge:
+// a pointer to the characters), or "".
+std::string CrosshairCode(int slot) {
+  static int off = -2;
+  if (off == -2) off = g_api->schema_offset(g_api->self, "CCSPlayerController", "m_szCrosshairCodes");
+  if (off < 0) return "";
+  void* ctrl = g_api->entity_by_index(g_api->self, slot + 1);
+  if (!ctrl) return "";
+  uintptr_t chars = 0;
+  if (!SafeRead(reinterpret_cast<uintptr_t>(ctrl) + static_cast<uintptr_t>(off), &chars, sizeof chars) || !chars)
+    return "";
+  char buf[40] = {};
+  if (!SafeRead(chars, buf, sizeof buf - 1)) return "";
+  const std::string code(buf);
+  return IsCrosshairCode(code) ? code : "";
+}
+
+void FinishRead(int slot) {
+  auto it = g_reads.find(slot);
+  if (it == g_reads.end()) return;
+  ConfigRead r = std::move(it->second);
+  g_reads.erase(it);
+  for (auto p = g_pending.begin(); p != g_pending.end();) {  // the ones that never answered
+    if (p->second.config && p->second.slot == slot) p = g_pending.erase(p);
+    else ++p;
+  }
+  ru_player p{};
+  p.struct_size = sizeof(p);
+  if (!g_api->get_player(g_api->self, slot, &p) || p.steamid64 != r.steamid64) return;  // left meanwhile
+  const std::string code = CrosshairCode(slot);
+  const ru_fleet_v1* f = Fleet();
+  if (!f || (r.values.empty() && code.empty())) return;
+  if (f->send_event("player.config", ConfigPayload(r.steamid64, code, r.values).c_str(), 0, 0)) ++g_configsSent;
+  ru_logf(g_api, RU_LOG_INFO, "playersettings: config of %s sent (%zu cvar(s)%s)", p.name, r.values.size(),
+          code.empty() ? "" : ", crosshair code");
+}
+
+// Once per map, for each player who has been in for a while: ask the config cvars. Linked servers only.
+void ConfigTick() {
+  const char* map = g_api->current_map(g_api->self);
+  if (map && g_map != map) {
+    g_map = map;
+    g_readThisMap.clear();
+    g_seen.clear();
+  }
+  const auto now = Clock::now();
+  for (auto it = g_reads.begin(); it != g_reads.end();) {
+    const int slot = it->first;
+    const bool done = it->second.outstanding <= 0 ||
+                      std::chrono::duration<double>(now - it->second.started).count() > kReadTimeoutSeconds;
+    ++it;
+    if (done) FinishRead(slot);
+  }
+  if (!g_engine.ready || !Fleet()) return;
+  for (int slot = 0; slot <= 63; ++slot) {
+    ru_player p{};
+    p.struct_size = sizeof(p);
+    if (!g_api->get_player(g_api->self, slot, &p) || !p.connected || p.is_bot || !p.steamid64) {
+      g_seen.erase(slot);
+      continue;
+    }
+    if (g_readThisMap.count(p.steamid64) || g_reads.count(slot)) continue;
+    auto seen = g_seen.find(slot);
+    if (seen == g_seen.end() || seen->second.first != p.steamid64) {
+      g_seen[slot] = {p.steamid64, now};
+      continue;
+    }
+    if (std::chrono::duration<double>(now - seen->second.second).count() < kReadAfterSeconds) continue;
+    g_readThisMap.insert(p.steamid64);
+    ConfigRead r;
+    r.steamid64 = p.steamid64;
+    r.started = now;
+    for (const std::string& cvar : ConfigCvars()) {
+      std::string why;
+      if (Query(slot, cvar, &why, true)) ++r.outstanding;
+    }
+    g_reads[slot] = std::move(r);
+  }
 }
 
 void Tick(void*, const ru_tick_info*) {
@@ -335,12 +458,25 @@ void Tick(void*, const ru_tick_info*) {
   for (const Reply& r : got) {
     auto it = g_pending.find(r.cookie);
     if (it == g_pending.end()) continue;  // not ours, or timed out
+    if (it->second.config) {
+      auto read = g_reads.find(it->second.slot);
+      if (read != g_reads.end()) {
+        if (r.status == kIntact) read->second.values[it->second.cvar] = r.value;
+        --read->second.outstanding;
+      }
+      g_pending.erase(it);
+      continue;
+    }
     ru_logf(g_api, RU_LOG_INFO, "playersettings: slot %d %s = \"%s\" (%s)", it->second.slot,
             r.name.empty() ? it->second.cvar.c_str() : r.name.c_str(), r.value.c_str(), StatusName(r.status));
     g_pending.erase(it);
   }
   const auto now = Clock::now();
   for (auto it = g_pending.begin(); it != g_pending.end();) {
+    if (it->second.config) {  // a config read times out as a whole (ConfigTick)
+      ++it;
+      continue;
+    }
     if (std::chrono::duration<double>(now - it->second.sent).count() > kTimeoutSeconds) {
       ru_logf(g_api, RU_LOG_WARN, "playersettings: slot %d %s: no answer in %.0fs", it->second.slot,
               it->second.cvar.c_str(), kTimeoutSeconds);
@@ -349,6 +485,7 @@ void Tick(void*, const ru_tick_info*) {
       ++it;
     }
   }
+  ConfigTick();
 }
 
 // A slot from "3", or the first connected human whose name contains `who` (case-insensitive).
@@ -401,7 +538,7 @@ READYUP_PLUGIN_EXPORT const ru_plugin_info* readyup_plugin_info(void) {
       "playersettings",
       PLAYERSETTINGS_VERSION,
       "Ready Up",
-      "Reads players' CS2 settings (crosshair, sensitivity, viewmodel, HUD) from their game",
+      "Reads players' CS2 config (crosshair, sensitivity, viewmodel, HUD) for their profile",
   };
   return &info;
 }
@@ -419,6 +556,10 @@ READYUP_PLUGIN_EXPORT void readyup_plugin_unload(void) {
   // The core removes the vtable hook after this returns; no reply can reach us afterwards.
   g_pending.clear();
   g_sent.clear();
+  g_reads.clear();
+  g_seen.clear();
+  g_readThisMap.clear();
+  g_map.clear();
   g_engine = Engine{};
   g_clientsAt = -1;
   g_api = nullptr;
