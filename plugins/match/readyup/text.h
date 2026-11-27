@@ -22,6 +22,9 @@ struct Msg {
 
 // The text of `key` in `lang`.
 std::string ForLang(const std::string& lang, const std::string& key, const Args& args = {});
+// Parses every locale table now (plugin load). Built on first use instead, the ~20-35 ms parse
+// landed in the game frame of the first player's join (server 2, 2026-11-27).
+void Preload();
 // The text of `key` for the player in `slot` (-1: the server's language). Game thread.
 std::string For(int slot, const std::string& key, const Args& args = {});
 
