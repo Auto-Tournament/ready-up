@@ -576,6 +576,8 @@ bool RefreshHeldWeapons(int slot, bool changedOnly = false) {
 bool LookChanged(void* weapon, uint64_t steamid64, int team) {
   auto& o = Off();
   const uint32_t handle = g_api->entity_handle_of(g_api->self, weapon);
+  // Not painted yet (just given, or first seen this tick): it gets the newest loadout on sight.
+  if (const auto w = g_weapons.find(handle); w == g_weapons.end() || !w->second.done) return false;
   void* item = EconItemViewOfWeapon(weapon);
   int defindex = Rd<uint16_t>(item, o.item_defIndex);
   if (IsKnifeDesigner(EntityDesignerName(weapon))) {
@@ -739,8 +741,10 @@ void ProcessPlayer(int slot, void* controller) {
     if (DebugOn()) Log(RU_LOG_DEBUG, "changed loadout: repainting slot %d", slot);
   }
   if (alive && g_knifeRegiveAt[slot] != 0 && g_tick >= g_knifeRegiveAt[slot]) {
-    if (restartQuiet || g_restartPendingNow) {
-      g_knifeRegiveAt[slot] = g_tick + 16;  // after the restart
+    // A swap still on its way (removed, not given yet): a second one would replace its gives and
+    // a weapon went missing or unpainted when changes came fast (Sivert, 2026-11-27). After it.
+    if (restartQuiet || g_restartPendingNow || g_refresh[slot].at != 0) {
+      g_knifeRegiveAt[slot] = g_tick + 16;  // after the restart / the swap in flight
     } else {
       g_knifeRegiveAt[slot] = 0;
       const bool given = AnyHeldLookChanged(slot, steamid64, team) && RefreshHeldWeapons(slot, /*changedOnly=*/true);
