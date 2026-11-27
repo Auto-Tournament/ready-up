@@ -33,6 +33,9 @@ inline constexpr const char* kWarmupNoDropCmds[] = {
     // No bomb in warmup: nobody can plant (warmup never ends a round). Takes effect at the next
     // round start; a bomb already carried is removed by the sweep once it is dropped.
     "mp_give_player_c4 0",
+    // Any number of buys of each weapon type: CS2's competitive default is 5 per round, and warmup
+    // is one long round, so the 6th molotov was refused (Sivert, 2026-11-27). Live sets 5 again.
+    "mp_weapons_allow_typecount -1",
 };
 // Go-live without a cfg (ru_cfg_exec_enable 0): CS2's defaults, as live.cfg sets them.
 inline constexpr const char* kLiveDropCmds[] = {
@@ -43,6 +46,7 @@ inline constexpr const char* kLiveDropCmds[] = {
     "weapon_auto_cleanup_time 0",
     "weapon_max_before_cleanup 0",
     "mp_give_player_c4 1",
+    "mp_weapons_allow_typecount 5",  // CS2's competitive default (warmup sets -1)
 };
 
 // A weapon on the ground this long (seconds, seen unowned on two sweeps) is removed.

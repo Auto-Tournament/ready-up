@@ -200,6 +200,7 @@ inline constexpr const char* kPrac[] = {
 };
 
 inline constexpr const char* kLive[] = {
+    "mp_weapons_allow_typecount 5",  // warmup sets -1 (any number of buys); live is CS2's 5
     "ammo_grenade_limit_default 1",
     "ammo_grenade_limit_flashbang 2",
     "ammo_grenade_limit_total 4",
@@ -323,6 +324,7 @@ inline constexpr const char* kLive[] = {
 };
 
 inline constexpr const char* kLiveWingman[] = {
+    "mp_weapons_allow_typecount 5",  // warmup sets -1 (any number of buys); live is CS2's 5
     "ammo_grenade_limit_default 1",
     "ammo_grenade_limit_flashbang 2",
     "ammo_grenade_limit_total 4",
